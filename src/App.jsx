@@ -124,14 +124,6 @@ export default function App() {
       .catch(console.error).finally(()=>setLoading(false))
   },[user])
 
-  // Early returns AFTER all hooks
-  if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid #1E2335`,borderTopColor:'#C8A84B',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
-  if (!session) return <LoginPage/>
-
-  function showToast(msg,type='success'){setToast({msg,type});setTimeout(()=>setToast(null),3500)}
-
-  const selected = properties.find(p=>p.id===selectedId)
-
   const filtered = useMemo(()=>properties.filter(p=>{
     if(coFilter!=='all'&&p.company_id!==coFilter) return false
     if(statusFilter!=='all'&&p.status!==statusFilter) return false
@@ -161,6 +153,15 @@ export default function App() {
       vacant:      ps.filter(p=>p.status==='vacant').length,
     }
   }),[companies,properties])
+
+
+    // Early returns AFTER all hooks
+  if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid #1E2335`,borderTopColor:'#C8A84B',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
+  if (!session) return <LoginPage/>
+
+  function showToast(msg,type='success'){setToast({msg,type});setTimeout(()=>setToast(null),3500)}
+
+  const selected = properties.find(p=>p.id===selectedId)
 
   function openDetail(p){setSelectedId(p.id);setDetailTab('overview');setView('detail')}
 
