@@ -183,16 +183,25 @@ export default function App() {
         setCompanies(visibleCos)
         setProperties(visibleProps)
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
+        // Auto-generate future rent months (6 months ahead) - runs silently in background
+        api.ensureFutureRentMonths(visibleProps, 6).then(count => {
+          if (count > 0) {
+            api.fetchProperties().then(refreshed => {
+              const refreshedVisible = isAdminUser ? refreshed : refreshed.filter(p => accessIds.includes(p.company_id))
+              setProperties(refreshedVisible)
+            })
+          }
+        }).catch(e => console.log('Future months check:', e))
         // Load settings for each company
         const settingsMap = {}
-        await Promise.all(visibleCos.map(async c => {
-          const s = await api.fetchCompanySettings(c.id)
-          settingsMap[c.id] = s || {
+        const settingsResults = await Promise.all(visibleCos.map(c => api.fetchCompanySettings(c.id)))
+        visibleCos.forEach((c, i) => {
+          settingsMap[c.id] = settingsResults[i] || {
             feature_compliance:true, feature_tenancy:true,
             feature_maintenance:true, feature_documents:true,
             feature_expenses:true, feature_reports:true
           }
-        }))
+        })
         setCompanySettings(settingsMap)
       })
       .catch(e=>{

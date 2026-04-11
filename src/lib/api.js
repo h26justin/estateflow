@@ -202,3 +202,50 @@ export async function fetchAllExpenses(userId) {
   if (error) throw error
   return data || []
 }
+// ── AUTO-GENERATE FUTURE RENT MONTHS ─────────────────────
+// Creates void payment slots up to 6 months ahead for all properties
+export async function ensureFutureRentMonths(properties, monthsAhead = 6) {
+  const userId = await uid()
+  const now = new Date()
+
+  // Build target months: current month up to 6 months ahead
+  const targetMonths = []
+  for (let i = 0; i <= monthsAhead; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    targetMonths.push({
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+      label: d.toLocaleString('en-GB', { month: 'short', year: 'numeric' })
+    })
+  }
+
+  // For each property, check which future months are missing and insert them
+  const inserts = []
+  for (const prop of properties) {
+    const existing = prop.rent_payments || []
+    for (const tm of targetMonths) {
+      const alreadyExists = existing.some(p => p.year === tm.year && p.month === tm.month)
+      if (!alreadyExists) {
+        inserts.push({
+          property_id: prop.id,
+          user_id: userId,
+          month_label: tm.label,
+          year: tm.year,
+          month: tm.month,
+          status: 'void'
+        })
+      }
+    }
+  }
+
+  if (inserts.length === 0) return 0
+
+  // Insert in batches of 100
+  for (let i = 0; i < inserts.length; i += 100) {
+    const batch = inserts.slice(i, i + 100)
+    const { error } = await supabase.from('rent_payments').insert(batch)
+    if (error) console.error('Error inserting future months:', error)
+  }
+
+  return inserts.length
+}
