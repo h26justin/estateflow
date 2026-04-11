@@ -1618,8 +1618,9 @@ function AccountPage({ user, showToast }) {
   const { T } = useTheme()
   const [tab, setTab] = useState('profile')
 
-  // Profile state
-  const [profile, setProfile] = useState({ full_name: '', phone: '' })
+  // Profile state - separate vars to avoid stale closure on object spread
+  const [fullName, setFullName]           = useState('')
+  const [phone, setPhone]                 = useState('')
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileSaving, setProfileSaving] = useState(false)
 
@@ -1652,7 +1653,8 @@ function AccountPage({ user, showToast }) {
       const { data } = await supabase.from('user_profiles')
         .select('*').eq('user_id', user.id).single()
       if (data) {
-        setProfile({ full_name: data.full_name || '', phone: data.phone || '' })
+        setFullName(data.full_name || '')
+        setPhone(data.phone || '')
         if (data.notifications) setNotifs(prev => ({ ...prev, ...data.notifications }))
       }
     } catch(e) { /* table may not exist yet */ }
@@ -1665,8 +1667,8 @@ function AccountPage({ user, showToast }) {
       await supabase.from('user_profiles').upsert({
         user_id: user.id,
         email: user.email,
-        full_name: profile.full_name,
-        phone: profile.phone,
+        full_name: fullName,
+        phone: phone,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
       showToast('Profile saved')
@@ -1790,11 +1792,11 @@ function AccountPage({ user, showToast }) {
           : <>
             <Section title="Personal Information">
               <Field label="Full Name">
-                <input value={profile.full_name} onChange={e => setProfile(p => ({ ...p, full_name: e.target.value }))}
+                <input value={fullName} onChange={e => setFullName(e.target.value)}
                   placeholder="Your full name" />
               </Field>
               <Field label="Phone Number">
-                <input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
+                <input value={phone} onChange={e => setPhone(e.target.value)}
                   placeholder="+44 7700 000000" />
               </Field>
               <Field label="Email Address">
