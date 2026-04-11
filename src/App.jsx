@@ -134,7 +134,7 @@ const RentDots = ({payments, onUpdate, filterYear}) => {
       const letter = MONTH_LETTER[(m.month||1)-1]
       return (
         <div key={m.id}
-          title={`${m.month_label}: ${m.status}${onUpdate?' — click to update':''}`}
+          title={`${m.month_label}: ${m.status}${onUpdate?' - click to update':''}`}
           onClick={onUpdate ? ()=>onUpdate(m) : undefined}
           style={{
             width:18, height:18, borderRadius:3, background:col,
@@ -332,7 +332,7 @@ export default function App() {
       const { error } = await supabase.auth.signInWithPassword({
         email: user.email, password
       })
-      if (error) { showToast('Incorrect password — property not deleted', 'error'); return false }
+      if (error) { showToast('Incorrect password - property not deleted', 'error'); return false }
       await api.deleteProperty(id)
       setProperties(prev=>prev.filter(p=>p.id!==id))
       setView('properties');setSelectedId(null)
@@ -422,7 +422,7 @@ export default function App() {
           {view==='dashboard'&&<div className="fade">
             <div style={{marginBottom:28}}>
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
-              <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {companies.length} companies · {stats.rented} rented · {stats.vacant} vacant</p>
+              <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties &middot; {companies.length} companies &middot; {stats.rented} rented &middot; {stats.vacant} vacant</p>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:14,marginBottom:28}}>
               <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
@@ -447,7 +447,7 @@ export default function App() {
               <StatCard icon="⚠" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
                 breakdown={[
                   ...properties.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
-                  ...(properties.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears — all clear!', value:'✓', color:T.green}]:[]),
+                  ...(properties.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
                   {label:'Vacant units', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
                 ]}
               />
@@ -465,7 +465,7 @@ export default function App() {
                   {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
                   {label:'Monthly repayments', value:fmt(stats.monthlyMortgageCost)},
                   {label:'Annual repayments', value:fmt(stats.monthlyMortgageCost*12)},
-                  {label:'Average LTV', value:stats.totalEstVal>0?((stats.totalMortgage/stats.totalEstVal)*100).toFixed(1)+'%':'—'},
+                  {label:'Average LTV', value:stats.totalEstVal>0?((stats.totalMortgage/stats.totalEstVal)*100).toFixed(1)+'%':'-'},
                   ...companyStats.map(c=>({
                     label:c.name+' debt',
                     value:fmt(properties.filter(p=>p.company_id===c.id).reduce((s,p)=>s+(p.mortgage_amount||0),0)),
@@ -495,7 +495,7 @@ export default function App() {
                           </div>
                         ))}
                       </div>
-                      <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setActiveCoTab(c.id);setView('companies')}}>View Properties →</button>
+                      <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setActiveCoTab(c.id);setView('companies')}}>View Properties -&gt;</button>
                     </div>
                   ))}
                 </div>
@@ -526,14 +526,14 @@ export default function App() {
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
               <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',flexShrink:0}}>Sort by:</span>
               {[
-                {v:'company-name', l:'Company → Name'},
-                {v:'name',         l:'Name A–Z'},
+                {v:'company-name', l:'Company -&gt; Name'},
+                {v:'name',         l:'Name A-Z'},
                 {v:'status',       l:'Status'},
-                {v:'rent-high',    l:'Rent (High–Low)'},
-                {v:'yield-high',   l:'Yield (High–Low)'},
+                {v:'rent-high',    l:'Rent (High-Low)'},
+                {v:'yield-high',   l:'Yield (High-Low)'},
                 {v:'arrears',      l:'Arrears'},
-                {v:'value-high',   l:'Value (High–Low)'},
-                {v:'custom',       l:'Custom Order ⠿'},
+                {v:'value-high',   l:'Value (High-Low)'},
+                {v:'custom',       l:'Custom Order'},
               ].map(opt=>(
                 <button key={opt.v} onClick={()=>setSortBy(opt.v)}
                   style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 12px',borderRadius:20,cursor:'pointer',
@@ -562,7 +562,7 @@ export default function App() {
               const cProps=properties.filter(p=>p.company_id===c.id)
               return <div key={c.id}>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:22}}>
-                  <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
+                  <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented &middot; ${cs.vacant} vacant`}/>
                   <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
                   <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
                   <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
@@ -572,7 +572,7 @@ export default function App() {
                     <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
                       <div style={{flex:1,minWidth:150}}>
                         <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} &middot; {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>&middot; 🏢 {p.managed_by}</span>}</div>
                       </div>
                       {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
@@ -592,7 +592,7 @@ export default function App() {
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
           {view==='detail'&&selected&&<div className="fade">
-            <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>← Back</button>
+            <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>&lt;- Back</button>
             <div style={{display:'grid',gridTemplateColumns:'1fr 280px',gap:18,alignItems:'start'}}>
               <div>
                 <div className="card" style={{padding:'24px 28px',marginBottom:16}}>
@@ -647,7 +647,7 @@ export default function App() {
                 {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties}/>}
                 {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={calcGrossYield} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast}/>}
                 {false&&<div style={{display:'grid',gap:12}}>
-                  {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'—'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'—'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'—'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
+                  {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
                     <div key={si} className="card" style={{padding:'18px 22px'}}>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
@@ -669,7 +669,7 @@ export default function App() {
               <div style={{display:'grid',gap:12}}>
                 <div className="card" style={{padding:'18px 20px'}}>
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
-                  {[{l:'Total Capital In',v:fmt((selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0))},{l:'Estimated Value',v:fmt(selected.est_value)},{l:'Equity',v:fmt((selected.est_value||0)-(selected.mortgage_amount||0))},{l:'LTV',v:selected.est_value&&selected.mortgage_amount?((selected.mortgage_amount/selected.est_value)*100).toFixed(0)+'%':'—'}].map((item,i)=>(
+                  {[{l:'Total Capital In',v:fmt((selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0))},{l:'Estimated Value',v:fmt(selected.est_value)},{l:'Equity',v:fmt((selected.est_value||0)-(selected.mortgage_amount||0))},{l:'LTV',v:selected.est_value&&selected.mortgage_amount?((selected.mortgage_amount/selected.est_value)*100).toFixed(0)+'%':'-'}].map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8,marginBottom:6}}>
                       <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
                       <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.gold}}>{item.v}</span>
@@ -760,7 +760,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
       {phases.map(ph=>(
         <div key={ph.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
           <div style={{width:10,height:10,borderRadius:'50%',background:ph.done?'#2ECC8A':'#E0943A',flexShrink:0}}/>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#6B7191'}}>{ph.start_date||'?'} → {ph.end_date||'ongoing'}</div>}</div>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#6B7191'}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
           <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:ph.done?'#2ECC8A':'#E0943A'}}>{ph.done?'✓ Done':'In Progress'}</span>
         </div>
       ))}
@@ -991,7 +991,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             borderColor: dragOver===idx && dragging!==idx ? '#C8A84B' : '#1E2335',
             cursor:isCustomSort?'grab':'default'}}>
             {/* Drag handle - only show in custom sort mode */}
-            {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">⠿</div>}
+            {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">&#x283F;</div>}
             {!isCustomSort&&<div style={{width:4,flexShrink:0}}/>}
             {/* Content */}
             <div style={{flex:1,minWidth:180,cursor:'pointer'}} onClick={()=>openDetail(p)}>
@@ -1000,8 +1000,8 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
                 <CompanyPill company={p.company}/>
               </div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
-                {p.prop_type} · {p.address}
-                {p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}
+                {p.prop_type} &middot; {p.address}
+                {p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>&middot; 🏢 {p.managed_by}</span>}
               </div>
             </div>
             {/* Stats */}
@@ -1014,7 +1014,6 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
               <Badge status={p.status}/>
             </div>
           </div>
-        </div>
         </div>
         </div>
       )})}
@@ -1030,7 +1029,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
     gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
   }
 
-  // Global year filter — applies to all properties
+  // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
   const allYears = [...new Set(allPayments.map(p=>p.year))].sort()
   const [globalYear, setGlobalYear] = useState(allYears[allYears.length-1]||null)
@@ -1104,7 +1103,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
 
         return (
           <div key={c.id} style={{marginBottom:20}}>
-            {/* Company header — clickable to collapse */}
+            {/* Company header - clickable to collapse */}
             <div onClick={()=>toggleCompany(c.id)}
               style={{display:'flex',alignItems:'center',gap:10,marginBottom:isOpen?12:0,cursor:'pointer',
                 background:T.card,border:`1px solid ${T.border}`,borderRadius:isOpen?'12px 12px 0 0':'12px',
@@ -1155,7 +1154,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
                           {(p.arrears||0)>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
                         </div>
                         <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>
-                          {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'—'}
+                          {`${fmt(p.rent_pcm)}/mo`} &middot; Due {p.rent_due_day||'-'}
                         </div>
                         {/* Dots filtered by global year */}
                         <RentDots payments={p.rent_payments||[]} filterYear={globalYear}/>
@@ -1227,8 +1226,8 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
         {[
           {l:'Monthly Rent', v:fmt(selected.rent_pcm), accent:T.green},
-          {l:'Rent Due',     v:selected.rent_due_day||'—'},
-          {l:'Tenancy End',  v:selected.tenancy_end||'—'},
+          {l:'Rent Due',     v:selected.rent_due_day||'-'},
+          {l:'Tenancy End',  v:selected.tenancy_end||'-'},
           {l:'Arrears',      v:fmt(selected.arrears||0), accent:selected.arrears>0?T.red:T.green},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
@@ -1520,7 +1519,7 @@ function AccessModal({companies, userId, onClose, showToast}) {
       }
       setNewEmail('')
       await loadData()
-      showToast('User added — they need to sign up at the app URL first')
+      showToast('User added - they need to sign up at the app URL first')
     } catch(e) { showToast(e.message, 'error') }
   }
 
@@ -1550,7 +1549,7 @@ function AccessModal({companies, userId, onClose, showToast}) {
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={addUser}>Add User</button>
             </div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginTop:8}}>
-              Note: The user must first sign up at your app URL. Users with no restrictions here see nothing — add them and then tick their companies below.
+              Note: The user must first sign up at your app URL. Users with no restrictions here see nothing - add them and then tick their companies below.
             </div>
           </div>
 
