@@ -32,7 +32,7 @@ function ExpiryBadge({dateStr}) {
 }
 
 // ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
-export function ComplianceTab({propertyId, showToast}) {
+export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -142,7 +142,7 @@ export function ComplianceTab({propertyId, showToast}) {
 }
 
 // ── TENANCY TAB ───────────────────────────────────────────────────────────────
-export function TenancyTab({propertyId, showToast, fmt}) {
+export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -247,7 +247,7 @@ export function TenancyTab({propertyId, showToast, fmt}) {
 }
 
 // ── MAINTENANCE TAB ───────────────────────────────────────────────────────────
-export function MaintenanceTab({propertyId, showToast, fmt}) {
+export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user}) {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -385,7 +385,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES}) {
 }
 
 // ── EXPENSES TAB ──────────────────────────────────────────────────────────────
-export function ExpensesTab({propertyId, showToast, fmt, rentPcm}) {
+export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}) {
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
