@@ -132,12 +132,12 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
         {alerts.map((alert,i)=>(
           <div key={i} className="card pcard" style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',borderLeft:`3px solid ${alert.color}`}}
             onClick={()=>alert.property&&openDetail(alert.property)}>
-            <span style={{fontSize:18,flexShrink:0}}>{alert.icon}</span>
-            <div style={{flex:1,minWidth:150}}>
-              <div style={{fontSize:13,fontWeight:600,marginBottom:1}}>{alert.title}</div>
+            <span style={{fontSize:16,flexShrink:0}}>{alert.icon}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{alert.title}</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{alert.detail}</div>
             </div>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:badgeColor(alert.badge),background:badgeColor(alert.badge)+'22',padding:'2px 8px',borderRadius:20,flexShrink:0}}>{alert.badge}</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:700,color:badgeColor(alert.badge),background:badgeColor(alert.badge)+'22',padding:'2px 6px',borderRadius:20,flexShrink:0}}>{alert.badge}</span>
           </div>
         ))}
         {alerts.length===0&&(
@@ -531,7 +531,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       </div>
 
       {/* Summary cards */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:24}}>
+      <div className="kpi-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
         {[
           {l:'Annual Rent Income',   v:fmt(annualRent),    c:T.green,  sub:`${filteredProps.filter(p=>p.status==='rented').length} rented properties`},
           {l:'Total Expenses',       v:fmt(totalExpenses), c:T.red,    sub:`${selectedYear} recorded expenses`},

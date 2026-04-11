@@ -43,6 +43,7 @@ const REFURB_CFG = {
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+  html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
   *{box-sizing:border-box;margin:0;padding:0;}
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0B0D14}::-webkit-scrollbar-thumb{background:#1E2335;border-radius:3px}
   input,select,textarea{font-family:'DM Mono',monospace;background:#12151F;border:1px solid #1E2335;color:#E4E0D8;border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
@@ -56,13 +57,30 @@ const CSS = `
   .card{background:#171B28;border:1px solid #1E2335;border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
   @media(max-width:768px){
-    .nav-desktop{display:none!important;}
+    .nav-desktop{display:none!important;visibility:hidden!important;width:0!important;overflow:hidden!important;}
     .mobile-nav{display:flex!important;}
     .detail-grid{grid-template-columns:1fr!important;}
     .stat-grid{grid-template-columns:1fr 1fr!important;}
     .hide-mobile{display:none!important;}
+    .stat-cards-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
+    .company-stats-grid{grid-template-columns:1fr 1fr!important;}
+    .kpi-grid{grid-template-columns:1fr 1fr!important;}
+    .summary-cards{grid-template-columns:1fr 1fr!important;}
+    h1{font-size:20px!important;}
+    h2{font-size:16px!important;}
+    .pcard{padding:12px 14px!important;}
+    main{padding:16px 12px 90px!important;}
+    .tab{padding:6px 10px!important;font-size:11px!important;}
+    .modal{margin:8px!important;max-height:95vh!important;overflow-y:auto!important;}
+    .overlay{padding:0!important;align-items:flex-end!important;}
+    .card{border-radius:10px!important;}
+    input,select,textarea{font-size:16px!important;}
   }
-  @media(min-width:769px){.mobile-nav{display:none!important;}}
+  @media(min-width:769px){
+    .mobile-nav{display:none!important;}
+    .show-mobile{display:none!important;}
+    .hide-mobile{display:flex!important;}
+  }
   .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#12151F;border-top:1px solid #1E2335;z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
   .fade{animation:fadeIn 0.25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -179,6 +197,7 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 769
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
   useEffect(()=>{
@@ -389,35 +408,36 @@ export default function App() {
   const navItems=[{key:'dashboard',label:'Dashboard',icon:'🏠'},{key:'properties',label:'Properties',icon:'🏘'},{key:'companies',label:'Companies',icon:'🏢'},{key:'rent',label:'Rent Tracker',icon:'💷'},{key:'reports',label:'Reports',icon:'📊'},{key:'contractors',label:'Contractors',icon:'🔧'},{key:'settings',label:'Settings',icon:'⚙️'}]
 
   return (
-    <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',background:T.bg,color:T.text}}>
+    <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text}}>
       <style>{CSS}</style>
-      <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 24px',position:'sticky',top:0,zIndex:100}}>
-        <div style={{maxWidth:1240,margin:'0 auto',height:60,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:32,height:32,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🏛</div>
-            <div>
-              <div style={{fontSize:16,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1}}>Estateflow</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>
+      <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
+        <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+          {/* Logo */}
+          <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+            <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏛</div>
+            <div className="hide-mobile">
+              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1}}>Estateflow</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>
             </div>
           </div>
-          <nav style={{display:'flex',gap:2}}>
+          {/* Desktop nav - JS conditional */}
+          {!isMobile&&<nav style={{display:'flex',gap:2,flex:1,justifyContent:'center'}}>
             {navItems.map(n=>(
               <button key={n.key} className={`tab ${view===n.key||(view==='detail'&&n.key==='properties')?'active':''}`}
                 onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}}>
                 {n.icon} {n.label}
               </button>
             ))}
-          </nav>
-          <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-gold" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
-            <div className="hide-mobile" style={{display:'flex',gap:8}}>
-              <button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
-            </div>
+          </nav>}
+          {/* Right buttons */}
+          <div style={{display:'flex',gap:6,flexShrink:0}}>
+            {!isMobile&&<button className="btn btn-gold" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>}
+            {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>}
           </div>
         </div>
       </header>
 
-      <main style={{maxWidth:1240,margin:'0 auto',padding:'28px 24px'}}>
+      <main style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%'}}>
         {loading?<Spinner/>:<>
 
           {view==='dashboard'&&<div className="fade">
@@ -425,7 +445,7 @@ export default function App() {
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
               <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties &middot; {companies.length} companies &middot; {stats.rented} rented &middot; {stats.vacant} vacant</p>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:14,marginBottom:28}}>
+            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(5,1fr)',gap:10,marginBottom:20}}>
               <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                 breakdown={[
                   {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
@@ -572,7 +592,7 @@ export default function App() {
               const cs=companyStats.find(x=>x.id===c.id)
               const cProps=properties.filter(p=>p.company_id===c.id)
               return <div key={c.id}>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:22}}>
+                <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
                   <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented &middot; ${cs.vacant} vacant`}/>
                   <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
                   <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
