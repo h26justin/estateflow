@@ -140,8 +140,8 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
           {alerts.length>0&&<span style={{marginLeft:8,background:T.red,color:'white',borderRadius:20,fontSize:11,fontFamily:"'DM Mono',monospace",padding:'2px 8px',fontWeight:700}}>{alerts.length}</span>}
         </h2>
       </div>
-      <div style={{display:'grid',gap:8}}>
-        {alerts.slice(0,12).map((alert,i)=>(
+      <div style={{display:'grid',gap:8,maxHeight:520,overflowY:'auto',paddingRight:4}}>
+        {alerts.map((alert,i)=>(
           <div key={i} className="card pcard" style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',borderLeft:`3px solid ${alert.color}`}}
             onClick={()=>alert.property&&openDetail(alert.property)}>
             <span style={{fontSize:18,flexShrink:0}}>{alert.icon}</span>
