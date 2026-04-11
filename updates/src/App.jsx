@@ -197,6 +197,7 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 769
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
   useEffect(()=>{
@@ -419,29 +420,24 @@ export default function App() {
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>
             </div>
           </div>
-          {/* Desktop nav - hidden on mobile */}
-          <nav className="hide-mobile" style={{display:'flex',gap:2,flex:1,justifyContent:'center'}}>
+          {/* Desktop nav - JS conditional */}
+          {!isMobile&&<nav style={{display:'flex',gap:2,flex:1,justifyContent:'center'}}>
             {navItems.map(n=>(
               <button key={n.key} className={`tab ${view===n.key||(view==='detail'&&n.key==='properties')?'active':''}`}
                 onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}}>
                 {n.icon} {n.label}
               </button>
             ))}
-          </nav>
-          {/* Mobile title - only shown on mobile */}
-          <div className="show-mobile" style={{display:'none',flex:1,paddingLeft:8}}>
-            <div style={{fontSize:15,fontWeight:700,color:T.gold}}>Estateflow</div>
-          </div>
+          </nav>}
           {/* Right buttons */}
           <div style={{display:'flex',gap:6,flexShrink:0}}>
-            <button className="btn btn-gold hide-mobile" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
-            <button className="btn btn-ghost hide-mobile" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
-            <button className="show-mobile btn btn-gold" style={{display:'none',fontSize:11,padding:'6px 10px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add</button>
+            {!isMobile&&<button className="btn btn-gold" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>}
+            {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>}
           </div>
         </div>
       </header>
 
-      <main style={{maxWidth:1240,margin:'0 auto',padding:'20px 14px 90px',width:'100%',overflowX:'hidden'}}>
+      <main style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%'}}>
         {loading?<Spinner/>:<>
 
           {view==='dashboard'&&<div className="fade">
@@ -449,7 +445,7 @@ export default function App() {
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
               <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties &middot; {companies.length} companies &middot; {stats.rented} rented &middot; {stats.vacant} vacant</p>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(160px,45%),1fr))',gap:10,marginBottom:20}}>
+            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(5,1fr)',gap:10,marginBottom:20}}>
               <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                 breakdown={[
                   {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
