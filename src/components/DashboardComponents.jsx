@@ -163,7 +163,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
 }
 
 // ── REPORTS PAGE ─────────────────────────────────────────────────────────────
-export function ReportsPage({properties, companies, fmt, onImport}) {
+export function ReportsPage({properties, companies, fmt, onImport, companySettings}) {
   const [selectedCompany, setSelectedCompany] = useState('all')
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [expenses, setExpenses] = useState([])
@@ -530,7 +530,15 @@ export function ReportsPage({properties, companies, fmt, onImport}) {
           </select>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>⬇ CSV</button>
           <button className="btn btn-gold" style={{fontSize:11,background:'#1A1525',color:'#C8A84B',border:'1px solid #C8A84B'}} onClick={exportPDF}>⬇ PDF Report</button>
-          {onImport&&<button className="btn btn-gold" style={{fontSize:11,background:'#0D2B1F',color:'#2ECC8A',border:'1px solid #2ECC8A'}} onClick={onImport}>📄 Import Statement</button>}
+          {onImport&&(()=>{
+            // Show import button if ANY selected company has feature_statements enabled
+            const hasFeature = selectedCompany==='all'
+              ? companies.some(c=>(companySettings[c.id]||{}).feature_statements)
+              : (companySettings[selectedCompany]||{}).feature_statements
+            return hasFeature ? (
+              <button className="btn btn-gold" style={{fontSize:11,background:'#0D2B1F',color:'#2ECC8A',border:'1px solid #2ECC8A'}} onClick={onImport}>📄 Import Statement</button>
+            ) : null
+          })()}
         </div>
       </div>
 
