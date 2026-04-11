@@ -282,14 +282,16 @@ export default function App() {
       return true
     })
     // Sort
+    // Natural sort: handles "Room 2" < "Room 10" correctly
+    const natSort = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     return [...f].sort((a,b)=>{
       switch(sortBy) {
         case 'company-name': {
           const coA = a.company?.name||''; const coB = b.company?.name||''
-          if(coA!==coB) return coA.localeCompare(coB)
-          return a.name.localeCompare(b.name)
+          if(coA!==coB) return natSort(coA, coB)
+          return natSort(a.name, b.name)
         }
-        case 'name':         return a.name.localeCompare(b.name)
+        case 'name':         return natSort(a.name, b.name)
         case 'status':       return (a.status||'').localeCompare(b.status||'')
         case 'rent-high':    return (b.rent_pcm||0)-(a.rent_pcm||0)
         case 'rent-low':     return (a.rent_pcm||0)-(b.rent_pcm||0)
@@ -1616,33 +1618,27 @@ function AccessModal({companies, userId, onClose, showToast}) {
 // ─── ACCOUNT PAGE ─────────────────────────────────────────────────────────────
 function AccountPage({ user, showToast }) {
   const { T } = useTheme()
+  const mono = "'DM Mono',monospace"
   const [tab, setTab] = useState('profile')
 
-  // Profile state - separate vars to avoid stale closure on object spread
-  const [fullName, setFullName]           = useState('')
-  const [phone, setPhone]                 = useState('')
+  const [fullName, setFullName]             = useState('')
+  const [phone, setPhone]                   = useState('')
   const [profileLoading, setProfileLoading] = useState(true)
-  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileSaving, setProfileSaving]   = useState(false)
 
-  // Email state
-  const [newEmail, setNewEmail] = useState('')
+  const [newEmail, setNewEmail]   = useState('')
   const [emailSaving, setEmailSaving] = useState(false)
 
-  // Password state
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword]         = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [pwSaving, setPwSaving]               = useState(false)
-  const [showPw, setShowPw]                   = useState(false)
+  const [pwSaving, setPwSaving]   = useState(false)
+  const [showPw, setShowPw]       = useState(false)
 
-  // Notifications state
   const [notifSaving, setNotifSaving] = useState(false)
   const [notifs, setNotifs] = useState({
-    rent_arrears: true,
-    lease_expiry: true,
-    compliance_expiry: true,
-    vacant_properties: true,
-    weekly_summary: false,
+    rent_arrears: true, lease_expiry: true, compliance_expiry: true,
+    vacant_properties: true, weekly_summary: false,
   })
 
   useEffect(() => { loadProfile() }, [])
@@ -1650,27 +1646,20 @@ function AccountPage({ user, showToast }) {
   async function loadProfile() {
     setProfileLoading(true)
     try {
-      const { data } = await supabase.from('user_profiles')
-        .select('*').eq('user_id', user.id).single()
+      const { data } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).single()
       if (data) {
         setFullName(data.full_name || '')
         setPhone(data.phone || '')
         if (data.notifications) setNotifs(prev => ({ ...prev, ...data.notifications }))
       }
-    } catch(e) { /* table may not exist yet */ }
+    } catch(e) {}
     setProfileLoading(false)
   }
 
   async function saveProfile() {
     setProfileSaving(true)
     try {
-      await supabase.from('user_profiles').upsert({
-        user_id: user.id,
-        email: user.email,
-        full_name: fullName,
-        phone: phone,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      await supabase.from('user_profiles').upsert({ user_id: user.id, email: user.email, full_name: fullName, phone, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
       showToast('Profile saved')
     } catch(e) { showToast(e.message, 'error') }
     setProfileSaving(false)
@@ -1679,12 +1668,7 @@ function AccountPage({ user, showToast }) {
   async function saveNotifications() {
     setNotifSaving(true)
     try {
-      await supabase.from('user_profiles').upsert({
-        user_id: user.id,
-        email: user.email,
-        notifications: notifs,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      await supabase.from('user_profiles').upsert({ user_id: user.id, email: user.email, notifications: notifs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
       showToast('Notification preferences saved')
     } catch(e) { showToast(e.message, 'error') }
     setNotifSaving(false)
@@ -1696,7 +1680,7 @@ function AccountPage({ user, showToast }) {
     try {
       const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
       if (error) throw error
-      showToast('Confirmation email sent to ' + newEmail + ' — check your inbox')
+      showToast('Confirmation sent to ' + newEmail + ' — check your inbox')
       setNewEmail('')
     } catch(e) { showToast(e.message, 'error') }
     setEmailSaving(false)
@@ -1708,10 +1692,7 @@ function AccountPage({ user, showToast }) {
     if (newPassword.length < 8) { showToast('Password must be at least 8 characters', 'error'); return }
     setPwSaving(true)
     try {
-      // Re-authenticate with current password first
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: user.email, password: currentPassword
-      })
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
       if (signInErr) throw new Error('Current password is incorrect')
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
@@ -1725,40 +1706,14 @@ function AccountPage({ user, showToast }) {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email)
       if (error) throw error
-      showToast('Password reset email sent to ' + user.email)
+      showToast('Reset email sent to ' + user.email)
     } catch(e) { showToast(e.message, 'error') }
   }
 
-  const mono = "'DM Mono',monospace"
-  const Section = ({ title, children }) => (
-    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>{title}</div>
-      {children}
-    </div>
-  )
-  const Field = ({ label, children }) => (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{label}</label>
-      {children}
-    </div>
-  )
-  const Toggle = ({ label, desc, checked, onChange }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: `1px solid ${T.border}` }}>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{label}</div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{desc}</div>
-      </div>
-      <div onClick={onChange} style={{
-        width: 42, height: 24, borderRadius: 12, cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
-        background: checked ? T.gold : T.border, position: 'relative'
-      }}>
-        <div style={{
-          position: 'absolute', top: 3, left: checked ? 21 : 3, width: 18, height: 18,
-          borderRadius: 9, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
-        }}/>
-      </div>
-    </div>
-  )
+  const sectionStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }
+  const sectionHeadStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }
+  const fieldStyle = { marginBottom: 14 }
+  const labelStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
 
   const tabs = [
     { key: 'profile', label: '👤 Profile' },
@@ -1771,8 +1726,7 @@ function AccountPage({ user, showToast }) {
       <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4, color: T.text }}>Account</h1>
       <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 24 }}>{user.email}</p>
 
-      {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24, borderBottom: `1px solid ${T.border}`, paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 24, borderBottom: `1px solid ${T.border}` }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             fontFamily: mono, fontSize: 11, padding: '8px 16px', borderRadius: '8px 8px 0 0',
@@ -1785,100 +1739,109 @@ function AccountPage({ user, showToast }) {
         ))}
       </div>
 
-      {/* ── PROFILE TAB ── */}
       {tab === 'profile' && (
         profileLoading
           ? <div style={{ fontFamily: mono, color: T.muted, fontSize: 12 }}>Loading…</div>
-          : <>
-            <Section title="Personal Information">
-              <Field label="Full Name">
-                <input value={fullName} onChange={e => setFullName(e.target.value)}
-                  placeholder="Your full name" />
-              </Field>
-              <Field label="Phone Number">
-                <input value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="+44 7700 000000" />
-              </Field>
-              <Field label="Email Address">
+          : <div style={sectionStyle}>
+              <div style={sectionHeadStyle}>Personal Information</div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Full Name</label>
+                <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your full name" />
+              </div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Phone Number</label>
+                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+44 7700 000000" />
+              </div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Email Address</label>
                 <input value={user.email} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 5 }}>
-                  To change your email, go to the Security tab.
-                </div>
-              </Field>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 5 }}>To change your email, go to the Security tab.</div>
+              </div>
               <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{ marginTop: 8 }}>
                 {profileSaving ? 'Saving…' : 'Save Profile'}
               </button>
-            </Section>
-          </>
+            </div>
       )}
 
-      {/* ── SECURITY TAB ── */}
       {tab === 'security' && (
         <>
-          <Section title="Change Email Address">
-            <Field label="New Email Address">
-              <input value={newEmail} onChange={e => setNewEmail(e.target.value)}
-                placeholder={user.email} type="email" />
-            </Field>
+          <div style={sectionStyle}>
+            <div style={sectionHeadStyle}>Change Email Address</div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>New Email Address</label>
+              <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={user.email} type="email" />
+            </div>
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 12, lineHeight: 1.6 }}>
               A confirmation link will be sent to both your old and new email addresses. The change takes effect once confirmed.
             </div>
             <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving || !newEmail.trim()}>
               {emailSaving ? 'Sending…' : 'Update Email'}
             </button>
-          </Section>
+          </div>
 
-          <Section title="Change Password">
-            <Field label="Current Password">
-              <input value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
-                type={showPw ? 'text' : 'password'} placeholder="Your current password" />
-            </Field>
-            <Field label="New Password">
-              <input value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                type={showPw ? 'text' : 'password'} placeholder="At least 8 characters" />
-            </Field>
-            <Field label="Confirm New Password">
-              <input value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                type={showPw ? 'text' : 'password'} placeholder="Repeat new password" />
-            </Field>
+          <div style={sectionStyle}>
+            <div style={sectionHeadStyle}>Change Password</div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Current Password</label>
+              <input value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} type={showPw ? 'text' : 'password'} placeholder="Your current password" />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>New Password</label>
+              <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type={showPw ? 'text' : 'password'} placeholder="At least 8 characters" />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Confirm New Password</label>
+              <input value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} type={showPw ? 'text' : 'password'} placeholder="Repeat new password" />
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <input type="checkbox" id="showpw" checked={showPw} onChange={e => setShowPw(e.target.checked)}
-                style={{ width: 'auto', margin: 0 }} />
+              <input type="checkbox" id="showpw" checked={showPw} onChange={e => setShowPw(e.target.checked)} style={{ width: 'auto', margin: 0 }} />
               <label htmlFor="showpw" style={{ fontFamily: mono, fontSize: 10, color: T.muted, cursor: 'pointer', margin: 0 }}>Show passwords</label>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-gold" onClick={updatePassword}
-                disabled={pwSaving || !currentPassword || !newPassword || !confirmPassword}>
+              <button className="btn btn-gold" onClick={updatePassword} disabled={pwSaving || !currentPassword || !newPassword || !confirmPassword}>
                 {pwSaving ? 'Updating…' : 'Update Password'}
               </button>
               <button className="btn btn-ghost" onClick={sendResetEmail} style={{ fontSize: 11 }}>
                 Send Reset Email Instead
               </button>
             </div>
-          </Section>
+          </div>
         </>
       )}
 
-      {/* ── NOTIFICATIONS TAB ── */}
       {tab === 'notifications' && (
-        <Section title="Email & Alert Preferences">
+        <div style={sectionStyle}>
+          <div style={sectionHeadStyle}>Alert Preferences</div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
             Control which alerts appear in your Smart Alerts dashboard panel.
           </div>
-          <Toggle label="Rent Arrears" desc="Alert when a property has overdue rent"
-            checked={notifs.rent_arrears} onChange={() => setNotifs(n => ({ ...n, rent_arrears: !n.rent_arrears }))} />
-          <Toggle label="Lease Expiry" desc="Alert when tenancy agreements are expiring"
-            checked={notifs.lease_expiry} onChange={() => setNotifs(n => ({ ...n, lease_expiry: !n.lease_expiry }))} />
-          <Toggle label="Compliance Expiry" desc="Alert for gas, electrical, EPC certificates nearing expiry"
-            checked={notifs.compliance_expiry} onChange={() => setNotifs(n => ({ ...n, compliance_expiry: !n.compliance_expiry }))} />
-          <Toggle label="Vacant Properties" desc="Alert when properties are sitting vacant"
-            checked={notifs.vacant_properties} onChange={() => setNotifs(n => ({ ...n, vacant_properties: !n.vacant_properties }))} />
-          <Toggle label="Weekly Summary" desc="Receive a weekly portfolio summary (coming soon)"
-            checked={notifs.weekly_summary} onChange={() => setNotifs(n => ({ ...n, weekly_summary: !n.weekly_summary }))} />
+          {[
+            { key: 'rent_arrears',       label: 'Rent Arrears',      desc: 'Alert when a property has overdue rent' },
+            { key: 'lease_expiry',       label: 'Lease Expiry',      desc: 'Alert when tenancy agreements are expiring' },
+            { key: 'compliance_expiry',  label: 'Compliance Expiry', desc: 'Alert for gas, electrical, EPC certificates nearing expiry' },
+            { key: 'vacant_properties',  label: 'Vacant Properties', desc: 'Alert when properties are sitting vacant' },
+            { key: 'weekly_summary',     label: 'Weekly Summary',    desc: 'Receive a weekly portfolio summary (coming soon)' },
+          ].map(item => (
+            <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: `1px solid ${T.border}` }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{item.label}</div>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{item.desc}</div>
+              </div>
+              <div onClick={() => setNotifs(n => ({ ...n, [item.key]: !n[item.key] }))} style={{
+                width: 42, height: 24, borderRadius: 12, cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
+                background: notifs[item.key] ? T.gold : T.border, position: 'relative', marginLeft: 16,
+              }}>
+                <div style={{
+                  position: 'absolute', top: 3, left: notifs[item.key] ? 21 : 3, width: 18, height: 18,
+                  borderRadius: 9, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                }}/>
+              </div>
+            </div>
+          ))}
           <button className="btn btn-gold" onClick={saveNotifications} disabled={notifSaving} style={{ marginTop: 20 }}>
             {notifSaving ? 'Saving…' : 'Save Preferences'}
           </button>
-        </Section>
+        </div>
       )}
     </div>
   )
