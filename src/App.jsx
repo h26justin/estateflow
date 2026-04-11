@@ -1,7 +1,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab } from './components/FeatureComponents'
 import { SmartAlerts, ReportsPage, ContractorsPage } from './components/DashboardComponents'
+import { StatementImporter } from './components/StatementImporter'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
@@ -174,7 +175,8 @@ export default function App() {
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
   const [showAdmin,        setShowAdmin]        = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null) // property id
+  const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
+  const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
@@ -231,12 +233,41 @@ export default function App() {
     loadData()
   },[user])
 
-  const filtered = useMemo(()=>properties.filter(p=>{
-    if(coFilter!=='all'&&p.company_id!==coFilter) return false
-    if(statusFilter!=='all'&&p.status!==statusFilter) return false
-    if(searchQ&&!p.name.toLowerCase().includes(searchQ.toLowerCase())&&!p.address.toLowerCase().includes(searchQ.toLowerCase())) return false
-    return true
-  }),[properties,coFilter,statusFilter,searchQ])
+  // Expose loadData for refresh after import
+  async function refreshData() {
+    try {
+      const props = await api.fetchProperties()
+      setProperties(props)
+    } catch(e) { console.log(e) }
+  }
+
+  const filtered = useMemo(()=>{
+    const f = properties.filter(p=>{
+      if(coFilter!=='all'&&p.company_id!==coFilter) return false
+      if(statusFilter!=='all'&&p.status!==statusFilter) return false
+      if(searchQ&&!p.name.toLowerCase().includes(searchQ.toLowerCase())&&!p.address.toLowerCase().includes(searchQ.toLowerCase())) return false
+      return true
+    })
+    // Sort
+    return [...f].sort((a,b)=>{
+      switch(sortBy) {
+        case 'company-name': {
+          const coA = a.company?.name||''; const coB = b.company?.name||''
+          if(coA!==coB) return coA.localeCompare(coB)
+          return a.name.localeCompare(b.name)
+        }
+        case 'name':         return a.name.localeCompare(b.name)
+        case 'status':       return (a.status||'').localeCompare(b.status||'')
+        case 'rent-high':    return (b.rent_pcm||0)-(a.rent_pcm||0)
+        case 'rent-low':     return (a.rent_pcm||0)-(b.rent_pcm||0)
+        case 'yield-high':   return calcGrossYield(b)-calcGrossYield(a)
+        case 'arrears':      return (b.arrears||0)-(a.arrears||0)
+        case 'value-high':   return (b.est_value||0)-(a.est_value||0)
+        case 'custom':       return (a.sort_order||0)-(b.sort_order||0)
+        default:             return 0
+      }
+    })
+  },[properties,coFilter,statusFilter,searchQ,sortBy])
 
   const stats = useMemo(()=>({
     totalInvested:       properties.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
@@ -491,7 +522,29 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties}/>
+            {/* Sort control */}
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',flexShrink:0}}>Sort by:</span>
+              {[
+                {v:'company-name', l:'Company → Name'},
+                {v:'name',         l:'Name A–Z'},
+                {v:'status',       l:'Status'},
+                {v:'rent-high',    l:'Rent (High–Low)'},
+                {v:'yield-high',   l:'Yield (High–Low)'},
+                {v:'arrears',      l:'Arrears'},
+                {v:'value-high',   l:'Value (High–Low)'},
+                {v:'custom',       l:'Custom Order ⠿'},
+              ].map(opt=>(
+                <button key={opt.v} onClick={()=>setSortBy(opt.v)}
+                  style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 12px',borderRadius:20,cursor:'pointer',
+                    border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
+                    background:sortBy===opt.v?T.gold+'22':'transparent',
+                    color:sortBy===opt.v?T.gold:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+            <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties} sortBy={sortBy}/>
           </div>}
 
           {view==='companies'&&<div className="fade">
@@ -535,7 +588,7 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
           {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin}/>}
-          {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt}/>}
+          {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt} onImport={()=>setShowImporter(true)}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
           {view==='detail'&&selected&&<div className="fade">
@@ -575,7 +628,8 @@ export default function App() {
                     </div>
                   )
                 })()}
-                {detailTab==='overview'&&<div>
+                {detailTab==='overview'&&<OverviewTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={calcGrossYield} isAdmin={isAdmin} user={user} showToast={showToast}/>}
+                {false&&detailTab==='overview-old'&&<div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
                     {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
                       <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
@@ -589,9 +643,10 @@ export default function App() {
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
                   </div>}
                 </div>}
-                {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdateField={handleUpdatePropField}/>}
+                {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
                 {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties}/>}
-                {detailTab==='financials'&&<div style={{display:'grid',gap:12}}>
+                {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={calcGrossYield} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast}/>}
+                {false&&<div style={{display:'grid',gap:12}}>
                   {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'—'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'—'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'—'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
                     <div key={si} className="card" style={{padding:'18px 22px'}}>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
@@ -606,10 +661,10 @@ export default function App() {
                     </div>
                   ))}
                 </div>}
-                {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast}/>}
-                {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt}/>}
-                {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt}/>}
-                {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0}/>}
+                {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance"/>}
+                {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy"/>}
+                {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance"/>}
+                {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses"/>}
               </div>
               <div style={{display:'grid',gap:12}}>
                 <div className="card" style={{padding:'18px 20px'}}>
@@ -636,6 +691,7 @@ export default function App() {
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
       {/* Access modal now lives inside Settings page */}
+      {showImporter&&<StatementImporter properties={properties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/>}
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
 
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
@@ -661,7 +717,7 @@ export default function App() {
   )
 }
 
-function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField}){
+function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
   const [phaseForm,setPhaseForm]=useState({name:'',start_date:'',end_date:'',done:false,notes:''})
   const [costForm,setCostForm]=useState({trade:'',cost:'',paid:false,date:'',notes:''})
   const [showPF,setShowPF]=useState(false)
@@ -734,6 +790,9 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField}){
           <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:item.paid?'#2ECC8A':'#E0943A'}}>{item.paid?'✓ Paid':'Unpaid'}</span>
         </div>
       ))}
+    </div>
+    <div style={{marginTop:20}}>
+      <NotesTimeline propertyId={prop.id} isAdmin={isAdmin} user={user} showToast={()=>{}} category="refurb"/>
     </div>
   </div>
 }
@@ -843,7 +902,7 @@ function DeleteConfirmModal({propName, onClose, onConfirm}) {
 }
 
 // ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
-function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties}) {
+function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties, sortBy}) {
   const T = {
     bg:'#0B0D14', card:'#171B28', border:'#1E2335',
     text:'#E4E0D8', muted:'#6B7191', red:'#E05555', gold:'#C8A84B', faint:'#3A3F58',
@@ -895,14 +954,33 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
     <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>No properties match this filter.</div>
   )
 
+  const isCustomSort = sortBy === 'custom' || !sortBy
+  const isByCompany  = sortBy === 'company-name'
+
   return (
     <div style={{display:'grid',gap:8}}>
-      {items.map((p, idx) => (
-        <div key={p.id}
-          draggable
-          onDragStart={e=>handleDragStart(e,idx)}
-          onDragOver={e=>handleDragOver(e,idx)}
-          onDrop={e=>handleDrop(e,idx)}
+      {items.map((p, idx) => {
+        // Company group header when sorted by company
+        const showCompanyHeader = isByCompany && (idx===0 || items[idx-1].company_id !== p.company_id)
+        const co = p.company
+
+        return (
+        <div key={p.id}>
+          {showCompanyHeader&&co&&(
+            <div style={{display:'flex',alignItems:'center',gap:10,marginTop:idx>0?16:0,marginBottom:8}}>
+              <div style={{width:3,height:18,background:co.color||T.gold,borderRadius:2,flexShrink:0}}/>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:co.color||T.gold}}>{co.abbr}</span>
+              <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                {items.filter(x=>x.company_id===co.id).length} properties
+              </span>
+            </div>
+          )}
+          <div
+          draggable={isCustomSort}
+          onDragStart={e=>isCustomSort&&handleDragStart(e,idx)}
+          onDragOver={e=>isCustomSort&&handleDragOver(e,idx)}
+          onDrop={e=>isCustomSort&&handleDrop(e,idx)}
           onDragEnd={handleDragEnd}
           style={{
             opacity: dragging===idx ? 0.4 : 1,
@@ -911,9 +989,10 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           }}>
           <div className="card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:12,
             borderColor: dragOver===idx && dragging!==idx ? '#C8A84B' : '#1E2335',
-            cursor:'grab'}}>
-            {/* Drag handle */}
-            <div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">⠿</div>
+            cursor:isCustomSort?'grab':'default'}}>
+            {/* Drag handle - only show in custom sort mode */}
+            {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">⠿</div>}
+            {!isCustomSort&&<div style={{width:4,flexShrink:0}}/>}
             {/* Content */}
             <div style={{flex:1,minWidth:180,cursor:'pointer'}} onClick={()=>openDetail(p)}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
@@ -936,7 +1015,9 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             </div>
           </div>
         </div>
-      ))}
+        </div>
+        </div>
+      )})}
     </div>
   )
 }
@@ -1217,7 +1298,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
       </div>}
 
       {/* Notes Timeline */}
-      <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties}/>
+      <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} category="rent"/>
     </div>
   )
 }

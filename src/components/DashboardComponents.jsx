@@ -163,7 +163,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
 }
 
 // ── REPORTS PAGE ─────────────────────────────────────────────────────────────
-export function ReportsPage({properties, companies, fmt}) {
+export function ReportsPage({properties, companies, fmt, onImport}) {
   const [selectedCompany, setSelectedCompany] = useState('all')
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [expenses, setExpenses] = useState([])
@@ -530,6 +530,7 @@ export function ReportsPage({properties, companies, fmt}) {
           </select>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>⬇ CSV</button>
           <button className="btn btn-gold" style={{fontSize:11,background:'#1A1525',color:'#C8A84B',border:'1px solid #C8A84B'}} onClick={exportPDF}>⬇ PDF Report</button>
+          {onImport&&<button className="btn btn-gold" style={{fontSize:11,background:'#0D2B1F',color:'#2ECC8A',border:'1px solid #2ECC8A'}} onClick={onImport}>📄 Import Statement</button>}
         </div>
       </div>
 
@@ -649,9 +650,15 @@ export function ContractorsPage({companies, showToast}) {
   const [contractors, setContractors] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const blank = {name:'',trade:'',phone:'',email:'',company_id:'',notes:'',preferred:false}
+  const blank = {name:'',trade:'',phone:'',email:'',company_ids:[],notes:'',preferred:false}
   const [form, setForm] = useState(blank)
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
+  function toggleCompany(id) {
+    setForm(f=>({...f, company_ids: f.company_ids.includes(id)
+      ? f.company_ids.filter(x=>x!==id)
+      : [...f.company_ids, id]
+    }))
+  }
 
   const TRADES = ['Plumber','Electrician','Handyman','Carpenter','Plasterer','Painter & Decorator',
     'Roofer','Locksmith','Gas Engineer','Landscaper','Cleaner','Letting Agent','Solicitor','Other']
@@ -671,8 +678,9 @@ export function ContractorsPage({companies, showToast}) {
     if (!form.name||!form.trade) return
     try {
       const {data:{user}} = await supabase.auth.getUser()
+      const saveData = {...form, company_id: form.company_ids[0]||null, company_ids_json: JSON.stringify(form.company_ids), user_id:user.id}
       const {data,error} = await supabase.from('contractors')
-        .insert({...form, user_id:user.id}).select().single()
+        .insert(saveData).select().single()
       if (error) throw error
       setContractors(prev=>[...prev,data].sort((a,b)=>a.name.localeCompare(b.name)))
       setForm(blank); setShowForm(false)
@@ -714,12 +722,26 @@ export function ContractorsPage({companies, showToast}) {
           <div><label>Phone</label><input value={form.phone} onChange={e=>s('phone',e.target.value)} placeholder="07xxx xxxxxx"/></div>
           <div><label>Email</label><input value={form.email} onChange={e=>s('email',e.target.value)} placeholder="contractor@email.com"/></div>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Linked Company</label><select value={form.company_id} onChange={e=>s('company_id',e.target.value)}><option value="">All companies</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-          <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:20}}>
-            <input type="checkbox" checked={form.preferred} onChange={e=>s('preferred',e.target.checked)} style={{width:'auto'}}/>
-            <label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>⭐ Preferred contractor</label>
+        <div style={{marginBottom:12}}>
+          <label>Linked Companies</label>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:6}}>
+            {companies.map(co=>{
+              const selected = form.company_ids.includes(co.id)
+              return (
+                <button key={co.id} type="button" onClick={()=>toggleCompany(co.id)}
+                  style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                    border:`1px solid ${selected?co.color:T.border}`,
+                    background:selected?co.color+'22':'transparent',
+                    color:selected?co.color:T.muted,transition:'all 0.18s'}}>
+                  {selected?'✓ ':''}{co.abbr} {co.name}
+                </button>
+              )
+            })}
           </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+          <input type="checkbox" checked={form.preferred} onChange={e=>s('preferred',e.target.checked)} style={{width:'auto'}}/>
+          <label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>⭐ Preferred contractor</label>
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
         <div style={{display:'flex',gap:8}}>
@@ -750,11 +772,17 @@ export function ContractorsPage({companies, showToast}) {
                     {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:"'DM Mono',monospace",fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}>📞 {c.phone}</a>}
                     {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}>✉ {c.email}</a>}
                     {c.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
-                    {c.company_id&&<div style={{marginTop:6}}>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,background:T.bg,padding:'2px 6px',borderRadius:4}}>
-                        {companies.find(co=>co.id===c.company_id)?.abbr||''}
-                      </span>
-                    </div>}
+                    {(()=>{
+                      const ids = c.company_ids_json ? JSON.parse(c.company_ids_json) : (c.company_id ? [c.company_id] : [])
+                      return ids.length>0&&(
+                        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6}}>
+                          {ids.map(id=>{
+                            const co = companies.find(x=>x.id===id)
+                            return co ? <span key={id} style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:co.color,background:co.color+'22',padding:'2px 6px',borderRadius:4,border:`1px solid ${co.color}44`}}>{co.abbr}</span> : null
+                          })}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ))}
               </div>

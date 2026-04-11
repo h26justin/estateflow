@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+// Exports: ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 
@@ -133,6 +134,9 @@ export function ComplianceTab({propertyId, showToast}) {
           })}
         </div>
       }
+      <div style={{marginTop:20}}>
+        <NotesTimeline propertyId={propertyId} isAdmin={isAdmin} user={user} showToast={showToast} category="compliance"/>
+      </div>
     </div>
   )
 }
@@ -340,6 +344,9 @@ export function MaintenanceTab({propertyId, showToast, fmt}) {
           </div>}
         </div>
       }
+      <div style={{marginTop:20}}>
+        <NotesTimeline propertyId={propertyId} isAdmin={isAdmin} user={user} showToast={showToast} category="maintenance"/>
+      </div>
     </div>
   )
 }
@@ -500,6 +507,9 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm}) {
           })}
         </div>
       }
+      <div style={{marginTop:20}}>
+        <NotesTimeline propertyId={propertyId} isAdmin={isAdmin} user={user} showToast={showToast} category="expenses"/>
+      </div>
     </div>
   )
 }
@@ -595,6 +605,176 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     </div>
   )
 }
+
+// ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
+export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast}) {
+  const [allNotes, setAllNotes] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const CATEGORIES = {
+    general:     {label:'General',     color:'#C8A84B', icon:'📝'},
+    rent:        {label:'Rent',        color:'#2ECC8A', icon:'💷'},
+    refurb:      {label:'Refurb',      color:'#4B8FE0', icon:'🔨'},
+    financials:  {label:'Financials',  color:'#9B59B6', icon:'💰'},
+    compliance:  {label:'Compliance',  color:'#E0943A', icon:'📋'},
+    tenancy:     {label:'Tenancy',     color:'#2ECC8A', icon:'🤝'},
+    maintenance: {label:'Maintenance', color:'#E05555', icon:'🔧'},
+    expenses:    {label:'Expenses',    color:'#E05555', icon:'📊'},
+  }
+
+  useEffect(()=>{
+    setLoading(true)
+    supabase.from('property_notes').select('*').eq('property_id', selected.id)
+      .order('created_at', {ascending:false})
+      .then(({data})=>{ setAllNotes(data||[]); setLoading(false) })
+      .catch(()=>setLoading(false))
+  },[selected.id])
+
+  async function deleteNote(id) {
+    await supabase.from('property_notes').delete().eq('id',id)
+    setAllNotes(prev=>prev.filter(n=>n.id!==id))
+  }
+
+  function formatDate(ts) {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) +
+      ' at ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+  }
+
+  const mortgage = calcMonthlyMortgage(selected)
+  const yield_ = calcGrossYield(selected)
+
+  return (
+    <div>
+      {/* Quick stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+        {[
+          {l:'Purchase Price',   v:fmt(selected.purchase_price),    c:'#C8A84B'},
+          {l:'Estimated Value',  v:fmt(selected.est_value),         c:'#C8A84B'},
+          {l:'Gross Yield',      v:yield_>0?yield_.toFixed(1)+'%':'—', c:'#2ECC8A'},
+          {l:'Monthly Rent',     v:fmt(selected.rent_pcm),          c:'#2ECC8A'},
+          {l:'Monthly Mortgage', v:mortgage>0?fmt(mortgage):'—',    c:'#9B59B6'},
+          {l:'Arrears',          v:fmt(selected.arrears||0),        c:(selected.arrears||0)>0?'#E05555':'#2ECC8A'},
+        ].map((item,i)=>(
+          <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Property notes */}
+      {selected.notes&&<div className="card" style={{padding:'14px 18px',marginBottom:16,borderLeft:`3px solid ${T.gold}`}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Property Description</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
+      </div>}
+
+      {/* All notes timeline */}
+      <div className="card" style={{padding:'16px 20px'}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>
+          All Notes — {allNotes.length} total
+        </div>
+
+        {loading
+          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+          : allNotes.length===0
+            ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>No notes yet. Add notes from any tab.</div>
+            : <div style={{display:'grid',gap:10}}>
+                {allNotes.map(n=>{
+                  const cat = CATEGORIES[n.category||'general'] || CATEGORIES.general
+                  return (
+                    <div key={n.id} style={{background:T.bg,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${cat.color}`}}>
+                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                          {/* Category tag */}
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,
+                            color:cat.color,background:cat.color+'22',
+                            padding:'2px 8px',borderRadius:20,display:'flex',alignItems:'center',gap:3}}>
+                            {cat.icon} {cat.label}
+                          </span>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.gold,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                        </div>
+                        {isAdmin&&<button onClick={()=>deleteNote(n.id)}
+                          style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:'#E05555',border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
+                          Delete
+                        </button>}
+                      </div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                    </div>
+                  )
+                })}
+              </div>
+        }
+
+        {/* Add a general note from overview */}
+        <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>
+          <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} category="general" compact={true}/>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── FINANCIALS TAB ────────────────────────────────────────────────────────────
+export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast}) {
+  const mortgage = calcMonthlyMortgage(selected)
+  const yield_ = calcGrossYield(selected)
+  const monthlyProfit = calcMonthlyProfit(selected)
+  const totalInvested = (selected.purchase_price||0)+(selected.refurb_cost||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)
+  const equity = (selected.est_value||0)-(selected.mortgage_amount||0)
+  const ltv = selected.est_value ? (((selected.mortgage_amount||0)/selected.est_value)*100).toFixed(1) : '—'
+
+  const sections = [
+    {title:'Purchase & Costs', items:[
+      {l:'Purchase Price',    v:fmt(selected.purchase_price)},
+      {l:'Deposit',          v:fmt(selected.deposit)},
+      {l:'Refurb Cost',      v:fmt(selected.refurb_cost)},
+      {l:'Stamp Duty',       v:fmt(selected.stamp_duty)},
+      {l:'Legal Fees',       v:fmt(selected.legal_fees)},
+      {l:'Total Invested',   v:fmt(totalInvested), bold:true, color:'#C8A84B'},
+    ]},
+    {title:'Mortgage', items:[
+      {l:'Mortgage Amount',  v:fmt(selected.mortgage_amount)},
+      {l:'Mortgage Rate',    v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'—'},
+      {l:'Mortgage Term',    v:selected.mortgage_term?`${selected.mortgage_term} years`:'—'},
+      {l:'Monthly Payment',  v:mortgage>0?fmt(mortgage):'—'},
+      {l:'Annual Payments',  v:mortgage>0?fmt(mortgage*12):'—'},
+      {l:'Loan to Value',    v:ltv!=='—'?ltv+'%':'—', color:'#9B59B6'},
+    ]},
+    {title:'Returns', items:[
+      {l:'Estimated Value',  v:fmt(selected.est_value), color:'#C8A84B'},
+      {l:'Equity',           v:fmt(equity), color:equity>0?'#2ECC8A':'#E05555'},
+      {l:'Monthly Rent',     v:fmt(selected.rent_pcm), color:'#2ECC8A'},
+      {l:'Annual Rent',      v:fmt((selected.rent_pcm||0)*12), color:'#2ECC8A'},
+      {l:'Gross Yield',      v:yield_>0?yield_.toFixed(2)+'%':'—', color:'#2ECC8A'},
+      {l:'Monthly Profit',   v:monthlyProfit>0?fmt(monthlyProfit):'—', color:monthlyProfit>0?'#2ECC8A':'#E05555'},
+    ]},
+  ]
+
+  return (
+    <div>
+      <div style={{display:'grid',gap:12,marginBottom:20}}>
+        {sections.map((section,si)=>(
+          <div key={si} className="card" style={{padding:'18px 22px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              {section.items.map((item,i)=>(
+                <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:item.bold?700:600,color:item.color||T.text}}>{item.v||'—'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} category="financials"/>
+    </div>
+  )
+}
+
 
 // ── ACCESS MODAL ──────────────────────────────────────────────────────────────
 function AccessModal({companies, onClose, showToast}) {
