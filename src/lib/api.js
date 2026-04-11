@@ -72,3 +72,26 @@ export async function upsertRentPayment(propertyId, year, month, status, amount,
   if (error) throw error
   return data
 }
+// ── USER COMPANY ACCESS ────────────────────────────────────────────────────
+export async function fetchUserAccess(userId) {
+  const { data, error } = await supabase
+    .from('user_company_access')
+    .select('*')
+    .eq('user_id', userId)
+  // If table doesn't exist, return empty (admin mode)
+  if (error) return []
+  return data || []
+}
+
+export async function updateUserAccess(userId, companyId, email, grant) {
+  if (grant) {
+    const { error } = await supabase.from('user_company_access')
+      .upsert({ user_id: userId, company_id: companyId, email, is_admin: false },
+        { onConflict: 'user_id,company_id' })
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from('user_company_access')
+      .delete().eq('user_id', userId).eq('company_id', companyId)
+    if (error) throw error
+  }
+}

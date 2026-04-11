@@ -75,22 +75,59 @@ const CompanyPill = ({company}) => {
   return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||'#C8A84B')+'22',color:company.color||'#C8A84B',border:`1px solid ${(company.color||'#C8A84B')}44`}}>{company.abbr}</span>
 }
 
-const StatCard = ({icon,label,value,sub,accent}) => (
-  <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'20px 22px'}}>
-    <div style={{fontSize:20,marginBottom:8}}>{icon}</div>
-    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
-    <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
-    {sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>{sub}</div>}
-  </div>
-)
+const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
+  const [open,setOpen] = React.useState(false)
+  return (
+    <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:breakdown?'pointer':'default'}}
+      onClick={breakdown?()=>setOpen(o=>!o):undefined}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+        <div style={{fontSize:20,marginBottom:8}}>{icon}</div>
+        {breakdown&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',marginTop:2}}>{open?'▲ CLOSE':'▼ DETAIL'}</span>}
+      </div>
+      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
+      <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
+      {sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>{sub}</div>}
+      {open&&breakdown&&(
+        <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:12,display:'grid',gap:6}}>
+          {breakdown.map((item,i)=>(
+            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,flex:1}}>{item.label}</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:item.color||T.text}}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
-const RentDots = ({payments}) => {
+const MONTH_LETTER = ['J','F','M','A','M','J','J','A','S','O','N','D']
+
+const RentDots = ({payments, onUpdate}) => {
   if (!payments?.length) return null
   const sorted=[...payments].sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
   return <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:8}}>
     {sorted.map(m=>{
-      const col=m.status==='void'?T.faint:m.status==='paid'?T.green:T.red
-      return <div key={m.id} title={`${m.month_label}: ${m.status}`} style={{width:10,height:10,borderRadius:2,background:col}}/>
+      const col=m.status==='void'?T.faint:m.status==='paid'?T.green:m.status==='delayed'?T.amber:T.red
+      const letter = MONTH_LETTER[(m.month||1)-1]
+      const yr = m.year ? String(m.year).slice(2) : ''
+      return (
+        <div key={m.id}
+          title={`${m.month_label}: ${m.status}${onUpdate?' — click to update':''}`}
+          onClick={onUpdate ? ()=>onUpdate(m) : undefined}
+          style={{
+            width:18, height:18, borderRadius:3, background:col,
+            cursor:onUpdate?'pointer':'default',
+            transition:'transform 0.15s, box-shadow 0.15s',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            flexDirection:'column', position:'relative',
+          }}
+          onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.35)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}
+          onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
+        >
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:7,fontWeight:700,color:'rgba(0,0,0,0.6)',lineHeight:1,userSelect:'none'}}>{letter}</span>
+        </div>
+      )
     })}
   </div>
 }
@@ -115,13 +152,35 @@ export default function App() {
   const [showAddCo,   setShowAddCo]    = useState(false)
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
+  const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
+  const [showAdmin,   setShowAdmin]   = useState(false)
+  const [isAdmin,     setIsAdmin]     = useState(false)
+  const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
   useEffect(()=>{
     if (!user) return
     setLoading(true)
-    Promise.all([api.fetchCompanies(), api.fetchProperties()])
-      .then(([cos,props])=>{ setCompanies(cos); setProperties(props); if(cos.length>0) setActiveCoTab(cos[0].id) })
-      .catch(console.error).finally(()=>setLoading(false))
+    Promise.all([api.fetchCompanies(), api.fetchProperties(), api.fetchUserAccess(user.id)])
+      .then(([cos,props,access])=>{
+        // If user has no access restrictions, show all; otherwise filter
+        const accessIds = access.map(a=>a.company_id)
+        const isAdminUser = access.length===0 || access.some(a=>a.is_admin)
+        setIsAdmin(isAdminUser)
+        setUserAccess(accessIds)
+        const visibleCos = isAdminUser ? cos : cos.filter(c=>accessIds.includes(c.id))
+        const visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
+        setCompanies(visibleCos)
+        setProperties(visibleProps)
+        if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
+      })
+      .catch(e=>{
+        // If access table doesn't exist yet, show everything (first run)
+        console.log('Access table not found, showing all:', e.message)
+        setIsAdmin(true)
+        api.fetchCompanies().then(cos=>{setCompanies(cos);if(cos.length>0)setActiveCoTab(cos[0].id)})
+        api.fetchProperties().then(props=>setProperties(props))
+      })
+      .finally(()=>setLoading(false))
   },[user])
 
   const filtered = useMemo(()=>properties.filter(p=>{
@@ -219,6 +278,20 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
+  async function handleUpdatePayment(payment, newStatus){
+    try{
+      await api.upsertRentPayment(payment.property_id, payment.year, payment.month, newStatus, payment.amount, payment.notes)
+      setProperties(prev=>prev.map(p=>{
+        if(p.id!==payment.property_id) return p
+        return {...p, rent_payments: p.rent_payments.map(rp=>
+          rp.id===payment.id ? {...rp, status:newStatus} : rp
+        )}
+      }))
+      setEditingPayment(null)
+      showToast(`${payment.month_label} marked as ${newStatus}`)
+    }catch(e){showToast(e.message,'error')}
+  }
+
   const navItems=[{key:'dashboard',label:'Dashboard',icon:'◈'},{key:'properties',label:'Properties',icon:'⊞'},{key:'companies',label:'Companies',icon:'◎'},{key:'rent',label:'Rent Tracker',icon:'£'}]
 
   return (
@@ -243,6 +316,7 @@ export default function App() {
           </nav>
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-gold" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
+            {isAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>setShowAdmin(true)}>⚙ Access</button>}
             <button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
           </div>
         </div>
@@ -257,10 +331,39 @@ export default function App() {
               <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {companies.length} companies · {stats.rented} rented · {stats.vacant} vacant</p>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:28}}>
-              <StatCard icon="🏛" label="Total Invested" value={fmt(stats.totalInvested)} sub={`Est. value ${fmt(stats.totalEstVal)}`}/>
-              <StatCard icon="💷" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}/>
-              <StatCard icon="⚠" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}/>
-              <StatCard icon="🔨" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}/>
+              <StatCard icon="🏛" label="Total Invested" value={fmt(stats.totalInvested)} sub={`Est. value ${fmt(stats.totalEstVal)}`}
+                breakdown={[
+                  {label:'Purchase prices total', value:fmt(properties.reduce((s,p)=>s+(p.purchase_price||0),0))},
+                  {label:'Refurb costs total', value:fmt(properties.reduce((s,p)=>s+(p.refurb_cost||0),0))},
+                  {label:'Stamp duty total', value:fmt(properties.reduce((s,p)=>s+(p.stamp_duty||0),0))},
+                  {label:'Legal fees total', value:fmt(properties.reduce((s,p)=>s+(p.legal_fees||0),0))},
+                  {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
+                  {label:'Unrealised gain', value:fmt(stats.totalEstVal-stats.totalInvested), color:stats.totalEstVal>stats.totalInvested?T.green:T.red},
+                ]}
+              />
+              <StatCard icon="💷" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
+                breakdown={[
+                  ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
+                  {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
+                  {label:'Rented units', value:`${stats.rented} of ${stats.total}`},
+                  {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
+                ]}
+              />
+              <StatCard icon="⚠" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
+                breakdown={[
+                  ...properties.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
+                  ...(properties.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears — all clear!', value:'✓', color:T.green}]:[]),
+                  {label:'Vacant units', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
+                ]}
+              />
+              <StatCard icon="🔨" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
+                breakdown={[
+                  ...properties.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
+                  ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
+                  {label:'Planned refurbs', value:properties.filter(p=>p.refurb_status==='planned').length},
+                  {label:'Completed refurbs', value:properties.filter(p=>p.refurb_status==='complete').length, color:T.green},
+                ]}
+              />
             </div>
             <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>By Company</h2>
             {companies.length===0
@@ -484,8 +587,15 @@ export default function App() {
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
                   </div>}
                   {selected.rent_payments?.length>0&&<div className="card" style={{padding:'16px 20px'}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Payment History</div>
-                    <RentDots payments={selected.rent_payments}/>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Payment History <span style={{color:T.muted,fontSize:9}}>(click any dot to update)</span></div>
+                    <RentDots payments={selected.rent_payments} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})}/>
+                    <div style={{display:'flex',gap:16,marginTop:12,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                      {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Delayed'},{c:T.faint,l:'Void'}].map(x=>(
+                        <span key={x.l} style={{display:'flex',alignItems:'center',gap:4}}>
+                          <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
+                        </span>
+                      ))}
+                    </div>
                   </div>}
                 </div>}
                 {detailTab==='financials'&&<div style={{display:'grid',gap:12}}>
@@ -527,6 +637,9 @@ export default function App() {
 
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
+      {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
+      {showAdmin&&<AccessModal companies={companies} userId={user?.id} onClose={()=>setShowAdmin(false)} showToast={showToast}/>}
+
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
     </div>
   )
@@ -663,4 +776,186 @@ function CompanyModal({onClose,onSave}){
       </div>
     </div>
   </div>
+}
+
+// ─── PAYMENT MODAL ────────────────────────────────────────────────────────────
+function PaymentModal({payment, onClose, onSave}) {
+  const T = {
+    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
+    text:'#E4E0D8', muted:'#6B7191', gold:'#C8A84B',
+    green:'#2ECC8A', red:'#E05555', amber:'#E0943A', faint:'#3A3F58',
+  }
+
+  const options = [
+    { status:'paid',    label:'Paid',     icon:'✓', color:T.green,  bg:'#0D2B1F', border:'#1A4A2E' },
+    { status:'missed',  label:'Not Paid', icon:'✗', color:T.red,    bg:'#2B1010', border:'#5C2C2C' },
+    { status:'delayed', label:'Delayed',  icon:'⏱', color:T.amber,  bg:'#2B1A0A', border:'#5C3A1A' },
+    { status:'void',    label:'Void',     icon:'○', color:T.faint,  bg:'#1A1D27', border:'#2E3044' },
+  ]
+
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:380}}>
+        <div style={{padding:'24px 28px'}}>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
+          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{payment.month_label}</h2>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,marginBottom:24}}>
+            Current status: <span style={{color:payment.status==='paid'?T.green:payment.status==='missed'?T.red:payment.status==='delayed'?T.amber:T.faint,fontWeight:700}}>{payment.status}</span>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+            {options.map(opt=>(
+              <button key={opt.status}
+                onClick={()=>onSave(payment, opt.status)}
+                style={{
+                  fontFamily:"'DM Mono',monospace",fontWeight:600,fontSize:13,
+                  background: payment.status===opt.status ? opt.bg : T.surface,
+                  color: opt.color,
+                  border: `2px solid ${payment.status===opt.status ? opt.color : T.border}`,
+                  borderRadius:10, padding:'14px 12px', cursor:'pointer',
+                  transition:'all 0.18s', textAlign:'center',
+                  display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+                }}>
+                <span style={{fontSize:20}}>{opt.icon}</span>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <button className="btn btn-ghost" style={{width:'100%',fontSize:12}} onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ACCESS MODAL (Admin only) ────────────────────────────────────────────────
+function AccessModal({companies, userId, onClose, showToast}) {
+  const T = {
+    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
+    text:'#E4E0D8', muted:'#6B7191', gold:'#C8A84B', green:'#2ECC8A', red:'#E05555',
+  }
+  const [users, setUsers] = React.useState([])
+  const [access, setAccess] = React.useState({})  // userId -> [companyId]
+  const [loading, setLoading] = React.useState(true)
+  const [newEmail, setNewEmail] = React.useState('')
+
+  React.useEffect(()=>{
+    loadData()
+  },[])
+
+  async function loadData() {
+    try {
+      const {data: accessRows} = await supabase.from('user_company_access').select('*')
+      const {data: {users: authUsers}} = await supabase.auth.admin.listUsers().catch(()=>({data:{users:[]}}))
+      
+      // Group access by user
+      const grouped = {}
+      if (accessRows) {
+        accessRows.forEach(row=>{
+          if (!grouped[row.user_id]) grouped[row.user_id] = {email: row.email||row.user_id, companies:[]}
+          grouped[row.user_id].companies.push(row.company_id)
+        })
+      }
+      setAccess(grouped)
+      setUsers(Object.entries(grouped).map(([id,v])=>({id, email:v.email, companies:v.companies})))
+    } catch(e) {
+      console.log('Access load error:', e)
+    }
+    setLoading(false)
+  }
+
+  async function toggleAccess(targetUserId, companyId, email) {
+    const current = access[targetUserId]?.companies || []
+    const has = current.includes(companyId)
+    try {
+      if (has) {
+        await supabase.from('user_company_access')
+          .delete().eq('user_id', targetUserId).eq('company_id', companyId)
+      } else {
+        await supabase.from('user_company_access')
+          .insert({user_id: targetUserId, company_id: companyId, email, is_admin: false})
+      }
+      await loadData()
+      showToast('Access updated')
+    } catch(e) { showToast(e.message, 'error') }
+  }
+
+  async function addUser() {
+    if (!newEmail.trim()) return
+    // Add user with access to all companies by default
+    try {
+      for (const co of companies) {
+        await supabase.from('user_company_access')
+          .upsert({user_id: newEmail, company_id: co.id, email: newEmail, is_admin: false},
+            {onConflict:'user_id,company_id'})
+      }
+      setNewEmail('')
+      await loadData()
+      showToast('User added — they need to sign up at the app URL first')
+    } catch(e) { showToast(e.message, 'error') }
+  }
+
+  async function removeUser(targetUserId) {
+    try {
+      await supabase.from('user_company_access').delete().eq('user_id', targetUserId)
+      await loadData()
+      showToast('User removed')
+    } catch(e) { showToast(e.message, 'error') }
+  }
+
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:580}}>
+        <div style={{padding:'24px 28px 0'}}>
+          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>⚙ Company Access Control</h2>
+          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Control which users can see which companies. Admins (like you) always see everything.</p>
+        </div>
+        <div style={{padding:'0 28px 28px'}}>
+
+          {/* Add new user */}
+          <div style={{marginBottom:20,padding:'16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
+            <label>Add User by Email</label>
+            <div style={{display:'flex',gap:8,marginTop:6}}>
+              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)}
+                placeholder="user@example.com" style={{flex:1,fontSize:12}}/>
+              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={addUser}>Add User</button>
+            </div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginTop:8}}>
+              Note: The user must first sign up at your app URL. Users with no restrictions here see nothing — add them and then tick their companies below.
+            </div>
+          </div>
+
+          {loading ? <div style={{textAlign:'center',padding:20,fontFamily:"'DM Mono',monospace",color:T.muted}}>Loading...</div> : (
+            users.length===0
+              ? <div style={{textAlign:'center',padding:20,fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>No restricted users yet. All signed-up users can currently see everything.</div>
+              : users.map(u=>(
+                <div key={u.id} style={{marginBottom:16,padding:'14px 16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:600}}>{u.email}</div>
+                    <button className="btn btn-danger" style={{fontSize:10,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>
+                  </div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                    {companies.map(co=>{
+                      const hasAccess = u.companies.includes(co.id)
+                      return (
+                        <button key={co.id} onClick={()=>toggleAccess(u.id, co.id, u.email)}
+                          style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                            border:`1px solid ${hasAccess?co.color:T.border}`,
+                            background:hasAccess?co.color+'22':'transparent',
+                            color:hasAccess?co.color:T.muted,transition:'all 0.18s'}}>
+                          {hasAccess?'✓ ':''}{co.abbr} {co.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+          )}
+
+          <button className="btn btn-ghost" style={{width:'100%',marginTop:8,fontSize:12}} onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  )
 }
