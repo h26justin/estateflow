@@ -102,15 +102,24 @@ const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
 }
 
 const MONTH_LETTER = ['J','F','M','A','M','J','J','A','S','O','N','D']
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-const RentDots = ({payments, onUpdate}) => {
+function getStatusColor(status) {
+  if (status==='paid')    return '#2ECC8A'
+  if (status==='missed')  return '#E05555'
+  if (status==='delayed') return '#E0943A'
+  if (status==='refurb')  return '#4B8FE0'
+  return '#3A3F58' // void
+}
+
+const RentDots = ({payments, onUpdate, filterYear}) => {
   if (!payments?.length) return null
   const sorted=[...payments].sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
+  const filtered = filterYear ? sorted.filter(m=>m.year===filterYear) : sorted
   return <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:8}}>
-    {sorted.map(m=>{
-      const col=m.status==='void'?T.faint:m.status==='paid'?T.green:m.status==='delayed'?T.amber:T.red
+    {filtered.map(m=>{
+      const col = getStatusColor(m.status)
       const letter = MONTH_LETTER[(m.month||1)-1]
-      const yr = m.year ? String(m.year).slice(2) : ''
       return (
         <div key={m.id}
           title={`${m.month_label}: ${m.status}${onUpdate?' — click to update':''}`}
@@ -120,12 +129,11 @@ const RentDots = ({payments, onUpdate}) => {
             cursor:onUpdate?'pointer':'default',
             transition:'transform 0.15s, box-shadow 0.15s',
             display:'flex', alignItems:'center', justifyContent:'center',
-            flexDirection:'column', position:'relative',
           }}
           onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.35)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}
           onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
         >
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:7,fontWeight:700,color:'rgba(0,0,0,0.6)',lineHeight:1,userSelect:'none'}}>{letter}</span>
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:7,fontWeight:700,color:'rgba(0,0,0,0.7)',lineHeight:1,userSelect:'none'}}>{letter}</span>
         </div>
       )
     })}
@@ -573,31 +581,7 @@ export default function App() {
                   </div>}
                 </div>}
                 {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdateField={handleUpdatePropField}/>}
-                {detailTab==='rent'&&<div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
-                    {[{l:'Monthly Rent',v:fmt(selected.rent_pcm),accent:T.green},{l:'Rent Due',v:selected.rent_due_day||'—'},{l:'Tenancy End',v:selected.tenancy_end||'—'},{l:'Arrears',v:fmt(selected.arrears||0),accent:selected.arrears>0?T.red:T.green}].map((item,i)=>(
-                      <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:700,color:item.accent||T.text}}>{item.v}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {selected.notes&&<div className="card" style={{padding:'14px 18px',marginBottom:14}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.1em'}}>Notes</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
-                  </div>}
-                  {selected.rent_payments?.length>0&&<div className="card" style={{padding:'16px 20px'}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Payment History <span style={{color:T.muted,fontSize:9}}>(click any dot to update)</span></div>
-                    <RentDots payments={selected.rent_payments} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})}/>
-                    <div style={{display:'flex',gap:16,marginTop:12,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
-                      {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Delayed'},{c:T.faint,l:'Void'}].map(x=>(
-                        <span key={x.l} style={{display:'flex',alignItems:'center',gap:4}}>
-                          <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
-                        </span>
-                      ))}
-                    </div>
-                  </div>}
-                </div>}
+                {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties}/>}
                 {detailTab==='financials'&&<div style={{display:'grid',gap:12}}>
                   {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'—'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'—'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'—'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
                     <div key={si} className="card" style={{padding:'18px 22px'}}>
@@ -778,6 +762,213 @@ function CompanyModal({onClose,onSave}){
   </div>
 }
 
+
+// ─── RENT TAB ────────────────────────────────────────────────────────────────
+function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties}) {
+  const T = {
+    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
+    text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
+    gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
+  }
+  const payments = selected.rent_payments || []
+  const years = [...new Set(payments.map(p=>p.year))].sort()
+  const [filterYear, setFilterYear] = useState(years[years.length-1] || null)
+
+  const filtered = filterYear ? payments.filter(p=>p.year===filterYear) : payments
+
+  // Stats for selected year
+  const paid    = filtered.filter(p=>p.status==='paid').length
+  const missed  = filtered.filter(p=>p.status==='missed').length
+  const delayed = filtered.filter(p=>p.status==='delayed').length
+  const refurb  = filtered.filter(p=>p.status==='refurb').length
+  const voidM   = filtered.filter(p=>p.status==='void').length
+  const totalIncome = paid * (selected.rent_pcm||0)
+  const delayedIncome = delayed * (selected.rent_pcm||0)
+
+  return (
+    <div>
+      {/* Key stats */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
+        {[
+          {l:'Monthly Rent', v:fmt(selected.rent_pcm), accent:T.green},
+          {l:'Rent Due',     v:selected.rent_due_day||'—'},
+          {l:'Tenancy End',  v:selected.tenancy_end||'—'},
+          {l:'Arrears',      v:fmt(selected.arrears||0), accent:selected.arrears>0?T.red:T.green},
+        ].map((item,i)=>(
+          <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:700,color:item.accent||T.text}}>{item.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Payment history with year filter */}
+      {payments.length>0&&<div className="card" style={{padding:'16px 20px',marginBottom:14}}>
+        {/* Year filter buttons */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:12}}>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+            Payment History <span style={{fontSize:9}}>(click dot to update)</span>
+          </div>
+          <div style={{display:'flex',gap:6}}>
+            <button onClick={()=>setFilterYear(null)}
+              style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                border:`1px solid ${filterYear===null?T.gold:T.border}`,
+                background:filterYear===null?T.gold+'22':'transparent',
+                color:filterYear===null?T.gold:T.muted}}>All</button>
+            {years.map(yr=>(
+              <button key={yr} onClick={()=>setFilterYear(yr)}
+                style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                  border:`1px solid ${filterYear===yr?T.gold:T.border}`,
+                  background:filterYear===yr?T.gold+'22':'transparent',
+                  color:filterYear===yr?T.gold:T.muted}}>{yr}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dots */}
+        <RentDots payments={payments} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})} filterYear={filterYear}/>
+
+        {/* Legend */}
+        <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
+          {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Delayed'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+            <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+              <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
+            </span>
+          ))}
+        </div>
+
+        {/* Year summary */}
+        <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.border}`}}>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>
+            {filterYear ? `${filterYear} Summary` : 'All Time Summary'}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+            {[
+              {l:'Months Paid',    v:paid,    c:T.green,  sub:fmt(totalIncome)},
+              {l:'Months Missed',  v:missed,  c:T.red,    sub:fmt(missed*(selected.rent_pcm||0))},
+              {l:'Months Delayed', v:delayed, c:T.amber,  sub:fmt(delayedIncome)},
+              {l:'Months Refurb',  v:refurb,  c:T.blue,   sub:''},
+              {l:'Months Void',    v:voidM,   c:T.faint,  sub:''},
+              {l:'Total Received', v:fmt(totalIncome), c:T.gold, sub:`${paid} months`, big:true},
+            ].map((item,i)=>(
+              <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:item.big?15:17,fontWeight:700,color:item.c}}>{item.v}</div>
+                {item.sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.faint,marginTop:2}}>{item.sub}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>}
+
+      {/* Notes Timeline */}
+      <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties}/>
+    </div>
+  )
+}
+
+// ─── NOTES TIMELINE ──────────────────────────────────────────────────────────
+function NotesTimeline({propertyId, isAdmin, user, showToast, setProperties}) {
+  const T = {
+    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
+    text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58', gold:'#C8A84B',
+    green:'#2ECC8A', red:'#E05555',
+  }
+  const [notes, setNotes] = useState([])
+  const [newNote, setNewNote] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(()=>{ loadNotes() }, [propertyId])
+
+  async function loadNotes() {
+    setLoading(true)
+    try {
+      const {data,error} = await supabase
+        .from('property_notes')
+        .select('*')
+        .eq('property_id', propertyId)
+        .order('created_at', {ascending:false})
+      if (!error) setNotes(data||[])
+    } catch(e) { console.log('Notes not available yet') }
+    setLoading(false)
+  }
+
+  async function addNote() {
+    if (!newNote.trim()) return
+    setSaving(true)
+    try {
+      const {data,error} = await supabase.from('property_notes').insert({
+        property_id: propertyId,
+        user_id: user.id,
+        user_email: user.email,
+        note: newNote.trim(),
+      }).select().single()
+      if (error) throw error
+      setNotes(prev=>[data,...prev])
+      setNewNote('')
+      showToast('Note saved')
+    } catch(e) { showToast(e.message,'error') }
+    setSaving(false)
+  }
+
+  async function deleteNote(id) {
+    try {
+      const {error} = await supabase.from('property_notes').delete().eq('id',id)
+      if (error) throw error
+      setNotes(prev=>prev.filter(n=>n.id!==id))
+      showToast('Note deleted')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  function formatDate(ts) {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) +
+      ' at ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+  }
+
+  return (
+    <div className="card" style={{padding:'16px 20px'}}>
+      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Notes Timeline</div>
+
+      {/* Add note */}
+      <div style={{marginBottom:16}}>
+        <textarea value={newNote} onChange={e=>setNewNote(e.target.value)}
+          placeholder="Add a note about this property…"
+          rows={3} style={{resize:'vertical',marginBottom:8,fontSize:13}}/>
+        <button className="btn btn-gold" style={{fontSize:11}} onClick={addNote} disabled={saving||!newNote.trim()}>
+          {saving?'Saving…':'+ Save Note'}
+        </button>
+      </div>
+
+      {/* Timeline */}
+      {loading
+        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading notes…</div>
+        : notes.length===0
+          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>No notes yet.</div>
+          : <div style={{display:'grid',gap:10}}>
+              {notes.map(n=>(
+                <div key={n.id} style={{background:T.bg,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${T.gold}`}}>
+                  <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:8}}>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:T.gold,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                    </div>
+                    {isAdmin&&<button onClick={()=>deleteNote(n.id)}
+                      style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:'#E05555',border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
+                      Delete
+                    </button>}
+                  </div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                </div>
+              ))}
+            </div>
+      }
+    </div>
+  )
+}
+
 // ─── PAYMENT MODAL ────────────────────────────────────────────────────────────
 function PaymentModal({payment, onClose, onSave}) {
   const T = {
@@ -790,6 +981,7 @@ function PaymentModal({payment, onClose, onSave}) {
     { status:'paid',    label:'Paid',     icon:'✓', color:T.green,  bg:'#0D2B1F', border:'#1A4A2E' },
     { status:'missed',  label:'Not Paid', icon:'✗', color:T.red,    bg:'#2B1010', border:'#5C2C2C' },
     { status:'delayed', label:'Delayed',  icon:'⏱', color:T.amber,  bg:'#2B1A0A', border:'#5C3A1A' },
+    { status:'refurb',  label:'Refurb',   icon:'🔨', color:T.blue,   bg:'#0A1A2B', border:'#1A3A5C' },
     { status:'void',    label:'Void',     icon:'○', color:T.faint,  bg:'#1A1D27', border:'#2E3044' },
   ]
 
@@ -803,7 +995,7 @@ function PaymentModal({payment, onClose, onSave}) {
             Current status: <span style={{color:payment.status==='paid'?T.green:payment.status==='missed'?T.red:payment.status==='delayed'?T.amber:T.faint,fontWeight:700}}>{payment.status}</span>
           </div>
 
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:20}}>
             {options.map(opt=>(
               <button key={opt.status}
                 onClick={()=>onSave(payment, opt.status)}
