@@ -2,11 +2,6 @@ import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 
-const T = {
-  bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-  text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
-  gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
-}
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
 
@@ -54,6 +49,7 @@ async function extractPDFText(file) {
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export function StatementImporter({properties, companies, showToast, onClose}) {
+  const { T } = useTheme()
   const [step, setStep] = useState('upload') // upload | preview | importing | done
   const [format, setFormat] = useState(null)
   const [parsed, setParsed] = useState(null)

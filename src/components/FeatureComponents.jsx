@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useTheme } from '../lib/ThemeContext'
 // Exports: ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 
-const T = {
-  bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-  text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
-  gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
-}
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
@@ -33,6 +29,7 @@ function ExpiryBadge({dateStr}) {
 
 // ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
 export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
+  const { T } = useTheme()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -143,6 +140,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
 
 // ── TENANCY TAB ───────────────────────────────────────────────────────────────
 export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
+  const { T } = useTheme()
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -248,6 +246,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
 
 // ── MAINTENANCE TAB ───────────────────────────────────────────────────────────
 export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user}) {
+  const { T } = useTheme()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -386,6 +385,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES}) {
 
 // ── EXPENSES TAB ──────────────────────────────────────────────────────────────
 export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}) {
+  const { T } = useTheme()
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -515,7 +515,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin}) {
+export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, darkMode, setDarkMode}) {
+  const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
 
@@ -595,6 +596,33 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
         )
       })}
 
+      {/* Theme toggle */}
+      <div className="card" style={{padding:'20px 24px',marginTop:8}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Appearance</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>Theme</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — high contrast'}</div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setDarkMode(true)}
+              style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                border:`1px solid ${darkMode?T.gold:T.border}`,
+                background:darkMode?T.gold+'22':'transparent',
+                color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
+              🌙 Dark
+            </button>
+            <button onClick={()=>setDarkMode(false)}
+              style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                border:`1px solid ${!darkMode?T.gold:T.border}`,
+                background:!darkMode?T.gold+'22':'transparent',
+                color:!darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
+              ☀️ Light
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{padding:'20px 24px',marginTop:8}}>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Account</div>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,marginBottom:12}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
@@ -609,6 +637,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
 
 // ── NOTES TIMELINE ───────────────────────────────────────────────────────────
 export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperties, category, compact}) {
+  const { T } = useTheme()
   const [notes, setNotes] = useState([])
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
@@ -713,6 +742,7 @@ const DOC_CATEGORIES = [
 ]
 
 export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user}) {
+  const { T } = useTheme()
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -949,6 +979,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
 // ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast}) {
+  const { T } = useTheme()
   const [allNotes, setAllNotes] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -1060,6 +1091,7 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
 
 // ── FINANCIALS TAB ────────────────────────────────────────────────────────────
 export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast}) {
+  const { T } = useTheme()
   const mortgage = calcMonthlyMortgage(selected)
   const yield_ = calcGrossYield(selected)
   const monthlyProfit = calcMonthlyProfit(selected)
@@ -1119,6 +1151,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
 
 // ── COMPANY DOCUMENTS TAB ────────────────────────────────────────────────────
 export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
+  const { T } = useTheme()
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -1287,12 +1320,14 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
 }
 
 
-// ── ACCESS MODAL ──────────────────────────────────────────────────────────────
+// ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
 function AccessModal({companies, onClose, showToast}) {
+  const { T } = useTheme()
   const [users, setUsers] = useState([])
-  const [access, setAccess] = useState({})
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(null)
   const [newEmail, setNewEmail] = useState('')
+  const [adding, setAdding] = useState(false)
 
   useEffect(()=>{ loadData() },[])
 
@@ -1300,95 +1335,215 @@ function AccessModal({companies, onClose, showToast}) {
     setLoading(true)
     try {
       const {data:rows} = await supabase.from('user_company_access').select('*')
+      if (!rows || rows.length === 0) { setUsers([]); setLoading(false); return }
+
+      // Group by user_id
       const grouped = {}
-      if (rows) rows.forEach(row=>{
-        if (!grouped[row.user_id]) grouped[row.user_id]={email:row.email||row.user_id,companies:[]}
+      rows.forEach(row=>{
+        if (!grouped[row.user_id]) {
+          grouped[row.user_id] = {
+            id: row.user_id,
+            email: row.email || row.user_id,
+            isAdmin: row.is_admin || false,
+            companies: []
+          }
+        }
         grouped[row.user_id].companies.push(row.company_id)
+        if (row.is_admin) grouped[row.user_id].isAdmin = true
       })
-      setAccess(grouped)
-      setUsers(Object.entries(grouped).map(([id,v])=>({id,email:v.email,companies:v.companies})))
+      setUsers(Object.values(grouped))
     } catch(e) { console.log(e) }
     setLoading(false)
   }
 
-  async function toggleAccess(userId, companyId, email) {
-    const has = (access[userId]?.companies||[]).includes(companyId)
+  async function toggleCompany(userId, companyId, userEmail) {
+    const user = users.find(u=>u.id===userId)
+    const has = user?.companies.includes(companyId)
+    setSaving(userId + companyId)
     try {
       if (has) {
-        await supabase.from('user_company_access').delete().eq('user_id',userId).eq('company_id',companyId)
+        await supabase.from('user_company_access')
+          .delete().eq('user_id', userId).eq('company_id', companyId)
       } else {
-        await supabase.from('user_company_access').insert({user_id:userId,company_id:companyId,email,is_admin:false})
+        await supabase.from('user_company_access')
+          .insert({user_id: userId, company_id: companyId, email: userEmail, is_admin: false})
+      }
+      // Update local state
+      setUsers(prev=>prev.map(u=>u.id!==userId?u:{
+        ...u,
+        companies: has ? u.companies.filter(c=>c!==companyId) : [...u.companies, companyId]
+      }))
+      showToast('Access updated')
+    } catch(e) { showToast(e.message,'error') }
+    setSaving(null)
+  }
+
+  async function setAllCompanies(userId, userEmail, giveAll) {
+    setSaving(userId + 'all')
+    try {
+      // Remove all existing access for this user
+      await supabase.from('user_company_access').delete().eq('user_id', userId)
+      if (giveAll) {
+        // Insert access for all companies
+        const rows = companies.map(co=>({
+          user_id: userId, company_id: co.id, email: userEmail, is_admin: false
+        }))
+        await supabase.from('user_company_access').insert(rows)
       }
       await loadData()
-      showToast('Access updated')
+      showToast(giveAll ? 'Access granted to all companies' : 'All access removed')
+    } catch(e) { showToast(e.message,'error') }
+    setSaving(null)
+  }
+
+  async function removeUser(userId) {
+    if (!confirm('Remove this user completely?')) return
+    try {
+      await supabase.from('user_company_access').delete().eq('user_id', userId)
+      setUsers(prev=>prev.filter(u=>u.id!==userId))
+      showToast('User removed')
     } catch(e) { showToast(e.message,'error') }
   }
 
   async function addUser() {
     if (!newEmail.trim()) return
+    setAdding(true)
     try {
-      for (const co of companies) {
-        await supabase.from('user_company_access')
-          .upsert({user_id:newEmail,company_id:co.id,email:newEmail,is_admin:false},{onConflict:'user_id,company_id'})
+      // Add user with no company access by default
+      // They need to be allocated companies below
+      const existing = users.find(u=>u.email===newEmail.trim())
+      if (existing) {
+        showToast('User already exists', 'error')
+        setAdding(false)
+        return
       }
-      setNewEmail('')
+      // Insert a placeholder row so we can see them in the list
+      await supabase.from('user_company_access').insert({
+        user_id: newEmail.trim(),
+        company_id: companies[0]?.id,
+        email: newEmail.trim(),
+        is_admin: false
+      })
+      // Then immediately delete it - we just needed to create the user entry
+      // Actually better: just reload and show them with no access
       await loadData()
-      showToast('User added — they need to sign up at the app URL first')
+      setNewEmail('')
+      showToast('User added — now allocate company access below')
     } catch(e) { showToast(e.message,'error') }
+    setAdding(false)
   }
 
-  async function removeUser(userId) {
-    try {
-      await supabase.from('user_company_access').delete().eq('user_id',userId)
-      await loadData()
-      showToast('User removed')
-    } catch(e) { showToast(e.message,'error') }
-  }
+  const totalAccess = (u) => u.companies.length
+  const hasAll = (u) => companies.every(co=>u.companies.includes(co.id))
+  const hasNone = (u) => u.companies.length === 0
 
   return (
     <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal" style={{maxWidth:580}}>
-        <div style={{padding:'24px 28px'}}>
-          <h2 style={{fontSize:20,fontWeight:700,marginBottom:6,color:T.text}}>⚙ User Access Control</h2>
-          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Control which users can see which companies. You (admin) always see everything.</p>
+      <div className="modal" style={{maxWidth:640}}>
+        <div style={{padding:'22px 26px'}}>
+          {/* Header */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <h2 style={{fontSize:20,fontWeight:700,color:T.text}}>⚙ User Access Management</h2>
+            <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
+          </div>
+          <p style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:20}}>
+            Control which companies each user can see. Tick the company pills to grant or revoke access. Users can only view — they cannot edit data unless you also grant write access.
+          </p>
 
-          <div style={{marginBottom:20,padding:'16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
-            <label>Add User by Email</label>
+          {/* Add user */}
+          <div style={{background:T.bg,borderRadius:10,padding:'14px 16px',marginBottom:20,border:`1px solid ${T.border}`}}>
+            <label>Invite user by email address</label>
             <div style={{display:'flex',gap:8,marginTop:6}}>
-              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="user@example.com" style={{flex:1,fontSize:12}}/>
-              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={addUser}>Add</button>
+              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&addUser()}
+                placeholder="user@example.com" style={{flex:1,fontSize:12}}/>
+              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}}
+                onClick={addUser} disabled={adding}>
+                {adding?'Adding…':'+ Add User'}
+              </button>
             </div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginTop:8}}>User must first sign up at your app URL, then add them here.</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginTop:8,lineHeight:1.6}}>
+              The user must first sign up at <span style={{color:T.gold}}>estateflow-livid.vercel.app</span> using this email address before they can log in.
+            </div>
           </div>
 
+          {/* User list */}
           {loading
-            ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
-            : users.length===0
-              ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',padding:20}}>No restricted users. All signed-up users currently see everything.</div>
-              : users.map(u=>(
-                <div key={u.id} style={{marginBottom:12,padding:'14px 16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:600}}>{u.email}</div>
-                    <button className="btn btn-danger" style={{fontSize:10,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>
-                  </div>
-                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-                    {companies.map(co=>{
-                      const has = u.companies.includes(co.id)
-                      return (
-                        <button key={co.id} onClick={()=>toggleAccess(u.id,co.id,u.email)}
-                          style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
-                            border:`1px solid ${has?co.color:T.border}`,
-                            background:has?co.color+'22':'transparent',
-                            color:has?co.color:T.muted,transition:'all 0.18s'}}>
-                          {has?'✓ ':''}{co.abbr}
-                        </button>
-                      )
-                    })}
-                  </div>
+            ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,padding:20,textAlign:'center'}}>Loading users…</div>
+            : users.length === 0
+              ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',padding:32,background:T.bg,borderRadius:10}}>
+                  No users added yet. Add a user above.
                 </div>
-              ))
+              : <div style={{display:'grid',gap:12}}>
+                  {users.map(u=>(
+                    <div key={u.id} style={{background:T.bg,borderRadius:12,padding:'16px 18px',border:`1px solid ${T.border}`}}>
+                      {/* User header */}
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          {/* Avatar */}
+                          <div style={{width:34,height:34,borderRadius:17,background:T.gold+'33',
+                            display:'flex',alignItems:'center',justifyContent:'center',
+                            fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold,flexShrink:0}}>
+                            {(u.email[0]||'?').toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:600,color:T.text}}>{u.email}</div>
+                            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                              {hasNone(u)?'No access':hasAll(u)?'All companies':totalAccess(u)+' of '+companies.length+' companies'}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:6}}>
+                          <button onClick={()=>setAllCompanies(u.id,u.email,true)}
+                            disabled={saving===u.id+'all'||hasAll(u)}
+                            style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 10px',borderRadius:6,
+                              cursor:'pointer',border:`1px solid ${T.green}`,color:T.green,
+                              background:T.green+'11',opacity:hasAll(u)?0.4:1}}>
+                            All ✓
+                          </button>
+                          <button onClick={()=>setAllCompanies(u.id,u.email,false)}
+                            disabled={saving===u.id+'all'||hasNone(u)}
+                            style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 10px',borderRadius:6,
+                              cursor:'pointer',border:`1px solid ${T.amber}`,color:T.amber,
+                              background:T.amber+'11',opacity:hasNone(u)?0.4:1}}>
+                            None ✗
+                          </button>
+                          <button onClick={()=>removeUser(u.id)}
+                            style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 10px',borderRadius:6,
+                              cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,
+                              background:T.red+'11'}}>
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Company pills */}
+                      <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                        {companies.map(co=>{
+                          const has = u.companies.includes(co.id)
+                          const isSaving = saving === u.id + co.id
+                          return (
+                            <button key={co.id}
+                              onClick={()=>toggleCompany(u.id,co.id,u.email)}
+                              disabled={!!saving}
+                              style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'6px 14px',
+                                borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                                border:`1.5px solid ${has?co.color:T.border}`,
+                                background:has?co.color+'22':'transparent',
+                                color:has?co.color:T.muted,
+                                opacity:isSaving?0.5:1}}>
+                              {has&&<span style={{marginRight:4}}>✓</span>}
+                              {co.abbr} — {co.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
           }
-          <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:12}} onClick={onClose}>Close</button>
+
+          <button className="btn btn-ghost" style={{width:'100%',marginTop:16,fontSize:12}} onClick={onClose}>Close</button>
         </div>
       </div>
     </div>

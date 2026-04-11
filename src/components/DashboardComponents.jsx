@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useTheme } from '../lib/ThemeContext'
 import { supabase } from '../lib/supabase'
 
-const T = {
-  bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-  text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
-  gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0', purple:'#9B59B6',
-}
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
@@ -21,6 +17,7 @@ function daysSince(dateStr) {
 
 // ── SMART ALERTS DASHBOARD PANEL ─────────────────────────────────────────────
 export function SmartAlerts({properties, companies, fmt, openDetail}) {
+  const { T } = useTheme()
   const [compliance, setCompliance] = useState([])
   const [tenancies, setTenancies] = useState([])
   const [maintenance, setMaintenance] = useState([])
@@ -152,6 +149,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
 
 // ── REPORTS PAGE ─────────────────────────────────────────────────────────────
 export function ReportsPage({properties, companies, fmt, onImport, companySettings}) {
+  const { T } = useTheme()
   const [selectedCompany, setSelectedCompany] = useState('all')
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [expenses, setExpenses] = useState([])
@@ -643,6 +641,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
 
 // ── CONTRACTORS PAGE ──────────────────────────────────────────────────────────
 export function ContractorsPage({companies, showToast}) {
+  const { T } = useTheme()
   const [contractors, setContractors] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -791,6 +790,7 @@ export function ContractorsPage({companies, showToast}) {
 
 // ── PORTFOLIO GROWTH CHART ────────────────────────────────────────────────────
 export function PortfolioChart({properties, companies}) {
+  const { T } = useTheme()
   const years = [2020,2021,2022,2023,2024,2025,2026]
 
   // Cumulative properties and value by year (using purchase_date if available, else estimate)

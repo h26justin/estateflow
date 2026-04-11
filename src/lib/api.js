@@ -74,6 +74,25 @@ export async function upsertRentPayment(propertyId, year, month, status, amount,
   return data
 }
 // ── USER COMPANY ACCESS ────────────────────────────────────────────────────
+export async function fetchUserAccessByEmail(email) {
+  if (!email) return []
+  const { data, error } = await supabase
+    .from('user_company_access')
+    .select('*')
+    .eq('email', email)
+  if (error) return []
+  return data || []
+}
+
+export async function updateUserIdByEmail(email, userId) {
+  try {
+    await supabase.from('user_company_access')
+      .update({ user_id: userId })
+      .eq('email', email)
+      .neq('user_id', userId)
+  } catch(e) { console.log('updateUserIdByEmail:', e) }
+}
+
 export async function fetchUserAccess(userId) {
   const { data, error } = await supabase
     .from('user_company_access')

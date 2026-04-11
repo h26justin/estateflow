@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react'
+import { useTheme } from './lib/ThemeContext'
 import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
 import { SmartAlerts, ReportsPage, ContractorsPage } from './components/DashboardComponents'
 import { StatementImporter } from './components/StatementImporter'
@@ -8,11 +9,7 @@ import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
 import LoginPage from './components/LoginPage'
 
-const T = {
-  bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-  text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
-  gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', blue:'#4B8FE0', amber:'#E0943A',
-}
+
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
@@ -46,10 +43,10 @@ const CSS = `
   html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
   *{box-sizing:border-box;margin:0;padding:0;}
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0B0D14}::-webkit-scrollbar-thumb{background:#1E2335;border-radius:3px}
-  input,select,textarea{font-family:'DM Mono',monospace;background:#12151F;border:1px solid #1E2335;color:#E4E0D8;border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
-  input:focus,select:focus,textarea:focus{border-color:#C8A84B;}
-  select option{background:#12151F;}
-  label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#6B7191;display:block;margin-bottom:5px;}
+  input,select,textarea{font-family:'DM Mono',monospace;background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
+  input:focus,select:focus,textarea:focus{border-color:${T.gold};}
+  select option{background:${T.surface};}
+  label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
   .btn{font-family:'DM Mono',monospace;font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
   .btn-gold{background:#C8A84B;color:#0B0D14;}.btn-gold:hover{background:#D9BC72;}
   .btn-ghost{background:transparent;color:#E4E0D8;border:1px solid #1E2335;}.btn-ghost:hover{border-color:#C8A84B;color:#C8A84B;}
@@ -81,7 +78,7 @@ const CSS = `
     .show-mobile{display:none!important;}
     .hide-mobile{display:flex!important;}
   }
-  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#12151F;border-top:1px solid #1E2335;z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
+  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:${T.surface};border-top:1px solid ${T.border};z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
   .fade{animation:fadeIn 0.25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -197,6 +194,7 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
+  const { T, darkMode, setDarkMode } = useTheme()
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 769
   const [showDrawer, setShowDrawer] = useState(false)
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
@@ -206,11 +204,19 @@ export default function App() {
     async function loadData() {
       setLoading(true)
       try {
-        const [cos, props, access] = await Promise.all([
+        const [cos, props, accessById, accessByEmail] = await Promise.all([
           api.fetchCompanies(),
           api.fetchProperties(),
-          api.fetchUserAccess(user.id)
+          api.fetchUserAccess(user.id),
+          api.fetchUserAccessByEmail(user.email)
         ])
+        // Merge access by ID and by email
+        const allAccess = [...accessById, ...accessByEmail.filter(a=>!accessById.find(b=>b.company_id===a.company_id))]
+        // If user was found by email but not ID, update their user_id
+        if (accessByEmail.length > 0 && accessById.length === 0) {
+          await api.updateUserIdByEmail(user.email, user.id)
+        }
+        const access = allAccess
         const accessIds = access.map(a=>a.company_id)
         const isAdminUser = access.length===0 || access.some(a=>a.is_admin)
         setIsAdmin(isAdminUser)
@@ -417,7 +423,7 @@ export default function App() {
   ]
 
   return (
-    <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text}}>
+    <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
       <style>{CSS}</style>
       {/* ── HEADER ── */}
       <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
@@ -687,7 +693,7 @@ export default function App() {
           </div>}
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
-          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin}/>}
+          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} darkMode={darkMode} setDarkMode={setDarkMode}/>}
           {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt} onImport={()=>setShowImporter(true)} companySettings={companySettings}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
