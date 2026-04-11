@@ -170,32 +170,36 @@ export default function App() {
 
   useEffect(()=>{
     if (!user) return
-    setLoading(true)
-    Promise.all([api.fetchCompanies(), api.fetchProperties(), api.fetchUserAccess(user.id)])
-      .then(([cos,props,access])=>{
-        // If user has no access restrictions, show all; otherwise filter
+    async function loadData() {
+      setLoading(true)
+      try {
+        const [cos, props, access] = await Promise.all([
+          api.fetchCompanies(),
+          api.fetchProperties(),
+          api.fetchUserAccess(user.id)
+        ])
         const accessIds = access.map(a=>a.company_id)
         const isAdminUser = access.length===0 || access.some(a=>a.is_admin)
         setIsAdmin(isAdminUser)
         setUserAccess(accessIds)
-        const visibleCos = isAdminUser ? cos : cos.filter(c=>accessIds.includes(c.id))
+        const visibleCos   = isAdminUser ? cos   : cos.filter(c=>accessIds.includes(c.id))
         const visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
         setCompanies(visibleCos)
         setProperties(visibleProps)
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
-        // Auto-generate future rent months (6 months ahead) - runs silently in background
-        api.ensureFutureRentMonths(visibleProps, 6).then(count => {
-          if (count > 0) {
-            api.fetchProperties().then(refreshed => {
-              const refreshedVisible = isAdminUser ? refreshed : refreshed.filter(p => accessIds.includes(p.company_id))
-              setProperties(refreshedVisible)
+        // Auto-generate future rent months silently in background
+        api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
+          if(count>0){
+            api.fetchProperties().then(refreshed=>{
+              const vis = isAdminUser ? refreshed : refreshed.filter(p=>accessIds.includes(p.company_id))
+              setProperties(vis)
             })
           }
-        }).catch(e => console.log('Future months check:', e))
-        // Load settings for each company
+        }).catch(e=>console.log('Future months:', e))
+        // Load company settings
         const settingsMap = {}
-        const settingsResults = await Promise.all(visibleCos.map(c => api.fetchCompanySettings(c.id)))
-        visibleCos.forEach((c, i) => {
+        const settingsResults = await Promise.all(visibleCos.map(c=>api.fetchCompanySettings(c.id)))
+        visibleCos.forEach((c,i)=>{
           settingsMap[c.id] = settingsResults[i] || {
             feature_compliance:true, feature_tenancy:true,
             feature_maintenance:true, feature_documents:true,
@@ -203,15 +207,18 @@ export default function App() {
           }
         })
         setCompanySettings(settingsMap)
-      })
-      .catch(e=>{
-        // If access table doesn't exist yet, show everything (first run)
-        console.log('Access table not found, showing all:', e.message)
+      } catch(e) {
+        console.log('Load error, showing all:', e.message)
         setIsAdmin(true)
-        api.fetchCompanies().then(cos=>{setCompanies(cos);if(cos.length>0)setActiveCoTab(cos[0].id)})
-        api.fetchProperties().then(props=>setProperties(props))
-      })
-      .finally(()=>setLoading(false))
+        const [cos, props] = await Promise.all([api.fetchCompanies(), api.fetchProperties()])
+        setCompanies(cos)
+        setProperties(props)
+        if(cos.length>0) setActiveCoTab(cos[0].id)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
   },[user])
 
   const filtered = useMemo(()=>properties.filter(p=>{
