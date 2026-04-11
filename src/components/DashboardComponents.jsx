@@ -212,7 +212,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
     const blob = new Blob([csv], {type:'text/csv'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href=url; a.download=`estateflow-report-${selectedYear}.csv`; a.click()
+    a.href=url; a.download=`ownproperly-report-${selectedYear}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 
@@ -251,12 +251,12 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
     doc.setTextColor(...gold)
     doc.setFontSize(20)
     doc.setFont('helvetica','bold')
-    doc.text('Estateflow', 14, 16)
+    doc.text('Own Properly', 14, 16)
 
     doc.setTextColor(...muted)
     doc.setFontSize(7)
     doc.setFont('helvetica','normal')
-    doc.text('PORTFOLIO MANAGER', 14, 21)
+    doc.text('PROPERTY MANAGEMENT', 14, 21)
 
     // Report title
     doc.setTextColor(...white)
@@ -361,7 +361,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
         doc.setTextColor(...gold)
         doc.setFontSize(8)
         doc.setFont('helvetica','bold')
-        doc.text('Estateflow — Property P&L (continued)', 14, 8)
+        doc.text('Own Properly — Property P&L (continued)', 14, 8)
         y = 20
         // Re-draw column headers
         doc.setFillColor(...surface)
@@ -486,11 +486,11 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       doc.setTextColor(...muted)
       doc.setFontSize(7)
       doc.setFont('helvetica','normal')
-      doc.text('Estateflow Portfolio Manager — Confidential', 14, H-4)
+      doc.text('Own Properly Property Management — Confidential', 14, H-4)
       doc.text(`Page ${i} of ${pageCount}`, W-14, H-4, {align:'right'})
     }
 
-    doc.save(`estateflow-report-${selectedYear}.pdf`)
+    doc.save(`ownproperly-report-${selectedYear}.pdf`)
   }
 
   const CATEGORY_LABELS = {

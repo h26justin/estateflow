@@ -439,10 +439,10 @@ export default function App() {
         <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
           {/* Logo */}
           <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-            <div style={{width:30,height:30,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>🏛</div>
+            <div style={{width:30,height:30,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>🏡</div>
             <div>
-              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1,color:T.text}}>Estateflow</div>
-              {!isMobile&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>}
+              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1,color:T.text}}>Own Properly</div>
+              {!isMobile&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Property Management</div>}
             </div>
           </div>
 
@@ -486,8 +486,8 @@ export default function App() {
             {/* Drawer header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${T.border}`}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏛</div>
-                <div style={{fontSize:14,fontWeight:700,color:T.text}}>Estateflow</div>
+                <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏡</div>
+                <div style={{fontSize:14,fontWeight:700,color:T.text}}>Own Properly</div>
               </div>
               <button onClick={()=>setShowDrawer(false)}
                 style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px'}}>✕</button>
@@ -530,7 +530,7 @@ export default function App() {
               <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {companies.length} companies · {stats.rented} rented · {stats.vacant} vacant</p>
             </div>
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(5,1fr)',gap:10,marginBottom:20}}>
-              <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
+              <StatCard icon="🏡" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                 breakdown={[
                   {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
                   {label:'Total invested', value:fmt(stats.totalInvested)},

@@ -1460,7 +1460,7 @@ function AccessModal({companies, onClose, showToast}) {
               </button>
             </div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginTop:8,lineHeight:1.6}}>
-              The user must first sign up at <span style={{color:T.gold}}>estateflow-livid.vercel.app</span> using this email address before they can log in.
+              The user must first sign up at <span style={{color:T.gold}}>ownproperly.com</span> using this email address before they can log in.
             </div>
           </div>
 
