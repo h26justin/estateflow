@@ -607,6 +607,97 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   )
 }
 
+// ── NOTES TIMELINE ───────────────────────────────────────────────────────────
+export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperties, category, compact}) {
+  const [notes, setNotes] = useState([])
+  const [newNote, setNewNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(()=>{
+    if (!propertyId) return
+    setLoading(true)
+    let q = supabase.from('property_notes').select('*').eq('property_id', propertyId)
+    if (category) q = q.eq('category', category)
+    q.order('created_at', {ascending:false})
+      .then(({data})=>{ setNotes(data||[]); setLoading(false) })
+      .catch(()=>setLoading(false))
+  },[propertyId, category])
+
+  async function handleSave() {
+    if (!newNote.trim() || !user) return
+    setSaving(true)
+    try {
+      const {data, error} = await supabase.from('property_notes').insert({
+        property_id: propertyId,
+        user_id: user.id,
+        user_email: user.email,
+        note: newNote.trim(),
+        category: category || 'general',
+      }).select().single()
+      if (error) throw error
+      setNotes(prev=>[data,...prev])
+      setNewNote('')
+      if (showToast) showToast('Note saved')
+    } catch(e) {
+      if (showToast) showToast(e.message, 'error')
+    }
+    setSaving(false)
+  }
+
+  async function handleDelete(id) {
+    try {
+      await supabase.from('property_notes').delete().eq('id', id)
+      setNotes(prev=>prev.filter(n=>n.id!==id))
+    } catch(e) {}
+  }
+
+  function formatDate(ts) {
+    if (!ts) return ''
+    return new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) +
+      ' ' + new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+  }
+
+  return (
+    <div style={{background:T.card,borderRadius:12,padding:'16px 20px',border:`1px solid ${T.border}`}}>
+      {!compact&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>
+        {category ? category.charAt(0).toUpperCase()+category.slice(1)+' Notes' : 'Notes Timeline'}
+      </div>}
+      {isAdmin&&<>
+        <textarea value={newNote} onChange={e=>setNewNote(e.target.value)}
+          placeholder="Add a note about this property..."
+          style={{width:'100%',minHeight:72,resize:'vertical',marginBottom:8,fontSize:12}}/>
+        <button className="btn btn-gold" style={{fontSize:11,marginBottom:16}} onClick={handleSave} disabled={saving}>
+          {saving?'Saving...':'+ Save Note'}
+        </button>
+      </>}
+      {loading
+        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading...</div>
+        : notes.length===0
+          ? <div style={{fontFamily:"'DM Mono',monospace",color:T.faint,fontSize:11}}>No notes yet.</div>
+          : <div style={{display:'grid',gap:10}}>
+              {notes.map(n=>(
+                <div key={n.id} style={{background:T.bg,borderRadius:8,padding:'10px 14px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,flexWrap:'wrap',gap:6}}>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.gold}}>{n.user_email}</span>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                    </div>
+                    {isAdmin&&<button onClick={()=>handleDelete(n.id)}
+                      style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
+                      Delete
+                    </button>}
+                  </div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                </div>
+              ))}
+            </div>
+      }
+    </div>
+  )
+}
+
+
 // ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast}) {
   const [allNotes, setAllNotes] = useState([])
