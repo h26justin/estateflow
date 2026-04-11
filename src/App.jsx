@@ -107,7 +107,7 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 function getStatusColor(status) {
   if (status==='paid')    return '#2ECC8A'
   if (status==='missed')  return '#E05555'
-  if (status==='delayed') return '#E0943A'
+  if (status==='late') return '#E0943A'
   if (status==='refurb')  return '#4B8FE0'
   return '#3A3F58' // void
 }
@@ -497,51 +497,7 @@ export default function App() {
             })}
           </div>}
 
-          {view==='rent'&&<div className="fade">
-            <div style={{marginBottom:20}}>
-              <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Rent Tracker</h1>
-              <div style={{display:'flex',gap:16,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
-                {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Void'}].map(x=>(
-                  <span key={x.l} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}</span>
-                ))}
-              </div>
-            </div>
-            {companies.map(c=>{
-              const cps=properties.filter(p=>p.company_id===c.id&&p.rent_payments?.length>0)
-              if(!cps.length) return null
-              return <div key={c.id} style={{marginBottom:28}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-                  <div style={{width:3,height:20,background:c.color,borderRadius:2}}/>
-                  <h2 style={{fontSize:16,fontWeight:600}}>{c.name}</h2>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{cps.length} properties</span>
-                </div>
-                <div style={{display:'grid',gap:8}}>
-                  {cps.map(p=>{
-                    const paid=p.rent_payments.filter(m=>m.status==='paid').length
-                    const missed=p.rent_payments.filter(m=>m.status==='missed').length
-                    return <div key={p.id} className="card pcard" style={{padding:'12px 16px'}} onClick={()=>openDetail(p)}>
-                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
-                        <div>
-                          <div style={{fontSize:13,fontWeight:600,marginBottom:1}}>{p.name}</div>
-                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:2}}>
-                            {fmt(p.rent_pcm)}/mo · Due {p.rent_due_day||'—'}
-                            {(p.arrears||0)>0&&<span style={{color:T.red,marginLeft:8}}>⚠ Arrears {fmt(p.arrears)}</span>}
-                          </div>
-                          <RentDots payments={p.rent_payments}/>
-                        </div>
-                        <div style={{textAlign:'right',flexShrink:0}}>
-                          <Badge status={p.status}/>
-                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginTop:4}}>{paid} paid · {missed} missed</div>
-                        </div>
-                      </div>
-                    </div>
-                  })}
-                </div>
-              </div>
-            })}
-            {companies.every(c=>!properties.some(p=>p.company_id===c.id&&p.rent_payments?.length>0))&&
-              <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>No rent payment history yet. Add properties and log payments to see them here.</div>}
-          </div>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
 
           {view==='detail'&&selected&&<div className="fade">
             <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>← Back</button>
@@ -763,6 +719,184 @@ function CompanyModal({onClose,onSave}){
 }
 
 
+
+// ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
+function RentTrackerOverview({companies, properties, fmt, openDetail}) {
+  const T = {
+    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
+    text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
+    gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
+  }
+
+  // Global year filter — applies to all properties
+  const allPayments = properties.flatMap(p=>p.rent_payments||[])
+  const allYears = [...new Set(allPayments.map(p=>p.year))].sort()
+  const [globalYear, setGlobalYear] = useState(allYears[allYears.length-1]||null)
+  const [expandedCompanies, setExpandedCompanies] = useState({})
+
+  function toggleCompany(id) {
+    setExpandedCompanies(prev=>({...prev,[id]:!prev[id]}))
+  }
+
+  // Per-property year stats
+  function getStats(payments, year, rentPcm) {
+    const filtered = year ? payments.filter(p=>p.year===year) : payments
+    const paid    = filtered.filter(p=>p.status==='paid').length
+    const missed  = filtered.filter(p=>p.status==='missed').length
+    const late = filtered.filter(p=>p.status==='late').length
+    const refurb  = filtered.filter(p=>p.status==='refurb').length
+    const voidM   = filtered.filter(p=>p.status==='void').length
+    const lateIncome = late * (rentPcm||0)
+    const income  = paid * (rentPcm||0)
+    return {paid, missed, late, refurb, voidM, income}
+  }
+
+  // Company totals for selected year
+  function getCompanyTotals(companyProps, year) {
+    return companyProps.reduce((acc, p) => {
+      const s = getStats(p.rent_payments||[], year, p.rent_pcm)
+      acc.paid    += s.paid
+      acc.missed  += s.missed
+      acc.late += s.late
+      acc.refurb  += s.refurb
+      acc.income  += s.income
+      return acc
+    }, {paid:0, missed:0, late:0, refurb:0, income:0})
+  }
+
+  return (
+    <div className="fade">
+      {/* Header + global year filter */}
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
+        <div>
+          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Rent Tracker</h1>
+          <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+            {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+              <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
+                <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
+              </span>
+            ))}
+          </div>
+        </div>
+        {/* Global year filter */}
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginRight:4}}>FILTER YEAR:</span>
+          {[null,...allYears].map(yr=>(
+            <button key={yr||'all'} onClick={()=>setGlobalYear(yr)}
+              style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
+                border:`1px solid ${globalYear===yr?T.gold:T.border}`,
+                background:globalYear===yr?T.gold+'22':'transparent',
+                color:globalYear===yr?T.gold:T.muted,transition:'all 0.18s'}}>
+              {yr||'All'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Companies */}
+      {companies.map(c=>{
+        const cps = properties.filter(p=>p.company_id===c.id&&(p.rent_payments?.length>0||p.status==='rented'))
+        if (!cps.length) return null
+        const totals = getCompanyTotals(cps, globalYear)
+        const isOpen = expandedCompanies[c.id] !== false // default open
+
+        return (
+          <div key={c.id} style={{marginBottom:20}}>
+            {/* Company header — clickable to collapse */}
+            <div onClick={()=>toggleCompany(c.id)}
+              style={{display:'flex',alignItems:'center',gap:10,marginBottom:isOpen?12:0,cursor:'pointer',
+                background:T.card,border:`1px solid ${T.border}`,borderRadius:isOpen?'12px 12px 0 0':'12px',
+                padding:'14px 18px',transition:'border-radius 0.2s'}}>
+              <div style={{width:3,height:20,background:c.color,borderRadius:2,flexShrink:0}}/>
+              <div style={{flex:1}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <h2 style={{fontSize:15,fontWeight:700}}>{c.name}</h2>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{cps.length} properties</span>
+                </div>
+              </div>
+              {/* Company summary for selected year */}
+              <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
+                {[
+                  {v:totals.paid,   c:T.green, l:'paid'},
+                  {v:totals.missed, c:T.red,   l:'missed'},
+                  {v:totals.late,c:T.amber, l:'late'},
+                  {v:totals.refurb, c:T.blue,  l:'refurb'},
+                ].filter(x=>x.v>0).map(x=>(
+                  <span key={x.l} style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:x.c,fontWeight:600}}>
+                    {x.v} {x.l}
+                  </span>
+                ))}
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.gold}}>{fmt(totals.income)}</span>
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{isOpen?'▲':'▼'}</span>
+              </div>
+            </div>
+
+            {/* Property rows */}
+            {isOpen&&<div style={{border:`1px solid ${T.border}`,borderTop:'none',borderRadius:'0 0 12px 12px',overflow:'hidden'}}>
+              {cps.map((p,pi)=>{
+                const s = getStats(p.rent_payments||[], globalYear, p.rent_pcm)
+                const filteredPayments = globalYear
+                  ? (p.rent_payments||[]).filter(pm=>pm.year===globalYear)
+                  : (p.rent_payments||[])
+                return (
+                  <div key={p.id}
+                    style={{padding:'14px 18px',borderBottom:pi<cps.length-1?`1px solid ${T.border}`:'none',
+                      background:pi%2===0?T.card:T.surface,cursor:'pointer',transition:'background 0.15s'}}
+                    onClick={()=>openDetail(p)}
+                    onMouseEnter={e=>e.currentTarget.style.background='#1E2335'}
+                    onMouseLeave={e=>e.currentTarget.style.background=pi%2===0?T.card:T.surface}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                      {/* Left: name + dots */}
+                      <div style={{flex:1,minWidth:200}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
+                          <span style={{fontSize:13,fontWeight:600}}>{p.name}</span>
+                          {(p.arrears||0)>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
+                        </div>
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>
+                          {fmt(p.rent_pcm)}/mo · Due {p.rent_due_day||'—'}
+                        </div>
+                        {/* Dots filtered by global year */}
+                        <RentDots payments={p.rent_payments||[]} filterYear={globalYear}/>
+                      </div>
+
+                      {/* Right: stats + badge */}
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
+                        <Badge status={p.status}/>
+                        {/* Year stats */}
+                        <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                          {[
+                            {v:s.paid,    c:T.green, l:'P'},
+                            {v:s.missed,  c:T.red,   l:'M'},
+                            {v:s.late, c:T.amber, l:'L'},
+                            {v:s.refurb,  c:T.blue,  l:'R'},
+                          ].map(x=>(
+                            <span key={x.l} style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:x.v>0?x.c:T.faint}}>
+                              {x.v} {x.l}
+                            </span>
+                          ))}
+                        </div>
+                        {/* Income for filtered period */}
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.gold}}>
+                          {fmt(s.income)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>}
+          </div>
+        )
+      })}
+
+      {companies.every(c=>!properties.some(p=>p.company_id===c.id))&&
+        <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
+          No properties found.
+        </div>}
+    </div>
+  )
+}
+
 // ─── RENT TAB ────────────────────────────────────────────────────────────────
 function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties}) {
   const T = {
@@ -779,11 +913,11 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
   // Stats for selected year
   const paid    = filtered.filter(p=>p.status==='paid').length
   const missed  = filtered.filter(p=>p.status==='missed').length
-  const delayed = filtered.filter(p=>p.status==='delayed').length
+  const late = filtered.filter(p=>p.status==='late').length
   const refurb  = filtered.filter(p=>p.status==='refurb').length
   const voidM   = filtered.filter(p=>p.status==='void').length
   const totalIncome = paid * (selected.rent_pcm||0)
-  const delayedIncome = delayed * (selected.rent_pcm||0)
+  const lateIncome = late * (selected.rent_pcm||0)
 
   return (
     <div>
@@ -830,7 +964,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Delayed'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+          {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
             <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>
@@ -846,7 +980,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
             {[
               {l:'Months Paid',    v:paid,    c:T.green,  sub:fmt(totalIncome)},
               {l:'Months Missed',  v:missed,  c:T.red,    sub:fmt(missed*(selected.rent_pcm||0))},
-              {l:'Months Delayed', v:delayed, c:T.amber,  sub:fmt(delayedIncome)},
+              {l:'Months Late', v:late, c:T.amber,  sub:fmt(lateIncome)},
               {l:'Months Refurb',  v:refurb,  c:T.blue,   sub:''},
               {l:'Months Void',    v:voidM,   c:T.faint,  sub:''},
               {l:'Total Received', v:fmt(totalIncome), c:T.gold, sub:`${paid} months`, big:true},
@@ -980,7 +1114,7 @@ function PaymentModal({payment, onClose, onSave}) {
   const options = [
     { status:'paid',    label:'Paid',     icon:'✓', color:T.green,  bg:'#0D2B1F', border:'#1A4A2E' },
     { status:'missed',  label:'Not Paid', icon:'✗', color:T.red,    bg:'#2B1010', border:'#5C2C2C' },
-    { status:'delayed', label:'Delayed',  icon:'⏱', color:T.amber,  bg:'#2B1A0A', border:'#5C3A1A' },
+    { status:'late', label:'Late',  icon:'⏱', color:T.amber,  bg:'#2B1A0A', border:'#5C3A1A' },
     { status:'refurb',  label:'Refurb',   icon:'🔨', color:T.blue,   bg:'#0A1A2B', border:'#1A3A5C' },
     { status:'void',    label:'Void',     icon:'○', color:T.faint,  bg:'#1A1D27', border:'#2E3044' },
   ]
@@ -992,7 +1126,7 @@ function PaymentModal({payment, onClose, onSave}) {
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{payment.month_label}</h2>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,marginBottom:24}}>
-            Current status: <span style={{color:payment.status==='paid'?T.green:payment.status==='missed'?T.red:payment.status==='delayed'?T.amber:T.faint,fontWeight:700}}>{payment.status}</span>
+            Current status: <span style={{color:payment.status==='paid'?T.green:payment.status==='missed'?T.red:payment.status==='late'?T.amber:T.faint,fontWeight:700}}>{payment.status}</span>
           </div>
 
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:20}}>
