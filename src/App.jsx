@@ -108,23 +108,6 @@ const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
           ))}
         </div>
       )}
-    {/* Mobile bottom nav */}
-    <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
-      {[
-        {key:'dashboard',icon:'◈',label:'Home'},
-        {key:'properties',icon:'⊞',label:'Props'},
-        {key:'rent',icon:'£',label:'Rent'},
-        {key:'reports',icon:'📊',label:'Reports'},
-        {key:'settings',icon:'⚙',label:'Settings'},
-      ].map(item=>(
-        <button key={item.key} onClick={()=>setView(item.key)}
-          style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'4px 8px',
-            color:view===item.key?T.gold:T.muted,fontSize:10,fontFamily:"'DM Mono',monospace"}}>
-          <span style={{fontSize:18}}>{item.icon}</span>
-          <span>{item.label}</span>
-        </button>
-      ))}
-    </nav>
     </div>
   )
 }
@@ -657,6 +640,24 @@ export default function App() {
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
 
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
+
+      {/* Mobile bottom nav */}
+      <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+        {[
+          {key:'dashboard',icon:'◈',label:'Home'},
+          {key:'properties',icon:'⊞',label:'Props'},
+          {key:'rent',icon:'£',label:'Rent'},
+          {key:'reports',icon:'📊',label:'Reports'},
+          {key:'settings',icon:'⚙',label:'Settings'},
+        ].map(item=>(
+          <button key={item.key} onClick={()=>setView(item.key)}
+            style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'4px 8px',
+              color:view===item.key?T.gold:T.muted,fontSize:10,fontFamily:"'DM Mono',monospace"}}>
+            <span style={{fontSize:18}}>{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
