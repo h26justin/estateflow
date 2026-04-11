@@ -76,7 +76,11 @@ const CSS = `
     .card{border-radius:10px!important;}
     input,select,textarea{font-size:16px!important;}
   }
-  @media(min-width:769px){.mobile-nav{display:none!important;}}
+  @media(min-width:769px){
+    .mobile-nav{display:none!important;}
+    .show-mobile{display:none!important;}
+    .hide-mobile{display:flex!important;}
+  }
   .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#12151F;border-top:1px solid #1E2335;z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
   .fade{animation:fadeIn 0.25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -405,16 +409,18 @@ export default function App() {
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text}}>
       <style>{CSS}</style>
-      <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 24px',position:'sticky',top:0,zIndex:100}}>
-        <div style={{maxWidth:1240,margin:'0 auto',height:60,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:32,height:32,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🏛</div>
-            <div>
-              <div style={{fontSize:16,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1}}>Estateflow</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>
+      <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
+        <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+          {/* Logo */}
+          <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+            <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏛</div>
+            <div className="hide-mobile">
+              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1}}>Estateflow</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>
             </div>
           </div>
-          <nav style={{display:'flex',gap:2}}>
+          {/* Desktop nav - hidden on mobile */}
+          <nav className="hide-mobile" style={{display:'flex',gap:2,flex:1,justifyContent:'center'}}>
             {navItems.map(n=>(
               <button key={n.key} className={`tab ${view===n.key||(view==='detail'&&n.key==='properties')?'active':''}`}
                 onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}}>
@@ -422,16 +428,20 @@ export default function App() {
               </button>
             ))}
           </nav>
-          <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-gold" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
-            <div className="hide-mobile" style={{display:'flex',gap:8}}>
-              <button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
-            </div>
+          {/* Mobile title - only shown on mobile */}
+          <div className="show-mobile" style={{display:'none',flex:1,paddingLeft:8}}>
+            <div style={{fontSize:15,fontWeight:700,color:T.gold}}>Estateflow</div>
+          </div>
+          {/* Right buttons */}
+          <div style={{display:'flex',gap:6,flexShrink:0}}>
+            <button className="btn btn-gold hide-mobile" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
+            <button className="btn btn-ghost hide-mobile" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
+            <button className="show-mobile btn btn-gold" style={{display:'none',fontSize:11,padding:'6px 10px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add</button>
           </div>
         </div>
       </header>
 
-      <main style={{maxWidth:1240,margin:'0 auto',padding:'28px 24px'}}>
+      <main style={{maxWidth:1240,margin:'0 auto',padding:'20px 14px 90px',width:'100%',overflowX:'hidden'}}>
         {loading?<Spinner/>:<>
 
           {view==='dashboard'&&<div className="fade">
@@ -439,7 +449,7 @@ export default function App() {
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
               <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties &middot; {companies.length} companies &middot; {stats.rented} rented &middot; {stats.vacant} vacant</p>
             </div>
-            <div className="stat-cards-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(160px,45%),1fr))',gap:10,marginBottom:20}}>
               <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                 breakdown={[
                   {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
