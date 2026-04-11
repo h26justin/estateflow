@@ -1479,34 +1479,42 @@ function PaymentModal({payment, onClose, onSave}) {
 
 // ─── ACCESS MODAL (Admin only) ────────────────────────────────────────────────
 function AccessModal({companies, userId, onClose, showToast}) {
-  const T = {
-    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-    text:'#E4E0D8', muted:'#6B7191', gold:'#C8A84B', green:'#2ECC8A', red:'#E05555',
-  }
-  const [users, setUsers] = useState([])
-  const [access, setAccess] = useState({})
-  const [loading, setLoading] = useState(true)
+  const { T } = useTheme()
+  const [allUsers, setAllUsers] = useState([])
+  const [access, setAccess]     = useState({})
+  const [loading, setLoading]   = useState(true)
   const [newEmail, setNewEmail] = useState('')
 
-  useEffect(()=>{
-    loadData()
-  },[])
+  useEffect(()=>{ loadData() },[])
 
   async function loadData() {
+    setLoading(true)
     try {
-      const {data: accessRows} = await supabase.from('user_company_access').select('*')
-      const {data: {users: authUsers}} = await supabase.auth.admin.listUsers().catch(()=>({data:{users:[]}}))
-      
-      // Group access by user
-      const grouped = {}
-      if (accessRows) {
-        accessRows.forEach(row=>{
-          if (!grouped[row.user_id]) grouped[row.user_id] = {email: row.email||row.user_id, companies:[]}
-          grouped[row.user_id].companies.push(row.company_id)
+      // Fetch all signed-up users via SECURITY DEFINER function
+      const { data: authUsers, error: fnErr } = await supabase.rpc('list_auth_users')
+      if (fnErr) console.warn('list_auth_users:', fnErr.message)
+
+      // Fetch all access rows
+      const { data: accessRows } = await supabase.from('user_company_access').select('*')
+
+      // Build access map: { user_id: [company_id, ...] }
+      const map = {}
+      ;(accessRows || []).forEach(row => {
+        if (!map[row.user_id]) map[row.user_id] = []
+        map[row.user_id].push(row.company_id)
+      })
+      setAccess(map)
+
+      // Prefer auth users list (complete), fall back to access rows
+      if (authUsers && authUsers.length > 0) {
+        setAllUsers(authUsers.map(u => ({ id: u.id, email: u.email })))
+      } else {
+        const fromRows = {}
+        ;(accessRows || []).forEach(row => {
+          if (!fromRows[row.user_id]) fromRows[row.user_id] = { id: row.user_id, email: row.email || row.user_id }
         })
+        setAllUsers(Object.values(fromRows))
       }
-      setAccess(grouped)
-      setUsers(Object.entries(grouped).map(([id,v])=>({id, email:v.email, companies:v.companies})))
     } catch(e) {
       console.log('Access load error:', e)
     }
@@ -1530,17 +1538,20 @@ function AccessModal({companies, userId, onClose, showToast}) {
   }
 
   async function addUser() {
-    if (!newEmail.trim()) return
-    // Add user with access to all companies by default
+    const email = newEmail.trim().toLowerCase()
+    if (!email) return
+    // Look up UUID from already-loaded allUsers list
+    const match = allUsers.find(u => u.email?.toLowerCase() === email)
+    const targetId = match ? match.id : email // fallback to email if not signed up yet
     try {
       for (const co of companies) {
         await supabase.from('user_company_access')
-          .upsert({user_id: newEmail, company_id: co.id, email: newEmail, is_admin: false},
+          .upsert({user_id: targetId, company_id: co.id, email, is_admin: false},
             {onConflict:'user_id,company_id'})
       }
       setNewEmail('')
       await loadData()
-      showToast('User added - they need to sign up at the app URL first')
+      showToast(match ? `Access granted to ${email}` : `Invite saved — ${email} must sign up first`)
     } catch(e) { showToast(e.message, 'error') }
   }
 
@@ -1575,17 +1586,21 @@ function AccessModal({companies, userId, onClose, showToast}) {
           </div>
 
           {loading ? <div style={{textAlign:'center',padding:20,fontFamily:"'DM Mono',monospace",color:T.muted}}>Loading...</div> : (
-            users.length===0
-              ? <div style={{textAlign:'center',padding:20,fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>No restricted users yet. All signed-up users can currently see everything.</div>
-              : users.map(u=>(
+            allUsers.length===0
+              ? <div style={{textAlign:'center',padding:20,fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>No users found. Make sure the <code>list_auth_users</code> SQL function has been created.</div>
+              : allUsers.map(u=>(
                 <div key={u.id} style={{marginBottom:16,padding:'14px 16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:600}}>{u.email}</div>
-                    <button className="btn btn-danger" style={{fontSize:10,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:600}}>{u.email}</div>
+                      {u.id===userId&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,background:T.gold+'22',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:4,padding:'2px 6px'}}>YOU · ADMIN</span>}
+                      {u.id!==userId&&!(access[u.id]||[]).length&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,background:T.green+'22',color:T.green,border:`1px solid ${T.green}44`,borderRadius:4,padding:'2px 6px'}}>ADMIN</span>}
+                    </div>
+                    {u.id!==userId&&<button className="btn btn-danger" style={{fontSize:10,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>}
                   </div>
                   <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                     {companies.map(co=>{
-                      const hasAccess = u.companies.includes(co.id)
+                      const hasAccess = (access[u.id]||[]).includes(co.id)
                       return (
                         <button key={co.id} onClick={()=>toggleAccess(u.id, co.id, u.email)}
                           style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
