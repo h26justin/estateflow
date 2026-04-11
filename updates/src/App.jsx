@@ -56,12 +56,12 @@ const CSS = `
   .card{background:#171B28;border:1px solid #1E2335;border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
   @media(max-width:768px){
-    .nav-desktop{display:none!important;}
+    .nav-desktop{display:none!important;visibility:hidden!important;width:0!important;overflow:hidden!important;}
     .mobile-nav{display:flex!important;}
     .detail-grid{grid-template-columns:1fr!important;}
     .stat-grid{grid-template-columns:1fr 1fr!important;}
     .hide-mobile{display:none!important;}
-    .stat-cards-grid{grid-template-columns:1fr 1fr!important;}
+    .stat-cards-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
     .company-stats-grid{grid-template-columns:1fr 1fr!important;}
     .kpi-grid{grid-template-columns:1fr 1fr!important;}
     .summary-cards{grid-template-columns:1fr 1fr!important;}
@@ -438,7 +438,7 @@ export default function App() {
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
               <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties &middot; {companies.length} companies &middot; {stats.rented} rented &middot; {stats.vacant} vacant</p>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:14,marginBottom:28}}>
+            <div className="stat-cards-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
               <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                 breakdown={[
                   {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
@@ -585,7 +585,7 @@ export default function App() {
               const cs=companyStats.find(x=>x.id===c.id)
               const cProps=properties.filter(p=>p.company_id===c.id)
               return <div key={c.id}>
-                <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:22}}>
+                <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
                   <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented &middot; ${cs.vacant} vacant`}/>
                   <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
                   <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
