@@ -43,6 +43,7 @@ const REFURB_CFG = {
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+  html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
   *{box-sizing:border-box;margin:0;padding:0;}
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0B0D14}::-webkit-scrollbar-thumb{background:#1E2335;border-radius:3px}
   input,select,textarea{font-family:'DM Mono',monospace;background:#12151F;border:1px solid #1E2335;color:#E4E0D8;border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
@@ -402,7 +403,7 @@ export default function App() {
   const navItems=[{key:'dashboard',label:'Dashboard',icon:'🏠'},{key:'properties',label:'Properties',icon:'🏘'},{key:'companies',label:'Companies',icon:'🏢'},{key:'rent',label:'Rent Tracker',icon:'💷'},{key:'reports',label:'Reports',icon:'📊'},{key:'contractors',label:'Contractors',icon:'🔧'},{key:'settings',label:'Settings',icon:'⚙️'}]
 
   return (
-    <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',background:T.bg,color:T.text}}>
+    <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text}}>
       <style>{CSS}</style>
       <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 24px',position:'sticky',top:0,zIndex:100}}>
         <div style={{maxWidth:1240,margin:'0 auto',height:60,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
