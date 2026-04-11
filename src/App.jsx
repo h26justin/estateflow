@@ -52,6 +52,7 @@ const CompanyPill = ({company}) => {
 
 const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
   const [open,setOpen] = useState(false)
+  const { T } = useTheme()
   return (
     <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:breakdown?'pointer':'default'}}
       onClick={breakdown?()=>setOpen(o=>!o):undefined}>
@@ -115,9 +116,12 @@ const RentDots = ({payments, onUpdate, filterYear}) => {
   </div>
 }
 
-const Spinner = () => <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:200}}>
-  <div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-</div>
+const Spinner = () => {
+  const { T } = useTheme()
+  return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:200}}>
+    <div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+  </div>
+}
 
 export default function App() {
   const {session,user} = useAuth()
