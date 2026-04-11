@@ -576,7 +576,7 @@ export default function App() {
                       </div>
                       {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)>{"mo"}</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)>/mo</div>
                       <Badge status={p.status}/>
                     </div>
                   ))}
@@ -1009,7 +1009,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
               {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}% yield</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{fmt(p.rent_pcm)>{"mo"}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{fmt(p.rent_pcm)>/mo</div>
               </div>
               <Badge status={p.status}/>
             </div>
