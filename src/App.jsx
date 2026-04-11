@@ -85,7 +85,7 @@ function getStatusColor(status) {
   if (status==='missed')  return '#E05555'
   if (status==='late') return '#E0943A'
   if (status==='refurb')  return '#4B8FE0'
-  return '#3A3F58' // void
+  return '#3A3F58' // void - neutral, intentionally static
 }
 
 const RentDots = ({payments, onUpdate, filterYear}) => {
@@ -152,16 +152,16 @@ export default function App() {
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
   html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
   *{box-sizing:border-box;margin:0;padding:0;}
-  ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0B0D14}::-webkit-scrollbar-thumb{background:#1E2335;border-radius:3px}
+  ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${T.bg}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
   input,select,textarea{font-family:'DM Mono',monospace;background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
   input:focus,select:focus,textarea:focus{border-color:${T.gold};}
   select option{background:${T.surface};}
   label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
   .btn{font-family:'DM Mono',monospace;font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
-  .btn-gold{background:#C8A84B;color:#0B0D14;}.btn-gold:hover{background:#D9BC72;}
-  .btn-ghost{background:transparent;color:#E4E0D8;border:1px solid #1E2335;}.btn-ghost:hover{border-color:#C8A84B;color:#C8A84B;}
+  .btn-gold{background:${T.gold};color:${T.bg};}.btn-gold:hover{background:${T.gold}dd;}
+  .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.gold};}
   .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
-  .card{background:#171B28;border:1px solid #1E2335;border-radius:14px;}
+  .card{background:${T.card};border:1px solid ${T.border};border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
   @media(max-width:768px){
     .nav-desktop{display:none!important;visibility:hidden!important;width:0!important;overflow:hidden!important;}
@@ -193,9 +193,9 @@ export default function App() {
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes spin{to{transform:rotate(360deg)}}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(6px);}
-  .modal{background:#12151F;border:1px solid #1E2335;border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
-  .tab{font-family:'DM Mono',monospace;font-size:11px;background:none;border:none;color:#6B7191;cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
-  .tab.active{background:#1E2335;color:#C8A84B;}.tab:hover{color:#E4E0D8;}
+  .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
+  .tab{font-family:'DM Mono',monospace;font-size:11px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
+  .tab.active{background:${T.border};color:${T.gold};}.tab:hover{color:${T.text};}
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:700px){.g2{grid-template-columns:1fr}}
 `
@@ -335,7 +335,7 @@ export default function App() {
 
 
     // Early returns AFTER all hooks
-  if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid #1E2335`,borderTopColor:'#C8A84B',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
+  if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return <LoginPage/>
 
   function showToast(msg,type='success'){setToast({msg,type});setTimeout(()=>setToast(null),3500)}
@@ -426,6 +426,7 @@ export default function App() {
     {key:'reports',    label:'Reports',     icon:'📊', short:'Reports'},
     {key:'contractors',label:'Contractors', icon:'🔧', short:'Contractors'},
     {key:'settings',   label:'Settings',    icon:'⚙', short:'Settings'},
+    {key:'account',    label:'Account',     icon:'👤', short:'Account'},
   ]
 
   return (
@@ -524,7 +525,7 @@ export default function App() {
           {view==='dashboard'&&<div className="fade">
             <div style={{marginBottom:28}}>
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
-              <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties &middot; {companies.length} companies &middot; {stats.rented} rented &middot; {stats.vacant} vacant</p>
+              <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {companies.length} companies · {stats.rented} rented · {stats.vacant} vacant</p>
             </div>
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(5,1fr)',gap:10,marginBottom:20}}>
               <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
@@ -674,7 +675,7 @@ export default function App() {
               const cProps=properties.filter(p=>p.company_id===c.id)
               return <div key={c.id}>
                 <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
-                  <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented &middot; ${cs.vacant} vacant`}/>
+                  <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
                   <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
                   <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
                   <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
@@ -684,7 +685,7 @@ export default function App() {
                     <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
                       <div style={{flex:1,minWidth:150}}>
                         <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} &middot; {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>&middot; 🏢 {p.managed_by}</span>}</div>
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
                       </div>
                       {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
@@ -700,6 +701,7 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
           {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} darkMode={darkMode} setDarkMode={setDarkMode}/>}
+          {view==='account'&&<AccountPage user={user} showToast={showToast}/>}
           {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt} onImport={()=>setShowImporter(true)} companySettings={companySettings}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
@@ -718,7 +720,7 @@ export default function App() {
                     </div>
                     <div style={{display:'flex',gap:8}}>
                       <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</button>
-                      <button className="btn btn-ghost" style={{fontSize:11,color:'#6B7191',borderColor:'#1E2335'}}
+                      <button className="btn btn-ghost" style={{fontSize:11,color:T.muted,borderColor:T.border}}
                           onClick={()=>setShowDeleteConfirm(selected.id)}
                           title="Delete property">⋯</button>
                     </div>
@@ -839,6 +841,7 @@ export default function App() {
 }
 
 function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
+  const { T } = useTheme()
   const [phaseForm,setPhaseForm]=useState({name:'',start_date:'',end_date:'',done:false,notes:''})
   const [costForm,setCostForm]=useState({trade:'',cost:'',paid:false,date:'',notes:''})
   const [showPF,setShowPF]=useState(false)
@@ -850,12 +853,12 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
   return <div>
     <div className="card" style={{padding:'14px 18px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
       <div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#6B7191',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Refurb Status</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Refurb Status</div>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:REFURB_CFG[prop.refurb_status]?.color||'#C8A84B'}}>{REFURB_CFG[prop.refurb_status]?.label||prop.refurb_status}</div>
       </div>
       <div style={{display:'flex',gap:20}}>
-        <div style={{textAlign:'right'}}><div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#6B7191',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Total Cost</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:'#E0943A'}}>{fmt(totalCost)}</div></div>
-        <div style={{textAlign:'right'}}><div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#6B7191',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Paid Out</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:'#2ECC8A'}}>{fmt(paidCost)}</div></div>
+        <div style={{textAlign:'right'}}><div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Total Cost</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:T.amber}}>{fmt(totalCost)}</div></div>
+        <div style={{textAlign:'right'}}><div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Paid Out</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:T.green}}>{fmt(paidCost)}</div></div>
       </div>
       <select value={prop.refurb_status} onChange={e=>onUpdateField(prop.id,'refurb_status',e.target.value)} style={{width:'auto',fontSize:11,padding:'6px 10px'}}>
         <option value="planned">Planned</option><option value="in-progress">In Progress</option><option value="complete">Complete</option>
@@ -863,7 +866,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
     </div>
     <div style={{marginBottom:16}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'#6B7191',textTransform:'uppercase',letterSpacing:'0.1em'}}>Phases</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Phases</div>
         <button className="btn btn-ghost" style={{fontSize:10,padding:'5px 10px'}} onClick={()=>setShowPF(v=>!v)}>+ Add Phase</button>
       </div>
       {showPF&&<div className="card" style={{padding:'14px 16px',marginBottom:10}}>
@@ -877,18 +880,18 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
         </div>
         <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{if(phaseForm.name){onAddPhase(prop.id,phaseForm);setPhaseForm({name:'',start_date:'',end_date:'',done:false,notes:''});setShowPF(false)}}}>Add Phase</button>
       </div>}
-      {phases.length===0&&!showPF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'#3A3F58',padding:'12px 0'}}>No phases yet.</div>}
+      {phases.length===0&&!showPF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'12px 0'}}>No phases yet.</div>}
       {phases.map(ph=>(
         <div key={ph.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
           <div style={{width:10,height:10,borderRadius:'50%',background:ph.done?'#2ECC8A':'#E0943A',flexShrink:0}}/>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#6B7191'}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
           <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:ph.done?'#2ECC8A':'#E0943A'}}>{ph.done?'✓ Done':'In Progress'}</span>
         </div>
       ))}
     </div>
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'#6B7191',textTransform:'uppercase',letterSpacing:'0.1em'}}>Trade Costs</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Trade Costs</div>
         <button className="btn btn-ghost" style={{fontSize:10,padding:'5px 10px'}} onClick={()=>setShowCF(v=>!v)}>+ Add Cost</button>
       </div>
       {showCF&&<div className="card" style={{padding:'14px 16px',marginBottom:10}}>
@@ -903,10 +906,10 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
         <div style={{marginBottom:10}}><label>Notes</label><input value={costForm.notes} onChange={e=>setCostForm(f=>({...f,notes:e.target.value}))} placeholder="Optional"/></div>
         <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{if(costForm.trade){onAddCost(prop.id,{...costForm,cost:parseFloat(costForm.cost)||0});setCostForm({trade:'',cost:'',paid:false,date:'',notes:''});setShowCF(false)}}}>Add Cost</button>
       </div>}
-      {costs.length===0&&!showCF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'#3A3F58',padding:'12px 0'}}>No costs logged yet.</div>}
+      {costs.length===0&&!showCF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'12px 0'}}>No costs logged yet.</div>}
       {costs.map(item=>(
         <div key={item.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{item.trade}</div>{item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#6B7191'}}>{item.notes}</div>}{item.date&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#3A3F58'}}>{item.date}</div>}</div>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{item.trade}</div>{item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{item.notes}</div>}{item.date&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>{item.date}</div>}</div>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:item.paid?'#2ECC8A':'#E0943A'}}>{fmt(item.cost)}</div>
           <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:item.paid?'#2ECC8A':'#E0943A'}}>{item.paid?'✓ Paid':'Unpaid'}</span>
         </div>
@@ -919,6 +922,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
 }
 
 function PropertyModal({prop,companies,onClose,onSave}){
+  const { T } = useTheme()
   const blank={name:'',company_id:companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:''}
   const [form,setForm]=useState(prop?{...prop,company_id:prop.company_id||prop.company?.id||'',mortgage_rate:prop.mortgage_rate?(prop.mortgage_rate*100).toFixed(2):''}:blank)
   const s=(k,v)=>setForm(f=>({...f,[k]:v}))
@@ -929,8 +933,8 @@ function PropertyModal({prop,companies,onClose,onSave}){
   return <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div className="modal">
       <div style={{padding:'24px 28px 0'}}>
-        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:'#E4E0D8'}}>{prop?'Edit Property':'Add New Property'}</h2>
-        <p style={{fontFamily:"'DM Mono',monospace",color:'#6B7191',fontSize:11,marginBottom:20}}>Fill in the details below.</p>
+        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?'Edit Property':'Add New Property'}</h2>
+        <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Fill in the details below.</p>
       </div>
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
         <div className="g2"><div><label>Property Name *</label><input value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Flat 1, Station Road"/></div><div><label>Company *</label><select value={form.company_id} onChange={e=>s('company_id',e.target.value)}>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div></div>
@@ -954,13 +958,14 @@ function PropertyModal({prop,companies,onClose,onSave}){
 }
 
 function CompanyModal({onClose,onSave}){
+  const { T } = useTheme()
   const [form,setForm]=useState({name:'',abbr:'',color:'#C8A84B'})
   const s=(k,v)=>setForm(f=>({...f,[k]:v}))
   return <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div className="modal" style={{maxWidth:420}}>
       <div style={{padding:'24px 28px 0'}}>
-        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:'#E4E0D8'}}>Add Company</h2>
-        <p style={{fontFamily:"'DM Mono',monospace",color:'#6B7191',fontSize:11,marginBottom:20}}>Create a new company to group properties under.</p>
+        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add Company</h2>
+        <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Create a new company to group properties under.</p>
       </div>
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
         <div><label>Company Name *</label><input value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Vale Property Group"/></div>
@@ -980,7 +985,7 @@ function CompanyModal({onClose,onSave}){
 
 // ─── DELETE CONFIRM MODAL ────────────────────────────────────────────────────
 function DeleteConfirmModal({propName, onClose, onConfirm}) {
-  const T = {bg:'#0B0D14',card:'#171B28',border:'#1E2335',text:'#E4E0D8',muted:'#6B7191',red:'#E05555',gold:'#C8A84B'}
+  const { T } = useTheme()
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
@@ -1024,10 +1029,7 @@ function DeleteConfirmModal({propName, onClose, onConfirm}) {
 
 // ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
 function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties, sortBy}) {
-  const T = {
-    bg:'#0B0D14', card:'#171B28', border:'#1E2335',
-    text:'#E4E0D8', muted:'#6B7191', red:'#E05555', gold:'#C8A84B', faint:'#3A3F58',
-  }
+  const { T } = useTheme()
   const [items, setItems] = useState(filtered)
   const [dragging, setDragging] = useState(null)
   const [dragOver, setDragOver] = useState(null)
@@ -1109,7 +1111,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             transition: 'opacity 0.15s, transform 0.15s',
           }}>
           <div className="card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:12,
-            borderColor: dragOver===idx && dragging!==idx ? '#C8A84B' : '#1E2335',
+            borderColor: dragOver===idx && dragging!==idx ? T.gold : T.border,
             cursor:isCustomSort?'grab':'default'}}>
             {/* Drag handle - only show in custom sort mode */}
             {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">&#x283F;</div>}
@@ -1121,8 +1123,8 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
                 <CompanyPill company={p.company}/>
               </div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
-                {p.prop_type} &middot; {p.address}
-                {p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>&middot; 🏢 {p.managed_by}</span>}
+                {p.prop_type} · {p.address}
+                {p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}
               </div>
             </div>
             {/* Stats */}
@@ -1144,11 +1146,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
 function RentTrackerOverview({companies, properties, fmt, openDetail}) {
-  const T = {
-    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-    text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
-    gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
-  }
+  const { T } = useTheme()
 
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
@@ -1265,7 +1263,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
                     style={{padding:'14px 18px',borderBottom:pi<cps.length-1?`1px solid ${T.border}`:'none',
                       background:pi%2===0?T.card:T.surface,cursor:'pointer',transition:'background 0.15s'}}
                     onClick={()=>openDetail(p)}
-                    onMouseEnter={e=>e.currentTarget.style.background='#1E2335'}
+                    onMouseEnter={e=>e.currentTarget.style.background=T.border}
                     onMouseLeave={e=>e.currentTarget.style.background=pi%2===0?T.card:T.surface}>
                     <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
                       {/* Left: name + dots */}
@@ -1275,7 +1273,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
                           {(p.arrears||0)>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
                         </div>
                         <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>
-                          {`${fmt(p.rent_pcm)}/mo`} &middot; Due {p.rent_due_day||'-'}
+                          {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                         </div>
                         {/* Dots filtered by global year */}
                         <RentDots payments={p.rent_payments||[]} filterYear={globalYear}/>
@@ -1321,11 +1319,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
 
 // ─── RENT TAB ────────────────────────────────────────────────────────────────
 function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties}) {
-  const T = {
-    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-    text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
-    gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
-  }
+  const { T } = useTheme()
   const payments = selected.rent_payments || []
   const years = [...new Set(payments.map(p=>p.year))].sort()
   const [filterYear, setFilterYear] = useState(years[years.length-1] || null)
@@ -1427,11 +1421,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
 // ─── PAYMENT MODAL ────────────────────────────────────────────────────────────
 function PaymentModal({payment, onClose, onSave}) {
-  const T = {
-    bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-    text:'#E4E0D8', muted:'#6B7191', gold:'#C8A84B',
-    green:'#2ECC8A', red:'#E05555', amber:'#E0943A', faint:'#3A3F58',
-  }
+  const { T } = useTheme()
 
   const options = [
     { status:'paid',    label:'Paid',     icon:'✓', color:T.green,  bg:'#0D2B1F', border:'#1A4A2E' },
@@ -1619,6 +1609,275 @@ function AccessModal({companies, userId, onClose, showToast}) {
           <button className="btn btn-ghost" style={{width:'100%',marginTop:8,fontSize:12}} onClick={onClose}>Close</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── ACCOUNT PAGE ─────────────────────────────────────────────────────────────
+function AccountPage({ user, showToast }) {
+  const { T } = useTheme()
+  const [tab, setTab] = useState('profile')
+
+  // Profile state
+  const [profile, setProfile] = useState({ full_name: '', phone: '' })
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileSaving, setProfileSaving] = useState(false)
+
+  // Email state
+  const [newEmail, setNewEmail] = useState('')
+  const [emailSaving, setEmailSaving] = useState(false)
+
+  // Password state
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword]         = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving, setPwSaving]               = useState(false)
+  const [showPw, setShowPw]                   = useState(false)
+
+  // Notifications state
+  const [notifSaving, setNotifSaving] = useState(false)
+  const [notifs, setNotifs] = useState({
+    rent_arrears: true,
+    lease_expiry: true,
+    compliance_expiry: true,
+    vacant_properties: true,
+    weekly_summary: false,
+  })
+
+  useEffect(() => { loadProfile() }, [])
+
+  async function loadProfile() {
+    setProfileLoading(true)
+    try {
+      const { data } = await supabase.from('user_profiles')
+        .select('*').eq('user_id', user.id).single()
+      if (data) {
+        setProfile({ full_name: data.full_name || '', phone: data.phone || '' })
+        if (data.notifications) setNotifs(prev => ({ ...prev, ...data.notifications }))
+      }
+    } catch(e) { /* table may not exist yet */ }
+    setProfileLoading(false)
+  }
+
+  async function saveProfile() {
+    setProfileSaving(true)
+    try {
+      await supabase.from('user_profiles').upsert({
+        user_id: user.id,
+        email: user.email,
+        full_name: profile.full_name,
+        phone: profile.phone,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      showToast('Profile saved')
+    } catch(e) { showToast(e.message, 'error') }
+    setProfileSaving(false)
+  }
+
+  async function saveNotifications() {
+    setNotifSaving(true)
+    try {
+      await supabase.from('user_profiles').upsert({
+        user_id: user.id,
+        email: user.email,
+        notifications: notifs,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      showToast('Notification preferences saved')
+    } catch(e) { showToast(e.message, 'error') }
+    setNotifSaving(false)
+  }
+
+  async function updateEmail() {
+    if (!newEmail.trim()) return
+    setEmailSaving(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
+      if (error) throw error
+      showToast('Confirmation email sent to ' + newEmail + ' — check your inbox')
+      setNewEmail('')
+    } catch(e) { showToast(e.message, 'error') }
+    setEmailSaving(false)
+  }
+
+  async function updatePassword() {
+    if (!newPassword) return
+    if (newPassword !== confirmPassword) { showToast('Passwords do not match', 'error'); return }
+    if (newPassword.length < 8) { showToast('Password must be at least 8 characters', 'error'); return }
+    setPwSaving(true)
+    try {
+      // Re-authenticate with current password first
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: user.email, password: currentPassword
+      })
+      if (signInErr) throw new Error('Current password is incorrect')
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      showToast('Password updated successfully')
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
+    } catch(e) { showToast(e.message, 'error') }
+    setPwSaving(false)
+  }
+
+  async function sendResetEmail() {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email)
+      if (error) throw error
+      showToast('Password reset email sent to ' + user.email)
+    } catch(e) { showToast(e.message, 'error') }
+  }
+
+  const mono = "'DM Mono',monospace"
+  const Section = ({ title, children }) => (
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }}>
+      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>{title}</div>
+      {children}
+    </div>
+  )
+  const Field = ({ label, children }) => (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{label}</label>
+      {children}
+    </div>
+  )
+  const Toggle = ({ label, desc, checked, onChange }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: `1px solid ${T.border}` }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{label}</div>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{desc}</div>
+      </div>
+      <div onClick={onChange} style={{
+        width: 42, height: 24, borderRadius: 12, cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
+        background: checked ? T.gold : T.border, position: 'relative'
+      }}>
+        <div style={{
+          position: 'absolute', top: 3, left: checked ? 21 : 3, width: 18, height: 18,
+          borderRadius: 9, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+        }}/>
+      </div>
+    </div>
+  )
+
+  const tabs = [
+    { key: 'profile', label: '👤 Profile' },
+    { key: 'security', label: '🔐 Security' },
+    { key: 'notifications', label: '🔔 Notifications' },
+  ]
+
+  return (
+    <div className="fade" style={{ maxWidth: 640 }}>
+      <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4, color: T.text }}>Account</h1>
+      <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 24 }}>{user.email}</p>
+
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 24, borderBottom: `1px solid ${T.border}`, paddingBottom: 0 }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            fontFamily: mono, fontSize: 11, padding: '8px 16px', borderRadius: '8px 8px 0 0',
+            background: tab === t.key ? T.card : 'transparent',
+            color: tab === t.key ? T.gold : T.muted,
+            border: `1px solid ${tab === t.key ? T.border : 'transparent'}`,
+            borderBottom: tab === t.key ? `1px solid ${T.card}` : 'transparent',
+            cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1,
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* ── PROFILE TAB ── */}
+      {tab === 'profile' && (
+        profileLoading
+          ? <div style={{ fontFamily: mono, color: T.muted, fontSize: 12 }}>Loading…</div>
+          : <>
+            <Section title="Personal Information">
+              <Field label="Full Name">
+                <input value={profile.full_name} onChange={e => setProfile(p => ({ ...p, full_name: e.target.value }))}
+                  placeholder="Your full name" />
+              </Field>
+              <Field label="Phone Number">
+                <input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
+                  placeholder="+44 7700 000000" />
+              </Field>
+              <Field label="Email Address">
+                <input value={user.email} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 5 }}>
+                  To change your email, go to the Security tab.
+                </div>
+              </Field>
+              <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{ marginTop: 8 }}>
+                {profileSaving ? 'Saving…' : 'Save Profile'}
+              </button>
+            </Section>
+          </>
+      )}
+
+      {/* ── SECURITY TAB ── */}
+      {tab === 'security' && (
+        <>
+          <Section title="Change Email Address">
+            <Field label="New Email Address">
+              <input value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                placeholder={user.email} type="email" />
+            </Field>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 12, lineHeight: 1.6 }}>
+              A confirmation link will be sent to both your old and new email addresses. The change takes effect once confirmed.
+            </div>
+            <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving || !newEmail.trim()}>
+              {emailSaving ? 'Sending…' : 'Update Email'}
+            </button>
+          </Section>
+
+          <Section title="Change Password">
+            <Field label="Current Password">
+              <input value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
+                type={showPw ? 'text' : 'password'} placeholder="Your current password" />
+            </Field>
+            <Field label="New Password">
+              <input value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                type={showPw ? 'text' : 'password'} placeholder="At least 8 characters" />
+            </Field>
+            <Field label="Confirm New Password">
+              <input value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                type={showPw ? 'text' : 'password'} placeholder="Repeat new password" />
+            </Field>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <input type="checkbox" id="showpw" checked={showPw} onChange={e => setShowPw(e.target.checked)}
+                style={{ width: 'auto', margin: 0 }} />
+              <label htmlFor="showpw" style={{ fontFamily: mono, fontSize: 10, color: T.muted, cursor: 'pointer', margin: 0 }}>Show passwords</label>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="btn btn-gold" onClick={updatePassword}
+                disabled={pwSaving || !currentPassword || !newPassword || !confirmPassword}>
+                {pwSaving ? 'Updating…' : 'Update Password'}
+              </button>
+              <button className="btn btn-ghost" onClick={sendResetEmail} style={{ fontSize: 11 }}>
+                Send Reset Email Instead
+              </button>
+            </div>
+          </Section>
+        </>
+      )}
+
+      {/* ── NOTIFICATIONS TAB ── */}
+      {tab === 'notifications' && (
+        <Section title="Email & Alert Preferences">
+          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
+            Control which alerts appear in your Smart Alerts dashboard panel.
+          </div>
+          <Toggle label="Rent Arrears" desc="Alert when a property has overdue rent"
+            checked={notifs.rent_arrears} onChange={() => setNotifs(n => ({ ...n, rent_arrears: !n.rent_arrears }))} />
+          <Toggle label="Lease Expiry" desc="Alert when tenancy agreements are expiring"
+            checked={notifs.lease_expiry} onChange={() => setNotifs(n => ({ ...n, lease_expiry: !n.lease_expiry }))} />
+          <Toggle label="Compliance Expiry" desc="Alert for gas, electrical, EPC certificates nearing expiry"
+            checked={notifs.compliance_expiry} onChange={() => setNotifs(n => ({ ...n, compliance_expiry: !n.compliance_expiry }))} />
+          <Toggle label="Vacant Properties" desc="Alert when properties are sitting vacant"
+            checked={notifs.vacant_properties} onChange={() => setNotifs(n => ({ ...n, vacant_properties: !n.vacant_properties }))} />
+          <Toggle label="Weekly Summary" desc="Receive a weekly portfolio summary (coming soon)"
+            checked={notifs.weekly_summary} onChange={() => setNotifs(n => ({ ...n, weekly_summary: !n.weekly_summary }))} />
+          <button className="btn btn-gold" onClick={saveNotifications} disabled={notifSaving} style={{ marginTop: 20 }}>
+            {notifSaving ? 'Saving…' : 'Save Preferences'}
+          </button>
+        </Section>
+      )}
     </div>
   )
 }
