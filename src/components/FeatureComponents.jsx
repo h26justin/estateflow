@@ -1323,42 +1323,49 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
 // ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
 function AccessModal({companies, onClose, showToast}) {
   const { T } = useTheme()
-  const [users, setUsers] = useState([])
+  const [users, setUsers]     = useState([])   // all auth users
+  const [access, setAccess]   = useState({})   // { user_id: [company_id,...] }
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(null)
+  const [saving, setSaving]   = useState(null)
   const [newEmail, setNewEmail] = useState('')
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding]   = useState(false)
 
   useEffect(()=>{ loadData() },[])
 
   async function loadData() {
     setLoading(true)
     try {
-      const {data:rows} = await supabase.from('user_company_access').select('*')
-      if (!rows || rows.length === 0) { setUsers([]); setLoading(false); return }
+      // Get all signed-up users via SECURITY DEFINER function
+      const { data: authUsers, error: rpcErr } = await supabase.rpc('list_auth_users')
+      if (rpcErr) console.warn('list_auth_users RPC error:', rpcErr.message)
 
-      // Group by user_id
-      const grouped = {}
-      rows.forEach(row=>{
-        if (!grouped[row.user_id]) {
-          grouped[row.user_id] = {
-            id: row.user_id,
-            email: row.email || row.user_id,
-            isAdmin: row.is_admin || false,
-            companies: []
-          }
-        }
-        grouped[row.user_id].companies.push(row.company_id)
-        if (row.is_admin) grouped[row.user_id].isAdmin = true
+      // Get all access rows
+      const { data: rows } = await supabase.from('user_company_access').select('*')
+
+      // Build access map { user_id -> [company_id,...] }
+      const map = {}
+      ;(rows || []).forEach(row => {
+        if (!map[row.user_id]) map[row.user_id] = []
+        if (row.company_id) map[row.user_id].push(row.company_id)
       })
-      setUsers(Object.values(grouped))
-    } catch(e) { console.log(e) }
+      setAccess(map)
+
+      if (authUsers && authUsers.length > 0) {
+        setUsers(authUsers.map(u => ({ id: u.id, email: u.email })))
+      } else {
+        // Fallback: build from access rows if RPC not yet created
+        const fromRows = {}
+        ;(rows || []).forEach(row => {
+          if (!fromRows[row.user_id]) fromRows[row.user_id] = { id: row.user_id, email: row.email || row.user_id }
+        })
+        setUsers(Object.values(fromRows))
+      }
+    } catch(e) { console.log('AccessModal loadData error:', e) }
     setLoading(false)
   }
 
   async function toggleCompany(userId, companyId, userEmail) {
-    const user = users.find(u=>u.id===userId)
-    const has = user?.companies.includes(companyId)
+    const has = (access[userId]||[]).includes(companyId)
     setSaving(userId + companyId)
     try {
       if (has) {
@@ -1368,10 +1375,12 @@ function AccessModal({companies, onClose, showToast}) {
         await supabase.from('user_company_access')
           .insert({user_id: userId, company_id: companyId, email: userEmail, is_admin: false})
       }
-      // Update local state
-      setUsers(prev=>prev.map(u=>u.id!==userId?u:{
-        ...u,
-        companies: has ? u.companies.filter(c=>c!==companyId) : [...u.companies, companyId]
+      // Update local access map
+      setAccess(prev => ({
+        ...prev,
+        [userId]: has
+          ? (prev[userId]||[]).filter(c=>c!==companyId)
+          : [...(prev[userId]||[]), companyId]
       }))
       showToast('Access updated')
     } catch(e) { showToast(e.message,'error') }
@@ -1381,16 +1390,14 @@ function AccessModal({companies, onClose, showToast}) {
   async function setAllCompanies(userId, userEmail, giveAll) {
     setSaving(userId + 'all')
     try {
-      // Remove all existing access for this user
       await supabase.from('user_company_access').delete().eq('user_id', userId)
       if (giveAll) {
-        // Insert access for all companies
         const rows = companies.map(co=>({
           user_id: userId, company_id: co.id, email: userEmail, is_admin: false
         }))
         await supabase.from('user_company_access').insert(rows)
       }
-      await loadData()
+      setAccess(prev => ({ ...prev, [userId]: giveAll ? companies.map(c=>c.id) : [] }))
       showToast(giveAll ? 'Access granted to all companies' : 'All access removed')
     } catch(e) { showToast(e.message,'error') }
     setSaving(null)
@@ -1406,36 +1413,26 @@ function AccessModal({companies, onClose, showToast}) {
   }
 
   async function addUser() {
-    if (!newEmail.trim()) return
+    const email = newEmail.trim().toLowerCase()
+    if (!email) return
     setAdding(true)
     try {
-      // Add user with no company access by default
-      // They need to be allocated companies below
-      const existing = users.find(u=>u.email===newEmail.trim())
-      if (existing) {
-        showToast('User already exists', 'error')
+      const existing = users.find(u=>u.email?.toLowerCase()===email)
+      if (existing) { showToast('User already in list', 'error'); setAdding(false); return }
+      // If they've signed up we already have their UUID in the users list
+      // If not, we can't add them yet - they must sign up first
+      if (!existing) {
+        showToast('No account found for that email. Ask them to sign up first, then refresh.', 'error')
         setAdding(false)
         return
       }
-      // Insert a placeholder row so we can see them in the list
-      await supabase.from('user_company_access').insert({
-        user_id: newEmail.trim(),
-        company_id: companies[0]?.id,
-        email: newEmail.trim(),
-        is_admin: false
-      })
-      // Then immediately delete it - we just needed to create the user entry
-      // Actually better: just reload and show them with no access
-      await loadData()
-      setNewEmail('')
-      showToast('User added — now allocate company access below')
     } catch(e) { showToast(e.message,'error') }
     setAdding(false)
   }
 
-  const totalAccess = (u) => u.companies.length
-  const hasAll = (u) => companies.every(co=>u.companies.includes(co.id))
-  const hasNone = (u) => u.companies.length === 0
+  const totalAccess = (u) => (access[u.id]||[]).length
+  const hasAll = (u) => companies.every(co=>(access[u.id]||[]).includes(co.id))
+  const hasNone = (u) => (access[u.id]||[]).length === 0
 
   return (
     <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -1472,7 +1469,7 @@ function AccessModal({companies, onClose, showToast}) {
             ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,padding:20,textAlign:'center'}}>Loading users…</div>
             : users.length === 0
               ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',padding:32,background:T.bg,borderRadius:10}}>
-                  No users added yet. Add a user above.
+                  No signed-up users found. Make sure the <span style={{color:T.gold}}>list_auth_users</span> SQL function has been created in Supabase.
                 </div>
               : <div style={{display:'grid',gap:12}}>
                   {users.map(u=>(
@@ -1487,9 +1484,12 @@ function AccessModal({companies, onClose, showToast}) {
                             {(u.email[0]||'?').toUpperCase()}
                           </div>
                           <div>
-                            <div style={{fontSize:13,fontWeight:600,color:T.text}}>{u.email}</div>
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <div style={{fontSize:13,fontWeight:600,color:T.text}}>{u.email}</div>
+                              {hasNone(u)&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,background:T.gold+'22',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:4,padding:'2px 6px'}}>ADMIN</span>}
+                            </div>
                             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
-                              {hasNone(u)?'No access':hasAll(u)?'All companies':totalAccess(u)+' of '+companies.length+' companies'}
+                              {hasNone(u)?'Full admin access':hasAll(u)?'All companies':totalAccess(u)+' of '+companies.length+' companies'}
                             </div>
                           </div>
                         </div>
@@ -1520,7 +1520,7 @@ function AccessModal({companies, onClose, showToast}) {
                       {/* Company pills */}
                       <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                         {companies.map(co=>{
-                          const has = u.companies.includes(co.id)
+                          const has = (access[u.id]||[]).includes(co.id)
                           const isSaving = saving === u.id + co.id
                           return (
                             <button key={co.id}
