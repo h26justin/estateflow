@@ -2,11 +2,6 @@ import { supabase } from './supabase'
 
 const uid = async () => (await supabase.auth.getUser()).data.user.id
 
-async function uid() {
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.id
-}
-
 export async function fetchCompanies() {
   const { data, error } = await supabase.from('companies').select('*').order('name')
   if (error) throw error
