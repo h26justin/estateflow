@@ -61,6 +61,19 @@ const CSS = `
     .detail-grid{grid-template-columns:1fr!important;}
     .stat-grid{grid-template-columns:1fr 1fr!important;}
     .hide-mobile{display:none!important;}
+    .stat-cards-grid{grid-template-columns:1fr 1fr!important;}
+    .company-stats-grid{grid-template-columns:1fr 1fr!important;}
+    .kpi-grid{grid-template-columns:1fr 1fr!important;}
+    .summary-cards{grid-template-columns:1fr 1fr!important;}
+    h1{font-size:20px!important;}
+    h2{font-size:16px!important;}
+    .pcard{padding:12px 14px!important;}
+    main{padding:16px 12px 90px!important;}
+    .tab{padding:6px 10px!important;font-size:11px!important;}
+    .modal{margin:8px!important;max-height:95vh!important;overflow-y:auto!important;}
+    .overlay{padding:0!important;align-items:flex-end!important;}
+    .card{border-radius:10px!important;}
+    input,select,textarea{font-size:16px!important;}
   }
   @media(min-width:769px){.mobile-nav{display:none!important;}}
   .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#12151F;border-top:1px solid #1E2335;z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
@@ -572,7 +585,7 @@ export default function App() {
               const cs=companyStats.find(x=>x.id===c.id)
               const cProps=properties.filter(p=>p.company_id===c.id)
               return <div key={c.id}>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:22}}>
+                <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:22}}>
                   <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented &middot; ${cs.vacant} vacant`}/>
                   <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
                   <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
