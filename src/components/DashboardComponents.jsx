@@ -94,19 +94,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     })
   })
 
-  // Mortgage rate ending within 90 days
-  properties.filter(p=>{
-    if (!p.mortgage_rate || !p.mortgage_term || !p.purchase_price) return false
-    // Estimate fix end - if we had purchase date + term we could calc this
-    // For now flag properties with high rates (>5%) as potentially on SVR
-    return (p.mortgage_rate||0) > 0.055
-  }).forEach(p=>{
-    alerts.push({
-      type:'mortgage', priority:3, icon:'🏦', color:T.purple,
-      title:`${p.name}`, detail:`High rate: ${((p.mortgage_rate||0)*100).toFixed(2)}% — consider refinancing`,
-      property:p, badge:'MORTGAGE'
-    })
-  })
+  // Mortgage rate alerts removed — rates are agreed
 
   // Open maintenance > 30 days
   maintenance.filter(m=>{
