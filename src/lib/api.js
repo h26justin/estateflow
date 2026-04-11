@@ -26,7 +26,8 @@ export async function fetchProperties() {
   const { data, error } = await supabase
     .from('properties')
     .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(*)')
-    .order('name')
+    .order('sort_order', {ascending:true})
+    .order('name', {ascending:true})
   if (error) throw error
   return data
 }

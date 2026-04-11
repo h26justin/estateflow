@@ -161,7 +161,8 @@ export default function App() {
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
-  const [showAdmin,   setShowAdmin]   = useState(false)
+  const [showAdmin,        setShowAdmin]        = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null) // property id
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
@@ -247,14 +248,20 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  async function handleDeleteProp(id){
-    if(!window.confirm('Delete this property? This cannot be undone.')) return
+  async function handleDeleteProp(id, password){
     try{
+      // Re-authenticate with password before deleting
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email, password
+      })
+      if (error) { showToast('Incorrect password — property not deleted', 'error'); return false }
       await api.deleteProperty(id)
       setProperties(prev=>prev.filter(p=>p.id!==id))
       setView('properties');setSelectedId(null)
+      setShowDeleteConfirm(null)
       showToast('Property deleted')
-    }catch(e){showToast(e.message,'error')}
+      return true
+    }catch(e){showToast(e.message,'error'); return false}
   }
 
   async function handleSaveCo(formData){
@@ -435,27 +442,7 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div style={{display:'grid',gap:10}}>
-              {filtered.map(p=>(
-                <div key={p.id} className="card pcard" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
-                  <div style={{flex:1,minWidth:180}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
-                      <span style={{fontSize:15,fontWeight:700}}>{p.name}</span><CompanyPill company={p.company}/>
-                    </div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
-                  </div>
-                  <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
-                    {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
-                    <div style={{textAlign:'right'}}>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}% yield</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{fmt(p.rent_pcm)}/mo</div>
-                    </div>
-                    <Badge status={p.status}/>
-                  </div>
-                </div>
-              ))}
-              {filtered.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>No properties match this filter.</div>}
-            </div>
+            <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties}/>
           </div>}
 
           {view==='companies'&&<div className="fade">
@@ -483,7 +470,7 @@ export default function App() {
                     <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
                       <div style={{flex:1,minWidth:150}}>
                         <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
                       </div>
                       {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
@@ -510,10 +497,13 @@ export default function App() {
                       <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:3}}>{selected.name}</h1>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{selected.address}</div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>{selected.prop_type}</div>
+                      {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:'#1A1D27',border:'1px solid #2E3044',fontFamily:"'DM Mono',monospace",fontSize:10,color:'#8B8FA8'}}>🏢 {selected.managed_by}</div>}
                     </div>
                     <div style={{display:'flex',gap:8}}>
                       <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</button>
-                      <button className="btn btn-danger" style={{fontSize:11}} onClick={()=>handleDeleteProp(selected.id)}>Delete</button>
+                      <button className="btn btn-ghost" style={{fontSize:11,color:'#6B7191',borderColor:'#1E2335'}}
+                          onClick={()=>setShowDeleteConfirm(selected.id)}
+                          title="Delete property">⋯</button>
                     </div>
                   </div>
                 </div>
@@ -579,6 +569,7 @@ export default function App() {
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
       {showAdmin&&<AccessModal companies={companies} userId={user?.id} onClose={()=>setShowAdmin(false)} showToast={showToast}/>}
+      {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
 
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
     </div>
@@ -663,7 +654,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField}){
 }
 
 function PropertyModal({prop,companies,onClose,onSave}){
-  const blank={name:'',company_id:companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:''}
+  const blank={name:'',company_id:companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:''}
   const [form,setForm]=useState(prop?{...prop,company_id:prop.company_id||prop.company?.id||'',mortgage_rate:prop.mortgage_rate?(prop.mortgage_rate*100).toFixed(2):''}:blank)
   const s=(k,v)=>setForm(f=>({...f,[k]:v}))
   function handleSave(){
@@ -680,6 +671,7 @@ function PropertyModal({prop,companies,onClose,onSave}){
         <div className="g2"><div><label>Property Name *</label><input value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Flat 1, Station Road"/></div><div><label>Company *</label><select value={form.company_id} onChange={e=>s('company_id',e.target.value)}>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div></div>
         <div><label>Full Address *</label><input value={form.address} onChange={e=>s('address',e.target.value)}/></div>
         <div className="g2"><div><label>Property Type</label><input value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{['purchased','refurb','rented','vacant'].map(x=><option key={x}>{x}</option>)}</select></div></div>
+          <div><label>Managed By</label><input value={form.managed_by||''} onChange={e=>s('managed_by',e.target.value)} placeholder="e.g. Propertunity, Rook Matthews Sayer"/></div>
         <div className="g2"><div><label>Purchase Price (£)</label><input type="number" value={form.purchase_price} onChange={e=>s('purchase_price',e.target.value)}/></div><div><label>Estimated Value (£)</label><input type="number" value={form.est_value} onChange={e=>s('est_value',e.target.value)}/></div></div>
         <div className="g2"><div><label>Refurb Cost (£)</label><input type="number" value={form.refurb_cost} onChange={e=>s('refurb_cost',e.target.value)}/></div><div><label>Mortgage Amount (£)</label><input type="number" value={form.mortgage_amount} onChange={e=>s('mortgage_amount',e.target.value)}/></div></div>
         <div className="g2"><div><label>Stamp Duty (£)</label><input type="number" value={form.stamp_duty} onChange={e=>s('stamp_duty',e.target.value)}/></div><div><label>Legal Fees (£)</label><input type="number" value={form.legal_fees} onChange={e=>s('legal_fees',e.target.value)}/></div></div>
@@ -719,6 +711,150 @@ function CompanyModal({onClose,onSave}){
 }
 
 
+
+
+// ─── DELETE CONFIRM MODAL ────────────────────────────────────────────────────
+function DeleteConfirmModal({propName, onClose, onConfirm}) {
+  const T = {bg:'#0B0D14',card:'#171B28',border:'#1E2335',text:'#E4E0D8',muted:'#6B7191',red:'#E05555',gold:'#C8A84B'}
+  const [password, setPassword] = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
+
+  async function handleConfirm() {
+    if (!password) { setError('Please enter your password'); return }
+    setLoading(true); setError('')
+    const ok = await onConfirm(password)
+    if (!ok) setError('Incorrect password. Property not deleted.')
+    setLoading(false)
+  }
+
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:420}}>
+        <div style={{padding:'28px 28px'}}>
+          <div style={{fontSize:32,marginBottom:12,textAlign:'center'}}>⚠️</div>
+          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text,textAlign:'center'}}>Delete Property?</h2>
+          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:6,textAlign:'center'}}>You are about to permanently delete:</p>
+          <p style={{fontFamily:"'DM Mono',monospace",color:T.red,fontSize:13,fontWeight:700,marginBottom:20,textAlign:'center'}}>{propName}</p>
+          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:16,textAlign:'center'}}>This will delete all associated rent history, refurb data and notes. This cannot be undone.<br/><br/>Enter your password to confirm.</p>
+          <div style={{marginBottom:16}}>
+            <label>Your Password</label>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
+              placeholder="••••••••" autoFocus/>
+          </div>
+          {error&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.red,background:'#2B1010',border:'1px solid #3D1A1A',borderRadius:8,padding:'10px 14px',marginBottom:16}}>{error}</div>}
+          <div style={{display:'flex',gap:10}}>
+            <button className="btn btn-ghost" style={{flex:1}} onClick={onClose}>Cancel</button>
+            <button disabled={loading} onClick={handleConfirm}
+              style={{flex:1,fontFamily:"'DM Mono',monospace",fontWeight:600,background:loading?'#3D1A1A':'#2B1010',color:'#E05555',border:'1px solid #5C2C2C',borderRadius:8,padding:'10px',fontSize:13,cursor:loading?'not-allowed':'pointer'}}>
+              {loading?'Verifying…':'Delete Permanently'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
+function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties}) {
+  const T = {
+    bg:'#0B0D14', card:'#171B28', border:'#1E2335',
+    text:'#E4E0D8', muted:'#6B7191', red:'#E05555', gold:'#C8A84B', faint:'#3A3F58',
+  }
+  const [items, setItems] = useState(filtered)
+  const [dragging, setDragging] = useState(null)
+  const [dragOver, setDragOver] = useState(null)
+
+  // Sync when filtered changes (e.g. filter applied)
+  useEffect(()=>{
+    setItems(filtered)
+  },[filtered])
+
+  function handleDragStart(e, idx) {
+    setDragging(idx)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', idx)
+  }
+
+  function handleDragOver(e, idx) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOver(idx)
+  }
+
+  function handleDrop(e, targetIdx) {
+    e.preventDefault()
+    if (dragging === null || dragging === targetIdx) return
+    const newItems = [...items]
+    const [moved] = newItems.splice(dragging, 1)
+    newItems.splice(targetIdx, 0, moved)
+    setItems(newItems)
+    // Persist new order to DB in background
+    newItems.forEach((p, i) => {
+      if (p.sort_order !== i) {
+        supabase.from('properties').update({sort_order: i}).eq('id', p.id).then(()=>{})
+      }
+    })
+    setDragging(null)
+    setDragOver(null)
+  }
+
+  function handleDragEnd() {
+    setDragging(null)
+    setDragOver(null)
+  }
+
+  if (items.length === 0) return (
+    <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>No properties match this filter.</div>
+  )
+
+  return (
+    <div style={{display:'grid',gap:8}}>
+      {items.map((p, idx) => (
+        <div key={p.id}
+          draggable
+          onDragStart={e=>handleDragStart(e,idx)}
+          onDragOver={e=>handleDragOver(e,idx)}
+          onDrop={e=>handleDrop(e,idx)}
+          onDragEnd={handleDragEnd}
+          style={{
+            opacity: dragging===idx ? 0.4 : 1,
+            transform: dragOver===idx && dragging!==idx ? 'translateY(-2px)' : 'none',
+            transition: 'opacity 0.15s, transform 0.15s',
+          }}>
+          <div className="card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:12,
+            borderColor: dragOver===idx && dragging!==idx ? '#C8A84B' : '#1E2335',
+            cursor:'grab'}}>
+            {/* Drag handle */}
+            <div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">⠿</div>
+            {/* Content */}
+            <div style={{flex:1,minWidth:180,cursor:'pointer'}} onClick={()=>openDetail(p)}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
+                <span style={{fontSize:15,fontWeight:700}}>{p.name}</span>
+                <CompanyPill company={p.company}/>
+              </div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
+                {p.prop_type} · {p.address}
+                {p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}
+              </div>
+            </div>
+            {/* Stats */}
+            <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} onClick={()=>openDetail(p)}>
+              {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
+              <div style={{textAlign:'right'}}>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}% yield</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{fmt(p.rent_pcm)}/mo</div>
+              </div>
+              <Badge status={p.status}/>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
 function RentTrackerOverview({companies, properties, fmt, openDetail}) {
