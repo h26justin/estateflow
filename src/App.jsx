@@ -168,6 +168,7 @@ export default function App() {
   const [coFilter,    setCoFilter]     = useState('all')
   const [statusFilter,setStatusFilter] = useState('all')
   const [searchQ,     setSearchQ]      = useState('')
+  const [sortBy,      setSortBy]       = useState('company-name')
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
