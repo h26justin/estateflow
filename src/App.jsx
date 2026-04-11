@@ -38,58 +38,6 @@ const REFURB_CFG = {
   planned:      {label:'Planned',     color:'#4B8FE0'},
 }
 
-const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
-  html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
-  *{box-sizing:border-box;margin:0;padding:0;}
-  ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0B0D14}::-webkit-scrollbar-thumb{background:#1E2335;border-radius:3px}
-  input,select,textarea{font-family:'DM Mono',monospace;background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
-  input:focus,select:focus,textarea:focus{border-color:${T.gold};}
-  select option{background:${T.surface};}
-  label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
-  .btn{font-family:'DM Mono',monospace;font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
-  .btn-gold{background:#C8A84B;color:#0B0D14;}.btn-gold:hover{background:#D9BC72;}
-  .btn-ghost{background:transparent;color:#E4E0D8;border:1px solid #1E2335;}.btn-ghost:hover{border-color:#C8A84B;color:#C8A84B;}
-  .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
-  .card{background:#171B28;border:1px solid #1E2335;border-radius:14px;}
-  .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
-  @media(max-width:768px){
-    .nav-desktop{display:none!important;visibility:hidden!important;width:0!important;overflow:hidden!important;}
-    .mobile-nav{display:flex!important;}
-    .detail-grid{grid-template-columns:1fr!important;}
-    .stat-grid{grid-template-columns:1fr 1fr!important;}
-    .hide-mobile{display:none!important;}
-    .stat-cards-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
-    .company-stats-grid{grid-template-columns:1fr 1fr!important;}
-    .kpi-grid{grid-template-columns:1fr 1fr!important;}
-    .summary-cards{grid-template-columns:1fr 1fr!important;}
-    h1{font-size:20px!important;}
-    h2{font-size:16px!important;}
-    .pcard{padding:12px 14px!important;}
-    main{padding:16px 12px 90px!important;}
-    .tab{padding:6px 10px!important;font-size:11px!important;}
-    .modal{margin:8px!important;max-height:95vh!important;overflow-y:auto!important;}
-    .overlay{padding:0!important;align-items:flex-end!important;}
-    .card{border-radius:10px!important;}
-    input,select,textarea{font-size:16px!important;}
-  }
-  @media(min-width:769px){
-    .mobile-nav{display:none!important;}
-    .show-mobile{display:none!important;}
-    .hide-mobile{display:flex!important;}
-  }
-  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:${T.surface};border-top:1px solid ${T.border};z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
-  .fade{animation:fadeIn 0.25s ease;}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(6px);}
-  .modal{background:#12151F;border:1px solid #1E2335;border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
-  .tab{font-family:'DM Mono',monospace;font-size:11px;background:none;border:none;color:#6B7191;cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
-  .tab.active{background:#1E2335;color:#C8A84B;}.tab:hover{color:#E4E0D8;}
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  @media(max-width:700px){.g2{grid-template-columns:1fr}}
-`
-
 const Badge = ({status}) => {
   const c = STATUS_CFG[status]||STATUS_CFG.purchased
   return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.bg,color:c.fg,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:600}}>
@@ -195,6 +143,60 @@ export default function App() {
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const { T, darkMode, setDarkMode } = useTheme()
+
+  const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+  html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0B0D14}::-webkit-scrollbar-thumb{background:#1E2335;border-radius:3px}
+  input,select,textarea{font-family:'DM Mono',monospace;background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
+  input:focus,select:focus,textarea:focus{border-color:${T.gold};}
+  select option{background:${T.surface};}
+  label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
+  .btn{font-family:'DM Mono',monospace;font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
+  .btn-gold{background:#C8A84B;color:#0B0D14;}.btn-gold:hover{background:#D9BC72;}
+  .btn-ghost{background:transparent;color:#E4E0D8;border:1px solid #1E2335;}.btn-ghost:hover{border-color:#C8A84B;color:#C8A84B;}
+  .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
+  .card{background:#171B28;border:1px solid #1E2335;border-radius:14px;}
+  .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
+  @media(max-width:768px){
+    .nav-desktop{display:none!important;visibility:hidden!important;width:0!important;overflow:hidden!important;}
+    .mobile-nav{display:flex!important;}
+    .detail-grid{grid-template-columns:1fr!important;}
+    .stat-grid{grid-template-columns:1fr 1fr!important;}
+    .hide-mobile{display:none!important;}
+    .stat-cards-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
+    .company-stats-grid{grid-template-columns:1fr 1fr!important;}
+    .kpi-grid{grid-template-columns:1fr 1fr!important;}
+    .summary-cards{grid-template-columns:1fr 1fr!important;}
+    h1{font-size:20px!important;}
+    h2{font-size:16px!important;}
+    .pcard{padding:12px 14px!important;}
+    main{padding:16px 12px 90px!important;}
+    .tab{padding:6px 10px!important;font-size:11px!important;}
+    .modal{margin:8px!important;max-height:95vh!important;overflow-y:auto!important;}
+    .overlay{padding:0!important;align-items:flex-end!important;}
+    .card{border-radius:10px!important;}
+    input,select,textarea{font-size:16px!important;}
+  }
+  @media(min-width:769px){
+    .mobile-nav{display:none!important;}
+    .show-mobile{display:none!important;}
+    .hide-mobile{display:flex!important;}
+  }
+  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:${T.surface};border-top:1px solid ${T.border};z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
+  .fade{animation:fadeIn 0.25s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(6px);}
+  .modal{background:#12151F;border:1px solid #1E2335;border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
+  .tab{font-family:'DM Mono',monospace;font-size:11px;background:none;border:none;color:#6B7191;cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
+  .tab.active{background:#1E2335;color:#C8A84B;}.tab:hover{color:#E4E0D8;}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:700px){.g2{grid-template-columns:1fr}}
+`
+
+
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 769
   const [showDrawer, setShowDrawer] = useState(false)
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
