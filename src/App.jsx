@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage } from './components/FeatureComponents'
+import { SmartAlerts, ReportsPage, ContractorsPage } from './components/DashboardComponents'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
@@ -53,6 +54,15 @@ const CSS = `
   .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
   .card{background:#171B28;border:1px solid #1E2335;border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
+  @media(max-width:768px){
+    .nav-desktop{display:none!important;}
+    .mobile-nav{display:flex!important;}
+    .detail-grid{grid-template-columns:1fr!important;}
+    .stat-grid{grid-template-columns:1fr 1fr!important;}
+    .hide-mobile{display:none!important;}
+  }
+  @media(min-width:769px){.mobile-nav{display:none!important;}}
+  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#12151F;border-top:1px solid #1E2335;z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
   .fade{animation:fadeIn 0.25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -98,6 +108,23 @@ const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
           ))}
         </div>
       )}
+    {/* Mobile bottom nav */}
+    <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+      {[
+        {key:'dashboard',icon:'◈',label:'Home'},
+        {key:'properties',icon:'⊞',label:'Props'},
+        {key:'rent',icon:'£',label:'Rent'},
+        {key:'reports',icon:'📊',label:'Reports'},
+        {key:'settings',icon:'⚙',label:'Settings'},
+      ].map(item=>(
+        <button key={item.key} onClick={()=>setView(item.key)}
+          style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'4px 8px',
+            color:view===item.key?T.gold:T.muted,fontSize:10,fontFamily:"'DM Mono',monospace"}}>
+          <span style={{fontSize:18}}>{item.icon}</span>
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
     </div>
   )
 }
@@ -344,7 +371,7 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  const navItems=[{key:'dashboard',label:'Dashboard',icon:'◈'},{key:'properties',label:'Properties',icon:'⊞'},{key:'companies',label:'Companies',icon:'◎'},{key:'rent',label:'Rent Tracker',icon:'£'},{key:'settings',label:'Settings',icon:'⚙'}]
+  const navItems=[{key:'dashboard',label:'Dashboard',icon:'◈'},{key:'properties',label:'Properties',icon:'⊞'},{key:'companies',label:'Companies',icon:'◎'},{key:'rent',label:'Rent Tracker',icon:'£'},{key:'reports',label:'Reports',icon:'📊'},{key:'contractors',label:'Contractors',icon:'🔧'},{key:'settings',label:'Settings',icon:'⚙'}]
 
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',background:T.bg,color:T.text}}>
@@ -368,8 +395,10 @@ export default function App() {
           </nav>
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-gold" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
-            {isAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>setShowAdmin(true)}>⚙ Access</button>}
-            <button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
+            <div className="hide-mobile" style={{display:'flex',gap:8}}>
+              {isAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>setShowAdmin(true)}>⚙ Access</button>}
+              <button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
+            </div>
           </div>
         </div>
       </header>
@@ -458,21 +487,7 @@ export default function App() {
                   ))}
                 </div>
             }
-            <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>Needs Attention</h2>
-            <div style={{display:'grid',gap:10}}>
-              {properties.filter(p=>(p.arrears||0)>0||p.status==='vacant').slice(0,10).map(p=>(
-                <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
-                  <div style={{flex:1,minWidth:150}}>
-                    <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.address}</div>
-                  </div>
-                  <CompanyPill company={p.company}/><Badge status={p.status}/>
-                  {(p.arrears||0)>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.red}}>Arrears {fmt(p.arrears)}</div>}
-                </div>
-              ))}
-              {properties.filter(p=>(p.arrears||0)>0||p.status==='vacant').length===0&&
-                <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:32,background:T.card,borderRadius:12}}>✓ All properties healthy</div>}
-            </div>
+            <SmartAlerts properties={properties} companies={companies} fmt={fmt} openDetail={openDetail}/>
           </div>}
 
           {view==='properties'&&<div className="fade">
@@ -538,6 +553,8 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
           {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast}/>}
+          {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt}/>}
+          {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
           {view==='detail'&&selected&&<div className="fade">
             <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>← Back</button>
