@@ -605,9 +605,10 @@ export default function App() {
                   ))}
                 </div>
             }
+            <SmartAlerts properties={properties} companies={companies} fmt={fmt} openDetail={openDetail}/>
             {/* Company documents section */}
             {activeCoTab&&(companySettings[activeCoTab]||{}).feature_documents&&(
-              <div style={{marginTop:20}}>
+              <div style={{marginTop:28}}>
                 <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:6}}>Company Documents</h2>
                 <p style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:14}}>
                   Documents stored at company level — for items that apply across all properties (e.g. company insurance, bank letters)
@@ -615,7 +616,6 @@ export default function App() {
                 <CompanyDocumentsTab companyId={activeCoTab} showToast={showToast} isAdmin={isAdmin} user={user}/>
               </div>
             )}
-            <SmartAlerts properties={properties} companies={companies} fmt={fmt} openDetail={openDetail}/>
           </div>}
 
           {view==='properties'&&<div className="fade">
