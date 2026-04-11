@@ -198,6 +198,7 @@ export default function App() {
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 769
+  const [showDrawer, setShowDrawer] = useState(false)
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
   useEffect(()=>{
@@ -405,22 +406,32 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  const navItems=[{key:'dashboard',label:'Dashboard',icon:'🏠'},{key:'properties',label:'Properties',icon:'🏘'},{key:'companies',label:'Companies',icon:'🏢'},{key:'rent',label:'Rent Tracker',icon:'💷'},{key:'reports',label:'Reports',icon:'📊'},{key:'contractors',label:'Contractors',icon:'🔧'},{key:'settings',label:'Settings',icon:'⚙️'}]
+  const navItems=[
+    {key:'dashboard',  label:'Dashboard',   icon:'🏠', short:'Home'},
+    {key:'properties', label:'Properties',  icon:'🏘', short:'Props'},
+    {key:'companies',  label:'Companies',   icon:'🏢', short:'Companies'},
+    {key:'rent',       label:'Rent Tracker',icon:'💷', short:'Rent'},
+    {key:'reports',    label:'Reports',     icon:'📊', short:'Reports'},
+    {key:'contractors',label:'Contractors', icon:'🔧', short:'Contractors'},
+    {key:'settings',   label:'Settings',    icon:'⚙', short:'Settings'},
+  ]
 
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text}}>
       <style>{CSS}</style>
+      {/* ── HEADER ── */}
       <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
         <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
           {/* Logo */}
           <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-            <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏛</div>
+            <div style={{width:30,height:30,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>🏛</div>
             <div>
-              <div style={{fontSize:isMobile?13:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1}}>Estateflow</div>
+              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1,color:T.text}}>Estateflow</div>
               {!isMobile&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>}
             </div>
           </div>
-          {/* Desktop nav - JS conditional */}
+
+          {/* Desktop nav */}
           {!isMobile&&<nav style={{display:'flex',gap:2,flex:1,justifyContent:'center'}}>
             {navItems.map(n=>(
               <button key={n.key} className={`tab ${view===n.key||(view==='detail'&&n.key==='properties')?'active':''}`}
@@ -429,13 +440,71 @@ export default function App() {
               </button>
             ))}
           </nav>}
-          {/* Right buttons */}
-          <div style={{display:'flex',gap:6,flexShrink:0}}>
+
+          {/* Mobile: current page title */}
+          {isMobile&&<div style={{flex:1,textAlign:'center',fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
+            {navItems.find(n=>n.key===view)?.icon} {navItems.find(n=>n.key===view)?.label||'Dashboard'}
+          </div>}
+
+          {/* Right side */}
+          <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
             {!isMobile&&<button className="btn btn-gold" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>}
             {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>}
+            {/* Hamburger - mobile only */}
+            {isMobile&&<button onClick={()=>setShowDrawer(true)}
+              style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.text,fontSize:16,display:'flex',flexDirection:'column',gap:4,alignItems:'center',justifyContent:'center',width:36,height:36}}>
+              <span style={{display:'block',width:16,height:1.5,background:T.text,borderRadius:1}}/>
+              <span style={{display:'block',width:16,height:1.5,background:T.text,borderRadius:1}}/>
+              <span style={{display:'block',width:16,height:1.5,background:T.text,borderRadius:1}}/>
+            </button>}
           </div>
         </div>
       </header>
+
+      {/* ── MOBILE DRAWER ── */}
+      {isMobile&&showDrawer&&(
+        <div style={{position:'fixed',inset:0,zIndex:300,display:'flex'}}>
+          {/* Backdrop */}
+          <div style={{flex:1,background:'rgba(0,0,0,0.6)'}} onClick={()=>setShowDrawer(false)}/>
+          {/* Drawer panel */}
+          <div style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
+            {/* Drawer header */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${T.border}`}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏛</div>
+                <div style={{fontSize:14,fontWeight:700,color:T.text}}>Estateflow</div>
+              </div>
+              <button onClick={()=>setShowDrawer(false)}
+                style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px'}}>✕</button>
+            </div>
+            {/* Nav items */}
+            <div style={{flex:1,overflowY:'auto',padding:'12px 0'}}>
+              {navItems.map(n=>(
+                <button key={n.key}
+                  onClick={()=>{setView(n.key);setSelectedId(null);setShowDrawer(false)}}
+                  style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 20px',
+                    background:view===n.key?T.gold+'18':'none',
+                    border:'none',borderLeft:view===n.key?`3px solid ${T.gold}`:'3px solid transparent',
+                    cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}>
+                  <span style={{fontSize:18,width:24,textAlign:'center'}}>{n.icon}</span>
+                  <span style={{fontSize:14,fontWeight:view===n.key?600:400,color:view===n.key?T.gold:T.text}}>{n.label}</span>
+                </button>
+              ))}
+            </div>
+            {/* Drawer footer */}
+            <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:8}}>
+              <button className="btn btn-gold" style={{width:'100%',fontSize:12,padding:'10px'}}
+                onClick={()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}}>
+                + Add Property
+              </button>
+              <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px'}}
+                onClick={()=>supabase.auth.signOut()}>
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%'}}>
         {loading?<Spinner/>:<>
@@ -729,28 +798,29 @@ export default function App() {
 
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
 
-      {/* Mobile FAB */}
-      {isMobile&&<button onClick={()=>{setEditProp(null);setShowAddProp(true)}}
-        style={{position:'fixed',bottom:74,right:16,zIndex:200,width:48,height:48,borderRadius:24,
-          background:T.gold,border:'none',cursor:'pointer',fontSize:26,color:'#000',
-          display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>}
-
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav - consistent icons, + More opens drawer */}
       <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
-        {[
-          {key:'dashboard',icon:'◈',label:'Home'},
-          {key:'properties',icon:'⊞',label:'Props'},
-          {key:'rent',icon:'£',label:'Rent'},
-          {key:'reports',icon:'📊',label:'Reports'},
-          {key:'settings',icon:'⚙',label:'Settings'},
-        ].map(item=>(
-          <button key={item.key} onClick={()=>setView(item.key)}
-            style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,padding:'4px 8px',
-              color:view===item.key?T.gold:T.muted,fontSize:10,fontFamily:"'DM Mono',monospace"}}>
-            <span style={{fontSize:18}}>{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
+        {['dashboard','properties','rent','reports','settings'].map(key=>{
+          const n = navItems.find(x=>x.key===key)
+          if (!n) return null
+          const active = view===key||(view==='detail'&&key==='properties')
+          return (
+            <button key={key} onClick={()=>{setView(key);setSelectedId(null)}}
+              style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
+                alignItems:'center',gap:2,padding:'4px 8px',flex:1,
+                color:active?T.gold:T.muted,fontFamily:"'DM Mono',monospace"}}>
+              <span style={{fontSize:20}}>{n.icon}</span>
+              <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>{n.short}</span>
+            </button>
+          )
+        })}
+        <button onClick={()=>setShowDrawer(true)}
+          style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
+            alignItems:'center',gap:2,padding:'4px 8px',flex:1,
+            color:T.muted,fontFamily:"'DM Mono',monospace"}}>
+          <span style={{fontSize:20}}>☰</span>
+          <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>More</span>
+        </button>
       </nav>
     </div>
   )
