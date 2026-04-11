@@ -415,9 +415,9 @@ export default function App() {
           {/* Logo */}
           <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
             <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏛</div>
-            <div className="hide-mobile">
-              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1}}>Estateflow</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>
+            <div>
+              <div style={{fontSize:isMobile?13:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1}}>Estateflow</div>
+              {!isMobile&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Portfolio Manager</div>}
             </div>
           </div>
           {/* Desktop nav - JS conditional */}
@@ -557,7 +557,7 @@ export default function App() {
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
               <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',flexShrink:0}}>Sort by:</span>
               {[
-                {v:'company-name', l:'Company -&gt; Name'},
+                {v:'company-name', l:'Company / Name'},
                 {v:'name',         l:'Name A-Z'},
                 {v:'status',       l:'Status'},
                 {v:'rent-high',    l:'Rent (High-Low)'},
@@ -567,7 +567,7 @@ export default function App() {
                 {v:'custom',       l:'Custom Order'},
               ].map(opt=>(
                 <button key={opt.v} onClick={()=>setSortBy(opt.v)}
-                  style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 12px',borderRadius:20,cursor:'pointer',
+                  style={{fontFamily:"'DM Mono',monospace",fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
                     background:sortBy===opt.v?T.gold+'22':'transparent',
                     color:sortBy===opt.v?T.gold:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
@@ -728,6 +728,12 @@ export default function App() {
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
 
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
+
+      {/* Mobile FAB */}
+      {isMobile&&<button onClick={()=>{setEditProp(null);setShowAddProp(true)}}
+        style={{position:'fixed',bottom:74,right:16,zIndex:200,width:48,height:48,borderRadius:24,
+          background:T.gold,border:'none',cursor:'pointer',fontSize:26,color:'#000',
+          display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>}
 
       {/* Mobile bottom nav */}
       <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
