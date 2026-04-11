@@ -76,7 +76,7 @@ const CompanyPill = ({company}) => {
 }
 
 const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
-  const [open,setOpen] = React.useState(false)
+  const [open,setOpen] = useState(false)
   return (
     <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:breakdown?'pointer':'default'}}
       onClick={breakdown?()=>setOpen(o=>!o):undefined}>
@@ -835,12 +835,12 @@ function AccessModal({companies, userId, onClose, showToast}) {
     bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
     text:'#E4E0D8', muted:'#6B7191', gold:'#C8A84B', green:'#2ECC8A', red:'#E05555',
   }
-  const [users, setUsers] = React.useState([])
-  const [access, setAccess] = React.useState({})  // userId -> [companyId]
-  const [loading, setLoading] = React.useState(true)
-  const [newEmail, setNewEmail] = React.useState('')
+  const [users, setUsers] = useState([])
+  const [access, setAccess] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [newEmail, setNewEmail] = useState('')
 
-  React.useEffect(()=>{
+  useEffect(()=>{
     loadData()
   },[])
 
