@@ -605,14 +605,14 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — high contrast'}</div>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={()=>setDarkMode(true)}
+            <button onClick={async()=>{setDarkMode(true);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:true,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
               style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
                 border:`1px solid ${darkMode?T.gold:T.border}`,
                 background:darkMode?T.gold+'22':'transparent',
                 color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
               🌙 Dark
             </button>
-            <button onClick={()=>setDarkMode(false)}
+            <button onClick={async()=>{setDarkMode(false);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:false,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
               style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
                 border:`1px solid ${!darkMode?T.gold:T.border}`,
                 background:!darkMode?T.gold+'22':'transparent',

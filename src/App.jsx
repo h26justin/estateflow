@@ -146,7 +146,7 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
-  const { T, darkMode, setDarkMode } = useTheme()
+  const { T, darkMode, setDarkMode, loadUserTheme } = useTheme()
 
   const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -227,6 +227,8 @@ export default function App() {
         const isAdminUser = access.length===0 || access.some(a=>a.is_admin)
         setIsAdmin(isAdminUser)
         setUserAccess(accessIds)
+        // Load user's saved theme preference from Supabase
+        await loadUserTheme(user.id, user.email)
         const visibleCos   = isAdminUser ? cos   : cos.filter(c=>accessIds.includes(c.id))
         const visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
         setCompanies(visibleCos)

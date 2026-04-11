@@ -263,3 +263,24 @@ export async function ensureFutureRentMonths(properties, monthsAhead = 6) {
 
   return inserts.length
 }
+
+// ── USER THEME PREFERENCE ─────────────────────────────────────────────────────
+export async function fetchThemePreference(userId) {
+  try {
+    const { data } = await supabase.from('user_profiles')
+      .select('dark_mode').eq('user_id', userId).single()
+    if (data && data.dark_mode !== null && data.dark_mode !== undefined) {
+      return data.dark_mode
+    }
+  } catch(e) {}
+  return null // null = not set yet, use default
+}
+
+export async function saveThemePreference(userId, email, darkMode) {
+  try {
+    await supabase.from('user_profiles').upsert(
+      { user_id: userId, email, dark_mode: darkMode, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
+  } catch(e) { console.log('saveThemePreference:', e) }
+}
