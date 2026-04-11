@@ -200,14 +200,22 @@ export default function App() {
   }),[properties,coFilter,statusFilter,searchQ])
 
   const stats = useMemo(()=>({
-    totalInvested: properties.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
-    totalEstVal:   properties.reduce((s,p)=>s+(p.est_value||0),0),
-    monthlyRent:   properties.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0),
-    totalArrears:  properties.reduce((s,p)=>s+(p.arrears||0),0),
-    rented:        properties.filter(p=>p.status==='rented').length,
-    vacant:        properties.filter(p=>p.status==='vacant').length,
-    inRefurb:      properties.filter(p=>p.refurb_status==='in-progress').length,
-    total:         properties.length,
+    totalInvested:       properties.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
+    totalEstVal:         properties.reduce((s,p)=>s+(p.est_value||0),0),
+    monthlyRent:         properties.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0),
+    totalArrears:        properties.reduce((s,p)=>s+(p.arrears||0),0),
+    totalMortgage:       properties.reduce((s,p)=>s+(p.mortgage_amount||0),0),
+    totalEquity:         properties.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0),
+    monthlyMortgageCost: properties.reduce((s,p)=>{
+      if(!p.mortgage_rate||!p.mortgage_amount) return s
+      const r=p.mortgage_rate/12, n=(p.mortgage_term||25)*12
+      return s+p.mortgage_amount*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)
+    },0),
+    mortgaged:           properties.filter(p=>(p.mortgage_amount||0)>0).length,
+    rented:              properties.filter(p=>p.status==='rented').length,
+    vacant:              properties.filter(p=>p.status==='vacant').length,
+    inRefurb:            properties.filter(p=>p.refurb_status==='in-progress').length,
+    total:               properties.length,
   }),[properties])
 
   const companyStats = useMemo(()=>companies.map(c=>{
@@ -345,14 +353,15 @@ export default function App() {
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
               <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {companies.length} companies · {stats.rented} rented · {stats.vacant} vacant</p>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:28}}>
-              <StatCard icon="🏛" label="Total Invested" value={fmt(stats.totalInvested)} sub={`Est. value ${fmt(stats.totalEstVal)}`}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:14,marginBottom:28}}>
+              <StatCard icon="🏛" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                 breakdown={[
+                  {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
+                  {label:'Total invested', value:fmt(stats.totalInvested)},
                   {label:'Purchase prices total', value:fmt(properties.reduce((s,p)=>s+(p.purchase_price||0),0))},
                   {label:'Refurb costs total', value:fmt(properties.reduce((s,p)=>s+(p.refurb_cost||0),0))},
                   {label:'Stamp duty total', value:fmt(properties.reduce((s,p)=>s+(p.stamp_duty||0),0))},
                   {label:'Legal fees total', value:fmt(properties.reduce((s,p)=>s+(p.legal_fees||0),0))},
-                  {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
                   {label:'Unrealised gain', value:fmt(stats.totalEstVal-stats.totalInvested), color:stats.totalEstVal>stats.totalInvested?T.green:T.red},
                 ]}
               />
@@ -377,6 +386,20 @@ export default function App() {
                   ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
                   {label:'Planned refurbs', value:properties.filter(p=>p.refurb_status==='planned').length},
                   {label:'Completed refurbs', value:properties.filter(p=>p.refurb_status==='complete').length, color:T.green},
+                ]}
+              />
+              <StatCard icon="🏦" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
+                breakdown={[
+                  {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
+                  {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
+                  {label:'Monthly repayments', value:fmt(stats.monthlyMortgageCost)},
+                  {label:'Annual repayments', value:fmt(stats.monthlyMortgageCost*12)},
+                  {label:'Average LTV', value:stats.totalEstVal>0?((stats.totalMortgage/stats.totalEstVal)*100).toFixed(1)+'%':'—'},
+                  ...companyStats.map(c=>({
+                    label:c.name+' debt',
+                    value:fmt(properties.filter(p=>p.company_id===c.id).reduce((s,p)=>s+(p.mortgage_amount||0),0)),
+                    color:c.color
+                  })),
                 ]}
               />
             </div>
