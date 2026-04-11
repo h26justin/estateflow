@@ -1,0 +1,592 @@
+import { useState, useEffect } from 'react'
+import * as api from '../lib/api'
+
+const T = {
+  bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
+  text:'#E4E0D8', muted:'#6B7191', faint:'#3A3F58',
+  gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', amber:'#E0943A', blue:'#4B8FE0',
+}
+
+const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
+
+function formatDate(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null
+  const diff = new Date(dateStr) - new Date()
+  return Math.ceil(diff / (1000*60*60*24))
+}
+
+function ExpiryBadge({dateStr}) {
+  const days = daysUntil(dateStr)
+  if (days === null) return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>No expiry set</span>
+  if (days < 0)   return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:T.red,background:'#2B1010',padding:'2px 8px',borderRadius:20}}>EXPIRED {Math.abs(days)}d ago</span>
+  if (days <= 30) return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:T.amber,background:'#2B1A0A',padding:'2px 8px',borderRadius:20}}>Expires in {days}d</span>
+  if (days <= 90) return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.amber,background:'#2B1A0A',padding:'2px 8px',borderRadius:20}}>{days}d remaining</span>
+  return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.green,background:'#0D2B1F',padding:'2px 8px',borderRadius:20}}>{days}d remaining</span>
+}
+
+// ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
+export function ComplianceTab({propertyId, showToast}) {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({cert_type:'gas',cert_name:'Gas Safety Certificate',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
+  const s = (k,v) => setForm(f=>({...f,[k]:v}))
+
+  const CERT_TYPES = [
+    {value:'gas',     label:'Gas Safety Certificate',    icon:'🔥'},
+    {value:'eicr',    label:'Electrical Safety (EICR)',   icon:'⚡'},
+    {value:'epc',     label:'EPC Rating',                 icon:'🌿'},
+    {value:'hmo',     label:'HMO Licence',                icon:'🏠'},
+    {value:'fire',    label:'Fire Risk Assessment',        icon:'🔴'},
+    {value:'pat',     label:'PAT Testing',                 icon:'🔌'},
+    {value:'other',   label:'Other Certificate',           icon:'📄'},
+  ]
+
+  useEffect(()=>{ loadItems() },[propertyId])
+
+  async function loadItems() {
+    setLoading(true)
+    try { setItems(await api.fetchCompliance(propertyId)) }
+    catch(e) { console.log(e) }
+    setLoading(false)
+  }
+
+  async function handleAdd() {
+    if (!form.cert_name) return
+    try {
+      const created = await api.createCompliance(propertyId, form)
+      setItems(prev=>[...prev, created])
+      setShowForm(false)
+      setForm({cert_type:'gas',cert_name:'Gas Safety Certificate',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
+      showToast('Certificate added')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  async function handleDelete(id) {
+    try { await api.deleteCompliance(id); setItems(prev=>prev.filter(i=>i.id!==id)); showToast('Removed') }
+    catch(e) { showToast(e.message,'error') }
+  }
+
+  const sorted = [...items].sort((a,b)=>{
+    const da = daysUntil(a.expiry_date) ?? 9999
+    const db = daysUntil(b.expiry_date) ?? 9999
+    return da - db
+  })
+
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
+        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Certificate</button>
+      </div>
+
+      {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+          <div>
+            <label>Certificate Type</label>
+            <select value={form.cert_type} onChange={e=>{
+              const t = CERT_TYPES.find(x=>x.value===e.target.value)
+              s('cert_type',e.target.value); s('cert_name',t?.label||'')
+            }}>
+              {CERT_TYPES.map(t=><option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
+            </select>
+          </div>
+          <div><label>Certificate Name</label><input value={form.cert_name} onChange={e=>s('cert_name',e.target.value)}/></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+          <div><label>Issue Date</label><input type="date" value={form.issue_date} onChange={e=>s('issue_date',e.target.value)}/></div>
+          <div><label>Expiry Date</label><input type="date" value={form.expiry_date} onChange={e=>s('expiry_date',e.target.value)}/></div>
+          <div><label>Remind (days before)</label><input type="number" value={form.reminder_days} onChange={e=>s('reminder_days',+e.target.value)}/></div>
+        </div>
+        <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="Optional notes"/></div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleAdd}>Save</button>
+          <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowForm(false)}>Cancel</button>
+        </div>
+      </div>}
+
+      {loading ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+       : sorted.length===0 ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'20px 0'}}>No certificates added yet.</div>
+       : <div style={{display:'grid',gap:10}}>
+          {sorted.map(item=>{
+            const ct = CERT_TYPES.find(t=>t.value===item.cert_type)
+            return (
+              <div key={item.id} className="card" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+                <span style={{fontSize:24,flexShrink:0}}>{ct?.icon||'📄'}</span>
+                <div style={{flex:1,minWidth:150}}>
+                  <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{item.cert_name}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                    Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}
+                  </div>
+                  {item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
+                </div>
+                <ExpiryBadge dateStr={item.expiry_date}/>
+                <button onClick={()=>handleDelete(item.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>
+              </div>
+            )
+          })}
+        </div>
+      }
+    </div>
+  )
+}
+
+// ── TENANCY TAB ───────────────────────────────────────────────────────────────
+export function TenancyTab({propertyId, showToast, fmt}) {
+  const [details, setDetails] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({})
+  const s = (k,v) => setForm(f=>({...f,[k]:v}))
+
+  const DEPOSIT_SCHEMES = ['DPS - Deposit Protection Service','mydeposits','TDS - Tenancy Deposit Scheme','Not registered']
+
+  useEffect(()=>{ loadDetails() },[propertyId])
+
+  async function loadDetails() {
+    setLoading(true)
+    try {
+      const d = await api.fetchTenancyDetails(propertyId)
+      setDetails(d)
+      setForm(d||{})
+    } catch(e) { console.log(e) }
+    setLoading(false)
+  }
+
+  async function handleSave() {
+    try {
+      const saved = await api.upsertTenancyDetails(propertyId, form)
+      setDetails(saved); setEditing(false)
+      showToast('Tenancy details saved')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  const renewalDays = details?.tenancy_end ? daysUntil(details.tenancy_end) : null
+
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Tenancy Details</div>
+        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setEditing(v=>!v)}>{editing?'Cancel':'Edit Details'}</button>
+      </div>
+
+      {renewalDays!==null && renewalDays<=60 && (
+        <div style={{background:'#2B1A0A',border:'1px solid #5C3A1A',borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:"'DM Mono',monospace",fontSize:12,color:T.amber}}>
+          ⚠ Tenancy {renewalDays<0?`expired ${Math.abs(renewalDays)} days ago`:`expires in ${renewalDays} days`} — consider renewal action
+        </div>
+      )}
+
+      {loading ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+       : editing ? (
+        <div className="card" style={{padding:'18px 20px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+            <div><label>Tenant Name(s)</label><input value={form.tenant_names||''} onChange={e=>s('tenant_names',e.target.value)} placeholder="e.g. John & Jane Smith"/></div>
+            <div><label>Tenant Phone</label><input value={form.tenant_phone||''} onChange={e=>s('tenant_phone',e.target.value)} placeholder="07xxx xxxxxx"/></div>
+          </div>
+          <div style={{marginBottom:12}}><label>Tenant Email</label><input value={form.tenant_email||''} onChange={e=>s('tenant_email',e.target.value)} placeholder="tenant@email.com"/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+            <div><label>Tenancy Start</label><input type="date" value={form.tenancy_start||''} onChange={e=>s('tenancy_start',e.target.value)}/></div>
+            <div><label>Tenancy End</label><input type="date" value={form.tenancy_end||''} onChange={e=>s('tenancy_end',e.target.value)}/></div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+            <div><label>Deposit Amount (£)</label><input type="number" value={form.deposit_amount||''} onChange={e=>s('deposit_amount',+e.target.value)}/></div>
+            <div><label>Deposit Scheme</label><select value={form.deposit_scheme||''} onChange={e=>s('deposit_scheme',e.target.value)}><option value="">Select…</option>{DEPOSIT_SCHEMES.map(x=><option key={x}>{x}</option>)}</select></div>
+            <div><label>Deposit Reference</label><input value={form.deposit_ref||''} onChange={e=>s('deposit_ref',e.target.value)}/></div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+            <div><label>Rent Review Date</label><input type="date" value={form.rent_review_date||''} onChange={e=>s('rent_review_date',e.target.value)}/></div>
+            <div><label>Notice Period</label><input value={form.notice_period||''} onChange={e=>s('notice_period',e.target.value)} placeholder="e.g. 2 months"/></div>
+          </div>
+          <div style={{marginBottom:12}}><label>Break Clause</label><input value={form.break_clause||''} onChange={e=>s('break_clause',e.target.value)} placeholder="e.g. Break at 12 months with 2 months notice"/></div>
+          <div style={{marginBottom:14}}><label>Notes</label><textarea value={form.notes||''} onChange={e=>s('notes',e.target.value)} rows={2} style={{resize:'vertical'}}/></div>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>Save Tenancy Details</button>
+        </div>
+       ) : details ? (
+        <div style={{display:'grid',gap:10}}>
+          {[
+            {l:'Tenant(s)',       v:details.tenant_names||'—'},
+            {l:'Phone',           v:details.tenant_phone||'—'},
+            {l:'Email',           v:details.tenant_email||'—'},
+            {l:'Tenancy Start',   v:formatDate(details.tenancy_start)},
+            {l:'Tenancy End',     v:formatDate(details.tenancy_end), alert:renewalDays!==null&&renewalDays<=60},
+            {l:'Deposit',         v:fmt(details.deposit_amount), sub:details.deposit_scheme},
+            {l:'Deposit Ref',     v:details.deposit_ref||'—'},
+            {l:'Rent Review',     v:formatDate(details.rent_review_date)},
+            {l:'Notice Period',   v:details.notice_period||'—'},
+            {l:'Break Clause',    v:details.break_clause||'—'},
+          ].map((item,i)=>(
+            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'10px 14px',background:T.bg,borderRadius:8}}>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,flexShrink:0,marginRight:16}}>{item.l}</span>
+              <div style={{textAlign:'right'}}>
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:600,color:item.alert?T.amber:T.text}}>{item.v}</span>
+                {item.sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{item.sub}</div>}
+              </div>
+            </div>
+          ))}
+          {details.notes&&<div className="card" style={{padding:'12px 14px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>Notes</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text}}>{details.notes}</div>
+          </div>}
+        </div>
+       ) : (
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'20px 0'}}>No tenancy details recorded. Click Edit Details to add them.</div>
+       )
+      }
+    </div>
+  )
+}
+
+// ── MAINTENANCE TAB ───────────────────────────────────────────────────────────
+export function MaintenanceTab({propertyId, showToast, fmt}) {
+  const [jobs, setJobs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editJob, setEditJob] = useState(null)
+  const blank = {title:'',description:'',category:'plumbing',priority:'medium',status:'open',contractor:'',contractor_phone:'',quoted_cost:'',actual_cost:'',date_raised:'',date_resolved:'',notes:''}
+  const [form, setForm] = useState(blank)
+  const s = (k,v) => setForm(f=>({...f,[k]:v}))
+
+  const CATEGORIES = ['plumbing','electrical','structural','appliance','decoration','roofing','damp','other']
+  const PRIORITIES = [{v:'low',c:'#6B7191'},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
+  const STATUSES   = [{v:'open',c:T.red,l:'Open'},{v:'in-progress',c:T.amber,l:'In Progress'},{v:'complete',c:T.green,l:'Complete'}]
+
+  useEffect(()=>{ loadJobs() },[propertyId])
+
+  async function loadJobs() {
+    setLoading(true)
+    try { setJobs(await api.fetchMaintenance(propertyId)) }
+    catch(e) { console.log(e) }
+    setLoading(false)
+  }
+
+  async function handleSave() {
+    if (!form.title) return
+    try {
+      const data = {...form, quoted_cost:parseFloat(form.quoted_cost)||null, actual_cost:parseFloat(form.actual_cost)||null}
+      if (editJob) {
+        const updated = await api.updateMaintenance(editJob.id, data)
+        setJobs(prev=>prev.map(j=>j.id===editJob.id?updated:j))
+        showToast('Job updated')
+      } else {
+        const created = await api.createMaintenance(propertyId, data)
+        setJobs(prev=>[created,...prev])
+        showToast('Job added')
+      }
+      setShowForm(false); setEditJob(null); setForm(blank)
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  async function handleDelete(id) {
+    try { await api.deleteMaintenance(id); setJobs(prev=>prev.filter(j=>j.id!==id)); showToast('Job removed') }
+    catch(e) { showToast(e.message,'error') }
+  }
+
+  const openJobs     = jobs.filter(j=>j.status!=='complete')
+  const completedJobs= jobs.filter(j=>j.status==='complete')
+  const totalCost    = jobs.reduce((s,j)=>s+(j.actual_cost||j.quoted_cost||0),0)
+
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Maintenance & Repairs</div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint,marginTop:2}}>{openJobs.length} open · Total cost {fmt(totalCost)}</div>
+        </div>
+        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log Job</button>
+      </div>
+
+      {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+          <div><label>Job Title *</label><input value={form.title} onChange={e=>s('title',e.target.value)} placeholder="e.g. Fix leaking tap"/></div>
+          <div><label>Category</label><select value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c} style={{textTransform:'capitalize'}}>{c}</option>)}</select></div>
+        </div>
+        <div style={{marginBottom:12}}><label>Description</label><textarea value={form.description} onChange={e=>s('description',e.target.value)} rows={2} style={{resize:'vertical'}}/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+          <div><label>Priority</label><select value={form.priority} onChange={e=>s('priority',e.target.value)}>{PRIORITIES.map(p=><option key={p.v} value={p.v} style={{textTransform:'capitalize'}}>{p.v}</option>)}</select></div>
+          <div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{STATUSES.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}</select></div>
+          <div><label>Date Raised</label><input type="date" value={form.date_raised} onChange={e=>s('date_raised',e.target.value)}/></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+          <div><label>Contractor</label><input value={form.contractor} onChange={e=>s('contractor',e.target.value)} placeholder="e.g. Bob's Plumbing"/></div>
+          <div><label>Contractor Phone</label><input value={form.contractor_phone} onChange={e=>s('contractor_phone',e.target.value)}/></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+          <div><label>Quoted Cost (£)</label><input type="number" value={form.quoted_cost} onChange={e=>s('quoted_cost',e.target.value)}/></div>
+          <div><label>Actual Cost (£)</label><input type="number" value={form.actual_cost} onChange={e=>s('actual_cost',e.target.value)}/></div>
+          <div><label>Date Resolved</label><input type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>{editJob?'Update Job':'Add Job'}</button>
+          <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setShowForm(false);setEditJob(null);setForm(blank)}}>Cancel</button>
+        </div>
+      </div>}
+
+      {loading ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+       : jobs.length===0 ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'20px 0'}}>No maintenance jobs logged yet.</div>
+       : <div>
+          {openJobs.length>0&&<div style={{marginBottom:16}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Open Jobs</div>
+            {openJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES}/>)}
+          </div>}
+          {completedJobs.length>0&&<div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Completed</div>
+            {completedJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES}/>)}
+          </div>}
+        </div>
+      }
+    </div>
+  )
+}
+
+function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES}) {
+  const pCol = PRIORITIES.find(p=>p.v===job.priority)?.c || T.muted
+  const st   = STATUSES.find(s=>s.v===job.status)
+  return (
+    <div className="card" style={{padding:'12px 16px',marginBottom:8}}>
+      <div style={{display:'flex',alignItems:'flex-start',gap:12,flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:150}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+            <span style={{fontSize:13,fontWeight:600}}>{job.title}</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:pCol,textTransform:'uppercase'}}>{job.priority}</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:st?.c||T.muted,background:st?.c+'22',padding:'1px 8px',borderRadius:20}}>{st?.l}</span>
+          </div>
+          {job.description&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:3}}>{job.description}</div>}
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
+            {job.contractor&&`Contractor: ${job.contractor}`}
+            {job.contractor_phone&&` · ${job.contractor_phone}`}
+            {job.date_raised&&` · Raised: ${formatDate(job.date_raised)}`}
+            {job.date_resolved&&` · Resolved: ${formatDate(job.date_resolved)}`}
+          </div>
+        </div>
+        <div style={{textAlign:'right',flexShrink:0}}>
+          {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
+          {job.quoted_cost&&job.actual_cost&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted}}>Quoted {fmt(job.quoted_cost)}</div>}
+          <div style={{display:'flex',gap:6,marginTop:6,justifyContent:'flex-end'}}>
+            <button onClick={()=>onEdit(job)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'transparent',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>
+            <button onClick={()=>onDelete(job.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── EXPENSES TAB ──────────────────────────────────────────────────────────────
+export function ExpensesTab({propertyId, showToast, fmt, rentPcm}) {
+  const [expenses, setExpenses] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const blank = {category:'repairs',description:'',amount:'',date:'',recurring:false,recurring_freq:'',notes:''}
+  const [form, setForm] = useState(blank)
+  const s = (k,v) => setForm(f=>({...f,[k]:v}))
+
+  const CATEGORIES = [
+    {v:'insurance',      l:'Insurance'},
+    {v:'agent_fees',     l:'Agent / Management Fees'},
+    {v:'repairs',        l:'Repairs & Maintenance'},
+    {v:'ground_rent',    l:'Ground Rent'},
+    {v:'service_charge', l:'Service Charge'},
+    {v:'utilities',      l:'Utilities'},
+    {v:'mortgage',       l:'Mortgage Payment'},
+    {v:'legal',          l:'Legal Fees'},
+    {v:'accountancy',    l:'Accountancy'},
+    {v:'other',          l:'Other'},
+  ]
+
+  useEffect(()=>{ loadExpenses() },[propertyId])
+
+  async function loadExpenses() {
+    setLoading(true)
+    try { setExpenses(await api.fetchExpenses(propertyId)) }
+    catch(e) { console.log(e) }
+    setLoading(false)
+  }
+
+  async function handleSave() {
+    if (!form.description||!form.amount||!form.date) return
+    try {
+      const created = await api.createExpense(propertyId, {...form, amount:parseFloat(form.amount)})
+      setExpenses(prev=>[created,...prev])
+      setForm(blank); setShowForm(false)
+      showToast('Expense added')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  async function handleDelete(id) {
+    try { await api.deleteExpense(id); setExpenses(prev=>prev.filter(e=>e.id!==id)); showToast('Removed') }
+    catch(e) { showToast(e.message,'error') }
+  }
+
+  const currentYear = new Date().getFullYear()
+  const thisYearExp = expenses.filter(e=>new Date(e.date).getFullYear()===currentYear)
+  const totalThisYear = thisYearExp.reduce((s,e)=>s+(e.amount||0),0)
+  const totalAllTime  = expenses.reduce((s,e)=>s+(e.amount||0),0)
+  const annualRent    = rentPcm * 12
+  const netProfit     = annualRent - totalThisYear
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:14}}>
+        {[
+          {l:'Expenses This Year', v:fmt(totalThisYear), c:T.red},
+          {l:'Annual Rent Income',  v:fmt(annualRent),    c:T.green},
+          {l:'Net Profit (Est.)',   v:fmt(netProfit),     c:netProfit>0?T.green:T.red},
+        ].map((item,i)=>(
+          <div key={i} style={{background:T.bg,borderRadius:10,padding:'12px 14px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Expense Log</div>
+        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Expense</button>
+      </div>
+
+      {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+          <div><label>Category</label><select value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c.v} value={c.v}>{c.l}</option>)}</select></div>
+          <div><label>Description *</label><input value={form.description} onChange={e=>s('description',e.target.value)} placeholder="e.g. Annual buildings insurance"/></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+          <div><label>Amount (£) *</label><input type="number" step="0.01" value={form.amount} onChange={e=>s('amount',e.target.value)}/></div>
+          <div><label>Date *</label><input type="date" value={form.date} onChange={e=>s('date',e.target.value)}/></div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:12,flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <input type="checkbox" checked={form.recurring} onChange={e=>s('recurring',e.target.checked)} style={{width:'auto'}}/>
+            <label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Recurring expense</label>
+          </div>
+          {form.recurring&&<select value={form.recurring_freq} onChange={e=>s('recurring_freq',e.target.value)} style={{width:'auto'}}>
+            <option value="">Frequency</option>
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="annually">Annually</option>
+          </select>}
+        </div>
+        <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)}/></div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>Save Expense</button>
+          <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowForm(false)}>Cancel</button>
+        </div>
+      </div>}
+
+      {loading ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+       : expenses.length===0 ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'20px 0'}}>No expenses logged yet.</div>
+       : <div style={{display:'grid',gap:8}}>
+          {expenses.map(exp=>{
+            const cat = CATEGORIES.find(c=>c.v===exp.category)
+            return (
+              <div key={exp.id} className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                <div style={{flex:1,minWidth:150}}>
+                  <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{exp.description}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                    {cat?.l} · {formatDate(exp.date)}
+                    {exp.recurring&&<span style={{marginLeft:6,color:T.blue}}>↻ {exp.recurring_freq}</span>}
+                  </div>
+                </div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:T.red}}>{fmt(exp.amount)}</div>
+                <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>
+              </div>
+            )
+          })}
+        </div>
+      }
+    </div>
+  )
+}
+
+// ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
+export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast}) {
+  const [saving, setSaving] = useState(null)
+
+  const FEATURES = [
+    {key:'feature_compliance',  label:'Compliance & Certificates', desc:'Track gas safety, EICR, EPC, HMO licences and other certificates with expiry alerts', icon:'📋'},
+    {key:'feature_tenancy',     label:'Tenancy Details',           desc:'Store tenant contact details, deposit info, rent review dates and break clauses', icon:'🤝'},
+    {key:'feature_maintenance', label:'Maintenance & Repairs',     desc:'Log repair jobs with contractor details, costs and status tracking', icon:'🔧'},
+    {key:'feature_documents',   label:'Document Storage',          desc:'Upload and store tenancy agreements, certificates and other documents', icon:'📁'},
+    {key:'feature_expenses',    label:'Expenses Tracker',          desc:'Track all property expenses to calculate true net profit per property', icon:'💰'},
+    {key:'feature_reports',     label:'Reports & Export',          desc:'Generate P&L reports and export data to CSV for your accountant', icon:'📊'},
+  ]
+
+  async function toggleFeature(companyId, featureKey, currentValue) {
+    setSaving(`${companyId}-${featureKey}`)
+    try {
+      const current = companySettings[companyId] || {}
+      const updated = { ...current, [featureKey]: !currentValue }
+      const saved = await api.upsertCompanySettings(companyId, updated)
+      setCompanySettings(prev=>({...prev, [companyId]: saved || updated}))
+      showToast('Settings saved')
+    } catch(e) { showToast(e.message,'error') }
+    setSaving(null)
+  }
+
+  return (
+    <div className="fade">
+      <div style={{marginBottom:28}}>
+        <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Settings</h1>
+        <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>Enable or disable features per company. Changes take effect immediately.</p>
+      </div>
+
+      {companies.map(company=>{
+        const settings = companySettings[company.id] || {}
+        return (
+          <div key={company.id} className="card" style={{padding:'22px 26px',marginBottom:16,borderLeft:`3px solid ${company.color}`}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:company.color,background:company.color+'22',padding:'3px 10px',borderRadius:4}}>{company.abbr}</div>
+              <h2 style={{fontSize:17,fontWeight:700}}>{company.name}</h2>
+            </div>
+
+            <div style={{display:'grid',gap:12}}>
+              {FEATURES.map(feature=>{
+                const isOn = settings[feature.key] !== false
+                const isSaving = saving===`${company.id}-${feature.key}`
+                return (
+                  <div key={feature.key} style={{display:'flex',alignItems:'center',gap:16,padding:'14px 16px',background:T.bg,borderRadius:10,flexWrap:'wrap'}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{feature.icon}</span>
+                    <div style={{flex:1,minWidth:200}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{feature.desc}</div>
+                    </div>
+                    {/* Toggle switch */}
+                    <div onClick={()=>!isSaving&&toggleFeature(company.id, feature.key, isOn)}
+                      style={{
+                        width:44, height:24, borderRadius:12, cursor:'pointer',
+                        background: isOn ? company.color : T.faint,
+                        position:'relative', transition:'background 0.2s', flexShrink:0,
+                        opacity: isSaving ? 0.6 : 1,
+                      }}>
+                      <div style={{
+                        width:18, height:18, borderRadius:'50%', background:'white',
+                        position:'absolute', top:3,
+                        left: isOn ? 23 : 3,
+                        transition:'left 0.2s',
+                        boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
+                      }}/>
+                    </div>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                      {isSaving?'…':isOn?'ON':'OFF'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="card" style={{padding:'20px 24px',marginTop:8}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Account</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,marginBottom:12}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>To change your password, sign out and use the "Forgot password" link on the login page.</div>
+      </div>
+    </div>
+  )
+}

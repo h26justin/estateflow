@@ -2,6 +2,11 @@ import { supabase } from './supabase'
 
 const uid = async () => (await supabase.auth.getUser()).data.user.id
 
+async function uid() {
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id
+}
+
 export async function fetchCompanies() {
   const { data, error } = await supabase.from('companies').select('*').order('name')
   if (error) throw error
@@ -95,4 +100,105 @@ export async function updateUserAccess(userId, companyId, email, grant) {
       .delete().eq('user_id', userId).eq('company_id', companyId)
     if (error) throw error
   }
+}
+// ── COMPANY SETTINGS ──────────────────────────────────────
+export async function fetchCompanySettings(companyId) {
+  const { data, error } = await supabase.from('company_settings').select('*').eq('company_id', companyId).single()
+  if (error) return null
+  return data
+}
+export async function upsertCompanySettings(companyId, settings) {
+  const userId = await uid()
+  const { data, error } = await supabase.from('company_settings')
+    .upsert({ ...settings, company_id: companyId, user_id: userId }, { onConflict: 'company_id' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+// ── COMPLIANCE ────────────────────────────────────────────
+export async function fetchCompliance(propertyId) {
+  const { data, error } = await supabase.from('compliance_items').select('*').eq('property_id', propertyId).order('expiry_date')
+  if (error) throw error
+  return data || []
+}
+export async function createCompliance(propertyId, item) {
+  const { data, error } = await supabase.from('compliance_items').insert({ ...item, property_id: propertyId, user_id: await uid() }).select().single()
+  if (error) throw error
+  return data
+}
+export async function updateCompliance(id, updates) {
+  const { data, error } = await supabase.from('compliance_items').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deleteCompliance(id) {
+  const { error } = await supabase.from('compliance_items').delete().eq('id', id)
+  if (error) throw error
+}
+export async function fetchAllCompliance(userId) {
+  const { data, error } = await supabase.from('compliance_items').select('*, property:properties(name,company_id)').eq('user_id', userId).order('expiry_date')
+  if (error) throw error
+  return data || []
+}
+
+// ── TENANCY DETAILS ───────────────────────────────────────
+export async function fetchTenancyDetails(propertyId) {
+  const { data, error } = await supabase.from('tenancy_details').select('*').eq('property_id', propertyId).single()
+  if (error) return null
+  return data
+}
+export async function upsertTenancyDetails(propertyId, details) {
+  const { data, error } = await supabase.from('tenancy_details')
+    .upsert({ ...details, property_id: propertyId, user_id: await uid() }, { onConflict: 'property_id' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+// ── MAINTENANCE ───────────────────────────────────────────
+export async function fetchMaintenance(propertyId) {
+  const { data, error } = await supabase.from('maintenance_jobs').select('*').eq('property_id', propertyId).order('created_at', {ascending:false})
+  if (error) throw error
+  return data || []
+}
+export async function createMaintenance(propertyId, job) {
+  const { data, error } = await supabase.from('maintenance_jobs').insert({ ...job, property_id: propertyId, user_id: await uid() }).select().single()
+  if (error) throw error
+  return data
+}
+export async function updateMaintenance(id, updates) {
+  const { data, error } = await supabase.from('maintenance_jobs').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deleteMaintenance(id) {
+  const { error } = await supabase.from('maintenance_jobs').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── EXPENSES ─────────────────────────────────────────────
+export async function fetchExpenses(propertyId) {
+  const { data, error } = await supabase.from('property_expenses').select('*').eq('property_id', propertyId).order('date', {ascending:false})
+  if (error) throw error
+  return data || []
+}
+export async function createExpense(propertyId, expense) {
+  const { data, error } = await supabase.from('property_expenses').insert({ ...expense, property_id: propertyId, user_id: await uid() }).select().single()
+  if (error) throw error
+  return data
+}
+export async function updateExpense(id, updates) {
+  const { data, error } = await supabase.from('property_expenses').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deleteExpense(id) {
+  const { error } = await supabase.from('property_expenses').delete().eq('id', id)
+  if (error) throw error
+}
+export async function fetchAllExpenses(userId) {
+  const { data, error } = await supabase.from('property_expenses').select('*, property:properties(name,company_id)').eq('user_id', userId).order('date', {ascending:false})
+  if (error) throw error
+  return data || []
 }

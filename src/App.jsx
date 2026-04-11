@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage } from './components/FeatureComponents'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
@@ -147,7 +148,8 @@ const Spinner = () => <div style={{display:'flex',alignItems:'center',justifyCon
 export default function App() {
   const {session,user} = useAuth()
   const [properties,  setProperties]  = useState([])
-  const [companies,   setCompanies]    = useState([])
+  const [companies,        setCompanies]        = useState([])
+  const [companySettings,  setCompanySettings]   = useState({})  // companyId -> settings
   const [loading,     setLoading]      = useState(true)
   const [view,        setView]         = useState('dashboard')
   const [selectedId,  setSelectedId]   = useState(null)
@@ -181,6 +183,17 @@ export default function App() {
         setCompanies(visibleCos)
         setProperties(visibleProps)
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
+        // Load settings for each company
+        const settingsMap = {}
+        await Promise.all(visibleCos.map(async c => {
+          const s = await api.fetchCompanySettings(c.id)
+          settingsMap[c.id] = s || {
+            feature_compliance:true, feature_tenancy:true,
+            feature_maintenance:true, feature_documents:true,
+            feature_expenses:true, feature_reports:true
+          }
+        }))
+        setCompanySettings(settingsMap)
       })
       .catch(e=>{
         // If access table doesn't exist yet, show everything (first run)
@@ -315,7 +328,7 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  const navItems=[{key:'dashboard',label:'Dashboard',icon:'◈'},{key:'properties',label:'Properties',icon:'⊞'},{key:'companies',label:'Companies',icon:'◎'},{key:'rent',label:'Rent Tracker',icon:'£'}]
+  const navItems=[{key:'dashboard',label:'Dashboard',icon:'◈'},{key:'properties',label:'Properties',icon:'⊞'},{key:'companies',label:'Companies',icon:'◎'},{key:'rent',label:'Rent Tracker',icon:'£'},{key:'settings',label:'Settings',icon:'⚙'}]
 
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',background:T.bg,color:T.text}}>
@@ -508,6 +521,7 @@ export default function App() {
           </div>}
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
+          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast}/>}
 
           {view==='detail'&&selected&&<div className="fade">
             <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>← Back</button>
@@ -530,11 +544,22 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
-                  {['overview','refurb','rent','financials'].map(t=>(
-                    <button key={t} className={`tab ${detailTab===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:'capitalize'}}>{t}</button>
-                  ))}
-                </div>
+                {(()=>{
+                  const co = selected?.company_id
+                  const cs = companySettings[co] || {}
+                  const tabs = ['overview','refurb','rent','financials']
+                  if(cs.feature_compliance)  tabs.push('compliance')
+                  if(cs.feature_tenancy)     tabs.push('tenancy')
+                  if(cs.feature_maintenance) tabs.push('maintenance')
+                  if(cs.feature_expenses)    tabs.push('expenses')
+                  return (
+                    <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
+                      {tabs.map(t=>(
+                        <button key={t} className={`tab ${detailTab===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:'capitalize'}}>{t}</button>
+                      ))}
+                    </div>
+                  )
+                })()}
                 {detailTab==='overview'&&<div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
                     {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
@@ -566,6 +591,10 @@ export default function App() {
                     </div>
                   ))}
                 </div>}
+                {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast}/>}
+                {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt}/>}
+                {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt}/>}
+                {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0}/>}
               </div>
               <div style={{display:'grid',gap:12}}>
                 <div className="card" style={{padding:'18px 20px'}}>
