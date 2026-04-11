@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import * as api from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 const T = {
   bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
@@ -504,8 +505,9 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm}) {
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast}) {
+export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin}) {
   const [saving, setSaving] = useState(null)
+  const [showAccessModal, setShowAccessModal] = useState(false)
 
   const FEATURES = [
     {key:'feature_compliance',  label:'Compliance & Certificates', desc:'Track gas safety, EICR, EPC, HMO licences and other certificates with expiry alerts', icon:'📋'},
@@ -585,7 +587,118 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
       <div className="card" style={{padding:'20px 24px',marginTop:8}}>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Account</div>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,marginBottom:12}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>To change your password, sign out and use the "Forgot password" link on the login page.</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:16}}>To change your password, sign out and use the "Forgot password" link on the login page.</div>
+        {isAdmin&&<button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowAccessModal(true)}>⚙ Manage User Access</button>}
+      </div>
+
+      {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast}/>}
+    </div>
+  )
+}
+
+// ── ACCESS MODAL ──────────────────────────────────────────────────────────────
+function AccessModal({companies, onClose, showToast}) {
+  const [users, setUsers] = useState([])
+  const [access, setAccess] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [newEmail, setNewEmail] = useState('')
+
+  useEffect(()=>{ loadData() },[])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const {data:rows} = await supabase.from('user_company_access').select('*')
+      const grouped = {}
+      if (rows) rows.forEach(row=>{
+        if (!grouped[row.user_id]) grouped[row.user_id]={email:row.email||row.user_id,companies:[]}
+        grouped[row.user_id].companies.push(row.company_id)
+      })
+      setAccess(grouped)
+      setUsers(Object.entries(grouped).map(([id,v])=>({id,email:v.email,companies:v.companies})))
+    } catch(e) { console.log(e) }
+    setLoading(false)
+  }
+
+  async function toggleAccess(userId, companyId, email) {
+    const has = (access[userId]?.companies||[]).includes(companyId)
+    try {
+      if (has) {
+        await supabase.from('user_company_access').delete().eq('user_id',userId).eq('company_id',companyId)
+      } else {
+        await supabase.from('user_company_access').insert({user_id:userId,company_id:companyId,email,is_admin:false})
+      }
+      await loadData()
+      showToast('Access updated')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  async function addUser() {
+    if (!newEmail.trim()) return
+    try {
+      for (const co of companies) {
+        await supabase.from('user_company_access')
+          .upsert({user_id:newEmail,company_id:co.id,email:newEmail,is_admin:false},{onConflict:'user_id,company_id'})
+      }
+      setNewEmail('')
+      await loadData()
+      showToast('User added — they need to sign up at the app URL first')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  async function removeUser(userId) {
+    try {
+      await supabase.from('user_company_access').delete().eq('user_id',userId)
+      await loadData()
+      showToast('User removed')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:580}}>
+        <div style={{padding:'24px 28px'}}>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:6,color:T.text}}>⚙ User Access Control</h2>
+          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Control which users can see which companies. You (admin) always see everything.</p>
+
+          <div style={{marginBottom:20,padding:'16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
+            <label>Add User by Email</label>
+            <div style={{display:'flex',gap:8,marginTop:6}}>
+              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="user@example.com" style={{flex:1,fontSize:12}}/>
+              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={addUser}>Add</button>
+            </div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginTop:8}}>User must first sign up at your app URL, then add them here.</div>
+          </div>
+
+          {loading
+            ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+            : users.length===0
+              ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',padding:20}}>No restricted users. All signed-up users currently see everything.</div>
+              : users.map(u=>(
+                <div key={u.id} style={{marginBottom:12,padding:'14px 16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:600}}>{u.email}</div>
+                    <button className="btn btn-danger" style={{fontSize:10,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>
+                  </div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                    {companies.map(co=>{
+                      const has = u.companies.includes(co.id)
+                      return (
+                        <button key={co.id} onClick={()=>toggleAccess(u.id,co.id,u.email)}
+                          style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                            border:`1px solid ${has?co.color:T.border}`,
+                            background:has?co.color+'22':'transparent',
+                            color:has?co.color:T.muted,transition:'all 0.18s'}}>
+                          {has?'✓ ':''}{co.abbr}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+          }
+          <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:12}} onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   )

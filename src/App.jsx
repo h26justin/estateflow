@@ -354,7 +354,7 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  const navItems=[{key:'dashboard',label:'Dashboard',icon:'◈'},{key:'properties',label:'Properties',icon:'⊞'},{key:'companies',label:'Companies',icon:'◎'},{key:'rent',label:'Rent Tracker',icon:'£'},{key:'reports',label:'Reports',icon:'📊'},{key:'contractors',label:'Contractors',icon:'🔧'},{key:'settings',label:'Settings',icon:'⚙'}]
+  const navItems=[{key:'dashboard',label:'Dashboard',icon:'🏠'},{key:'properties',label:'Properties',icon:'🏘'},{key:'companies',label:'Companies',icon:'🏢'},{key:'rent',label:'Rent Tracker',icon:'💷'},{key:'reports',label:'Reports',icon:'📊'},{key:'contractors',label:'Contractors',icon:'🔧'},{key:'settings',label:'Settings',icon:'⚙️'}]
 
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',background:T.bg,color:T.text}}>
@@ -379,7 +379,6 @@ export default function App() {
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-gold" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
             <div className="hide-mobile" style={{display:'flex',gap:8}}>
-              {isAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>setShowAdmin(true)}>⚙ Access</button>}
               <button className="btn btn-ghost" style={{fontSize:11,padding:'7px 14px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>
             </div>
           </div>
@@ -535,7 +534,7 @@ export default function App() {
           </div>}
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
-          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast}/>}
+          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin}/>}
           {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
@@ -636,7 +635,7 @@ export default function App() {
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
-      {showAdmin&&<AccessModal companies={companies} userId={user?.id} onClose={()=>setShowAdmin(false)} showToast={showToast}/>}
+      {/* Access modal now lives inside Settings page */}
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
 
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}

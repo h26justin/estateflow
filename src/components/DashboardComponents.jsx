@@ -230,6 +230,283 @@ export function ReportsPage({properties, companies, fmt}) {
     URL.revokeObjectURL(url)
   }
 
+  async function exportPDF() {
+    // Load jsPDF dynamically
+    if (!window.jspdf) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.head.appendChild(script)
+      })
+    }
+    const { jsPDF } = window.jspdf
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = 210, H = 297
+    const gold = [200, 168, 75]
+    const dark = [11, 13, 20]
+    const surface = [23, 27, 40]
+    const muted = [107, 113, 145]
+    const green = [46, 204, 138]
+    const red = [224, 85, 85]
+    const white = [228, 224, 216]
+
+    // ── COVER / HEADER ────────────────────────────────────────
+    // Dark header band
+    doc.setFillColor(...dark)
+    doc.rect(0, 0, W, 42, 'F')
+
+    // Gold accent bar
+    doc.setFillColor(...gold)
+    doc.rect(0, 0, 4, 42, 'F')
+
+    // Logo text
+    doc.setTextColor(...gold)
+    doc.setFontSize(20)
+    doc.setFont('helvetica','bold')
+    doc.text('Estateflow', 14, 16)
+
+    doc.setTextColor(...muted)
+    doc.setFontSize(7)
+    doc.setFont('helvetica','normal')
+    doc.text('PORTFOLIO MANAGER', 14, 21)
+
+    // Report title
+    doc.setTextColor(...white)
+    doc.setFontSize(13)
+    doc.setFont('helvetica','bold')
+    const coName = selectedCompany==='all' ? 'All Companies'
+      : companies.find(c=>c.id===selectedCompany)?.name || ''
+    doc.text(`Portfolio Report — ${selectedYear}`, 14, 32)
+    doc.setFontSize(9)
+    doc.setFont('helvetica','normal')
+    doc.setTextColor(...muted)
+    doc.text(`${coName} · Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`, 14, 38)
+
+    let y = 52
+
+    // ── SUMMARY KPI CARDS ─────────────────────────────────────
+    const kpis = [
+      {label:'Annual Rent Income', value:fmt(annualRent), color:green},
+      {label:'Total Expenses',     value:fmt(totalExpenses), color:red},
+      {label:'Net Profit (Est.)',  value:fmt(netProfit), color: netProfit>=0 ? green : red},
+      {label:'Portfolio Value',    value:fmt(filteredProps.reduce((s,p)=>s+(p.est_value||0),0)), color:gold},
+      {label:'Mortgage Debt',      value:fmt(totalMortgage), color:[155,89,182]},
+      {label:'Avg Gross Yield',    value:avgYield.toFixed(2)+'%', color:[75,143,224]},
+    ]
+
+    const cardW = (W - 28 - 10) / 3
+    kpis.forEach((kpi, i) => {
+      const col = i % 3
+      const row = Math.floor(i / 3)
+      const x = 14 + col * (cardW + 5)
+      const cy = y + row * 22
+
+      // Card background
+      doc.setFillColor(...surface)
+      doc.roundedRect(x, cy, cardW, 18, 2, 2, 'F')
+
+      // Gold left border
+      doc.setFillColor(...kpi.color)
+      doc.rect(x, cy, 2, 18, 'F')
+
+      // Label
+      doc.setTextColor(...muted)
+      doc.setFontSize(6.5)
+      doc.setFont('helvetica','normal')
+      doc.text(kpi.label.toUpperCase(), x + 5, cy + 6)
+
+      // Value
+      doc.setTextColor(...kpi.color)
+      doc.setFontSize(11)
+      doc.setFont('helvetica','bold')
+      doc.text(kpi.value, x + 5, cy + 14)
+    })
+
+    y += 50
+
+    // ── DIVIDER ───────────────────────────────────────────────
+    doc.setDrawColor(...gold)
+    doc.setLineWidth(0.3)
+    doc.line(14, y, W - 14, y)
+    y += 6
+
+    // ── PROPERTY P&L TABLE ────────────────────────────────────
+    doc.setTextColor(...gold)
+    doc.setFontSize(10)
+    doc.setFont('helvetica','bold')
+    doc.text('Property P&L Analysis', 14, y)
+    y += 6
+
+    // Table header
+    const cols = [
+      {label:'Property',    x:14,  w:68, align:'left'},
+      {label:'Status',      x:82,  w:22, align:'left'},
+      {label:'Annual Rent', x:104, w:28, align:'right'},
+      {label:'Expenses',    x:132, w:24, align:'right'},
+      {label:'Net Profit',  x:156, w:26, align:'right'},
+      {label:'Yield',       x:182, w:14, align:'right'},
+    ]
+
+    // Header row background
+    doc.setFillColor(...surface)
+    doc.rect(14, y, W - 28, 7, 'F')
+
+    doc.setTextColor(...muted)
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica','bold')
+    cols.forEach(col => {
+      const tx = col.align==='right' ? col.x + col.w - 1 : col.x + 2
+      doc.text(col.label.toUpperCase(), tx, y + 4.5, {align: col.align==='right'?'right':'left'})
+    })
+    y += 7
+
+    // Data rows
+    doc.setFont('helvetica','normal')
+    propPnL.forEach((p, i) => {
+      if (y > H - 25) {
+        doc.addPage()
+        // Repeat header on new page
+        doc.setFillColor(...dark)
+        doc.rect(0, 0, W, 12, 'F')
+        doc.setFillColor(...gold)
+        doc.rect(0, 0, 4, 12, 'F')
+        doc.setTextColor(...gold)
+        doc.setFontSize(8)
+        doc.setFont('helvetica','bold')
+        doc.text('Estateflow — Property P&L (continued)', 14, 8)
+        y = 20
+        // Re-draw column headers
+        doc.setFillColor(...surface)
+        doc.rect(14, y, W - 28, 7, 'F')
+        doc.setTextColor(...muted)
+        doc.setFontSize(6.5)
+        cols.forEach(col => {
+          const tx = col.align==='right' ? col.x + col.w - 1 : col.x + 2
+          doc.text(col.label.toUpperCase(), tx, y + 4.5, {align: col.align==='right'?'right':'left'})
+        })
+        y += 7
+        doc.setFont('helvetica','normal')
+      }
+
+      // Alternating row
+      if (i % 2 === 0) {
+        doc.setFillColor(18, 21, 31)
+        doc.rect(14, y, W - 28, 6.5, 'F')
+      }
+
+      const rowColor = i % 2 === 0 ? [40,44,60] : surface
+
+      doc.setFontSize(7.5)
+      doc.setTextColor(...white)
+
+      // Property name (truncate)
+      const maxNameW = 65
+      let name = p.name
+      doc.setFont('helvetica','bold')
+      while (doc.getTextWidth(name) > maxNameW && name.length > 8) name = name.slice(0,-1)
+      if (name !== p.name) name += '…'
+      doc.text(name, 16, y + 4.5)
+
+      doc.setFont('helvetica','normal')
+      doc.setTextColor(...muted)
+      doc.text(p.status||'', 84, y + 4.5)
+
+      // Financials
+      doc.setTextColor(...(p.annualRent>0 ? green : muted))
+      doc.text(p.annualRent>0 ? fmt(p.annualRent) : '—', 130, y + 4.5, {align:'right'})
+
+      doc.setTextColor(...(p.expenses>0 ? red : muted))
+      doc.text(p.expenses>0 ? fmt(p.expenses) : '—', 154, y + 4.5, {align:'right'})
+
+      const netCol = p.netProfit >= 0 ? green : red
+      doc.setTextColor(...(p.annualRent>0 ? netCol : muted))
+      doc.text(p.annualRent>0 ? fmt(p.netProfit) : '—', 180, y + 4.5, {align:'right'})
+
+      doc.setTextColor(...gold)
+      doc.text(p.yield>0 ? p.yield.toFixed(1)+'%' : '—', 195, y + 4.5, {align:'right'})
+
+      y += 6.5
+    })
+
+    y += 4
+
+    // ── EXPENSE BREAKDOWN ─────────────────────────────────────
+    if (Object.keys(expByCategory).length > 0) {
+      if (y > H - 60) { doc.addPage(); y = 20 }
+
+      doc.setDrawColor(...gold)
+      doc.line(14, y, W - 14, y)
+      y += 6
+
+      doc.setTextColor(...gold)
+      doc.setFontSize(10)
+      doc.setFont('helvetica','bold')
+      doc.text('Expense Breakdown', 14, y)
+      y += 7
+
+      const sortedExp = Object.entries(expByCategory).sort((a,b)=>b[1]-a[1])
+      sortedExp.forEach(([cat, amt]) => {
+        const CATEGORY_LABELS = {
+          insurance:'Insurance', agent_fees:'Agent / Management Fees', repairs:'Repairs & Maintenance',
+          ground_rent:'Ground Rent', service_charge:'Service Charge', utilities:'Utilities',
+          mortgage:'Mortgage Payment', legal:'Legal Fees', accountancy:'Accountancy', other:'Other'
+        }
+        const barW = totalExpenses > 0 ? ((amt / totalExpenses) * 100) : 0
+        const barPx = (barW / 100) * 120
+
+        doc.setFontSize(8)
+        doc.setFont('helvetica','normal')
+        doc.setTextColor(...white)
+        doc.text(CATEGORY_LABELS[cat]||cat, 14, y + 3.5)
+
+        // Bar background
+        doc.setFillColor(...surface)
+        doc.roundedRect(80, y, 120, 5, 1, 1, 'F')
+
+        // Bar fill
+        doc.setFillColor(...red)
+        if (barPx > 0) doc.roundedRect(80, y, barPx, 5, 1, 1, 'F')
+
+        // Amount
+        doc.setTextColor(...red)
+        doc.setFont('helvetica','bold')
+        doc.text(fmt(amt), W - 14, y + 3.5, {align:'right'})
+
+        y += 8
+      })
+
+      // Total
+      doc.setFillColor(...surface)
+      doc.rect(14, y, W-28, 8, 'F')
+      doc.setFontSize(9)
+      doc.setFont('helvetica','bold')
+      doc.setTextColor(...white)
+      doc.text('Total Expenses', 16, y+5.5)
+      doc.setTextColor(...red)
+      doc.text(fmt(totalExpenses), W-14, y+5.5, {align:'right'})
+      y += 12
+    }
+
+    // ── FOOTER ────────────────────────────────────────────────
+    const pageCount = doc.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFillColor(...dark)
+      doc.rect(0, H-10, W, 10, 'F')
+      doc.setFillColor(...gold)
+      doc.rect(0, H-10, W, 0.5, 'F')
+      doc.setTextColor(...muted)
+      doc.setFontSize(7)
+      doc.setFont('helvetica','normal')
+      doc.text('Estateflow Portfolio Manager — Confidential', 14, H-4)
+      doc.text(`Page ${i} of ${pageCount}`, W-14, H-4, {align:'right'})
+    }
+
+    doc.save(`estateflow-report-${selectedYear}.pdf`)
+  }
+
   const CATEGORY_LABELS = {
     insurance:'Insurance', agent_fees:'Agent Fees', repairs:'Repairs',
     ground_rent:'Ground Rent', service_charge:'Service Charge',
@@ -251,7 +528,8 @@ export function ReportsPage({properties, companies, fmt}) {
           <select value={selectedYear} onChange={e=>setSelectedYear(+e.target.value)} style={{fontSize:11}}>
             {years.map(y=><option key={y}>{y}</option>)}
           </select>
-          <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>⬇ Export CSV</button>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>⬇ CSV</button>
+          <button className="btn btn-gold" style={{fontSize:11,background:'#1A1525',color:'#C8A84B',border:'1px solid #C8A84B'}} onClick={exportPDF}>⬇ PDF Report</button>
         </div>
       </div>
 
