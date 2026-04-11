@@ -87,7 +87,7 @@ function parsePNE(text) {
       if (!result.company) result.company = line
     }
 
-    const payMatch = line.match(/PAYMENT AMOUNT\s*[£]?([\d,]+\.?\d*)/i)
+    const payMatch = line.match(/PAYMENT AMOUNT\s*[\u00A3]?([\d,]+\.?\d*)/i)
     if (payMatch) result.paymentAmount = parseFloat(payMatch[1].replace(/,/g,''))
   }
 
@@ -127,10 +127,10 @@ function parsePNE(text) {
     const rentMatch = line.match(/Rent for the month\s+(\d{2}\/\d{2}\/\d{4})\s+to\s+(\d{2}\/\d{2}\/\d{4})/i)
     if (rentMatch && currentProperty) {
       // Find amount - look for £ in this line or next
-      const amtMatch = line.match(/£([\d,]+\.?\d*)/)
+      const amtMatch = line.match(/[\u00A3]([\d,]+\.?\d*)/)
       if (amtMatch) {
         const amount = parseFloat(amtMatch[1].replace(/,/g,''))
-        const tenantMatch = line.match(/- (.+?)(?:\s+£|$)/)
+        const tenantMatch = line.match(/- (.+?)(?:\s+[\u00A3]|$)/)
         const tenant = tenantMatch ? tenantMatch[1].trim() : ''
         const period = `${rentMatch[1]} to ${rentMatch[2]}`
 
@@ -152,9 +152,9 @@ function parsePNE(text) {
     }
 
     // Management commission line
-    const commMatch = line.match(/Management Commission\s+([\d.]+)%\s+of\s+£([\d,]+\.?\d*)/i)
+    const commMatch = line.match(/Management Commission\s+([\d.]+)%\s+of\s+[\u00A3]([\d,]+\.?\d*)/i)
     if (commMatch && inExpenditure) {
-      const amtMatch = line.match(/£([\d,]+\.?\d*)\s*£0/)
+      const amtMatch = line.match(/[\u00A3]([\d,]+\.?\d*)\s*[\u00A3]0/)
       if (amtMatch) {
         const amount = parseFloat(amtMatch[1].replace(/,/g,''))
         // Find which property this belongs to - look back for current property
@@ -254,7 +254,7 @@ function parseRMS(text) {
     }
 
     // Management fee line
-    const mgmtMatch = line.match(/Management Fee @ ([\d.]+)%\s*-\s*\(([\d.]+)%\s+of\s+£([\d,]+\.?\d*)\)/i)
+    const mgmtMatch = line.match(/Management Fee @ ([\d.]+)%\s*-\s*\(([\d.]+)%\s+of\s+[\u00A3]([\d,]+\.?\d*)\)/i)
     if (mgmtMatch) {
       let propName = ''
       for (let j = i - 1; j >= Math.max(0, i-5); j--) {
