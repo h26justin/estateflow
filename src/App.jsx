@@ -365,7 +365,7 @@ export default function App() {
       {showLoginModal && (
         <div onClick={e=>e.target===e.currentTarget&&setShowLoginModal(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16,backdropFilter:'blur(4px)'}}>
-          <LoginPage initialMode={loginMode} onClose={()=>setShowLoginModal(false)}/>
+          <LoginPage key={loginMode} initialMode={loginMode} onClose={()=>setShowLoginModal(false)}/>
         </div>
       )}
     </>
