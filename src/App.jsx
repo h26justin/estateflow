@@ -12,6 +12,8 @@ import LoginPage from './components/LoginPage'
 import OnboardingWizard from './components/OnboardingWizard'
 import MarketingSite from './components/MarketingSite'
 import BillingPage from './components/BillingPage'
+import AdminDashboard from './components/AdminDashboard'
+import OnboardingTour from './components/OnboardingTour'
 
 
 
@@ -147,7 +149,6 @@ export default function App() {
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
-  const [showAdmin,        setShowAdmin]        = useState(false)
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
@@ -156,6 +157,8 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginMode, setLoginMode] = useState('login')
   const [trialWarning, setTrialWarning] = useState(null)
+  const [showAdmin, setShowAdmin] = useState(false)
+  const [showTour, setShowTour] = useState(false)
   const { T, darkMode, setDarkMode, loadUserTheme } = useTheme()
 
   const CSS = `
@@ -215,6 +218,12 @@ export default function App() {
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
   useEffect(()=>{
+    const handler = () => setShowTour(true)
+    window.addEventListener('ownproperly:restart-tour', handler)
+    return () => window.removeEventListener('ownproperly:restart-tour', handler)
+  }, [])
+
+  useEffect(()=>{
     if (!user) return
     async function loadData() {
       setLoading(true)
@@ -238,6 +247,9 @@ export default function App() {
         setUserAccess(accessIds)
         // Load user's saved theme preference from Supabase
         await loadUserTheme(user.id, user.email)
+        // Check if new user needs onboarding tour
+        const onboarded = await api.fetchOnboardingStatus(user.id)
+        if (!onboarded) setShowTour(true)
         const visibleCos   = cos
         const visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
         setCompanies(visibleCos)
@@ -529,6 +541,7 @@ export default function App() {
                 )}
               </div>
             )}
+            {isPlatformAdmin&&!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>⚙ Admin</button>}
             {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()} aria-label="Sign out">Sign Out</button>}
             {/* Hamburger - mobile only */}
             {isMobile&&<button onClick={()=>setShowDrawer(true)}
@@ -912,6 +925,16 @@ export default function App() {
         </button>
       </nav>
     </div>
+
+      {/* ── ADMIN DASHBOARD OVERLAY ── */}
+      {showAdmin && isPlatformAdmin && (
+        <AdminDashboard onClose={()=>setShowAdmin(false)}/>
+      )}
+
+      {/* ── ONBOARDING TOUR ── */}
+      {showTour && (
+        <OnboardingTour user={user} onComplete={()=>setShowTour(false)}/>
+      )}
   )
 }
 

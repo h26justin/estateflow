@@ -602,3 +602,52 @@ export async function fetchBillingStatus(companyId) {
     .single()
   return { company: data, subscription: sub }
 }
+
+// ── ONBOARDING ────────────────────────────────────────────────────────────────
+export async function markOnboardingComplete(userId, email) {
+  const { error } = await supabase.from('user_profiles').upsert({
+    user_id: userId, email,
+    onboarding_completed: true,
+    onboarding_completed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+  if (error) throw error
+}
+
+export async function fetchOnboardingStatus(userId) {
+  try {
+    const { data } = await supabase.from('user_profiles')
+      .select('onboarding_completed')
+      .eq('user_id', userId)
+      .single()
+    return data?.onboarding_completed === true
+  } catch(e) { return false }
+}
+
+// ── ADMIN: FULL COMPANY LIST WITH SUBS ───────────────────────────────────────
+export async function fetchAdminAllCompanies() {
+  const { data, error } = await supabase
+    .from('companies')
+    .select(`
+      *,
+      subscriptions ( status, property_count, current_period_end, stripe_subscription_id )
+    `)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  // Attach owner emails from user_profiles
+  const ownerIds = [...new Set((data || []).map(c => c.owner_id).filter(Boolean))]
+  let profileMap = {}
+  if (ownerIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, email')
+      .in('user_id', ownerIds)
+    if (profiles) profiles.forEach(p => { profileMap[p.user_id] = p.email })
+  }
+
+  return (data || []).map(c => ({
+    ...c,
+    owner_email: profileMap[c.owner_id] || null,
+  }))
+}

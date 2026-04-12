@@ -723,6 +723,12 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
               </div>
             </div>
 
+            <div style={sectionStyle}>
+                <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>App Tour</div>
+                <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:12}}>Replay the getting started tour at any time.</div>
+                <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>▶ Replay tour</button>
+              </div>
+
             {isAdmin&&(
               <div style={sectionStyle}>
                 <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>User Access</div>
