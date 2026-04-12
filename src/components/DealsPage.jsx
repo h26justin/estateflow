@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 
@@ -274,7 +274,7 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
 
       {/* Compare modal */}
       {showCompare && compareIds.length >= 2 && (
-        <CompareModal deals={deals.filter(d=>compareIds.includes(d.id))} companies={companies} T={T} onClose={()=>setShowCompare(false)}/>
+        <CompareModal deals={deals.filter(d=>compareIds.includes(d.id))} companies={companies} onClose={()=>setShowCompare(false)}/>
       )}
     </div>
   )
@@ -286,7 +286,6 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
       deal={selectedDeal}
       companies={companies}
       user={user}
-      T={T}
       showToast={showToast}
       onBack={()=>setView('list')}
       onSave={saveDeal}
@@ -299,14 +298,16 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
 }
 
 // ── DEAL DETAIL ────────────────────────────────────────────────────────────────
-function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDelete, onConvert }) {
-  const [tab, setTab]   = useState('calculator')
-  const [form, setForm] = useState({ ...deal })
+function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete, onConvert }) {
+  const { T } = useTheme()
+  const [tab, setTab]     = useState('calculator')
+  const [form, setForm]   = useState(deal ? { ...deal } : {})
+  const [saving, setSaving] = useState(false)
+
   if (!deal) return null
 
   const sect = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
   const sectionCard = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
-  const [saving, setSaving] = useState(false)
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
   const num = (field) => parseFloat(form[field]) || 0
@@ -621,24 +622,25 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
 
       {/* ── PURCHASE TRACKER TAB ── */}
       {tab === 'tracker' && (
-        <PurchaseTracker deal={form} onUpdate={updated=>setForm(prev=>({...prev,...updated}))} T={T} showToast={showToast}/>
+        <PurchaseTracker deal={form} onUpdate={updated=>setForm(prev=>({...prev,...updated}))} showToast={showToast}/>
       )}
 
       {/* ── CONTACTS TAB ── */}
       {tab === 'contacts' && (
-        <ContactsTab dealId={form.id} userId={user?.id} T={T} showToast={showToast}/>
+        <ContactsTab dealId={form.id} userId={user?.id} showToast={showToast}/>
       )}
 
       {/* ── DOCUMENTS TAB ── */}
       {tab === 'documents' && (
-        <DocumentsTab dealId={form.id} userId={user.id} T={T} showToast={showToast}/>
+        <DocumentsTab dealId={form.id} userId={user.id} showToast={showToast}/>
       )}
     </div>
   )
 }
 
 // ── PURCHASE TRACKER ──────────────────────────────────────────────────────────
-function PurchaseTracker({ deal, onUpdate, T, showToast }) {
+function PurchaseTracker({ deal, onUpdate, showToast }) {
+  const { T } = useTheme()
   const [milestones, setMilestones] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -769,7 +771,8 @@ function PurchaseTracker({ deal, onUpdate, T, showToast }) {
 }
 
 // ── CONTACTS TAB ──────────────────────────────────────────────────────────────
-function ContactsTab({ dealId, userId, T, showToast }) {
+function ContactsTab({ dealId, userId, showToast }) {
+  const { T } = useTheme()
   const [contacts, setContacts]       = useState([])
   const [addressBook, setAddressBook] = useState([])
   const [editing, setEditing]         = useState(null)
@@ -958,10 +961,11 @@ function ContactsTab({ dealId, userId, T, showToast }) {
 }
 
 // ── DOCUMENTS TAB ─────────────────────────────────────────────────────────────
-function DocumentsTab({ dealId, userId, T, showToast }) {
+function DocumentsTab({ dealId, userId, showToast }) {
+  const { T } = useTheme()
   const [docs, setDocs]         = useState([])
   const [uploading, setUploading] = useState(false)
-  const inputRef = useState(null)
+  const inputRef = useRef(null)
 
   useEffect(() => {
     api.fetchDealDocuments(dealId).then(setDocs).catch(()=>{})
@@ -1022,7 +1026,8 @@ function DocumentsTab({ dealId, userId, T, showToast }) {
 }
 
 // ── COMPARISON MODAL ──────────────────────────────────────────────────────────
-function CompareModal({ deals, companies, T, onClose }) {
+function CompareModal({ deals, companies, onClose }) {
+  const { T } = useTheme()
   const rows = [
     { label:'Purchase price', fn: d => fmt(d.purchase_price) },
     { label:'Total cash in', fn: d => {

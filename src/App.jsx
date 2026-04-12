@@ -740,7 +740,7 @@ export default function App() {
                           border:`1px solid ${sel?(c.color||T.gold):T.border}`,
                           background:sel?(c.color||T.gold)+'22':'transparent',
                           color:sel?(c.color||T.gold):T.muted}}>
-                        {sel?'✓ ':''}{c.abbr} {c.name}
+                        {sel?'✓ ':''}{c.name}
                       </button>
                     )
                   })}
