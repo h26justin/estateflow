@@ -26,7 +26,7 @@ function getSubdomain() {
   return null
 }
 
-export default function TenantPortal({ user, onSignOut }) {
+export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   const [tab, setTab]         = useState('home')
   const [profile, setProfile] = useState(null)
   const [company, setCompany] = useState(null)
@@ -123,7 +123,12 @@ export default function TenantPortal({ user, onSignOut }) {
             </div>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <span style={{fontFamily:mono,fontSize:11,color:'#7A8899',display:'none'}}>{user.email}</span>
-              <button onClick={onSignOut} style={{fontFamily:mono,fontSize:11,background:'none',border:'1px solid #ffffff22',color:'#7A8899',borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>Sign out</button>
+              {onSwitchToLandlord && (
+              <button onClick={onSwitchToLandlord} style={{fontFamily:mono,fontSize:11,background:'none',border:'1px solid #ffffff22',color:'#C8A84B',borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>
+                ← Landlord view
+              </button>
+            )}
+          <button onClick={onSignOut} style={{fontFamily:mono,fontSize:11,background:'none',border:'1px solid #ffffff22',color:'#7A8899',borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>Sign out</button>
             </div>
           </div>
 

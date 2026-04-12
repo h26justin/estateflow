@@ -293,9 +293,12 @@ export default function App() {
           } catch(e) {}
         }
         // Check if this user is a tenant (not a landlord)
+        // Skip tenant portal if user has their own companies or is platform admin
         try {
           const tenantProfiles = await api.checkIsTenant(user.id)
-          if (tenantProfiles.length > 0) { setIsTenant(true); return }
+          const myCompanies = await api.fetchMyCompanies().catch(()=>[])
+          const isLandlord = myCompanies.length > 0 || profileData?.platform_admin
+          if (tenantProfiles.length > 0 && !isLandlord) { setIsTenant(true); return }
         } catch(e) {}
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
@@ -431,7 +434,10 @@ export default function App() {
   )
   if (showPrivacy) return <PrivacyPolicy onBack={()=>setShowPrivacy(false)}/>
   if (isTenant) return (
-    <TenantPortal user={user} onSignOut={()=>supabase.auth.signOut()}/>
+    <TenantPortal user={user}
+      onSignOut={()=>supabase.auth.signOut()}
+      onSwitchToLandlord={()=>setIsTenant(false)}
+    />
   )
 
   if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
