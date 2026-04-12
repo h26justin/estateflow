@@ -339,11 +339,12 @@ export default function App() {
   }),[companies,properties])
 
 
-    // Early returns AFTER all hooks
+  const showToast = useCallback((msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),3500)},[])
+
+  // Early returns AFTER all hooks
   if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return <LoginPage/>
 
-  const showToast = useCallback((msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),3500)},[])
 
   const selected = properties.find(p=>p.id===selectedId)
 

@@ -870,14 +870,7 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperti
     if (!newNote.trim() || !user) return
     setSaving(true)
     try {
-      const {data, error} = await supabase.from('property_notes').insert({
-        property_id: propertyId,
-        user_id: user.id,
-        user_email: user.email,
-        note: newNote.trim(),
-        category: category || 'general',
-      }).select().single()
-      if (error) throw error
+      const data = await api.createNote(propertyId, newNote.trim(), category||'general', user.id, user.email)
       setNotes(prev=>[data,...prev])
       setNewNote('')
       if (showToast) showToast('Note saved')
@@ -1036,7 +1029,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         await supabase.storage.from('property-documents').remove([doc.file_path])
       }
       // Delete from DB
-      await supabase.from('property_documents').delete().eq('id', doc.id)
+
       setDocs(prev=>prev.filter(d=>d.id!==doc.id))
       showToast('Document deleted')
     } catch(e) {
@@ -1210,8 +1203,7 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
   useEffect(()=>{
     setLoading(true)
     api.fetchNotes(selected.id, null)
-      .order('created_at', {ascending:false})
-      .then(({data})=>{ setAllNotes(data||[]); setLoading(false) })
+      .then(data=>{ setAllNotes(data||[]); setLoading(false) })
       .catch(()=>setLoading(false))
   },[selected.id])
 
