@@ -221,7 +221,8 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
                   ? api.calcMonthlyRepayment((deal.purchase_price||0)*(1-(deal.deposit_percent||25)/100), deal.mortgage_rate||5, deal.mortgage_term||25)
                   : 0
                 const effectiveRent = grossRent*(1-(deal.void_percent||8)/100)
-                const runningCosts = effectiveRent*(((deal.agent_fee_percent||10)+(deal.maintenance_percent||10))/100) + (deal.insurance_monthly||0) + (deal.service_charge_monthly||0) + monthlyRepayment
+                const agentVatMult = (deal.agent_fee_vat||'ex_vat')==='ex_vat' ? 1.2 : 1.0
+                const runningCosts = effectiveRent*((deal.agent_fee_percent||10)*agentVatMult/100 + (deal.maintenance_percent||10)/100) + (deal.insurance_monthly||0) + (deal.service_charge_monthly||0) + monthlyRepayment
                 const monthlyProfit = effectiveRent - runningCosts
                 const inCompare = compareIds.includes(deal.id)
 
@@ -334,7 +335,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
       : num('monthly_rent')
 
   const effectiveRent = grossMonthlyRent * (1 - num('void_percent') / 100)
-  const agentFee = effectiveRent * num('agent_fee_percent') / 100
+  // Agent fee: if ex_vat, multiply by 1.2 to get true cost (10% ex VAT = 12% effective)
+  const agentFeeMultiplier = (form.agent_fee_vat || 'ex_vat') === 'ex_vat' ? 1.2 : 1.0
+  const agentFee = effectiveRent * num('agent_fee_percent') / 100 * agentFeeMultiplier
   const maintenanceFee = effectiveRent * num('maintenance_percent') / 100
   const hmoExtras = form.deal_type === 'hmo' ? num('hmo_utilities_monthly') + num('hmo_council_tax_monthly') + num('hmo_licence_annual') / 12 : 0
   const totalMonthlyCosts = monthlyRepayment + agentFee + maintenanceFee + num('insurance_monthly') + num('service_charge_monthly') + num('ground_rent_monthly') + hmoExtras
@@ -609,7 +612,38 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             {/* Running costs */}
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Monthly running costs</span>
-              <InputRow label="Letting agent fee" field="agent_fee_percent" prefix="" suffix="% of rent" min={0} step={1}form={form} set={set} T={T}/>
+              {/* Agent fee with VAT toggle */}
+              <div style={{padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                  <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Letting agent fee</span>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <input type="number" min={0} max={30} step={0.5}
+                      value={form.agent_fee_percent??10}
+                      onChange={e=>set('agent_fee_percent',parseFloat(e.target.value)||0)}
+                      style={{fontFamily:mono,fontSize:13,width:52,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 6px',textAlign:'right',outline:'none'}}/>
+                    <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>% of rent</span>
+                  </div>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>VAT treatment</span>
+                  <div style={{display:'flex',gap:5}}>
+                    {[['ex_vat','+ VAT (20%)'],['inc_vat','Inc. VAT']].map(([k,l])=>(
+                      <button key={k} onClick={()=>set('agent_fee_vat',k)}
+                        style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:20,cursor:'pointer',
+                          border:`1px solid ${(form.agent_fee_vat||'ex_vat')===k?T.amber:T.border}`,
+                          background:(form.agent_fee_vat||'ex_vat')===k?T.amber+'22':'transparent',
+                          color:(form.agent_fee_vat||'ex_vat')===k?T.amber:T.muted}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(form.agent_fee_vat||'ex_vat')==='ex_vat' && (
+                  <div style={{fontFamily:mono,fontSize:10,color:T.amber,marginTop:4}}>
+                    Fee = {form.agent_fee_percent||10}% × 1.20 (VAT) = {((form.agent_fee_percent||10)*1.2).toFixed(1)}% effective rate
+                  </div>
+                )}
+              </div>
               <InputRow label="Maintenance reserve" field="maintenance_percent" prefix="" suffix="% of rent" min={0} step={1}form={form} set={set} T={T}/>
               <InputRow label="Buildings insurance" field="insurance_monthly"form={form} set={set} T={T}/>
               <InputRow label="Service charge" field="service_charge_monthly"form={form} set={set} T={T}/>
@@ -665,6 +699,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <span style={sect}>Returns</span>
               <ResultRow label="Gross monthly rent" value={fmt(grossMonthlyRent)} T={T}/>
               <ResultRow label="Effective rent (after void)" value={fmt(effectiveRent)} T={T}/>
+              <ResultRow label={`Agent fee (${form.agent_fee_percent||10}%${(form.agent_fee_vat||'ex_vat')==='ex_vat'?' + VAT':' inc VAT'})`} value={fmt(agentFee)} color={T.muted} T={T}/>
               <ResultRow label="Total monthly costs" value={fmt(totalMonthlyCosts)} color={T.red} T={T}/>
               <ResultRow label="Monthly profit / loss" value={fmt(monthlyProfit)} color={monthlyProfit>0?T.green:T.red} big T={T}/>
               <ResultRow label="Annual profit" value={fmt(annualProfit)} color={monthlyProfit>0?T.green:T.red} T={T}/>
