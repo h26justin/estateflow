@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
-import { SmartAlerts, ReportsPage, ContractorsPage } from './components/DashboardComponents'
+import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
+import ReportsPage from './components/ReportsPage'
 import { StatementImporter } from './components/StatementImporter'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
@@ -866,7 +867,7 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
           {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs}/>}
-          {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt} onImport={()=>setShowImporter(true)} companySettings={companySettings}/>}
+          {view==='reports'&&<ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
           {view==='detail'&&selected&&<div className="fade">

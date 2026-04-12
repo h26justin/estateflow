@@ -867,3 +867,69 @@ export async function saveMilestoneDefaults(userId, email, config) {
   }, { onConflict: 'user_id' })
   if (error) throw error
 }
+
+// ── COMPANY BRANDING & REPORT SETTINGS ───────────────────────────────────────
+export async function uploadCompanyLogo(companyId, file) {
+  const ext = file.name.split('.').pop()
+  const path = `logos/company_${companyId}.${ext}`
+  // Remove old logo first
+  await supabase.storage.from('property-documents').remove([path]).catch(()=>{})
+  const { error: uploadErr } = await supabase.storage
+    .from('property-documents').upload(path, file, { upsert: true })
+  if (uploadErr) throw uploadErr
+  const { data: { publicUrl } } = supabase.storage
+    .from('property-documents').getPublicUrl(path)
+  await supabase.from('company_settings').upsert(
+    { company_id: companyId, logo_url: publicUrl, logo_path: path,
+      updated_at: new Date().toISOString() },
+    { onConflict: 'company_id' }
+  )
+  return publicUrl
+}
+
+export async function saveReportSettings(companyId, settings) {
+  const { error } = await supabase.from('company_settings').upsert(
+    { company_id: companyId, ...settings, updated_at: new Date().toISOString() },
+    { onConflict: 'company_id' }
+  )
+  if (error) throw error
+}
+
+export async function fetchAllComplianceItems(companyIds) {
+  const { data, error } = await supabase
+    .from('compliance_items')
+    .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
+    .in('property.company_id', companyIds)
+    .order('expiry_date')
+  if (error) throw error
+  return (data || []).filter(d => d.property)
+}
+
+export async function fetchAllTenancies(companyIds) {
+  const { data, error } = await supabase
+    .from('tenancy_details')
+    .select('*, property:properties(id,name,company_id,rent_pcm,company:companies(name,abbr,color))')
+    .order('tenancy_end')
+  if (error) throw error
+  return (data || []).filter(d => d.property && companyIds.includes(d.property.company_id))
+}
+
+export async function fetchAllMaintenance(companyIds) {
+  const { data, error } = await supabase
+    .from('maintenance_jobs')
+    .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).filter(d => d.property && companyIds.includes(d.property.company_id))
+}
+
+export async function fetchAllRentPayments(companyIds, fromDate, toDate) {
+  const { data, error } = await supabase
+    .from('rent_payments')
+    .select('*, property:properties(id,name,rent_pcm,company_id,company:companies(name,abbr,color))')
+    .gte('year', new Date(fromDate).getFullYear())
+    .lte('year', new Date(toDate).getFullYear())
+    .order('year').order('month')
+  if (error) throw error
+  return (data || []).filter(d => d.property && companyIds.includes(d.property.company_id))
+}

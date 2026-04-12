@@ -664,6 +664,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     { key: 'appearance',    label: '🎨 Appearance' },
     { key: 'billing',       label: '💳 Billing' },
     { key: 'navbar',        label: '🧭 Navigation' },
+    { key: 'branding',      label: '🎨 Company Branding' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
     ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Platform Admin' }] : []),
     { key: 'features',      label: '⚙ Features' },
@@ -912,6 +913,17 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
 
       {settingsTab==='admin' && isPlatformAdmin && (
         <AdminSettingsPanel user={user} T={T} showToast={showToast}/>
+      )}
+
+      {settingsTab==='branding' && (
+        <BrandingSettingsPanel
+          companies={companies}
+          companySettings={companySettings}
+          setCompanySettings={setCompanySettings}
+          user={user}
+          showToast={showToast}
+          T={T}
+        />
       )}
 
       {settingsTab==='milestones' && (
@@ -2219,6 +2231,169 @@ function AdminSettingsPanel({ user, T, showToast }) {
             </>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+// ── COMPANY BRANDING SETTINGS PANEL ──────────────────────────────────────────
+function BrandingSettingsPanel({ companies, companySettings, setCompanySettings, user, showToast, T }) {
+  const mono = "'DM Mono',monospace"
+  const [selectedCo, setSelectedCo] = useState(companies[0]?.id || '')
+  const [uploading, setUploading]   = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [yearType, setYearType]     = useState('tax_year')
+  const [logoPreview, setLogoPreview] = useState(null)
+
+  const co = companies.find(c => c.id === selectedCo)
+  const cs = companySettings[selectedCo] || {}
+
+  useEffect(() => {
+    if (selectedCo && companySettings[selectedCo]) {
+      setYearType(companySettings[selectedCo].year_type || 'tax_year')
+      setLogoPreview(companySettings[selectedCo].logo_url || null)
+    }
+  }, [selectedCo, companySettings])
+
+  async function handleLogoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { showToast('Logo must be under 2MB', 'error'); return }
+    setUploading(true)
+    try {
+      const url = await api.uploadCompanyLogo(selectedCo, file)
+      setLogoPreview(url)
+      setCompanySettings(prev => ({
+        ...prev,
+        [selectedCo]: { ...prev[selectedCo], logo_url: url }
+      }))
+      showToast('Logo uploaded')
+    } catch(e) { showToast(e.message, 'error') }
+    setUploading(false)
+  }
+
+  async function saveSettings() {
+    setSaving(true)
+    try {
+      await api.saveReportSettings(selectedCo, { year_type: yearType })
+      setCompanySettings(prev => ({
+        ...prev,
+        [selectedCo]: { ...prev[selectedCo], year_type: yearType }
+      }))
+      showToast('Report settings saved')
+    } catch(e) { showToast(e.message, 'error') }
+    setSaving(false)
+  }
+
+  async function removeLogo() {
+    try {
+      await api.saveReportSettings(selectedCo, { logo_url: null, logo_path: null })
+      setLogoPreview(null)
+      setCompanySettings(prev => ({
+        ...prev,
+        [selectedCo]: { ...prev[selectedCo], logo_url: null, logo_path: null }
+      }))
+      showToast('Logo removed')
+    } catch(e) { showToast(e.message, 'error') }
+  }
+
+  if (companies.length === 0) return (
+    <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: 40, textAlign: 'center' }}>
+      No companies yet. Add a company first.
+    </div>
+  )
+
+  return (
+    <div>
+      {/* Company selector */}
+      {companies.length > 1 && (
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Select company</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {companies.map(c => (
+              <button key={c.id} onClick={() => setSelectedCo(c.id)}
+                style={{ fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
+                  border: `1px solid ${selectedCo === c.id ? (c.color || T.gold) : T.border}`,
+                  background: selectedCo === c.id ? (c.color || T.gold) + '22' : 'transparent',
+                  color: selectedCo === c.id ? (c.color || T.gold) : T.muted,
+                  fontWeight: selectedCo === c.id ? 700 : 400 }}>
+                {c.abbr} {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {co && (
+        <div style={{ display: 'grid', gap: 16 }}>
+
+          {/* Logo upload */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Company logo for reports</div>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {/* Preview */}
+              <div style={{ width: 160, height: 80, background: T.bg, border: `1px dashed ${T.border}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                {logoPreview
+                  ? <img src={logoPreview} alt="Company logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}/>
+                  : <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>No logo</span>
+                }
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 8, lineHeight: 1.7 }}>
+                  Upload your company logo to brand PDF report exports. Recommended: PNG or SVG with transparent background, max 2MB.
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <label style={{ cursor: 'pointer' }}>
+                    <span className="btn btn-gold" style={{ fontSize: 11 }}>
+                      {uploading ? 'Uploading…' : logoPreview ? '↑ Replace logo' : '↑ Upload logo'}
+                    </span>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={uploading}/>
+                  </label>
+                  {logoPreview && (
+                    <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red + '44' }} onClick={removeLogo}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Year type preference */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Default reporting period</div>
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
+              Choose whether reports default to the UK tax year (6 Apr – 5 Apr) or calendar year. You can always switch inside any report.
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+              {[
+                { k: 'tax_year', label: '🇬🇧 UK Tax year', sub: '6 April – 5 April' },
+                { k: 'calendar', label: '📅 Calendar year', sub: '1 January – 31 December' },
+              ].map(opt => (
+                <div key={opt.k} onClick={() => setYearType(opt.k)}
+                  style={{ flex: 1, padding: '14px 16px', borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s',
+                    border: `2px solid ${yearType === opt.k ? T.gold : T.border}`,
+                    background: yearType === opt.k ? T.gold + '11' : T.bg }}>
+                  <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: yearType === opt.k ? T.gold : T.text, marginBottom: 4 }}>{opt.label}</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{opt.sub}</div>
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={saveSettings} disabled={saving}>
+              {saving ? 'Saving…' : 'Save settings'}
+            </button>
+          </div>
+
+          {/* Report accent colour */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Report colour</div>
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 12, lineHeight: 1.7 }}>
+              PDF report headers and accents will use your company colour: <span style={{ fontWeight: 700, color: co.color || T.gold }}>{co.color || '#C8A84B'}</span>. To change this, update your company colour in the Companies section.
+            </div>
+            <div style={{ width: 48, height: 24, borderRadius: 6, background: co.color || T.gold }}/>
+          </div>
+
+        </div>
       )}
     </div>
   )
