@@ -576,44 +576,44 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           <div style={{position:'sticky',top:80}}>
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Acquisition summary</span>
-              <ResultRow label="Purchase price" value={fmt(num('purchase_price'))}T={T}/>
-              <ResultRow label="Stamp duty" value={fmt(sd)} color={T.amber}T={T}/>
-              {mortgageFee > 0 && <ResultRow label={`Arrangement fee (${num('mortgage_fee_percent')}%)`} value={fmt(mortgageFee)} color={T.amber}T={T}/>}
-              <ResultRow label="All other costs" value={fmt(totalAcquisition-num('purchase_price')-sd-mortgageFee)}T={T}/>
-              <ResultRow label="Total capital required" value={fmt(totalAcquisition)} bigT={T}/>
+              <ResultRow label="Purchase price" value={fmt(num('purchase_price'))} T={T}/>
+              <ResultRow label="Stamp duty" value={fmt(sd)} color={T.amber} T={T}/>
+              {mortgageFee > 0 && <ResultRow label={`Arrangement fee (${num('mortgage_fee_percent')}%)`} value={fmt(mortgageFee)} color={T.amber} T={T}/>}
+              <ResultRow label="All other costs" value={fmt(totalAcquisition-num('purchase_price')-sd-mortgageFee)} T={T}/>
+              <ResultRow label="Total capital required" value={fmt(totalAcquisition)} big T={T}/>
               {form.purchase_type !== 'cash' && (<>
-                <ResultRow label="Mortgage loan" value={fmt(loanAmount)} color={T.blue}T={T}/>
-                <ResultRow label="Cash in deal" value={fmt(cashIn)} color={T.gold} bigT={T}/>
-                <ResultRow label="Monthly repayment" value={fmt(monthlyRepayment)} color={T.amber}T={T}/>
+                <ResultRow label="Mortgage loan" value={fmt(loanAmount)} color={T.blue} T={T}/>
+                <ResultRow label="Cash in deal" value={fmt(cashIn)} color={T.gold} big T={T}/>
+                <ResultRow label="Monthly repayment" value={fmt(monthlyRepayment)} color={T.amber} T={T}/>
               </>)}
             </div>
 
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Returns</span>
-              <ResultRow label="Gross monthly rent" value={fmt(grossMonthlyRent)}T={T}/>
-              <ResultRow label="Effective rent (after void)" value={fmt(effectiveRent)}T={T}/>
-              <ResultRow label="Total monthly costs" value={fmt(totalMonthlyCosts)} color={T.red}T={T}/>
+              <ResultRow label="Gross monthly rent" value={fmt(grossMonthlyRent)} T={T}/>
+              <ResultRow label="Effective rent (after void)" value={fmt(effectiveRent)} T={T}/>
+              <ResultRow label="Total monthly costs" value={fmt(totalMonthlyCosts)} color={T.red} T={T}/>
               <ResultRow label="Monthly profit / loss" value={fmt(monthlyProfit)} color={monthlyProfit>0?T.green:T.red} big T={T}/>
-              <ResultRow label="Annual profit" value={fmt(annualProfit)} color={monthlyProfit>0?T.green:T.red}T={T}/>
+              <ResultRow label="Annual profit" value={fmt(annualProfit)} color={monthlyProfit>0?T.green:T.red} T={T}/>
             </div>
 
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Yield &amp; return metrics</span>
-              <ResultRow label="Gross yield" value={fmtPct(grossYield)} color={grossYield>=6?T.green:grossYield>=4?T.amber:T.red} bigT={T}/>
-              <ResultRow label="Net yield (after all costs)" value={fmtPct(netYield)} color={netYield>=4?T.green:netYield>=2?T.amber:T.red}T={T}/>
-              <ResultRow label="Cash-on-cash return" value={fmtPct(cashOnCash)} color={cashOnCash>=8?T.green:cashOnCash>=5?T.amber:T.red} bigT={T}/>
-              <ResultRow label="ROCE" value={fmtPct(roce)} color={roce>=8?T.green:roce>=5?T.amber:T.red}T={T}/>
-              <ResultRow label="Payback period" value={payback>0?payback.toFixed(1)+' years':'—'}T={T}/>
+              <ResultRow label="Gross yield" value={fmtPct(grossYield)} color={grossYield>=6?T.green:grossYield>=4?T.amber:T.red} big T={T}/>
+              <ResultRow label="Net yield (after all costs)" value={fmtPct(netYield)} color={netYield>=4?T.green:netYield>=2?T.amber:T.red} T={T}/>
+              <ResultRow label="Cash-on-cash return" value={fmtPct(cashOnCash)} color={cashOnCash>=8?T.green:cashOnCash>=5?T.amber:T.red} big T={T}/>
+              <ResultRow label="ROCE" value={fmtPct(roce)} color={roce>=8?T.green:roce>=5?T.amber:T.red} T={T}/>
+              <ResultRow label="Payback period" value={payback>0?payback.toFixed(1)+' years':'—'} T={T}/>
             </div>
 
             {form.deal_type === 'brrr' && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
                 <span style={sect}>BRRR analysis</span>
-                <ResultRow label="New loan at refinance" value={fmt(brrrNewLoan)} color={T.blue}T={T}/>
-                <ResultRow label="New monthly repayment" value={fmt(brrrNewRepayment)} color={T.amber}T={T}/>
-                <ResultRow label="Capital released" value={fmt(brrrNewLoan - loanAmount)} color={T.green}T={T}/>
-                <ResultRow label="Money left in deal" value={fmt(brrrMoneyLeft)} color={brrrMoneyLeft<cashIn?T.green:T.muted} bigT={T}/>
-                <ResultRow label="Cash-on-cash (post refi)" value={fmtPct(brrrCashOnCash)} color={T.green}T={T}/>
+                <ResultRow label="New loan at refinance" value={fmt(brrrNewLoan)} color={T.blue} T={T}/>
+                <ResultRow label="New monthly repayment" value={fmt(brrrNewRepayment)} color={T.amber} T={T}/>
+                <ResultRow label="Capital released" value={fmt(brrrNewLoan - loanAmount)} color={T.green} T={T}/>
+                <ResultRow label="Money left in deal" value={fmt(brrrMoneyLeft)} color={brrrMoneyLeft<cashIn?T.green:T.muted} big T={T}/>
+                <ResultRow label="Cash-on-cash (post refi)" value={fmtPct(brrrCashOnCash)} color={T.green} T={T}/>
               </div>
             )}
           </div>
