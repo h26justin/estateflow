@@ -985,3 +985,67 @@ export async function deleteUser(targetUserId) {
   if (data.error) throw new Error(data.error)
   return data
 }
+
+// ── ADMIN SUITE ───────────────────────────────────────────────────────────────
+export async function fetchAdminNotes(companyId) {
+  const { data, error } = await supabase.from('admin_notes')
+    .select('*').eq('company_id', companyId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function addAdminNote(adminId, companyId, note) {
+  const { data, error } = await supabase.from('admin_notes')
+    .insert({ admin_id: adminId, company_id: companyId, note }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteAdminNote(id) {
+  const { error } = await supabase.from('admin_notes').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function setCompanyFlag(companyId, flagged) {
+  const { error } = await supabase.from('companies').update({ flagged }).eq('id', companyId)
+  if (error) throw error
+}
+
+export async function extendTrial(companyId, days) {
+  const newDate = new Date()
+  newDate.setDate(newDate.getDate() + days)
+  const { error } = await supabase.from('companies')
+    .update({ trial_ends_at: newDate.toISOString() }).eq('id', companyId)
+  if (error) throw error
+  return newDate
+}
+
+export async function fetchAnnouncements() {
+  const { data } = await supabase.from('admin_announcements')
+    .select('*').eq('is_active', true).order('created_at', { ascending: false })
+  return data || []
+}
+
+export async function createAnnouncement(msg, type, linkText, linkUrl, adminId) {
+  const { data, error } = await supabase.from('admin_announcements')
+    .insert({ message: msg, type, link_text: linkText, link_url: linkUrl, created_by: adminId, is_active: true })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deactivateAnnouncement(id) {
+  const { error } = await supabase.from('admin_announcements').update({ is_active: false }).eq('id', id)
+  if (error) throw error
+}
+
+export async function sendAdminEmail(session, to, subject, message) {
+  const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-admin-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+    body: JSON.stringify({ to, subject, message })
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error)
+  return data
+}

@@ -257,6 +257,11 @@ export default function App() {
           if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
           else setUserNavPrefs(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
         } catch(e) {}
+        // Load platform announcements
+        try {
+          const anns = await api.fetchAnnouncements()
+          setAnnouncements(anns)
+        } catch(e) {}
         // Check if new user needs onboarding tour
         const onboarded = await api.fetchOnboardingStatus(user.id)
         if (!onboarded) setShowTour(true)
@@ -631,6 +636,20 @@ export default function App() {
         </div>
       )}
 
+      {/* Platform announcement banner */}
+      {announcements.filter(a=>!dismissedAnns.includes(a.id)).map(a=>{
+        const colors={info:'#4B8FE0',warning:'#E0943A',success:'#2ECC8A'}
+        const col=colors[a.type]||colors.info
+        return (
+          <div key={a.id} style={{background:col+'18',borderBottom:`1px solid ${col}33`,padding:'10px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:col}}>
+              {a.message}{a.link_url&&a.link_text&&<a href={a.link_url} target="_blank" rel="noreferrer" style={{color:col,marginLeft:12,fontWeight:700}}>{a.link_text} →</a>}
+            </span>
+            <button onClick={()=>{const n=[...dismissedAnns,a.id];setDismissedAnns(n);localStorage.setItem('dismissed_anns',JSON.stringify(n))}}
+              style={{background:'none',border:'none',color:col,cursor:'pointer',fontFamily:"'DM Mono',monospace",fontSize:11,flexShrink:0}}>Dismiss ✕</button>
+          </div>
+        )
+      })}
       <main style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%'}}>
         {loading?<Spinner/>:<>
 
@@ -1003,7 +1022,7 @@ export default function App() {
 
       {/* ── ADMIN DASHBOARD OVERLAY ── */}
       {showAdmin && isPlatformAdmin && (
-        <AdminDashboard onClose={()=>setShowAdmin(false)}/>
+        <AdminDashboard onClose={()=>setShowAdmin(false)} user={user}/>
       )}
 
       {/* ── ONBOARDING TOUR ── */}
