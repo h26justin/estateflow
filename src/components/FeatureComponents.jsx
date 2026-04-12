@@ -2691,7 +2691,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
         <div style={{ display:'grid', gap:10, marginBottom:16 }}>
           {[
             ['landlord','🏠 Landlord mode','Tenants message you via the portal. No direct contact details shown.'],
-            ['agent','🏢 Managing agent mode','Tenants see the agent's name, phone and email instead of yours.'],
+            ['agent','🏢 Managing agent mode','Tenants see the agent name, phone and email instead of yours.'],
           ].map(([k,l,d])=>(
             <div key={k} onClick={()=>setMode(k)} style={{ display:'flex', gap:14, padding:'14px 16px', borderRadius:10, cursor:'pointer',
               border:`2px solid ${mode===k?T.gold:T.border}`, background:mode===k?T.gold+'11':T.bg }}>
