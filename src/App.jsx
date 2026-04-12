@@ -862,7 +862,7 @@ export default function App() {
           </div>}
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
-          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs}/>}
+          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs}/>}
           {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt} onImport={()=>setShowImporter(true)} companySettings={companySettings}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
@@ -975,9 +975,8 @@ export default function App() {
 
       {/* Mobile bottom nav - consistent icons, + More opens drawer */}
       <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
-        {['dashboard','properties','rent','reports','settings'].map(key=>{
-          const n = navItems.find(x=>x.key===key)
-          if (!n) return null
+        {navItems.filter(n=>n.key!=='companies'&&n.key!=='contractors').slice(0,5).map(n=>{
+          const key = n.key
           const active = view===key||(view==='detail'&&key==='properties')
           return (
             <button key={key} onClick={()=>{setView(key);setSelectedId(null)}}

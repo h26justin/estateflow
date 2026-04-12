@@ -516,7 +516,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs}) {
+export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs}) {
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -873,6 +873,34 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
       })}
 
       </>}
+
+      {settingsTab==='billing' && (
+        <BillingPage companies={companies} user={user} isPlatformAdmin={isPlatformAdmin}/>
+      )}
+
+      {settingsTab==='navbar' && (
+        <div style={sectionStyle}>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Navigation bar</div>
+          <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:16}}>Choose which sections appear in your navigation. Dashboard, Properties and Settings are always shown.</div>
+          <div style={{display:'grid',gap:10}}>
+            {ALL_NAV_OPTIONS.map(item=>{
+              const enabled = (userNavPrefs||[]).includes(item.key)
+              return (
+                <div key={item.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:T.bg,borderRadius:10,border:`1px solid ${T.border}`}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <span style={{fontSize:18}}>{item.icon}</span>
+                    <span style={{fontFamily:mono,fontSize:13,color:T.text}}>{item.label}</span>
+                  </div>
+                  <div onClick={()=>saveNavPref(item.key,!enabled)}
+                    style={{width:44,height:24,borderRadius:12,background:enabled?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                    <div style={{position:'absolute',top:3,left:enabled?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast}/>}
     </div>
