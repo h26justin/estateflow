@@ -2039,8 +2039,12 @@ function AdminSettingsPanel({ user, T, showToast }) {
   const [users, setUsers]       = useState([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
-  const [saving, setSaving]     = useState(null)
-  const [filter, setFilter]     = useState('all')
+  const [saving, setSaving]         = useState(null)
+  const [filter, setFilter]         = useState('all')
+  const [deleteTarget, setDeleteTarget] = useState(null) // { id, email }
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError]   = useState('')
+  const [deleting, setDeleting]         = useState(false)
 
   useEffect(() => { loadAll() }, [])
 
@@ -2055,6 +2059,29 @@ function AdminSettingsPanel({ user, T, showToast }) {
       setUsers(us)
     } catch(e) { showToast('Failed to load admin data', 'error') }
     setLoading(false)
+  }
+
+  async function handleDeleteUser() {
+    setDeleteError('')
+    if (!deletePassword) { setDeleteError('Please enter your password'); return }
+    setDeleting(true)
+    try {
+      // Re-authenticate to verify password
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: user.email, password: deletePassword
+      })
+      if (authErr) { setDeleteError('Incorrect password — please try again'); setDeleting(false); return }
+      // Password verified — delete the user
+      await api.deleteUser(deleteTarget.id)
+      setUsers(prev => prev.filter(u => u.id !== deleteTarget.id))
+      setCompanies(prev => prev.filter(c => c.owner_email !== deleteTarget.email))
+      setDeleteTarget(null)
+      setDeletePassword('')
+      showToast(`${deleteTarget.email} has been deleted`)
+    } catch(e) {
+      setDeleteError(e.message || 'Delete failed')
+    }
+    setDeleting(false)
   }
 
   async function toggleFreeTier(companyId, current) {
@@ -2201,15 +2228,15 @@ function AdminSettingsPanel({ user, T, showToast }) {
                 placeholder="Search by email…"
                 style={{ width: '100%', maxWidth: 340, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', marginBottom: 16 }}/>
               <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 120px', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
-                  {['Email', 'Companies', 'Signed up'].map(h => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 80px', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
+                  {['Email', 'Companies', 'Signed up', ''].map(h => (
                     <div key={h} style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
                   ))}
                 </div>
                 {users.filter(u => !search || u.email?.toLowerCase().includes(search.toLowerCase())).map(u => {
                   const userCos = companies.filter(c => c.owner_email === u.email)
                   return (
-                    <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '1fr 200px 120px', gap: 8, padding: '13px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
+                    <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 80px', gap: 8, padding: '13px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 32, height: 32, borderRadius: 16, background: T.gold + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.gold, flexShrink: 0 }}>
                           {(u.email?.[0] || '?').toUpperCase()}
@@ -2228,14 +2255,74 @@ function AdminSettingsPanel({ user, T, showToast }) {
                       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
                         {u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
                       </div>
+                      <div>
+                        {u.id !== user?.id && (
+                          <button
+                            onClick={() => { setDeleteTarget({ id: u.id, email: u.email }); setDeletePassword(''); setDeleteError('') }}
+                            title="Delete user"
+                            style={{ fontFamily: mono, fontSize: 10, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}44`, background: 'transparent', color: T.red }}>
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
               </div>
-              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>{users.length} total users</div>
+              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>{users.length} total users · Your own account cannot be deleted</div>
             </>
           )}
         </>
+      )}
+
+      {/* ── DELETE USER MODAL ── */}
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 24 }}>
+          <div style={{ background: T.surface, border: `2px solid ${T.red}44`, borderRadius: 18, width: '100%', maxWidth: 440, padding: '32px 28px' }}>
+            {/* Warning header */}
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: T.red, marginBottom: 8 }}>Delete user account</h2>
+              <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.7 }}>
+                This will permanently delete <strong style={{ color: T.text }}>{deleteTarget.email}</strong> and all their data including companies, properties, deals and documents.
+              </p>
+              <p style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8, fontWeight: 700 }}>This cannot be undone.</p>
+            </div>
+
+            {/* Password confirmation */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+                Enter your admin password to confirm
+              </label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
+                onKeyDown={e => e.key === 'Enter' && handleDeleteUser()}
+                placeholder="Your password"
+                autoFocus
+                style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none' }}
+              />
+              {deleteError && (
+                <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8 }}>{deleteError}</div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError('') }}
+                style={{ flex: 1, fontFamily: mono, fontSize: 12, padding: '11px 20px', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={deleting || !deletePassword}
+                style={{ flex: 2, fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '11px 20px', borderRadius: 10, border: 'none', background: deleting || !deletePassword ? T.border : T.red, color: 'white', cursor: deleting || !deletePassword ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
+                {deleting ? 'Verifying & deleting…' : '🗑 Permanently delete user'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

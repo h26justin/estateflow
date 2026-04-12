@@ -1026,3 +1026,22 @@ export async function deleteAddressBookEntry(id) {
   const { error } = await supabase.from('address_book').delete().eq('id', id)
   if (error) throw error
 }
+
+// ── DELETE USER (platform admin only, calls edge function) ────────────────────
+export async function deleteUser(targetUserId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const response = await fetch(
+    `${supabase.supabaseUrl}/functions/v1/delete-user`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ target_user_id: targetUserId }),
+    }
+  )
+  const data = await response.json()
+  if (data.error) throw new Error(data.error)
+  return data
+}
