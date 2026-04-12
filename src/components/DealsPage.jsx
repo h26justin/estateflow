@@ -58,8 +58,9 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
         name: 'New Deal',
         company_id: companies.length === 1 ? companies[0].id : null,
       })
-      // Initialise milestones separately - don't block navigation if this fails
-      api.initialiseMilestones(deal.id, false, false).catch(()=>{})
+      // Load user's master milestone defaults then initialise
+      const milestoneConfig = await api.fetchMilestoneDefaults(user.id).catch(()=>({}))
+      api.initialiseMilestones(deal.id, false, false, milestoneConfig).catch(()=>{})
       setDeals(prev => [deal, ...prev])
       setSelectedDeal({ ...deal })
       setView('deal')
@@ -283,7 +284,8 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
     ? num('stamp_duty_override')
     : api.calcStampDuty(num('purchase_price'), form.is_additional_property, form.is_first_time_buyer)
 
-  const totalAcquisition = num('purchase_price') + sd + num('legal_fees') + num('survey_cost') + num('auction_fees') + num('broker_fee') + num('refurb_cost') + num('other_costs')
+  const mortgageFee = form.purchase_type !== 'cash' ? loanAmount * (num('mortgage_fee_percent') / 100) : 0
+  const totalAcquisition = num('purchase_price') + sd + num('legal_fees') + num('survey_cost') + num('auction_fees') + num('broker_fee') + num('refurb_cost') + num('other_costs') + mortgageFee
 
   const loanAmount = form.purchase_type === 'cash' ? 0 : num('purchase_price') * (1 - num('deposit_percent') / 100)
   const deposit = num('purchase_price') - loanAmount
@@ -474,6 +476,12 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
                 <InputRow label="Deposit" field="deposit_percent" prefix="" suffix="%" min={0} step={1}/>
                 <InputRow label="Mortgage rate" field="mortgage_rate" prefix="" suffix="% p.a." min={0} step={0.1}/>
                 <InputRow label="Mortgage term" field="mortgage_term" prefix="" suffix="years" min={1} step={1}/>
+                <InputRow label="Arrangement fee" field="mortgage_fee_percent" prefix="" suffix="% of loan" min={0} step={0.1}/>
+                {num('mortgage_fee_percent') > 0 && (
+                  <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',fontFamily:mono,fontSize:11}}>
+                    <span style={{color:T.muted}}>= {fmt(loanAmount * num('mortgage_fee_percent') / 100)} added to costs</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -543,7 +551,8 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
               <span style={sect}>Acquisition summary</span>
               <ResultRow label="Purchase price" value={fmt(num('purchase_price'))}/>
               <ResultRow label="Stamp duty" value={fmt(sd)} color={T.amber}/>
-              <ResultRow label="All other costs" value={fmt(totalAcquisition-num('purchase_price')-sd)}/>
+              {mortgageFee > 0 && <ResultRow label={`Arrangement fee (${num('mortgage_fee_percent')}%)`} value={fmt(mortgageFee)} color={T.amber}/>}
+              <ResultRow label="All other costs" value={fmt(totalAcquisition-num('purchase_price')-sd-mortgageFee)}/>
               <ResultRow label="Total capital required" value={fmt(totalAcquisition)} big/>
               {form.purchase_type !== 'cash' && (<>
                 <ResultRow label="Mortgage loan" value={fmt(loanAmount)} color={T.blue}/>

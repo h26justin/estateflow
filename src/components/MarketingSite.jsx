@@ -63,8 +63,8 @@ export default function MarketingSite({ onSignIn, onSignUp }) {
 
       {/* ── NAV ── */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(244,243,239,0.95)', backdropFilter: 'blur(8px)', borderBottom: `1px solid ${BORDER}`, padding: '0 24px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 88 }}>
-          <img src="/logo.svg" alt="OwnProperly" style={{ height: 72, width: 'auto' }}/>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 116 }}>
+          <img src="/logo.svg" alt="OwnProperly" style={{ height: 100, width: 'auto' }}/>
           <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: 24 }} className="hide-mobile">
               {[['home','Home'],['features','Features'],['pricing','Pricing']].map(([id,label]) => (
@@ -241,7 +241,7 @@ export default function MarketingSite({ onSignIn, onSignUp }) {
       <footer style={{ background: DARK, padding: '40px 24px', borderTop: `1px solid #ffffff11` }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <img src="/logo.svg" alt="OwnProperly" style={{ height: 28, filter: 'brightness(0.8)', marginBottom: 8 }}/>
+            <img src="/logo.svg" alt="OwnProperly" style={{ height: 40, filter: 'brightness(0.8)', marginBottom: 8 }}/>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6B7899' }}>Property Portfolio Management</div>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>

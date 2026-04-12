@@ -748,13 +748,15 @@ export async function fetchDealMilestones(dealId) {
   return data || []
 }
 
-export async function initialiseMilestones(dealId, isAuction, isBRRR) {
+export async function initialiseMilestones(dealId, isAuction, isBRRR, milestoneConfig = {}) {
   const base = isAuction ? DEFAULT_MILESTONES_AUCTION : DEFAULT_MILESTONES_STANDARD
   const milestones = isBRRR ? [...base, ...DEFAULT_MILESTONES_BRRR] : base
   const rows = milestones.map(m => ({
     deal_id: dealId, milestone_key: m.key, label: m.label,
     stage: m.stage, sort_order: m.sort, is_required: m.required,
-    is_enabled: true, completed: false,
+    // Apply user's master settings — if key is false in config, disable it
+    is_enabled: milestoneConfig[m.key] !== false,
+    completed: false,
   }))
   const { error } = await supabase.from('deal_milestones').insert(rows)
   if (error) throw error
@@ -846,4 +848,22 @@ export function calcMonthlyRepayment(principal, ratePercent, termYears) {
   const r = (ratePercent / 100) / 12
   const n = termYears * 12
   return Math.round(principal * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1))
+}
+
+// ── MASTER MILESTONE SETTINGS ─────────────────────────────────────────────────
+export async function fetchMilestoneDefaults(userId) {
+  try {
+    const { data } = await supabase.from('user_profiles')
+      .select('milestone_config').eq('user_id', userId).single()
+    return data?.milestone_config || {}
+  } catch(e) { return {} }
+}
+
+export async function saveMilestoneDefaults(userId, email, config) {
+  const { error } = await supabase.from('user_profiles').upsert({
+    user_id: userId, email,
+    milestone_config: config,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+  if (error) throw error
 }
