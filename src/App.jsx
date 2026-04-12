@@ -139,6 +139,7 @@ export default function App() {
   const [selectedId,  setSelectedId]   = useState(null)
   const [detailTab,   setDetailTab]    = useState('overview')
   const [coFilter,    setCoFilter]     = useState('all')
+  const [dashCoFilter, setDashCoFilter] = useState([]) // [] = all companies
   const [statusFilter,setStatusFilter] = useState('all')
   const [searchQ,     setSearchQ]      = useState('')
   const [sortBy,      setSortBy]       = useState('company-name')
@@ -332,27 +333,36 @@ export default function App() {
     })
   },[properties,coFilter,statusFilter,searchQ,sortBy])
 
+  const dashProps = useMemo(()=>
+    dashCoFilter.length === 0 ? properties : properties.filter(p => dashCoFilter.includes(p.company_id))
+  , [properties, dashCoFilter])
+
+  const dashCos = useMemo(()=>
+    dashCoFilter.length === 0 ? companies : companies.filter(c => dashCoFilter.includes(c.id))
+  , [companies, dashCoFilter])
+
+  // Stats computed from dashProps (filtered by selected companies)
   const stats = useMemo(()=>({
-    totalInvested:       properties.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
-    totalEstVal:         properties.reduce((s,p)=>s+(p.est_value||0),0),
-    monthlyRent:         properties.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0),
-    totalArrears:        properties.reduce((s,p)=>s+(p.arrears||0),0),
-    totalMortgage:       properties.reduce((s,p)=>s+(p.mortgage_amount||0),0),
-    totalEquity:         properties.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0),
-    monthlyMortgageCost: properties.reduce((s,p)=>{
+    totalInvested:       dashProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
+    totalEstVal:         dashProps.reduce((s,p)=>s+(p.est_value||0),0),
+    monthlyRent:         dashProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0),
+    totalArrears:        dashProps.reduce((s,p)=>s+(p.arrears||0),0),
+    totalMortgage:       dashProps.reduce((s,p)=>s+(p.mortgage_amount||0),0),
+    totalEquity:         dashProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0),
+    monthlyMortgageCost: dashProps.reduce((s,p)=>{
       if(!p.mortgage_rate||!p.mortgage_amount) return s
       const r=p.mortgage_rate/12, n=(p.mortgage_term||25)*12
       return s+p.mortgage_amount*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)
     },0),
-    mortgaged:           properties.filter(p=>(p.mortgage_amount||0)>0).length,
-    rented:              properties.filter(p=>p.status==='rented').length,
-    vacant:              properties.filter(p=>p.status==='vacant').length,
-    inRefurb:            properties.filter(p=>p.refurb_status==='in-progress').length,
-    total:               properties.length,
-  }),[properties])
+    mortgaged:           dashProps.filter(p=>(p.mortgage_amount||0)>0).length,
+    rented:              dashProps.filter(p=>p.status==='rented').length,
+    vacant:              dashProps.filter(p=>p.status==='vacant').length,
+    inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
+    total:               dashProps.length,
+  }),[dashProps])
 
-  const companyStats = useMemo(()=>companies.map(c=>{
-    const ps=properties.filter(p=>p.company_id===c.id)
+  const companyStats = useMemo(()=>dashCos.map(c=>{
+    const ps=dashProps.filter(p=>p.company_id===c.id)
     return {...c, count:ps.length,
       invested:    ps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
       estVal:      ps.reduce((s,p)=>s+(p.est_value||0),0),
@@ -361,7 +371,7 @@ export default function App() {
       rented:      ps.filter(p=>p.status==='rented').length,
       vacant:      ps.filter(p=>p.status==='vacant').length,
     }
-  }),[companies,properties])
+  }),[dashCos, dashProps])
 
 
   const showToast = useCallback((msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),3500)},[])
@@ -612,9 +622,55 @@ export default function App() {
         {loading?<Spinner/>:<>
 
           {view==='dashboard'&&<div className="fade">
-            <div style={{marginBottom:28}}>
-              <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
-              <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {companies.length} companies · {stats.rented} rented · {stats.vacant} vacant</p>
+            <div style={{marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
+                <div>
+                  <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
+                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {stats.rented} rented · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}</p>
+                </div>
+              </div>
+              {/* Company filter pills */}
+              {companies.length > 1 && (
+                <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+                  <button
+                    onClick={()=>setDashCoFilter([])}
+                    style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                      border:`1px solid ${dashCoFilter.length===0?T.gold:T.border}`,
+                      background:dashCoFilter.length===0?T.gold+'22':'transparent',
+                      color:dashCoFilter.length===0?T.gold:T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
+                    All companies
+                  </button>
+                  {companies.map(c=>{
+                    const sel = dashCoFilter.includes(c.id)
+                    return (
+                      <button key={c.id}
+                        onClick={()=>setDashCoFilter(prev=>{
+                          if(prev.length===0) {
+                            // Was 'all' — switch to all EXCEPT this one
+                            const next = companies.map(x=>x.id).filter(id=>id!==c.id)
+                            return next.length===0 ? [] : next
+                          }
+                          if(prev.includes(c.id)) {
+                            // Deselect — if that makes it empty, go back to all
+                            const next = prev.filter(id=>id!==c.id)
+                            return next.length===0 ? [] : next
+                          }
+                          // Add to selection
+                          const next = [...prev, c.id]
+                          // If all companies selected, snap back to 'all'
+                          return next.length===companies.length ? [] : next
+                        })}
+                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                          border:`1px solid ${sel?(c.color||T.gold):T.border}`,
+                          background:sel?(c.color||T.gold)+'22':'transparent',
+                          color:sel?(c.color||T.gold):T.muted}}>
+                        {sel?'✓ ':''}{c.abbr} {c.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(5,1fr)',gap:10,marginBottom:20}}>
               <StatCard icon="🏡" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
@@ -692,7 +748,7 @@ export default function App() {
                   ))}
                 </div>
             }
-            <SmartAlerts properties={properties} companies={companies} fmt={fmt} openDetail={openDetail}/>
+            <SmartAlerts properties={dashProps} companies={dashCos} fmt={fmt} openDetail={openDetail}/>
             {/* Company documents section */}
             {activeCoTab&&(companySettings[activeCoTab]||{}).feature_documents&&(
               <div style={{marginTop:28}}>
