@@ -639,10 +639,12 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     {key:'contractors', label:'Contractors',  icon:'🔧'},
   ]
 
+  const ALL_DEFAULT_NAV = ['dashboard','properties','companies','rent','deals','reports','contractors','settings']
   async function saveNavPref(key, enabled) {
+    const current = (userNavPrefs||[]).length > 0 ? userNavPrefs : ALL_DEFAULT_NAV
     const next = enabled
-      ? [...(userNavPrefs||[]), key].filter((v,i,a)=>a.indexOf(v)===i)
-      : (userNavPrefs||[]).filter(k=>k!==key)
+      ? [...current, key].filter((v,i,a)=>a.indexOf(v)===i)
+      : current.filter(k=>k!==key)
     if(setUserNavPrefs) setUserNavPrefs(next)
     try {
       await supabase.from('user_profiles').upsert(

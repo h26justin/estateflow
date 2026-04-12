@@ -10,7 +10,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const [working, setWorking]   = useState(null)
   // Platform admin state
   const [allCompanies, setAllCompanies] = useState([])
-  const [adminTab, setAdminTab] = useState('billing')
+  const [adminTab, setAdminTab] = useState(() => isPlatformAdmin ? 'admin' : 'billing')
 
   useEffect(() => { loadData() }, [])
 

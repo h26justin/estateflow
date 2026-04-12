@@ -58,10 +58,10 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
         name: 'New Deal',
         company_id: companies.length === 1 ? companies[0].id : null,
       })
-      await api.initialiseMilestones(deal.id, false, false)
+      // Initialise milestones separately - don't block navigation if this fails
+      api.initialiseMilestones(deal.id, false, false).catch(()=>{})
       setDeals(prev => [deal, ...prev])
-      setSelectedDeal(deal)
-      setDealTab('calculator')
+      setSelectedDeal({ ...deal })
       setView('deal')
     } catch(e) { showToast(e.message, 'error') }
   }
@@ -264,6 +264,7 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
 function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDelete, onConvert }) {
   const [tab, setTab]   = useState('calculator')
   const [form, setForm] = useState({ ...deal })
+  if (!deal) return null
   const [saving, setSaving] = useState(false)
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))

@@ -156,7 +156,7 @@ export default function App() {
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
-  const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','rent','reports','settings','deals'])
+  const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginMode, setLoginMode] = useState('login')
   const [trialWarning, setTrialWarning] = useState(null)
@@ -253,7 +253,8 @@ export default function App() {
         // Load nav preferences
         try {
           const { data: prof } = await supabase.from('user_profiles').select('nav_items').eq('user_id', user.id).single()
-          if (prof?.nav_items) setUserNavPrefs(prof.nav_items)
+          if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
+          else setUserNavPrefs(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
         } catch(e) {}
         // Check if new user needs onboarding tour
         const onboarded = await api.fetchOnboardingStatus(user.id)
