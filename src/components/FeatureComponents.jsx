@@ -1525,6 +1525,947 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
 
 
 // ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
+
+// ── USER ACCESS MANAGEMENT ────────────────────────────────────────────────────
+function AccessModal({companies, onClose, showToast}) {
+  const { T } = useTheme()
+  const mono = "'DM Mono',monospace"
+  const [users, setUsers]           = useState([])
+  const [access, setAccess]         = useState({})
+  const [invites, setInvites]       = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [saving, setSaving]         = useState(null)
+  const [newEmail, setNewEmail]     = useState('')
+  const [newIsAdmin, setNewIsAdmin] = useState(false)
+  const [adding, setAdding]         = useState(false)
+  const [tab, setTab]               = useState('users')
+
+  useEffect(()=>{ loadData() },[])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const [authUsers, rows] = await Promise.all([
+        api.fetchAllUsers().catch(()=>[]),
+        api.fetchAllAccessRows().catch(()=>[])
+      ])
+      const map = {}
+      rows.forEach(row => {
+        if (!map[row.user_id]) map[row.user_id] = []
+        if (row.company_id) map[row.user_id].push(row.company_id)
+      })
+      setAccess(map)
+      if (authUsers.length > 0) {
+        setUsers(authUsers.map(u => ({ id: u.id, email: u.email })))
+      } else {
+        const fromRows = {}
+        rows.forEach(row => {
+          if (!fromRows[row.user_id]) fromRows[row.user_id] = { id: row.user_id, email: row.email || row.user_id }
+        })
+        setUsers(Object.values(fromRows))
+      }
+      // Load pending invites for all companies
+      const allInvites = []
+      for (const co of companies) {
+        const inv = await api.fetchPendingInvitations(co.id).catch(()=>[])
+        inv.forEach(i => allInvites.push({ ...i, companyName: co.name, companyAbbr: co.abbr, companyColor: co.color }))
+      }
+      setInvites(allInvites)
+    } catch(e) {}
+    setLoading(false)
+  }
+
+  async function toggleCompany(userId, companyId, userEmail) {
+    const has = (access[userId]||[]).includes(companyId)
+    setSaving(userId + companyId)
+    try {
+      if (has) await api.revokeCompanyAccess(userId, companyId)
+      else await api.grantCompanyAccess(userId, companyId, userEmail)
+      setAccess(prev => ({
+        ...prev,
+        [userId]: has
+          ? (prev[userId]||[]).filter(c=>c!==companyId)
+          : [...(prev[userId]||[]), companyId]
+      }))
+      showToast('Access updated')
+    } catch(e) { showToast(e.message,'error') }
+    setSaving(null)
+  }
+
+  async function setAllCompanies(userId, userEmail, giveAll) {
+    setSaving(userId+'all')
+    try {
+      await api.setAllCompanyAccess(userId, userEmail, giveAll ? companies.map(c=>c.id) : [])
+      setAccess(prev => ({ ...prev, [userId]: giveAll ? companies.map(c=>c.id) : [] }))
+      showToast(giveAll ? 'Full access granted' : 'All access removed')
+    } catch(e) { showToast(e.message,'error') }
+    setSaving(null)
+  }
+
+  async function removeUser(userId) {
+    if (!confirm('Remove this user completely?')) return
+    try {
+      await api.removeUserAccess(userId)
+      setUsers(prev=>prev.filter(u=>u.id!==userId))
+      setAccess(prev=>{ const n={...prev}; delete n[userId]; return n })
+      showToast('User removed')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  async function sendInvite() {
+    const email = newEmail.trim().toLowerCase()
+    if (!email || companies.length === 0) return
+    setAdding(true)
+    try {
+      // Send invite for first company (admin can add to others after signup)
+      await api.sendInvitation(companies[0].id, email, newIsAdmin)
+      setNewEmail('')
+      setNewIsAdmin(false)
+      await loadData()
+      showToast(`Invitation sent to ${email}`)
+    } catch(e) { showToast(e.message,'error') }
+    setAdding(false)
+  }
+
+  async function cancelInvite(id) {
+    try {
+      await api.deleteInvitation(id)
+      setInvites(prev=>prev.filter(i=>i.id!==id))
+      showToast('Invitation cancelled')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  const totalAccess = (u) => (access[u.id]||[]).length
+  const hasAll = (u) => companies.every(co=>(access[u.id]||[]).includes(co.id))
+  const hasNone = (u) => (access[u.id]||[]).length === 0
+
+  const tabStyle = (k) => ({
+    fontFamily: mono, fontSize: 11, padding: '7px 16px', borderRadius: 8,
+    border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+    background: tab===k ? T.gold+'22' : 'transparent',
+    color: tab===k ? T.gold : T.muted,
+    fontWeight: tab===k ? 600 : 400,
+  })
+
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:660}}>
+        <div style={{padding:'22px 26px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+            <h2 style={{fontSize:20,fontWeight:700,color:T.text}}>⚙ User Access Management</h2>
+            <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
+          </div>
+          <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>
+            Manage who can access your companies. Send invitations to new users.
+          </p>
+
+          {/* Tabs */}
+          <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`1px solid ${T.border}`,paddingBottom:0}}>
+            <button style={tabStyle('users')} onClick={()=>setTab('users')}>
+              👥 Users ({users.length})
+            </button>
+            <button style={tabStyle('invites')} onClick={()=>setTab('invites')}>
+              ✉ Pending Invites ({invites.length})
+            </button>
+          </div>
+
+          {/* ── INVITE NEW USER ── */}
+          <div style={{background:T.bg,borderRadius:10,padding:'14px 16px',marginBottom:20,border:`1px solid ${T.border}`}}>
+            <label style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Invite user by email</label>
+            <div style={{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}}>
+              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&sendInvite()}
+                placeholder="colleague@example.com"
+                style={{flex:1,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <input type="checkbox" id="invite-admin" checked={newIsAdmin} onChange={e=>setNewIsAdmin(e.target.checked)} style={{width:'auto',margin:0}}/>
+                <label htmlFor="invite-admin" style={{fontFamily:mono,fontSize:10,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
+              </div>
+              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}}
+                onClick={sendInvite} disabled={adding||!newEmail.trim()}>
+                {adding ? 'Sending…' : '✉ Send Invite'}
+              </button>
+            </div>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.6}}>
+              An invitation link will be sent. They must sign up at <span style={{color:T.gold}}>estateflow-livid.vercel.app</span> to accept it.
+            </div>
+          </div>
+
+          {loading
+            ? <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:20,textAlign:'center'}}>Loading…</div>
+            : <>
+              {/* ── USERS TAB ── */}
+              {tab==='users' && (
+                users.length===0
+                  ? <div style={{fontFamily:mono,fontSize:11,color:T.faint,textAlign:'center',padding:32,background:T.bg,borderRadius:10}}>
+                      No users yet. Send an invitation above.
+                    </div>
+                  : <div style={{display:'grid',gap:10}}>
+                      {users.map(u=>(
+                        <div key={u.id} style={{background:T.bg,borderRadius:12,padding:'14px 16px',border:`1px solid ${T.border}`}}>
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
+                            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                              <div style={{width:34,height:34,borderRadius:17,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:13,fontWeight:700,color:T.gold,flexShrink:0}}>
+                                {(u.email[0]||'?').toUpperCase()}
+                              </div>
+                              <div>
+                                <div style={{fontSize:13,fontWeight:600,color:T.text}}>{u.email}</div>
+                                <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>
+                                  {hasNone(u)?'No access':hasAll(u)?'All companies':totalAccess(u)+' of '+companies.length+' companies'}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                              <button onClick={()=>setAllCompanies(u.id,u.email,true)}
+                                disabled={!!saving||hasAll(u)}
+                                style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.green}`,color:T.green,background:T.green+'11',opacity:hasAll(u)?0.4:1}}>
+                                All ✓
+                              </button>
+                              <button onClick={()=>setAllCompanies(u.id,u.email,false)}
+                                disabled={!!saving||hasNone(u)}
+                                style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.amber}`,color:T.amber,background:T.amber+'11',opacity:hasNone(u)?0.4:1}}>
+                                None ✗
+                              </button>
+                              <button onClick={()=>removeUser(u.id)}
+                                style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11'}}>
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                            {companies.map(co=>{
+                              const has = (access[u.id]||[]).includes(co.id)
+                              return (
+                                <button key={co.id} onClick={()=>toggleCompany(u.id,co.id,u.email)}
+                                  disabled={!!saving}
+                                  style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                                    border:`1px solid ${has?co.color:T.border}`,
+                                    background:has?co.color+'22':'transparent',
+                                    color:has?co.color:T.muted}}>
+                                  {has?'✓ ':''}{co.abbr} {co.name}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+              )}
+
+              {/* ── INVITES TAB ── */}
+              {tab==='invites' && (
+                invites.length===0
+                  ? <div style={{fontFamily:mono,fontSize:11,color:T.faint,textAlign:'center',padding:32,background:T.bg,borderRadius:10}}>
+                      No pending invitations.
+                    </div>
+                  : <div style={{display:'grid',gap:8}}>
+                      {invites.map(inv=>(
+                        <div key={inv.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:T.bg,borderRadius:10,border:`1px solid ${T.border}`,gap:12,flexWrap:'wrap'}}>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{inv.email}</div>
+                            <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>
+                              Invited to <span style={{color:inv.companyColor||T.gold}}>{inv.companyAbbr}</span> {inv.companyName}
+                              {inv.is_admin && <span style={{marginLeft:8,background:T.gold+'22',color:T.gold,padding:'1px 6px',borderRadius:4}}>Admin</span>}
+                            </div>
+                            <div style={{fontFamily:mono,fontSize:10,color:T.faint,marginTop:2}}>
+                              Expires {new Date(inv.expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}
+                            </div>
+                          </div>
+                          <button onClick={()=>cancelInvite(inv.id)}
+                            style={{fontFamily:mono,fontSize:10,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11',flexShrink:0}}>
+                            Cancel
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+              )}
+            </>
+          }
+
+          <button className="btn btn-ghost" style={{width:'100%',marginTop:16,fontSize:12}} onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── NOTES TIMELINE ───────────────────────────────────────────────────────────
+export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperties, category, compact}) {
+  const { T } = useTheme()
+  const [notes, setNotes] = useState([])
+  const [newNote, setNewNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(()=>{
+    if (!propertyId) return
+    setLoading(true)
+    let q = supabase.from('property_notes').select('*').eq('property_id', propertyId)
+    if (category) q = q.eq('category', category)
+    q.order('created_at', {ascending:false})
+      .then(({data})=>{ setNotes(data||[]); setLoading(false) })
+      .catch(()=>setLoading(false))
+  },[propertyId, category])
+
+  async function handleSave() {
+    if (!newNote.trim() || !user) return
+    setSaving(true)
+    try {
+      const data = await api.createNote(propertyId, newNote.trim(), category||'general', user.id, user.email)
+      setNotes(prev=>[data,...prev])
+      setNewNote('')
+      if (showToast) showToast('Note saved')
+    } catch(e) {
+      if (showToast) showToast(e.message, 'error')
+    }
+    setSaving(false)
+  }
+
+  async function handleDelete(id) {
+    try {
+      await api.deleteNote(id)
+      setNotes(prev=>prev.filter(n=>n.id!==id))
+    } catch(e) {}
+  }
+
+  function formatDate(ts) {
+    if (!ts) return ''
+    return new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) +
+      ' ' + new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+  }
+
+  return (
+    <div style={{background:T.card,borderRadius:12,padding:'16px 20px',border:`1px solid ${T.border}`}}>
+      {!compact&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>
+        {category ? category.charAt(0).toUpperCase()+category.slice(1)+' Notes' : 'Notes Timeline'}
+      </div>}
+      {isAdmin&&<>
+        <textarea value={newNote} onChange={e=>setNewNote(e.target.value)}
+          placeholder="Add a note about this property..."
+          style={{width:'100%',minHeight:72,resize:'vertical',marginBottom:8,fontSize:12}}/>
+        <button className="btn btn-gold" style={{fontSize:11,marginBottom:16}} onClick={handleSave} disabled={saving}>
+          {saving?'Saving...':'+ Save Note'}
+        </button>
+      </>}
+      {loading
+        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading...</div>
+        : notes.length===0
+          ? <div style={{fontFamily:"'DM Mono',monospace",color:T.faint,fontSize:11}}>No notes yet.</div>
+          : <div style={{display:'grid',gap:10}}>
+              {notes.map(n=>(
+                <div key={n.id} style={{background:T.bg,borderRadius:8,padding:'10px 14px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,flexWrap:'wrap',gap:6}}>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.gold}}>{n.user_email}</span>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                    </div>
+                    {isAdmin&&<button onClick={()=>handleDelete(n.id)}
+                      style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
+                      Delete
+                    </button>}
+                  </div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                </div>
+              ))}
+            </div>
+      }
+    </div>
+  )
+}
+
+
+// ── DOCUMENTS TAB ────────────────────────────────────────────────────────────
+const DOC_CATEGORIES = [
+  {value:'tenancy',     label:'Tenancy Agreement',  icon:'📝'},
+  {value:'gas',         label:'Gas Safety',          icon:'🔥'},
+  {value:'eicr',        label:'EICR / Electric',     icon:'⚡'},
+  {value:'epc',         label:'EPC',                 icon:'🏠'},
+  {value:'insurance',   label:'Insurance',           icon:'🛡'},
+  {value:'mortgage',    label:'Mortgage',            icon:'🏦'},
+  {value:'inventory',   label:'Inventory',           icon:'📋'},
+  {value:'legal',       label:'Legal',               icon:'⚖️'},
+  {value:'maintenance', label:'Maintenance',         icon:'🔧'},
+  {value:'other',       label:'Other',               icon:'📄'},
+]
+
+export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user}) {
+  const { T } = useTheme()
+  const [docs, setDocs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('other')
+  const [filterCategory, setFilterCategory] = useState('all')
+  const [docName, setDocName] = useState('')
+  const fileInputRef = useState(null)
+  const inputRef = { current: null }
+
+  useEffect(()=>{ loadDocs() },[propertyId])
+
+  async function loadDocs() {
+    setLoading(true)
+    try {
+      const {data} = await supabase.from('property_documents')
+        .select('*').eq('property_id', propertyId)
+        .order('created_at', {ascending:false})
+      setDocs(data||[])
+    } catch(e) { }
+    setLoading(false)
+  }
+
+  async function handleUpload(files) {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    let uploaded = 0
+
+    for (const file of Array.from(files)) {
+      try {
+        const {data:{user:u}} = await supabase.auth.getUser()
+        const ext = file.name.split('.').pop()
+        const filePath = `${u.id}/${propertyId}/${Date.now()}-${file.name}`
+
+        // Upload to Supabase Storage
+        const {data:uploadData, error:uploadErr} = await supabase.storage
+          .from('property-documents')
+          .upload(filePath, file, {cacheControl:'3600', upsert:false})
+
+        if (uploadErr) throw uploadErr
+
+        // Get public URL
+        const {data:{publicUrl}} = supabase.storage
+          .from('property-documents')
+          .getPublicUrl(filePath)
+
+        // Save record to DB
+        const {error:dbErr} = await supabase.from('property_documents').insert({
+          property_id: propertyId,
+          user_id: u.id,
+          name: docName || file.name,
+          file_url: publicUrl,
+          file_path: filePath,
+          file_type: file.type,
+          file_size: file.size,
+          category: selectedCategory,
+        })
+
+        if (dbErr) throw dbErr
+        uploaded++
+      } catch(e) {
+        showToast('Upload failed: ' + e.message, 'error')
+      }
+    }
+
+    if (uploaded > 0) {
+      showToast(uploaded + ' document' + (uploaded>1?'s':'') + ' uploaded')
+      setDocName('')
+      await loadDocs()
+    }
+    setUploading(false)
+  }
+
+  async function handleDelete(doc) {
+    try {
+      // Delete from storage
+      if (doc.file_path) {
+        await supabase.storage.from('property-documents').remove([doc.file_path])
+      }
+      // Delete from DB
+
+      setDocs(prev=>prev.filter(d=>d.id!==doc.id))
+      showToast('Document deleted')
+    } catch(e) {
+      showToast(e.message, 'error')
+    }
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return ''
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB'
+    return (bytes/(1024*1024)).toFixed(1) + ' MB'
+  }
+
+  function formatDate(ts) {
+    return new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
+  }
+
+  function getCatInfo(val) {
+    return DOC_CATEGORIES.find(c=>c.value===val) || DOC_CATEGORIES[DOC_CATEGORIES.length-1]
+  }
+
+  const filtered = filterCategory==='all' ? docs : docs.filter(d=>d.category===filterCategory)
+  const byCategory = DOC_CATEGORIES.reduce((acc,cat)=>{
+    const catDocs = filtered.filter(d=>d.category===cat.value)
+    if (catDocs.length>0) acc[cat.value] = catDocs
+    return acc
+  },{})
+
+  return (
+    <div>
+      {/* Upload area */}
+      {isAdmin&&<div
+        onDrop={e=>{e.preventDefault();setDragOver(false);handleUpload(e.dataTransfer.files)}}
+        onDragOver={e=>{e.preventDefault();setDragOver(true)}}
+        onDragLeave={()=>setDragOver(false)}
+        onClick={()=>inputRef.current?.click()}
+        style={{
+          border:`2px dashed ${dragOver?T.gold:T.border}`,
+          borderRadius:12,padding:'24px 20px',textAlign:'center',
+          cursor:'pointer',marginBottom:16,transition:'all 0.2s',
+          background:dragOver?T.gold+'11':'transparent'
+        }}>
+        <div style={{fontSize:28,marginBottom:8}}>📁</div>
+        <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>
+          {uploading?'Uploading...':'Drop files here or click to browse'}
+        </div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:12}}>
+          PDF, images, Word docs — any file type accepted
+        </div>
+        <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
+          <select value={selectedCategory} onChange={e=>{e.stopPropagation();setSelectedCategory(e.target.value)}}
+            onClick={e=>e.stopPropagation()}
+            style={{fontSize:11,padding:'4px 8px',width:'auto'}}>
+            {DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
+          </select>
+          <input value={docName} onChange={e=>{e.stopPropagation();setDocName(e.target.value)}}
+            onClick={e=>e.stopPropagation()}
+            placeholder="Custom name (optional)"
+            style={{fontSize:11,padding:'4px 8px',width:180}}/>
+        </div>
+        <input ref={el=>inputRef.current=el} type="file" multiple accept="*/*"
+          style={{display:'none'}} onChange={e=>handleUpload(e.target.files)}/>
+      </div>}
+
+      {/* Filter bar */}
+      {docs.length>0&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+        <button onClick={()=>setFilterCategory('all')}
+          style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+            border:`1px solid ${filterCategory==='all'?T.gold:T.border}`,
+            background:filterCategory==='all'?T.gold+'22':'transparent',
+            color:filterCategory==='all'?T.gold:T.muted}}>
+          All ({docs.length})
+        </button>
+        {DOC_CATEGORIES.filter(c=>docs.some(d=>d.category===c.value)).map(c=>(
+          <button key={c.value} onClick={()=>setFilterCategory(c.value)}
+            style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+              border:`1px solid ${filterCategory===c.value?T.gold:T.border}`,
+              background:filterCategory===c.value?T.gold+'22':'transparent',
+              color:filterCategory===c.value?T.gold:T.muted}}>
+            {c.icon} {c.label} ({docs.filter(d=>d.category===c.value).length})
+          </button>
+        ))}
+      </div>}
+
+      {/* Document list */}
+      {loading
+        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading...</div>
+        : filtered.length===0
+          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',padding:32,
+              background:T.bg,borderRadius:12}}>
+              No documents yet. Upload tenancy agreements, certificates and other files here.
+            </div>
+          : <div style={{display:'grid',gap:8}}>
+              {filtered.map(doc=>{
+                const cat = getCatInfo(doc.category)
+                const isPDF = doc.file_type?.includes('pdf') || doc.name?.endsWith('.pdf')
+                const isImage = doc.file_type?.includes('image')
+                return (
+                  <div key={doc.id} style={{background:T.bg,borderRadius:10,padding:'12px 16px',
+                    display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',
+                    border:`1px solid ${T.border}`}}>
+                    {/* Icon */}
+                    <div style={{fontSize:24,flexShrink:0}}>
+                      {isPDF?'📄':isImage?'🖼':cat.icon}
+                    </div>
+                    {/* Info */}
+                    <div style={{flex:1,minWidth:150}}>
+                      <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
+                      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.gold,
+                          background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
+                          {cat.icon} {cat.label}
+                        </span>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                          {formatDate(doc.created_at)}
+                        </span>
+                        {doc.file_size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
+                          {formatSize(doc.file_size)}
+                        </span>}
+                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div style={{display:'flex',gap:6,flexShrink:0}}>
+                      <a href={doc.file_url} target="_blank" rel="noreferrer"
+                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
+                          background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
+                          borderRadius:8,cursor:'pointer',textDecoration:'none'}}>
+                        ⬇ View
+                      </a>
+                      {isAdmin&&<button onClick={()=>handleDelete(doc)}
+                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                          background:'#2B1010',color:T.red,border:`1px solid #3D1A1A`,
+                          borderRadius:8,cursor:'pointer'}}>
+                        Delete
+                      </button>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+      }
+
+      {/* Notes for this tab */}
+      <div style={{marginTop:20}}>
+        <NotesTimeline propertyId={propertyId} isAdmin={isAdmin} user={user}
+          showToast={showToast} category="documents"/>
+      </div>
+    </div>
+  )
+}
+
+
+// ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
+export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast}) {
+  const { T } = useTheme()
+  const [allNotes, setAllNotes] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const CATEGORIES = {
+    general:     {label:'General',     color:'#C8A84B', icon:'📝'},
+    rent:        {label:'Rent',        color:'#2ECC8A', icon:'💷'},
+    refurb:      {label:'Refurb',      color:'#4B8FE0', icon:'🔨'},
+    financials:  {label:'Financials',  color:'#9B59B6', icon:'💰'},
+    compliance:  {label:'Compliance',  color:'#E0943A', icon:'📋'},
+    tenancy:     {label:'Tenancy',     color:'#2ECC8A', icon:'🤝'},
+    maintenance: {label:'Maintenance', color:'#E05555', icon:'🔧'},
+    expenses:    {label:'Expenses',    color:'#E05555', icon:'📊'},
+  }
+
+  useEffect(()=>{
+    setLoading(true)
+    api.fetchNotes(selected.id, null)
+      .then(data=>{ setAllNotes(data||[]); setLoading(false) })
+      .catch(()=>setLoading(false))
+  },[selected.id])
+
+  async function deleteNote(id) {
+    await api.deleteNote(id)
+    setAllNotes(prev=>prev.filter(n=>n.id!==id))
+  }
+
+  function formatDate(ts) {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) +
+      ' at ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+  }
+
+  const mortgage = calcMonthlyMortgage(selected)
+  const yield_ = calcGrossYield(selected)
+
+  return (
+    <div>
+      {/* Quick stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+        {[
+          {l:'Purchase Price',   v:fmt(selected.purchase_price),    c:'#C8A84B'},
+          {l:'Estimated Value',  v:fmt(selected.est_value),         c:'#C8A84B'},
+          {l:'Gross Yield',      v:yield_>0?yield_.toFixed(1)+'%':'—', c:'#2ECC8A'},
+          {l:'Monthly Rent',     v:fmt(selected.rent_pcm),          c:'#2ECC8A'},
+          {l:'Monthly Mortgage', v:mortgage>0?fmt(mortgage):'—',    c:'#9B59B6'},
+          {l:'Arrears',          v:fmt(selected.arrears||0),        c:(selected.arrears||0)>0?'#E05555':'#2ECC8A'},
+        ].map((item,i)=>(
+          <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Property notes */}
+      {selected.notes&&<div className="card" style={{padding:'14px 18px',marginBottom:16,borderLeft:`3px solid ${T.gold}`}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Property Description</div>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
+      </div>}
+
+      {/* All notes timeline */}
+      <div className="card" style={{padding:'16px 20px'}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>
+          All Notes — {allNotes.length} total
+        </div>
+
+        {loading
+          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+          : allNotes.length===0
+            ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>No notes yet. Add notes from any tab.</div>
+            : <div style={{display:'grid',gap:10}}>
+                {allNotes.map(n=>{
+                  const cat = CATEGORIES[n.category||'general'] || CATEGORIES.general
+                  return (
+                    <div key={n.id} style={{background:T.bg,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${cat.color}`}}>
+                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                          {/* Category tag */}
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,
+                            color:cat.color,background:cat.color+'22',
+                            padding:'2px 8px',borderRadius:20,display:'flex',alignItems:'center',gap:3}}>
+                            {cat.icon} {cat.label}
+                          </span>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.gold,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                        </div>
+                        {isAdmin&&<button onClick={()=>deleteNote(n.id)}
+                          style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:'#E05555',border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
+                          Delete
+                        </button>}
+                      </div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                    </div>
+                  )
+                })}
+              </div>
+        }
+
+        {/* Add a general note from overview */}
+        <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>
+          <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} category="general" compact={true}/>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── FINANCIALS TAB ────────────────────────────────────────────────────────────
+export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast}) {
+  const { T } = useTheme()
+  const mortgage = calcMonthlyMortgage(selected)
+  const yield_ = calcGrossYield(selected)
+  const monthlyProfit = calcMonthlyProfit(selected)
+  const totalInvested = (selected.purchase_price||0)+(selected.refurb_cost||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)
+  const equity = (selected.est_value||0)-(selected.mortgage_amount||0)
+  const ltv = selected.est_value ? (((selected.mortgage_amount||0)/selected.est_value)*100).toFixed(1) : '—'
+
+  const sections = [
+    {title:'Purchase & Costs', items:[
+      {l:'Purchase Price',    v:fmt(selected.purchase_price)},
+      {l:'Deposit',          v:fmt(selected.deposit)},
+      {l:'Refurb Cost',      v:fmt(selected.refurb_cost)},
+      {l:'Stamp Duty',       v:fmt(selected.stamp_duty)},
+      {l:'Legal Fees',       v:fmt(selected.legal_fees)},
+      {l:'Total Invested',   v:fmt(totalInvested), bold:true, color:'#C8A84B'},
+    ]},
+    {title:'Mortgage', items:[
+      {l:'Mortgage Amount',  v:fmt(selected.mortgage_amount)},
+      {l:'Mortgage Rate',    v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'—'},
+      {l:'Mortgage Term',    v:selected.mortgage_term?`${selected.mortgage_term} years`:'—'},
+      {l:'Monthly Payment',  v:mortgage>0?fmt(mortgage):'—'},
+      {l:'Annual Payments',  v:mortgage>0?fmt(mortgage*12):'—'},
+      {l:'Loan to Value',    v:ltv!=='—'?ltv+'%':'—', color:'#9B59B6'},
+    ]},
+    {title:'Returns', items:[
+      {l:'Estimated Value',  v:fmt(selected.est_value), color:'#C8A84B'},
+      {l:'Equity',           v:fmt(equity), color:equity>0?'#2ECC8A':'#E05555'},
+      {l:'Monthly Rent',     v:fmt(selected.rent_pcm), color:'#2ECC8A'},
+      {l:'Annual Rent',      v:fmt((selected.rent_pcm||0)*12), color:'#2ECC8A'},
+      {l:'Gross Yield',      v:yield_>0?yield_.toFixed(2)+'%':'—', color:'#2ECC8A'},
+      {l:'Monthly Profit',   v:monthlyProfit>0?fmt(monthlyProfit):'—', color:monthlyProfit>0?'#2ECC8A':'#E05555'},
+    ]},
+  ]
+
+  return (
+    <div>
+      <div style={{display:'grid',gap:12,marginBottom:20}}>
+        {sections.map((section,si)=>(
+          <div key={si} className="card" style={{padding:'18px 22px'}}>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              {section.items.map((item,i)=>(
+                <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:item.bold?700:600,color:item.color||T.text}}>{item.v||'—'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} category="financials"/>
+    </div>
+  )
+}
+
+
+// ── COMPANY DOCUMENTS TAB ────────────────────────────────────────────────────
+export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
+  const { T } = useTheme()
+  const [docs, setDocs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('other')
+  const [docName, setDocName] = useState('')
+  const inputRef = { current: null }
+
+  const COMPANY_DOC_CATEGORIES = [
+    {value:'insurance',   label:'Company Insurance',   icon:'🛡'},
+    {value:'bank',        label:'Bank / Finance',      icon:'🏦'},
+    {value:'legal',       label:'Legal',               icon:'⚖️'},
+    {value:'tax',         label:'Tax / HMRC',          icon:'📊'},
+    {value:'accounts',    label:'Annual Accounts',     icon:'📑'},
+    {value:'contracts',   label:'Contracts',           icon:'📝'},
+    {value:'other',       label:'Other',               icon:'📄'},
+  ]
+
+  useEffect(()=>{ loadDocs() },[companyId])
+
+  async function loadDocs() {
+    setLoading(true)
+    try {
+      const {data} = await supabase.from('company_documents')
+        .select('*').eq('company_id', companyId)
+        .order('created_at', {ascending:false})
+      setDocs(data||[])
+    } catch(e) { }
+    setLoading(false)
+  }
+
+  async function handleUpload(files) {
+    if (!files || files.length === 0) return
+    setUploading(true)
+
+    for (const file of Array.from(files)) {
+      try {
+        const {data:{user:u}} = await supabase.auth.getUser()
+        const filePath = `companies/${u.id}/${companyId}/${Date.now()}-${file.name}`
+
+        const {error:uploadErr} = await supabase.storage
+          .from('property-documents')
+          .upload(filePath, file, {cacheControl:'3600', upsert:false})
+        if (uploadErr) throw uploadErr
+
+        const {data:{publicUrl}} = supabase.storage
+          .from('property-documents').getPublicUrl(filePath)
+
+        await supabase.from('company_documents').insert({
+          company_id: companyId,
+          user_id: u.id,
+          name: docName || file.name,
+          file_url: publicUrl,
+          file_path: filePath,
+          file_type: file.type,
+          file_size: file.size,
+          category: selectedCategory,
+        })
+        showToast('Document uploaded')
+        setDocName('')
+        await loadDocs()
+      } catch(e) {
+        showToast('Upload failed: ' + e.message, 'error')
+      }
+    }
+    setUploading(false)
+  }
+
+  async function handleDelete(doc) {
+    try {
+      await api.deleteCompanyDocument(doc)
+      setDocs(prev=>prev.filter(d=>d.id!==doc.id))
+      showToast('Deleted')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  function formatSize(b) {
+    if (!b) return ''
+    if (b<1024) return b+'B'
+    if (b<1024*1024) return (b/1024).toFixed(1)+'KB'
+    return (b/(1024*1024)).toFixed(1)+'MB'
+  }
+
+  function getCat(val) {
+    return COMPANY_DOC_CATEGORIES.find(c=>c.value===val)||COMPANY_DOC_CATEGORIES[COMPANY_DOC_CATEGORIES.length-1]
+  }
+
+  return (
+    <div>
+      {isAdmin&&<div
+        onDrop={e=>{e.preventDefault();setDragOver(false);handleUpload(e.dataTransfer.files)}}
+        onDragOver={e=>{e.preventDefault();setDragOver(true)}}
+        onDragLeave={()=>setDragOver(false)}
+        onClick={()=>inputRef.current?.click()}
+        style={{border:`2px dashed ${dragOver?T.gold:T.border}`,borderRadius:12,
+          padding:'20px',textAlign:'center',cursor:'pointer',marginBottom:14,
+          background:dragOver?T.gold+'11':'transparent',transition:'all 0.2s'}}>
+        <div style={{fontSize:24,marginBottom:6}}>📁</div>
+        <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>
+          {uploading?'Uploading...':'Drop company documents here or click to browse'}
+        </div>
+        <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:8,flexWrap:'wrap'}}>
+          <select value={selectedCategory} onChange={e=>{e.stopPropagation();setSelectedCategory(e.target.value)}}
+            onClick={e=>e.stopPropagation()} style={{fontSize:11,padding:'4px 8px',width:'auto'}}>
+            {COMPANY_DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
+          </select>
+          <input value={docName} onChange={e=>{e.stopPropagation();setDocName(e.target.value)}}
+            onClick={e=>e.stopPropagation()} placeholder="Custom name (optional)"
+            style={{fontSize:11,padding:'4px 8px',width:160}}/>
+        </div>
+        <input ref={el=>inputRef.current=el} type="file" multiple style={{display:'none'}}
+          onChange={e=>handleUpload(e.target.files)}/>
+      </div>}
+
+      {loading
+        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading...</div>
+        : docs.length===0
+          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',
+              padding:24,background:T.bg,borderRadius:10}}>
+              No company documents yet.
+            </div>
+          : <div style={{display:'grid',gap:8}}>
+              {docs.map(doc=>{
+                const cat = getCat(doc.category)
+                return (
+                  <div key={doc.id} style={{background:T.bg,borderRadius:10,padding:'12px 16px',
+                    display:'flex',alignItems:'center',gap:12,border:`1px solid ${T.border}`,flexWrap:'wrap'}}>
+                    <div style={{fontSize:22,flexShrink:0}}>{cat.icon}</div>
+                    <div style={{flex:1,minWidth:150}}>
+                      <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
+                      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.gold,
+                          background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
+                          {cat.icon} {cat.label}
+                        </span>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                          {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+                        </span>
+                        {doc.file_size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
+                          {formatSize(doc.file_size)}
+                        </span>}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:6}}>
+                      <a href={doc.file_url} target="_blank" rel="noreferrer"
+                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
+                          background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
+                          borderRadius:8,cursor:'pointer',textDecoration:'none'}}>
+                        ⬇ View
+                      </a>
+                      {isAdmin&&<button onClick={()=>handleDelete(doc)}
+                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                          background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',
+                          borderRadius:8,cursor:'pointer'}}>
+                        Delete
+                      </button>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+      }
+    </div>
+  )
+}
+
+
+// ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
 function AccessModal({companies, onClose, showToast}) {
   const { T } = useTheme()
   const [users, setUsers]     = useState([])   // all auth users

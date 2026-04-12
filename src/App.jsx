@@ -9,6 +9,7 @@ import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
 import LoginPage from './components/LoginPage'
+import OnboardingWizard from './components/OnboardingWizard'
 
 
 
@@ -148,6 +149,8 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const { T, darkMode, setDarkMode, loadUserTheme } = useTheme()
 
   const CSS = `
@@ -225,16 +228,21 @@ export default function App() {
         }
         const access = allAccess
         const accessIds = access.map(a=>a.company_id)
-        const isAdminUser = access.length===0 || access.some(a=>a.is_admin)
+        const isAdminUser = access.some(a=>a.is_admin || a.is_owner)
         setIsAdmin(isAdminUser)
         setUserAccess(accessIds)
         // Load user's saved theme preference from Supabase
         await loadUserTheme(user.id, user.email)
-        const visibleCos   = isAdminUser ? cos   : cos.filter(c=>accessIds.includes(c.id))
+        const visibleCos   = cos
         const visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
         setCompanies(visibleCos)
         setProperties(visibleProps)
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
+        // Show onboarding for brand new users with no companies
+        if (visibleCos.length === 0) setShowOnboarding(true)
+        // Check platform admin
+        const { data: profileData } = await supabase.from('user_profiles').select('platform_admin').eq('user_id', user.id).single().catch(()=>({data:null}))
+        setIsPlatformAdmin(profileData?.platform_admin === true)
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
@@ -344,6 +352,7 @@ export default function App() {
   // Early returns AFTER all hooks
   if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return <LoginPage/>
+  if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
 
 
   const selected = properties.find(p=>p.id===selectedId)

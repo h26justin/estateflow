@@ -439,3 +439,78 @@ export async function removeUserAccess(userId) {
 export async function updatePropertySortOrder(id, sortOrder) {
   await supabase.from('properties').update({ sort_order: sortOrder }).eq('id', id)
 }
+
+// ── MULTI-TENANT: COMPANY CREATION ───────────────────────────────────────────
+export async function createCompanyForOwner(name, abbr, color) {
+  const { data, error } = await supabase.rpc('create_company_for_owner', {
+    p_name: name, p_abbr: abbr, p_color: color
+  })
+  if (error) throw error
+  return data // returns company_id
+}
+
+export async function fetchMyCompanies() {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('*')
+    .order('name')
+  if (error) throw error
+  return data || []
+}
+
+// ── INVITATIONS ───────────────────────────────────────────────────────────────
+export async function sendInvitation(companyId, email, isAdmin = false) {
+  const { data, error } = await supabase
+    .from('invitations')
+    .insert({ company_id: companyId, invited_by: (await supabase.auth.getUser()).data.user.id, email, is_admin: isAdmin })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchPendingInvitations(companyId) {
+  const { data, error } = await supabase
+    .from('invitations')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('accepted', false)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function acceptInvitation(token) {
+  const { data, error } = await supabase
+    .from('invitations')
+    .update({ accepted: true, accepted_at: new Date().toISOString() })
+    .eq('token', token)
+    .eq('email', (await supabase.auth.getUser()).data.user.email)
+    .select().single()
+  if (error) throw error
+  // Grant access to the company
+  if (data) {
+    await supabase.from('user_company_access').upsert({
+      user_id: (await supabase.auth.getUser()).data.user.id,
+      company_id: data.company_id,
+      email: data.email,
+      is_admin: data.is_admin,
+      is_owner: false,
+    }, { onConflict: 'user_id,company_id' })
+  }
+  return data
+}
+
+export async function deleteInvitation(id) {
+  const { error } = await supabase.from('invitations').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── PLATFORM ADMIN ────────────────────────────────────────────────────────────
+export async function fetchIsPlatformAdmin() {
+  try {
+    const { data } = await supabase.from('user_profiles')
+      .select('platform_admin').eq('user_id', (await supabase.auth.getUser()).data.user.id).single()
+    return data?.platform_admin === true
+  } catch(e) { return false }
+}

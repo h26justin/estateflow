@@ -59,7 +59,7 @@ export default function LoginPage() {
             {mode==='login' ? 'Sign in to your account' : 'Create your account'}
           </h2>
           <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:28 }}>
-            {mode==='login' ? 'Welcome back.' : 'Get started with OwnProperly.'}
+            {mode==='login' ? 'Welcome back.' : 'Create your free account and start managing your portfolio.'}
           </p>
 
           <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:16 }}>
