@@ -88,8 +88,8 @@ export default function AdminDashboard({ onClose, user }) {
     const trialing = companies.filter(c=>!c.is_free_tier&&(!c.subscriptions?.[0]?.status||c.subscriptions?.[0]?.status==='trialing'))
     const free     = companies.filter(c=>c.is_free_tier)
     const pastDue  = companies.filter(c=>c.subscriptions?.[0]?.status==='past_due')
-    const mrrStripe = active.reduce((s,c)=>s+(c.subscriptions?.[0]?.property_count||0),0)
-    const mrrProps  = companies.reduce((s,c)=>s+(c.subscriptions?.[0]?.property_count||0),0)
+    const mrrStripe = active.reduce((s,c)=>s+(c.paid_property_count||c.subscriptions?.[0]?.property_count||0),0)
+    const mrrProps  = companies.reduce((s,c)=>s+(c.real_property_count||0),0)
     const newThisMonth = companies.filter(c=>{
       const d=new Date(c.created_at); const n=new Date()
       return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()
@@ -294,19 +294,19 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
       </div>
 
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 140px 70px 80px 120px 80px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-          {['Company / Owner','Status','Props','MRR','Free tier',''].map(h=>(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 140px 90px 90px 80px 120px 80px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+          {['Company / Owner','Status','Platform props','Billed props','MRR','Free tier',''].map(h=>(
             <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
           ))}
         </div>
         {filtered.length===0&&<div style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>No accounts match your filter</div>}
         {filtered.map(co=>{
           const status = co.is_free_tier?'free_tier':(co.subscriptions?.[0]?.status||'trialing')
-          const props  = co.subscriptions?.[0]?.property_count||0
+          const props  = co.paid_property_count||co.subscriptions?.[0]?.property_count||0
           const mrr    = status==='active'?props:0
           return (
             <div key={co.id} onClick={()=>onSelect(co)}
-              style={{display:'grid',gridTemplateColumns:'1fr 140px 70px 80px 120px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center',cursor:'pointer',transition:'background 0.15s'}}
+              style={{display:'grid',gridTemplateColumns:'1fr 140px 90px 90px 80px 120px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center',cursor:'pointer',transition:'background 0.15s'}}
               onMouseEnter={e=>e.currentTarget.style.background=T.surface}
               onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
               <div>
@@ -318,7 +318,8 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                 <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{co.owner_email||'—'}</div>
               </div>
               <div>{pill(status)}</div>
-              <div style={{fontFamily:mono,fontSize:12,color:T.text}}>{props}</div>
+              <div style={{fontFamily:mono,fontSize:12,color:T.text}}>{co.real_property_count||0} <span style={{fontFamily:mono,fontSize:9,color:T.muted}}>total</span></div>
+              <div style={{fontFamily:mono,fontSize:12,color:props>0?T.green:T.muted}}>{props>0?props:'—'} {props>0&&<span style={{fontFamily:mono,fontSize:9,color:T.muted}}>billed</span>}</div>
               <div style={{fontFamily:mono,fontSize:12,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr):'—'}</div>
               <div style={{display:'flex',alignItems:'center',gap:6}} onClick={e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}}>
                 <span style={{fontFamily:mono,fontSize:10,color:co.is_free_tier?T.gold:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
@@ -393,7 +394,8 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Account overview</div>
           {[
             ['Owner email',    co.owner_email||'—'],
-            ['Properties',     props],
+            ['Platform properties', co.real_property_count||0],
+            ['Billed properties',  co.paid_property_count||co.subscriptions?.[0]?.property_count||0],
             ['MRR',            status==='active'?fmt(props):'—'],
             ['Status',         sc.label],
             ['Stripe sub ID',  co.subscriptions?.[0]?.stripe_subscription_id||'—'],

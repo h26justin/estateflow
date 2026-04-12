@@ -631,6 +631,17 @@ export async function fetchAdminAllCompanies() {
     .order('created_at', { ascending: false })
   if (error) throw error
 
+  // Get real property counts directly from properties table
+  const { data: propCounts } = await supabase
+    .from('properties')
+    .select('company_id')
+  const countMap = {}
+  if (propCounts) {
+    propCounts.forEach(p => {
+      countMap[p.company_id] = (countMap[p.company_id] || 0) + 1
+    })
+  }
+
   // Attach owner emails from user_profiles
   const ownerIds = [...new Set((data || []).map(c => c.owner_id).filter(Boolean))]
   let profileMap = {}
@@ -645,6 +656,8 @@ export async function fetchAdminAllCompanies() {
   return (data || []).map(c => ({
     ...c,
     owner_email: profileMap[c.owner_id] || null,
+    real_property_count: countMap[c.id] || 0,           // actual props on platform
+    paid_property_count: c.subscriptions?.[0]?.property_count || 0, // Stripe billed count
   }))
 }
 
