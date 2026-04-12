@@ -2610,6 +2610,16 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
 
   const co = companies.find(c => c.id === selectedCo)
 
+  // Auto-generate subdomain from company name
+  function generateSubdomain(name) {
+    return name
+      .toLowerCase()
+      .replace(/\s+(property|group|ltd|limited|co|company|management|properties)\s*/gi, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30)
+  }
+
   useEffect(() => {
     if (!selectedCo) return
     const c = companies.find(x => x.id === selectedCo)
@@ -2617,7 +2627,8 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
     setAgentName(c?.agent_name || '')
     setAgentPhone(c?.agent_phone || '')
     setAgentEmail(c?.agent_email || '')
-    setSubdomain(c?.subdomain || '')
+    // Auto-generate subdomain if not already set
+    setSubdomain(c?.subdomain || generateSubdomain(c?.name || ''))
     setInviteLink('')
     supabase.from('properties').select('id,name,address').eq('company_id', selectedCo)
       .then(({data}) => { setProperties(data||[]); setInviteProperty(data?.[0]?.id||'') })
@@ -2671,17 +2682,22 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
       {/* Subdomain */}
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 24px', marginBottom:16 }}>
         <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Tenant portal subdomain</div>
-        <div style={{ fontFamily:mono, fontSize:12, color:T.text, marginBottom:14, lineHeight:1.7 }}>
-          Your tenants access their portal at <strong style={{color:T.gold}}>{subdomain||'yourcompany'}.ownproperly.com</strong>
-        </div>
-        <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:8 }}>
+        <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:12 }}>
           <input value={subdomain} onChange={e=>setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))}
             placeholder="e.g. nouchette"
             style={{...inp, width:'auto', flex:1}}/>
           <span style={{ fontFamily:mono, fontSize:12, color:T.muted, flexShrink:0 }}>.ownproperly.com</span>
         </div>
+        {subdomain && (
+          <div style={{ background:T.gold+'18', border:`1px solid ${T.gold}44`, borderRadius:8, padding:'10px 14px', marginBottom:10 }}>
+            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginBottom:4 }}>Tenant portal URL:</div>
+            <div style={{ fontFamily:mono, fontSize:13, fontWeight:700, color:T.gold }}>
+              https://{subdomain}.ownproperly.com
+            </div>
+          </div>
+        )}
         <div style={{ fontFamily:mono, fontSize:10, color:T.muted, lineHeight:1.6 }}>
-          Lowercase letters, numbers and hyphens only. After saving, add a CNAME record in Vercel for this subdomain.
+          Auto-generated from company name. Lowercase letters, numbers and hyphens only.
         </div>
       </div>
 

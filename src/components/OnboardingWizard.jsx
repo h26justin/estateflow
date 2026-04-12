@@ -48,7 +48,17 @@ export default function OnboardingWizard({ user, onComplete }) {
     setSaving(true)
     setError('')
     try {
-      await api.createCompanyForOwner(companyName.trim(), companyAbbr.trim(), companyColor)
+      const company = await api.createCompanyForOwner(companyName.trim(), companyAbbr.trim(), companyColor)
+      // Auto-generate and save subdomain
+      try {
+        const sub = companyName.trim()
+          .toLowerCase()
+          .replace(/\s+(property|group|ltd|limited|co|company|management|properties)\s*/gi, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 30)
+        if (sub && company) await api.saveCompanySubdomain(company, sub)
+      } catch(e) {}
       setStep(2)
     } catch(e) {
       setError(e.message)

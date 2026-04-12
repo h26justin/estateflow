@@ -471,6 +471,16 @@ export default function App() {
   async function handleSaveCo(formData){
     try{
       const co=await api.createCompany({...formData,user_id:user.id})
+      // Auto-generate and save subdomain
+      try {
+        const sub = (formData.name||'')
+          .toLowerCase()
+          .replace(/\s+(property|group|ltd|limited|co|company|management|properties)\s*/gi,'')
+          .replace(/[^a-z0-9]+/g,'-')
+          .replace(/^-+|-+$/g,'')
+          .slice(0,30)
+        if (sub && co?.id) await api.saveCompanySubdomain(co.id, sub)
+      } catch(e) {}
       setCompanies(prev=>[...prev,co]);setActiveCoTab(co.id)
       showToast('Company added');setShowAddCo(false)
     }catch(e){showToast(e.message,'error')}
