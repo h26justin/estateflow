@@ -8,28 +8,7 @@ const WHITE  = '#FFFFFF'
 const BORDER = '#DDE1E5'
 const MUTED  = '#7A8694'
 
-function OwnProperlyLogo({ width = 280 }) {
-  return (
-    <svg width={width} viewBox="0 0 320 90" xmlns="http://www.w3.org/2000/svg">
-      <path d="M 16,46 A 28,28 0 1 0 72,46"
-        fill="none" stroke={SLATE} strokeWidth="7.5" strokeLinecap="butt"/>
-      <polyline points="2,38 44,10 82,38"
-        fill="none" stroke={SLATE} strokeWidth="5.5"
-        strokeLinecap="square" strokeLinejoin="miter"/>
-      <rect x="55" y="10" width="8" height="15" fill={SLATE}/>
-      <path d="M 30,42 L 30,60 L 58,60 L 58,42 A 14,13 0 0 0 30,42 Z"
-        fill="none" stroke={GREY} strokeWidth="2.2"/>
-      <line x1="44" y1="42" x2="44" y2="60" stroke={GREY} strokeWidth="2"/>
-      <line x1="30" y1="51" x2="58" y2="51" stroke={GREY} strokeWidth="2"/>
-      <text x="88" y="66"
-        fontFamily="'Arial Black', 'Helvetica Neue', Arial, sans-serif"
-        fontSize="58" fontWeight="900" fill={SLATE} letterSpacing="-1">WNPROPERLY</text>
-      <text x="160" y="84" textAnchor="middle"
-        fontFamily="'Helvetica Neue', Arial, sans-serif"
-        fontSize="12.5" fontWeight="400" fill={GREY} letterSpacing="3.5">PROPERTY MANAGEMENT</text>
-    </svg>
-  )
-}
+
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
@@ -72,7 +51,7 @@ export default function LoginPage() {
 
       <div style={{ width:'100%', maxWidth:420 }}>
         <div style={{ textAlign:'center', marginBottom:36 }}>
-          <OwnProperlyLogo width={280}/>
+          <img src="/logo.svg" alt="OwnProperly" style={{ width: 280, height: "auto" }}/>
         </div>
 
         <div style={{ background:WHITE, border:`1.5px solid ${BORDER}`, borderRadius:20, padding:'36px 32px', boxShadow:'0 4px 24px rgba(45,60,74,0.08)' }}>

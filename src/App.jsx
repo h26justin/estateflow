@@ -440,12 +440,8 @@ export default function App() {
       <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
         <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
           {/* Logo */}
-          <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-            <div style={{width:30,height:30,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>🏡</div>
-            <div>
-              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.02em',lineHeight:1,color:T.text}}>Own Properly</div>
-              {!isMobile&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,letterSpacing:'0.12em',textTransform:'uppercase'}}>Property Management</div>}
-            </div>
+          <div style={{display:'flex',alignItems:'center',flexShrink:0}}>
+            <img src="/logo.svg" alt="OwnProperly" style={{height:38,width:'auto'}}/>
           </div>
 
           {/* Desktop nav */}
@@ -487,9 +483,8 @@ export default function App() {
           <div style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
             {/* Drawer header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${T.border}`}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.gold},#8B6B1F)`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🏡</div>
-                <div style={{fontSize:14,fontWeight:700,color:T.text}}>Own Properly</div>
+              <div style={{display:'flex',alignItems:'center'}}>
+                <img src="/logo.svg" alt="OwnProperly" style={{height:32,width:'auto'}}/>
               </div>
               <button onClick={()=>setShowDrawer(false)}
                 style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px'}}>✕</button>
