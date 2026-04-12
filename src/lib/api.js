@@ -211,11 +211,7 @@ export async function deleteExpense(id) {
   const { error } = await supabase.from('property_expenses').delete().eq('id', id)
   if (error) throw error
 }
-export async function fetchAllExpenses(userId) {
-  const { data, error } = await supabase.from('property_expenses').select('*, property:properties(name,company_id)').eq('user_id', userId).order('date', {ascending:false})
-  if (error) throw error
-  return data || []
-}
+
 // ── AUTO-GENERATE FUTURE RENT MONTHS ─────────────────────
 // Creates void payment slots up to 6 months ahead for all properties
 export async function ensureFutureRentMonths(properties, monthsAhead = 6) {
@@ -895,44 +891,6 @@ export async function saveReportSettings(companyId, settings) {
   if (error) throw error
 }
 
-export async function fetchAllComplianceItems(companyIds) {
-  const { data, error } = await supabase
-    .from('compliance_items')
-    .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
-    .in('property.company_id', companyIds)
-    .order('expiry_date')
-  if (error) throw error
-  return (data || []).filter(d => d.property)
-}
-
-export async function fetchAllTenancies(companyIds) {
-  const { data, error } = await supabase
-    .from('tenancy_details')
-    .select('*, property:properties(id,name,company_id,rent_pcm,company:companies(name,abbr,color))')
-    .order('tenancy_end')
-  if (error) throw error
-  return (data || []).filter(d => d.property && companyIds.includes(d.property.company_id))
-}
-
-export async function fetchAllMaintenance(companyIds) {
-  const { data, error } = await supabase
-    .from('maintenance_jobs')
-    .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data || []).filter(d => d.property && companyIds.includes(d.property.company_id))
-}
-
-export async function fetchAllRentPayments(companyIds, fromDate, toDate) {
-  const { data, error } = await supabase
-    .from('rent_payments')
-    .select('*, property:properties(id,name,rent_pcm,company_id,company:companies(name,abbr,color))')
-    .gte('year', new Date(fromDate).getFullYear())
-    .lte('year', new Date(toDate).getFullYear())
-    .order('year').order('month')
-  if (error) throw error
-  return (data || []).filter(d => d.property && companyIds.includes(d.property.company_id))
-}
 
 // ── REPORTS DATA FETCHING ─────────────────────────────────────────────────────
 export async function fetchAllComplianceItems(userId) {
