@@ -1617,12 +1617,15 @@ function AccessModal({companies, onClose, showToast}) {
     if (!email || companies.length === 0) return
     setAdding(true)
     try {
-      // Send invite for first company (admin can add to others after signup)
-      await api.sendInvitation(companies[0].id, email, newIsAdmin)
+      const result = await api.sendInvitation(companies[0].id, email, newIsAdmin)
       setNewEmail('')
       setNewIsAdmin(false)
       await loadData()
-      showToast(`Invitation sent to ${email}`)
+      if (result?.emailSent === false) {
+        showToast(`Invite saved but email failed: ${result.emailError}`, 'error')
+      } else {
+        showToast(`Invitation email sent to ${email} ✓`)
+      }
     } catch(e) { showToast(e.message,'error') }
     setAdding(false)
   }
