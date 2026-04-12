@@ -71,8 +71,9 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
     setLoading(false)
   }
 
+  const isModal = !!onClose
   return (
-    <div style={{ minHeight:'100vh', background:BG, display:'flex', alignItems:'center', justifyContent:'center', padding:24, fontFamily:"'Helvetica Neue',Arial,sans-serif" }}>
+    <div style={{ ...(isModal ? {} : { minHeight:'100vh', background:BG, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }), fontFamily:"'Helvetica Neue',Arial,sans-serif" }}>
       <style>{CSS}</style>
 
       <div style={{ width:'100%', maxWidth:420 }}>
