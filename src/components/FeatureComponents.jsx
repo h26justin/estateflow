@@ -616,6 +616,10 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     {key:'feature_expenses',    label:'Expenses Tracker',          desc:'Track all property expenses to calculate true net profit per property', icon:'💰'},
     {key:'feature_reports',     label:'Reports & Export',          desc:'Generate P&L reports and export data to CSV for your accountant', icon:'📊'},
     {key:'feature_statements',  label:'Statement Importer',        desc:'Upload PNE and RMS rental statements to automatically log rent payments, management fees and maintenance costs', icon:'📄'},
+    {key:'feature_tenant_portal',    label:'Tenant Portal',             desc:'Allow tenants to log in and access their own portal — see rent history, tenancy details and documents', icon:'🏠', section:'tenant'},
+    {key:'feature_tenant_messaging', label:'Tenant Messaging',          desc:'Allow tenants to send messages to you directly through the portal — you reply from the inbox on your dashboard', icon:'✉️', section:'tenant'},
+    {key:'feature_tenant_repairs',   label:'Tenant Repair Requests',    desc:'Allow tenants to submit maintenance requests with photos — appears in your inbox instantly', icon:'🔧', section:'tenant'},
+    {key:'feature_tenant_documents', label:'Tenant Document Access',    desc:'Allow tenants to download documents you have shared with them from the portal', icon:'📄', section:'tenant'},
   ]
 
   async function toggleFeature(companyId, featureKey, currentValue) {
@@ -847,7 +851,9 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
             </div>
 
             <div style={{display:'grid',gap:12}}>
-              {FEATURES.map(feature=>{
+              {/* Core features */}
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6,marginTop:4}}>Core features</div>
+            {FEATURES.filter(f=>!f.section).map(feature=>{
                 const isOn = settings[feature.key] !== false
                 const isSaving = saving===`${company.id}-${feature.key}`
                 return (
@@ -875,6 +881,45 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
                     </div>
                     <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                       {isSaving?'…':isOn?'ON':'OFF'}
+                    </span>
+                  </div>
+                )
+              })}
+
+            {/* Tenant portal features */}
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6,marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>Tenant portal features</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:10,lineHeight:1.6}}>Control what tenants can do when they log into their portal for this company.</div>
+            {FEATURES.filter(f=>f.section==='tenant').map(feature=>{
+                const isOn = settings[feature.key] !== false
+                const isSaving = saving===`${company.id}-${feature.key}`
+                // If portal is off, disable all sub-features
+                const portalEnabled = settings['feature_tenant_portal'] !== false
+                const disabled = feature.key !== 'feature_tenant_portal' && !portalEnabled
+                return (
+                  <div key={feature.key} style={{display:'flex',alignItems:'center',gap:16,padding:'14px 16px',background:T.bg,borderRadius:10,flexWrap:'wrap',opacity:disabled?0.4:1}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{feature.icon}</span>
+                    <div style={{flex:1,minWidth:200}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{feature.desc}</div>
+                      {disabled && <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,marginTop:3}}>Enable Tenant Portal first</div>}
+                    </div>
+                    <div onClick={()=>!isSaving&&!disabled&&toggleFeature(company.id, feature.key, isOn)}
+                      style={{
+                        width:44, height:24, borderRadius:12, cursor:disabled?'not-allowed':'pointer',
+                        background: isOn && !disabled ? company.color : T.faint,
+                        position:'relative', transition:'background 0.2s', flexShrink:0,
+                        opacity: isSaving ? 0.6 : 1,
+                      }}>
+                      <div style={{
+                        width:18, height:18, borderRadius:'50%', background:'white',
+                        position:'absolute', top:3,
+                        left: isOn && !disabled ? 23 : 3,
+                        transition:'left 0.2s',
+                        boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
+                      }}/>
+                    </div>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:isOn&&!disabled?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                      {isSaving?'…':isOn&&!disabled?'ON':'OFF'}
                     </span>
                   </div>
                 )

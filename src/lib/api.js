@@ -823,32 +823,51 @@ export async function deleteDealDocument(doc) {
 
 // Stamp duty calculator (UK 2024 rates)
 export function calcStampDuty(price, isAdditional = true, isFirstTimeBuyer = false) {
+  // UK SDLT rates — updated April 2025 / October 2024
+  // Standard bands from 1 April 2025 (temporary nil-rate threshold ended):
+  //   £0–£125,000:        0%
+  //   £125,001–£250,000:  2%
+  //   £250,001–£925,000:  5%
+  //   £925,001–£1.5m:    10%
+  //   Over £1.5m:        12%
+  // Additional property surcharge: 5% on full price (increased from 3%, 31 Oct 2024)
+  // FTB relief from 1 April 2025:
+  //   £0–£300,000:        0%
+  //   £300,001–£500,000:  5% on the excess
+  //   Over £500,000:      standard rates (no FTB relief)
   if (!price || price <= 0) return 0
   let duty = 0
+
   if (isFirstTimeBuyer && !isAdditional) {
-    // FTB relief
-    if (price <= 425000) return 0
-    if (price <= 625000) duty = (price - 425000) * 0.05
-    else {
-      duty = (625000 - 425000) * 0.05
-      duty += (Math.min(price, 925000) - 625000) * 0.05
-      if (price > 925000) duty += (Math.min(price, 1500000) - 925000) * 0.10
-      if (price > 1500000) duty += (price - 1500000) * 0.12
+    if (price <= 300000) return 0
+    if (price <= 500000) {
+      duty = (price - 300000) * 0.05
+      return Math.round(duty)
     }
-    return Math.round(duty)
+    // Over £500k — no FTB relief, fall through to standard rates
   }
-  // Standard rates
+
+  // Standard banded rates
+  if (price > 125000) duty += (Math.min(price, 250000) - 125000) * 0.02
   if (price > 250000) duty += (Math.min(price, 925000) - 250000) * 0.05
   if (price > 925000) duty += (Math.min(price, 1500000) - 925000) * 0.10
   if (price > 1500000) duty += (price - 1500000) * 0.12
-  // Additional property surcharge
-  if (isAdditional) duty += price * 0.03
+
+  // Additional property surcharge: 5% on full purchase price (from 31 Oct 2024)
+  if (isAdditional) duty += price * 0.05
+
   return Math.round(duty)
 }
 
 // Mortgage repayment calculator
-export function calcMonthlyRepayment(principal, ratePercent, termYears) {
-  if (!principal || !ratePercent || !termYears) return 0
+export function calcMonthlyRepayment(principal, ratePercent, termYears, interestOnly = false) {
+  if (!principal || !ratePercent) return 0
+  if (interestOnly) {
+    // Interest only: (loan × rate) / 12
+    return Math.round(principal * (ratePercent / 100) / 12)
+  }
+  // Repayment: standard amortisation formula
+  if (!termYears) return 0
   const r = (ratePercent / 100) / 12
   const n = termYears * 12
   return Math.round(principal * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1))

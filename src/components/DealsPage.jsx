@@ -322,7 +322,8 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const mortgageFee = form.purchase_type !== 'cash' ? loanAmount * (num('mortgage_fee_percent') / 100) : 0
   const totalAcquisition = num('purchase_price') + sd + num('legal_fees') + num('survey_cost') + num('auction_fees') + num('broker_fee') + num('refurb_cost') + num('other_costs') + mortgageFee
   const cashIn = Math.max(0, totalAcquisition - loanAmount)
-  const monthlyRepayment = form.purchase_type !== 'cash' ? api.calcMonthlyRepayment(loanAmount, num('mortgage_rate'), num('mortgage_term') || 25) : 0
+  const isInterestOnly = (form.mortgage_type || 'interest_only') === 'interest_only'
+  const monthlyRepayment = form.purchase_type !== 'cash' ? api.calcMonthlyRepayment(loanAmount, num('mortgage_rate'), num('mortgage_term') || 25, isInterestOnly) : 0
 
   const grossMonthlyRent = form.deal_type === 'hmo'
     ? num('hmo_rooms') * num('hmo_rent_per_room')
@@ -346,7 +347,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
   // BRRR
   const brrrNewLoan = num('brrr_end_value') * num('brrr_refinance_ltv') / 100
-  const brrrNewRepayment = api.calcMonthlyRepayment(brrrNewLoan, num('brrr_new_rate'), num('brrr_new_term') || 25)
+  const brrrNewRepayment = api.calcMonthlyRepayment(brrrNewLoan, num('brrr_new_rate'), num('brrr_new_term') || 25, isInterestOnly)
   const brrrMoneyLeft = cashIn - (brrrNewLoan - loanAmount)
   const brrrCashOnCash = brrrMoneyLeft > 0 ? (annualProfit / brrrMoneyLeft) * 100 : 0
 
@@ -458,7 +459,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 </label>
                 <label style={{fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
                   <input type="checkbox" checked={!!form.is_additional_property} onChange={e=>set('is_additional_property',e.target.checked)} style={{width:'auto',margin:0}}/>
-                  Additional property (+3% SDLT)
+                  Additional property (+5% SDLT surcharge)
                 </label>
                 <label style={{fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
                   <input type="checkbox" checked={!!form.is_first_time_buyer} onChange={e=>set('is_first_time_buyer',e.target.checked)} style={{width:'auto',margin:0}}/>
@@ -472,7 +473,12 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <span style={sect}>Acquisition costs</span>
               <InputRow label="Purchase price" field="purchase_price"form={form} set={set} T={T}/>
               <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
-                <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Stamp duty (SDLT)</span>
+                <div>
+                  <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Stamp duty (SDLT)</span>
+                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:2}}>
+                    {form.is_additional_property ? 'Standard bands + 5% surcharge (Oct 2024 rates)' : form.is_first_time_buyer ? 'FTB relief: 0% to £300k, 5% to £500k' : 'Standard: 0% to £125k, 2% to £250k, 5% to £925k'}
+                  </div>
+                </div>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontFamily:mono,fontSize:12,color:T.gold}}>
                     {form.stamp_duty_override != null ? '' : '≈ '}{fmt(sd)}
@@ -500,10 +506,33 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             {form.purchase_type !== 'cash' && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
                 <span style={sect}>Finance</span>
-                <InputRow label="Deposit" field="deposit_percent" prefix="" suffix="%" min={0} step={1}form={form} set={set} T={T}/>
-                <InputRow label="Mortgage rate" field="mortgage_rate" prefix="" suffix="% p.a." min={0} step={0.1}form={form} set={set} T={T}/>
-                <InputRow label="Mortgage term" field="mortgage_term" prefix="" suffix="years" min={1} step={1}form={form} set={set} T={T}/>
-                <InputRow label="Arrangement fee" field="mortgage_fee_percent" prefix="" suffix="% of loan" min={0} step={0.1}form={form} set={set} T={T}/>
+                <InputRow label="Deposit" field="deposit_percent" prefix="" suffix="%" min={0} step={1} form={form} set={set} T={T}/>
+                {/* Mortgage type toggle */}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+                  <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Mortgage type</span>
+                  <div style={{display:'flex',gap:6}}>
+                    {[['interest_only','Interest only'],['repayment','Repayment']].map(([k,l])=>(
+                      <button key={k} onClick={()=>set('mortgage_type',k)}
+                        style={{fontFamily:mono,fontSize:11,padding:'4px 12px',borderRadius:20,cursor:'pointer',
+                          border:`1px solid ${(form.mortgage_type||'interest_only')===k?T.gold:T.border}`,
+                          background:(form.mortgage_type||'interest_only')===k?T.gold+'22':'transparent',
+                          color:(form.mortgage_type||'interest_only')===k?T.gold:T.muted}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <InputRow label="Mortgage rate" field="mortgage_rate" prefix="" suffix="% p.a." min={0} step={0.1} form={form} set={set} T={T}/>
+                {(form.mortgage_type||'interest_only') === 'repayment' && (
+                  <InputRow label="Mortgage term" field="mortgage_term" prefix="" suffix="years" min={1} step={1} form={form} set={set} T={T}/>
+                )}
+                {(form.mortgage_type||'interest_only') === 'interest_only' && (
+                  <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:11}}>
+                    <span style={{color:T.muted}}>Term</span>
+                    <span style={{color:T.muted}}>Not required for interest-only</span>
+                  </div>
+                )}
+                <InputRow label="Arrangement fee" field="mortgage_fee_percent" prefix="" suffix="% of loan" min={0} step={0.1} form={form} set={set} T={T}/>
                 {num('mortgage_fee_percent') > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',fontFamily:mono,fontSize:11}}>
                     <span style={{color:T.muted}}>= {fmt(loanAmount * num('mortgage_fee_percent') / 100)} added to costs</span>
@@ -584,7 +613,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               {form.purchase_type !== 'cash' && (<>
                 <ResultRow label="Mortgage loan" value={fmt(loanAmount)} color={T.blue} T={T}/>
                 <ResultRow label="Cash in deal" value={fmt(cashIn)} color={T.gold} big T={T}/>
-                <ResultRow label="Monthly repayment" value={fmt(monthlyRepayment)} color={T.amber} T={T}/>
+                <ResultRow label={isInterestOnly?'Monthly payment (interest only)':'Monthly repayment (capital + interest)'} value={fmt(monthlyRepayment)} color={T.amber} T={T}/>
               </>)}
             </div>
 

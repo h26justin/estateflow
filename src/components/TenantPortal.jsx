@@ -34,6 +34,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
 
+  const [features, setFeatures] = useState({})
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
@@ -46,10 +47,14 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
       const co = data?.property?.company
       setCompany(co)
 
-      // Load bank details for payment info
+      // Load bank details and company settings (features)
       if (co?.id) {
-        const bank = await api.fetchCompanyBankDetails(co.id)
+        const [bank, settings] = await Promise.all([
+          api.fetchCompanyBankDetails(co.id),
+          api.fetchCompanySettings(co.id).catch(() => ({}))
+        ])
         setBankDetails(bank)
+        setFeatures(settings || {})
       }
     } catch(e) {
       setError('Unable to load your tenancy. Please contact your landlord.')
@@ -96,9 +101,17 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
     transition:'all 0.15s', whiteSpace:'nowrap',
   })
 
+  const canMessage  = features.feature_tenant_messaging !== false
+  const canRepairs  = features.feature_tenant_repairs   !== false
+  const canDocs     = features.feature_tenant_documents !== false
+
   const TABS = [
-    ['home','🏠 Home'],['rent','💷 Rent'],['maintenance','🔧 Repairs'],
-    ['documents','📄 Documents'],['messages','✉ Messages'],['profile','👤 Profile']
+    ['home',    '🏠 Home'],
+    ['rent',    '💷 Rent'],
+    ...(canRepairs  ? [['maintenance','🔧 Repairs']]   : []),
+    ...(canDocs     ? [['documents', '📄 Documents']]  : []),
+    ...(canMessage  ? [['messages',  '✉ Messages']]    : []),
+    ['profile', '👤 Profile'],
   ]
 
   return (

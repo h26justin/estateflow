@@ -824,7 +824,7 @@ export default function App() {
                 </div>
             }
             <SmartAlerts properties={dashProps} companies={dashCos} fmt={fmt} openDetail={openDetail}/>
-            <TenantInbox user={user} companies={companies} showToast={showToast}/>
+            <TenantInbox user={user} companies={companies} showToast={showToast} companySettings={companySettings}/>
             {/* Company documents section */}
             {activeCoTab&&(companySettings[activeCoTab]||{}).feature_documents&&(
               <div style={{marginTop:28}}>

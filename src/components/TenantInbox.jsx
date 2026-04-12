@@ -15,7 +15,7 @@ const STATUS_CFG = {
   complete:      { bg:'#2ECC8A22', color:'#2ECC8A', label:'Complete' },
 }
 
-export default function TenantInbox({ user, companies, showToast }) {
+export default function TenantInbox({ user, companies, showToast, companySettings = {} }) {
   const { T } = useTheme()
   const [view, setView]               = useState('inbox')   // inbox | messages | repairs | all
   const [jobs, setJobs]               = useState([])
