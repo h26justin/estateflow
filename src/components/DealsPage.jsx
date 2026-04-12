@@ -214,6 +214,10 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
                         </div>
                       </div>
                       <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>openDeal(deal)}
+                          style={{fontFamily:mono,fontSize:10,padding:'4px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>
+                          Edit →
+                        </button>
                         <button onClick={()=>setCompareIds(prev=>inCompare?prev.filter(id=>id!==deal.id):prev.length<3?[...prev,deal.id]:prev)}
                           style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',
                             border:`1px solid ${inCompare?T.gold:T.border}`,background:inCompare?T.gold+'22':'transparent',color:inCompare?T.gold:T.muted}}>
@@ -245,6 +249,7 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
   // ── DEAL DETAIL VIEW ────────────────────────────────────────────────────────
   if (view === 'deal' && selectedDeal) return (
     <DealDetail
+      key={selectedDeal.id}
       deal={selectedDeal}
       companies={companies}
       user={user}
@@ -265,6 +270,9 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
   const [tab, setTab]   = useState('calculator')
   const [form, setForm] = useState({ ...deal })
   if (!deal) return null
+
+  const sect = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
+  const sectionCard = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
   const [saving, setSaving] = useState(false)
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
