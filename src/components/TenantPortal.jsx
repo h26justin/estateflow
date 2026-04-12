@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import * as api from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 const mono = "'DM Mono',monospace"
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -444,9 +445,9 @@ function TenantMaintenance({ property, user, brandColor }) {
       try {
         const ext = file.name.split('.').pop()
         const path = `maintenance/pending-${Date.now()}.${ext}`
-        const { error } = await api.supabase?.storage?.from('property-documents').upload(path, file, {upsert:true})
+        const { error } = await supabase.storage.from('property-documents').upload(path, file, {upsert:true})
         if (!error) {
-          const { data: { publicUrl } } = api.supabase.storage.from('property-documents').getPublicUrl(path)
+          const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
           uploaded.push({ url: publicUrl, path, name: file.name })
         }
       } catch(e) {}
