@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 export default function AdminDashboard({ onClose }) {
   const { T } = useTheme()
@@ -9,10 +10,18 @@ export default function AdminDashboard({ onClose }) {
   const [data, setData]         = useState(null)
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
-  const [saving, setSaving]     = useState(null)
-  const [subFilter, setSubFilter] = useState('all')
+  const [saving, setSaving]         = useState(null)
+  const [subFilter, setSubFilter]   = useState('all')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError]   = useState('')
+  const [deleting, setDeleting]         = useState(false)
+  const [currentUser, setCurrentUser]   = useState(null)
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    loadAll()
+    supabase.auth.getUser().then(({data:{user}})=>setCurrentUser(user))
+  }, [])
 
   async function loadAll() {
     setLoading(true)
@@ -24,6 +33,26 @@ export default function AdminDashboard({ onClose }) {
       setData({ companies, users })
     } catch(e) {}
     setLoading(false)
+  }
+
+  async function handleDeleteUser() {
+    setDeleteError('')
+    if (!deletePassword) { setDeleteError('Please enter your password'); return }
+    setDeleting(true)
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email: currentUser?.email, password: deletePassword
+      })
+      if (authErr) { setDeleteError('Incorrect password — please try again'); setDeleting(false); return }
+      await api.deleteUser(deleteTarget.id)
+      setData(prev => ({
+        ...prev,
+        users: prev.users.filter(u => u.id !== deleteTarget.id)
+      }))
+      setDeleteTarget(null)
+      setDeletePassword('')
+    } catch(e) { setDeleteError(e.message || 'Delete failed') }
+    setDeleting(false)
   }
 
   async function toggleFreeTier(companyId, current) {
@@ -230,8 +259,8 @@ export default function AdminDashboard({ onClose }) {
                     style={{ width: 320, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 14px', outline: 'none' }}/>
                 </div>
                 <div style={{ ...card, overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}`, display: 'grid', gridTemplateColumns: '1fr 200px 100px', gap: 12 }}>
-                    {['Email', 'Companies', 'Signed up'].map(h => (
+                  <div style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}`, display: 'grid', gridTemplateColumns: '1fr 200px 100px 80px', gap: 12 }}>
+                    {['Email', 'Companies', 'Signed up', ''].map(h => (
                       <div key={h} style={{ ...labelSm }}>{h}</div>
                     ))}
                   </div>
@@ -240,7 +269,7 @@ export default function AdminDashboard({ onClose }) {
                     .map(u => {
                       const userCos = data.companies.filter(c => c.owner_email === u.email)
                       return (
-                        <div key={u.id} style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'grid', gridTemplateColumns: '1fr 200px 100px', gap: 12, alignItems: 'center' }}>
+                        <div key={u.id} style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'grid', gridTemplateColumns: '1fr 200px 100px 80px', gap: 12, alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ width: 32, height: 32, borderRadius: 16, background: T.gold+'33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.gold, flexShrink: 0 }}>
                               {(u.email?.[0] || '?').toUpperCase()}
@@ -271,5 +300,46 @@ export default function AdminDashboard({ onClose }) {
         )}
       </div>
     </div>
+
+      {/* ── DELETE USER MODAL ── */}
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 24 }}>
+          <div style={{ background: T.surface, border: `2px solid ${T.red}44`, borderRadius: 18, width: '100%', maxWidth: 440, padding: '32px 28px' }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: T.red, marginBottom: 8 }}>Delete user account</h2>
+              <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.7 }}>
+                This will permanently delete <strong style={{ color: T.text }}>{deleteTarget.email}</strong> and all their data.
+              </p>
+              <p style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8, fontWeight: 700 }}>This cannot be undone.</p>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+                Enter your admin password to confirm
+              </label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
+                onKeyDown={e => e.key === 'Enter' && handleDeleteUser()}
+                placeholder="Your password"
+                autoFocus
+                style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none' }}
+              />
+              {deleteError && <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8 }}>{deleteError}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError('') }}
+                style={{ flex: 1, fontFamily: mono, fontSize: 12, padding: '11px 20px', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleDeleteUser} disabled={deleting || !deletePassword}
+                style={{ flex: 2, fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '11px 20px', borderRadius: 10, border: 'none', background: deleting || !deletePassword ? T.border : T.red, color: 'white', cursor: deleting || !deletePassword ? 'not-allowed' : 'pointer' }}>
+                {deleting ? 'Verifying & deleting…' : '🗑 Permanently delete user'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
   )
 }
