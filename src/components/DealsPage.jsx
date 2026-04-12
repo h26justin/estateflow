@@ -88,7 +88,7 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
     try {
       const deal = await api.createDeal(user.id, {
         name: 'New Deal',
-        company_id: companies.length === 1 ? companies[0].id : null,
+        company_id: companies?.length === 1 ? companies[0]?.id : null,
       })
       // Load user's master milestone defaults then initialise
       const milestoneConfig = await api.fetchMilestoneDefaults(user.id).catch(()=>({}))
