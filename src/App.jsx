@@ -13,6 +13,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import MarketingSite from './components/MarketingSite'
 import BillingPage from './components/BillingPage'
 import AdminDashboard from './components/AdminDashboard'
+import DealsPage from './components/DealsPage'
 import OnboardingTour from './components/OnboardingTour'
 
 
@@ -155,6 +156,7 @@ export default function App() {
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','rent','reports','settings','deals'])
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginMode, setLoginMode] = useState('login')
   const [trialWarning, setTrialWarning] = useState(null)
@@ -248,6 +250,11 @@ export default function App() {
         setUserAccess(accessIds)
         // Load user's saved theme preference from Supabase
         await loadUserTheme(user.id, user.email)
+        // Load nav preferences
+        try {
+          const { data: prof } = await supabase.from('user_profiles').select('nav_items').eq('user_id', user.id).single()
+          if (prof?.nav_items) setUserNavPrefs(prof.nav_items)
+        } catch(e) {}
         // Check if new user needs onboarding tour
         const onboarded = await api.fetchOnboardingStatus(user.id)
         if (!onboarded) setShowTour(true)
@@ -473,15 +480,17 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  const navItems=[
-    {key:'dashboard',  label:'Dashboard',   icon:'🏠', short:'Home'},
-    {key:'properties', label:'Properties',  icon:'🏘', short:'Props'},
-    {key:'companies',  label:'Companies',   icon:'🏢', short:'Companies'},
-    {key:'rent',       label:'Rent Tracker',icon:'💷', short:'Rent'},
-    {key:'reports',    label:'Reports',     icon:'📊', short:'Reports'},
-    {key:'contractors',label:'Contractors', icon:'🔧', short:'Contractors'},
-    {key:'settings',   label:'Settings',    icon:'⚙', short:'Settings'},
+  const ALL_NAV=[
+    {key:'dashboard',  label:'Dashboard',   icon:'🏠', short:'Home',     required:true},
+    {key:'properties', label:'Properties',  icon:'🏘', short:'Props',    required:true},
+    {key:'companies',  label:'Companies',   icon:'🏢', short:'Companies',required:false},
+    {key:'rent',       label:'Rent Tracker',icon:'💷', short:'Rent',     required:false},
+    {key:'deals',      label:'Deals',       icon:'🎯', short:'Deals',    required:false},
+    {key:'reports',    label:'Reports',     icon:'📊', short:'Reports',  required:false},
+    {key:'contractors',label:'Contractors', icon:'🔧', short:'Contractors',required:false},
+    {key:'settings',   label:'Settings',    icon:'⚙', short:'Settings', required:true},
   ]
+  const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
 
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
@@ -761,6 +770,14 @@ export default function App() {
             )}
           </div>}
 
+          {view==='deals'&&<div className="fade">
+            <DealsPage user={user} companies={companies} showToast={showToast}
+              onConvertToProperty={(deal)=>{
+                setShowAddProp(true)
+                showToast('Deal data ready — fill in the property form')
+              }}/>
+          </div>}
+
           {view==='properties'&&<div className="fade">
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:22}}>
               <div>
@@ -845,7 +862,7 @@ export default function App() {
           </div>}
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
-          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} darkMode={darkMode} setDarkMode={setDarkMode}/>}
+          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs}/>}
           {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt} onImport={()=>setShowImporter(true)} companySettings={companySettings}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
@@ -980,7 +997,6 @@ export default function App() {
           <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>More</span>
         </button>
       </nav>
-    </div>
 
       {/* ── ADMIN DASHBOARD OVERLAY ── */}
       {showAdmin && isPlatformAdmin && (
@@ -991,6 +1007,7 @@ export default function App() {
       {showTour && (
         <OnboardingTour user={user} onComplete={()=>setShowTour(false)}/>
       )}
+    </div>
   )
 }
 

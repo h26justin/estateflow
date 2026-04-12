@@ -651,3 +651,199 @@ export async function fetchAdminAllCompanies() {
     owner_email: profileMap[c.owner_id] || null,
   }))
 }
+
+// ── DEALS ─────────────────────────────────────────────────────────────────────
+export const DEFAULT_MILESTONES_STANDARD = [
+  { key:'offer_submitted',       label:'Offer submitted',                    stage:'offer',       sort:1,  required:true,  toggleable:false },
+  { key:'offer_accepted',        label:'Offer accepted (verbal)',             stage:'offer',       sort:2,  required:false, toggleable:true  },
+  { key:'memorandum_received',   label:'Memorandum of sale received',        stage:'offer',       sort:3,  required:false, toggleable:true  },
+  { key:'solicitor_instructed',  label:'Solicitor instructed',               stage:'professionals',sort:4,  required:false, toggleable:true  },
+  { key:'broker_instructed',     label:'Mortgage broker instructed',         stage:'professionals',sort:5,  required:false, toggleable:true  },
+  { key:'mortgage_applied',      label:'Mortgage application submitted',     stage:'professionals',sort:6,  required:false, toggleable:true  },
+  { key:'survey_instructed',     label:'Survey instructed',                  stage:'professionals',sort:7,  required:false, toggleable:true  },
+  { key:'searches_ordered',      label:'Searches ordered',                   stage:'legal',       sort:8,  required:false, toggleable:true  },
+  { key:'contract_pack_received',label:'Contract pack received',             stage:'legal',       sort:9,  required:false, toggleable:true  },
+  { key:'survey_completed',      label:'Survey completed',                   stage:'legal',       sort:10, required:false, toggleable:true  },
+  { key:'searches_received',     label:'Searches received',                  stage:'legal',       sort:11, required:false, toggleable:true  },
+  { key:'enquiries_raised',      label:'Enquiries raised by solicitor',      stage:'legal',       sort:12, required:false, toggleable:true  },
+  { key:'enquiries_satisfied',   label:'Enquiries satisfied',                stage:'legal',       sort:13, required:false, toggleable:true  },
+  { key:'mortgage_offer',        label:'Mortgage offer received',            stage:'legal',       sort:14, required:false, toggleable:true  },
+  { key:'insurance_arranged',    label:'Buildings insurance arranged',       stage:'exchange',    sort:15, required:false, toggleable:true  },
+  { key:'deposit_paid',          label:'Deposit paid to solicitor',          stage:'exchange',    sort:16, required:false, toggleable:true  },
+  { key:'insurance_active',      label:'Insurance active from exchange ✦',   stage:'exchange',    sort:17, required:true,  toggleable:false },
+  { key:'contracts_exchanged',   label:'Contracts exchanged',                stage:'exchange',    sort:18, required:true,  toggleable:false },
+  { key:'completion_date_set',   label:'Completion date confirmed',          stage:'exchange',    sort:19, required:false, toggleable:true  },
+  { key:'funds_transferred',     label:'Completion funds transferred',       stage:'completion',  sort:20, required:true,  toggleable:false },
+  { key:'keys_received',         label:'Keys received',                      stage:'completion',  sort:21, required:true,  toggleable:false },
+  { key:'sdlt_filed',            label:'SDLT filed with HMRC (14 day deadline)', stage:'completion', sort:22, required:true, toggleable:false },
+  { key:'title_registered',      label:'Title registered at Land Registry',  stage:'completion',  sort:23, required:false, toggleable:true  },
+  { key:'utilities_transferred', label:'Utilities transferred',              stage:'completion',  sort:24, required:false, toggleable:true  },
+]
+
+export const DEFAULT_MILESTONES_AUCTION = [
+  { key:'legal_pack_reviewed',   label:'Legal pack reviewed',                stage:'pre_auction', sort:1,  required:false, toggleable:true  },
+  { key:'survey_pre_auction',    label:'Survey completed pre-auction',       stage:'pre_auction', sort:2,  required:false, toggleable:true  },
+  { key:'finance_approved',      label:'Finance approved in principle',      stage:'pre_auction', sort:3,  required:false, toggleable:true  },
+  { key:'insurance_quoted',      label:'Insurance quote obtained',           stage:'pre_auction', sort:4,  required:false, toggleable:true  },
+  { key:'lot_won',               label:'Lot won at auction',                 stage:'auction_day', sort:5,  required:true,  toggleable:false },
+  { key:'deposit_paid_auction',  label:'10% deposit paid on the day',        stage:'auction_day', sort:6,  required:true,  toggleable:false },
+  { key:'insurance_active',      label:'Insurance active from today ✦',      stage:'auction_day', sort:7,  required:true,  toggleable:false },
+  { key:'contracts_exchanged',   label:'Contracts exchanged on the day',     stage:'auction_day', sort:8,  required:true,  toggleable:false },
+  { key:'solicitor_instructed',  label:'Solicitor instructed immediately',   stage:'completion',  sort:9,  required:false, toggleable:true  },
+  { key:'searches_ordered',      label:'Searches ordered',                   stage:'completion',  sort:10, required:false, toggleable:true  },
+  { key:'finance_arranged',      label:'Bridging/mortgage finance arranged', stage:'completion',  sort:11, required:false, toggleable:true  },
+  { key:'funds_transferred',     label:'Completion funds transferred',       stage:'completion',  sort:12, required:true,  toggleable:false },
+  { key:'keys_received',         label:'Keys received',                      stage:'completion',  sort:13, required:true,  toggleable:false },
+  { key:'sdlt_filed',            label:'SDLT filed with HMRC (14 day deadline)', stage:'completion', sort:14, required:true, toggleable:false },
+  { key:'title_registered',      label:'Title registered at Land Registry',  stage:'completion',  sort:15, required:false, toggleable:true  },
+  { key:'utilities_transferred', label:'Utilities transferred',              stage:'completion',  sort:16, required:false, toggleable:true  },
+]
+
+export const DEFAULT_MILESTONES_BRRR = [
+  { key:'refurb_complete',       label:'Refurbishment complete',             stage:'brrr',        sort:1,  required:false, toggleable:true  },
+  { key:'refi_valuation',        label:'Refinance valuation instructed',     stage:'brrr',        sort:2,  required:false, toggleable:true  },
+  { key:'refi_applied',          label:'New mortgage application submitted', stage:'brrr',        sort:3,  required:false, toggleable:true  },
+  { key:'refi_offer',            label:'Refinance mortgage offer received',  stage:'brrr',        sort:4,  required:false, toggleable:true  },
+  { key:'capital_released',      label:'Capital released from deal',         stage:'brrr',        sort:5,  required:false, toggleable:true  },
+]
+
+export async function fetchDeals(userId) {
+  const { data, error } = await supabase.from('deals').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function createDeal(userId, fields = {}) {
+  const { data, error } = await supabase.from('deals')
+    .insert({ user_id: userId, ...fields }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateDeal(id, fields) {
+  const { data, error } = await supabase.from('deals')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteDeal(id) {
+  const { error } = await supabase.from('deals').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function duplicateDeal(deal) {
+  const { id, created_at, updated_at, ...rest } = deal
+  const { data, error } = await supabase.from('deals')
+    .insert({ ...rest, name: rest.name + ' (copy)', status: 'analysing' }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchDealMilestones(dealId) {
+  const { data, error } = await supabase.from('deal_milestones')
+    .select('*').eq('deal_id', dealId).order('sort_order')
+  if (error) throw error
+  return data || []
+}
+
+export async function initialiseMilestones(dealId, isAuction, isBRRR) {
+  const base = isAuction ? DEFAULT_MILESTONES_AUCTION : DEFAULT_MILESTONES_STANDARD
+  const milestones = isBRRR ? [...base, ...DEFAULT_MILESTONES_BRRR] : base
+  const rows = milestones.map(m => ({
+    deal_id: dealId, milestone_key: m.key, label: m.label,
+    stage: m.stage, sort_order: m.sort, is_required: m.required,
+    is_enabled: true, completed: false,
+  }))
+  const { error } = await supabase.from('deal_milestones').insert(rows)
+  if (error) throw error
+}
+
+export async function updateMilestone(id, fields) {
+  const { error } = await supabase.from('deal_milestones').update(fields).eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchDealContacts(dealId) {
+  const { data, error } = await supabase.from('deal_contacts')
+    .select('*').eq('deal_id', dealId).order('created_at')
+  if (error) throw error
+  return data || []
+}
+
+export async function upsertDealContact(dealId, contact) {
+  if (contact.id) {
+    const { data, error } = await supabase.from('deal_contacts').update(contact).eq('id', contact.id).select().single()
+    if (error) throw error
+    return data
+  }
+  const { data, error } = await supabase.from('deal_contacts').insert({ ...contact, deal_id: dealId }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteDealContact(id) {
+  const { error } = await supabase.from('deal_contacts').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchDealDocuments(dealId) {
+  const { data, error } = await supabase.from('deal_documents')
+    .select('*').eq('deal_id', dealId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function uploadDealDocument(dealId, file, userId) {
+  const ext = file.name.split('.').pop()
+  const path = `deal_${dealId}/${Date.now()}.${ext}`
+  const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
+  if (uploadErr) throw uploadErr
+  const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
+  const { error } = await supabase.from('deal_documents').insert({
+    deal_id: dealId, name: file.name, file_path: path,
+    url: publicUrl, size: file.size, type: file.type, user_id: userId,
+  })
+  if (error) throw error
+  return publicUrl
+}
+
+export async function deleteDealDocument(doc) {
+  if (doc.file_path) await supabase.storage.from('property-documents').remove([doc.file_path])
+  const { error } = await supabase.from('deal_documents').delete().eq('id', doc.id)
+  if (error) throw error
+}
+
+// Stamp duty calculator (UK 2024 rates)
+export function calcStampDuty(price, isAdditional = true, isFirstTimeBuyer = false) {
+  if (!price || price <= 0) return 0
+  let duty = 0
+  if (isFirstTimeBuyer && !isAdditional) {
+    // FTB relief
+    if (price <= 425000) return 0
+    if (price <= 625000) duty = (price - 425000) * 0.05
+    else {
+      duty = (625000 - 425000) * 0.05
+      duty += (Math.min(price, 925000) - 625000) * 0.05
+      if (price > 925000) duty += (Math.min(price, 1500000) - 925000) * 0.10
+      if (price > 1500000) duty += (price - 1500000) * 0.12
+    }
+    return Math.round(duty)
+  }
+  // Standard rates
+  if (price > 250000) duty += (Math.min(price, 925000) - 250000) * 0.05
+  if (price > 925000) duty += (Math.min(price, 1500000) - 925000) * 0.10
+  if (price > 1500000) duty += (price - 1500000) * 0.12
+  // Additional property surcharge
+  if (isAdditional) duty += price * 0.03
+  return Math.round(duty)
+}
+
+// Mortgage repayment calculator
+export function calcMonthlyRepayment(principal, ratePercent, termYears) {
+  if (!principal || !ratePercent || !termYears) return 0
+  const r = (ratePercent / 100) / 12
+  const n = termYears * 12
+  return Math.round(principal * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1))
+}

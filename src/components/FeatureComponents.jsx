@@ -516,7 +516,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, darkMode, setDarkMode}) {
+export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs}) {
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -631,10 +631,33 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   const fieldStyle = { marginBottom: 14 }
   const labelStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
 
+  const ALL_NAV_OPTIONS = [
+    {key:'companies',   label:'Companies',    icon:'🏢'},
+    {key:'rent',        label:'Rent Tracker', icon:'💷'},
+    {key:'deals',       label:'Deals',        icon:'🎯'},
+    {key:'reports',     label:'Reports',      icon:'📊'},
+    {key:'contractors', label:'Contractors',  icon:'🔧'},
+  ]
+
+  async function saveNavPref(key, enabled) {
+    const next = enabled
+      ? [...(userNavPrefs||[]), key].filter((v,i,a)=>a.indexOf(v)===i)
+      : (userNavPrefs||[]).filter(k=>k!==key)
+    if(setUserNavPrefs) setUserNavPrefs(next)
+    try {
+      await supabase.from('user_profiles').upsert(
+        { user_id: user?.id, email: user?.email, nav_items: next, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      )
+      showToast('Navigation updated')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
   const settingsTabs = [
     { key: 'account',       label: '👤 Account' },
     { key: 'appearance',    label: '🎨 Appearance' },
     { key: 'billing',       label: '💳 Billing' },
+    { key: 'navbar',        label: '🧭 Navigation' },
     { key: 'features',      label: '⚙ Features' },
     { key: 'notifications', label: '🔔 Notifications' },
   ]
