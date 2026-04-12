@@ -63,8 +63,8 @@ export default function MarketingSite({ onSignIn, onSignUp }) {
 
       {/* ── NAV ── */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(244,243,239,0.95)', backdropFilter: 'blur(8px)', borderBottom: `1px solid ${BORDER}`, padding: '0 24px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
-          <img src="/logo.svg" alt="OwnProperly" style={{ height: 36, width: 'auto' }}/>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 88 }}>
+          <img src="/logo.svg" alt="OwnProperly" style={{ height: 72, width: 'auto' }}/>
           <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: 24 }} className="hide-mobile">
               {[['home','Home'],['features','Features'],['pricing','Pricing']].map(([id,label]) => (
