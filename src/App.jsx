@@ -243,7 +243,7 @@ export default function App() {
               setProperties(vis)
             })
           }
-        }).catch(e=>)
+        }).catch(()=>{})
         // Load company settings
         const settingsMap = {}
         const settingsResults = await Promise.all(visibleCos.map(c=>api.fetchCompanySettings(c.id)))
