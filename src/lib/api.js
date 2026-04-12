@@ -157,11 +157,6 @@ export async function fetchAllCompliance(userId) {
 }
 
 // ── TENANCY DETAILS ───────────────────────────────────────
-export async function fetchTenancyDetails(propertyId) {
-  const { data, error } = await supabase.from('tenancy_details').select('*').eq('property_id', propertyId).single()
-  if (error) return null
-  return data
-}
 export async function upsertTenancyDetails(propertyId, details) {
   const { data, error } = await supabase.from('tenancy_details')
     .upsert({ ...details, property_id: propertyId, user_id: await uid() }, { onConflict: 'property_id' })
