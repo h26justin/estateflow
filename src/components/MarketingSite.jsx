@@ -47,7 +47,7 @@ const steps = [
   { n: '3', title: 'Manage everything', desc: 'Track rent, compliance, maintenance and documents — all in one place.' },
 ]
 
-export default function MarketingSite({ onSignIn, onSignUp }) {
+export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeNav, setActiveNav] = useState('home')
 
@@ -253,7 +253,7 @@ export default function MarketingSite({ onSignIn, onSignUp }) {
             ))}
           </div>
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#4A5568' }}>
-            © {new Date().getFullYear()} OwnProperly
+            © {new Date().getFullYear()} OwnProperly · <button onClick={onPrivacy} style={{background:'none',border:'none',color:'#7A8899',cursor:'pointer',fontFamily:"'DM Mono',monospace",fontSize:'inherit',textDecoration:'underline'}}>Privacy Policy</button> · <a href="mailto:hello@ownproperly.com" style={{color:'#7A8899',textDecoration:'none'}}>hello@ownproperly.com</a>
           </div>
         </div>
       </footer>

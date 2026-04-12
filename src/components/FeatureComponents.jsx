@@ -669,6 +669,8 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     { key: 'tenant',        label: '🏠 Tenant Portal' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
     ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Platform Admin' }] : []),
+    { key: 'security', label: '🔒 Security & Data' },
+    { key: 'audit',    label: '📋 Audit Log' },
     { key: 'features',      label: '⚙ Features' },
     { key: 'notifications', label: '🔔 Notifications' },
   ]
@@ -945,6 +947,14 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
           showToast={showToast}
           T={T}
         />
+      )}
+
+      {settingsTab==='security' && (
+        <SecurityDataPanel user={user} T={T} showToast={showToast}/>
+      )}
+
+      {settingsTab==='audit' && (
+        <AuditLogPanel user={user} companies={companies} T={T}/>
       )}
 
       {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast}/>}
@@ -2792,3 +2802,223 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
 }
 
 
+
+// ── SECURITY & DATA PANEL ─────────────────────────────────────────────────────
+function SecurityDataPanel({ user, T, showToast }) {
+  const mono = "'DM Mono',monospace"
+  const [exporting, setExporting] = useState(false)
+  const [deletedProps, setDeletedProps] = useState([])
+  const [loadingTrash, setLoadingTrash] = useState(true)
+  const [restoring, setRestoring] = useState(null)
+
+  useEffect(() => {
+    api.fetchDeletedProperties(user?.id).then(d => { setDeletedProps(d); setLoadingTrash(false) }).catch(() => setLoadingTrash(false))
+  }, [])
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const data = await api.exportUserData(user?.id)
+      const json = JSON.stringify(data, null, 2)
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ownproperly-data-export-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast('Data exported successfully')
+    } catch(e) { showToast('Export failed: ' + e.message, 'error') }
+    setExporting(false)
+  }
+
+  async function handleRestore(prop) {
+    setRestoring(prop.id)
+    try {
+      await api.restoreProperty(prop.id, user?.id)
+      setDeletedProps(prev => prev.filter(p => p.id !== prop.id))
+      showToast(`${prop.name} restored`)
+    } catch(e) { showToast(e.message, 'error') }
+    setRestoring(null)
+  }
+
+  const sectionCard = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 16 }
+
+  return (
+    <div>
+      {/* GDPR Data Export */}
+      <div style={sectionCard}>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your data (GDPR)</div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
+          Download a complete copy of all your data — properties, companies, tenancies, rent records, expenses, deals and documents. This is provided in JSON format and satisfies your right to data portability under GDPR.
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button onClick={handleExport} disabled={exporting}
+            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 22px', borderRadius: 8, border: 'none', background: T.gold, color: 'white', cursor: 'pointer' }}>
+            {exporting ? 'Preparing export…' : '↓ Download my data'}
+          </button>
+          <button onClick={() => window.open('mailto:hello@ownproperly.com?subject=Data deletion request', '_blank')}
+            style={{ fontFamily: mono, fontSize: 12, padding: '10px 22px', borderRadius: 8, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>
+            Request account deletion
+          </button>
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 12, lineHeight: 1.7 }}>
+          For account deletion requests, we'll respond within 30 days. Note: financial records may be retained for 7 years to comply with HMRC requirements.
+        </div>
+      </div>
+
+      {/* Deleted properties trash */}
+      <div style={sectionCard}>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Recently deleted properties</div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
+          Deleted properties are kept here for 30 days before permanent removal. You can restore any property within that window.
+        </div>
+        {loadingTrash ? (
+          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+        ) : deletedProps.length === 0 ? (
+          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: '16px 0' }}>No deleted properties — your trash is empty.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {deletedProps.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: T.bg, borderRadius: 10, border: `1px solid ${T.border}` }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+                    Deleted {new Date(p.deleted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {p.company && ` · ${p.company.name}`}
+                  </div>
+                </div>
+                <button onClick={() => handleRestore(p)} disabled={restoring === p.id}
+                  style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: T.green + '22', color: T.green, cursor: 'pointer' }}>
+                  {restoring === p.id ? '…' : '↩ Restore'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Privacy policy link */}
+      <div style={sectionCard}>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Legal</div>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <button onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:show-privacy'))}
+            style={{ fontFamily: mono, fontSize: 12, color: T.gold, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            Privacy Policy →
+          </button>
+          <a href="mailto:hello@ownproperly.com" style={{ fontFamily: mono, fontSize: 12, color: T.muted, textDecoration: 'none' }}>
+            hello@ownproperly.com
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── AUDIT LOG PANEL ───────────────────────────────────────────────────────────
+function AuditLogPanel({ user, companies, T }) {
+  const mono = "'DM Mono',monospace"
+  const [logs, setLogs]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [companyFilter, setCompanyFilter] = useState('')
+
+  useEffect(() => { loadLogs() }, [companyFilter])
+
+  async function loadLogs() {
+    setLoading(true)
+    try {
+      const data = await api.fetchAuditLog(user?.id, companyFilter||null)
+      setLogs(data)
+    } catch(e) {}
+    setLoading(false)
+  }
+
+  const ACTION_LABELS = {
+    'property.created':   { label: 'Property added',       color: '#2ECC8A' },
+    'property.deleted':   { label: 'Property deleted',     color: '#E05555' },
+    'property.restored':  { label: 'Property restored',    color: '#4B8FE0' },
+    'property.updated':   { label: 'Property updated',     color: '#C8A84B' },
+    'rent.paid':          { label: 'Rent marked paid',     color: '#2ECC8A' },
+    'compliance.added':   { label: 'Certificate added',    color: '#2ECC8A' },
+    'compliance.expired': { label: 'Certificate expired',  color: '#E05555' },
+    'deal.created':       { label: 'Deal created',         color: '#C8A84B' },
+    'deal.deleted':       { label: 'Deal deleted',         color: '#E05555' },
+    'user.login':         { label: 'Signed in',            color: '#4B8FE0' },
+    'company.created':    { label: 'Company created',      color: '#2ECC8A' },
+  }
+
+  function exportAuditCSV() {
+    const rows = [
+      ['Date', 'Action', 'Entity', 'Details'],
+      ...logs.map(l => [
+        new Date(l.created_at).toLocaleString('en-GB'),
+        ACTION_LABELS[l.action]?.label || l.action,
+        l.entity_name || l.entity_type || '—',
+        JSON.stringify(l.metadata || {}),
+      ])
+    ]
+    const csv = rows.map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
+    a.download = 'ownproperly-audit-log.csv'; a.click()
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, marginBottom: 4 }}>Activity audit log</h3>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>A record of all significant actions taken in your account</div>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {companies.length > 1 && (
+            <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}
+              style={{ fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '7px 12px' }}>
+              <option value="">All companies</option>
+              {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+          <button onClick={exportAuditCSV} style={{ fontFamily: mono, fontSize: 11, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+            ↓ Export
+          </button>
+        </div>
+      </div>
+
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '140px 160px 1fr 1fr', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
+          {['Date & time', 'Action', 'Item', 'Details'].map(h => (
+            <div key={h} style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
+          ))}
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>Loading audit log…</div>
+        ) : logs.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No activity recorded yet. Actions you take in OwnProperly will appear here.</div>
+        ) : (
+          logs.map(log => {
+            const cfg = ACTION_LABELS[log.action] || { label: log.action, color: T.muted }
+            return (
+              <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '140px 160px 1fr 1fr', gap: 8, padding: '11px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                  {new Date(log.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  <br/>
+                  {new Date(log.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+                <div>
+                  <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.color + '22', color: cfg.color }}>
+                    {cfg.label}
+                  </span>
+                </div>
+                <div style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{log.entity_name || log.entity_type || '—'}</div>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {log.metadata && Object.keys(log.metadata).length > 0 ? JSON.stringify(log.metadata) : '—'}
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>{logs.length} events · Last 100 shown</div>
+    </div>
+  )
+}

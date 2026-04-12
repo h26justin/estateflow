@@ -15,6 +15,7 @@ import MarketingSite from './components/MarketingSite'
 import BillingPage from './components/BillingPage'
 import AdminDashboard from './components/AdminDashboard'
 import TenantPortal from './components/TenantPortal'
+import PrivacyPolicy from './components/PrivacyPolicy'
 import DealsPage from './components/DealsPage'
 import OnboardingTour from './components/OnboardingTour'
 
@@ -157,6 +158,7 @@ export default function App() {
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [isTenant, setIsTenant] = useState(false)
+  const [showPrivacy, setShowPrivacy] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
@@ -417,6 +419,7 @@ export default function App() {
       <MarketingSite
         onSignIn={()=>{ setLoginMode('login'); setShowLoginModal(true) }}
         onSignUp={()=>{ setLoginMode('signup'); setShowLoginModal(true) }}
+        onPrivacy={()=>setShowPrivacy(true)}
       />
       {showLoginModal && (
         <div onClick={e=>e.target===e.currentTarget&&setShowLoginModal(false)}
@@ -426,6 +429,7 @@ export default function App() {
       )}
     </>
   )
+  if (showPrivacy) return <PrivacyPolicy onBack={()=>setShowPrivacy(false)}/>
   if (isTenant) return (
     <TenantPortal user={user} onSignOut={()=>supabase.auth.signOut()}/>
   )

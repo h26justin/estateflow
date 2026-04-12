@@ -1233,3 +1233,83 @@ export async function fetchTenantPaymentTracker(propertyId) {
     .order('payment_date', { ascending: false })
   return data || []
 }
+
+// ── AUDIT LOG ─────────────────────────────────────────────────────────────────
+export async function logAction(userId, companyId, action, entityType, entityId, entityName, metadata = {}) {
+  try {
+    await supabase.from('audit_log').insert({
+      user_id: userId, company_id: companyId, action,
+      entity_type: entityType, entity_id: entityId,
+      entity_name: entityName, metadata,
+    })
+  } catch(e) {} // Never block the main action if logging fails
+}
+
+export async function fetchAuditLog(userId, companyId, limit = 100) {
+  const q = supabase.from('audit_log').select('*')
+  if (companyId) q.eq('company_id', companyId)
+  else q.eq('user_id', userId)
+  const { data } = await q.order('created_at', { ascending: false }).limit(limit)
+  return data || []
+}
+
+// ── SOFT DELETE ───────────────────────────────────────────────────────────────
+export async function softDeleteProperty(propertyId, userId) {
+  const { error } = await supabase.from('properties')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq('id', propertyId)
+  if (error) throw error
+  await logAction(userId, null, 'property.deleted', 'property', propertyId, null)
+}
+
+export async function restoreProperty(propertyId, userId) {
+  const { error } = await supabase.from('properties')
+    .update({ deleted_at: null, deleted_by: null })
+    .eq('id', propertyId)
+  if (error) throw error
+  await logAction(userId, null, 'property.restored', 'property', propertyId, null)
+}
+
+export async function fetchDeletedProperties(userId) {
+  const { data, error } = await supabase.from('properties')
+    .select('*, company:companies(name,abbr,color)')
+    .eq('user_id', userId)
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+// ── GDPR DATA EXPORT ──────────────────────────────────────────────────────────
+export async function exportUserData(userId) {
+  const [
+    profile, companies, properties, deals,
+    compliance, maintenance, expenses, tenancies,
+    rentPayments, documents
+  ] = await Promise.all([
+    supabase.from('user_profiles').select('*').eq('user_id', userId).single().then(r=>r.data),
+    supabase.from('companies').select('*').eq('owner_id', userId).then(r=>r.data||[]),
+    supabase.from('properties').select('*').eq('user_id', userId).then(r=>r.data||[]),
+    supabase.from('deals').select('*').eq('user_id', userId).then(r=>r.data||[]),
+    supabase.from('compliance_items').select('*').eq('user_id', userId).then(r=>r.data||[]),
+    supabase.from('maintenance_jobs').select('*').eq('user_id', userId).then(r=>r.data||[]),
+    supabase.from('property_expenses').select('*').eq('user_id', userId).then(r=>r.data||[]),
+    supabase.from('tenancy_details').select('*').eq('user_id', userId).then(r=>r.data||[]).catch(()=>[]),
+    supabase.from('rent_payments').select('*').eq('user_id', userId).then(r=>r.data||[]).catch(()=>[]),
+    supabase.from('property_documents').select('id,name,created_at,url').eq('user_id', userId).then(r=>r.data||[]).catch(()=>[]),
+  ])
+  return {
+    exported_at: new Date().toISOString(),
+    user_id: userId,
+    profile,
+    companies,
+    properties,
+    deals,
+    compliance_items: compliance,
+    maintenance_jobs: maintenance,
+    expenses,
+    tenancies,
+    rent_payments: rentPayments,
+    documents: documents.map(d=>({ id:d.id, name:d.name, created_at:d.created_at, url:d.url })),
+  }
+}
