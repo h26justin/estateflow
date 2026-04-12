@@ -933,7 +933,6 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
       {settingsTab==='tenant' && (
         <TenantPortalSettings companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} showToast={showToast} T={T}/>
       )}
-}
 
       {settingsTab==='milestones' && (
         <MilestoneSettingsPanel
