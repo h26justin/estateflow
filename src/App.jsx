@@ -430,7 +430,6 @@ export default function App() {
     {key:'reports',    label:'Reports',     icon:'📊', short:'Reports'},
     {key:'contractors',label:'Contractors', icon:'🔧', short:'Contractors'},
     {key:'settings',   label:'Settings',    icon:'⚙', short:'Settings'},
-    {key:'account',    label:'Account',     icon:'👤', short:'Account'},
   ]
 
   return (
@@ -700,7 +699,6 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
           {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} darkMode={darkMode} setDarkMode={setDarkMode}/>}
-          {view==='account'&&<AccountPage user={user} showToast={showToast}/>}
           {view==='reports'&&<ReportsPage properties={properties} companies={companies} fmt={fmt} onImport={()=>setShowImporter(true)} companySettings={companySettings}/>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 

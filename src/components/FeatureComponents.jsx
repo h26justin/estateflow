@@ -519,6 +519,94 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
+  const [settingsTab, setSettingsTab] = useState('account')
+
+  // ── Account state ──────────────────────────────────────────────────────────
+  const [fullName, setFullName]             = useState('')
+  const [phone, setPhone]                   = useState('')
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileSaving, setProfileSaving]   = useState(false)
+  const [newEmail, setNewEmail]             = useState('')
+  const [emailSaving, setEmailSaving]       = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword]         = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving, setPwSaving]             = useState(false)
+  const [showPw, setShowPw]                 = useState(false)
+  const [notifSaving, setNotifSaving]       = useState(false)
+  const [notifs, setNotifs] = useState({
+    rent_arrears: true, lease_expiry: true, compliance_expiry: true,
+    vacant_properties: true, weekly_summary: false,
+  })
+
+  useEffect(() => { loadProfile() }, [])
+
+  async function loadProfile() {
+    setProfileLoading(true)
+    try {
+      const { data } = await supabase.from('user_profiles').select('*').eq('user_id', user?.id).single()
+      if (data) {
+        setFullName(data.full_name || '')
+        setPhone(data.phone || '')
+        if (data.notifications) setNotifs(prev => ({ ...prev, ...data.notifications }))
+      }
+    } catch(e) {}
+    setProfileLoading(false)
+  }
+
+  async function saveProfile() {
+    setProfileSaving(true)
+    try {
+      await supabase.from('user_profiles').upsert({ user_id: user?.id, email: user?.email, full_name: fullName, phone, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      showToast('Profile saved')
+    } catch(e) { showToast(e.message, 'error') }
+    setProfileSaving(false)
+  }
+
+  async function saveNotifications() {
+    setNotifSaving(true)
+    try {
+      await supabase.from('user_profiles').upsert({ user_id: user?.id, email: user?.email, notifications: notifs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      showToast('Notification preferences saved')
+    } catch(e) { showToast(e.message, 'error') }
+    setNotifSaving(false)
+  }
+
+  async function updateEmail() {
+    if (!newEmail.trim()) return
+    setEmailSaving(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
+      if (error) throw error
+      showToast('Confirmation sent to ' + newEmail + ' — check your inbox')
+      setNewEmail('')
+    } catch(e) { showToast(e.message, 'error') }
+    setEmailSaving(false)
+  }
+
+  async function updatePassword() {
+    if (!newPassword) return
+    if (newPassword !== confirmPassword) { showToast('Passwords do not match', 'error'); return }
+    if (newPassword.length < 8) { showToast('Password must be at least 8 characters', 'error'); return }
+    setPwSaving(true)
+    try {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user?.email, password: currentPassword })
+      if (signInErr) throw new Error('Current password is incorrect')
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      showToast('Password updated successfully')
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
+    } catch(e) { showToast(e.message, 'error') }
+    setPwSaving(false)
+  }
+
+  async function sendResetEmail() {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user?.email)
+      if (error) throw error
+      showToast('Reset email sent to ' + user?.email)
+    } catch(e) { showToast(e.message, 'error') }
+  }
 
   const FEATURES = [
     {key:'feature_compliance',  label:'Compliance & Certificates', desc:'Track gas safety, EICR, EPC, HMO licences and other certificates with expiry alerts', icon:'📋'},
@@ -542,13 +630,175 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     setSaving(null)
   }
 
+  const mono = "'DM Mono',monospace"
+  const sectionStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }
+  const fieldStyle = { marginBottom: 14 }
+  const labelStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
+
+  const settingsTabs = [
+    { key: 'account',       label: '👤 Account' },
+    { key: 'appearance',    label: '🎨 Appearance' },
+    { key: 'features',      label: '⚙ Features' },
+    { key: 'notifications', label: '🔔 Notifications' },
+  ]
+
   return (
     <div className="fade">
-      <div style={{marginBottom:28}}>
+      <div style={{marginBottom:24}}>
         <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Settings</h1>
-        <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>Enable or disable features per company. Changes take effect immediately.</p>
+        <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>Manage your account, appearance and property features.</p>
       </div>
 
+      {/* Tab bar */}
+      <div style={{display:'flex',gap:6,marginBottom:24,borderBottom:`1px solid ${T.border}`,paddingBottom:0,flexWrap:'wrap'}}>
+        {settingsTabs.map(t=>(
+          <button key={t.key} onClick={()=>setSettingsTab(t.key)} style={{
+            fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:'8px 8px 0 0',
+            background: settingsTab===t.key ? T.card : 'transparent',
+            color: settingsTab===t.key ? T.gold : T.muted,
+            border: `1px solid ${settingsTab===t.key ? T.border : 'transparent'}`,
+            borderBottom: settingsTab===t.key ? `1px solid ${T.card}` : 'transparent',
+            cursor:'pointer', transition:'all 0.15s', marginBottom:-1,
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* ── ACCOUNT TAB ── */}
+      {settingsTab==='account' && (
+        profileLoading
+          ? <div style={{fontFamily:mono,color:T.muted,fontSize:12}}>Loading…</div>
+          : <>
+            <div style={sectionStyle}>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Personal Information</div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Full Name</label>
+                <input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Your full name"/>
+              </div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Phone Number</label>
+                <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 000000"/>
+              </div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Email Address</label>
+                <input value={user?.email||''} disabled style={{opacity:0.5,cursor:'not-allowed'}}/>
+                <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:5}}>To change your email go to the Security section below.</div>
+              </div>
+              <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
+                {profileSaving ? 'Saving…' : 'Save Profile'}
+              </button>
+            </div>
+
+            <div style={sectionStyle}>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Email Address</div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>New Email Address</label>
+                <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder={user?.email} type="email"/>
+              </div>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:12,lineHeight:1.6}}>A confirmation link will be sent to both addresses. The change takes effect once confirmed.</div>
+              <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
+                {emailSaving ? 'Sending…' : 'Update Email'}
+              </button>
+            </div>
+
+            <div style={sectionStyle}>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Password</div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Current Password</label>
+                <input value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Your current password"/>
+              </div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>New Password</label>
+                <input value={newPassword} onChange={e=>setNewPassword(e.target.value)} type={showPw?'text':'password'} placeholder="At least 8 characters"/>
+              </div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Confirm New Password</label>
+                <input value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Repeat new password"/>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                <input type="checkbox" id="showpwS" checked={showPw} onChange={e=>setShowPw(e.target.checked)} style={{width:'auto',margin:0}}/>
+                <label htmlFor="showpwS" style={{fontFamily:mono,fontSize:10,color:T.muted,cursor:'pointer',margin:0}}>Show passwords</label>
+              </div>
+              <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                <button className="btn btn-gold" onClick={updatePassword} disabled={pwSaving||!currentPassword||!newPassword||!confirmPassword}>
+                  {pwSaving ? 'Updating…' : 'Update Password'}
+                </button>
+                <button className="btn btn-ghost" onClick={sendResetEmail} style={{fontSize:11}}>Send Reset Email Instead</button>
+              </div>
+            </div>
+
+            {isAdmin&&(
+              <div style={sectionStyle}>
+                <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>User Access</div>
+                <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:12}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
+                <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowAccessModal(true)}>⚙ Manage User Access</button>
+              </div>
+            )}
+          </>
+      )}
+
+      {/* ── APPEARANCE TAB ── */}
+      {settingsTab==='appearance' && (
+        <div style={sectionStyle}>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Theme</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>Colour Mode</div>
+              <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — clean and bright'}</div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={async()=>{setDarkMode(true);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:true,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
+                style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                  border:`1px solid ${darkMode?T.gold:T.border}`,
+                  background:darkMode?T.gold+'22':'transparent',
+                  color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
+                🌙 Dark
+              </button>
+              <button onClick={async()=>{setDarkMode(false);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:false,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
+                style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                  border:`1px solid ${!darkMode?T.gold:T.border}`,
+                  background:!darkMode?T.gold+'22':'transparent',
+                  color:!darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
+                ☀️ Light
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── NOTIFICATIONS TAB ── */}
+      {settingsTab==='notifications' && (
+        <div style={sectionStyle}>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Alert Preferences</div>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:16,lineHeight:1.6}}>Control which alerts appear in your Smart Alerts dashboard panel.</div>
+          {[
+            {key:'rent_arrears',      label:'Rent Arrears',      desc:'Alert when a property has overdue rent'},
+            {key:'lease_expiry',      label:'Lease Expiry',      desc:'Alert when tenancy agreements are expiring'},
+            {key:'compliance_expiry', label:'Compliance Expiry', desc:'Alert for gas, electrical, EPC certificates nearing expiry'},
+            {key:'vacant_properties', label:'Vacant Properties', desc:'Alert when properties are sitting vacant'},
+            {key:'weekly_summary',    label:'Weekly Summary',    desc:'Receive a weekly portfolio summary email (coming soon)'},
+          ].map(item=>(
+            <div key={item.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${T.border}`}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{item.label}</div>
+                <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{item.desc}</div>
+              </div>
+              <div onClick={()=>setNotifs(n=>({...n,[item.key]:!n[item.key]}))} style={{
+                width:42,height:24,borderRadius:12,cursor:'pointer',transition:'background 0.2s',flexShrink:0,
+                background:notifs[item.key]?T.gold:T.border,position:'relative',marginLeft:16,
+              }}>
+                <div style={{position:'absolute',top:3,left:notifs[item.key]?21:3,width:18,height:18,
+                  borderRadius:9,background:'white',transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
+              </div>
+            </div>
+          ))}
+          <button className="btn btn-gold" onClick={saveNotifications} disabled={notifSaving} style={{marginTop:20}}>
+            {notifSaving ? 'Saving…' : 'Save Preferences'}
+          </button>
+        </div>
+      )}
+
+      {/* ── FEATURES TAB ── */}
+      {settingsTab==='features' && <>
       {companies.map(company=>{
         const settings = companySettings[company.id] || {}
         return (
@@ -596,39 +846,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
         )
       })}
 
-      {/* Theme toggle */}
-      <div className="card" style={{padding:'20px 24px',marginTop:8}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Appearance</div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div>
-            <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>Theme</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — high contrast'}</div>
-          </div>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={async()=>{setDarkMode(true);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:true,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
-              style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
-                border:`1px solid ${darkMode?T.gold:T.border}`,
-                background:darkMode?T.gold+'22':'transparent',
-                color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
-              🌙 Dark
-            </button>
-            <button onClick={async()=>{setDarkMode(false);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:false,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
-              style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
-                border:`1px solid ${!darkMode?T.gold:T.border}`,
-                background:!darkMode?T.gold+'22':'transparent',
-                color:!darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
-              ☀️ Light
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="card" style={{padding:'20px 24px',marginTop:8}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Account</div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,marginBottom:12}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:16}}>To change your password, sign out and use the "Forgot password" link on the login page.</div>
-        {isAdmin&&<button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowAccessModal(true)}>⚙ Manage User Access</button>}
-      </div>
+      </>}
 
       {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast}/>}
     </div>
