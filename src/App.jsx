@@ -163,6 +163,8 @@ export default function App() {
   const [trialWarning, setTrialWarning] = useState(null)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showTour, setShowTour] = useState(false)
+  const [announcements, setAnnouncements] = useState([])
+  const [dismissedAnns, setDismissedAnns] = useState(() => { try { return JSON.parse(localStorage.getItem('dismissed_anns')||'[]') } catch(e) { return [] } })
   const { T, darkMode, setDarkMode, loadUserTheme } = useTheme()
 
   const CSS = `
