@@ -1687,7 +1687,7 @@ function AccessModal({companies, onClose, showToast}) {
               </button>
             </div>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.6}}>
-              An invitation link will be sent. They must sign up at <span style={{color:T.gold}}>estateflow-livid.vercel.app</span> to accept it.
+              An invitation link will be sent. They must sign up at <span style={{color:T.gold}}>www.ownproperly.com</span> to accept it.
             </div>
           </div>
 
