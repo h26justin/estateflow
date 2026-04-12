@@ -10,6 +10,8 @@ import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
 import LoginPage from './components/LoginPage'
 import OnboardingWizard from './components/OnboardingWizard'
+import MarketingSite from './components/MarketingSite'
+import BillingPage from './components/BillingPage'
 
 
 
@@ -151,6 +153,9 @@ export default function App() {
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [loginMode, setLoginMode] = useState('login')
+  const [trialWarning, setTrialWarning] = useState(null)
   const { T, darkMode, setDarkMode, loadUserTheme } = useTheme()
 
   const CSS = `
@@ -351,7 +356,19 @@ export default function App() {
 
   // Early returns AFTER all hooks
   if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
-  if (!session) return <LoginPage/>
+  if (!session) return (
+    <>
+      <MarketingSite
+        onSignIn={()=>{ setLoginMode('login'); setShowLoginModal(true) }}
+        onSignUp={()=>{ setLoginMode('signup'); setShowLoginModal(true) }}
+      />
+      {showLoginModal && (
+        <div className="overlay" onClick={e=>e.target===e.currentTarget&&setShowLoginModal(false)}>
+          <LoginPage initialMode={loginMode} onClose={()=>setShowLoginModal(false)}/>
+        </div>
+      )}
+    </>
+  )
   if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
 
 

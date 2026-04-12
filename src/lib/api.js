@@ -534,3 +534,71 @@ export async function fetchIsPlatformAdmin() {
     return data?.platform_admin === true
   } catch(e) { return false }
 }
+
+// ── BILLING ───────────────────────────────────────────────────────────────────
+export async function fetchSubscriptions(companyIds) {
+  if (!companyIds.length) return []
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .in('company_id', companyIds)
+  if (error) throw error
+  return data || []
+}
+
+export async function createCheckoutSession(companyId, action = 'checkout') {
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token}`,
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ company_id: companyId, action }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Billing error')
+  return data.url
+}
+
+export async function fetchAllCompaniesAdmin() {
+  // Platform admin only — fetches all companies with owner emails
+  const { data, error } = await supabase
+    .from('companies')
+    .select('*, subscriptions(*)')
+    .order('name')
+  if (error) throw error
+  return data || []
+}
+
+export async function setCompanyFreeTier(companyId, isFreeTier, grantedBy) {
+  const { error } = await supabase
+    .from('companies')
+    .update({
+      is_free_tier: isFreeTier,
+      free_tier_reason: isFreeTier ? 'Manually granted by admin' : null,
+      free_tier_granted_by: isFreeTier ? grantedBy : null,
+    })
+    .eq('id', companyId)
+  if (error) throw error
+  // Update subscription status too
+  await supabase
+    .from('subscriptions')
+    .update({ status: isFreeTier ? 'free_tier' : 'trialing' })
+    .eq('company_id', companyId)
+}
+
+export async function fetchBillingStatus(companyId) {
+  const { data } = await supabase
+    .from('companies')
+    .select('is_free_tier, trial_ends_at')
+    .eq('id', companyId)
+    .single()
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('status, current_period_end')
+    .eq('company_id', companyId)
+    .single()
+  return { company: data, subscription: sub }
+}

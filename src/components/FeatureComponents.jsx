@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import BillingPage from './BillingPage'
 // Exports: ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -633,6 +634,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   const settingsTabs = [
     { key: 'account',       label: '👤 Account' },
     { key: 'appearance',    label: '🎨 Appearance' },
+    { key: 'billing',       label: '💳 Billing' },
     { key: 'features',      label: '⚙ Features' },
     { key: 'notifications', label: '🔔 Notifications' },
   ]

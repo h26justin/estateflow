@@ -24,7 +24,7 @@ const CSS = `
   .lp-link{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:#2D3C4A;cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
 `
 
-export default function LoginPage() {
+export default function LoginPage({ initialMode = 'login', onClose }) {
   const [email,    setEmail]    = useState('')
   const [inviteToken, setInviteToken] = useState(() => {
     const params = new URLSearchParams(window.location.search)
