@@ -459,36 +459,33 @@ export async function fetchMyCompanies() {
 }
 
 // ── INVITATIONS ───────────────────────────────────────────────────────────────
-export async function sendInvitation(companyId, email, isAdmin = false) {
-  // 1. Create invitation row
-  const { data, error } = await supabase
-    .from('invitations')
-    .insert({ company_id: companyId, invited_by: (await supabase.auth.getUser()).data.user.id, email, is_admin: isAdmin })
-    .select().single()
+export async function sendInvitation(companyIds, email, isAdmin = false) {
+  const ids = Array.isArray(companyIds) ? companyIds : [companyIds]
+  const userId = (await supabase.auth.getUser()).data.user.id
+
+  // Create one invitation row per company
+  const rows = ids.map(company_id => ({ company_id, invited_by: userId, email, is_admin: isAdmin }))
+  const { data, error } = await supabase.from('invitations').insert(rows).select()
   if (error) throw error
 
-  // 2. Trigger edge function to send the email via Resend
+  // Trigger edge function — sends ONE email listing all companies
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invite`
-    const fnRes = await fetch(fnUrl, {
+    const fnRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invite`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session?.access_token}`,
         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ invitation_id: data.id }),
+      body: JSON.stringify({ invitation_ids: data.map(d => d.id) }),
     })
     const fnData = await fnRes.json()
     if (!fnRes.ok) throw new Error(fnData.error || fnData.message || 'Edge function error')
-    return { ...data, emailSent: true }
+    return { data, emailSent: true }
   } catch(e) {
-    // Return the invitation but flag email as failed so UI can warn user
-    return { ...data, emailSent: false, emailError: e.message }
+    return { data, emailSent: false, emailError: e.message }
   }
-
-  return data
 }
 
 export async function fetchPendingInvitations(companyId) {

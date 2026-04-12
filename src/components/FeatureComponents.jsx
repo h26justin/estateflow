@@ -1617,7 +1617,8 @@ function AccessModal({companies, onClose, showToast}) {
     if (!email || companies.length === 0) return
     setAdding(true)
     try {
-      const result = await api.sendInvitation(companies[0].id, email, newIsAdmin)
+      // Invite to ALL companies the admin manages in one email
+      const result = await api.sendInvitation(companies.map(c => c.id), email, newIsAdmin)
       setNewEmail('')
       setNewIsAdmin(false)
       await loadData()
