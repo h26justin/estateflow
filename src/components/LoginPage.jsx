@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import * as api from '../lib/api'
 
 const SLATE  = '#2D3C4A'
 const GREY   = '#A3A8AC'
@@ -25,6 +26,16 @@ const CSS = `
 
 export default function LoginPage() {
   const [email,    setEmail]    = useState('')
+  const [inviteToken, setInviteToken] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('invite') || ''
+  })
+  const [inviteAccepted, setInviteAccepted] = useState(false)
+
+  useEffect(() => {
+    // If user arrives with an invite token, switch to signup mode
+    if (inviteToken) setMode('signup')
+  }, [inviteToken])
   const [password, setPassword] = useState('')
   const [mode,     setMode]     = useState('login')
   const [loading,  setLoading]  = useState(false)
@@ -36,11 +47,26 @@ export default function LoginPage() {
     e.preventDefault(); setLoading(true); setError(''); setSuccess('')
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
+      if (error) { setError(error.message) }
+      else if (inviteToken) {
+        // Accept the invitation automatically on login
+        try {
+          await api.acceptInvitation(inviteToken)
+          setInviteAccepted(true)
+          // Clean the URL
+          window.history.replaceState({}, '', window.location.pathname)
+        } catch(e) {}
+      }
     } else {
       const { error } = await supabase.auth.signUp({ email, password })
-      if (error) setError(error.message)
-      else setSuccess('Account created! Check your email to confirm, then sign in.')
+      if (error) { setError(error.message) }
+      else {
+        if (inviteToken) {
+          setSuccess('Account created! Check your email to confirm your address, then sign in to accept your invitation.')
+        } else {
+          setSuccess('Account created! Check your email to confirm, then sign in.')
+        }
+      }
     }
     setLoading(false)
   }
