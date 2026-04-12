@@ -1549,7 +1549,7 @@ function AccessModal({companies, onClose, showToast}) {
     try {
       // Get all signed-up users via SECURITY DEFINER function
       const { data: authUsers, error: rpcErr } = await supabase.rpc('list_auth_users')
-      if (rpcErr)
+      if (rpcErr) {}
 
       // Get all access rows
       const { data: rows } = await supabase.from('user_company_access').select('*')
