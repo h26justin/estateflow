@@ -865,24 +865,6 @@ export async function saveMilestoneDefaults(userId, email, config) {
 }
 
 // ── COMPANY BRANDING & REPORT SETTINGS ───────────────────────────────────────
-export async function uploadCompanyLogo(companyId, file) {
-  const ext = file.name.split('.').pop()
-  const path = `logos/company_${companyId}.${ext}`
-  // Remove old logo first
-  await supabase.storage.from('property-documents').remove([path]).catch(()=>{})
-  const { error: uploadErr } = await supabase.storage
-    .from('property-documents').upload(path, file, { upsert: true })
-  if (uploadErr) throw uploadErr
-  const { data: { publicUrl } } = supabase.storage
-    .from('property-documents').getPublicUrl(path)
-  await supabase.from('company_settings').upsert(
-    { company_id: companyId, logo_url: publicUrl, logo_path: path,
-      updated_at: new Date().toISOString() },
-    { onConflict: 'company_id' }
-  )
-  return publicUrl
-}
-
 export async function saveReportSettings(companyId, settings) {
   const { error } = await supabase.from('company_settings').upsert(
     { company_id: companyId, ...settings, updated_at: new Date().toISOString() },
