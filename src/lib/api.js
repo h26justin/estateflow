@@ -970,8 +970,9 @@ export async function deleteAddressBookEntry(id) {
 // ── DELETE USER (platform admin only, calls edge function) ────────────────────
 export async function deleteUser(targetUserId) {
   const { data: { session } } = await supabase.auth.getSession()
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const response = await fetch(
-    `${supabase.supabaseUrl}/functions/v1/delete-user`,
+    `${supabaseUrl}/functions/v1/delete-user`,
     {
       method: 'POST',
       headers: {
@@ -1040,7 +1041,8 @@ export async function deactivateAnnouncement(id) {
 }
 
 export async function sendAdminEmail(session, to, subject, message) {
-  const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-admin-email`, {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const res = await fetch(`${supabaseUrl}/functions/v1/send-admin-email`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
     body: JSON.stringify({ to, subject, message })
