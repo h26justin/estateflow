@@ -90,7 +90,7 @@ export async function updateUserIdByEmail(email, userId) {
       .update({ user_id: userId })
       .eq('email', email)
       .neq('user_id', userId)
-  } catch(e) { console.log('updateUserIdByEmail:', e) }
+  } catch(e) { }
 }
 
 export async function fetchUserAccess(userId) {
@@ -258,7 +258,7 @@ export async function ensureFutureRentMonths(properties, monthsAhead = 6) {
   for (let i = 0; i < inserts.length; i += 100) {
     const batch = inserts.slice(i, i + 100)
     const { error } = await supabase.from('rent_payments').insert(batch)
-    if (error) console.error('Error inserting future months:', error)
+    if (error) throw error
   }
 
   return inserts.length
@@ -282,5 +282,160 @@ export async function saveThemePreference(userId, email, darkMode) {
       { user_id: userId, email, dark_mode: darkMode, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' }
     )
-  } catch(e) { console.log('saveThemePreference:', e) }
+  } catch(e) { }
+}
+
+// ── USER PROFILE ──────────────────────────────────────────────────────────────
+export async function fetchUserProfile(userId) {
+  const { data } = await supabase.from('user_profiles').select('*').eq('user_id', userId).single()
+  return data || null
+}
+
+export async function upsertUserProfile(userId, email, updates) {
+  const { data, error } = await supabase.from('user_profiles')
+    .upsert({ ...updates, user_id: userId, email, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+export async function updateUserEmail(newEmail) {
+  const { error } = await supabase.auth.updateUser({ email: newEmail })
+  if (error) throw error
+}
+
+export async function updateUserPassword(currentPassword, newPassword, email) {
+  const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+  if (signInErr) throw new Error('Current password is incorrect')
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+}
+
+export async function sendPasswordReset(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email)
+  if (error) throw error
+}
+
+// ── PROPERTY NOTES ────────────────────────────────────────────────────────────
+export async function fetchNotes(propertyId, category) {
+  let q = supabase.from('property_notes').select('*').eq('property_id', propertyId)
+  if (category) q = q.eq('category', category)
+  const { data, error } = await q.order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function createNote(propertyId, content, category, userId, userEmail) {
+  const { data, error } = await supabase.from('property_notes')
+    .insert({ property_id: propertyId, content, category, user_id: userId, user_email: userEmail })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteNote(id) {
+  const { error } = await supabase.from('property_notes').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── PROPERTY DOCUMENTS ────────────────────────────────────────────────────────
+export async function fetchDocuments(propertyId) {
+  const { data, error } = await supabase.from('property_documents')
+    .select('*').eq('property_id', propertyId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function uploadDocument(propertyId, propertyName, file, userId) {
+  const ext = file.name.split('.').pop()
+  const path = `${propertyId}/${Date.now()}.${ext}`
+  const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
+  if (uploadErr) throw uploadErr
+  const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
+  const { error: dbErr } = await supabase.from('property_documents').insert({
+    property_id: propertyId, property_name: propertyName,
+    name: file.name, file_path: path, url: publicUrl,
+    size: file.size, type: file.type, user_id: userId,
+  })
+  if (dbErr) throw dbErr
+  return publicUrl
+}
+
+export async function deleteDocument(doc) {
+  if (doc.file_path) await supabase.storage.from('property-documents').remove([doc.file_path])
+  const { error } = await supabase.from('property_documents').delete().eq('id', doc.id)
+  if (error) throw error
+}
+
+// ── COMPANY DOCUMENTS ─────────────────────────────────────────────────────────
+export async function fetchCompanyDocuments(companyId) {
+  const { data, error } = await supabase.from('company_documents')
+    .select('*').eq('company_id', companyId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function uploadCompanyDocument(companyId, file, userId) {
+  const ext = file.name.split('.').pop()
+  const path = `company_${companyId}/${Date.now()}.${ext}`
+  const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
+  if (uploadErr) throw uploadErr
+  const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
+  await supabase.from('company_documents').insert({
+    company_id: companyId, name: file.name,
+    file_path: path, url: publicUrl,
+    size: file.size, type: file.type, user_id: userId,
+  })
+  return publicUrl
+}
+
+export async function deleteCompanyDocument(doc) {
+  if (doc.file_path) await supabase.storage.from('property-documents').remove([doc.file_path])
+  const { error } = await supabase.from('company_documents').delete().eq('id', doc.id)
+  if (error) throw error
+}
+
+// ── USER ACCESS MANAGEMENT ────────────────────────────────────────────────────
+export async function fetchAllUsers() {
+  const { data, error } = await supabase.rpc('list_auth_users')
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAllAccessRows() {
+  const { data, error } = await supabase.from('user_company_access').select('*')
+  if (error) throw error
+  return data || []
+}
+
+export async function grantCompanyAccess(userId, companyId, email) {
+  const { error } = await supabase.from('user_company_access')
+    .insert({ user_id: userId, company_id: companyId, email, is_admin: false })
+  if (error) throw error
+}
+
+export async function revokeCompanyAccess(userId, companyId) {
+  const { error } = await supabase.from('user_company_access')
+    .delete().eq('user_id', userId).eq('company_id', companyId)
+  if (error) throw error
+}
+
+export async function setAllCompanyAccess(userId, userEmail, companyIds) {
+  await supabase.from('user_company_access').delete().eq('user_id', userId)
+  if (companyIds.length > 0) {
+    const rows = companyIds.map(cid => ({ user_id: userId, company_id: cid, email: userEmail, is_admin: false }))
+    const { error } = await supabase.from('user_company_access').insert(rows)
+    if (error) throw error
+  }
+}
+
+export async function removeUserAccess(userId) {
+  const { error } = await supabase.from('user_company_access').delete().eq('user_id', userId)
+  if (error) throw error
+}
+
+// ── SORT ORDER ────────────────────────────────────────────────────────────────
+export async function updatePropertySortOrder(id, sortOrder) {
+  await supabase.from('properties').update({ sort_order: sortOrder }).eq('id', id)
 }

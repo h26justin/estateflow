@@ -51,7 +51,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
   async function loadItems() {
     setLoading(true)
     try { setItems(await api.fetchCompliance(propertyId)) }
-    catch(e) { console.log(e) }
+    catch(e) { }
     setLoading(false)
   }
 
@@ -157,7 +157,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
       const d = await api.fetchTenancyDetails(propertyId)
       setDetails(d)
       setForm(d||{})
-    } catch(e) { console.log(e) }
+    } catch(e) { }
     setLoading(false)
   }
 
@@ -264,7 +264,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user}) {
   async function loadJobs() {
     setLoading(true)
     try { setJobs(await api.fetchMaintenance(propertyId)) }
-    catch(e) { console.log(e) }
+    catch(e) { }
     setLoading(false)
   }
 
@@ -411,7 +411,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
   async function loadExpenses() {
     setLoading(true)
     try { setExpenses(await api.fetchExpenses(propertyId)) }
-    catch(e) { console.log(e) }
+    catch(e) { }
     setLoading(false)
   }
 
@@ -544,7 +544,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   async function loadProfile() {
     setProfileLoading(true)
     try {
-      const { data } = await supabase.from('user_profiles').select('*').eq('user_id', user?.id).single()
+      const data = await api.fetchUserProfile(user?.id)
       if (data) {
         setFullName(data.full_name || '')
         setPhone(data.phone || '')
@@ -557,7 +557,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   async function saveProfile() {
     setProfileSaving(true)
     try {
-      await supabase.from('user_profiles').upsert({ user_id: user?.id, email: user?.email, full_name: fullName, phone, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      await api.upsertUserProfile(user?.id, user?.email, { full_name: fullName, phone })
       showToast('Profile saved')
     } catch(e) { showToast(e.message, 'error') }
     setProfileSaving(false)
@@ -566,7 +566,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   async function saveNotifications() {
     setNotifSaving(true)
     try {
-      await supabase.from('user_profiles').upsert({ user_id: user?.id, email: user?.email, notifications: notifs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      await api.upsertUserProfile(user?.id, user?.email, { notifications: notifs })
       showToast('Notification preferences saved')
     } catch(e) { showToast(e.message, 'error') }
     setNotifSaving(false)
@@ -576,8 +576,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     if (!newEmail.trim()) return
     setEmailSaving(true)
     try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
-      if (error) throw error
+      await api.updateUserEmail(newEmail.trim())
       showToast('Confirmation sent to ' + newEmail + ' — check your inbox')
       setNewEmail('')
     } catch(e) { showToast(e.message, 'error') }
@@ -590,10 +589,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     if (newPassword.length < 8) { showToast('Password must be at least 8 characters', 'error'); return }
     setPwSaving(true)
     try {
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user?.email, password: currentPassword })
-      if (signInErr) throw new Error('Current password is incorrect')
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
+      await api.updateUserPassword(currentPassword, newPassword, user?.email)
       showToast('Password updated successfully')
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
     } catch(e) { showToast(e.message, 'error') }
@@ -602,8 +598,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
 
   async function sendResetEmail() {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user?.email)
-      if (error) throw error
+      await api.sendPasswordReset(user?.email)
       showToast('Reset email sent to ' + user?.email)
     } catch(e) { showToast(e.message, 'error') }
   }
@@ -746,14 +741,14 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
               <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — clean and bright'}</div>
             </div>
             <div style={{display:'flex',gap:8}}>
-              <button onClick={async()=>{setDarkMode(true);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:true,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
+              <button onClick={async()=>{setDarkMode(true);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:true})}catch(e){}}}
                 style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
                   border:`1px solid ${darkMode?T.gold:T.border}`,
                   background:darkMode?T.gold+'22':'transparent',
                   color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
                 🌙 Dark
               </button>
-              <button onClick={async()=>{setDarkMode(false);try{await supabase.from('user_profiles').upsert({user_id:user?.id,email:user?.email,dark_mode:false,updated_at:new Date().toISOString()},{onConflict:'user_id'})}catch(e){}}}
+              <button onClick={async()=>{setDarkMode(false);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:false})}catch(e){}}}
                 style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
                   border:`1px solid ${!darkMode?T.gold:T.border}`,
                   background:!darkMode?T.gold+'22':'transparent',
@@ -894,7 +889,7 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperti
 
   async function handleDelete(id) {
     try {
-      await supabase.from('property_notes').delete().eq('id', id)
+      await api.deleteNote(id)
       setNotes(prev=>prev.filter(n=>n.id!==id))
     } catch(e) {}
   }
@@ -980,7 +975,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         .select('*').eq('property_id', propertyId)
         .order('created_at', {ascending:false})
       setDocs(data||[])
-    } catch(e) { console.log(e) }
+    } catch(e) { }
     setLoading(false)
   }
 
@@ -1214,14 +1209,14 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
 
   useEffect(()=>{
     setLoading(true)
-    supabase.from('property_notes').select('*').eq('property_id', selected.id)
+    api.fetchNotes(selected.id, null)
       .order('created_at', {ascending:false})
       .then(({data})=>{ setAllNotes(data||[]); setLoading(false) })
       .catch(()=>setLoading(false))
   },[selected.id])
 
   async function deleteNote(id) {
-    await supabase.from('property_notes').delete().eq('id',id)
+    await api.deleteNote(id)
     setAllNotes(prev=>prev.filter(n=>n.id!==id))
   }
 
@@ -1397,7 +1392,7 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
         .select('*').eq('company_id', companyId)
         .order('created_at', {ascending:false})
       setDocs(data||[])
-    } catch(e) { console.log(e) }
+    } catch(e) { }
     setLoading(false)
   }
 
@@ -1440,8 +1435,7 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
 
   async function handleDelete(doc) {
     try {
-      if (doc.file_path) await supabase.storage.from('property-documents').remove([doc.file_path])
-      await supabase.from('company_documents').delete().eq('id', doc.id)
+      await api.deleteCompanyDocument(doc)
       setDocs(prev=>prev.filter(d=>d.id!==doc.id))
       showToast('Deleted')
     } catch(e) { showToast(e.message,'error') }
@@ -1555,7 +1549,7 @@ function AccessModal({companies, onClose, showToast}) {
     try {
       // Get all signed-up users via SECURITY DEFINER function
       const { data: authUsers, error: rpcErr } = await supabase.rpc('list_auth_users')
-      if (rpcErr) console.warn('list_auth_users RPC error:', rpcErr.message)
+      if (rpcErr)
 
       // Get all access rows
       const { data: rows } = await supabase.from('user_company_access').select('*')
@@ -1578,7 +1572,7 @@ function AccessModal({companies, onClose, showToast}) {
         })
         setUsers(Object.values(fromRows))
       }
-    } catch(e) { console.log('AccessModal loadData error:', e) }
+    } catch(e) { }
     setLoading(false)
   }
 
@@ -1587,11 +1581,9 @@ function AccessModal({companies, onClose, showToast}) {
     setSaving(userId + companyId)
     try {
       if (has) {
-        await supabase.from('user_company_access')
-          .delete().eq('user_id', userId).eq('company_id', companyId)
+        await api.revokeCompanyAccess(userId, companyId)
       } else {
-        await supabase.from('user_company_access')
-          .insert({user_id: userId, company_id: companyId, email: userEmail, is_admin: false})
+        await api.grantCompanyAccess(userId, companyId, userEmail)
       }
       // Update local access map
       setAccess(prev => ({
@@ -1608,13 +1600,7 @@ function AccessModal({companies, onClose, showToast}) {
   async function setAllCompanies(userId, userEmail, giveAll) {
     setSaving(userId + 'all')
     try {
-      await supabase.from('user_company_access').delete().eq('user_id', userId)
-      if (giveAll) {
-        const rows = companies.map(co=>({
-          user_id: userId, company_id: co.id, email: userEmail, is_admin: false
-        }))
-        await supabase.from('user_company_access').insert(rows)
-      }
+      await api.setAllCompanyAccess(userId, userEmail, giveAll ? companies.map(c=>c.id) : [])
       setAccess(prev => ({ ...prev, [userId]: giveAll ? companies.map(c=>c.id) : [] }))
       showToast(giveAll ? 'Access granted to all companies' : 'All access removed')
     } catch(e) { showToast(e.message,'error') }
@@ -1624,7 +1610,7 @@ function AccessModal({companies, onClose, showToast}) {
   async function removeUser(userId) {
     if (!confirm('Remove this user completely?')) return
     try {
-      await supabase.from('user_company_access').delete().eq('user_id', userId)
+      await api.removeUserAccess(userId)
       setUsers(prev=>prev.filter(u=>u.id!==userId))
       showToast('User removed')
     } catch(e) { showToast(e.message,'error') }

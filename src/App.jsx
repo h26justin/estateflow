@@ -1,6 +1,7 @@
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
+import { useIsMobile } from './lib/useWindowSize'
 import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
 import { SmartAlerts, ReportsPage, ContractorsPage } from './components/DashboardComponents'
 import { StatementImporter } from './components/StatementImporter'
@@ -38,19 +39,19 @@ const REFURB_CFG = {
   planned:      {label:'Planned',     color:'#4B8FE0'},
 }
 
-const Badge = ({status}) => {
+const Badge = memo(({status}) => {
   const c = STATUS_CFG[status]||STATUS_CFG.purchased
   return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.bg,color:c.fg,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:600}}>
     <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
   </span>
-}
+})
 
-const CompanyPill = ({company}) => {
+const CompanyPill = memo(({company}) => {
   if (!company) return null
   return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||'#C8A84B')+'22',color:company.color||'#C8A84B',border:`1px solid ${(company.color||'#C8A84B')}44`}}>{company.abbr}</span>
-}
+})
 
-const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
+const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
   const [open,setOpen] = useState(false)
   const { T } = useTheme()
   return (
@@ -75,7 +76,7 @@ const StatCard = ({icon,label,value,sub,accent,breakdown}) => {
       )}
     </div>
   )
-}
+})
 
 const MONTH_LETTER = ['J','F','M','A','M','J','J','A','S','O','N','D']
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -150,7 +151,6 @@ export default function App() {
   const { T, darkMode, setDarkMode, loadUserTheme } = useTheme()
 
   const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
   html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
   *{box-sizing:border-box;margin:0;padding:0;}
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${T.bg}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
@@ -193,7 +193,7 @@ export default function App() {
   .fade{animation:fadeIn 0.25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(6px);}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px);}
   .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
   .tab{font-family:'DM Mono',monospace;font-size:11px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
   .tab.active{background:${T.border};color:${T.gold};}.tab:hover{color:${T.text};}
@@ -202,7 +202,7 @@ export default function App() {
 `
 
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 769
+  const isMobile = useIsMobile(769)
   const [showDrawer, setShowDrawer] = useState(false)
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
@@ -243,7 +243,7 @@ export default function App() {
               setProperties(vis)
             })
           }
-        }).catch(e=>console.log('Future months:', e))
+        }).catch(e=>)
         // Load company settings
         const settingsMap = {}
         const settingsResults = await Promise.all(visibleCos.map(c=>api.fetchCompanySettings(c.id)))
@@ -256,7 +256,7 @@ export default function App() {
         })
         setCompanySettings(settingsMap)
       } catch(e) {
-        console.log('Load error, showing all:', e.message)
+        
         setIsAdmin(true)
         const [cos, props] = await Promise.all([api.fetchCompanies(), api.fetchProperties()])
         setCompanies(cos)
@@ -270,12 +270,12 @@ export default function App() {
   },[user])
 
   // Expose loadData for refresh after import
-  async function refreshData() {
+  const refreshData = useCallback(async () => {
     try {
       const props = await api.fetchProperties()
       setProperties(props)
-    } catch(e) { console.log(e) }
-  }
+    } catch(e) {}
+  }, [])
 
   const filtered = useMemo(()=>{
     const f = properties.filter(p=>{
@@ -343,7 +343,7 @@ export default function App() {
   if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return <LoginPage/>
 
-  function showToast(msg,type='success'){setToast({msg,type});setTimeout(()=>setToast(null),3500)}
+  const showToast = useCallback((msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),3500)},[])
 
   const selected = properties.find(p=>p.id===selectedId)
 
@@ -437,7 +437,8 @@ export default function App() {
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
       <style>{CSS}</style>
       {/* ── HEADER ── */}
-      <header style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
+      <a href='#main-content' style={{position:'absolute',left:'-9999px',top:'auto',width:1,height:1,overflow:'hidden'}} onFocus={e=>{e.target.style.left='16px';e.target.style.width='auto';e.target.style.height='auto'}} onBlur={e=>{e.target.style.left='-9999px';e.target.style.width='1px';e.target.style.height='1px'}}>Skip to main content</a>
+      <header role='banner' style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
         <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
           {/* Logo */}
           <div style={{display:'flex',alignItems:'center',flexShrink:0}}>
@@ -448,7 +449,7 @@ export default function App() {
           {!isMobile&&<nav style={{display:'flex',gap:2,flex:1,justifyContent:'center'}}>
             {navItems.map(n=>(
               <button key={n.key} className={`tab ${view===n.key||(view==='detail'&&n.key==='properties')?'active':''}`}
-                onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}}>
+                onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}} aria-current={view===n.key?'page':undefined}>
                 {n.icon} {n.label}
               </button>
             ))}
@@ -500,10 +501,10 @@ export default function App() {
                 )}
               </div>
             )}
-            {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>}
+            {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()} aria-label="Sign out">Sign Out</button>}
             {/* Hamburger - mobile only */}
             {isMobile&&<button onClick={()=>setShowDrawer(true)}
-              style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.text,fontSize:16,display:'flex',flexDirection:'column',gap:4,alignItems:'center',justifyContent:'center',width:36,height:36}}>
+              aria-label="Open menu" style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.text,fontSize:16,display:'flex',flexDirection:'column',gap:4,alignItems:'center',justifyContent:'center',width:36,height:36}}>
               <span style={{display:'block',width:16,height:1.5,background:T.text,borderRadius:1}}/>
               <span style={{display:'block',width:16,height:1.5,background:T.text,borderRadius:1}}/>
               <span style={{display:'block',width:16,height:1.5,background:T.text,borderRadius:1}}/>
@@ -1107,7 +1108,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
     // Persist new order to DB in background
     newItems.forEach((p, i) => {
       if (p.sort_order !== i) {
-        supabase.from('properties').update({sort_order: i}).eq('id', p.id).then(()=>{})
+        api.updatePropertySortOrder(p.id, i).catch(()=>{})
       }
     })
     setDragging(null)
@@ -1528,7 +1529,6 @@ function AccessModal({companies, userId, onClose, showToast}) {
     try {
       // Fetch all signed-up users via SECURITY DEFINER function
       const { data: authUsers, error: fnErr } = await supabase.rpc('list_auth_users')
-      if (fnErr) console.warn('list_auth_users:', fnErr.message)
 
       // Fetch all access rows
       const { data: accessRows } = await supabase.from('user_company_access').select('*')
@@ -1552,7 +1552,6 @@ function AccessModal({companies, userId, onClose, showToast}) {
         setAllUsers(Object.values(fromRows))
       }
     } catch(e) {
-      console.log('Access load error:', e)
     }
     setLoading(false)
   }
@@ -1562,11 +1561,9 @@ function AccessModal({companies, userId, onClose, showToast}) {
     const has = current.includes(companyId)
     try {
       if (has) {
-        await supabase.from('user_company_access')
-          .delete().eq('user_id', targetUserId).eq('company_id', companyId)
+        await api.revokeCompanyAccess(targetUserId, companyId)
       } else {
-        await supabase.from('user_company_access')
-          .insert({user_id: targetUserId, company_id: companyId, email, is_admin: false})
+        await api.grantCompanyAccess(targetUserId, companyId, email)
       }
       await loadData()
       showToast('Access updated')
@@ -1593,7 +1590,7 @@ function AccessModal({companies, userId, onClose, showToast}) {
 
   async function removeUser(targetUserId) {
     try {
-      await supabase.from('user_company_access').delete().eq('user_id', targetUserId)
+      await api.removeUserAccess(targetUserId)
       await loadData()
       showToast('User removed')
     } catch(e) { showToast(e.message, 'error') }
@@ -1660,233 +1657,3 @@ function AccessModal({companies, userId, onClose, showToast}) {
 }
 
 // ─── ACCOUNT PAGE ─────────────────────────────────────────────────────────────
-function AccountPage({ user, showToast }) {
-  const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
-  const [tab, setTab] = useState('profile')
-
-  const [fullName, setFullName]             = useState('')
-  const [phone, setPhone]                   = useState('')
-  const [profileLoading, setProfileLoading] = useState(true)
-  const [profileSaving, setProfileSaving]   = useState(false)
-
-  const [newEmail, setNewEmail]   = useState('')
-  const [emailSaving, setEmailSaving] = useState(false)
-
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword]         = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [pwSaving, setPwSaving]   = useState(false)
-  const [showPw, setShowPw]       = useState(false)
-
-  const [notifSaving, setNotifSaving] = useState(false)
-  const [notifs, setNotifs] = useState({
-    rent_arrears: true, lease_expiry: true, compliance_expiry: true,
-    vacant_properties: true, weekly_summary: false,
-  })
-
-  useEffect(() => { loadProfile() }, [])
-
-  async function loadProfile() {
-    setProfileLoading(true)
-    try {
-      const { data } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).single()
-      if (data) {
-        setFullName(data.full_name || '')
-        setPhone(data.phone || '')
-        if (data.notifications) setNotifs(prev => ({ ...prev, ...data.notifications }))
-      }
-    } catch(e) {}
-    setProfileLoading(false)
-  }
-
-  async function saveProfile() {
-    setProfileSaving(true)
-    try {
-      await supabase.from('user_profiles').upsert({ user_id: user.id, email: user.email, full_name: fullName, phone, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-      showToast('Profile saved')
-    } catch(e) { showToast(e.message, 'error') }
-    setProfileSaving(false)
-  }
-
-  async function saveNotifications() {
-    setNotifSaving(true)
-    try {
-      await supabase.from('user_profiles').upsert({ user_id: user.id, email: user.email, notifications: notifs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-      showToast('Notification preferences saved')
-    } catch(e) { showToast(e.message, 'error') }
-    setNotifSaving(false)
-  }
-
-  async function updateEmail() {
-    if (!newEmail.trim()) return
-    setEmailSaving(true)
-    try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
-      if (error) throw error
-      showToast('Confirmation sent to ' + newEmail + ' — check your inbox')
-      setNewEmail('')
-    } catch(e) { showToast(e.message, 'error') }
-    setEmailSaving(false)
-  }
-
-  async function updatePassword() {
-    if (!newPassword) return
-    if (newPassword !== confirmPassword) { showToast('Passwords do not match', 'error'); return }
-    if (newPassword.length < 8) { showToast('Password must be at least 8 characters', 'error'); return }
-    setPwSaving(true)
-    try {
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
-      if (signInErr) throw new Error('Current password is incorrect')
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
-      showToast('Password updated successfully')
-      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
-    } catch(e) { showToast(e.message, 'error') }
-    setPwSaving(false)
-  }
-
-  async function sendResetEmail() {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email)
-      if (error) throw error
-      showToast('Reset email sent to ' + user.email)
-    } catch(e) { showToast(e.message, 'error') }
-  }
-
-  const sectionStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }
-  const sectionHeadStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }
-  const fieldStyle = { marginBottom: 14 }
-  const labelStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
-
-  const tabs = [
-    { key: 'profile', label: '👤 Profile' },
-    { key: 'security', label: '🔐 Security' },
-    { key: 'notifications', label: '🔔 Notifications' },
-  ]
-
-  return (
-    <div className="fade" style={{ maxWidth: 640 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4, color: T.text }}>Account</h1>
-      <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 24 }}>{user.email}</p>
-
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24, borderBottom: `1px solid ${T.border}` }}>
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            fontFamily: mono, fontSize: 11, padding: '8px 16px', borderRadius: '8px 8px 0 0',
-            background: tab === t.key ? T.card : 'transparent',
-            color: tab === t.key ? T.gold : T.muted,
-            border: `1px solid ${tab === t.key ? T.border : 'transparent'}`,
-            borderBottom: tab === t.key ? `1px solid ${T.card}` : 'transparent',
-            cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1,
-          }}>{t.label}</button>
-        ))}
-      </div>
-
-      {tab === 'profile' && (
-        profileLoading
-          ? <div style={{ fontFamily: mono, color: T.muted, fontSize: 12 }}>Loading…</div>
-          : <div style={sectionStyle}>
-              <div style={sectionHeadStyle}>Personal Information</div>
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Full Name</label>
-                <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your full name" />
-              </div>
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Phone Number</label>
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+44 7700 000000" />
-              </div>
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Email Address</label>
-                <input value={user.email} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 5 }}>To change your email, go to the Security tab.</div>
-              </div>
-              <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{ marginTop: 8 }}>
-                {profileSaving ? 'Saving…' : 'Save Profile'}
-              </button>
-            </div>
-      )}
-
-      {tab === 'security' && (
-        <>
-          <div style={sectionStyle}>
-            <div style={sectionHeadStyle}>Change Email Address</div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>New Email Address</label>
-              <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={user.email} type="email" />
-            </div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 12, lineHeight: 1.6 }}>
-              A confirmation link will be sent to both your old and new email addresses. The change takes effect once confirmed.
-            </div>
-            <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving || !newEmail.trim()}>
-              {emailSaving ? 'Sending…' : 'Update Email'}
-            </button>
-          </div>
-
-          <div style={sectionStyle}>
-            <div style={sectionHeadStyle}>Change Password</div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Current Password</label>
-              <input value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} type={showPw ? 'text' : 'password'} placeholder="Your current password" />
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>New Password</label>
-              <input value={newPassword} onChange={e => setNewPassword(e.target.value)} type={showPw ? 'text' : 'password'} placeholder="At least 8 characters" />
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Confirm New Password</label>
-              <input value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} type={showPw ? 'text' : 'password'} placeholder="Repeat new password" />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <input type="checkbox" id="showpw" checked={showPw} onChange={e => setShowPw(e.target.checked)} style={{ width: 'auto', margin: 0 }} />
-              <label htmlFor="showpw" style={{ fontFamily: mono, fontSize: 10, color: T.muted, cursor: 'pointer', margin: 0 }}>Show passwords</label>
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-gold" onClick={updatePassword} disabled={pwSaving || !currentPassword || !newPassword || !confirmPassword}>
-                {pwSaving ? 'Updating…' : 'Update Password'}
-              </button>
-              <button className="btn btn-ghost" onClick={sendResetEmail} style={{ fontSize: 11 }}>
-                Send Reset Email Instead
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {tab === 'notifications' && (
-        <div style={sectionStyle}>
-          <div style={sectionHeadStyle}>Alert Preferences</div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
-            Control which alerts appear in your Smart Alerts dashboard panel.
-          </div>
-          {[
-            { key: 'rent_arrears',       label: 'Rent Arrears',      desc: 'Alert when a property has overdue rent' },
-            { key: 'lease_expiry',       label: 'Lease Expiry',      desc: 'Alert when tenancy agreements are expiring' },
-            { key: 'compliance_expiry',  label: 'Compliance Expiry', desc: 'Alert for gas, electrical, EPC certificates nearing expiry' },
-            { key: 'vacant_properties',  label: 'Vacant Properties', desc: 'Alert when properties are sitting vacant' },
-            { key: 'weekly_summary',     label: 'Weekly Summary',    desc: 'Receive a weekly portfolio summary (coming soon)' },
-          ].map(item => (
-            <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: `1px solid ${T.border}` }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{item.label}</div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{item.desc}</div>
-              </div>
-              <div onClick={() => setNotifs(n => ({ ...n, [item.key]: !n[item.key] }))} style={{
-                width: 42, height: 24, borderRadius: 12, cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
-                background: notifs[item.key] ? T.gold : T.border, position: 'relative', marginLeft: 16,
-              }}>
-                <div style={{
-                  position: 'absolute', top: 3, left: notifs[item.key] ? 21 : 3, width: 18, height: 18,
-                  borderRadius: 9, background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                }}/>
-              </div>
-            </div>
-          ))}
-          <button className="btn btn-gold" onClick={saveNotifications} disabled={notifSaving} style={{ marginTop: 20 }}>
-            {notifSaving ? 'Saving…' : 'Save Preferences'}
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}

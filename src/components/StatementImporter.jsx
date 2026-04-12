@@ -81,7 +81,6 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
       setItems(matched)
       setStep('preview')
     } catch(e) {
-      console.error(e)
       showToast('Error reading PDF: ' + e.message, 'error')
     }
     setLoading(false)

@@ -665,7 +665,7 @@ export function ContractorsPage({companies, showToast}) {
     try {
       const {data} = await supabase.from('contractors').select('*').order('name')
       setContractors(data||[])
-    } catch(e) { console.log('Contractors table not yet created') }
+    } catch(e) { }
     setLoading(false)
   }
 
