@@ -19,7 +19,7 @@ export default function TenantInbox({ user, companies, showToast }) {
   const { T } = useTheme()
   const [view, setView]               = useState('inbox')   // inbox | messages | repairs | all
   const [jobs, setJobs]               = useState([])
-  const [conversations, setConvos]    = useState([])        // all property conversations
+  const [convos, setConvos]           = useState([])        // all property conversations
   const [loading, setLoading]         = useState(true)
   const [expanded, setExpanded]       = useState(null)
   const [thread, setThread]           = useState([])
