@@ -139,6 +139,7 @@ export default function App() {
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
+  const [showNewMenu, setShowNewMenu]  = useState(false)
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
@@ -460,7 +461,45 @@ export default function App() {
 
           {/* Right side */}
           <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
-            {!isMobile&&<button className="btn btn-gold" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>}
+            {!isMobile&&(
+              <div style={{position:'relative'}}>
+                <button className="btn btn-gold" style={{fontSize:11,padding:'6px 14px',display:'flex',alignItems:'center',gap:6}}
+                  onClick={()=>setShowNewMenu(m=>!m)}>
+                  <span style={{fontSize:14,fontWeight:700}}>+</span> New
+                  <span style={{fontSize:9,opacity:0.8}}>{showNewMenu?'▲':'▼'}</span>
+                </button>
+                {showNewMenu&&(
+                  <>
+                    {/* Backdrop to close */}
+                    <div style={{position:'fixed',inset:0,zIndex:199}} onClick={()=>setShowNewMenu(false)}/>
+                    {/* Dropdown */}
+                    <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:200,
+                      background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
+                      padding:'6px',minWidth:210,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+                      {[
+                        {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
+                        {icon:'🏢',label:'Add Company',     action:()=>setShowAddCo(true)},
+                        {icon:'📄',label:'Import Statement',action:()=>setShowImporter(true)},
+                        {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property and go to Expenses tab')}},
+                        {icon:'📋',label:'Add Compliance',  action:()=>{setView('properties');showToast('Open a property and go to Compliance tab')}},
+                        {icon:'🔧',label:'Log Maintenance', action:()=>{setView('properties');showToast('Open a property and go to Maintenance tab')}},
+                      ].map((item,i,arr)=>(
+                        <button key={item.label} onClick={()=>{item.action();setShowNewMenu(false)}}
+                          style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 14px',
+                            background:'none',border:'none',borderRadius:8,cursor:'pointer',textAlign:'left',
+                            borderBottom:i<arr.length-1?`1px solid ${T.border}`:'none',
+                            transition:'background 0.15s'}}
+                          onMouseEnter={e=>e.currentTarget.style.background=T.bg}
+                          onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                          <span style={{fontSize:16,width:22,textAlign:'center'}}>{item.icon}</span>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()}>Sign Out</button>}
             {/* Hamburger - mobile only */}
             {isMobile&&<button onClick={()=>setShowDrawer(true)}
@@ -503,12 +542,22 @@ export default function App() {
               ))}
             </div>
             {/* Drawer footer */}
-            <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:8}}>
-              <button className="btn btn-gold" style={{width:'100%',fontSize:12,padding:'10px'}}
-                onClick={()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}}>
-                + Add Property
-              </button>
-              <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px'}}
+            <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
+              {[
+                {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}},
+                {icon:'🏢',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
+                {icon:'📄',label:'Import Statement',action:()=>{setShowImporter(true);setShowDrawer(false)}},
+                {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property → Expenses tab');setShowDrawer(false)}},
+                {icon:'🔧',label:'Log Maintenance', action:()=>{setView('properties');showToast('Open a property → Maintenance tab');setShowDrawer(false)}},
+              ].map(item=>(
+                <button key={item.label} onClick={item.action}
+                  style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
+                    background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',textAlign:'left'}}>
+                  <span style={{fontSize:15}}>{item.icon}</span>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.text,fontWeight:500}}>{item.label}</span>
+                </button>
+              ))}
+              <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px',marginTop:4}}
                 onClick={()=>supabase.auth.signOut()}>
                 Sign Out
               </button>
