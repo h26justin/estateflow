@@ -326,7 +326,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const monthlyRepayment = form.purchase_type !== 'cash' ? api.calcMonthlyRepayment(loanAmount, num('mortgage_rate'), num('mortgage_term') || 25, isInterestOnly) : 0
 
   const grossMonthlyRent = form.deal_type === 'hmo'
-    ? num('hmo_rooms') * num('hmo_rent_per_room')
+    ? (form.hmo_rent_mode === 'individual' && Array.isArray(form.hmo_room_rents) && form.hmo_room_rents.length > 0
+        ? form.hmo_room_rents.reduce((s,r)=>s+(parseFloat(r)||0),0)
+        : num('hmo_rooms') * num('hmo_rent_per_room'))
     : form.deal_type === 'sa'
       ? num('sa_nightly_rate') * (num('sa_occupancy_percent') / 100) * 30.4
       : num('monthly_rent')
@@ -548,8 +550,50 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 <InputRow label="Monthly rent" field="monthly_rent"form={form} set={set} T={T}/>
               )}
               {form.deal_type==='hmo' && (<>
-                <InputRow label="Number of rooms" field="hmo_rooms" prefix="" suffix="rooms" min={1} step={1}form={form} set={set} T={T}/>
-                <InputRow label="Rent per room" field="hmo_rent_per_room"form={form} set={set} T={T}/>
+                <InputRow label="Number of rooms" field="hmo_rooms" prefix="" suffix="rooms" min={1} step={1} form={form} set={set} T={T}/>
+                {/* Rent mode toggle */}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+                  <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Rent entry</span>
+                  <div style={{display:'flex',gap:6}}>
+                    {[['same','Same rate'],['individual','Per room']].map(([k,l])=>(
+                      <button key={k} onClick={()=>set('hmo_rent_mode',k)}
+                        style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                          border:`1px solid ${(form.hmo_rent_mode||'same')===k?T.gold:T.border}`,
+                          background:(form.hmo_rent_mode||'same')===k?T.gold+'22':'transparent',
+                          color:(form.hmo_rent_mode||'same')===k?T.gold:T.muted}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(form.hmo_rent_mode||'same')==='same' ? (
+                  <InputRow label="Rent per room" field="hmo_rent_per_room" form={form} set={set} T={T}/>
+                ) : (
+                  <div style={{padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+                    {Array.from({length:Math.max(1,parseInt(form.hmo_rooms)||1)},(_,i)=>{
+                      const rents = Array.isArray(form.hmo_room_rents)?form.hmo_room_rents:[]
+                      const val = rents[i]??form.hmo_rent_per_room??0
+                      return (
+                        <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,gap:12}}>
+                          <span style={{fontFamily:mono,fontSize:12,color:T.text,flexShrink:0}}>Room {i+1}</span>
+                          <div style={{display:'flex',alignItems:'center',gap:4}}>
+                            <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>£</span>
+                            <input type="number" min={0} step={1} value={val}
+                              onChange={e=>{
+                                const n=Math.max(1,parseInt(form.hmo_rooms)||1)
+                                const r=Array.isArray(form.hmo_room_rents)?[...form.hmo_room_rents]:Array(n).fill(form.hmo_rent_per_room||0)
+                                while(r.length<n) r.push(form.hmo_rent_per_room||0)
+                                r[i]=parseFloat(e.target.value)||0
+                                set('hmo_room_rents',r)
+                              }}
+                              style={{fontFamily:mono,fontSize:13,width:90,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
+                            <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>/mo</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
                 <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                   <span style={{fontFamily:mono,fontSize:12,color:T.muted}}>Total HMO income</span>
                   <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.green}}>{fmt(grossMonthlyRent)}/mo</span>
