@@ -28,6 +28,38 @@ const STAGE_LABELS = {
   brrr:'BRRR — Refinance Stage',
 }
 
+// ── MODULE-LEVEL COMPONENTS (outside DealsPage to prevent focus loss) ─────────
+function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, step=1, placeholder='', form, set, T }) {
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+      <span style={{fontFamily:mono,fontSize:12,color:T.text}}>{label}</span>
+      <div style={{display:'flex',alignItems:'center',gap:4}}>
+        {prefix && <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{prefix}</span>}
+        <input
+          type={type}
+          value={form[field] ?? ''}
+          min={min}
+          step={step}
+          placeholder={placeholder}
+          onChange={e => set(field, type==='number' ? e.target.value : e.target.value)}
+          onBlur={e => { if (type==='number') set(field, parseFloat(e.target.value) || 0) }}
+          style={{fontFamily:mono,fontSize:13,width:100,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}
+        />
+        {suffix && <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{suffix}</span>}
+      </div>
+    </div>
+  )
+}
+
+function ResultRow({ label, value, color, big, T }) {
+  return (
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+      <span style={{fontFamily:mono,fontSize:big?13:11,color:T.muted}}>{label}</span>
+      <span style={{fontFamily:mono,fontSize:big?18:13,fontWeight:big?700:600,color:color||T.text}}>{value}</span>
+    </div>
+  )
+}
+
 export default function DealsPage({ user, companies, onConvertToProperty, showToast }) {
   const { T } = useTheme()
   const [view, setView]       = useState('list') // list | deal
@@ -323,25 +355,7 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
     setSaving(false)
   }
 
-  const InputRow = ({ label, field, type='number', prefix='£', suffix='', min=0, step=1, placeholder='' }) => (
-    <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
-      <span style={{fontFamily:mono,fontSize:12,color:T.text}}>{label}</span>
-      <div style={{display:'flex',alignItems:'center',gap:4}}>
-        {prefix && <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{prefix}</span>}
-        <input type={type} value={form[field]||''} min={min} step={step} placeholder={placeholder}
-          onChange={e=>set(field, type==='number'?parseFloat(e.target.value)||0:e.target.value)}
-          style={{fontFamily:mono,fontSize:13,width:100,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}/>
-        {suffix && <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{suffix}</span>}
-      </div>
-    </div>
-  )
-
-  const ResultRow = ({ label, value, color, big }) => (
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
-      <span style={{fontFamily:mono,fontSize:big?13:11,color:T.muted}}>{label}</span>
-      <span style={{fontFamily:mono,fontSize:big?18:13,fontWeight:big?700:600,color:color||T.text}}>{value}</span>
-    </div>
-  )
+  // InputRow and ResultRow are defined at module level to avoid focus loss
 
   const sc = STATUS_CFG[form.status]||STATUS_CFG.analysing
   const co = companies.find(c=>c.id===form.company_id)
@@ -367,6 +381,9 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
             style={{fontFamily:mono,fontSize:11,background:sc.color+'22',border:`1px solid ${sc.color}44`,color:sc.color,borderRadius:8,padding:'6px 10px',fontWeight:700}}>
             {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
           </select>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave} disabled={saving}>
+            {saving?'Saving…':'💾 Save'}
+          </button>
           {form.status === 'completed' && (
             <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>onConvert&&onConvert(form)}>Convert to Property →</button>
           )}
@@ -376,8 +393,18 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
 
       {/* Meta row */}
       <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
-        <input value={form.address||''} onChange={e=>set('address',e.target.value)} onBlur={handleSave}
-          placeholder="Property address (optional)"
+        <input value={form.address||''} onChange={e=>set('address',e.target.value)}
+          onBlur={async e => {
+            const addr = e.target.value.trim()
+            // Auto-rename deal if name is still the default
+            if (addr && (!form.name || form.name === 'New Deal' || form.name === 'New Deal (copy)')) {
+              set('name', addr)
+              await onSave({ ...form, address: addr, name: addr })
+            } else {
+              await handleSave()
+            }
+          }}
+          placeholder="Property address (auto-names deal)"
           style={{flex:2,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
         <select value={form.company_id||''} onChange={e=>{set('company_id',e.target.value||null);handleSave()}}
           style={{flex:1,minWidth:160,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
@@ -442,7 +469,7 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
             {/* Acquisition costs */}
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Acquisition costs</span>
-              <InputRow label="Purchase price" field="purchase_price"/>
+              <InputRow label="Purchase price" field="purchase_price"form={form} set={set} T={T}/>
               <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Stamp duty (SDLT)</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -460,22 +487,22 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
                   )}
                 </div>
               </div>
-              <InputRow label="Legal fees" field="legal_fees"/>
+              <InputRow label="Legal fees" field="legal_fees"form={form} set={set} T={T}/>
               <InputRow label="Survey / valuation" field="survey_cost"/>
-              {form.is_auction && <InputRow label="Auction fees" field="auction_fees"/>}
+              {form.is_auction && <InputRow label="Auction fees" field="auction_fees"form={form} set={set} T={T}/>}
               <InputRow label="Broker / finder fee" field="broker_fee"/>
-              <InputRow label="Refurbishment cost" field="refurb_cost"/>
-              <InputRow label={form.other_costs_label||'Other costs'} field="other_costs"/>
+              <InputRow label="Refurbishment cost" field="refurb_cost"form={form} set={set} T={T}/>
+              <InputRow label={form.other_costs_label||'Other costs'} field="other_costs"form={form} set={set} T={T}/>
             </div>
 
             {/* Finance */}
             {form.purchase_type !== 'cash' && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
                 <span style={sect}>Finance</span>
-                <InputRow label="Deposit" field="deposit_percent" prefix="" suffix="%" min={0} step={1}/>
-                <InputRow label="Mortgage rate" field="mortgage_rate" prefix="" suffix="% p.a." min={0} step={0.1}/>
-                <InputRow label="Mortgage term" field="mortgage_term" prefix="" suffix="years" min={1} step={1}/>
-                <InputRow label="Arrangement fee" field="mortgage_fee_percent" prefix="" suffix="% of loan" min={0} step={0.1}/>
+                <InputRow label="Deposit" field="deposit_percent" prefix="" suffix="%" min={0} step={1}form={form} set={set} T={T}/>
+                <InputRow label="Mortgage rate" field="mortgage_rate" prefix="" suffix="% p.a." min={0} step={0.1}form={form} set={set} T={T}/>
+                <InputRow label="Mortgage term" field="mortgage_term" prefix="" suffix="years" min={1} step={1}form={form} set={set} T={T}/>
+                <InputRow label="Arrangement fee" field="mortgage_fee_percent" prefix="" suffix="% of loan" min={0} step={0.1}form={form} set={set} T={T}/>
                 {num('mortgage_fee_percent') > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',fontFamily:mono,fontSize:11}}>
                     <span style={{color:T.muted}}>= {fmt(loanAmount * num('mortgage_fee_percent') / 100)} added to costs</span>
@@ -488,35 +515,35 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Rental income</span>
               {(form.deal_type==='btl'||form.deal_type==='brrr') && (
-                <InputRow label="Monthly rent" field="monthly_rent"/>
+                <InputRow label="Monthly rent" field="monthly_rent"form={form} set={set} T={T}/>
               )}
               {form.deal_type==='hmo' && (<>
-                <InputRow label="Number of rooms" field="hmo_rooms" prefix="" suffix="rooms" min={1} step={1}/>
-                <InputRow label="Rent per room" field="hmo_rent_per_room"/>
+                <InputRow label="Number of rooms" field="hmo_rooms" prefix="" suffix="rooms" min={1} step={1}form={form} set={set} T={T}/>
+                <InputRow label="Rent per room" field="hmo_rent_per_room"form={form} set={set} T={T}/>
                 <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                   <span style={{fontFamily:mono,fontSize:12,color:T.muted}}>Total HMO income</span>
                   <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.green}}>{fmt(grossMonthlyRent)}/mo</span>
                 </div>
               </>)}
               {form.deal_type==='sa' && (<>
-                <InputRow label="Nightly rate" field="sa_nightly_rate"/>
-                <InputRow label="Occupancy" field="sa_occupancy_percent" prefix="" suffix="%" min={0} max={100} step={1}/>
+                <InputRow label="Nightly rate" field="sa_nightly_rate"form={form} set={set} T={T}/>
+                <InputRow label="Occupancy" field="sa_occupancy_percent" prefix="" suffix="%" min={0} max={100} step={1}form={form} set={set} T={T}/>
               </>)}
-              <InputRow label="Void allowance" field="void_percent" prefix="" suffix="%" min={0} max={100} step={1}/>
+              <InputRow label="Void allowance" field="void_percent" prefix="" suffix="%" min={0} max={100} step={1}form={form} set={set} T={T}/>
             </div>
 
             {/* Running costs */}
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Monthly running costs</span>
-              <InputRow label="Letting agent fee" field="agent_fee_percent" prefix="" suffix="% of rent" min={0} step={1}/>
-              <InputRow label="Maintenance reserve" field="maintenance_percent" prefix="" suffix="% of rent" min={0} step={1}/>
-              <InputRow label="Buildings insurance" field="insurance_monthly"/>
-              <InputRow label="Service charge" field="service_charge_monthly"/>
-              <InputRow label="Ground rent" field="ground_rent_monthly"/>
+              <InputRow label="Letting agent fee" field="agent_fee_percent" prefix="" suffix="% of rent" min={0} step={1}form={form} set={set} T={T}/>
+              <InputRow label="Maintenance reserve" field="maintenance_percent" prefix="" suffix="% of rent" min={0} step={1}form={form} set={set} T={T}/>
+              <InputRow label="Buildings insurance" field="insurance_monthly"form={form} set={set} T={T}/>
+              <InputRow label="Service charge" field="service_charge_monthly"form={form} set={set} T={T}/>
+              <InputRow label="Ground rent" field="ground_rent_monthly"form={form} set={set} T={T}/>
               {form.deal_type==='hmo' && (<>
-                <InputRow label="Utilities (monthly)" field="hmo_utilities_monthly"/>
-                <InputRow label="Council tax (monthly)" field="hmo_council_tax_monthly"/>
-                <InputRow label="HMO licence (annual)" field="hmo_licence_annual"/>
+                <InputRow label="Utilities (monthly)" field="hmo_utilities_monthly"form={form} set={set} T={T}/>
+                <InputRow label="Council tax (monthly)" field="hmo_council_tax_monthly"form={form} set={set} T={T}/>
+                <InputRow label="HMO licence (annual)" field="hmo_licence_annual"form={form} set={set} T={T}/>
               </>)}
             </div>
 
@@ -524,10 +551,10 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
             {(form.deal_type==='brrr') && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
                 <span style={sect}>BRRR — Refinance</span>
-                <InputRow label="Estimated end value (post refurb)" field="brrr_end_value"/>
-                <InputRow label="Refinance LTV" field="brrr_refinance_ltv" prefix="" suffix="%" min={0} max={90} step={1}/>
-                <InputRow label="New mortgage rate" field="brrr_new_rate" prefix="" suffix="% p.a." min={0} step={0.1}/>
-                <InputRow label="New mortgage term" field="brrr_new_term" prefix="" suffix="years" min={1} step={1}/>
+                <InputRow label="Estimated end value (post refurb)" field="brrr_end_value"form={form} set={set} T={T}/>
+                <InputRow label="Refinance LTV" field="brrr_refinance_ltv" prefix="" suffix="%" min={0} max={90} step={1}form={form} set={set} T={T}/>
+                <InputRow label="New mortgage rate" field="brrr_new_rate" prefix="" suffix="% p.a." min={0} step={0.1}form={form} set={set} T={T}/>
+                <InputRow label="New mortgage term" field="brrr_new_term" prefix="" suffix="years" min={1} step={1}form={form} set={set} T={T}/>
               </div>
             )}
 
@@ -548,44 +575,44 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
           <div style={{position:'sticky',top:80}}>
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Acquisition summary</span>
-              <ResultRow label="Purchase price" value={fmt(num('purchase_price'))}/>
-              <ResultRow label="Stamp duty" value={fmt(sd)} color={T.amber}/>
-              {mortgageFee > 0 && <ResultRow label={`Arrangement fee (${num('mortgage_fee_percent')}%)`} value={fmt(mortgageFee)} color={T.amber}/>}
-              <ResultRow label="All other costs" value={fmt(totalAcquisition-num('purchase_price')-sd-mortgageFee)}/>
-              <ResultRow label="Total capital required" value={fmt(totalAcquisition)} big/>
+              <ResultRow label="Purchase price" value={fmt(num('purchase_price'))}T={T}/>
+              <ResultRow label="Stamp duty" value={fmt(sd)} color={T.amber}T={T}/>
+              {mortgageFee > 0 && <ResultRow label={`Arrangement fee (${num('mortgage_fee_percent')}%)`} value={fmt(mortgageFee)} color={T.amber}T={T}/>}
+              <ResultRow label="All other costs" value={fmt(totalAcquisition-num('purchase_price')-sd-mortgageFee)}T={T}/>
+              <ResultRow label="Total capital required" value={fmt(totalAcquisition)} bigT={T}/>
               {form.purchase_type !== 'cash' && (<>
-                <ResultRow label="Mortgage loan" value={fmt(loanAmount)} color={T.blue}/>
-                <ResultRow label="Cash in deal" value={fmt(cashIn)} color={T.gold} big/>
-                <ResultRow label="Monthly repayment" value={fmt(monthlyRepayment)} color={T.amber}/>
+                <ResultRow label="Mortgage loan" value={fmt(loanAmount)} color={T.blue}T={T}/>
+                <ResultRow label="Cash in deal" value={fmt(cashIn)} color={T.gold} bigT={T}/>
+                <ResultRow label="Monthly repayment" value={fmt(monthlyRepayment)} color={T.amber}T={T}/>
               </>)}
             </div>
 
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Returns</span>
-              <ResultRow label="Gross monthly rent" value={fmt(grossMonthlyRent)}/>
-              <ResultRow label="Effective rent (after void)" value={fmt(effectiveRent)}/>
-              <ResultRow label="Total monthly costs" value={fmt(totalMonthlyCosts)} color={T.red}/>
+              <ResultRow label="Gross monthly rent" value={fmt(grossMonthlyRent)}T={T}/>
+              <ResultRow label="Effective rent (after void)" value={fmt(effectiveRent)}T={T}/>
+              <ResultRow label="Total monthly costs" value={fmt(totalMonthlyCosts)} color={T.red}T={T}/>
               <ResultRow label="Monthly profit / loss" value={fmt(monthlyProfit)} color={monthlyProfit>0?T.green:T.red} big/>
-              <ResultRow label="Annual profit" value={fmt(annualProfit)} color={monthlyProfit>0?T.green:T.red}/>
+              <ResultRow label="Annual profit" value={fmt(annualProfit)} color={monthlyProfit>0?T.green:T.red}T={T}/>
             </div>
 
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Yield &amp; return metrics</span>
-              <ResultRow label="Gross yield" value={fmtPct(grossYield)} color={grossYield>=6?T.green:grossYield>=4?T.amber:T.red} big/>
-              <ResultRow label="Net yield (after all costs)" value={fmtPct(netYield)} color={netYield>=4?T.green:netYield>=2?T.amber:T.red}/>
-              <ResultRow label="Cash-on-cash return" value={fmtPct(cashOnCash)} color={cashOnCash>=8?T.green:cashOnCash>=5?T.amber:T.red} big/>
-              <ResultRow label="ROCE" value={fmtPct(roce)} color={roce>=8?T.green:roce>=5?T.amber:T.red}/>
-              <ResultRow label="Payback period" value={payback>0?payback.toFixed(1)+' years':'—'}/>
+              <ResultRow label="Gross yield" value={fmtPct(grossYield)} color={grossYield>=6?T.green:grossYield>=4?T.amber:T.red} bigT={T}/>
+              <ResultRow label="Net yield (after all costs)" value={fmtPct(netYield)} color={netYield>=4?T.green:netYield>=2?T.amber:T.red}T={T}/>
+              <ResultRow label="Cash-on-cash return" value={fmtPct(cashOnCash)} color={cashOnCash>=8?T.green:cashOnCash>=5?T.amber:T.red} bigT={T}/>
+              <ResultRow label="ROCE" value={fmtPct(roce)} color={roce>=8?T.green:roce>=5?T.amber:T.red}T={T}/>
+              <ResultRow label="Payback period" value={payback>0?payback.toFixed(1)+' years':'—'}T={T}/>
             </div>
 
             {form.deal_type === 'brrr' && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
                 <span style={sect}>BRRR analysis</span>
-                <ResultRow label="New loan at refinance" value={fmt(brrrNewLoan)} color={T.blue}/>
-                <ResultRow label="New monthly repayment" value={fmt(brrrNewRepayment)} color={T.amber}/>
-                <ResultRow label="Capital released" value={fmt(brrrNewLoan - loanAmount)} color={T.green}/>
-                <ResultRow label="Money left in deal" value={fmt(brrrMoneyLeft)} color={brrrMoneyLeft<cashIn?T.green:T.muted} big/>
-                <ResultRow label="Cash-on-cash (post refi)" value={fmtPct(brrrCashOnCash)} color={T.green}/>
+                <ResultRow label="New loan at refinance" value={fmt(brrrNewLoan)} color={T.blue}T={T}/>
+                <ResultRow label="New monthly repayment" value={fmt(brrrNewRepayment)} color={T.amber}T={T}/>
+                <ResultRow label="Capital released" value={fmt(brrrNewLoan - loanAmount)} color={T.green}T={T}/>
+                <ResultRow label="Money left in deal" value={fmt(brrrMoneyLeft)} color={brrrMoneyLeft<cashIn?T.green:T.muted} bigT={T}/>
+                <ResultRow label="Cash-on-cash (post refi)" value={fmtPct(brrrCashOnCash)} color={T.green}T={T}/>
               </div>
             )}
           </div>
@@ -599,7 +626,7 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
 
       {/* ── CONTACTS TAB ── */}
       {tab === 'contacts' && (
-        <ContactsTab dealId={form.id} T={T} showToast={showToast}/>
+        <ContactsTab dealId={form.id} userId={user?.id} T={T} showToast={showToast}/>
       )}
 
       {/* ── DOCUMENTS TAB ── */}
@@ -742,14 +769,19 @@ function PurchaseTracker({ deal, onUpdate, T, showToast }) {
 }
 
 // ── CONTACTS TAB ──────────────────────────────────────────────────────────────
-function ContactsTab({ dealId, T, showToast }) {
-  const [contacts, setContacts] = useState([])
-  const [editing, setEditing]   = useState(null)
-  const [form, setForm]         = useState({})
+function ContactsTab({ dealId, userId, T, showToast }) {
+  const [contacts, setContacts]       = useState([])
+  const [addressBook, setAddressBook] = useState([])
+  const [editing, setEditing]         = useState(null)
+  const [form, setForm]               = useState({})
+  const [showBook, setShowBook]       = useState(false)
+  const [bookFilter, setBookFilter]   = useState('')
+  const [abView, setAbView]           = useState('deal') // 'deal' | 'book'
 
   useEffect(() => {
     api.fetchDealContacts(dealId).then(setContacts).catch(()=>{})
-  }, [dealId])
+    if (userId) api.fetchAddressBook(userId).then(setAddressBook).catch(()=>{})
+  }, [dealId, userId])
 
   function startNew() { setForm({ role:'solicitor', name:'', company_name:'', phone:'', email:'', notes:'' }); setEditing('new') }
   function startEdit(c) { setForm({...c}); setEditing(c.id) }
@@ -763,6 +795,23 @@ function ContactsTab({ dealId, T, showToast }) {
     } catch(e) { showToast(e.message,'error') }
   }
 
+  async function saveToBook() {
+    try {
+      const entry = await api.saveToAddressBook(userId, form)
+      setAddressBook(prev=>[...prev, entry])
+      showToast('Saved to address book')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  async function addFromBook(entry) {
+    const { id, user_id, created_at, updated_at, ...fields } = entry
+    try {
+      const saved = await api.upsertDealContact(dealId, fields)
+      setContacts(prev=>[...prev, saved])
+      showToast(`${entry.name} added`)
+    } catch(e) { showToast(e.message,'error') }
+  }
+
   async function remove(id) {
     try {
       await api.deleteDealContact(id)
@@ -771,86 +820,139 @@ function ContactsTab({ dealId, T, showToast }) {
     } catch(e) { showToast(e.message,'error') }
   }
 
+  async function deleteFromBook(id) {
+    if (!confirm('Remove from address book?')) return
+    try {
+      await api.deleteAddressBookEntry(id)
+      setAddressBook(prev=>prev.filter(e=>e.id!==id))
+      showToast('Removed from address book')
+    } catch(e) {}
+  }
+
+  const filteredBook = addressBook.filter(e =>
+    !bookFilter || e.name?.toLowerCase().includes(bookFilter.toLowerCase()) ||
+    e.company_name?.toLowerCase().includes(bookFilter.toLowerCase()) ||
+    e.role?.toLowerCase().includes(bookFilter.toLowerCase())
+  )
+
+  const label = { fontFamily:mono, fontSize:10, color:T.muted, display:'block', marginBottom:4 }
+  const inp = { fontFamily:mono, fontSize:12, background:T.surface, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 10px', outline:'none', width:'100%' }
+
   return (
     <div>
-      <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
-        <span style={{fontFamily:mono,fontSize:12,color:T.muted}}>Key contacts for this deal</span>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={startNew}>+ Add Contact</button>
+      {/* Tab switcher */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
+        <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
+          {[['deal','This deal'],['book','📒 Address book']].map(([k,l])=>(
+            <button key={k} onClick={()=>setAbView(k)} style={{fontFamily:mono,fontSize:11,padding:'7px 16px',border:'none',cursor:'pointer',background:abView===k?T.gold+'22':'transparent',color:abView===k?T.gold:T.muted,fontWeight:abView===k?700:400}}>{l}</button>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          {abView==='deal' && <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setAbView('book')}}>📒 Pick from address book</button>}
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={startNew}>+ New contact</button>
+        </div>
       </div>
-      {contacts.length===0&&!editing&&(
-        <div className="card" style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
-          No contacts yet. Add your solicitor, estate agent and mortgage broker.
+
+      {/* ── DEAL CONTACTS ── */}
+      {abView==='deal' && (
+        <div style={{display:'grid',gap:12}}>
+          {contacts.length===0&&!editing&&(
+            <div className="card" style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
+              No contacts yet. Add your solicitor, estate agent and mortgage broker, or pick from your address book.
+            </div>
+          )}
+          {contacts.map(c=>(
+            <div key={c.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 20px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:8}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:36,height:36,borderRadius:18,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:14,fontWeight:700,color:T.gold}}>
+                    {(c.name?.[0]||'?').toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:600,color:T.text}}>{c.name||'—'}</div>
+                    <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{CONTACT_ROLES[c.role]||c.role}{c.company_name?` · ${c.company_name}`:''}</div>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>startEdit(c)} style={{fontFamily:mono,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Edit</button>
+                  <button onClick={()=>remove(c.id)} style={{fontFamily:mono,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Remove</button>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:mono,fontSize:11,color:T.muted}}>
+                {c.phone&&<a href={`tel:${c.phone}`} style={{color:T.muted,textDecoration:'none'}}>📞 {c.phone}</a>}
+                {c.email&&<a href={`mailto:${c.email}`} style={{color:T.gold,textDecoration:'none'}}>✉ {c.email}</a>}
+                {c.notes&&<span>📝 {c.notes}</span>}
+              </div>
+            </div>
+          ))}
+
+          {editing&&(
+            <div style={{background:T.card,border:`1px solid ${T.gold}44`,borderRadius:12,padding:'20px 22px'}}>
+              <div style={{fontFamily:mono,fontSize:10,color:T.gold,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>{editing==='new'?'New contact':'Edit contact'}</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                <div><label style={label}>Role</label>
+                  <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))} style={inp}>
+                    {Object.entries(CONTACT_ROLES).map(([k,l])=>(<option key={k} value={k}>{l}</option>))}
+                  </select>
+                </div>
+                <div><label style={label}>Name</label><input value={form.name||''} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Full name" style={inp}/></div>
+                <div><label style={label}>Company</label><input value={form.company_name||''} onChange={e=>setForm(p=>({...p,company_name:e.target.value}))} placeholder="Firm name" style={inp}/></div>
+                <div><label style={label}>Phone</label><input value={form.phone||''} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} placeholder="07700 900000" style={inp}/></div>
+                <div><label style={label}>Email</label><input value={form.email||''} onChange={e=>setForm(p=>({...p,email:e.target.value}))} placeholder="contact@firm.com" style={inp}/></div>
+                <div><label style={label}>Notes</label><input value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Optional notes" style={inp}/></div>
+              </div>
+              <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                <button className="btn btn-gold" style={{fontSize:12}} onClick={save}>Save to deal</button>
+                {editing==='new'&&form.name&&(
+                  <button className="btn btn-ghost" style={{fontSize:12}} onClick={async()=>{await save();await saveToBook()}}>Save to deal + address book</button>
+                )}
+                <button className="btn btn-ghost" style={{fontSize:12}} onClick={()=>setEditing(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
-      <div style={{display:'grid',gap:12}}>
-        {contacts.map(c=>(
-          <div key={c.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 20px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:8}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:36,height:36,borderRadius:18,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:14,fontWeight:700,color:T.gold}}>
-                  {(c.name?.[0]||'?').toUpperCase()}
-                </div>
-                <div>
-                  <div style={{fontSize:14,fontWeight:600,color:T.text}}>{c.name||'—'}</div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{CONTACT_ROLES[c.role]||c.role} · {c.company_name||'—'}</div>
-                </div>
-              </div>
-              <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>startEdit(c)} style={{fontFamily:mono,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Edit</button>
-                <button onClick={()=>remove(c.id)} style={{fontFamily:mono,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Remove</button>
-              </div>
-            </div>
-            <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:mono,fontSize:11,color:T.muted}}>
-              {c.phone&&<span>📞 {c.phone}</span>}
-              {c.email&&<span>✉ {c.email}</span>}
-              {c.notes&&<span>📝 {c.notes}</span>}
-            </div>
+
+      {/* ── ADDRESS BOOK ── */}
+      {abView==='book' && (
+        <div>
+          <div style={{display:'flex',gap:10,marginBottom:16}}>
+            <input value={bookFilter} onChange={e=>setBookFilter(e.target.value)}
+              placeholder="Search by name, company or role…"
+              style={{flex:1,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
           </div>
-        ))}
-        {editing&&(
-          <div style={{background:T.card,border:`1px solid ${T.gold}44`,borderRadius:12,padding:'20px 22px'}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.gold,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>{editing==='new'?'New contact':'Edit contact'}</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Role</label>
-                <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))}
-                  style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 10px'}}>
-                  {Object.entries(CONTACT_ROLES).map(([k,l])=>(<option key={k} value={k}>{l}</option>))}
-                </select>
-              </div>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Name</label>
-                <input value={form.name||''} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Full name"
-                  style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 10px',outline:'none'}}/>
-              </div>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Company</label>
-                <input value={form.company_name||''} onChange={e=>setForm(p=>({...p,company_name:e.target.value}))} placeholder="Company name"
-                  style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 10px',outline:'none'}}/>
-              </div>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Phone</label>
-                <input value={form.phone||''} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} placeholder="07700 900000"
-                  style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 10px',outline:'none'}}/>
-              </div>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Email</label>
-                <input value={form.email||''} onChange={e=>setForm(p=>({...p,email:e.target.value}))} placeholder="contact@firm.com"
-                  style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 10px',outline:'none'}}/>
-              </div>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Notes</label>
-                <input value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Optional notes"
-                  style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 10px',outline:'none'}}/>
-              </div>
+          {filteredBook.length===0&&(
+            <div className="card" style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
+              {addressBook.length===0?'Your address book is empty. When adding contacts to deals, click "Save to deal + address book" to build it up.':'No contacts match your search.'}
             </div>
-            <div style={{display:'flex',gap:10}}>
-              <button className="btn btn-gold" style={{fontSize:12}} onClick={save}>Save Contact</button>
-              <button className="btn btn-ghost" style={{fontSize:12}} onClick={()=>setEditing(null)}>Cancel</button>
-            </div>
+          )}
+          <div style={{display:'grid',gap:10}}>
+            {filteredBook.map(entry=>(
+              <div key={entry.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                <div style={{width:36,height:36,borderRadius:18,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:14,fontWeight:700,color:T.gold,flexShrink:0}}>
+                  {(entry.name?.[0]||'?').toUpperCase()}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:600,color:T.text}}>{entry.name}</div>
+                  <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{CONTACT_ROLES[entry.role]||entry.role}{entry.company_name?` · ${entry.company_name}`:''}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:2}}>
+                    {entry.phone&&<span style={{marginRight:12}}>📞 {entry.phone}</span>}
+                    {entry.email&&<span>✉ {entry.email}</span>}
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>addFromBook(entry)} style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>
+                    + Add to deal
+                  </button>
+                  <button onClick={()=>deleteFromBook(entry.id)} style={{fontFamily:mono,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -15,6 +15,7 @@ import MarketingSite from './components/MarketingSite'
 import BillingPage from './components/BillingPage'
 import AdminDashboard from './components/AdminDashboard'
 import DealsPage from './components/DealsPage'
+import ReportsPage from './components/ReportsPage'
 import OnboardingTour from './components/OnboardingTour'
 
 
@@ -867,7 +868,7 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
           {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs}/>}
-          {view==='reports'&&<ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/>}
+          {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
           {view==='detail'&&selected&&<div className="fade">

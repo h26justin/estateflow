@@ -933,3 +933,96 @@ export async function fetchAllRentPayments(companyIds, fromDate, toDate) {
   if (error) throw error
   return (data || []).filter(d => d.property && companyIds.includes(d.property.company_id))
 }
+
+// ── REPORTS DATA FETCHING ─────────────────────────────────────────────────────
+export async function fetchAllComplianceItems(userId) {
+  const { data, error } = await supabase.from('compliance_items')
+    .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
+    .eq('user_id', userId).order('expiry_date')
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAllMaintenanceJobs(userId) {
+  const { data, error } = await supabase.from('maintenance_jobs')
+    .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
+    .eq('user_id', userId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAllTenancies(userId) {
+  const { data, error } = await supabase.from('tenancy_details')
+    .select('*, property:properties(id,name,company_id,rent_pcm,company:companies(name,abbr,color))')
+    .eq('user_id', userId)
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAllRentPayments(userId) {
+  const { data, error } = await supabase.from('rent_payments')
+    .select('*, property:properties(id,name,company_id,rent_pcm,company:companies(name,abbr,color))')
+    .eq('user_id', userId).order('payment_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAllExpenses(userId) {
+  const { data, error } = await supabase.from('property_expenses')
+    .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
+    .eq('user_id', userId).order('date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function saveCompanyYearType(companyId, yearType) {
+  const { error } = await supabase.from('company_settings').upsert(
+    { company_id: companyId, year_type: yearType },
+    { onConflict: 'company_id' }
+  )
+  if (error) throw error
+}
+
+export async function uploadCompanyLogo(companyId, file) {
+  const ext = file.name.split('.').pop()
+  const path = `company_logos/${companyId}.${ext}`
+  await supabase.storage.from('property-documents').remove([path]).catch(()=>{})
+  const { error: upErr } = await supabase.storage.from('property-documents').upload(path, file, { upsert: true })
+  if (upErr) throw upErr
+  const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
+  const { error } = await supabase.from('company_settings').upsert(
+    { company_id: companyId, logo_url: publicUrl, logo_path: path },
+    { onConflict: 'company_id' }
+  )
+  if (error) throw error
+  return publicUrl
+}
+
+// ── ADDRESS BOOK ──────────────────────────────────────────────────────────────
+export async function fetchAddressBook(userId) {
+  const { data, error } = await supabase.from('address_book')
+    .select('*').eq('user_id', userId).order('name')
+  if (error) throw error
+  return data || []
+}
+
+export async function saveToAddressBook(userId, contact) {
+  const { id, deal_id, created_at, ...fields } = contact
+  const { data, error } = await supabase.from('address_book')
+    .insert({ ...fields, user_id: userId, updated_at: new Date().toISOString() })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateAddressBookEntry(id, fields) {
+  const { data, error } = await supabase.from('address_book')
+    .update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteAddressBookEntry(id) {
+  const { error } = await supabase.from('address_book').delete().eq('id', id)
+  if (error) throw error
+}

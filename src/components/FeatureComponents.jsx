@@ -665,6 +665,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     { key: 'billing',       label: '💳 Billing' },
     { key: 'navbar',        label: '🧭 Navigation' },
     { key: 'branding',      label: '🎨 Company Branding' },
+    { key: 'branding',      label: '🎨 Branding & Logos' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
     ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Platform Admin' }] : []),
     { key: 'features',      label: '⚙ Features' },
@@ -924,6 +925,10 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
           showToast={showToast}
           T={T}
         />
+      )}
+
+      {settingsTab==='branding' && (
+        <BrandingPanel companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} T={T}/>
       )}
 
       {settingsTab==='milestones' && (
@@ -2395,6 +2400,98 @@ function BrandingSettingsPanel({ companies, companySettings, setCompanySettings,
 
         </div>
       )}
+    </div>
+  )
+}
+
+// ── BRANDING PANEL ────────────────────────────────────────────────────────────
+function BrandingPanel({ companies, companySettings, setCompanySettings, user, showToast, T }) {
+  const mono = "'DM Mono',monospace"
+  const [uploading, setUploading] = useState(null)
+
+  async function handleLogoUpload(companyId, file) {
+    if (!file) return
+    setUploading(companyId)
+    try {
+      const url = await api.uploadCompanyLogo(companyId, file)
+      setCompanySettings(prev => ({
+        ...prev,
+        [companyId]: { ...(prev[companyId]||{}), logo_url: url }
+      }))
+      showToast('Logo uploaded successfully')
+    } catch(e) { showToast(e.message || 'Upload failed', 'error') }
+    setUploading(null)
+  }
+
+  async function removeLogo(companyId) {
+    try {
+      await supabase.from('company_settings').upsert(
+        { company_id: companyId, logo_url: null, logo_path: null },
+        { onConflict: 'company_id' }
+      )
+      setCompanySettings(prev => ({
+        ...prev,
+        [companyId]: { ...(prev[companyId]||{}), logo_url: null }
+      }))
+      showToast('Logo removed')
+    } catch(e) { showToast(e.message, 'error') }
+  }
+
+  return (
+    <div>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Company logos for PDF reports</div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
+          Upload a logo for each company. It will appear on all PDF reports generated for that company. Supported formats: PNG, JPG, SVG. Recommended: PNG with transparent background, at least 400px wide.
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: 16 }}>
+        {companies.map(co => {
+          const cs = companySettings?.[co.id] || {}
+          const isUploading = uploading === co.id
+          return (
+            <div key={co.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', borderLeft: `3px solid ${co.color||T.gold}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: co.color||T.gold, background: (co.color||T.gold)+'22', padding: '3px 10px', borderRadius: 4 }}>{co.abbr}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{co.name}</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
+                {/* Logo preview */}
+                <div style={{ width: 180, height: 80, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                  {cs.logo_url
+                    ? <img src={cs.logo_url} alt={co.name} style={{ maxWidth: '90%', maxHeight: '70%', objectFit: 'contain' }}/>
+                    : <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>No logo uploaded</span>
+                  }
+                </div>
+
+                {/* Upload controls */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <label style={{ cursor: 'pointer' }}>
+                      <span className="btn btn-gold" style={{ fontSize: 11, display: 'inline-block' }}>
+                        {isUploading ? 'Uploading…' : cs.logo_url ? '↑ Replace logo' : '↑ Upload logo'}
+                      </span>
+                      <input type="file" accept="image/*" style={{ display: 'none' }} disabled={isUploading}
+                        onChange={e => handleLogoUpload(co.id, e.target.files?.[0])}/>
+                    </label>
+                    {cs.logo_url && (
+                      <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red+'44' }} onClick={() => removeLogo(co.id)}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>
+                    This logo will appear on all PDF reports for {co.name}.<br/>
+                    PNG with transparent background works best on dark PDF headers.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
