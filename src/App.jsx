@@ -14,6 +14,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import MarketingSite from './components/MarketingSite'
 import BillingPage from './components/BillingPage'
 import AdminDashboard from './components/AdminDashboard'
+import TenantPortal from './components/TenantPortal'
 import DealsPage from './components/DealsPage'
 import OnboardingTour from './components/OnboardingTour'
 
@@ -155,6 +156,7 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
+  const [isTenant, setIsTenant] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
@@ -279,6 +281,20 @@ export default function App() {
           const { data: profileData } = await supabase.from('user_profiles').select('platform_admin').eq('user_id', user.id).single()
           setIsPlatformAdmin(profileData?.platform_admin === true)
         } catch(e) { setIsPlatformAdmin(false) }
+        // Check for tenant invite link param
+        const urlParams = new URLSearchParams(window.location.search)
+        const tenantPropertyId = urlParams.get('tenant_property')
+        if (tenantPropertyId) {
+          try {
+            await api.registerTenantProfile(user.id, tenantPropertyId)
+            window.history.replaceState({}, '', window.location.pathname)
+          } catch(e) {}
+        }
+        // Check if this user is a tenant (not a landlord)
+        try {
+          const tenantProfiles = await api.checkIsTenant(user.id)
+          if (tenantProfiles.length > 0) { setIsTenant(true); return }
+        } catch(e) {}
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
@@ -410,6 +426,10 @@ export default function App() {
       )}
     </>
   )
+  if (isTenant) return (
+    <TenantPortal user={user} onSignOut={()=>supabase.auth.signOut()}/>
+  )
+
   if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
 
 

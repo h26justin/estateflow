@@ -1064,3 +1064,177 @@ export async function sendAdminEmail(session, to, subject, message) {
   if (data.error) throw new Error(data.error)
   return data
 }
+
+// ── TENANT PORTAL ─────────────────────────────────────────────────────────────
+export async function checkIsTenant(userId) {
+  try {
+    const { data } = await supabase.from('tenant_profiles')
+      .select('*, property:properties(*, company:companies(*))').eq('user_id', userId)
+    return data || []
+  } catch(e) { return [] }
+}
+
+export async function inviteTenant(propertyId, email, invitedBy) {
+  // Create a Supabase auth invite
+  const { data, error } = await supabase.auth.admin ? 
+    { error: new Error('Use edge function') } : { error: new Error('Use edge function') }
+  // Store pending invite in a simple way - email the tenant with a signup link
+  const baseUrl = window.location.origin
+  const signupUrl = `${baseUrl}?tenant_property=${propertyId}`
+  return { signupUrl, email }
+}
+
+export async function registerTenantProfile(userId, propertyId) {
+  const { data, error } = await supabase.from('tenant_profiles')
+    .upsert({ user_id: userId, property_id: propertyId }, { onConflict: 'user_id,property_id' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchTenantProperty(userId) {
+  const { data, error } = await supabase.from('tenant_profiles')
+    .select(`
+      *,
+      property:properties(
+        *,
+        company:companies(*, contact_mode, agent_name, agent_phone, agent_email)
+      )
+    `)
+    .eq('user_id', userId)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchTenantRentPayments(propertyId, userId) {
+  const { data, error } = await supabase.from('rent_payments')
+    .select('*').eq('property_id', propertyId).order('payment_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchTenantDocuments(propertyId) {
+  const { data, error } = await supabase.from('property_documents')
+    .select('*').eq('property_id', propertyId).eq('shared_with_tenant', true)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchTenantMaintenance(propertyId, userId) {
+  const { data, error } = await supabase.from('maintenance_jobs')
+    .select('*').eq('property_id', propertyId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function submitMaintenanceRequest(propertyId, tenantUserId, title, description, priority) {
+  const { data, error } = await supabase.from('maintenance_jobs').insert({
+    property_id: propertyId, title, description, priority, status: 'open',
+    reported_by_tenant: true, user_id: tenantUserId
+  }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchTenantMessages(propertyId, tenantUserId) {
+  const { data, error } = await supabase.from('tenant_messages')
+    .select('*').eq('property_id', propertyId).order('created_at')
+  if (error) throw error
+  return data || []
+}
+
+export async function sendTenantMessage(propertyId, tenantUserId, message, senderType = 'tenant') {
+  const { data, error } = await supabase.from('tenant_messages')
+    .insert({ property_id: propertyId, tenant_user_id: tenantUserId, message, sender_type: senderType })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function markMessagesRead(propertyId, tenantUserId) {
+  await supabase.from('tenant_messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('property_id', propertyId).eq('sender_type', 'landlord').is('read_at', null)
+}
+
+export async function fetchTenancyDetails(propertyId) {
+  const { data } = await supabase.from('tenancy_details')
+    .select('*').eq('property_id', propertyId).single()
+  return data
+}
+
+export async function setDocumentSharedWithTenant(docId, shared) {
+  const { error } = await supabase.from('property_documents')
+    .update({ shared_with_tenant: shared }).eq('id', docId)
+  if (error) throw error
+}
+
+export async function saveCompanyContactMode(companyId, mode, agentName, agentPhone, agentEmail) {
+  const { error } = await supabase.from('companies')
+    .update({ contact_mode: mode, agent_name: agentName, agent_phone: agentPhone, agent_email: agentEmail })
+    .eq('id', companyId)
+  if (error) throw error
+}
+
+export async function savePropertyContactOverride(propertyId, override) {
+  const { error } = await supabase.from('properties')
+    .update({ contact_mode_override: override }).eq('id', propertyId)
+  if (error) throw error
+}
+
+// ── SUBDOMAIN / COMPANY LOOKUP ────────────────────────────────────────────────
+export async function fetchCompanyBySubdomain(subdomain) {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('*, company_settings:company_settings(*)')
+    .eq('subdomain', subdomain.toLowerCase())
+    .single()
+  if (error) return null
+  return data
+}
+
+export async function fetchCompanyBankDetails(companyId) {
+  const { data } = await supabase.from('company_settings')
+    .select('bank_name, bank_sort_code, bank_account_no, bank_reference_prefix, logo_url')
+    .eq('company_id', companyId).single()
+  return data || {}
+}
+
+export async function saveCompanyBankDetails(companyId, details) {
+  const { error } = await supabase.from('company_settings').upsert(
+    { company_id: companyId, ...details },
+    { onConflict: 'company_id' }
+  )
+  if (error) throw error
+}
+
+export async function saveCompanySubdomain(companyId, subdomain) {
+  const { error } = await supabase.from('companies')
+    .update({ subdomain: subdomain.toLowerCase() }).eq('id', companyId)
+  if (error) throw error
+}
+
+export async function uploadMaintenancePhoto(jobId, file) {
+  const ext = file.name.split('.').pop()
+  const path = `maintenance/${jobId}/${Date.now()}.${ext}`
+  const { error } = await supabase.storage.from('property-documents').upload(path, file, { upsert: true })
+  if (error) throw error
+  const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
+  return { url: publicUrl, path, name: file.name }
+}
+
+export async function attachPhotosToJob(jobId, photos) {
+  const { error } = await supabase.from('maintenance_jobs')
+    .update({ photos: photos }).eq('id', jobId)
+  if (error) throw error
+}
+
+export async function fetchTenantPaymentTracker(propertyId) {
+  // Get last 12 months of rent payments
+  const { data } = await supabase.from('rent_payments')
+    .select('*').eq('property_id', propertyId)
+    .order('payment_date', { ascending: false })
+  return data || []
+}
