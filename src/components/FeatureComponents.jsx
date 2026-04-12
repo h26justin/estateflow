@@ -1535,10 +1535,12 @@ function AccessModal({companies, onClose, showToast}) {
   const [invites, setInvites]       = useState([])
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState(null)
-  const [newEmail, setNewEmail]     = useState('')
-  const [newIsAdmin, setNewIsAdmin] = useState(false)
-  const [adding, setAdding]         = useState(false)
-  const [tab, setTab]               = useState('users')
+  const [newEmail, setNewEmail]         = useState('')
+  const [newIsAdmin, setNewIsAdmin]     = useState(false)
+  const [selectedCoIds, setSelectedCoIds] = useState([]) // populated after companies load
+  const [showCoSelect, setShowCoSelect] = useState(false)
+  const [adding, setAdding]             = useState(false)
+  const [tab, setTab]                   = useState('users')
 
   useEffect(()=>{ loadData() },[])
 
@@ -1571,6 +1573,8 @@ function AccessModal({companies, onClose, showToast}) {
         inv.forEach(i => allInvites.push({ ...i, companyName: co.name, companyAbbr: co.abbr, companyColor: co.color }))
       }
       setInvites(allInvites)
+      // Default: all companies selected
+      setSelectedCoIds(companies.map(c => c.id))
     } catch(e) {}
     setLoading(false)
   }
@@ -1617,10 +1621,12 @@ function AccessModal({companies, onClose, showToast}) {
     if (!email || companies.length === 0) return
     setAdding(true)
     try {
-      // Invite to ALL companies the admin manages in one email
-      const result = await api.sendInvitation(companies.map(c => c.id), email, newIsAdmin)
+      const coIds = selectedCoIds.length > 0 ? selectedCoIds : companies.map(c => c.id)
+      const result = await api.sendInvitation(coIds, email, newIsAdmin)
       setNewEmail('')
       setNewIsAdmin(false)
+      setSelectedCoIds(companies.map(c => c.id))
+      setShowCoSelect(false)
       await loadData()
       if (result?.emailSent === false) {
         showToast(`Invite saved but email failed: ${result.emailError}`, 'error')
@@ -1690,6 +1696,33 @@ function AccessModal({companies, onClose, showToast}) {
                 {adding ? 'Sending…' : '✉ Send Invite'}
               </button>
             </div>
+            {/* Company selector — only show if more than 1 company */}
+            {companies.length > 1 && (
+              <div style={{marginTop:10}}>
+                <button onClick={()=>setShowCoSelect(s=>!s)}
+                  style={{fontFamily:mono,fontSize:10,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
+                  {showCoSelect ? '▲ Hide' : '▼ Choose'} which companies ({selectedCoIds.length} of {companies.length} selected)
+                </button>
+                {showCoSelect && (
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8}}>
+                    {companies.map(co=>{
+                      const sel = selectedCoIds.includes(co.id)
+                      return (
+                        <button key={co.id}
+                          onClick={()=>setSelectedCoIds(prev=>sel?prev.filter(id=>id!==co.id):[...prev,co.id])}
+                          style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',transition:'all 0.15s',
+                            border:`1px solid ${sel?co.color:T.border}`,
+                            background:sel?co.color+'22':'transparent',
+                            color:sel?co.color:T.muted}}>
+                          {sel?'✓ ':''}{co.abbr} {co.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.6}}>
               An invitation link will be sent. They must sign up at <span style={{color:T.gold}}>www.ownproperly.com</span> to accept it.
             </div>
