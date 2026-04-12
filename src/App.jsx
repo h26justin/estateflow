@@ -267,8 +267,10 @@ export default function App() {
         // Show onboarding for brand new users with no companies
         if (visibleCos.length === 0) setShowOnboarding(true)
         // Check platform admin
-        const { data: profileData } = await supabase.from('user_profiles').select('platform_admin').eq('user_id', user.id).single().catch(()=>({data:null}))
-        setIsPlatformAdmin(profileData?.platform_admin === true)
+        try {
+          const { data: profileData } = await supabase.from('user_profiles').select('platform_admin').eq('user_id', user.id).single()
+          setIsPlatformAdmin(profileData?.platform_admin === true)
+        } catch(e) { setIsPlatformAdmin(false) }
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
@@ -561,7 +563,7 @@ export default function App() {
                 )}
               </div>
             )}
-            {isPlatformAdmin&&!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>⚙ Admin</button>}
+            {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>⚙ Admin</button>}
             {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()} aria-label="Sign out">Sign Out</button>}
             {/* Hamburger - mobile only */}
             {isMobile&&<button onClick={()=>setShowDrawer(true)}

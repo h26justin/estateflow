@@ -284,11 +284,10 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
     ? num('stamp_duty_override')
     : api.calcStampDuty(num('purchase_price'), form.is_additional_property, form.is_first_time_buyer)
 
-  const mortgageFee = form.purchase_type !== 'cash' ? loanAmount * (num('mortgage_fee_percent') / 100) : 0
-  const totalAcquisition = num('purchase_price') + sd + num('legal_fees') + num('survey_cost') + num('auction_fees') + num('broker_fee') + num('refurb_cost') + num('other_costs') + mortgageFee
-
   const loanAmount = form.purchase_type === 'cash' ? 0 : num('purchase_price') * (1 - num('deposit_percent') / 100)
   const deposit = num('purchase_price') - loanAmount
+  const mortgageFee = form.purchase_type !== 'cash' ? loanAmount * (num('mortgage_fee_percent') / 100) : 0
+  const totalAcquisition = num('purchase_price') + sd + num('legal_fees') + num('survey_cost') + num('auction_fees') + num('broker_fee') + num('refurb_cost') + num('other_costs') + mortgageFee
   const cashIn = Math.max(0, totalAcquisition - loanAmount)
   const monthlyRepayment = form.purchase_type !== 'cash' ? api.calcMonthlyRepayment(loanAmount, num('mortgage_rate'), num('mortgage_term') || 25) : 0
 
