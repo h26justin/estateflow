@@ -664,7 +664,6 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     { key: 'appearance',    label: '🎨 Appearance' },
     { key: 'billing',       label: '💳 Billing' },
     { key: 'navbar',        label: '🧭 Navigation' },
-    { key: 'branding',      label: '🎨 Company Branding' },
     { key: 'branding',      label: '🎨 Branding & Logos' },
     { key: 'tenant',        label: '🏠 Tenant Portal' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
@@ -934,10 +933,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
       {settingsTab==='tenant' && (
         <TenantPortalSettings companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} showToast={showToast} T={T}/>
       )}
-
-      {settingsTab==='branding' && (
-        <BrandingPanel companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} T={T}/>
-      )}
+}
 
       {settingsTab==='milestones' && (
         <MilestoneSettingsPanel
@@ -2614,6 +2610,8 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
   const [bankRef, setBankRef]     = useState('RENT')
   const [saving, setSaving]       = useState(false)
   const [savingBank, setSavingBank] = useState(false)
+  const [notifyEmail, setNotifyEmail] = useState('')
+  const [savingNotify, setSavingNotify] = useState(false)
   const [inviteProperty, setInviteProperty] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [properties, setProperties] = useState([])
@@ -2646,6 +2644,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
     api.fetchCompanyBankDetails(selectedCo).then(b => {
       setBankName(b.bank_name||''); setBankSort(b.bank_sort_code||'')
       setBankAccount(b.bank_account_no||''); setBankRef(b.bank_reference_prefix||'RENT')
+      setNotifyEmail(b.tenant_notification_email||'')
     }).catch(()=>{})
   }, [selectedCo])
 
@@ -2666,6 +2665,15 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
       showToast('Bank details saved')
     } catch(e) { showToast(e.message,'error') }
     setSavingBank(false)
+  }
+
+  async function saveNotifyEmail() {
+    setSavingNotify(true)
+    try {
+      await api.saveTenantNotificationEmail(selectedCo, notifyEmail)
+      showToast('Notification email saved')
+    } catch(e) { showToast(e.message,'error') }
+    setSavingNotify(false)
   }
 
   function generateInviteLink() {
@@ -2767,6 +2775,23 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
         <button onClick={saveBank} disabled={savingBank} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
           {savingBank?'Saving…':'Save bank details'}
         </button>
+      </div>
+
+      {/* Notification email */}
+      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 24px', marginBottom:16 }}>
+        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Tenant notification email</div>
+        <div style={{ fontFamily:mono, fontSize:12, color:T.text, marginBottom:14, lineHeight:1.7 }}>
+          When a tenant submits a repair request or sends a message, we will email this address instantly. Leave blank to disable email notifications.
+        </div>
+        <div style={{ display:'flex', gap:10, marginBottom:0 }}>
+          <input value={notifyEmail} onChange={e=>setNotifyEmail(e.target.value)} type="email"
+            placeholder="e.g. justin@jvhammond.com"
+            style={{...inp, flex:1}}/>
+          <button onClick={saveNotifyEmail} disabled={savingNotify}
+            style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer', flexShrink:0 }}>
+            {savingNotify?'Saving…':'Save'}
+          </button>
+        </div>
       </div>
 
       {/* Invite tenant */}

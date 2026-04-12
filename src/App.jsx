@@ -4,6 +4,7 @@ import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
 import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
+import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
 import { StatementImporter } from './components/StatementImporter'
 import { supabase } from './lib/supabase'
@@ -823,6 +824,7 @@ export default function App() {
                 </div>
             }
             <SmartAlerts properties={dashProps} companies={dashCos} fmt={fmt} openDetail={openDetail}/>
+            <TenantInbox user={user} companies={companies} showToast={showToast}/>
             {/* Company documents section */}
             {activeCoTab&&(companySettings[activeCoTab]||{}).feature_documents&&(
               <div style={{marginTop:28}}>

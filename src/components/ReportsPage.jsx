@@ -269,11 +269,11 @@ function ReportTable({ headers, rows, T, accent }) {
   if (!rows.length) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12}}>No data for this period</div>
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
-      <div style={{display:'grid',gridTemplateColumns:headers.map(h=>h.width||'1fr').join(' '),gap:0,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 20px'}}>
+      <div style={{display:'grid',gridTemplateColumns:headers.map(h=>h.width||'1fr').join(' '),gap:16,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 20px'}}>
         {headers.map((h,i)=><div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',textAlign:h.right?'right':'left'}}>{h.label}</div>)}
       </div>
       {rows.map((row,ri)=>(
-        <div key={ri} style={{display:'grid',gridTemplateColumns:headers.map(h=>h.width||'1fr').join(' '),gap:0,padding:'11px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
+        <div key={ri} style={{display:'grid',gridTemplateColumns:headers.map(h=>h.width||'1fr').join(' '),gap:16,padding:'11px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
           {row.map((cell,ci)=>(
             <div key={ci} style={{fontFamily:mono,fontSize:12,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left',fontWeight:typeof cell==='object'&&cell.bold?700:400}}>
               {typeof cell==='object'?cell.v:cell}
@@ -757,7 +757,7 @@ function ReportArrears({ filtProps, T, accent, fmt }) {
       {rows.length===0
         ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:mono,fontSize:13,color:T.green}}>✓ No arrears — all clear!</div>
         : <ReportTable T={T} accent={accent}
-            headers={[{label:'Property'},{label:'Arrears amount',right:true,width:'150px'},{label:'Monthly rent',right:true,width:'130px'},{label:'Status',width:'100px'}]}
+            headers={[{label:'Property'},{label:'Arrears amount',right:true,width:'160px'},{label:'Monthly rent',right:true,width:'140px'},{label:'Status',width:'120px'}]}
             rows={rows.map(r=>[
               r.p.name,
               {v:fmt(r.arrears),color:T.red,bold:true,right:true},

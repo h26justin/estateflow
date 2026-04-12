@@ -488,9 +488,9 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
                 </div>
               </div>
               <InputRow label="Legal fees" field="legal_fees"form={form} set={set} T={T}/>
-              <InputRow label="Survey / valuation" field="survey_cost"/>
+              <InputRow label="Survey / valuation" field="survey_cost" form={form} set={set} T={T}/>
               {form.is_auction && <InputRow label="Auction fees" field="auction_fees"form={form} set={set} T={T}/>}
-              <InputRow label="Broker / finder fee" field="broker_fee"/>
+              <InputRow label="Broker / finder fee" field="broker_fee" form={form} set={set} T={T}/>
               <InputRow label="Refurbishment cost" field="refurb_cost"form={form} set={set} T={T}/>
               <InputRow label={form.other_costs_label||'Other costs'} field="other_costs"form={form} set={set} T={T}/>
             </div>
@@ -592,7 +592,7 @@ function DealDetail({ deal, companies, user, T, showToast, onBack, onSave, onDel
               <ResultRow label="Gross monthly rent" value={fmt(grossMonthlyRent)}T={T}/>
               <ResultRow label="Effective rent (after void)" value={fmt(effectiveRent)}T={T}/>
               <ResultRow label="Total monthly costs" value={fmt(totalMonthlyCosts)} color={T.red}T={T}/>
-              <ResultRow label="Monthly profit / loss" value={fmt(monthlyProfit)} color={monthlyProfit>0?T.green:T.red} big/>
+              <ResultRow label="Monthly profit / loss" value={fmt(monthlyProfit)} color={monthlyProfit>0?T.green:T.red} big T={T}/>
               <ResultRow label="Annual profit" value={fmt(annualProfit)} color={monthlyProfit>0?T.green:T.red}T={T}/>
             </div>
 

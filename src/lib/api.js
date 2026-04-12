@@ -1124,12 +1124,22 @@ export async function fetchTenantMaintenance(propertyId, userId) {
   return data || []
 }
 
-export async function submitMaintenanceRequest(propertyId, tenantUserId, title, description, priority) {
+export async function submitMaintenanceRequest(propertyId, tenantUserId, title, description, priority, photos = []) {
   const { data, error } = await supabase.from('maintenance_jobs').insert({
     property_id: propertyId, title, description, priority, status: 'open',
-    reported_by_tenant: true, user_id: tenantUserId
+    reported_by_tenant: true, user_id: tenantUserId, photos
   }).select().single()
   if (error) throw error
+  // Notify landlord via edge function
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch(`${supabaseUrl}/functions/v1/notify-landlord`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ type: 'maintenance', property_id: propertyId, title, message: description, priority, photos })
+    })
+  } catch(e) {} // Never block submission if notification fails
   return data
 }
 
@@ -1145,6 +1155,18 @@ export async function sendTenantMessage(propertyId, tenantUserId, message, sende
     .insert({ property_id: propertyId, tenant_user_id: tenantUserId, message, sender_type: senderType })
     .select().single()
   if (error) throw error
+  // Notify landlord only when tenant sends (not landlord reply)
+  if (senderType === 'tenant') {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch(`${supabaseUrl}/functions/v1/notify-landlord`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ type: 'message', property_id: propertyId, message })
+      })
+    } catch(e) {}
+  }
   return data
 }
 
@@ -1312,4 +1334,68 @@ export async function exportUserData(userId) {
     rent_payments: rentPayments,
     documents: documents.map(d=>({ id:d.id, name:d.name, created_at:d.created_at, url:d.url })),
   }
+}
+
+// ── TENANT INBOX ──────────────────────────────────────────────────────────────
+export async function fetchTenantInbox(userId) {
+  // Get all properties for this user
+  const { data: props } = await supabase
+    .from('properties')
+    .select('id, name, address, company_id')
+    .eq('user_id', userId)
+
+  if (!props || props.length === 0) return { messages: [], maintenance: [] }
+
+  const propIds = props.map(p => p.id)
+  const propMap = Object.fromEntries(props.map(p => [p.id, p]))
+
+  // Fetch unread tenant messages
+  const { data: messages } = await supabase
+    .from('tenant_messages')
+    .select('*')
+    .in('property_id', propIds)
+    .eq('sender_type', 'tenant')
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  // Fetch recent tenant-reported maintenance jobs
+  const { data: maintenance } = await supabase
+    .from('maintenance_jobs')
+    .select('*')
+    .in('property_id', propIds)
+    .eq('reported_by_tenant', true)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return {
+    messages: (messages || []).map(m => ({ ...m, property: propMap[m.property_id] })),
+    maintenance: (maintenance || []).map(m => ({ ...m, property: propMap[m.property_id] })),
+  }
+}
+
+export async function markTenantMessageReadByLandlord(messageId) {
+  await supabase.from('tenant_messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', messageId)
+}
+
+export async function replyToTenantMessage(propertyId, tenantUserId, message) {
+  const { data, error } = await supabase.from('tenant_messages')
+    .insert({ property_id: propertyId, tenant_user_id: tenantUserId, message, sender_type: 'landlord' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchAllTenantMessages(propertyId) {
+  const { data } = await supabase.from('tenant_messages')
+    .select('*').eq('property_id', propertyId).order('created_at')
+  return data || []
+}
+
+export async function saveTenantNotificationEmail(companyId, email) {
+  const { error } = await supabase.from('company_settings')
+    .upsert({ company_id: companyId, tenant_notification_email: email }, { onConflict: 'company_id' })
+  if (error) throw error
 }
