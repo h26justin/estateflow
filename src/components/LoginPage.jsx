@@ -58,9 +58,9 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
     <div style={{ width:'100%', maxWidth: 420 }}>
       <style>{CSS}</style>
 
-      {/* Logo — centered, visible on both standalone and modal */}
-      <div style={{ textAlign:'center', marginBottom: 28 }}>
-        <img src="/logo.svg" alt="OwnProperly" style={{ width: 220, height:'auto', display:'block', margin:'0 auto' }}/>
+      {/* Logo — centered on a light panel */}
+      <div style={{ background:'#F4F3EF', borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center' }}>
+        <img src="/logo.svg" alt="OwnProperly" style={{ width: 280, height:'auto', display:'block', margin:'0 auto' }}/>
       </div>
 
       <div style={{ background:WHITE, border:`1.5px solid ${BORDER}`, borderRadius:20, padding:'32px 28px', boxShadow:'0 4px 32px rgba(45,60,74,0.12)' }}>
