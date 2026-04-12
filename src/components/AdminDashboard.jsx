@@ -299,7 +299,6 @@ export default function AdminDashboard({ onClose }) {
           </>
         )}
       </div>
-    </div>
 
       {/* ── DELETE USER MODAL ── */}
       {deleteTarget && (
@@ -341,5 +340,6 @@ export default function AdminDashboard({ onClose }) {
           </div>
         </div>
       )}
+    </div>
   )
 }
