@@ -248,11 +248,24 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               📊 Compare ({compareIds.length})
             </button>
           )}
+          <div style={{display:'flex',background:T.surface,borderRadius:8,border:`1px solid ${T.border}`,overflow:'hidden'}}>
+            {[['list','☰ List'],['pipeline','📋 Pipeline'],['tools','✨ Tools']].map(([k,l])=>(
+              <button key={k} onClick={()=>setDealView(k)}
+                style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',
+                  background:dealView===k?T.gold:'transparent',
+                  color:dealView===k?'white':T.muted,
+                  fontWeight:dealView===k?700:400,
+                  transition:'all 0.15s'}}>
+                {l}
+              </button>
+            ))}
+          </div>
           <button className="btn btn-gold" onClick={createNewDeal}>+ New Deal</button>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters - only show on list view */}
+      {dealView === 'list' && <div style={{display:'flex',gap:10,marginBottom:4,flexWrap:'wrap',fontSize:11}}><span style={{fontFamily:mono,color:T.muted,fontSize:10,alignSelf:'center'}}>List view · {filtered.length} deals</span></div>}
       <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}}>
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
           style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
@@ -367,6 +380,23 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       onDelete={()=>deleteDeal(selectedDeal.id)}
       onConvert={onConvertToProperty}
     />
+  )
+
+  if (dealView === 'pipeline') return (
+    <div style={{padding:'0'}}>
+      <DealPipeline deals={filtered} companies={companies} onOpen={openDeal} onNew={createNewDeal} T={T}/>
+    </div>
+  )
+
+  if (dealView === 'tools') return (
+    <div style={{display:'grid',gap:16}}>
+      <ListingYieldCalculator T={T} onAutoFill={()=>{
+        createNewDeal()
+        showToast('New deal created — fill in the figures from the listing')
+      }}/>
+      <PortfolioModellerInDeals properties={properties} T={T}/>
+      <AIListingWriter T={T}/>
+    </div>
   )
 
   return null
