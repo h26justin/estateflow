@@ -991,7 +991,7 @@ export default function App() {
           </div>}
 
           {view==='deals'&&<div className="fade">
-            <DealsPage user={user} companies={companies} showToast={showToast}
+            <DealsPage user={user} companies={companies} properties={properties} showToast={showToast}
               onConvertToProperty={(deal)=>{
                 setShowAddProp(true)
                 showToast('Deal data ready — fill in the property form')
