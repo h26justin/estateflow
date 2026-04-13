@@ -627,7 +627,7 @@ export default function App() {
   const ALL_NAV=[
     {key:'dashboard',  label:'Dashboard', icon:'🏠', short:'Home',     required:true},
     {key:'properties', label:'Portfolio', icon:'🏘', short:'Portfolio',required:true},
-    {key:'rent',       label:'Finance',   icon:'💰', short:'Finance',  required:false},
+    {key:'rent',       label:'Rent Tracker',   icon:'💰', short:'Rent',  required:false},
     {key:'deals',      label:'Deals',     icon:'🎯', short:'Deals',    required:false},
     {key:'reports',    label:'Reports',   icon:'📊', short:'Reports',  required:false},
     {key:'settings',   label:'Settings',  icon:'⚙',  short:'Settings', required:true},
@@ -1612,7 +1612,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
       {/* Header + global year filter */}
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <div>
-          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Finance</h1>
+          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
             {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
