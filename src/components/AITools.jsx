@@ -35,11 +35,16 @@ export function AIListingWriter({ property, T: TProp }) {
           features: form.features, target: form.target, tone: form.tone,
         })
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setResult(data.description || 'No result')
+
+      let data
+      try { data = await res.json() } catch { throw new Error(`Edge function unreachable (HTTP ${res.status}). Is it deployed in Supabase?`) }
+
+      if (!res.ok || data.error) throw new Error(data.error || `Unexpected error (HTTP ${res.status})`)
+      if (!data.description) throw new Error('AI returned an empty description. Please try again.')
+
+      setResult(data.description)
     } catch(e) {
-      setResult('Error generating description. Please try again.')
+      setResult(`⚠ ${(e as Error).message}`)
     }
     setLoading(false)
   }

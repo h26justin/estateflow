@@ -11,15 +11,6 @@ serve(async (req) => {
   try {
     const { propertyType, bedrooms, bathrooms, location, features, target, tone } = await req.json()
 
-    // Guard: API key must exist
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: 'ANTHROPIC_API_KEY secret is not set. Go to Supabase → Project Settings → Edge Functions → Secrets and add it.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     const prompt = `Write a property listing description for ${target === 'rightmove' ? 'Rightmove' : target === 'zoopla' ? 'Zoopla' : 'a property portal'}.
 
 Property details:
@@ -36,7 +27,7 @@ Write a compelling, accurate listing description of 150-200 words. Do not invent
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
@@ -47,32 +38,17 @@ Write a compelling, accurate listing description of 150-200 words. Do not invent
     })
 
     const data = await response.json()
-
-    // Surface Anthropic API errors (bad key, quota exceeded, etc.)
-    if (!response.ok || data.error) {
-      const msg = data.error?.message || `Anthropic API error (HTTP ${response.status})`
-      return new Response(
-        JSON.stringify({ error: msg }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     const text = data.content?.[0]?.text
-    if (!text) {
-      return new Response(
-        JSON.stringify({ error: 'Anthropic returned an empty response. Check your API key and account quota.' }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+
+    if (!text) throw new Error('No response from AI')
 
     return new Response(JSON.stringify({ description: text }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+  } catch(err) {
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
   }
 })
