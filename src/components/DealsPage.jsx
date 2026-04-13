@@ -134,7 +134,8 @@ function PortfolioModellerInDeals({ properties = [], T }) {
 
 export default function DealsPage({ user, companies, properties = [], onConvertToProperty, showToast }) {
   const { T } = useTheme()
-  const [view, setView]       = useState('list') // list | deal
+  const [view, setView]       = useState('list')
+  const [dealView, setDealView] = useState('list') // list | pipeline | tools // list | deal
   const [deals, setDeals]     = useState([])
   const [selectedDeal, setSelectedDeal] = useState(null)
   const [dealTab, setDealTab] = useState('calculator')
@@ -235,7 +236,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   })
 
   // ── DEAL LIST VIEW ──────────────────────────────────────────────────────────
-  if (view === 'list') return (
+  if (view === 'list' && dealView === 'list') return (
     <div className="fade">
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <div>
