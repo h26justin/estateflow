@@ -1,0 +1,14 @@
+{
+  "name": "OwnProperly",
+  "short_name": "OwnProperly",
+  "description": "Property portfolio management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F3EF",
+  "theme_color": "#2D3C4A",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }
+  ]
+}

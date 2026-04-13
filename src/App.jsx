@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab } from './components/FeatureComponents'
 import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
@@ -279,6 +279,7 @@ export default function App() {
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
         // Show onboarding for brand new users with no companies
         if (visibleCos.length === 0) setShowOnboarding(true)
+        try { api.sendOnboardingEmail(user.email, '', 'welcome').catch(()=>{}) } catch(e) {}
         // Check platform admin
         try {
           const { data: profileData } = await supabase.from('user_profiles').select('platform_admin').eq('user_id', user.id).single()
@@ -701,7 +702,18 @@ export default function App() {
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
                 <div>
                   <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
-                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {stats.rented} rented · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}</p>
+                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {stats.rented} rented · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
+                  {dashProps.some(p=>p.current_value>0) && <>
+                    {' · Portfolio value: '}
+                    <span style={{color:T.green,fontWeight:700}}>
+                      {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0),0))}
+                    </span>
+                    {' · Equity: '}
+                    <span style={{color:T.green,fontWeight:700}}>
+                      {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0)-(p.mortgage_amount||0),0))}
+                    </span>
+                  </>}
+                </p>
                 </div>
               </div>
               {/* Company filter pills */}
@@ -960,6 +972,7 @@ export default function App() {
                   const tabs = ['overview','refurb','rent','financials']
                   if(cs.feature_compliance)  tabs.push('compliance')
                   if(cs.feature_tenancy)     tabs.push('tenancy')
+                  tabs.push('right to rent')
                   if(cs.feature_maintenance) tabs.push('maintenance')
                   if(cs.feature_documents)   tabs.push('documents')
                   if(cs.feature_expenses)    tabs.push('expenses')
@@ -1006,6 +1019,7 @@ export default function App() {
                 </div>}
                 {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance"/>}
                 {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy"/>}
+                {detailTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance"/>}
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses"/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}

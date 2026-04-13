@@ -1418,3 +1418,79 @@ export async function saveTenantNotificationEmail(companyId, email) {
     .upsert({ company_id: companyId, tenant_notification_email: email }, { onConflict: 'company_id' })
   if (error) throw error
 }
+
+// ── RIGHT TO RENT ─────────────────────────────────────────────────────────────
+export async function fetchRightToRent(propertyId) {
+  const { data, error } = await supabase.from('right_to_rent')
+    .select('*').eq('property_id', propertyId).order('check_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function saveRightToRent(record) {
+  const { data, error } = await supabase.from('right_to_rent')
+    .upsert(record, { onConflict: 'id' }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteRightToRent(id) {
+  const { error } = await supabase.from('right_to_rent').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchAllRightToRent(userId) {
+  const { data: props } = await supabase.from('properties').select('id,name,address').eq('user_id', userId)
+  if (!props?.length) return []
+  const propIds = props.map(p => p.id)
+  const propMap = Object.fromEntries(props.map(p => [p.id, p]))
+  const { data } = await supabase.from('right_to_rent').select('*').in('property_id', propIds).order('expiry_date')
+  return (data || []).map(r => ({ ...r, property: propMap[r.property_id] }))
+}
+
+// ── PORTFOLIO VALUATION ───────────────────────────────────────────────────────
+export async function updatePropertyValuation(propertyId, value) {
+  const { error } = await supabase.from('properties')
+    .update({ current_value: value, value_updated_at: new Date().toISOString() })
+    .eq('id', propertyId)
+  if (error) throw error
+}
+
+// ── REFERRALS ─────────────────────────────────────────────────────────────────
+export async function fetchOrCreateReferralCode(userId, email) {
+  const { data: existing } = await supabase.from('user_profiles')
+    .select('referral_code').eq('user_id', userId).single()
+  if (existing?.referral_code) return existing.referral_code
+  const code = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,'') + Math.random().toString(36).substring(2,6)
+  await supabase.from('user_profiles').update({ referral_code: code }).eq('user_id', userId)
+  return code
+}
+
+export async function fetchReferrals(userId) {
+  const { data } = await supabase.from('referrals').select('*').eq('referrer_id', userId).order('created_at', { ascending: false })
+  return data || []
+}
+
+// ── TENANT INVITE EMAIL ───────────────────────────────────────────────────────
+export async function sendTenantInviteEmail(session, tenantEmail, propertyId, propertyAddress, companyName) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const res = await fetch(`${supabaseUrl}/functions/v1/send-invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+    body: JSON.stringify({ tenant_email: tenantEmail, property_id: propertyId, property_address: propertyAddress, company_name: companyName })
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error)
+  return data
+}
+
+// ── ONBOARDING EMAIL ──────────────────────────────────────────────────────────
+export async function sendOnboardingEmail(email, name, sequence) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const { data: { session } } = await supabase.auth.getSession()
+  await fetch(`${supabaseUrl}/functions/v1/onboarding-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+    body: JSON.stringify({ email, name, sequence })
+  })
+}

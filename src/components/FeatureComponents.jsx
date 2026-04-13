@@ -673,6 +673,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     { key: 'milestones',    label: '📍 Deal Milestones' },
     ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Platform Admin' }] : []),
     { key: 'security', label: '🔒 Security & Data' },
+    { key: 'referral', label: '🎁 Refer a Friend' },
     { key: 'audit',    label: '📋 Audit Log' },
     { key: 'features',      label: '⚙ Features' },
     { key: 'notifications', label: '🔔 Notifications' },
@@ -987,6 +988,10 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
           showToast={showToast}
           T={T}
         />
+      )}
+
+      {settingsTab==='referral' && (
+        <ReferralPanel user={user} T={T} showToast={showToast}/>
       )}
 
       {settingsTab==='security' && (
@@ -1455,8 +1460,9 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
   const yield_ = calcGrossYield(selected)
   const monthlyProfit = calcMonthlyProfit(selected)
   const totalInvested = (selected.purchase_price||0)+(selected.refurb_cost||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)
-  const equity = (selected.est_value||0)-(selected.mortgage_amount||0)
-  const ltv = selected.est_value ? (((selected.mortgage_amount||0)/selected.est_value)*100).toFixed(1) : '—'
+  const currentVal = selected.current_value || selected.est_value || 0
+  const equity = currentVal - (selected.mortgage_amount||0)
+  const ltv = currentVal ? (((selected.mortgage_amount||0)/selected.est_value)*100).toFixed(1) : '—'
 
   const sections = [
     {title:'Purchase & Costs', items:[
@@ -2850,9 +2856,38 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
             {properties.map(p=><option key={p.id} value={p.id}>{p.address||p.name}</option>)}
           </select>
         </div>
-        <button onClick={generateInviteLink} disabled={!inviteProperty} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer', marginBottom:inviteLink?14:0 }}>
-          Generate invite link
-        </button>
+        <div style={{ display:'flex', gap:10, marginBottom: inviteLink ? 14 : 0, flexWrap:'wrap' }}>
+          <button onClick={generateInviteLink} disabled={!inviteProperty} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
+            Generate invite link
+          </button>
+          {inviteLink && (
+            <div style={{ display:'flex', gap:8, alignItems:'center', flex:1, minWidth:240 }}>
+              <input
+                type="email"
+                placeholder="tenant@email.com"
+                id="tenant-invite-email"
+                style={{ ...inp, flex:1 }}
+              />
+              <button
+                onClick={async () => {
+                  const emailInput = document.getElementById('tenant-invite-email')
+                  const email = emailInput?.value?.trim()
+                  if (!email) { showToast('Enter tenant email first', 'error'); return }
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const prop = properties.find(p => p.id === inviteProperty)
+                    const co = companies.find(c => c.id === selectedCo)
+                    await api.sendTenantInviteEmail(session, email, inviteProperty, prop?.address || prop?.name, co?.name)
+                    showToast(`Invite sent to ${email}`)
+                    if (emailInput) emailInput.value = ''
+                  } catch(e) { showToast(e.message || 'Failed to send', 'error') }
+                }}
+                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 16px', borderRadius:8, border:'none', background:'#4B8FE0', color:'white', cursor:'pointer', flexShrink:0 }}>
+                ✉ Email invite
+              </button>
+            </div>
+          )}
+        </div>
         {inviteLink && (
           <div style={{ background:T.bg, borderRadius:10, padding:'14px 16px' }}>
             <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:8 }}>Share this with your tenant:</div>
@@ -3088,6 +3123,213 @@ function AuditLogPanel({ user, companies, T }) {
         )}
       </div>
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>{logs.length} events · Last 100 shown</div>
+    </div>
+  )
+}
+
+// ── REFERRAL PANEL ────────────────────────────────────────────────────────────
+function ReferralPanel({ user, T, showToast }) {
+  const mono = "'DM Mono',monospace"
+  const [code, setCode]         = useState('')
+  const [referrals, setReferrals] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [copied, setCopied]     = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const c = await api.fetchOrCreateReferralCode(user?.id, user?.email)
+        setCode(c)
+        const r = await api.fetchReferrals(user?.id)
+        setReferrals(r)
+      } catch(e) {}
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const referralUrl = `https://www.ownproperly.com?ref=${code}`
+  const paying = referrals.filter(r => r.status === 'paying' || r.status === 'rewarded').length
+
+  function copy() {
+    navigator.clipboard.writeText(referralUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    showToast('Referral link copied!')
+  }
+
+  return (
+    <div>
+      <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'24px', marginBottom:16 }}>
+        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Refer a landlord, get a free month</div>
+        <div style={{ fontFamily:mono, fontSize:12, color:T.text, lineHeight:1.8, marginBottom:20 }}>
+          Share your referral link with another landlord. When they sign up and become a paying customer, we'll give you both a free month.
+        </div>
+        {loading ? <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>Generating your link…</div> : (
+          <>
+            <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+              <input readOnly value={referralUrl}
+                style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.gold, borderRadius:8, padding:'9px 12px', outline:'none' }}/>
+              <button onClick={copy}
+                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:'white', cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
+                {copied ? '✓ Copied!' : 'Copy link'}
+              </button>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+              {[
+                { label:'Links shared', value: referrals.length },
+                { label:'Signed up', value: referrals.filter(r=>r.status!=='pending').length },
+                { label:'Free months earned', value: paying },
+              ].map(k => (
+                <div key={k.label} style={{ background:T.bg, borderRadius:8, padding:'12px 14px' }}>
+                  <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
+                  <div style={{ fontSize:20, fontWeight:700, color:k.value>0?T.green:T.text }}>{k.value}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {referrals.length > 0 && (
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, overflow:'hidden' }}>
+          <div style={{ padding:'10px 20px', background:T.bg, borderBottom:`1px solid ${T.border}`, fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Referral history</div>
+          {referrals.map(r => (
+            <div key={r.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 20px', borderBottom:`1px solid ${T.border}` }}>
+              <div>
+                <div style={{ fontFamily:mono, fontSize:12, color:T.text }}>{r.referred_email || 'Link shared'}</div>
+                <div style={{ fontFamily:mono, fontSize:10, color:T.muted }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+              </div>
+              <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                background: r.status==='paying'?T.green+'22':r.status==='signed_up'?T.blue+'22':T.border,
+                color: r.status==='paying'?T.green:r.status==='signed_up'?T.blue:T.muted }}>
+                {r.status === 'paying' ? '✓ Paying' : r.status === 'signed_up' ? 'Signed up' : 'Pending'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
+export function RightToRentTab({ propertyId, userId, showToast, T }) {
+  const mono = "'DM Mono',monospace"
+  const [records, setRecords]   = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm]         = useState({})
+  const [saving, setSaving]     = useState(false)
+
+  useEffect(() => {
+    api.fetchRightToRent(propertyId).then(d => { setRecords(d); setLoading(false) }).catch(() => setLoading(false))
+  }, [propertyId])
+
+  const DOC_TYPES = [
+    { key: 'passport', label: 'Passport' },
+    { key: 'brp', label: 'Biometric Residence Permit' },
+    { key: 'visa', label: 'Visa / Entry Clearance' },
+    { key: 'share_code', label: 'Online Share Code' },
+    { key: 'euss', label: 'EU Settlement Status' },
+    { key: 'other', label: 'Other document' },
+  ]
+
+  async function save() {
+    setSaving(true)
+    try {
+      const saved = await api.saveRightToRent({ ...form, property_id: propertyId, user_id: userId })
+      if (form.id) setRecords(prev => prev.map(r => r.id === saved.id ? saved : r))
+      else setRecords(prev => [saved, ...prev])
+      setShowForm(false); setForm({})
+      showToast('Right to rent record saved')
+    } catch(e) { showToast(e.message, 'error') }
+    setSaving(false)
+  }
+
+  const inp = { fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%' }
+  const lbl = { fontFamily:mono, fontSize:10, color:T.muted, display:'block', marginBottom:5 }
+
+  const isExpired = (date) => date && new Date(date) < new Date()
+  const isExpiring = (date) => {
+    if (!date) return false
+    const d = new Date(date); const now = new Date()
+    return d > now && (d - now) / (1000*60*60*24) <= 90
+  }
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+        <div>
+          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
+          <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
+        </div>
+        <button onClick={() => { setForm({}); setShowForm(true) }}
+          style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 14px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer', flexShrink:0 }}>
+          + Add check
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{ background:T.card, border:`1px solid ${T.gold}44`, borderRadius:12, padding:'18px 20px', marginBottom:14 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+            <div><label style={lbl}>Tenant name *</label><input value={form.tenant_name||''} onChange={e=>setForm(p=>({...p,tenant_name:e.target.value}))} placeholder="Full legal name" style={inp}/></div>
+            <div><label style={lbl}>Document type</label>
+              <select value={form.doc_type||'passport'} onChange={e=>setForm(p=>({...p,doc_type:e.target.value}))} style={inp}>
+                {DOC_TYPES.map(d=><option key={d.key} value={d.key}>{d.label}</option>)}
+              </select>
+            </div>
+            <div><label style={lbl}>Document reference / number</label><input value={form.doc_reference||''} onChange={e=>setForm(p=>({...p,doc_reference:e.target.value}))} placeholder="Passport no. etc" style={inp}/></div>
+            <div><label style={lbl}>Check date *</label><input type="date" value={form.check_date||''} onChange={e=>setForm(p=>({...p,check_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl}>Document expiry date</label><input type="date" value={form.expiry_date||''} onChange={e=>setForm(p=>({...p,expiry_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl}>Follow-up check date</label><input type="date" value={form.follow_up_date||''} onChange={e=>setForm(p=>({...p,follow_up_date:e.target.value}))} style={inp}/></div>
+          </div>
+          <div style={{ marginBottom:10 }}><label style={lbl}>Notes</label><textarea value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={save} disabled={saving||!form.tenant_name||!form.check_date}
+              style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'8px 18px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
+              {saving?'Saving…':'Save record'}
+            </button>
+            <button onClick={()=>setShowForm(false)} style={{ fontFamily:mono, fontSize:12, padding:'8px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>Loading…</div>
+      : records.length === 0 ? (
+        <div style={{ background:T.bg, borderRadius:10, padding:'20px', textAlign:'center', fontFamily:mono, fontSize:12, color:T.muted }}>
+          No right to rent checks recorded for this property.
+        </div>
+      ) : records.map(r => {
+        const expired = isExpired(r.expiry_date)
+        const expiring = isExpiring(r.expiry_date)
+        const followUpDue = r.follow_up_date && new Date(r.follow_up_date) <= new Date()
+        return (
+          <div key={r.id} style={{ background:T.card, border:`1px solid ${expired?T.red:expiring?T.amber:T.border}`, borderRadius:10, padding:'12px 16px', marginBottom:8 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10 }}>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:T.text, marginBottom:3 }}>{r.tenant_name}</div>
+                <div style={{ fontFamily:mono, fontSize:10, color:T.muted }}>
+                  {DOC_TYPES.find(d=>d.key===r.doc_type)?.label||r.doc_type}
+                  {r.doc_reference && ` · ${r.doc_reference}`}
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
+                {expired && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>⚑ EXPIRED</span>}
+                {expiring && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
+                {followUpDue && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'#4B8FE022', color:'#4B8FE0' }}>Follow-up due</span>}
+                <button onClick={()=>{setForm(r);setShowForm(true)}} style={{ fontFamily:mono, fontSize:10, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:16, marginTop:8, flexWrap:'wrap' }}>
+              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>Checked: {r.check_date}</span>
+              {r.expiry_date && <span style={{ fontFamily:mono, fontSize:10, color:expired?T.red:expiring?T.amber:T.muted }}>Expires: {r.expiry_date}</span>}
+              {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:10, color:followUpDue?'#4B8FE0':T.muted }}>Follow-up: {r.follow_up_date}</span>}
+            </div>
+            {r.notes && <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>{r.notes}</div>}
+          </div>
+        )
+      })}
     </div>
   )
 }

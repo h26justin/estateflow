@@ -151,6 +151,8 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
     return true
   }), [deals, statusFilter, coFilter])
 
+  const [dealView, setDealView] = useState('list') // list | pipeline
+
   // ── card / style helpers ────────────────────────────────────────────────────
   const card = { background: T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
   const sect = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
@@ -499,7 +501,19 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   )}
                 </div>
               </div>
-              <InputRow label="Legal fees" field="legal_fees"form={form} set={set} T={T}/>
+              <InputRow label="Legal fees" field="legal_fees" form={form} set={set} T={T}/>
+              {!form.show_conv_breakdown ? (
+                <div style={{padding:'3px 0',borderBottom:`1px solid ${T.border}`}}>
+                  <button onClick={()=>set('show_conv_breakdown',true)}
+                    style={{background:'none',border:'none',cursor:'pointer',color:T.muted,fontFamily:mono,fontSize:10,textDecoration:'underline',padding:'4px 0'}}>
+                    + Break into solicitor / searches / disbursements
+                  </button>
+                </div>
+              ) : (<>
+                <InputRow label="→ Solicitor fee" field="solicitor_fee" form={form} set={set} T={T}/>
+                <InputRow label="→ Search fees" field="search_fees" form={form} set={set} T={T}/>
+                <InputRow label="→ Disbursements" field="disbursements" form={form} set={set} T={T}/>
+              </>)}
               <InputRow label="Survey / valuation" field="survey_cost" form={form} set={set} T={T}/>
               {form.is_auction && <InputRow label="Auction fees" field="auction_fees"form={form} set={set} T={T}/>}
               <InputRow label="Broker / finder fee" field="broker_fee" form={form} set={set} T={T}/>
@@ -725,6 +739,65 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── SECTION 24 TAX IMPACT ── */}
+      {tab === 'calculator' && form.purchase_type !== 'cash' && monthlyRepayment > 0 && (
+        <div style={{...sectionCard, marginTop:8}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <span style={sect}>Section 24 tax impact</span>
+            <div style={{display:'flex',gap:6}}>
+              {[['personal','Personal'],['ltd','Ltd Co']].map(([k,l])=>(
+                <button key={k} onClick={()=>set('ownership_type',k)}
+                  style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                    border:`1px solid ${(form.ownership_type||'personal')===k?T.gold:T.border}`,
+                    background:(form.ownership_type||'personal')===k?T.gold+'22':'transparent',
+                    color:(form.ownership_type||'personal')===k?T.gold:T.muted}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(form.ownership_type||'personal')==='personal' ? (() => {
+            const taxRate = num('section24_rate') || 40
+            const annualInterest = monthlyRepayment * 12
+            const s24Credit = annualInterest * 0.20
+            const taxableIncome = effectiveRent * 12 - (agentFee + maintenanceFee + num('insurance_monthly') + num('service_charge_monthly') + num('ground_rent_monthly') + hmoExtras) * 12
+            const taxOwed = Math.max(0, taxableIncome * (taxRate/100) - s24Credit)
+            const profitAfterTax = annualProfit - taxOwed
+            return (<>
+              <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:8,lineHeight:1.7}}>
+                Section 24 restricts mortgage interest relief to 20% for personal ownership. Select your tax band:
+              </div>
+              <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+                {[[20,'20% Basic'],[40,'40% Higher'],[45,'45% Additional']].map(([r,l])=>(
+                  <button key={r} onClick={()=>set('section24_rate',r)}
+                    style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                      border:`1px solid ${(form.section24_rate||40)===r?T.amber:T.border}`,
+                      background:(form.section24_rate||40)===r?T.amber+'22':'transparent',
+                      color:(form.section24_rate||40)===r?T.amber:T.muted}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <ResultRow label="Annual profit (before tax)" value={fmt(annualProfit)} T={T}/>
+              <ResultRow label={`Income tax (${taxRate}% — S.24 restricted)`} value={fmt(taxOwed)} color={T.red} T={T}/>
+              <ResultRow label="Annual profit (after tax)" value={fmt(profitAfterTax)} color={profitAfterTax>0?T.green:T.red} big T={T}/>
+              <ResultRow label="Monthly take-home (after tax)" value={fmt(profitAfterTax/12)} color={profitAfterTax>0?T.green:T.red} T={T}/>
+            </>)
+          })() : (() => {
+            const corpTax = Math.max(0, annualProfit * 0.25)
+            const retained = annualProfit - corpTax
+            return (<>
+              <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:8,lineHeight:1.7}}>
+                Ltd company: full mortgage interest deductible. Corporation tax 25%.
+              </div>
+              <ResultRow label="Annual profit (before CT)" value={fmt(annualProfit)} T={T}/>
+              <ResultRow label="Corporation tax (25%)" value={fmt(corpTax)} color={T.amber} T={T}/>
+              <ResultRow label="Retained profit (after CT)" value={fmt(retained)} color={T.green} big T={T}/>
+            </>)
+          })()}
         </div>
       )}
 
@@ -1188,6 +1261,109 @@ function CompareModal({ deals, companies, onClose }) {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── DEAL PIPELINE KANBAN ──────────────────────────────────────────────────────
+function DealPipeline({ deals, companies, onOpen, onNew, T }) {
+  const STAGES = [
+    { key: 'analysing',   label: '🔍 Analysing',   color: '#4B8FE0' },
+    { key: 'offer',       label: '📝 Offer made',  color: '#C8A84B' },
+    { key: 'under_offer', label: '🤝 Under offer', color: '#E0943A' },
+    { key: 'exchanged',   label: '✍ Exchanged',   color: '#9B59B6' },
+    { key: 'complete',    label: '🎉 Complete',    color: '#2ECC8A' },
+    { key: 'dead',        label: '❌ Dead',        color: '#888' },
+  ]
+
+  const byStage = Object.fromEntries(STAGES.map(s => [s.key, deals.filter(d => (d.status||'analysing') === s.key)]))
+  const totalValue = deals.filter(d=>d.status!=='dead').reduce((s,d)=>s+(d.purchase_price||0),0)
+  const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
+
+  return (
+    <div>
+      {/* Summary bar */}
+      <div style={{ display:'flex', gap:16, marginBottom:20, flexWrap:'wrap' }}>
+        {[
+          { label:'Total deals', value: deals.length, color: T.text },
+          { label:'Pipeline value', value: fmt(totalValue), color: T.gold },
+          { label:'Active', value: deals.filter(d=>!['dead','complete'].includes(d.status||'analysing')).length, color: '#4B8FE0' },
+          { label:'Completed', value: byStage.complete?.length||0, color: '#2ECC8A' },
+        ].map(k => (
+          <div key={k.label} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 16px' }}>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
+            <div style={{ fontSize:18, fontWeight:700, color:k.color }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Kanban board */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, overflowX:'auto', minHeight:400 }}>
+        {STAGES.map(stage => {
+          const stagDeals = byStage[stage.key] || []
+          return (
+            <div key={stage.key} style={{ minWidth:180 }}>
+              {/* Column header */}
+              <div style={{ padding:'8px 12px', borderRadius:'8px 8px 0 0', background:stage.color+'22', border:`1px solid ${stage.color}44`, borderBottom:'none', marginBottom:0 }}>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, fontWeight:700, color:stage.color }}>{stage.label}</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted }}>{stagDeals.length} deal{stagDeals.length!==1?'s':''}</div>
+              </div>
+
+              {/* Cards */}
+              <div style={{ background:T.bg, border:`1px solid ${stage.color}44`, borderRadius:'0 0 8px 8px', padding:8, minHeight:200 }}>
+                {stagDeals.map(deal => {
+                  const co = companies.find(c=>c.id===deal.company_id)
+                  const sdlt = deal.stamp_duty_override ?? (deal.purchase_price ? Math.round(deal.purchase_price * (deal.is_additional_property!==false ? 0.05 : 0.02)) : 0)
+                  return (
+                    <div key={deal.id} onClick={()=>onOpen(deal)}
+                      style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:8, padding:'10px 12px', marginBottom:8, cursor:'pointer', transition:'border-color 0.15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor=stage.color}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                      {/* Deal name */}
+                      <div style={{ fontSize:12, fontWeight:700, color:T.text, marginBottom:4, lineHeight:1.4 }}>
+                        {deal.name || 'Untitled deal'}
+                      </div>
+                      {/* Company badge */}
+                      {co && (
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.gold, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
+                      )}
+                      {/* Price */}
+                      {deal.purchase_price > 0 && (
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:T.text, fontWeight:600, marginBottom:2 }}>{fmt(deal.purchase_price)}</div>
+                      )}
+                      {/* Type badge */}
+                      <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:4 }}>
+                        {deal.deal_type && (
+                          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, padding:'2px 6px', borderRadius:4, background:T.blue+'22', color:T.blue }}>{deal.deal_type.toUpperCase()}</span>
+                        )}
+                        {deal.purchase_price > 0 && (
+                          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, padding:'2px 6px', borderRadius:4, background:T.bg, color:T.muted }}>
+                            {((deal.monthly_rent||deal.hmo_rooms*deal.hmo_rent_per_room||0)*12/(deal.purchase_price)*100).toFixed(1)}% yield
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                {stagDeals.length === 0 && (
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted, textAlign:'center', padding:'20px 8px', opacity:0.5 }}>
+                    No deals
+                  </div>
+                )}
+                {stage.key === 'analysing' && (
+                  <button onClick={onNew} style={{ width:'100%', fontFamily:"'DM Mono',monospace", fontSize:10, padding:'7px', borderRadius:6, border:`1px dashed ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer', marginTop:4 }}>
+                    + Add deal
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted, marginTop:12 }}>
+        Click any deal to open it. Change a deal's stage in the deal editor to move it between columns.
       </div>
     </div>
   )
