@@ -145,111 +145,166 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
   const T = TProp || TCtx
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
+  const [scraped, setScraped] = useState(null)  // { price, propertyType, bedrooms, address }
+  const [rent, setRent] = useState('')
   const [error, setError] = useState('')
 
   async function analyse() {
     if (!url.trim()) return
     setLoading(true)
     setError('')
-    setResult(null)
+    setScraped(null)
+
     try {
-      const prompt = `I have a property listing URL: ${url}
-
-Based on this URL (which is from ${url.includes('rightmove')?'Rightmove':url.includes('zoopla')?'Zoopla':url.includes('onthemarket')?'OnTheMarket':'a property portal'}) and any pricing patterns in the URL, extract or estimate the following information.
-
-Note: You cannot actually browse the URL. Instead, use your knowledge of UK property prices and the URL structure to make reasonable estimates based on the location and property type if visible in the URL.
-
-Respond ONLY with valid JSON in this exact format, no other text:
-{
-  "purchase_price": 150000,
-  "estimated_monthly_rent": 750,
-  "property_type": "flat",
-  "bedrooms": 2,
-  "location": "Newcastle",
-  "gross_yield": 6.0,
-  "notes": "Brief note about the estimate"
-}`
-
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const { data: { session } } = await (await import('../lib/supabase')).supabase.auth.getSession()
+      const res = await fetch(`${supabaseUrl}/functions/v1/scrape-listing`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }]
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ url: url.trim() })
       })
-      const data = await response.json()
-      const text = data.content?.[0]?.text || '{}'
-      const clean = text.replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(clean)
-      setResult(parsed)
+      const data = await res.json()
+
+      if (!data.success && !data.price && !data.propertyType) {
+        setError("Couldn't automatically extract details — please enter the price and rent manually below.")
+        setScraped({ price: null, propertyType: null, bedrooms: null, address: null })
+      } else {
+        setScraped(data)
+        if (data.price) setError('')
+      }
     } catch(e) {
-      setError('Could not analyse this listing. Try entering the details manually below.')
+      setError("Couldn't reach the listing — please enter details manually below.")
+      setScraped({ price: null, propertyType: null, bedrooms: null, address: null })
     }
     setLoading(false)
   }
 
+  const price = scraped?.price || 0
+  const grossYield = price && rent ? ((parseFloat(rent) * 12) / price * 100).toFixed(1) : null
+  const sdlt = price ? Math.round(price * 0.05) : 0
+  const deposit = price ? Math.round(price * 0.25) : 0
+  const monthlyInterest = price ? Math.round((price - deposit) * 0.045 / 12) : 0
+  const monthlyProfit = rent && monthlyInterest ? Math.round(parseFloat(rent) * 0.9 - monthlyInterest - 50) : null
+  const yieldColor = grossYield >= 7 ? '#2ECC8A' : grossYield >= 5 ? '#C8A84B' : '#E05555'
   const fmt = n => n ? `£${parseInt(n).toLocaleString('en-GB')}` : '—'
 
   return (
-    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <span style={{ fontSize: 20 }}>🔗</span>
+    <div style={{background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px'}}>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
+        <span style={{fontSize:20}}>🔗</span>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Listing yield calculator</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Paste a Rightmove, Zoopla or OnTheMarket URL to instantly analyse the deal</div>
+          <div style={{fontSize:14, fontWeight:700, color:T.text}}>Listing yield calculator</div>
+          <div style={{fontFamily:mono, fontSize:11, color:T.muted}}>Paste a Rightmove, Zoopla or OnTheMarket URL to pull the price and property type automatically</div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <input value={url} onChange={e => setUrl(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && analyse()}
-          placeholder="https://www.rightmove.co.uk/properties/..."
-          style={{ flex: 1, fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '9px 12px', outline: 'none' }}/>
+      <div style={{display:'flex', gap:8, marginBottom:12}}>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&analyse()}
+          placeholder="https://www.rightmove.co.uk/properties/172607333..."
+          style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px', outline:'none'}}/>
         <button onClick={analyse} disabled={loading || !url.trim()}
-          style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 18px', borderRadius: 8, border: 'none',
-            background: loading||!url.trim() ? T.border : T.gold, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
-          {loading ? 'Analysing…' : 'Analyse →'}
+          style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none',
+            background:loading||!url.trim()?T.border:T.gold, color:'white', cursor:loading?'wait':'pointer', flexShrink:0}}>
+          {loading ? 'Fetching…' : 'Analyse →'}
         </button>
       </div>
 
-      {error && <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginBottom: 10 }}>{error}</div>}
+      {error && <div style={{fontFamily:mono, fontSize:11, color:T.amber, marginBottom:10}}>{error}</div>}
 
-      {result && (
-        <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
-            {[
-              { label: 'Asking price', value: fmt(result.purchase_price), color: T.text },
-              { label: 'Est. monthly rent', value: fmt(result.estimated_monthly_rent), color: '#2ECC8A' },
-              { label: 'Gross yield', value: result.gross_yield ? `${parseFloat(result.gross_yield).toFixed(1)}%` : '—',
-                color: parseFloat(result.gross_yield) >= 7 ? '#2ECC8A' : parseFloat(result.gross_yield) >= 5 ? '#C8A84B' : '#E05555' },
-              { label: 'Type', value: result.property_type || '—', color: T.muted },
-              { label: 'Bedrooms', value: result.bedrooms ? `${result.bedrooms} bed` : '—', color: T.muted },
-              { label: 'Location', value: result.location || '—', color: T.muted },
-            ].map(k => (
-              <div key={k.label} style={{ background: T.card, borderRadius: 8, padding: '10px 12px' }}>
-                <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{k.label}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: k.color }}>{k.value}</div>
+      {scraped && (
+        <div>
+          {/* Auto-filled fields from scrape */}
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:10, marginBottom:14}}>
+            <div>
+              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
+                Asking price {scraped.price ? '✓ auto-detected' : '— enter manually'}
               </div>
-            ))}
+              <input type="number" value={scraped.price || ''}
+                onChange={e=>setScraped(p=>({...p, price:parseInt(e.target.value)||0}))}
+                placeholder="e.g. 175000"
+                style={{fontFamily:mono, fontSize:13, background:scraped.price?T.gold+'11':T.bg,
+                  border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%', outline:'none'}}/>
+            </div>
+            <div>
+              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
+                Property type {scraped.propertyType ? '✓ auto-detected' : '— enter manually'}
+              </div>
+              <select value={scraped.propertyType || ''}
+                onChange={e=>setScraped(p=>({...p, propertyType:e.target.value}))}
+                style={{fontFamily:mono, fontSize:12, background:scraped.propertyType?T.gold+'11':T.bg,
+                  border:`1px solid ${scraped.propertyType?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%', outline:'none'}}>
+                <option value="">Select type…</option>
+                {['flat','terraced','semi-detached','detached','bungalow','HMO'].map(t=>(
+                  <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            {scraped.bedrooms && (
+              <div>
+                <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Bedrooms ✓ auto-detected</div>
+                <div style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.gold, padding:'7px 10px', background:T.gold+'11', borderRadius:6, border:`1px solid ${T.gold}`}}>
+                  {scraped.bedrooms} bed
+                </div>
+              </div>
+            )}
+            <div>
+              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Expected monthly rent (£)</div>
+              <input type="number" value={rent} onChange={e=>setRent(e.target.value)}
+                placeholder="e.g. 850"
+                style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%', outline:'none'}}/>
+            </div>
           </div>
 
-          {result.notes && (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12, fontStyle: 'italic' }}>Note: {result.notes}</div>
+          {scraped.address && (
+            <div style={{fontFamily:mono, fontSize:11, color:T.muted, marginBottom:12}}>
+              📍 {scraped.address}
+              {url && <> · <a href={url} target="_blank" rel="noreferrer" style={{color:'#4B8FE0', textDecoration:'none'}}>View listing →</a></>}
+            </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            {onAutoFill && result.purchase_price && (
-              <button onClick={() => onAutoFill(result)}
-                style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: 'white', cursor: 'pointer' }}>
-                → Open in Deal Calculator
+          {/* Results */}
+          {scraped.price > 0 && rent && (
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:14}}>
+              {[
+                {label:'Gross yield', value:`${grossYield}%`, color:yieldColor, big:true},
+                {label:'SDLT (additional)', value:fmt(sdlt), color:T.amber},
+                {label:'25% deposit needed', value:fmt(deposit), color:T.text},
+                {label:'Interest only /mo', value:fmt(monthlyInterest), color:T.text},
+                {label:'Est. monthly profit', value:fmt(monthlyProfit), color:monthlyProfit>0?'#2ECC8A':'#E05555', big:true},
+              ].map(k=>(
+                <div key={k.label} style={{background:T.bg, borderRadius:8, padding:'10px 12px'}}>
+                  <div style={{fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:3}}>{k.label}</div>
+                  <div style={{fontFamily:mono, fontSize:k.big?17:13, fontWeight:700, color:k.color}}>{k.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{display:'flex', gap:8}}>
+            {onAutoFill && scraped.price > 0 && (
+              <button onClick={()=>onAutoFill({
+                purchase_price:scraped.price,
+                estimated_monthly_rent:parseFloat(rent)||0,
+                property_type:scraped.propertyType,
+                bedrooms:scraped.bedrooms,
+                location:scraped.address
+              })}
+                style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer'}}>
+                → Open full deal calculator
               </button>
             )}
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'flex', alignItems: 'center' }}>
-              AI estimates only — verify with actual listing data
-            </div>
+            <button onClick={()=>{setUrl('');setScraped(null);setRent('');setError('')}}
+              style={{fontFamily:mono, fontSize:12, padding:'9px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer'}}>
+              Clear
+            </button>
+          </div>
+
+          <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginTop:10, lineHeight:1.7}}>
+            Profit estimate: 10% void/costs deducted, 4.5% interest-only mortgage at 75% LTV, £50/mo other costs. SDLT at 5% additional property rate (Oct 2024).
           </div>
         </div>
       )}
