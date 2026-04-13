@@ -23,29 +23,21 @@ export function AIListingWriter({ property, T: TProp }) {
     setLoading(true)
     setResult('')
     try {
-      const prompt = `Write a property listing description for ${form.target === 'rightmove' ? 'Rightmove' : 'Zoopla'}.
-
-Property details:
-- Type: ${form.property_type}
-- Bedrooms: ${form.bedrooms}
-- Bathrooms: ${form.bathrooms}
-- Location: ${form.location}
-- Key features: ${form.features}
-- Tone: ${form.tone}
-
-Write a compelling, accurate listing description of 150-200 words. Do not invent features not listed. Use UK English. Do not include a headline/title — just the body paragraph(s).`
-
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const { supabase } = await import('../lib/supabase')
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${supabaseUrl}/functions/v1/ai-listing-writer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }]
+          propertyType: form.property_type, bedrooms: form.bedrooms,
+          bathrooms: form.bathrooms, location: form.location,
+          features: form.features, target: form.target, tone: form.tone,
         })
       })
-      const data = await response.json()
-      setResult(data.content?.[0]?.text || 'No result')
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setResult(data.description || 'No result')
     } catch(e) {
       setResult('Error generating description. Please try again.')
     }

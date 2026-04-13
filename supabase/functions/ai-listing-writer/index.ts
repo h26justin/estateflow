@@ -1,46 +1,54 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
-const cors = {
+const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   try {
-    const { bedrooms, bathrooms, property_type, location, features, tone, target } = await req.json()
-    
-    const prompt = `Write a compelling UK property listing description for:
-- Type: ${property_type || 'flat'}
-- Bedrooms: ${bedrooms || 2}, Bathrooms: ${bathrooms || 1}
-- Location: ${location || 'town centre'}
-- Key features: ${features || 'modern kitchen, parking, garden'}
-- Tone: ${tone || 'professional'} 
-- Target tenant: ${target || 'professional couple'}
+    const { propertyType, bedrooms, bathrooms, location, features, target, tone } = await req.json()
 
-Write 3 paragraphs. First paragraph: strong opening that sells the lifestyle. Second: key features and room highlights. Third: location benefits and practical details. Do not use "we" or mention the agent. End with a call to action. Max 200 words. UK English.`
+    const prompt = `Write a property listing description for ${target === 'rightmove' ? 'Rightmove' : target === 'zoopla' ? 'Zoopla' : 'a property portal'}.
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+Property details:
+- Type: ${propertyType}
+- Bedrooms: ${bedrooms}
+- Bathrooms: ${bathrooms}
+- Location: ${location}
+- Key features: ${features}
+- Tone: ${tone}
+
+Write a compelling, accurate listing description of 150-200 words. Do not invent features not listed above. Use UK English spelling. Do not include a headline or title — just the body paragraph(s). Start directly with the description.`
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') || '',
+        'Content-Type': 'application/json',
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
         'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+        messages: [{ role: 'user', content: prompt }]
+      })
     })
-    const data = await res.json()
-    const text = data.content?.[0]?.text || ''
+
+    const data = await response.json()
+    const text = data.content?.[0]?.text
+
+    if (!text) throw new Error('No response from AI')
+
     return new Response(JSON.stringify({ description: text }), {
-      headers: { ...cors, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
+
   } catch(err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 400, headers: { ...cors, 'Content-Type': 'application/json' }
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
 })
