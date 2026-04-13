@@ -44,7 +44,7 @@ export function AIListingWriter({ property, T: TProp }) {
 
       setResult(data.description)
     } catch(e) {
-      setResult(`⚠ ${(e as Error).message}`)
+      setResult(`⚠ ${e.message || String(e)}`)
     }
     setLoading(false)
   }
