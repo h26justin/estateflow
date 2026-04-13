@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { AIListingWriter, RightmoveCalculator } from './FeatureComponents'
 import * as api from '../lib/api'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -151,7 +152,7 @@ export default function DealsPage({ user, companies, onConvertToProperty, showTo
     return true
   }), [deals, statusFilter, coFilter])
 
-  const [dealView, setDealView] = useState('list') // list | pipeline
+  const [dealView, setDealView] = useState('list') // list | pipeline | tools | rightmove | ai-writer
 
   // ── card / style helpers ────────────────────────────────────────────────────
   const card = { background: T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
@@ -1365,6 +1366,219 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
       <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted, marginTop:12 }}>
         Click any deal to open it. Change a deal's stage in the deal editor to move it between columns.
       </div>
+    </div>
+  )
+}
+
+// ── AI LISTING WRITER ─────────────────────────────────────────────────────────
+export function AIListingWriter({ showToast }) {
+  const { T } = useTheme()
+  const mono = "'DM Mono',monospace"
+  const [form, setForm] = useState({ bedrooms:'2', bathrooms:'1', property_type:'flat', location:'', features:'', tone:'professional', target:'professional couple' })
+  const [result, setResult] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const set = (k,v) => setForm(p=>({...p,[k]:v}))
+  const inp = { fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%', boxSizing:'border-box' }
+
+  async function generate() {
+    if (!form.location) { showToast('Add a location first', 'error'); return }
+    setLoading(true); setResult('')
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const { data: { session } } = await import('../lib/supabase').then(m => m.supabase.auth.getSession())
+      const res = await fetch(`${supabaseUrl}/functions/v1/ai-listing-writer`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token}` },
+        body: JSON.stringify(form)
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setResult(data.description)
+    } catch(e) { showToast(e.message||'Failed to generate', 'error') }
+    setLoading(false)
+  }
+
+  function copy() {
+    navigator.clipboard.writeText(result)
+    setCopied(true); setTimeout(()=>setCopied(false),2000)
+    showToast('Copied to clipboard!')
+  }
+
+  return (
+    <div style={{ maxWidth:740 }}>
+      <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:16 }}>AI listing description writer</div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:10 }}>
+        <div>
+          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4 }}>Property type</div>
+          <select value={form.property_type} onChange={e=>set('property_type',e.target.value)} style={inp}>
+            {['flat','house','terraced house','semi-detached house','detached house','bungalow','studio','HMO room'].map(t=><option key={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4 }}>Bedrooms</div>
+          <select value={form.bedrooms} onChange={e=>set('bedrooms',e.target.value)} style={inp}>
+            {['Studio','1','2','3','4','5','6+'].map(n=><option key={n}>{n}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4 }}>Bathrooms</div>
+          <select value={form.bathrooms} onChange={e=>set('bathrooms',e.target.value)} style={inp}>
+            {['1','2','3'].map(n=><option key={n}>{n}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div style={{ marginBottom:10 }}>
+        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4 }}>Location / area *</div>
+        <input value={form.location} onChange={e=>set('location',e.target.value)} placeholder="e.g. Jesmond, Newcastle · near Metro · 10 min city centre" style={inp}/>
+      </div>
+
+      <div style={{ marginBottom:10 }}>
+        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4 }}>Key features (comma separated)</div>
+        <input value={form.features} onChange={e=>set('features',e.target.value)} placeholder="e.g. modern kitchen, private garden, allocated parking, underfloor heating" style={inp}/>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14 }}>
+        <div>
+          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4 }}>Target tenant</div>
+          <select value={form.target} onChange={e=>set('target',e.target.value)} style={inp}>
+            {['professional couple','young professional','family','student','retired couple','any tenant'].map(t=><option key={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4 }}>Tone</div>
+          <select value={form.tone} onChange={e=>set('tone',e.target.value)} style={inp}>
+            {['professional','warm and friendly','luxury/premium','concise','detailed'].map(t=><option key={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <button onClick={generate} disabled={loading}
+        style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 24px', borderRadius:8, border:'none', background:loading?T.border:T.gold, color:'white', cursor:loading?'not-allowed':'pointer', marginBottom:14 }}>
+        {loading ? '✨ Writing your listing…' : '✨ Generate listing description'}
+      </button>
+
+      {result && (
+        <div style={{ background:T.card, border:`1px solid ${T.gold}44`, borderRadius:12, padding:'18px 20px' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+            <div style={{ fontFamily:mono, fontSize:10, color:T.gold, textTransform:'uppercase', letterSpacing:'0.1em' }}>Generated listing</div>
+            <button onClick={copy} style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'5px 14px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:'white', cursor:'pointer' }}>
+              {copied?'✓ Copied!':'Copy text'}
+            </button>
+          </div>
+          <div style={{ fontFamily:'serif', fontSize:13, color:T.text, lineHeight:1.8, whiteSpace:'pre-wrap' }}>{result}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── RIGHTMOVE YIELD CALCULATOR ────────────────────────────────────────────────
+export function RightmoveCalculator({ onFillDeal, showToast }) {
+  const { T } = useTheme()
+  const mono = "'DM Mono',monospace"
+  const [url, setUrl] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [manualRent, setManualRent] = useState('')
+  const inp = { fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%', boxSizing:'border-box' }
+  const fmt = n => `£${(n||0).toLocaleString()}`
+
+  async function fetch_listing() {
+    if (!url.trim()) return
+    setLoading(true); setResult(null)
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const mod = await import('../lib/supabase')
+      const { data: { session } } = await mod.supabase.auth.getSession()
+      const res = await fetch(`${supabaseUrl}/functions/v1/rightmove-fetch`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${session?.access_token}` },
+        body: JSON.stringify({ url: url.trim() })
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setResult(data)
+      if (!data.price && !data.address) showToast('Could not extract data — try entering manually', 'error')
+    } catch(e) { showToast(e.message||'Failed to fetch', 'error') }
+    setLoading(false)
+  }
+
+  const price = result?.price || 0
+  const rent = parseFloat(manualRent) || 0
+  const grossYield = price > 0 && rent > 0 ? ((rent*12)/price*100).toFixed(2) : null
+  const netYield = price > 0 && rent > 0 ? (((rent*0.75)*12)/price*100).toFixed(2) : null // rough 25% costs
+  const sdlt = price > 0 ? api.calcStampDuty(price, true, false) : 0
+  const cashNeeded = price > 0 ? Math.round(price*0.25 + sdlt + 3000) : 0 // 25% deposit + sdlt + fees
+
+  return (
+    <div style={{ maxWidth:640 }}>
+      <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Rightmove / Zoopla yield calculator</div>
+      <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginBottom:14, lineHeight:1.7 }}>
+        Paste a listing URL below. We'll extract the price and address, then you enter the expected rent to calculate yield instantly.
+      </div>
+
+      <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          placeholder="https://www.rightmove.co.uk/properties/..."
+          style={{ ...inp, flex:1 }}
+          onKeyDown={e=>e.key==='Enter'&&fetch_listing()}/>
+        <button onClick={fetch_listing} disabled={loading||!url.trim()}
+          style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'8px 18px', borderRadius:8, border:'none', background:loading?T.border:T.gold, color:'white', cursor:'pointer', flexShrink:0 }}>
+          {loading?'Fetching…':'Fetch listing'}
+        </button>
+      </div>
+
+      {result && (
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'16px 20px', marginBottom:14 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
+            <div>
+              <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:3 }}>Purchase price</div>
+              {result.price
+                ? <div style={{ fontSize:20, fontWeight:700, color:T.text }}>{fmt(result.price)}</div>
+                : <input type="number" placeholder="Enter price manually" style={inp}
+                    onChange={e=>setResult(p=>({...p,price:parseInt(e.target.value)||0}))}/>
+              }
+            </div>
+            <div>
+              <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:3 }}>Expected monthly rent</div>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <span style={{ fontFamily:mono, fontSize:12, color:T.muted }}>£</span>
+                <input type="number" value={manualRent} onChange={e=>setManualRent(e.target.value)}
+                  placeholder="e.g. 850" style={{ ...inp, flex:1 }}/>
+                <span style={{ fontFamily:mono, fontSize:11, color:T.muted }}>pcm</span>
+              </div>
+            </div>
+          </div>
+
+          {result.address && <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginBottom:12 }}>📍 {result.address}</div>}
+
+          {grossYield && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
+              {[
+                { label:'Gross yield', value:`${grossYield}%`, color: parseFloat(grossYield)>=6?T.green:parseFloat(grossYield)>=4?T.amber:T.red },
+                { label:'Net yield (est)', value:`${netYield}%`, color: parseFloat(netYield)>=4?T.green:parseFloat(netYield)>=3?T.amber:T.red },
+                { label:'SDLT (BTL)', value:fmt(sdlt), color:T.amber },
+                { label:'Est. cash needed', value:fmt(cashNeeded), color:T.muted },
+              ].map(k=>(
+                <div key={k.label} style={{ background:T.bg, borderRadius:8, padding:'10px 12px' }}>
+                  <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:k.color }}>{k.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {onFillDeal && result.price && (
+            <button onClick={()=>{ onFillDeal({ purchase_price:result.price, name:result.address||'New deal' }); showToast('Deal pre-filled!') }}
+              style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 16px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
+              → Open in deal calculator
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, LegalNoticesTab, RentIncreaseTab } from './components/FeatureComponents'
 import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
@@ -54,6 +54,17 @@ const Badge = memo(({status}) => {
   return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.bg,color:c.fg,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:600}}>
     <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
   </span>
+})
+
+const HealthBadge = memo(({property}) => {
+  const h = api.calcPropertyHealthScore(property)
+  return (
+    <span title={`Health: ${h.score}/100${h.issues.length ? ' · ' + h.issues[0].text : ''}`}
+      style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:20,
+        background:h.color+'22',color:h.color,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:700,cursor:'default'}}>
+      {h.grade} {h.score}
+    </span>
+  )
 })
 
 const CompanyPill = memo(({company}) => {
@@ -534,16 +545,34 @@ export default function App() {
   }
 
   const ALL_NAV=[
-    {key:'dashboard',  label:'Dashboard',   icon:'🏠', short:'Home',     required:true},
-    {key:'properties', label:'Properties',  icon:'🏘', short:'Props',    required:true},
-    {key:'companies',  label:'Companies',   icon:'🏢', short:'Companies',required:false},
-    {key:'rent',       label:'Rent Tracker',icon:'💷', short:'Rent',     required:false},
-    {key:'deals',      label:'Deals',       icon:'🎯', short:'Deals',    required:false},
-    {key:'reports',    label:'Reports',     icon:'📊', short:'Reports',  required:false},
-    {key:'contractors',label:'Contractors', icon:'🔧', short:'Contractors',required:false},
-    {key:'settings',   label:'Settings',    icon:'⚙', short:'Settings', required:true},
+    {key:'dashboard',  label:'Dashboard', icon:'🏠', short:'Home',     required:true},
+    {key:'properties', label:'Portfolio', icon:'🏘', short:'Portfolio',required:true},
+    {key:'rent',       label:'Finance',   icon:'💰', short:'Finance',  required:false},
+    {key:'deals',      label:'Deals',     icon:'🎯', short:'Deals',    required:false},
+    {key:'reports',    label:'Reports',   icon:'📊', short:'Reports',  required:false},
+    {key:'settings',   label:'Settings',  icon:'⚙',  short:'Settings', required:true},
   ]
   const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
+
+  function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
+    return (
+      <div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',margin:0}}>Companies</h2>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
+        </div>
+        {/* Render companies content - reuse existing active company tab */}
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
+          {companies.map(c=>(
+            <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`}
+              style={{border:`1px solid ${activeCoTab===c.id?c.color:T.border}`,color:activeCoTab===c.id?c.color:T.muted,background:activeCoTab===c.id?c.color+'11':'transparent'}}
+              onClick={()=>setActiveCoTab(c.id)}>{c.name}</button>
+          ))}
+        </div>
+        {companies.filter(c=>!activeCoTab||c.id===activeCoTab).map(c=><CompanyCard key={c.id} company={c} T={T}/>)}
+      </div>
+    )
+  }
 
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
@@ -837,6 +866,14 @@ export default function App() {
             }
             <SmartAlerts properties={dashProps} companies={dashCos} fmt={fmt} openDetail={openDetail}/>
             <TenantInbox user={user} companies={companies} showToast={showToast} companySettings={companySettings}/>
+            {/* Portfolio Modeller — collapsible */}
+            {showModeller && <PortfolioModeller currentProperties={dashProps} T={T}/>}
+            <div style={{marginTop:16}}>
+              <button onClick={()=>setShowModeller(v=>!v)}
+                style={{fontFamily:"'DM Mono',monospace",fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>
+                {showModeller?'▲ Hide portfolio modeller':'📈 Portfolio what-if modeller'}
+              </button>
+            </div>
             {/* Company documents section */}
             {activeCoTab&&(companySettings[activeCoTab]||{}).feature_documents&&(
               <div style={{marginTop:28}}>
@@ -858,12 +895,26 @@ export default function App() {
           </div>}
 
           {view==='properties'&&<div className="fade">
-            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:22}}>
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
               <div>
-                <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>All Properties</h1>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} shown</div>
+                <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio</h1>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                {[['properties','🏘 Properties'],['companies','🏢 Companies'],['contractors','🔧 Contractors']].map(([k,l])=>(
+                  <button key={k} onClick={()=>setPortfolioTab(k)}
+                    style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
+                      border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
+                      background:portfolioTab===k?T.gold+'22':'transparent',
+                      color:portfolioTab===k?T.gold:T.muted,fontWeight:portfolioTab===k?700:400}}>
+                    {l}
+                  </button>
+                ))}
               </div>
             </div>
+            {portfolioTab==='companies'&&<CompaniesPanel companies={companies} setCompanies={setCompanies} user={user} showToast={showToast} companySettings={companySettings} setCompanySettings={setCompanySettings} T={T}/>}
+            {portfolioTab==='contractors'&&<ContractorsPage user={user} companies={companies} showToast={showToast}/>}
+            {portfolioTab==='properties'&&<div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18}}>
               <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search name or address…" style={{width:230,padding:'7px 12px',fontSize:12}}/>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -899,6 +950,7 @@ export default function App() {
               ))}
             </div>
             <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties} sortBy={sortBy}/>
+            </div>}
           </div>}
 
           {view==='companies'&&<div className="fade">
@@ -932,6 +984,7 @@ export default function App() {
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
                       <Badge status={p.status}/>
+                      <HealthBadge property={p}/>
                     </div>
                   ))}
                   {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.</div>}
@@ -973,6 +1026,12 @@ export default function App() {
                   if(cs.feature_compliance)  tabs.push('compliance')
                   if(cs.feature_tenancy)     tabs.push('tenancy')
                   tabs.push('right to rent')
+                  tabs.push('deposit')
+                  tabs.push('notices')
+                  tabs.push('rent history')
+                  tabs.push('deposit')
+                  tabs.push('notices')
+                  tabs.push('rent history')
                   if(cs.feature_maintenance) tabs.push('maintenance')
                   if(cs.feature_documents)   tabs.push('documents')
                   if(cs.feature_expenses)    tabs.push('expenses')
@@ -1017,9 +1076,17 @@ export default function App() {
                     </div>
                   ))}
                 </div>}
+                {detailTab==='contractors'&&<ContractorsPage propertyFilter={selected.id} showToast={showToast} user={user} compact={true}/>}
+                {(detailTab==='overview'||detailTab==='tenancy')&&<TenancyRenewalAlert propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance"/>}
                 {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy"/>}
                 {detailTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
+                {detailTab==='notices'&&<LegalNoticesTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
+                {detailTab==='rent history'&&<RentIncreaseTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast}/>}
                 {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance"/>}
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses"/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
@@ -1440,7 +1507,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
       {/* Header + global year filter */}
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <div>
-          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Rent Tracker</h1>
+          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Finance</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
             {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>

@@ -1195,12 +1195,6 @@ export async function markMessagesRead(propertyId, tenantUserId) {
     .eq('property_id', propertyId).eq('sender_type', 'landlord').is('read_at', null)
 }
 
-export async function fetchTenancyDetails(propertyId) {
-  const { data } = await supabase.from('tenancy_details')
-    .select('*').eq('property_id', propertyId).single()
-  return data
-}
-
 export async function setDocumentSharedWithTenant(docId, shared) {
   const { error } = await supabase.from('property_documents')
     .update({ shared_with_tenant: shared }).eq('id', docId)
@@ -1493,4 +1487,155 @@ export async function sendOnboardingEmail(email, name, sequence) {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
     body: JSON.stringify({ email, name, sequence })
   })
+}
+
+// ── PROPERTY HEALTH SCORE ─────────────────────────────────────────────────────
+export function calcPropertyHealthScore(property, compliance=[], tenancy=null, maintenance=[], rentPayments=[]) {
+  // Returns 0-100 score with breakdown
+  let score = 100
+  const issues = []
+  const today = new Date()
+
+  // Compliance (max -40 points)
+  const expiryFields = [
+    { key:'gas_safety_expiry',    label:'Gas Safety', critical:true },
+    { key:'eicr_expiry',          label:'EICR',        critical:true },
+    { key:'epc_expiry',           label:'EPC',         critical:false },
+    { key:'hmo_licence_expiry',   label:'HMO Licence', critical:true },
+  ]
+  compliance.forEach(c => {
+    if (!c.expiry_date) return
+    const exp = new Date(c.expiry_date)
+    const daysLeft = (exp - today) / (1000*60*60*24)
+    if (daysLeft < 0) { score -= 20; issues.push({ type:'error', text:`${c.title || c.item_type} expired` }) }
+    else if (daysLeft < 30) { score -= 10; issues.push({ type:'warning', text:`${c.title || c.item_type} expires in ${Math.round(daysLeft)} days` }) }
+    else if (daysLeft < 90) { score -= 3; issues.push({ type:'info', text:`${c.title || c.item_type} expires in ${Math.round(daysLeft)} days` }) }
+  })
+
+  // Rent arrears (max -25 points)
+  const overduePayments = rentPayments.filter(p => p.status === 'overdue')
+  if (overduePayments.length > 0) {
+    score -= Math.min(25, overduePayments.length * 10)
+    issues.push({ type:'error', text:`${overduePayments.length} overdue rent payment${overduePayments.length>1?'s':''}` })
+  }
+
+  // Open maintenance (max -20 points)
+  const openJobs = maintenance.filter(m => m.status !== 'complete')
+  const urgentJobs = openJobs.filter(m => m.priority === 'urgent')
+  if (urgentJobs.length) { score -= 15; issues.push({ type:'error', text:`${urgentJobs.length} urgent repair${urgentJobs.length>1?'s':''} open` }) }
+  else if (openJobs.length) { score -= Math.min(10, openJobs.length * 3); issues.push({ type:'warning', text:`${openJobs.length} open repair job${openJobs.length>1?'s':''}` }) }
+
+  // Tenancy (max -15 points)
+  if (tenancy?.tenancy_end_date) {
+    const end = new Date(tenancy.tenancy_end_date)
+    const daysToEnd = (end - today) / (1000*60*60*24)
+    if (daysToEnd < 0) { score -= 15; issues.push({ type:'error', text:'Tenancy has ended' }) }
+    else if (daysToEnd < 30) { score -= 10; issues.push({ type:'warning', text:`Tenancy ends in ${Math.round(daysToEnd)} days` }) }
+    else if (daysToEnd < 90) { score -= 5; issues.push({ type:'info', text:`Tenancy ends in ${Math.round(daysToEnd)} days` }) }
+  }
+
+  // Vacant property
+  if (property.status === 'vacant') {
+    score -= 5
+    issues.push({ type:'info', text:'Property currently vacant' })
+  }
+
+  const clamped = Math.max(0, Math.min(100, score))
+  const grade = clamped >= 90 ? 'A' : clamped >= 75 ? 'B' : clamped >= 60 ? 'C' : clamped >= 40 ? 'D' : 'F'
+  const color = clamped >= 90 ? '#2ECC8A' : clamped >= 75 ? '#4B8FE0' : clamped >= 60 ? '#C8A84B' : clamped >= 40 ? '#E0943A' : '#E05555'
+  return { score: clamped, grade, color, issues }
+}
+
+// ── DEPOSIT PROTECTION ────────────────────────────────────────────────────────
+export async function deleteDepositProtection(id) {
+  const { error } = await supabase.from('deposit_protection').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── LEGAL NOTICES ─────────────────────────────────────────────────────────────
+export async function fetchLegalNotices(propertyId) {
+  const { data, error } = await supabase.from('legal_notices').select('*').eq('property_id', propertyId).order('served_date', { ascending: false })
+  if (error) throw error; return data || []
+}
+export async function saveLegalNotice(record) {
+  const { data, error } = await supabase.from('legal_notices').upsert(record, { onConflict: 'id' }).select().single()
+  if (error) throw error; return data
+}
+export async function deleteLegalNotice(id) {
+  const { error } = await supabase.from('legal_notices').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── RENT INCREASES ────────────────────────────────────────────────────────────
+export async function fetchRentIncreases(propertyId) {
+  const { data, error } = await supabase.from('rent_increases').select('*').eq('property_id', propertyId).order('effective_date', { ascending: false })
+  if (error) throw error; return data || []
+}
+export async function saveRentIncrease(record) {
+  const { data, error } = await supabase.from('rent_increases').upsert(record, { onConflict: 'id' }).select().single()
+  if (error) throw error; return data
+}
+
+// ── BULK PROPERTY ACTIONS ─────────────────────────────────────────────────────
+export async function bulkUpdateProperties(ids, updates) {
+  const { error } = await supabase.from('properties').update(updates).in('id', ids)
+  if (error) throw error
+}
+export async function bulkSoftDeleteProperties(ids, userId) {
+  const { error } = await supabase.from('properties').update({ deleted_at: new Date().toISOString(), deleted_by: userId }).in('id', ids)
+  if (error) throw error
+}
+
+// ── DEPOSIT PROTECTION ────────────────────────────────────────────────────────
+export async function fetchDepositProtection(propertyId) {
+  const { data, error } = await supabase.from('deposit_protection')
+    .select('*').eq('property_id', propertyId).order('registered_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+export async function saveDepositProtection(record) {
+  const { data, error } = await supabase.from('deposit_protection')
+    .upsert(record, { onConflict: 'id' }).select().single()
+  if (error) throw error
+  return data
+}
+
+// ── LEGAL NOTICES ─────────────────────────────────────────────────────────────
+export async function fetchNotices(propertyId) {
+  const { data, error } = await supabase.from('legal_notices')
+    .select('*').eq('property_id', propertyId).order('served_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+export async function saveNotice(record) {
+  const { data, error } = await supabase.from('legal_notices')
+    .upsert(record, { onConflict: 'id' }).select().single()
+  if (error) throw error
+  return data
+}
+
+// ── RENT HISTORY ──────────────────────────────────────────────────────────────
+export async function fetchRentHistory(propertyId) {
+  const { data, error } = await supabase.from('rent_history')
+    .select('*').eq('property_id', propertyId).order('effective_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+export async function saveRentHistory(record) {
+  const { data, error } = await supabase.from('rent_history')
+    .upsert(record, { onConflict: 'id' }).select().single()
+  if (error) throw error
+  return data
+}
+
+// ── TENANCY DETAILS UPDATE ────────────────────────────────────────────────────
+export async function updateTenancyDetails(propertyId, fields) {
+  const { error } = await supabase.from('tenancy_details')
+    .update(fields).eq('property_id', propertyId)
+  if (error) throw error
+}
+export async function fetchTenancyDetails(propertyId) {
+  const { data } = await supabase.from('tenancy_details')
+    .select('*').eq('property_id', propertyId).single()
+  return data
 }
