@@ -50,8 +50,9 @@ const REFURB_CFG = {
 }
 
 const Badge = memo(({status}) => {
+  const { T } = useTheme()
   const c = STATUS_CFG[status]||STATUS_CFG.purchased
-  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.bg,color:c.fg,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:600}}>
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:c.fg,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:600}}>
     <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
   </span>
 })
@@ -106,7 +107,7 @@ function getStatusColor(status) {
   if (status==='missed')  return '#E05555'
   if (status==='late') return '#E0943A'
   if (status==='refurb')  return '#4B8FE0'
-  return '#3A3F58' // void - neutral, intentionally static
+  return '#888EA8' // void - visible in both themes
 }
 
 const RentDots = ({payments, onUpdate, filterYear}) => {
@@ -133,7 +134,7 @@ const RentDots = ({payments, onUpdate, filterYear}) => {
           ? { background:col, border:`2px solid #C8A84B`, cursor:onUpdate?'pointer':'default' }
           : { background:col, border:'1px solid transparent', cursor:onUpdate?'pointer':'default' }
 
-      const letterColor = isFuture ? 'rgba(128,128,128,0.45)' : 'rgba(0,0,0,0.7)'
+      const letterColor = isFuture ? 'rgba(128,128,128,0.45)' : '#fff'
 
       return (
         <div key={m.id}
