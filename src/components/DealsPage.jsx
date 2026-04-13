@@ -224,7 +224,6 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     return true
   }), [deals, statusFilter, coFilter])
 
-  const [dealView, setDealView] = useState('list') // list | pipeline | tools | rightmove | ai-writer
 
   // ── card / style helpers ────────────────────────────────────────────────────
   const card = { background: T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
