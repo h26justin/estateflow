@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert, PropertyHealthScore } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert } from './components/FeatureComponents'
 import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
@@ -57,7 +57,6 @@ const Badge = memo(({status}) => {
 })
 
 const HealthBadge = memo(({property}) => {
-  const h = api.calcPropertyHealthScore(property)
   return (
     <span title={`Health: ${h.score}/100${h.issues.length ? ' · ' + h.issues[0].text : ''}`}
       style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:20,

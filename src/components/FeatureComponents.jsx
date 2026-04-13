@@ -3692,3 +3692,89 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
     </div>
   )
 }
+
+// ── TENANCY RENEWAL ALERT ─────────────────────────────────────────────────────
+export function TenancyRenewalAlert({ propertyId, showToast, T }) {
+  const mono = "'DM Mono',monospace"
+  const [tenancy, setTenancy]   = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm]         = useState({})
+  const [saving, setSaving]     = useState(false)
+
+  useEffect(() => {
+    api.fetchTenancyDetails(propertyId)
+      .then(setTenancy)
+      .catch(() => {})
+  }, [propertyId])
+
+  if (!tenancy?.tenancy_end_date) return null
+
+  const today = new Date()
+  const endDate = new Date(tenancy.tenancy_end_date)
+  const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
+
+  if (daysLeft > 90 || daysLeft < -30) return null
+
+  const urgency = daysLeft <= 0 ? 'expired' : daysLeft <= 30 ? 'urgent' : daysLeft <= 60 ? 'soon' : 'upcoming'
+  const color = { expired:'#E05555', urgent:'#E0943A', soon:'#C8A84B', upcoming:'#4B8FE0' }[urgency]
+
+  async function handleRenew() {
+    if (!form.new_end_date) { showToast('Enter new end date', 'error'); return }
+    setSaving(true)
+    try {
+      await api.updateTenancyDetails(propertyId, {
+        tenancy_end_date: form.new_end_date,
+        ...(form.new_rent ? { rent_pcm: parseFloat(form.new_rent) } : {})
+      })
+      setTenancy(p => ({ ...p, tenancy_end_date: form.new_end_date }))
+      setShowForm(false)
+      showToast('Tenancy renewed ✓')
+    } catch(e) { showToast(e.message, 'error') }
+    setSaving(false)
+  }
+
+  return (
+    <div style={{ background: color + '11', border: `1px solid ${color}44`, borderRadius: 10, padding: '12px 16px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+        <div>
+          <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3 }}>
+            {urgency === 'expired' ? '⚑ Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
+          </div>
+          <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888' }}>
+            End date: {new Date(tenancy.tenancy_end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {tenancy.rent_pcm ? ` · Current rent: £${tenancy.rent_pcm}/mo` : ''}
+          </div>
+        </div>
+        {!showForm && (
+          <button onClick={() => { setForm({ new_end_date: '', new_rent: tenancy.rent_pcm || '' }); setShowForm(true) }}
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
+            Renew tenancy
+          </button>
+        )}
+      </div>
+      {showForm && (
+        <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4 }}>New end date</div>
+            <input type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
+              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', outline: 'none' }}/>
+          </div>
+          <div>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4 }}>New rent (optional)</div>
+            <input type="number" value={form.new_rent || ''} onChange={e => setForm(p => ({ ...p, new_rent: e.target.value }))}
+              placeholder="Same as current"
+              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120, outline: 'none' }}/>
+          </div>
+          <button onClick={handleRenew} disabled={saving || !form.new_end_date}
+            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: 'white', cursor: 'pointer' }}>
+            {saving ? 'Saving…' : '✓ Confirm renewal'}
+          </button>
+          <button onClick={() => setShowForm(false)}
+            style={{ fontFamily: mono, fontSize: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T?.border || '#ddd'}`, background: 'transparent', color: T?.muted || '#888', cursor: 'pointer' }}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
