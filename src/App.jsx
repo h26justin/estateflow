@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, LegalNoticesTab, RentIncreaseTab } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab } from './components/FeatureComponents'
 import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
@@ -1086,7 +1086,7 @@ export default function App() {
                 {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
                 {detailTab==='notices'&&<LegalNoticesTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
-                {detailTab==='rent history'&&<RentIncreaseTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast}/>}
+                {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast}/>}
                 {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance"/>}
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses"/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
