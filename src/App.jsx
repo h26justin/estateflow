@@ -2,8 +2,9 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert, PropertyHealthScore } from './components/FeatureComponents'
 import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
+import { PortfolioModeller } from './components/AITools'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
 import { StatementImporter } from './components/StatementImporter'
@@ -114,24 +115,43 @@ const RentDots = ({payments, onUpdate, filterYear}) => {
   if (!payments?.length) return null
   const sorted=[...payments].sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
   const filtered = filterYear ? sorted.filter(m=>m.year===filterYear) : sorted
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1 // 1-based
+
   return <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:8}}>
     {filtered.map(m=>{
+      const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
+      const isCurrent = m.year === currentYear && m.month === currentMonth
       const col = getStatusColor(m.status)
       const letter = MONTH_LETTER[(m.month||1)-1]
+
+      // Future months: transparent with dashed border
+      // Current month: gold ring
+      // Past months: solid colour as before
+      const boxStyle = isFuture
+        ? { background:'transparent', border:'1px dashed rgba(128,128,128,0.35)', cursor:onUpdate?'pointer':'default' }
+        : isCurrent
+          ? { background:col, border:`2px solid #C8A84B`, cursor:onUpdate?'pointer':'default' }
+          : { background:col, border:'1px solid transparent', cursor:onUpdate?'pointer':'default' }
+
+      const letterColor = isFuture ? 'rgba(128,128,128,0.45)' : 'rgba(0,0,0,0.7)'
+
       return (
         <div key={m.id}
-          title={`${m.month_label}: ${m.status}${onUpdate?' - click to update':''}`}
-          onClick={onUpdate ? ()=>onUpdate(m) : undefined}
+          title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${m.status}${onUpdate?' - click to update':''}`}
+          onClick={!isFuture && onUpdate ? ()=>onUpdate(m) : undefined}
           style={{
-            width:18, height:18, borderRadius:3, background:col,
-            cursor:onUpdate?'pointer':'default',
+            width:28, height:28, borderRadius:5,
             transition:'transform 0.15s, box-shadow 0.15s',
             display:'flex', alignItems:'center', justifyContent:'center',
+            flexShrink:0,
+            ...boxStyle,
           }}
-          onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.35)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}
+          onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.2)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
           onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
         >
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:7,fontWeight:700,color:'rgba(0,0,0,0.7)',lineHeight:1,userSelect:'none'}}>{letter}</span>
+          <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none'}}>{letter}</span>
         </div>
       )
     })}
@@ -563,7 +583,6 @@ export default function App() {
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',margin:0}}>Companies</h2>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
         </div>
-        {/* Render companies content - reuse existing active company tab */}
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
           {companies.map(c=>(
             <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`}
@@ -571,7 +590,33 @@ export default function App() {
               onClick={()=>setActiveCoTab(c.id)}>{c.name}</button>
           ))}
         </div>
-        {companies.filter(c=>!activeCoTab||c.id===activeCoTab).map(c=><CompanyCard key={c.id} company={c} T={T}/>)}
+        {companies.filter(c=>c.id===activeCoTab).map(c=>{
+          const cs=companyStats.find(x=>x.id===c.id)||{count:0,rented:0,vacant:0,monthlyRent:0,invested:0,estVal:0,arrears:0}
+          const cProps=properties.filter(p=>p.company_id===c.id)
+          return <div key={c.id}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
+              <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
+              <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
+              <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
+              <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
+            </div>
+            <div style={{display:'grid',gap:10}}>
+              {cProps.map(p=>(
+                <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
+                  <div style={{flex:1,minWidth:150}}>
+                    <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
+                  </div>
+                  {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>
+                  <Badge status={p.status}/>
+                </div>
+              ))}
+              {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.</div>}
+            </div>
+          </div>
+        })}
       </div>
     )
   }
@@ -1087,7 +1132,7 @@ export default function App() {
                 {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
-                {detailTab==='notices'&&<LegalNoticesTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
+                {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
                 {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast}/>}
                 {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance"/>}
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses"/>}
