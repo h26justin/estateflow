@@ -154,6 +154,8 @@ export default function App() {
   const [view,        setView]         = useState('dashboard')
   const [selectedId,  setSelectedId]   = useState(null)
   const [detailTab,   setDetailTab]    = useState('overview')
+  const [portfolioTab, setPortfolioTab] = useState('properties')
+  const [showModeller, setShowModeller] = useState(false)
   const [coFilter,    setCoFilter]     = useState('all')
   const [dashCoFilter, setDashCoFilter] = useState([]) // [] = all companies
   const [statusFilter,setStatusFilter] = useState('all')
