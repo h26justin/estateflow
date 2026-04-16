@@ -252,20 +252,28 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   )
 
   // ── UNIFIED SHELL (sub-nav always visible) ───────────────────────────────────
+  const newBtnLabel = dealView==='lettings' ? '+ New letting' : '+ New Deal'
+  function handleNewBtn() {
+    if (dealView==='lettings') setTriggerNewLetting(true)
+    else createNewDeal()
+  }
+
   return (
     <div className="fade">
-      {/* Stable header — never changes layout regardless of active tab */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:24}}>
+      {/* Header — identical layout on every tab, nothing moves */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24}}>
         <div>
           <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Deals</h1>
           <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>
-            {dealView==='list' ? `${deals.length} deals · ${deals.filter(d=>d.status==='under_offer').length} under offer`
-            : dealView==='pipeline' ? 'Deal pipeline board'
-            : dealView==='lettings' ? 'Track lettings from vacant to moved in'
-            : 'AI tools & calculators'}
+            {dealView==='list'
+              ? `${deals.length} deal${deals.length!==1?'s':''} · ${deals.filter(d=>d.status==='under_offer').length} under offer`
+              : dealView==='pipeline' ? 'Deal pipeline board'
+              : dealView==='lettings' ? 'Track lettings from vacant to moved in'
+              : 'AI tools & calculators'}
           </p>
         </div>
-        <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+        {/* Right side: tab switcher + action button — always same elements, never changes width */}
+        <div style={{display:'flex',gap:10,alignItems:'center',flexShrink:0}}>
           {compareIds.length >= 2 && dealView==='list' && (
             <button className="btn btn-ghost" style={{fontSize:12}} onClick={()=>setShowCompare(true)}>
               📊 Compare ({compareIds.length})
@@ -283,8 +291,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               </button>
             ))}
           </div>
-          {dealView==='list' && <button className="btn btn-gold" onClick={createNewDeal}>+ New Deal</button>}
-          {dealView==='lettings' && <button className="btn btn-gold" onClick={()=>setTriggerNewLetting(true)}>+ New letting</button>}
+          {/* Action button — always present, label changes but width stays the same */}
+          <button className="btn btn-gold" onClick={handleNewBtn}
+            style={{whiteSpace:'nowrap',minWidth:110}}>
+            {newBtnLabel}
+          </button>
         </div>
       </div>
 
