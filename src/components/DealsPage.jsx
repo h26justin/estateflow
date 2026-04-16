@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { AIListingWriter, ListingYieldCalculator } from './AITools'
+import LettingsPipeline from './LettingsPipeline'
 import * as api from '../lib/api'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -249,7 +250,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
             </button>
           )}
           <div style={{display:'flex',background:T.surface,borderRadius:8,border:`1px solid ${T.border}`,overflow:'hidden'}}>
-            {[['list','☰ List'],['pipeline','📋 Pipeline'],['tools','✨ Tools']].map(([k,l])=>(
+            {[['list','☰ List'],['pipeline','📋 Pipeline'],['lettings','🏠 Lettings'],['tools','✨ Tools']].map(([k,l])=>(
               <button key={k} onClick={()=>setDealView(k)}
                 style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',
                   background:dealView===k?T.gold:'transparent',
@@ -386,6 +387,10 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     <div style={{padding:'0'}}>
       <DealPipeline deals={filtered} companies={companies} onOpen={openDeal} onNew={createNewDeal} T={T}/>
     </div>
+  )
+
+  if (dealView === 'lettings') return (
+    <LettingsPipeline user={user} companies={companies} properties={properties} showToast={showToast} />
   )
 
   if (dealView === 'tools') return (
