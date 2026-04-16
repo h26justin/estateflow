@@ -170,17 +170,6 @@ export default function LettingsPipeline({ user, companies = [], properties = []
 
   return (
     <div>
-      {/* Sub-header — counts only, no title (parent handles title + new button) */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <p style={{ fontFamily: mono, color: T.muted, fontSize: 12 }}>
-          {lettings.length} active {lettings.length === 1 ? 'letting' : 'lettings'} · {stageCounts.movein || 0} moving in soon
-        </p>
-        <button onClick={() => setShowNewForm(true)}
-          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 7, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer' }}>
-          + New letting
-        </button>
-      </div>
-
       {/* ── STAT CARDS ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
         {[
