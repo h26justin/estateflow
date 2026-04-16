@@ -75,7 +75,7 @@ function stageProgress(stage, checklist = {}) {
   return Math.round((done / items.length) * 100)
 }
 
-export default function LettingsPipeline({ user, companies = [], properties = [], showToast }) {
+export default function LettingsPipeline({ user, companies = [], properties = [], showToast, triggerNew = false, onNewHandled }) {
   const { T } = useTheme()
   const [lettings, setLettings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -87,6 +87,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   const [detailTab, setDetailTab] = useState('details')
 
   useEffect(() => { load() }, [])
+  useEffect(() => { if (triggerNew) { setShowNewForm(true); if (onNewHandled) onNewHandled() } }, [triggerNew])
 
   async function load() {
     setLoading(true)
@@ -168,17 +169,14 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }
 
   return (
-    <div className="fade">
-      {/* ── HEADER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>Lettings Pipeline</h1>
-          <p style={{ fontFamily: mono, color: T.muted, fontSize: 12 }}>
-            {lettings.length} active {lettings.length === 1 ? 'letting' : 'lettings'} · {stageCounts.movein || 0} moving in soon
-          </p>
-        </div>
+    <div>
+      {/* Sub-header — counts only, no title (parent handles title + new button) */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <p style={{ fontFamily: mono, color: T.muted, fontSize: 12 }}>
+          {lettings.length} active {lettings.length === 1 ? 'letting' : 'lettings'} · {stageCounts.movein || 0} moving in soon
+        </p>
         <button onClick={() => setShowNewForm(true)}
-          style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 18px', borderRadius: 9, border: 'none', background: T.gold, color: '#1A2530', cursor: 'pointer' }}>
+          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 7, border: `1px solid ${T.gold}`, background: 'transparent', color: T.gold, cursor: 'pointer' }}>
           + New letting
         </button>
       </div>

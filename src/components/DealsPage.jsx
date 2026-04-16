@@ -146,6 +146,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [showCompare, setShowCompare] = useState(false)
   const [statusFilter, setStatusFilter] = useState('all')
   const [coFilter, setCoFilter] = useState('all')
+  const [triggerNewLetting, setTriggerNewLetting] = useState(false)
 
   useEffect(() => { loadDeals() }, [])
 
@@ -253,21 +254,16 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   // ── UNIFIED SHELL (sub-nav always visible) ───────────────────────────────────
   return (
     <div className="fade">
-      {/* Sub-nav: always shown */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,marginBottom:24}}>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          {dealView !== 'list' && (
-            <button onClick={()=>setDealView('list')}
-              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
-              ← Back
-            </button>
-          )}
-          <div>
-            <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:2}}>
-              {dealView==='lettings'?'Lettings Pipeline':dealView==='tools'?'AI Tools':dealView==='pipeline'?'Deal Pipeline':'Deal Pipeline'}
-            </h1>
-            {dealView==='list' && <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>{deals.length} deals saved · {deals.filter(d=>d.status==='under_offer').length} under offer</p>}
-          </div>
+      {/* Stable header — never changes layout regardless of active tab */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:24}}>
+        <div>
+          <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Deals</h1>
+          <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>
+            {dealView==='list' ? `${deals.length} deals · ${deals.filter(d=>d.status==='under_offer').length} under offer`
+            : dealView==='pipeline' ? 'Deal pipeline board'
+            : dealView==='lettings' ? 'Track lettings from vacant to moved in'
+            : 'AI tools & calculators'}
+          </p>
         </div>
         <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
           {compareIds.length >= 2 && dealView==='list' && (
@@ -288,6 +284,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
             ))}
           </div>
           {dealView==='list' && <button className="btn btn-gold" onClick={createNewDeal}>+ New Deal</button>}
+          {dealView==='lettings' && <button className="btn btn-gold" onClick={()=>setTriggerNewLetting(true)}>+ New letting</button>}
         </div>
       </div>
 
@@ -295,7 +292,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       {dealView==='pipeline' && <DealPipeline deals={filtered} companies={companies} onOpen={openDeal} onNew={createNewDeal} T={T}/>}
 
       {/* ── LETTINGS VIEW ── */}
-      {dealView==='lettings' && <LettingsPipeline user={user} companies={companies} properties={properties} showToast={showToast}/>}
+      {dealView==='lettings' && <LettingsPipeline user={user} companies={companies} properties={properties} showToast={showToast} triggerNew={triggerNewLetting} onNewHandled={()=>setTriggerNewLetting(false)}/>}
 
       {/* ── TOOLS VIEW ── */}
       {dealView==='tools' && (

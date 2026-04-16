@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useTheme } from '../lib/ThemeContext'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 
 
