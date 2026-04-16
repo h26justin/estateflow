@@ -12,39 +12,49 @@ export function detectFormat(text) {
 }
 
 export function parsePNE(text) {
-  const lines = text.split('\n').map(function(l) { return l.trim() }).filter(Boolean)
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   var result = {
     format: 'PNE', statementNo: '', date: '', company: '',
     totalIncome: 0, totalFees: 0, paymentAmount: 0, items: []
   }
 
-  var stmtRe    = new RegExp('Statement No\\s*[:.\\s]?\\s*(\\d+)', 'i')
-  var dateRe    = new RegExp('(\\d+(?:st|nd|rd|th)?\\s+\\w+\\s+\\d{4})', 'i')
-  var payRe     = new RegExp('PAYMENT AMOUNT\\s*[\\u00A3]?([\\d,]+\\.?\\d*)', 'i')
-  var rentRe    = new RegExp('Rent for the month\\s+(\\d{2}\\/\\d{2}\\/\\d{4})\\s+to\\s+(\\d{2}\\/\\d{2}\\/\\d{4})', 'i')
-  var amtRe     = new RegExp('[\\u00A3]([\\d,]+\\.?\\d*)')
-  var tenantRe  = new RegExp('- (.+?)(?:\\s+[\\u00A3]|$)')
-  var commRe    = new RegExp('Management Commission\\s+([\\d.]+)%\\s+of\\s+[\\u00A3]([\\d,]+\\.?\\d*)', 'i')
-  var commAmt   = new RegExp('[\\u00A3]([\\d,]+\\.?\\d*)\\s*[\\u00A3]0')
-  var expRe     = new RegExp('^Expenditure\\s*$', 'i')
-  var expAmt    = new RegExp('^Expenditure\\s+Amount', 'i')
-  var incRe     = new RegExp('^Income\\s*$', 'i')
-  var summRe    = new RegExp('^(Summary|Our Invoice)$', 'i')
-  var propRe    = new RegExp('Flat\\s+\\d+|Room\\s+\\d+|House|Avenue|Street|Road|Place|Close|Drive|Way|Court', 'i')
-  var numStartRe = new RegExp('^\\d+\\s+\\w')
-  var wsRe      = new RegExp('\\s+', 'g')
+  var stmtRe   = /Statement No\s*[:.\\s]?\s*(\d+)/i
+  var dateRe   = /(\d+(?:st|nd|rd|th)?\s+\w+\s+\d{4})/i
+  var payRe    = /PAYMENT AMOUNT\s*[\u00A3]?([\d,]+\.?\d*)/i
+  var rentRe   = /Rent for the month\s+(\d{2}\/\d{2}\/\d{4})\s+to\s+(\d{2}\/\d{2}\/\d{4})/i
+  var amtRe    = /[\u00A3]([\d,]+\.?\d*)/
+  var commRe   = /Management Commission\s+([\d.]+)%\s+of\s+[\u00A3]([\d,]+\.?\d*)/i
+  var commAmt  = /[\u00A3]([\d,]+\.?\d*)\s*[\u00A3]0/
+  var expRe    = /^Expenditure\s*$/i
+  var expAmt   = /^Expenditure\s+Amount/i
+  var incRe    = /^Income\s*$/i
+  var summRe   = /^(Summary|Our Invoice)$/i
 
+  // A property line must contain a flat/unit/road reference AND not be an agent/header line
+  // Key fix: allow lines starting with numbers (e.g. "16, Esplanade West Flat 2")
+  var flatRe   = /(?:Flat|Room|Unit)\s*\d+/i
+  var roadRe   = /(?:Avenue|Street|Road|Place|Close|Drive|Way|Court|Gardens|Crescent|Lane|Terrace)\b/i
+  // Agent address keywords to EXCLUDE (so "Kent House Lane" etc don't get picked up)
+  var agentRe  = /(?:Industrial Estate|Business|Innovation Centre|Sunderland|Beckenham|BR\d|SR\d)/i
+
+  function isPropertyLine(line, inExp) {
+    if (line.includes('\u00A3')) return false
+    if (summRe.test(line)) return false
+    if (/^(Rent for|Management|VAT|Gross|Amount|Income|Expenditure|Statement|Balance|Payment|Total|Date|Invoice|Fee|Commission)/i.test(line)) return false
+    if (line.length < 5 || line.length > 100) return false
+    if (agentRe.test(line)) return false  // exclude agent address lines
+    // Must contain a flat reference OR a road type
+    if (!flatRe.test(line) && !roadRe.test(line)) return false
+    return true
+  }
+
+  // First pass: extract header fields
   for (var x = 0; x < lines.length; x++) {
-    var line = lines[x]
-    var sm = line.match(stmtRe)
-    if (sm) result.statementNo = sm[1]
-    var dm = line.match(dateRe)
-    if (dm && !result.date) result.date = dm[1]
-    if (!result.company && (line.includes('Property Group') || line.includes('EXH') || line.includes('Vale') || line.includes('Nouchette') || line.includes('AliCat') || line.includes('WxH'))) {
-      result.company = line
-    }
-    var pm = line.match(payRe)
-    if (pm) result.paymentAmount = parseCurrency(pm[1])
+    var l = lines[x]
+    var sm = l.match(stmtRe); if (sm) result.statementNo = sm[1]
+    var dm = l.match(dateRe); if (dm && !result.date) result.date = dm[1]
+    var pm = l.match(payRe); if (pm) result.paymentAmount = parseCurrency(pm[1])
+    if (!result.company && /(?:Property Group|EXH|Vale|Nouchette|AliCat|WxH)/i.test(l)) result.company = l
   }
 
   var currentProperty = null
@@ -52,29 +62,54 @@ export function parsePNE(text) {
 
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i]
+
     if (expRe.test(line) || expAmt.test(line)) { inExpenditure = true; continue }
     if (incRe.test(line)) { inExpenditure = false; continue }
     if (summRe.test(line)) break
 
-    var isPropertyLine = !line.includes('\u00A3') &&
-      !line.match(new RegExp('^\\d')) &&
-      !line.match(new RegExp('^(Rent for|Management|VAT|Gross|Amount|Income|Expenditure|Statement|Balance|Payment|Total)', 'i')) &&
-      line.length > 5 && line.length < 80 &&
-      (propRe.test(line) || numStartRe.test(line))
-
-    if (isPropertyLine && !inExpenditure) {
-      currentProperty = line.replace(wsRe, ' ').trim()
+    // Detect property name lines
+    if (isPropertyLine(line, inExpenditure)) {
+      currentProperty = line.replace(/\s+/g, ' ').trim()
       continue
     }
 
+    // Rent line
     var rentM = line.match(rentRe)
-    if (rentM && currentProperty) {
+    if (rentM) {
+      var amount = 0
+      var tenant = ''
+      var period = rentM[1] + ' to ' + rentM[2]
+
+      // Extract tenant from the SAME line (after the dates)
+      var afterDates = line.substring(line.indexOf(rentM[2]) + rentM[2].length).trim()
+      var tenantMatch = afterDates.match(/^[-\s]+(.+?)(?:\s+[\u00A3]|$)/)
+      if (tenantMatch) tenant = tenantMatch[1].trim()
+
+      // Look for amount on same line first
       var am = line.match(amtRe)
       if (am) {
-        var amount = parseCurrency(am[1])
-        var tm = line.match(tenantRe)
-        var tenant = tm ? tm[1].trim() : ''
-        var period = rentM[1] + ' to ' + rentM[2]
+        amount = parseCurrency(am[1])
+      } else {
+        // FIX: tenant name may have wrapped — check next 1-2 lines for the amount
+        for (var j = i + 1; j <= Math.min(i + 2, lines.length - 1); j++) {
+          var nextLine = lines[j]
+          // If next line has an amount and doesn't look like a new property/keyword
+          if (nextLine.includes('\u00A3') && !rentRe.test(nextLine) && !commRe.test(nextLine)) {
+            var nam = nextLine.match(amtRe)
+            if (nam) {
+              amount = parseCurrency(nam[1])
+              // The tenant name is on the next line before the £
+              var beforeAmt = nextLine.split('\u00A3')[0].trim()
+              if (beforeAmt && !tenant) tenant = beforeAmt
+              else if (beforeAmt && tenant) tenant = (tenant + ' ' + beforeAmt).trim()
+              i = j // skip the line we consumed
+              break
+            }
+          }
+        }
+      }
+
+      if (amount > 0 && currentProperty) {
         result.items.push({
           propertyName: currentProperty, type: 'rent',
           amount: amount, tenant: tenant, period: period,
@@ -86,6 +121,7 @@ export function parsePNE(text) {
       continue
     }
 
+    // Management fee line
     var commM = line.match(commRe)
     if (commM && inExpenditure) {
       var ca = line.match(commAmt)
@@ -101,43 +137,39 @@ export function parsePNE(text) {
       }
       continue
     }
-
-    if (inExpenditure && isPropertyLine) {
-      currentProperty = line.replace(wsRe, ' ').trim()
-    }
   }
 
   return result
 }
 
 export function parseRMS(text) {
-  var lines = text.split('\n').map(function(l) { return l.trim() }).filter(Boolean)
+  var lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   var result = {
     format: 'RMS', statementNo: '', date: '', company: '',
     totalIncome: 0, totalFees: 0, paymentAmount: 0, items: []
   }
 
-  var refRe     = new RegExp('Reference:\\s*(\\S+)', 'i')
-  var dateRe    = new RegExp('Date:\\s*(\\d{2}\\/\\d{2}\\/\\d{4})', 'i')
-  var rentRe    = new RegExp('Rent Received From (.+?) - (\\d{2}\\/\\d{2}\\/\\d{4}) to (\\d{2}\\/\\d{2}\\/\\d{4})', 'i')
-  var mgmtRe    = new RegExp('Management Fee @ ([\\d.]+)%\\s*-\\s*\\(([\\d.]+)%\\s+of\\s+[\\u00A3]([\\d,]+\\.?\\d*)\\)', 'i')
-  var feeRe     = new RegExp('([\\d,]+\\.\\d{2})\\s+([\\d,]+\\.\\d{2})\\s+([\\d,]+\\.\\d{2})')
-  var maintRe   = new RegExp('\\(Inv:([^)]+)\\)\\s+(.+?)(?:\\s+([\\d,]+\\.\\d{2}))?$')
-  var amtRe     = new RegExp('([\\d,]+\\.\\d{2})')
-  var propRe    = new RegExp('Avenue|Street|Road|House|Place|Flat|Room', 'i')
-  var payRe     = new RegExp('Payment made to Owner\\s+([\\d,]+\\.\\d{2})', 'i')
+  var refRe   = /Reference:\s*(\S+)/i
+  var dateRe  = /Date:\s*(\d{2}\/\d{2}\/\d{4})/i
+  var rentRe  = /Rent Received From (.+?) - (\d{2}\/\d{2}\/\d{4}) to (\d{2}\/\d{2}\/\d{4})/i
+  var mgmtRe  = /Management Fee @ ([\d.]+)%\s*-\s*\(([\d.]+)%\s+of\s+[\u00A3]([\d,]+\.?\d*)\)/i
+  var feeRe   = /([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/
+  var maintRe = /\(Inv:([^)]+)\)\s+(.+?)(?:\s+([\d,]+\.\d{2}))?$/
+  var amtRe   = /([\d,]+\.\d{2})/
+  var propRe  = /Avenue|Street|Road|House|Place|Flat|Room/i
+  var payRe   = /Payment made to Owner\s+([\d,]+\.\d{2})/i
 
   for (var x = 0; x < lines.length; x++) {
-    var line = lines[x]
-    var rm = line.match(refRe); if (rm) result.statementNo = rm[1]
-    var dm = line.match(dateRe); if (dm) result.date = dm[1]
-    if (!result.company && (line.includes('Property Group') || line.includes('Vale') || line.includes('EXH'))) result.company = line
+    var l = lines[x]
+    var rm = l.match(refRe); if (rm) result.statementNo = rm[1]
+    var dm = l.match(dateRe); if (dm) result.date = dm[1]
+    if (!result.company && /(?:Property Group|Vale|EXH)/i.test(l)) result.company = l
   }
 
   function findPropBefore(lines, idx) {
     for (var j = idx - 1; j >= Math.max(0, idx - 5); j--) {
-      if (propRe.test(lines[j]) && !lines[j].match(new RegExp('Rent|Management|Fee', 'i'))) {
-        return lines[j].replace(new RegExp('\\s+', 'g'), ' ').trim()
+      if (propRe.test(lines[j]) && !/Rent|Management|Fee/i.test(lines[j])) {
+        return lines[j].replace(/\s+/g, ' ').trim()
       }
     }
     return ''
@@ -208,14 +240,8 @@ export function parseRMS(text) {
 }
 
 export function matchProperties(items, properties) {
-  var propRe     = new RegExp('(?:flat|room)\\s*(\\d+[ab]?)', 'i')
-  var numRe      = new RegExp('^(\\d+)\\s')
-  var wattsRe    = new RegExp('watts moses', 'i')
-  var esplRe     = new RegExp('esplanade', 'i')
-  var stGeoRe    = new RegExp('st\\.?\\s*georges?', 'i')
-  var parkEastRe = new RegExp('park place east', 'i')
-  var parkWestRe = new RegExp('park place west', 'i')
-  var turnRe     = new RegExp('turnberry', 'i')
+  var flatRe = /(?:flat|room|unit)\s*(\d+[ab]?)/i
+  var numRe  = /^(\d+)\s/
 
   return items.map(function(item) {
     if (!item.propertyName) return item
@@ -226,27 +252,31 @@ export function matchProperties(items, properties) {
       var prop = properties[k]
       var propName = prop.name.toLowerCase()
       var propAddr = (prop.address || '').toLowerCase()
+      var combined = propName + ' ' + propAddr
       var score = 0
 
-      var fn1 = name.match(propRe), fn2 = propName.match(propRe)
+      // Flat number match — most reliable signal
+      var fn1 = name.match(flatRe), fn2 = combined.match(flatRe)
       if (fn1 && fn2 && fn1[1] === fn2[1]) score += 10
 
-      if (wattsRe.test(name) && wattsRe.test(propName)) score += 5
-      if (esplRe.test(name) && esplRe.test(propName)) score += 5
-      if (stGeoRe.test(name) && (stGeoRe.test(propName) || propName.includes('georges'))) score += 5
-      if (parkEastRe.test(name) && parkEastRe.test(propName)) score += 5
-      if (parkWestRe.test(name) && parkWestRe.test(propName)) score += 5
-      if (turnRe.test(name) && (turnRe.test(propName) || turnRe.test(propAddr))) score += 5
+      // Street/road name word overlap
+      var nameWords = name.split(/\s+/).filter(w => w.length > 3 && !/^(flat|room|unit|the|and|for)$/i.test(w))
+      var propWords = combined.split(/\s+/)
+      var overlap = nameWords.filter(w => propWords.some(pw => pw.includes(w) || w.includes(pw)))
+      score += overlap.length * 3
 
-      var n1 = name.match(numRe), n2 = propName.match(numRe) || propAddr.match(numRe)
-      if (n1 && n2 && n1[1] === n2[1]) score += 8
+      // Street number match
+      var n1 = name.match(numRe), n2 = combined.match(numRe)
+      if (n1 && n2 && n1[1] === n2[1]) score += 5
 
-      var nameWords = name.split(/\s+/).filter(function(w) { return w.length > 3 })
-      var propWords = (propName + ' ' + propAddr).split(/\s+/)
-      var overlap = nameWords.filter(function(w) {
-        return propWords.some(function(pw) { return pw.includes(w) || w.includes(pw) })
+      // Named building / road keyword bonuses
+      var namedPatterns = [
+        /esplanade/i, /st\.?\s*george/i, /park\s+place\s+(?:east|west)/i,
+        /turnberry/i, /watts\s+moses/i, /maple/i, /oak/i, /riverside/i, /crown/i
+      ]
+      namedPatterns.forEach(re => {
+        if (re.test(name) && re.test(combined)) score += 6
       })
-      score += overlap.length * 2
 
       if (score > bestScore) { bestScore = score; bestMatch = prop }
     }
