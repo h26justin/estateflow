@@ -12,6 +12,10 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/blog", "destination": "/blog/index.html" },
+    { "source": "/blog/", "destination": "/blog/index.html" },
+    { "source": "/blog/:path", "destination": "/blog/:path/index.html" },
+    { "source": "/blog/:path/", "destination": "/blog/:path/index.html" },
+    { "source": "/((?!blog/).*)", "destination": "/index.html" }
   ]
 }

@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Blog and guide pages - crawl these
+Allow: /blog/
+Allow: /blog/*
+
+# Don't crawl app pages (behind auth)
+Disallow: /dashboard
+Disallow: /properties
+Disallow: /settings
+Disallow: /reports
+
+Sitemap: https://www.ownproperly.com/sitemap.xml

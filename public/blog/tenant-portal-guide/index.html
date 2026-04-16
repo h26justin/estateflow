@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>How to Set Up a Tenant Portal (And Why It Saves You Hours Every Month) — OwnProperly</title>
+  <meta name="description" content="A step-by-step guide to setting up a branded tenant portal for repair requests, messaging, documents and rent tracking — reducing landlord admin significantly."/>
+  <link rel="canonical" href="https://www.ownproperly.com/blog/tenant-portal-guide/"/>
+  <meta property="og:type" content="article"/>
+  <meta property="og:url" content="https://www.ownproperly.com/blog/tenant-portal-guide/"/>
+  <meta property="og:title" content="How to Set Up a Tenant Portal (And Why It Saves You Hours Every Month) — OwnProperly"/>
+  <meta property="og:description" content="A step-by-step guide to setting up a branded tenant portal for repair requests, messaging, documents and rent tracking — reducing landlord admin significantly."/>
+  <meta property="og:site_name" content="OwnProperly"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:title" content="How to Set Up a Tenant Portal (And Why It Saves You Hours Every Month) — OwnProperly"/>
+  <meta name="twitter:description" content="A step-by-step guide to setting up a branded tenant portal for repair requests, messaging, documents and rent tracking — reducing landlord admin significantly."/>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml"/>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to Set Up a Tenant Portal","author":{"@type":"Organization","name":"OwnProperly"},"publisher":{"@type":"Organization","name":"OwnProperly"},"datePublished":"2026-04-01","dateModified":"2026-04-16","mainEntityOfPage":"https://www.ownproperly.com/blog/tenant-portal-guide/"}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Georgia,serif;background:#F4F3EF;color:#2D3C4A;line-height:1.7}
+    a{color:#C8A84B;text-decoration:none}
+    a:hover{text-decoration:underline}
+    nav{background:rgba(244,243,239,0.97);border-bottom:1px solid #E2DFD8;padding:0 24px;position:sticky;top:0;z-index:100}
+    .nav-inner{max-width:820px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px}
+    .nav-logo{font-family:'DM Mono',monospace;font-weight:700;font-size:15px;color:#2D3C4A}
+    .nav-cta{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none}
+    .nav-cta:hover{background:#B8942A;text-decoration:none}
+    .nav-links{display:flex;gap:24px;align-items:center}
+    .nav-links a{font-family:'DM Mono',monospace;font-size:12px;color:#6B7691}
+    .nav-links a:hover{color:#2D3C4A;text-decoration:none}
+    main{max-width:820px;margin:0 auto;padding:48px 24px 80px}
+    .breadcrumb{font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;margin-bottom:28px}
+    .breadcrumb a{color:#6B7691}
+    h1{font-size:38px;font-weight:600;line-height:1.15;letter-spacing:-0.02em;margin-bottom:16px;color:#1A2530}
+    .meta{font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;margin-bottom:32px;display:flex;gap:16px;flex-wrap:wrap}
+    .meta span{display:flex;align-items:center;gap:4px}
+    h2{font-size:24px;font-weight:600;margin:40px 0 14px;color:#1A2530;letter-spacing:-0.01em}
+    h3{font-size:18px;font-weight:600;margin:28px 0 10px;color:#2D3C4A}
+    p{margin-bottom:16px;font-size:16px;color:#3A4A5A;line-height:1.8}
+    ul,ol{margin:0 0 16px 24px;color:#3A4A5A}
+    li{margin-bottom:8px;line-height:1.7;font-size:16px}
+    .callout{background:#fff;border:1px solid #E2DFD8;border-left:4px solid #C8A84B;border-radius:0 10px 10px 0;padding:18px 22px;margin:28px 0}
+    .callout p{margin:0;font-size:15px}
+    .tip{background:#F0FBF5;border:1px solid #2ECC8A33;border-left:4px solid #2ECC8A;border-radius:0 10px 10px 0;padding:18px 22px;margin:28px 0}
+    .tip p{margin:0;font-size:15px}
+    .warning{background:#FFF8F0;border:1px solid #E0943A33;border-left:4px solid #E0943A;border-radius:0 10px 10px 0;padding:18px 22px;margin:28px 0}
+    .warning p{margin:0;font-size:15px}
+    .checklist{background:#fff;border:1px solid #E2DFD8;border-radius:12px;padding:20px 24px;margin:24px 0}
+    .checklist li{list-style:none;margin-left:-8px;padding:6px 0;border-bottom:1px solid #F0EDE8;display:flex;align-items:flex-start;gap:10px}
+    .checklist li:last-child{border-bottom:none}
+    .checklist li::before{content:"✓";color:#2ECC8A;font-weight:700;flex-shrink:0;margin-top:2px}
+    .cta-box{background:#2D3C4A;border-radius:14px;padding:36px 32px;margin:48px 0;text-align:center;color:#fff}
+    .cta-box h3{color:#fff;margin:0 0 12px}
+    .cta-box p{color:#B0BEC5;margin:0 0 24px;font-size:15px}
+    .cta-box a{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;padding:13px 28px;border-radius:10px;text-decoration:none;display:inline-block}
+    .cta-box a:hover{background:#B8942A;text-decoration:none}
+    table{width:100%;border-collapse:collapse;margin:24px 0;font-size:14px}
+    th{background:#2D3C4A;color:#fff;padding:10px 14px;text-align:left;font-family:'DM Mono',monospace;font-size:12px}
+    td{padding:10px 14px;border-bottom:1px solid #E2DFD8;vertical-align:top}
+    tr:nth-child(even){background:#F8F7F3}
+    code{background:#E8E6E0;padding:2px 7px;border-radius:4px;font-family:'DM Mono',monospace;font-size:13px}
+    footer{background:#1A2530;padding:32px 24px;text-align:center}
+    .footer-inner{max-width:820px;margin:0 auto}
+    footer p{font-family:'DM Mono',monospace;font-size:11px;color:#6B7899;margin-bottom:8px}
+    footer a{color:#7A8899}
+    @media(max-width:640px){h1{font-size:26px}h2{font-size:20px}main{padding:32px 16px 60px}}
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">OwnProperly</a>
+    <div class="nav-links">
+      <a href="/blog/">Blog</a>
+      <a href="/#features">Features</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/" class="nav-cta">Start free trial</a>
+    </div>
+  </div>
+</nav>
+<main>
+
+  <div class="breadcrumb"><a href="/">OwnProperly</a> / <a href="/blog/">Blog</a> / Tenants</div>
+  <h1>How to Set Up a Tenant Portal (And Why It Saves You Hours Every Month)</h1>
+  <div class="meta"><span>📅 April 2026</span><span>⏱ 5 min read</span><span>🏷 Tenants</span></div>
+  <p>Most landlord-tenant communication happens through WhatsApp, personal email and phone calls. This creates several problems: conversations are scattered across platforms, nothing is documented, out-of-hours messages interrupt your personal time, and repair requests get lost in a thread of unrelated messages. A tenant portal solves all of this.</p>
+
+  <h2>What Is a Tenant Portal?</h2>
+  <p>A tenant portal is a private, branded web interface where your tenants can log in to submit repair requests, send messages, view documents and see their payment history — without needing your personal contact details or WhatsApp. From your side, everything comes into one place: a landlord inbox that separates messages from repairs and handles everything per-property.</p>
+
+  <h2>The Benefits for Landlords</h2>
+  <ul>
+    <li><strong>All repairs in one place:</strong> Tenants submit repairs with photos through the portal. You see them in your maintenance log instantly — no more "I sent you a text three weeks ago."</li>
+    <li><strong>Written record of everything:</strong> Every message, repair request and response is logged with timestamps. Invaluable if a dispute ever goes to court.</li>
+    <li><strong>Out-of-hours boundary:</strong> Tenants submit to the portal, you respond when convenient. No more 11pm WhatsApp messages about a dripping tap.</li>
+    <li><strong>Professional appearance:</strong> A branded portal at <code>yourcompany.ownproperly.com</code> looks far more professional than a personal email address — important if you want to position yourself as a serious operator.</li>
+    <li><strong>Tenant satisfaction:</strong> Tenants get a clear channel for reporting issues and can see the status of their requests. Transparency reduces frustration.</li>
+  </ul>
+
+  <h2>Setting Up Your Portal — Step by Step</h2>
+  <h3>Step 1: Set up your company in OwnProperly</h3>
+  <p>Each company you create in OwnProperly gets its own subdomain: <code>yourcompanyname.ownproperly.com</code>. Go to Settings → Branding &amp; Logos to upload your logo and set your brand colour.</p>
+
+  <h3>Step 2: Enable portal features</h3>
+  <p>In Settings → Tenant Portal, toggle on the features you want tenants to access:</p>
+  <ul>
+    <li>Messaging (landlord ↔ tenant secure threads)</li>
+    <li>Repair requests (with photo upload)</li>
+    <li>Documents (shared leases, certificates)</li>
+    <li>Payment tracker (tenants can see their own payment history)</li>
+    <li>Bank payment details (your account details, clearly presented)</li>
+  </ul>
+
+  <h3>Step 3: Invite your tenants</h3>
+  <p>In each property's Tenancy tab, enter the tenant's email address and click "Send invite". OwnProperly sends a branded email with a one-click link to set their password and access the portal. The email is branded with your company name and colour — not generic OwnProperly branding.</p>
+
+  <h3>Step 4: Share documents</h3>
+  <p>Upload the tenancy agreement, EPC certificate, gas safety certificate and any other relevant documents to the property's Documents tab. Mark them as "shared with tenant" and they'll appear in the portal automatically.</p>
+
+  <h2>Handling Repair Requests</h2>
+  <p>When a tenant submits a repair through the portal, you receive an instant email notification. The repair appears in your Tenant Inbox under the Repairs tab, with the tenant's description and any photos. From there you can:</p>
+  <ul class="checklist">
+    <li>View the full repair details and photos</li>
+    <li>Log it as a maintenance job (it creates a record automatically)</li>
+    <li>Message the tenant through the portal to confirm receipt and timeline</li>
+    <li>Assign a contractor and track progress</li>
+    <li>Mark it as resolved when complete</li>
+  </ul>
+
+  <h2>The Messaging System</h2>
+  <p>The portal's messaging system keeps landlord-tenant communication in one auditable thread, separate from your personal email. Each property has its own message thread. Messages are timestamped and cannot be edited after sending — important for dispute resolution.</p>
+  <div class="tip"><p><strong>✓ Best practice:</strong> When a tenant contacts you via WhatsApp or personal email about something important, respond and then log the key points in the portal message thread. Over time this trains tenants to use the portal as the primary channel.</p></div>
+
+  <div class="cta-box">
+    <h3>Give your tenants a proper portal</h3>
+    <p>OwnProperly includes a branded tenant portal — with messaging, repairs, documents and payment tracking — for every company. No extra charge.</p>
+    <a href="/">Start free trial</a>
+  </div>
+  <p style="margin-top:32px"><a href="/blog/">← Back to all guides</a></p>
+
+</main>
+<footer>
+  <div class="footer-inner">
+    <p>© 2026 OwnProperly · <a href="/">Home</a> · <a href="/blog/">Blog</a> · <a href="mailto:hello@ownproperly.com">hello@ownproperly.com</a></p>
+    <p>Property portfolio management software for UK landlords · From £1/property/month</p>
+  </div>
+</footer>
+</body>
+</html>
