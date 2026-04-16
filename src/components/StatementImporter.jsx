@@ -106,23 +106,35 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
         const {data: {user}} = await supabase.auth.getUser()
 
         if (item.type === 'rent') {
-          // Determine month/year from period
-          const dateMatch = item.period.match(new RegExp('(\\d{2})\\/(\\d{2})\\/(\\d{4})'))
+          // Parse period dates — format is "DD/MM/YYYY to DD/MM/YYYY"
+          const periodParts = item.period.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2})\/(\d{2})\/(\d{4})/)
+          const dateMatch = item.period.match(/(\d{2})\/(\d{2})\/(\d{4})/)
           if (dateMatch) {
             const year = parseInt(dateMatch[3])
             const month = parseInt(dateMatch[2])
             const monthLabel = new Date(year, month-1).toLocaleString('en-GB', {month:'short', year:'numeric'})
+
+            // Convert DD/MM/YYYY to YYYY-MM-DD for storage
+            const toIso = (d,m,y) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+            const periodStart = periodParts ? toIso(periodParts[1], periodParts[2], periodParts[3]) : null
+            const periodEnd   = periodParts ? toIso(periodParts[4], periodParts[5], periodParts[6]) : null
 
             // Check if payment record exists
             const {data: existing} = await supabase.from('rent_payments')
               .select('id').eq('property_id', item.propertyId).eq('year', year).eq('month', month).single()
 
             if (existing) {
-              await supabase.from('rent_payments').update({status:'paid', amount:item.editAmount}).eq('id', existing.id)
+              await supabase.from('rent_payments').update({
+                status:'paid', amount:item.editAmount,
+                ...(periodStart && { period_start: periodStart }),
+                ...(periodEnd   && { period_end:   periodEnd }),
+              }).eq('id', existing.id)
             } else {
               await supabase.from('rent_payments').insert({
                 property_id: item.propertyId, user_id: user.id,
-                month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount
+                month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount,
+                ...(periodStart && { period_start: periodStart }),
+                ...(periodEnd   && { period_end:   periodEnd }),
               })
             }
             results.rent++

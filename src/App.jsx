@@ -18,6 +18,7 @@ import AdminDashboard from './components/AdminDashboard'
 import TenantPortal from './components/TenantPortal'
 import PrivacyPolicy from './components/PrivacyPolicy'
 import DealsPage from './components/DealsPage'
+import DayTrackerPage from './components/DayTrackerPage'
 import OnboardingTour from './components/OnboardingTour'
 
 
@@ -110,53 +111,129 @@ function getStatusColor(status) {
   return '#888EA8' // void - visible in both themes
 }
 
-const RentDots = ({payments, onUpdate, filterYear}) => {
+// ── DAY POPOVER ──────────────────────────────────────────────────────────────
+function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
+  const { T } = useTheme()
+  const mono = "'DM Mono',monospace"
+  const year = payment.year, month = payment.month
+  const days = new Date(year, month, 0).getDate()
+  const firstDow = (new Date(year, month-1, 1).getDay() + 6) % 7
+
+  function getDayStatus(day) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+    if (dateStr > todayStr) return 'future'
+    for (const p of allPayments) {
+      if (p.period_start && p.period_end) {
+        if (dateStr >= p.period_start && dateStr <= p.period_end) return p.status
+      } else if (p.year === year && p.month === month) {
+        return p.status
+      }
+    }
+    return 'void'
+  }
+
+  const COLOR = { paid:'#2ECC8A', missed:'#E05555', late:'#E0943A', refurb:'#4B8FE0', void:'#888EA8', future:'transparent' }
+  const monthName = new Date(year, month-1).toLocaleString('en-GB', {month:'long', year:'numeric'})
+  const cells = []
+  for (let i = 0; i < firstDow; i++) cells.push(null)
+  for (let d = 1; d <= days; d++) cells.push(d)
+  const statuses = Array.from({length:days},(_,i)=>getDayStatus(i+1))
+  const paidDays = statuses.filter(s=>s==='paid').length
+  const voidDays = statuses.filter(s=>s==='void').length
+  const missedDays = statuses.filter(s=>s==='missed').length
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
+      onClick={onClose}>
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:20,width:300,boxShadow:'0 8px 32px rgba(0,0,0,0.2)'}}
+        onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{monthName}</div>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1}}>×</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:4}}>
+          {['M','T','W','T','F','S','S'].map((d,i)=>(
+            <div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{d}</div>
+          ))}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:14}}>
+          {cells.map((d,i)=>{
+            if (!d) return <div key={`b${i}`}/>
+            const status = statuses[d-1]
+            const col = COLOR[status]
+            const isFuture = status==='future'
+            return (
+              <div key={d} title={`${d}: ${status}`} style={{
+                aspectRatio:'1',borderRadius:3,
+                background:isFuture?'transparent':col,
+                border:isFuture?`1px dashed ${T.border}`:'none',
+                display:'flex',alignItems:'center',justifyContent:'center',
+              }}>
+                <span style={{fontFamily:mono,fontSize:8,color:isFuture?T.muted:'rgba(255,255,255,0.85)',fontWeight:700}}>{d}</span>
+              </div>
+            )
+          })}
+        </div>
+        <div style={{display:'flex',gap:14,marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${T.border}`,flexWrap:'wrap'}}>
+          {[[paidDays,'#2ECC8A','paid'],[voidDays,'#888EA8','void'],[missedDays,'#E05555','missed']].map(([v,c,l])=>(
+            <div key={l} style={{fontFamily:mono,fontSize:10}}>
+              <span style={{color:c,fontWeight:700}}>{v}</span>
+              <span style={{color:T.muted}}> {l}</span>
+            </div>
+          ))}
+          {payment.period_start&&<div style={{fontFamily:mono,fontSize:9,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
+        </div>
+        <button onClick={()=>{onClose();if(onDayTracker)onDayTracker()}}
+          style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
+            border:'none',background:'#C8A84B',color:'#1A2530',cursor:'pointer'}}>
+          📅 View full day tracker →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
   if (!payments?.length) return null
+  const [popover, setPopover] = useState(null)
   const sorted=[...payments].sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
   const filtered = filterYear ? sorted.filter(m=>m.year===filterYear) : sorted
   const now = new Date()
   const currentYear = now.getFullYear()
-  const currentMonth = now.getMonth() + 1 // 1-based
+  const currentMonth = now.getMonth() + 1
 
-  return <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:8}}>
-    {filtered.map(m=>{
-      const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
-      const isCurrent = m.year === currentYear && m.month === currentMonth
-      const col = getStatusColor(m.status)
-      const letter = MONTH_LETTER[(m.month||1)-1]
-
-      // Future months: transparent with dashed border
-      // Current month: gold ring
-      // Past months: solid colour as before
-      const boxStyle = isFuture
-        ? { background:'transparent', border:'1px dashed rgba(128,128,128,0.35)', cursor:onUpdate?'pointer':'default' }
-        : isCurrent
-          ? { background:col, border:`2px solid #C8A84B`, cursor:onUpdate?'pointer':'default' }
-          : { background:col, border:'1px solid transparent', cursor:onUpdate?'pointer':'default' }
-
-      const letterColor = isFuture ? 'rgba(128,128,128,0.45)' : '#fff'
-
-      return (
-        <div key={m.id}
-          title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${m.status}${onUpdate?' - click to update':''}`}
-          onClick={!isFuture && onUpdate ? ()=>onUpdate(m) : undefined}
-          style={{
-            width:28, height:28, borderRadius:5,
-            transition:'transform 0.15s, box-shadow 0.15s',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            flexShrink:0,
-            ...boxStyle,
-          }}
-          onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.2)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
-          onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
-        >
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none'}}>{letter}</span>
-        </div>
-      )
-    })}
-  </div>
+  return <>
+    <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:8}}>
+      {filtered.map(m=>{
+        const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
+        const isCurrent = m.year === currentYear && m.month === currentMonth
+        const col = getStatusColor(m.status)
+        const letter = MONTH_LETTER[(m.month||1)-1]
+        const boxStyle = isFuture
+          ? { background:'transparent', border:'1px dashed rgba(128,128,128,0.35)', cursor:'default' }
+          : isCurrent
+            ? { background:col, border:`2px solid #C8A84B`, cursor:'pointer' }
+            : { background:col, border:'1px solid transparent', cursor:'pointer' }
+        const letterColor = isFuture ? 'rgba(128,128,128,0.45)' : '#fff'
+        return (
+          <div key={m.id}
+            title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${m.status} — click for day view`}
+            onClick={!isFuture ? ()=>setPopover(m) : undefined}
+            style={{width:28,height:28,borderRadius:5,transition:'transform 0.15s, box-shadow 0.15s',
+              display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
+            onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.2)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
+          >
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none'}}>{letter}</span>
+          </div>
+        )
+      })}
+    </div>
+    {popover&&<DayPopover payment={popover} allPayments={payments} onClose={()=>setPopover(null)} onDayTracker={onDayTracker}/>}
+  </>
 }
-
 const Spinner = () => {
   const { T } = useTheme()
   return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:200}}>
@@ -1211,7 +1288,8 @@ export default function App() {
             })}
           </div>}
 
-          {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail}/>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')}/>}
+          {view==='daytracker'&&<DayTrackerPage companies={companies} properties={properties} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
@@ -1278,7 +1356,7 @@ export default function App() {
                   </div>}
                 </div>}
                 {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
-                {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties}/>}
+                {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')}/>}
                 {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={calcGrossYield} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast}/>}
                 {false&&<div style={{display:'grid',gap:12}}>
                   {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
@@ -1682,7 +1760,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 }
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
-function RentTrackerOverview({companies, properties, fmt, openDetail}) {
+function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker}) {
   const { T } = useTheme()
 
   // Global year filter - applies to all properties
@@ -1735,18 +1813,25 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
             ))}
           </div>
         </div>
-        {/* Global year filter */}
-        <div style={{display:'flex',gap:6,alignItems:'center'}}>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginRight:4}}>FILTER YEAR:</span>
-          {[null,...allYears].map(yr=>(
-            <button key={yr||'all'} onClick={()=>setGlobalYear(yr)}
-              style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
-                border:`1px solid ${globalYear===yr?T.gold:T.border}`,
-                background:globalYear===yr?T.gold+'22':'transparent',
-                color:globalYear===yr?T.gold:T.muted,transition:'all 0.18s'}}>
-              {yr||'All'}
-            </button>
-          ))}
+        {/* Right side: year filter + day tracker button */}
+        <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginRight:4}}>FILTER YEAR:</span>
+            {[null,...allYears].map(yr=>(
+              <button key={yr||'all'} onClick={()=>setGlobalYear(yr)}
+                style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
+                  border:`1px solid ${globalYear===yr?T.gold:T.border}`,
+                  background:globalYear===yr?T.gold+'22':'transparent',
+                  color:globalYear===yr?T.gold:T.muted,transition:'all 0.18s'}}>
+                {yr||'All'}
+              </button>
+            ))}
+          </div>
+          <button onClick={onDayTracker}
+            style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+              border:`1px solid ${'#C8A84B'}`,background:'#C8A84B22',color:'#C8A84B',whiteSpace:'nowrap'}}>
+            📅 Day view
+          </button>
         </div>
       </div>
 
@@ -1813,7 +1898,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
                           {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                         </div>
                         {/* Dots filtered by global year */}
-                        <RentDots payments={p.rent_payments||[]} filterYear={globalYear}/>
+                        <RentDots payments={p.rent_payments||[]} filterYear={globalYear} onDayTracker={onDayTracker}/>
                       </div>
 
                       {/* Right: stats + badge */}
@@ -1855,7 +1940,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail}) {
 }
 
 // ─── RENT TAB ────────────────────────────────────────────────────────────────
-function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties}) {
+function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties, onDayTracker}) {
   const { T } = useTheme()
   const payments = selected.rent_payments || []
   const years = [...new Set(payments.map(p=>p.year))].sort()
@@ -1913,7 +1998,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
         </div>
 
         {/* Dots */}
-        <RentDots payments={payments} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})} filterYear={filterYear}/>
+        <RentDots payments={payments} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})} filterYear={filterYear} onDayTracker={onDayTracker}/>
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>

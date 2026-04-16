@@ -63,12 +63,14 @@ export async function createRefurbCost(propertyId, cost) {
   return data
 }
 
-export async function upsertRentPayment(propertyId, year, month, status, amount, notes) {
+export async function upsertRentPayment(propertyId, year, month, status, amount, notes, periodStart, periodEnd) {
   const monthLabel = new Date(year, month - 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+  const payload = { property_id: propertyId, user_id: await uid(), year, month, month_label: monthLabel, status, amount, notes }
+  if (periodStart) payload.period_start = periodStart
+  if (periodEnd)   payload.period_end   = periodEnd
   const { data, error } = await supabase
     .from('rent_payments')
-    .upsert({ property_id: propertyId, user_id: await uid(), year, month, month_label: monthLabel, status, amount, notes },
-      { onConflict: 'property_id,year,month' })
+    .upsert(payload, { onConflict: 'property_id,year,month' })
     .select().single()
   if (error) throw error
   return data
