@@ -235,16 +235,42 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     color: dealTab===k ? T.gold : T.muted, fontWeight: dealTab===k ? 700 : 400,
   })
 
-  // ── DEAL LIST VIEW ──────────────────────────────────────────────────────────
-  if (view === 'list' && dealView === 'list') return (
+  // ── DEAL DETAIL VIEW ────────────────────────────────────────────────────────
+  if (view === 'deal' && selectedDeal) return (
+    <DealDetail
+      key={selectedDeal.id}
+      deal={selectedDeal}
+      companies={companies}
+      user={user}
+      showToast={showToast}
+      onBack={()=>{ setView('list') }}
+      onSave={saveDeal}
+      onDelete={()=>deleteDeal(selectedDeal.id)}
+      onConvert={onConvertToProperty}
+    />
+  )
+
+  // ── UNIFIED SHELL (sub-nav always visible) ───────────────────────────────────
+  return (
     <div className="fade">
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:24}}>
-        <div>
-          <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Deal Pipeline</h1>
-          <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>{deals.length} deals saved · {deals.filter(d=>d.status==='under_offer').length} under offer</p>
+      {/* Sub-nav: always shown */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,marginBottom:24}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          {dealView !== 'list' && (
+            <button onClick={()=>setDealView('list')}
+              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+              ← Back
+            </button>
+          )}
+          <div>
+            <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:2}}>
+              {dealView==='lettings'?'Lettings Pipeline':dealView==='tools'?'AI Tools':dealView==='pipeline'?'Deal Pipeline':'Deal Pipeline'}
+            </h1>
+            {dealView==='list' && <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>{deals.length} deals saved · {deals.filter(d=>d.status==='under_offer').length} under offer</p>}
+          </div>
         </div>
-        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-          {compareIds.length >= 2 && (
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+          {compareIds.length >= 2 && dealView==='list' && (
             <button className="btn btn-ghost" style={{fontSize:12}} onClick={()=>setShowCompare(true)}>
               📊 Compare ({compareIds.length})
             </button>
@@ -261,9 +287,27 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               </button>
             ))}
           </div>
-          <button className="btn btn-gold" onClick={createNewDeal}>+ New Deal</button>
+          {dealView==='list' && <button className="btn btn-gold" onClick={createNewDeal}>+ New Deal</button>}
         </div>
       </div>
+
+      {/* ── PIPELINE VIEW ── */}
+      {dealView==='pipeline' && <DealPipeline deals={filtered} companies={companies} onOpen={openDeal} onNew={createNewDeal} T={T}/>}
+
+      {/* ── LETTINGS VIEW ── */}
+      {dealView==='lettings' && <LettingsPipeline user={user} companies={companies} properties={properties} showToast={showToast}/>}
+
+      {/* ── TOOLS VIEW ── */}
+      {dealView==='tools' && (
+        <div style={{display:'grid',gap:16}}>
+          <ListingYieldCalculator T={T} onAutoFill={()=>{ createNewDeal(); showToast('New deal created — fill in the figures from the listing') }}/>
+          <PortfolioModellerInDeals properties={properties} T={T}/>
+          <AIListingWriter T={T}/>
+        </div>
+      )}
+
+      {/* ── LIST VIEW ── */}
+      {dealView==='list' && <div>
 
       {/* Filters - only show on list view */}
       {dealView === 'list' && <div style={{display:'flex',gap:10,marginBottom:4,flexWrap:'wrap',fontSize:11}}><span style={{fontFamily:mono,color:T.muted,fontSize:10,alignSelf:'center'}}>List view · {filtered.length} deals</span></div>}
@@ -365,46 +409,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       {showCompare && compareIds.length >= 2 && (
         <CompareModal deals={deals.filter(d=>compareIds.includes(d.id))} companies={companies} onClose={()=>setShowCompare(false)}/>
       )}
+      </div>}
     </div>
   )
 
-  // ── DEAL DETAIL VIEW ────────────────────────────────────────────────────────
-  if (view === 'deal' && selectedDeal) return (
-    <DealDetail
-      key={selectedDeal.id}
-      deal={selectedDeal}
-      companies={companies}
-      user={user}
-      showToast={showToast}
-      onBack={()=>setView('list')}
-      onSave={saveDeal}
-      onDelete={()=>deleteDeal(selectedDeal.id)}
-      onConvert={onConvertToProperty}
-    />
-  )
 
-  if (dealView === 'pipeline') return (
-    <div style={{padding:'0'}}>
-      <DealPipeline deals={filtered} companies={companies} onOpen={openDeal} onNew={createNewDeal} T={T}/>
-    </div>
-  )
-
-  if (dealView === 'lettings') return (
-    <LettingsPipeline user={user} companies={companies} properties={properties} showToast={showToast} />
-  )
-
-  if (dealView === 'tools') return (
-    <div style={{display:'grid',gap:16}}>
-      <ListingYieldCalculator T={T} onAutoFill={()=>{
-        createNewDeal()
-        showToast('New deal created — fill in the figures from the listing')
-      }}/>
-      <PortfolioModellerInDeals properties={properties} T={T}/>
-      <AIListingWriter T={T}/>
-    </div>
-  )
-
-  return null
 }
 
 // ── DEAL DETAIL ────────────────────────────────────────────────────────────────
