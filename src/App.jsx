@@ -59,6 +59,7 @@ const Badge = memo(({status}) => {
 })
 
 const HealthBadge = memo(({property}) => {
+  const h = api.calcPropertyHealthScore(property, property.compliance_items||[], property.tenancy||null, property.maintenance_jobs||[], property.rent_payments||[])
   return (
     <span title={`Health: ${h.score}/100${h.issues.length ? ' · ' + h.issues[0].text : ''}`}
       style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:20,
