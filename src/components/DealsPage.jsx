@@ -291,9 +291,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               </button>
             ))}
           </div>
-          {/* Action button — always present, label changes but width stays the same */}
+          {/* Action button — fixed width so tab bar never shifts */}
           <button className="btn btn-gold" onClick={handleNewBtn}
-            style={{whiteSpace:'nowrap',minWidth:110}}>
+            style={{whiteSpace:'nowrap',width:130,textAlign:'center'}}>
             {newBtnLabel}
           </button>
         </div>
