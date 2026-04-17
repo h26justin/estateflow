@@ -710,7 +710,7 @@ export default function App() {
       {showLoginModal && (
         <div onClick={e=>e.target===e.currentTarget&&setShowLoginModal(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16,backdropFilter:'blur(4px)'}}>
-          <LoginPage key={loginMode} initialMode={loginMode} onClose={()=>setShowLoginModal(false)}/>
+          <LoginPage key={`login-${loginMode}`} initialMode={loginMode} onClose={()=>setShowLoginModal(false)}/>
         </div>
       )}
     </>
@@ -826,6 +826,38 @@ export default function App() {
   const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
 
   function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
+    const [renameTarget, setRenameTarget] = useState(null)
+    const [renameName, setRenameName]     = useState('')
+    const [renameAbbr, setRenameAbbr]     = useState('')
+    const [renamePassword, setRenamePassword] = useState('')
+    const [renameError, setRenameError]   = useState('')
+    const [renameSaving, setRenameSaving] = useState(false)
+    const mono = "'DM Mono',monospace"
+
+    function openRename(c) {
+      setRenameTarget(c)
+      setRenameName(c.name)
+      setRenameAbbr(c.abbr||'')
+      setRenamePassword('')
+      setRenameError('')
+    }
+
+    async function handleRename() {
+      if (!renameName.trim()) { setRenameError('Name is required'); return }
+      if (!renamePassword) { setRenameError('Please enter your password to confirm'); return }
+      setRenameSaving(true)
+      setRenameError('')
+      try {
+        const { error } = await supabase.auth.signInWithPassword({ email: user.email, password: renamePassword })
+        if (error) { setRenameError('Incorrect password'); setRenameSaving(false); return }
+        const updated = await api.updateCompany(renameTarget.id, { name: renameName.trim(), abbr: renameAbbr.trim().slice(0,5).toUpperCase() || renameName.trim().slice(0,3).toUpperCase() })
+        setCompanies(prev => prev.map(c => c.id === renameTarget.id ? { ...c, ...updated } : c))
+        setRenameTarget(null)
+        showToast('Company renamed successfully')
+      } catch(e) { setRenameError(e.message||'Failed to rename') }
+      setRenameSaving(false)
+    }
+
     return (
       <div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
@@ -843,6 +875,18 @@ export default function App() {
           const cs=companyStats.find(x=>x.id===c.id)||{count:0,rented:0,vacant:0,monthlyRent:0,invested:0,estVal:0,arrears:0}
           const cProps=properties.filter(p=>p.company_id===c.id)
           return <div key={c.id}>
+            {/* Company header with rename button */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:10,height:10,borderRadius:'50%',background:c.color||T.gold}}/>
+                <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
+                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.gold,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
+              </div>
+              <button onClick={()=>openRename(c)}
+                style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                ✏ Rename
+              </button>
+            </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
               <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
               <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
@@ -866,6 +910,46 @@ export default function App() {
             </div>
           </div>
         })}
+
+        {/* Rename modal */}
+        {renameTarget&&(
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:600,padding:24}}>
+            <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:420,padding:'32px 28px',border:`1px solid ${T.border}`}}>
+              <div style={{fontSize:32,marginBottom:12,textAlign:'center'}}>✏️</div>
+              <h2 style={{fontSize:18,fontWeight:700,textAlign:'center',marginBottom:6}}>Rename company</h2>
+              <p style={{fontFamily:mono,fontSize:12,color:T.muted,textAlign:'center',marginBottom:24}}>Currently: <strong style={{color:T.text}}>{renameTarget.name}</strong></p>
+              <div style={{display:'grid',gap:14,marginBottom:20}}>
+                <div>
+                  <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>New company name</label>
+                  <input value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
+                    style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                </div>
+                <div>
+                  <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation (up to 5 chars)</label>
+                  <input value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="e.g. ACME"
+                    style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                </div>
+                <div>
+                  <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your password to confirm</label>
+                  <input type="password" value={renamePassword} onChange={e=>{setRenamePassword(e.target.value);setRenameError('')}}
+                    placeholder="Enter your password"
+                    style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${renameError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                  {renameError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{renameError}</div>}
+                </div>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setRenameTarget(null)}
+                  style={{flex:1,fontFamily:mono,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                  Cancel
+                </button>
+                <button onClick={handleRename} disabled={renameSaving}
+                  style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameSaving?T.border:T.gold,color:'#1A2530',cursor:'pointer'}}>
+                  {renameSaving?'Saving…':'Save new name'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

@@ -31,8 +31,10 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '')
 
   useEffect(() => {
+    // Only override mode for invite tokens — not for normal sign in/up flows
     if (inviteToken) setMode('signup')
-  }, [])
+    else setMode(initialMode)
+  }, [initialMode])
 
   async function handleSubmit(e) {
     e.preventDefault()
