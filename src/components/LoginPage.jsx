@@ -60,15 +60,19 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
     <div style={{ width:'100%', maxWidth: 420 }}>
       <style>{CSS}</style>
 
-      {/* Logo — centered on a light panel */}
-      <div style={{ background:'#F4F3EF', borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center' }}>
+      {/* Logo panel — gold tint for signup, neutral for login */}
+      <div style={{ background: mode==='signup' ? '#C8A84B22' : '#F4F3EF', border: mode==='signup' ? '1.5px solid #C8A84B44' : '1.5px solid transparent', borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center', transition:'background 0.3s' }}>
         <img src="/logo.svg" alt="OwnProperly" style={{ width: 280, height:'auto', display:'block', margin:'0 auto' }}/>
+        {mode==='signup' && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:'#8A6A00', marginTop:10, fontWeight:600, letterSpacing:'0.05em' }}>✨ 14-day free trial — no card needed</div>}
       </div>
 
-      <div style={{ background:WHITE, border:`1.5px solid ${BORDER}`, borderRadius:20, padding:'32px 28px', boxShadow:'0 4px 32px rgba(45,60,74,0.12)' }}>
-        <h2 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', marginBottom:6, color:SLATE }}>
-          {mode==='login' ? 'Sign in to your account' : 'Create your free account'}
-        </h2>
+      <div style={{ background:WHITE, border: mode==='signup' ? '1.5px solid #C8A84B66' : `1.5px solid ${BORDER}`, borderRadius:20, padding:'32px 28px', boxShadow: mode==='signup' ? '0 4px 32px rgba(200,168,75,0.15)' : '0 4px 32px rgba(45,60,74,0.12)', transition:'border-color 0.3s, box-shadow 0.3s' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+          <div style={{ width:8, height:8, borderRadius:'50%', background: mode==='signup' ? '#C8A84B' : '#2ECC8A', flexShrink:0 }}/>
+          <h2 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE }}>
+            {mode==='login' ? 'Sign in to your account' : 'Create your free account'}
+          </h2>
+        </div>
         <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:24 }}>
           {mode==='login' ? 'Welcome back.' : 'Start your 14-day free trial — no card needed.'}
         </p>
@@ -96,7 +100,8 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
           {error&&<div style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
           {success&&<div style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#16A34A', background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
 
-          <button type="submit" className="lp-btn" disabled={loading} style={{ marginTop:4 }}>
+          <button type="submit" className="lp-btn" disabled={loading}
+            style={{ marginTop:4, background: loading ? '#A3A8AC' : mode==='signup' ? '#C8A84B' : '#2D3C4A', color: mode==='signup' && !loading ? '#1A2530' : 'white' }}>
             {loading ? 'Please wait…' : mode==='login' ? 'Sign In' : 'Create Account →'}
           </button>
         </form>
