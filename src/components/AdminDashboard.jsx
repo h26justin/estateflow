@@ -341,13 +341,19 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
 // ═══════════════════════════════════════════════════════════════════════════════
 // ACCOUNT DETAIL
 // ═══════════════════════════════════════════════════════════════════════════════
-function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFlag, saving }) {
-  const [notes, setNotes]       = useState([])
-  const [newNote, setNewNote]   = useState('')
+function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFlag, saving, onRename, onDelete }) {
+  const [notes, setNotes]         = useState([])
+  const [newNote, setNewNote]     = useState('')
   const [addingNote, setAddingNote] = useState(false)
   const [extendDays, setExtendDays] = useState(14)
   const [extending, setExtending]   = useState(false)
   const [trialMsg, setTrialMsg]     = useState('')
+  const [showRename, setShowRename] = useState(false)
+  const [renameName, setRenameName] = useState(co.name||'')
+  const [renameAbbr, setRenameAbbr] = useState(co.abbr||'')
+  const [renameSaving, setRenameSaving] = useState(false)
+  const [showDeleteCo, setShowDeleteCo] = useState(false)
+  const [deletingCo, setDeletingCo]     = useState(false)
 
   useEffect(()=>{ api.fetchAdminNotes(co.id).then(setNotes).catch(()=>{}) },[co.id])
 
@@ -369,9 +375,30 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
     setExtending(true)
     try {
       const d = await api.extendTrial(co.id, extendDays)
-      setTrialMsg(`Trial extended to ${d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`)
+      setTrialMsg('Trial extended to ' + d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}))
     } catch(e) { setTrialMsg('Failed to extend trial') }
     setExtending(false)
+  }
+
+  async function handleAdminRename() {
+    if (!renameName.trim()) return
+    setRenameSaving(true)
+    try {
+      const abbr = renameAbbr.trim().slice(0,5).toUpperCase() || renameName.trim().slice(0,3).toUpperCase()
+      await api.updateCompany(co.id, { name: renameName.trim(), abbr })
+      if (onRename) onRename(co.id, renameName.trim(), abbr)
+      setShowRename(false)
+    } catch(e) {}
+    setRenameSaving(false)
+  }
+
+  async function handleAdminDeleteCompany() {
+    setDeletingCo(true)
+    try {
+      await api.deleteCompany(co.id)
+      if (onDelete) onDelete(co.id)
+      onBack()
+    } catch(e) { setDeletingCo(false) }
   }
 
   const status = co.is_free_tier?'free_tier':(co.subscriptions?.[0]?.status||'trialing')
@@ -381,8 +408,8 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
   return (
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
-        <button onClick={onBack} style={{fontFamily:mono,fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>← All accounts</button>
-        {co.flagged&&<span style={{fontFamily:mono,fontSize:11,background:T.red+'22',color:T.red,padding:'4px 12px',borderRadius:8}}>⚑ Flagged</span>}
+        <button onClick={onBack} style={{fontFamily:mono,fontSize:11,background:'none',border:'1px solid '+T.border,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>Back</button>
+        {co.flagged&&<span style={{fontFamily:mono,fontSize:11,background:T.red+'22',color:T.red,padding:'4px 12px',borderRadius:8}}>Flagged</span>}
         <div style={{flex:1,display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>
           <span style={{fontSize:18,fontWeight:700,color:T.text}}>{co.name}</span>
@@ -390,32 +417,44 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         </div>
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
-        {/* Overview */}
-        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:20}}>
+        <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Account overview</div>
           {[
-            ['Owner email',    co.owner_email||'—'],
+            ['Owner email', co.owner_email||'—'],
             ['Platform properties', co.real_property_count||0],
-            ['Billed properties',  co.paid_property_count||co.subscriptions?.[0]?.property_count||0],
-            ['MRR',            status==='active'?fmt(props):'—'],
-            ['Status',         sc.label],
-            ['Stripe sub ID',  co.subscriptions?.[0]?.stripe_subscription_id||'—'],
-            ['Created',        co.created_at?new Date(co.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
-            ['Trial ends',     co.trial_ends_at?new Date(co.trial_ends_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
+            ['Billed properties', co.paid_property_count||co.subscriptions?.[0]?.property_count||0],
+            ['MRR', status==='active'?fmt(props):'—'],
+            ['Status', sc.label],
+            ['Stripe sub ID', co.subscriptions?.[0]?.stripe_subscription_id||'—'],
+            ['Created', co.created_at?new Date(co.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
+            ['Trial ends', co.trial_ends_at?new Date(co.trial_ends_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
           ].map(([l,v])=>(
-            <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+            <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid '+T.border}}>
               <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{l}</span>
-              <span style={{fontFamily:mono,fontSize:11,color:T.text,fontWeight:600}}>{v}</span>
+              <span style={{fontFamily:mono,fontSize:11,color:T.text,fontWeight:600}}>{String(v)}</span>
             </div>
           ))}
         </div>
 
-        {/* Actions */}
         <div style={{display:'grid',gap:14,alignContent:'start'}}>
-          <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px'}}>
+          <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Quick actions</div>
             <div style={{display:'grid',gap:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Rename company</span>
+                <button onClick={()=>{setRenameName(co.name||'');setRenameAbbr(co.abbr||'');setShowRename(true)}}
+                  style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                  Rename
+                </button>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontFamily:mono,fontSize:12,color:T.red}}>Delete company</span>
+                <button onClick={()=>setShowDeleteCo(true)}
+                  style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:'1px solid '+T.red+'44',background:'transparent',color:T.red,cursor:'pointer'}}>
+                  Delete
+                </button>
+              </div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Free tier</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -437,12 +476,12 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             </div>
           </div>
 
-          <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px'}}>
+          <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Extend trial</div>
             <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:8}}>
               <select value={extendDays} onChange={e=>setExtendDays(Number(e.target.value))}
-                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',flex:1}}>
-                {[7,14,30,60,90].map(d=><option key={d} value={d}>+{d} days</option>)}
+                style={{fontFamily:mono,fontSize:12,background:T.surface,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'7px 10px',flex:1}}>
+                {[7,14,30,60,90].map(d=><option key={d} value={d}>{'+'+d+' days'}</option>)}
               </select>
               <button onClick={extendTrial} disabled={extending}
                 style={{fontFamily:mono,fontSize:12,padding:'8px 16px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer',fontWeight:700}}>
@@ -454,76 +493,68 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         </div>
       </div>
 
-      {/* Admin notes */}
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px',marginTop:20}}>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Admin notes & support log</div>
+      <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
+        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Admin notes</div>
         <div style={{display:'flex',gap:10,marginBottom:16}}>
-          <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} rows={2} placeholder="Add a note about this account…"
-            style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',outline:'none'}}/>
+          <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} rows={2} placeholder="Add a note about this account..."
+            style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',outline:'none'}}/>
           <button onClick={submitNote} disabled={addingNote||!newNote.trim()}
             style={{fontFamily:mono,fontSize:12,padding:'0 20px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer',fontWeight:700,alignSelf:'stretch'}}>
-            {addingNote?'…':'Add note'}
+            {addingNote?'…':'Add'}
           </button>
         </div>
-        {notes.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted}}>No notes yet for this account.</div>}
+        {notes.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted}}>No notes yet.</div>}
         {notes.map(n=>(
-          <div key={n.id} style={{padding:'12px 0',borderBottom:`1px solid ${T.border}`,display:'flex',gap:12,alignItems:'flex-start'}}>
+          <div key={n.id} style={{padding:'12px 0',borderBottom:'1px solid '+T.border,display:'flex',gap:12,alignItems:'flex-start'}}>
             <div style={{flex:1}}>
               <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6,marginBottom:4}}>{n.note}</div>
               <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{new Date(n.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
             </div>
-            <button onClick={()=>deleteNote(n.id)} style={{fontFamily:mono,fontSize:10,color:T.muted,background:'none',border:'none',cursor:'pointer'}}>✕</button>
+            <button onClick={()=>deleteNote(n.id)} style={{fontFamily:mono,fontSize:10,color:T.muted,background:'none',border:'none',cursor:'pointer'}}>x</button>
           </div>
         ))}
       </div>
-    </div>
 
-      {/* ── ADMIN RENAME MODAL ── */}
       {showRename&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:`1px solid ${T.border}`}}>
-            <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,marginBottom:20,color:T.text}}>✏ Rename company</h3>
-            <div style={{display:'grid',gap:12,marginBottom:20}}>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
-                <input value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
-                  style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-              </div>
-              <div>
-                <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
-                <input value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
-                  style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-              </div>
+          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:'1px solid '+T.border}}>
+            <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,marginBottom:20,color:T.text}}>Rename company</h3>
+            <div style={{marginBottom:12}}>
+              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
+              <input value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            </div>
+            <div style={{marginBottom:20}}>
+              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
+              <input value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
             </div>
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setShowRename(false)}
-                style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+                style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
               <button onClick={handleAdminRename} disabled={renameSaving}
                 style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:T.gold,color:'#1A2530',cursor:'pointer'}}>
-                {renameSaving?'Saving…':'Save'}
+                {renameSaving?'Saving...':'Save'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── ADMIN DELETE COMPANY MODAL ── */}
       {showDeleteCo&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:`2px solid ${T.red}44`}}>
+          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:'2px solid '+T.red+'44'}}>
             <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{fontSize:36,marginBottom:10}}>⚠️</div>
+              <div style={{fontSize:36,marginBottom:10}}>!</div>
               <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.red,marginBottom:8}}>Delete company</h3>
-              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
-                Permanently delete <strong style={{color:T.text}}>{co.name}</strong> and all its data. This cannot be undone.
-              </p>
+              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>Permanently delete <strong style={{color:T.text}}>{co.name}</strong> and all its data. Cannot be undone.</p>
             </div>
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setShowDeleteCo(false)}
-                style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+                style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
               <button onClick={handleAdminDeleteCompany} disabled={deletingCo}
                 style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:deletingCo?T.border:T.red,color:'white',cursor:'pointer'}}>
-                {deletingCo?'Deleting…':'Delete permanently'}
+                {deletingCo?'Deleting...':'Delete permanently'}
               </button>
             </div>
           </div>
@@ -532,7 +563,6 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
     </div>
   )
 }
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
