@@ -432,6 +432,11 @@ export default function App() {
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
+  const [renameCoTarget, setRenameCoTarget] = useState(null)
+  const [renameCo, setRenameCo]        = useState({ name:'', abbr:'' })
+  const [renameCoPassword, setRenameCoPassword] = useState('')
+  const [renameCoError, setRenameCoError] = useState('')
+  const [renameCoSaving, setRenameCoSaving] = useState(false)
   const [showNewMenu, setShowNewMenu]  = useState(false)
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
@@ -826,36 +831,13 @@ export default function App() {
   const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
 
   function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
-    const [renameTarget, setRenameTarget] = useState(null)
-    const [renameName, setRenameName]     = useState('')
-    const [renameAbbr, setRenameAbbr]     = useState('')
-    const [renamePassword, setRenamePassword] = useState('')
-    const [renameError, setRenameError]   = useState('')
-    const [renameSaving, setRenameSaving] = useState(false)
     const mono = "'DM Mono',monospace"
 
     function openRename(c) {
-      setRenameTarget(c)
-      setRenameName(c.name)
-      setRenameAbbr(c.abbr||'')
-      setRenamePassword('')
-      setRenameError('')
-    }
-
-    async function handleRename() {
-      if (!renameName.trim()) { setRenameError('Name is required'); return }
-      if (!renamePassword) { setRenameError('Please enter your password to confirm'); return }
-      setRenameSaving(true)
-      setRenameError('')
-      try {
-        const { error } = await supabase.auth.signInWithPassword({ email: user.email, password: renamePassword })
-        if (error) { setRenameError('Incorrect password'); setRenameSaving(false); return }
-        const updated = await api.updateCompany(renameTarget.id, { name: renameName.trim(), abbr: renameAbbr.trim().slice(0,5).toUpperCase() || renameName.trim().slice(0,3).toUpperCase() })
-        setCompanies(prev => prev.map(c => c.id === renameTarget.id ? { ...c, ...updated } : c))
-        setRenameTarget(null)
-        showToast('Company renamed successfully')
-      } catch(e) { setRenameError(e.message||'Failed to rename') }
-      setRenameSaving(false)
+      setRenameCoTarget(c)
+      setRenameCo({ name: c.name, abbr: c.abbr||'' })
+      setRenameCoPassword('')
+      setRenameCoError('')
     }
 
     return (
@@ -911,45 +893,7 @@ export default function App() {
           </div>
         })}
 
-        {/* Rename modal */}
-        {renameTarget&&(
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:600,padding:24}}>
-            <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:420,padding:'32px 28px',border:`1px solid ${T.border}`}}>
-              <div style={{fontSize:32,marginBottom:12,textAlign:'center'}}>✏️</div>
-              <h2 style={{fontSize:18,fontWeight:700,textAlign:'center',marginBottom:6}}>Rename company</h2>
-              <p style={{fontFamily:mono,fontSize:12,color:T.muted,textAlign:'center',marginBottom:24}}>Currently: <strong style={{color:T.text}}>{renameTarget.name}</strong></p>
-              <div style={{display:'grid',gap:14,marginBottom:20}}>
-                <div>
-                  <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>New company name</label>
-                  <input value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
-                    style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-                </div>
-                <div>
-                  <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation (up to 5 chars)</label>
-                  <input value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="e.g. ACME"
-                    style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-                </div>
-                <div>
-                  <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your password to confirm</label>
-                  <input type="password" value={renamePassword} onChange={e=>{setRenamePassword(e.target.value);setRenameError('')}}
-                    placeholder="Enter your password"
-                    style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${renameError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-                  {renameError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{renameError}</div>}
-                </div>
-              </div>
-              <div style={{display:'flex',gap:10}}>
-                <button onClick={()=>setRenameTarget(null)}
-                  style={{flex:1,fontFamily:mono,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
-                  Cancel
-                </button>
-                <button onClick={handleRename} disabled={renameSaving}
-                  style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameSaving?T.border:T.gold,color:'#1A2530',cursor:'pointer'}}>
-                  {renameSaving?'Saving…':'Save new name'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     )
   }
@@ -1496,6 +1440,44 @@ export default function App() {
 
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
+      {renameCoTarget&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:600,padding:24}}>
+          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:420,padding:'32px 28px',border:`1px solid ${T.border}`}}>
+            <div style={{fontSize:32,marginBottom:12,textAlign:'center'}}>✏️</div>
+            <h2 style={{fontSize:18,fontWeight:700,textAlign:'center',marginBottom:6}}>Rename company</h2>
+            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,textAlign:'center',marginBottom:24}}>Currently: <strong style={{color:T.text}}>{renameCoTarget.name}</strong></p>
+            <div style={{display:'grid',gap:14,marginBottom:20}}>
+              <div>
+                <label style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>New company name</label>
+                <input value={renameCo.name} onChange={e=>setRenameCo(p=>({...p,name:e.target.value}))} autoFocus
+                  style={{width:'100%',fontFamily:"'DM Mono',monospace",fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+              </div>
+              <div>
+                <label style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation (up to 5 chars)</label>
+                <input value={renameCo.abbr} onChange={e=>setRenameCo(p=>({...p,abbr:e.target.value.toUpperCase().slice(0,5)}))} placeholder="e.g. ACME"
+                  style={{width:'100%',fontFamily:"'DM Mono',monospace",fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+              </div>
+              <div>
+                <label style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your password to confirm</label>
+                <input type="password" value={renameCoPassword} onChange={e=>{setRenameCoPassword(e.target.value);setRenameCoError('')}}
+                  placeholder="Enter your password"
+                  style={{width:'100%',fontFamily:"'DM Mono',monospace",fontSize:13,background:T.bg,border:`1.5px solid ${renameCoError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                {renameCoError&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red,marginTop:6}}>{renameCoError}</div>}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setRenameCoTarget(null)}
+                style={{flex:1,fontFamily:"'DM Mono',monospace",fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                Cancel
+              </button>
+              <button onClick={handleRenameCompany} disabled={renameCoSaving}
+                style={{flex:2,fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameCoSaving?T.border:T.gold,color:'#1A2530',cursor:'pointer'}}>
+                {renameCoSaving?'Saving…':'Save new name'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
       {/* Access modal now lives inside Settings page */}
       {showImporter&&<StatementImporter properties={properties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/>}
