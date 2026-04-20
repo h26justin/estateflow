@@ -1124,10 +1124,10 @@ export default function App() {
                 breakdown={[
                   {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
                   {label:'Total invested', value:fmt(stats.totalInvested)},
-                  {label:'Purchase prices total', value:fmt(properties.reduce((s,p)=>s+(p.purchase_price||0),0))},
-                  {label:'Refurb costs total', value:fmt(properties.reduce((s,p)=>s+(p.refurb_cost||0),0))},
-                  {label:'Stamp duty total', value:fmt(properties.reduce((s,p)=>s+(p.stamp_duty||0),0))},
-                  {label:'Legal fees total', value:fmt(properties.reduce((s,p)=>s+(p.legal_fees||0),0))},
+                  {label:'Purchase prices total', value:fmt(dashProps.reduce((s,p)=>s+(p.purchase_price||0),0))},
+                  {label:'Refurb costs total', value:fmt(dashProps.reduce((s,p)=>s+(p.refurb_cost||0),0))},
+                  {label:'Stamp duty total', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0),0))},
+                  {label:'Legal fees total', value:fmt(dashProps.reduce((s,p)=>s+(p.legal_fees||0),0))},
                   {label:'Unrealised gain', value:fmt(stats.totalEstVal-stats.totalInvested), color:stats.totalEstVal>stats.totalInvested?T.green:T.red},
                 ]}
               />
@@ -1141,17 +1141,17 @@ export default function App() {
               />
               <StatCard icon="⚠" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
                 breakdown={[
-                  ...properties.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
-                  ...(properties.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
+                  ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
+                  ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
                   {label:'Vacant units', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
                 ]}
               />
               <StatCard icon="🔨" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
                 breakdown={[
-                  ...properties.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
+                  ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
                   ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
-                  {label:'Planned refurbs', value:properties.filter(p=>p.refurb_status==='planned').length},
-                  {label:'Completed refurbs', value:properties.filter(p=>p.refurb_status==='complete').length, color:T.green},
+                  {label:'Planned refurbs', value:dashProps.filter(p=>p.refurb_status==='planned').length},
+                  {label:'Completed refurbs', value:dashProps.filter(p=>p.refurb_status==='complete').length, color:T.green},
                 ]}
               />
               <StatCard icon="🏦" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
@@ -1163,7 +1163,7 @@ export default function App() {
                   {label:'Average LTV', value:stats.totalEstVal>0?((stats.totalMortgage/stats.totalEstVal)*100).toFixed(1)+'%':'-'},
                   ...companyStats.map(c=>({
                     label:c.name+' debt',
-                    value:fmt(properties.filter(p=>p.company_id===c.id).reduce((s,p)=>s+(p.mortgage_amount||0),0)),
+                    value:fmt(dashProps.filter(p=>p.company_id===c.id).reduce((s,p)=>s+(p.mortgage_amount||0),0)),
                     color:c.color
                   })),
                 ]}
