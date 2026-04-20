@@ -668,6 +668,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     { key: 'billing',       label: '💳 Billing' },
     { key: 'navbar',        label: '🧭 Navigation' },
     { key: 'referral',      label: '🎁 Refer a Friend' },
+    { key: 'help',          label: '📖 Help & Guides' },
   ]
   const portfolioTabs = [
     { key: 'branding',      label: '🎨 Branding & Logos' },
@@ -1055,6 +1056,58 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {settingsTab==='referral' && (
         <ReferralPanel user={user} T={T} showToast={showToast}/>
+      )}
+
+      {/* ── HELP & GUIDES TAB ── */}
+      {settingsTab==='help' && (
+        <div>
+          <div style={sectionStyle}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Getting Started</div>
+            <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:16,lineHeight:1.7}}>
+              Step-by-step guides to help you set up and get the most from OwnProperly. Each guide opens in a new tab.
+            </div>
+            <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>
+              {"▶ Replay app tour"}
+            </button>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
+            {[
+              {icon:'📊',title:'Property Portfolio Management',desc:'How to add companies and properties, track investments and view your portfolio at a glance.',url:'/blog/property-portfolio-management/',tags:['Portfolio','Companies']},
+              {icon:'💷',title:'Rent Tracker Guide',desc:'Set up rent tracking, use the calendar day view, import agent statements and monitor arrears.',url:'/blog/rent-tracker-guide/',tags:['Rent','Statements']},
+              {icon:'📋',title:'UK Landlord Compliance Checklist',desc:'Gas safety, EICR, EPC, HMO licensing, legionella and more — what you need and when.',url:'/blog/uk-landlord-compliance-checklist/',tags:['Compliance']},
+              {icon:'🏠',title:'Tenant Portal Guide',desc:'Set up branded tenant portals, invite tenants, enable messaging and repair requests.',url:'/blog/tenant-portal-guide/',tags:['Tenants','Portal']},
+              {icon:'🎯',title:'Buy-to-Let Deal Calculator',desc:'Analyse deals with yield, SDLT, mortgage stress tests, HMO modelling and refinance scenarios.',url:'/blog/btl-deal-calculator/',tags:['Deals','Calculator']},
+              {icon:'🔑',title:'Lettings Pipeline Guide',desc:'Manage the full lettings process from listing to move-in with stage tracking and checklists.',url:'/blog/lettings-pipeline-guide/',tags:['Lettings']},
+              {icon:'🛡',title:'Deposit Protection Guide',desc:'Choose a scheme, protect deposits within 30 days, serve prescribed information and handle disputes.',url:'/blog/deposit-protection-guide/',tags:['Deposits','Legal']},
+              {icon:'📝',title:'Right to Rent Guide',desc:'Check immigration status, verify documents, follow-up checks and record-keeping requirements.',url:'/blog/right-to-rent-guide/',tags:['Compliance','Legal']},
+              {icon:'⚖',title:'Section 21 Notice Guide',desc:'Serve valid no-fault possession notices — prerequisites, timings, forms and common pitfalls.',url:'/blog/section-21-guide/',tags:['Legal','Notices']},
+            ].map(guide=>(
+              <a key={guide.url} href={guide.url} target="_blank" rel="noopener noreferrer"
+                style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',textDecoration:'none',display:'block',transition:'border-color 0.2s',cursor:'pointer'}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                <div style={{fontSize:24,marginBottom:10}}>{guide.icon}</div>
+                <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:6,lineHeight:1.4}}>{guide.title}</div>
+                <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6,marginBottom:12}}>{guide.desc}</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {guide.tags.map(tag=>(
+                    <span key={tag} style={{fontFamily:mono,fontSize:9,color:T.gold,background:T.gold+'15',padding:'2px 8px',borderRadius:4,textTransform:'uppercase',letterSpacing:'0.05em'}}>{tag}</span>
+                  ))}
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <div style={{marginTop:20,...sectionStyle}}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Need more help?</div>
+            <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.7}}>
+              {"Email us at "}
+              <a href="mailto:hello@ownproperly.com" style={{color:T.gold,fontWeight:700}}>hello@ownproperly.com</a>
+              {" or use the Feedback tab to send us a message directly from the app."}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── REPORTING TAB ── */}

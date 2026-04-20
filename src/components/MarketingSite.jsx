@@ -137,6 +137,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   {label}
                 </button>
               ))}
+              <a href="/blog/" style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, textDecoration: 'none' }}>Guides</a>
             </div>
             <div className="nav-btns" style={{ display: 'flex', gap: 10 }}>
               <button onClick={onSignIn} className="mkt-btn-ghost" style={{ padding: '8px 18px', fontSize: 12 }}>Sign in</button>
@@ -368,6 +369,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             {[['Features','features'],['Pricing','pricing']].map(([label,id]) => (
               <button key={id} onClick={()=>scrollTo(id)} style={{ background: 'none', border: 'none', fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#6B7899', cursor: 'pointer' }}>{label}</button>
             ))}
+            <a href="/blog/" style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#6B7899', textDecoration: 'none' }}>Guides</a>
           </div>
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#4A5568' }}>
             © {new Date().getFullYear()} OwnProperly ·{' '}
