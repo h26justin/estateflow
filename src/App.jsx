@@ -748,7 +748,7 @@ export default function App() {
 
   async function handleSaveProp(formData){
     try{
-      if(editProp){
+      if(editProp?.id){
         const updated=await api.updateProperty(editProp.id,formData)
         setProperties(prev=>prev.map(p=>p.id===editProp.id?{...p,...updated}:p))
         showToast('Property updated')
@@ -879,10 +879,7 @@ export default function App() {
       <div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',margin:0}}>Companies</h2>
-          <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
-            <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
-          </div>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
           {companies.map(c=>(
@@ -929,7 +926,7 @@ export default function App() {
                   <Badge status={p.status}/>
                 </div>
               ))}
-              {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button></div>}
+              {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}
             </div>
           </div>
         })}
@@ -1357,7 +1354,7 @@ export default function App() {
                       <HealthBadge property={p}/>
                     </div>
                   ))}
-                  {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button></div>}
+                  {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}
                 </div>
               </div>
             })}
@@ -1651,8 +1648,8 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
 
 function PropertyModal({prop,companies,onClose,onSave}){
   const { T } = useTheme()
-  const blank={name:'',company_id:companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:''}
-  const [form,setForm]=useState(prop?{...prop,company_id:prop.company_id||prop.company?.id||'',mortgage_rate:prop.mortgage_rate?(prop.mortgage_rate*100).toFixed(2):''}:blank)
+  const blank={name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:''}
+  const [form,setForm]=useState(prop?.id?{...prop,company_id:prop.company_id||prop.company?.id||'',mortgage_rate:prop.mortgage_rate?(prop.mortgage_rate*100).toFixed(2):''}:blank)
   const s=(k,v)=>setForm(f=>({...f,[k]:v}))
   function handleSave(){
     if(!form.name||!form.address) return
@@ -1663,7 +1660,7 @@ function PropertyModal({prop,companies,onClose,onSave}){
   return <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div className="modal">
       <div style={{padding:'24px 28px 0'}}>
-        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?'Edit Property':'Add New Property'}</h2>
+        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id?'Edit Property':'Add New Property'}</h2>
         <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Fill in the details below.</p>
       </div>
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
@@ -1680,7 +1677,7 @@ function PropertyModal({prop,companies,onClose,onSave}){
         <div><label>Notes</label><textarea value={form.notes} onChange={e=>s('notes',e.target.value)} rows={3} style={{resize:'vertical'}}/></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-gold" onClick={handleSave}>{prop?'Save Changes':'Add Property'}</button>
+          <button className="btn btn-gold" onClick={handleSave}>{prop?.id?'Save Changes':'Add Property'}</button>
         </div>
       </div>
     </div>
