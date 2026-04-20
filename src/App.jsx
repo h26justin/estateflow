@@ -795,6 +795,27 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
+  async function handleRenameCompany() {
+    if (!renameCo.name.trim()) { setRenameCoError('Name is required'); return }
+    if (!renameCoPassword) { setRenameCoError('Please enter your password to confirm'); return }
+    setRenameCoSaving(true)
+    setRenameCoError('')
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password: renameCoPassword })
+      if (authError) { setRenameCoError('Incorrect password'); setRenameCoSaving(false); return }
+      const { error } = await supabase.from('companies')
+        .update({ name: renameCo.name.trim(), abbr: renameCo.abbr.trim() || renameCo.name.trim().slice(0,5).toUpperCase() })
+        .eq('id', renameCoTarget.id)
+      if (error) throw error
+      setCompanies(prev => prev.map(c => c.id === renameCoTarget.id ? { ...c, name: renameCo.name.trim(), abbr: renameCo.abbr.trim() || c.abbr } : c))
+      showToast('Company renamed successfully')
+      setRenameCoTarget(null)
+      setRenameCo({ name: '', abbr: '' })
+      setRenameCoPassword('')
+    } catch(e) { setRenameCoError(e.message || 'Something went wrong') }
+    setRenameCoSaving(false)
+  }
+
   async function handleAddPhase(propId,phase){
     try{
       const created=await api.createRefurbPhase(propId,phase)
