@@ -438,210 +438,191 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
   const doc = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
   const W = isLandscape ? 297 : 210
   const H = isLandscape ? 210 : 297
-  const margin = 16
-  const contentW = W - margin * 2
+  const margin = 14
+  const cW = W - margin * 2
 
-  // Colours — light professional theme
-  const gold = [200, 168, 75]
-  const dark = [35, 42, 55]
-  const mid = [90, 95, 115]
-  const light = [140, 145, 160]
-  const vlight = [230, 228, 222]
-  const green = [39, 174, 117]
-  const red = [200, 72, 72]
-  const white = [255, 255, 255]
-  const headerBg = [245, 244, 240]
-  const altRow = [250, 249, 246]
-  const accent = companyColor ? (companyColor.match(/[0-9a-f]{2}/gi)?.map(h => parseInt(h, 16)) || gold) : gold
+  // Dashboard colour palette
+  const cream    = [244, 243, 239]
+  const cardBg   = [255, 255, 255]
+  const border   = [226, 223, 216]
+  const gold     = [200, 168, 75]
+  const dark     = [26, 37, 48]
+  const slate    = [45, 60, 74]
+  const muted    = [107, 118, 145]
+  const faint    = [160, 165, 178]
+  const green    = [46, 204, 138]
+  const red      = [224, 85, 85]
+  const amber    = [224, 148, 58]
+  const accent   = companyColor ? (companyColor.match(/[0-9a-f]{2}/gi)?.map(h => parseInt(h, 16)) || gold) : gold
 
-  // ── Load images ──────────────────────────────────────────────────────────
-  async function loadImage(url) {
+  // Load images
+  async function loadImg(url) {
     try {
-      const resp = await fetch(url)
-      const blob = await resp.blob()
-      return await new Promise((res, rej) => {
-        const r = new FileReader()
-        r.onload = () => res(r.result)
-        r.onerror = rej
-        r.readAsDataURL(blob)
-      })
+      const r = await fetch(url); const b = await r.blob()
+      return await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(b) })
     } catch(e) { return null }
   }
+  let coLogo = logoUrl ? await loadImg(logoUrl) : null
+  let opLogo = null
+  try { opLogo = await loadImg('/logo.svg') } catch(e) {}
 
-  let companyLogoData = null
-  let ownProperlyLogoData = null
-  if (logoUrl) companyLogoData = await loadImage(logoUrl)
-  try { ownProperlyLogoData = await loadImage('/logo.svg') } catch(e) {}
-
-  // ── HEADER ───────────────────────────────────────────────────────────────
-  // Gold accent line at very top
-  doc.setFillColor(...accent); doc.rect(0, 0, W, 3, 'F')
-
-  // Company logo (if available) — top left
-  let headerTextX = margin
-  if (companyLogoData) {
-    try {
-      doc.addImage(companyLogoData, 'PNG', margin, 8, 28, 14)
-      headerTextX = margin + 34
-    } catch(e) { /* logo failed, use text only */ }
+  // Helper: draw rounded rect card
+  function card(x, y, w, h) {
+    doc.setFillColor(...cardBg); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'F')
+    doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'S')
   }
 
-  // Company name and report title
-  doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
-  doc.text(company || 'Portfolio Report', headerTextX, 16)
-  doc.setFontSize(12); doc.setFont('helvetica', 'normal'); doc.setTextColor(...mid)
-  doc.text(reportName || title, headerTextX, 23)
+  function addPage() { doc.addPage(); doc.setFillColor(...cream); doc.rect(0, 0, W, H, 'F'); return 14 }
 
-  // Right side — period and date
-  doc.setFontSize(9); doc.setTextColor(...light); doc.setFont('helvetica', 'normal')
-  doc.text(period, W - margin, 14, { align: 'right' })
-  doc.text('Generated ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - margin, 20, { align: 'right' })
+  // ── PAGE BACKGROUND ──────────────────────────────────────────────────────
+  doc.setFillColor(...cream); doc.rect(0, 0, W, H, 'F')
 
-  // Divider
-  doc.setDrawColor(...vlight); doc.setLineWidth(0.5)
-  doc.line(margin, 28, W - margin, 28)
+  // ── HEADER CARD ──────────────────────────────────────────────────────────
+  card(margin, 8, cW, 30)
+  // Company logo
+  let tx = margin + 8
+  if (coLogo) {
+    try { doc.addImage(coLogo, 'PNG', margin + 5, 12, 22, 11); tx = margin + 32 } catch(e) {}
+  }
+  // Company name + report title
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
+  doc.text(company || 'Portfolio Report', tx, 19)
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(...muted)
+  doc.text(reportName || title, tx, 26)
+  // Right side: period + date
+  doc.setFontSize(8); doc.setTextColor(...faint); doc.setFont('helvetica', 'normal')
+  doc.text(period, W - margin - 6, 18, { align: 'right' })
+  doc.text(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - margin - 6, 24, { align: 'right' })
+  // Gold accent bar at bottom of header card
+  doc.setFillColor(...accent); doc.rect(margin, 36.5, cW, 1, 'F')
 
-  let y = 34
+  let y = 44
 
   // ── NOTE ─────────────────────────────────────────────────────────────────
   if (note) {
-    doc.setFillColor(255, 251, 235); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'F')
-    doc.setDrawColor(...gold); doc.setLineWidth(0.3); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'S')
-    doc.setFontSize(8); doc.setTextColor(...dark); doc.setFont('helvetica', 'italic')
-    doc.text(note.length > 140 ? note.slice(0, 137) + '...' : note, margin + 4, y + 7.5)
-    y += 18
+    card(margin, y, cW, 10)
+    doc.setFillColor(...accent); doc.rect(margin, y, 1.5, 10, 'F')
+    doc.setFontSize(7.5); doc.setTextColor(...slate); doc.setFont('helvetica', 'italic')
+    doc.text(note.length > 130 ? note.slice(0, 127) + '...' : note, margin + 6, y + 6.5)
+    y += 15
   }
 
   // ── KPI CARDS ────────────────────────────────────────────────────────────
   if (kpis.length > 0) {
     const perRow = Math.min(kpis.length, 4)
+    const gap = 5
     const cardRows = Math.ceil(kpis.length / perRow)
     for (let row = 0; row < cardRows; row++) {
-      const rowKpis = kpis.slice(row * perRow, (row + 1) * perRow)
-      const rCardW = (contentW - (rowKpis.length - 1) * 5) / rowKpis.length
-      rowKpis.forEach(([label, value], i) => {
-        const x = margin + i * (rCardW + 5)
-        // Card with subtle border
-        doc.setFillColor(...headerBg); doc.roundedRect(x, y, rCardW, 18, 2, 2, 'F')
-        doc.setDrawColor(...vlight); doc.setLineWidth(0.3); doc.roundedRect(x, y, rCardW, 18, 2, 2, 'S')
-        // Gold accent bar on left of card
-        doc.setFillColor(...accent); doc.rect(x, y + 2, 1.5, 14, 'F')
+      const rk = kpis.slice(row * perRow, (row + 1) * perRow)
+      const kw = (cW - (rk.length - 1) * gap) / rk.length
+      rk.forEach(([label, value], i) => {
+        const x = margin + i * (kw + gap)
+        card(x, y, kw, 18)
+        // Gold left accent
+        doc.setFillColor(...accent); doc.rect(x, y + 3, 1.2, 12, 'F')
         // Label
-        doc.setFontSize(7); doc.setTextColor(...light); doc.setFont('helvetica', 'normal')
-        doc.text(label.toUpperCase(), x + 6, y + 6.5)
+        doc.setFontSize(6.5); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal')
+        doc.text(label.toUpperCase(), x + 5, y + 6.5)
         // Value
         doc.setFontSize(13); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
-        const valStr = String(value).length > 18 ? String(value).slice(0, 16) + '..' : String(value)
-        doc.text(valStr, x + 6, y + 14)
+        const vs = String(value).length > 16 ? String(value).slice(0, 14) + '..' : String(value)
+        doc.text(vs, x + 5, y + 14.5)
       })
       y += 24
     }
     y += 2
   }
 
-  // ── TABLE ────────────────────────────────────────────────────────────────
+  // ── TABLE CARD ───────────────────────────────────────────────────────────
   const colCount = headers.length
-  const firstColW = Math.min(contentW * 0.32, 70)
-  const otherColW = (contentW - firstColW) / Math.max(colCount - 1, 1)
+  const firstW = Math.min(cW * 0.3, 65)
+  const otherW = (cW - firstW) / Math.max(colCount - 1, 1)
+  function colX(ci) { return ci === 0 ? margin : margin + firstW + (ci - 1) * otherW }
+  function colWid(ci) { return ci === 0 ? firstW : otherW }
 
-  function getColX(ci) { return ci === 0 ? margin : margin + firstColW + (ci - 1) * otherColW }
-  function getColWidth(ci) { return ci === 0 ? firstColW : otherColW }
-
-  // Table header row
-  doc.setFillColor(...headerBg); doc.rect(margin, y, contentW, 8, 'F')
-  doc.setDrawColor(...vlight); doc.setLineWidth(0.3)
-  doc.line(margin, y, margin + contentW, y)
-  doc.line(margin, y + 8, margin + contentW, y + 8)
-  doc.setFontSize(7); doc.setTextColor(...mid); doc.setFont('helvetica', 'bold')
+  // Table header
+  card(margin, y, cW, 8)
+  doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
   headers.forEach((h, ci) => {
-    const x = getColX(ci)
-    if (ci === 0) doc.text(String(h).toUpperCase(), x + 3, y + 5.5)
-    else doc.text(String(h).toUpperCase(), x + getColWidth(ci) - 3, y + 5.5, { align: 'right' })
+    if (ci === 0) doc.text(String(h).toUpperCase(), colX(ci) + 4, y + 5.5)
+    else doc.text(String(h).toUpperCase(), colX(ci) + colWid(ci) - 4, y + 5.5, { align: 'right' })
   })
   y += 9
 
-  // Table body rows
+  // Table rows
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
   rows.forEach((row, ri) => {
-    if (y > H - 28) {
-      addFooter(doc, W, H, margin, ownProperlyLogoData, light, vlight, accent)
-      doc.addPage(); y = 16
-    }
-    // Alternating row background
-    if (ri % 2 === 0) { doc.setFillColor(...altRow); doc.rect(margin, y - 1.5, contentW, 7, 'F') }
-    // Bottom border
-    doc.setDrawColor(240, 238, 233); doc.setLineWidth(0.2); doc.line(margin, y + 5.5, margin + contentW, y + 5.5)
+    if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
+    // Alternating: white card vs cream bg
+    if (ri % 2 === 0) { doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, 6.5, 'F') }
+    // Subtle bottom border
+    doc.setDrawColor(...border); doc.setLineWidth(0.15); doc.line(margin + 2, y + 5, margin + cW - 2, y + 5)
 
     row.forEach((cell, ci) => {
       const val = String(cell != null ? cell : '')
-      const x = getColX(ci)
-      const truncVal = val.length > 36 ? val.slice(0, 33) + '...' : val
-      doc.setTextColor(...dark)
-      if (ci === 0) {
-        doc.setFont('helvetica', 'normal')
-        doc.text(truncVal, x + 3, y + 3.5)
-      } else {
-        // Colour-code currency values
-        if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue')) doc.setTextColor(...red)
-        else if (val.startsWith('+') || val === 'Valid' || val === 'Yes' || val === 'Rented') doc.setTextColor(...green)
-        else doc.setTextColor(...dark)
-        doc.setFont('helvetica', 'normal')
-        doc.text(truncVal, x + getColWidth(ci) - 3, y + 3.5, { align: 'right' })
-      }
+      const trunc = val.length > 34 ? val.slice(0, 31) + '...' : val
+      // Colour logic matching dashboard
+      if (ci > 0) {
+        if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue') || val.includes('overdue')) doc.setTextColor(...red)
+        else if (val === 'Valid' || val === 'Yes' || val === 'Rented' || val === 'All clear') doc.setTextColor(...green)
+        else if (val.includes('Expiring')) doc.setTextColor(...amber)
+        else doc.setTextColor(...slate)
+      } else { doc.setTextColor(...dark) }
+
+      doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal')
+      if (ci === 0) doc.text(trunc, colX(ci) + 4, y + 3.5)
+      else doc.text(trunc, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
     })
-    y += 7
+    y += 6.5
   })
 
   // Totals row
   if (totals && totals.length > 0) {
-    if (y > H - 28) {
-      addFooter(doc, W, H, margin, ownProperlyLogoData, light, vlight, accent)
-      doc.addPage(); y = 16
-    }
+    if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
     y += 1
-    doc.setFillColor(...headerBg); doc.rect(margin, y - 2, contentW, 8, 'F')
-    doc.setDrawColor(...accent); doc.setLineWidth(0.5); doc.line(margin, y - 2, margin + contentW, y - 2)
+    // Gold top line + card background
+    doc.setFillColor(...accent); doc.rect(margin, y - 2, cW, 0.8, 'F')
+    card(margin, y - 0.5, cW, 8)
     doc.setFontSize(8.5); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
     totals.forEach((val, ci) => {
       if (!val) return
-      const x = getColX(ci)
-      if (ci === 0) doc.text(String(val), x + 3, y + 3)
-      else doc.text(String(val), x + getColWidth(ci) - 3, y + 3, { align: 'right' })
+      if (ci === 0) doc.text(String(val), colX(ci) + 4, y + 4.5)
+      else doc.text(String(val), colX(ci) + colWid(ci) - 4, y + 4.5, { align: 'right' })
     })
   }
 
-  // ── ADD FOOTER TO ALL PAGES ──────────────────────────────────────────────
-  const pageCount = doc.internal.getNumberOfPages()
-  for (let p = 1; p <= pageCount; p++) {
-    doc.setPage(p)
-    addFooter(doc, W, H, margin, ownProperlyLogoData, light, vlight, accent)
-  }
+  // Footer on all pages
+  const pc = doc.internal.getNumberOfPages()
+  for (let p = 1; p <= pc; p++) { doc.setPage(p); addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark) }
 
   doc.save(`${(reportName || title).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
-function addFooter(doc, W, H, margin, logoData, light, vlight, accent) {
-  const footerY = H - 16
-  // Top border
-  doc.setDrawColor(...vlight); doc.setLineWidth(0.3); doc.line(margin, footerY, W - margin, footerY)
-  // Gold accent line
-  doc.setFillColor(...accent); doc.rect(margin, footerY, W - margin * 2, 0.5, 'F')
+function addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark) {
+  const fy = H - 18
+  const cW = W - margin * 2
+  // Card-style footer
+  doc.setFillColor(...cream); doc.rect(0, fy - 2, W, 20, 'F')
+  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin, fy, W - margin, fy)
+  doc.setFillColor(...accent); doc.rect(margin, fy, cW, 0.6, 'F')
 
-  // OwnProperly logo (left side)
-  if (logoData) {
-    try { doc.addImage(logoData, 'SVG', margin, footerY + 2.5, 18, 9) } catch(e) {}
+  // OwnProperly logo
+  if (opLogo) {
+    try { doc.addImage(opLogo, 'SVG', margin, fy + 3, 16, 8) } catch(e) {}
   }
-  // Text fallback / alongside logo
-  doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(...light)
-  doc.text('OwnProperly', logoData ? margin + 20 : margin, footerY + 8)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5)
-  doc.text('ownproperly.com', logoData ? margin + 20 : margin, footerY + 12)
+  const lx = opLogo ? margin + 19 : margin
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
+  doc.text('OwnProperly', lx, fy + 7)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(...muted)
+  doc.text('Property Portfolio Management', lx, fy + 11)
+  doc.setFontSize(6); doc.setTextColor(...faint)
+  doc.text('ownproperly.com', lx, fy + 14.5)
 
-  // Page number (right side)
-  const pageCount = doc.internal.getNumberOfPages()
-  const currentPage = doc.getCurrentPageInfo().pageNumber
-  doc.setFontSize(7); doc.setTextColor(...light); doc.setFont('helvetica', 'normal')
-  doc.text(`Page ${currentPage} of ${pageCount}`, W - margin, footerY + 8, { align: 'right' })
+  // Page number
+  const pc = doc.internal.getNumberOfPages()
+  const cp = doc.getCurrentPageInfo().pageNumber
+  doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal')
+  doc.text(`Page ${cp} of ${pc}`, W - margin, fy + 8, { align: 'right' })
 }
 
 function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
