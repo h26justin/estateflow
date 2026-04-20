@@ -90,11 +90,17 @@ const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
       <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
       {sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>{sub}</div>}
       {open&&breakdown&&(
-        <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:12,display:'grid',gap:6}}>
+        <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:12,display:'grid',gap:4}}>
           {breakdown.map((item,i)=>(
-            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,flex:1}}>{item.label}</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:item.color||T.text}}>{item.value}</span>
+            <div key={i}>
+              {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingLeft:item.indent?16:0}}>
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:item.indent?9:10,color:item.indent?T.faint:T.muted,flex:1,display:'flex',alignItems:'center',gap:4}}>
+                  {item.indent&&<span style={{color:T.border}}>└</span>}
+                  {item.label}
+                </span>
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:item.indent?10:11,fontWeight:item.indent?400:700,color:item.color||(item.indent?T.muted:T.text)}}>{item.value}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -1123,12 +1129,13 @@ export default function App() {
               <StatCard icon="🏡" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                 breakdown={[
                   {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
-                  {label:'Total invested', value:fmt(stats.totalInvested)},
-                  {label:'Purchase prices total', value:fmt(dashProps.reduce((s,p)=>s+(p.purchase_price||0),0))},
-                  {label:'Refurb costs total', value:fmt(dashProps.reduce((s,p)=>s+(p.refurb_cost||0),0))},
-                  {label:'Stamp duty total', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0),0))},
-                  {label:'Legal fees total', value:fmt(dashProps.reduce((s,p)=>s+(p.legal_fees||0),0))},
-                  {label:'Unrealised gain', value:fmt(stats.totalEstVal-stats.totalInvested), color:stats.totalEstVal>stats.totalInvested?T.green:T.red},
+                  {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
+                  {label:'Purchase prices', value:fmt(dashProps.reduce((s,p)=>s+(p.purchase_price||0),0)), indent:true},
+                  {label:'Refurb costs', value:fmt(dashProps.reduce((s,p)=>s+(p.refurb_cost||0),0)), indent:true},
+                  {label:'Transaction costs', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0)+(p.legal_fees||0),0)), separator:true},
+                  {label:'Stamp duty', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0),0)), indent:true},
+                  {label:'Legal fees', value:fmt(dashProps.reduce((s,p)=>s+(p.legal_fees||0),0)), indent:true},
+                  {label:'Unrealised gain', value:fmt(stats.totalEstVal-stats.totalInvested), color:stats.totalEstVal>stats.totalInvested?T.green:T.red, separator:true},
                 ]}
               />
               <StatCard icon="💷" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
