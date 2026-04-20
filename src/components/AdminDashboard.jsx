@@ -20,6 +20,7 @@ export default function AdminDashboard({ onClose, user }) {
   const [tab, setTab]             = useState('revenue')
   const [companies, setCompanies] = useState([])
   const [users, setUsers]         = useState([])
+  const [accessRows, setAccessRows] = useState([])
   const [loading, setLoading]     = useState(true)
   const [selectedAccount, setSelectedAccount] = useState(null)
   const [search, setSearch]       = useState('')
@@ -40,11 +41,12 @@ export default function AdminDashboard({ onClose, user }) {
   async function loadAll() {
     setLoading(true)
     try {
-      const [cos, us] = await Promise.all([
+      const [cos, us, accessRows] = await Promise.all([
         api.fetchAdminAllCompanies(),
         api.fetchAllUsers().catch(()=>[]),
+        api.fetchAllAccessRows().catch(()=>[]),
       ])
-      setCompanies(cos); setUsers(us)
+      setCompanies(cos); setUsers(us); setAccessRows(accessRows)
     } catch(e) {}
     setLoading(false)
   }
@@ -171,6 +173,7 @@ export default function AdminDashboard({ onClose, user }) {
             {/* ═══ USERS TAB ═══ */}
             {tab==='users'&&(
               <UsersTab users={users} companies={companies} currentUser={currentUser}
+                accessRows={accessRows} setAccessRows={setAccessRows}
                 onDelete={u=>{setDeleteTarget(u);setDeletePassword('');setDeleteError('')}}
                 T={T}/>
             )}
@@ -566,9 +569,19 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
 // ═══════════════════════════════════════════════════════════════════════════════
 // USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
-function UsersTab({ users, companies, currentUser, onDelete, T }) {
+function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, onDelete, T }) {
   const [search, setSearch] = useState('')
+  const [accessTarget, setAccessTarget] = useState(null)
   const filtered = users.filter(u=>!search||u.email?.toLowerCase().includes(search.toLowerCase()))
+
+  // Build a map: userId -> Set of accessible companyIds
+  // Includes owned (via owner_email) + shared (via user_company_access rows)
+  function getUserCompanies(user) {
+    const owned = companies.filter(c => c.owner_email === user.email)
+    const sharedIds = new Set(accessRows.filter(r => r.user_id === user.id).map(r => r.company_id))
+    const shared = companies.filter(c => sharedIds.has(c.id) && c.owner_email !== user.email)
+    return { owned, shared, all: [...owned, ...shared] }
+  }
 
   async function sendReset(email) {
     await supabase.auth.resetPasswordForEmail(email)
@@ -577,7 +590,7 @@ function UsersTab({ users, companies, currentUser, onDelete, T }) {
 
   function exportCSV() {
     const rows = [['Email','Companies','Signed up'],...users.map(u=>{
-      const cos = companies.filter(c=>c.owner_email===u.email).map(c=>c.name).join(', ')
+      const cos = getUserCompanies(u).all.map(c=>c.name).join(', ')
       return [u.email, cos, u.created_at?new Date(u.created_at).toLocaleDateString('en-GB'):'']
     })]
     const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')
@@ -593,14 +606,14 @@ function UsersTab({ users, companies, currentUser, onDelete, T }) {
         <button onClick={exportCSV} style={{fontFamily:mono,fontSize:11,padding:'8px 16px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>↓ Export CSV</button>
       </div>
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 180px 110px 200px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 220px 110px 260px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
           {['Email','Companies','Signed up','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
         </div>
         {filtered.map(u=>{
-          const userCos = companies.filter(c=>c.owner_email===u.email)
+          const { all: userCos } = getUserCompanies(u)
           const isMe = u.id===currentUser?.id
           return (
-            <div key={u.id} style={{display:'grid',gridTemplateColumns:'1fr 180px 110px 200px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
+            <div key={u.id} style={{display:'grid',gridTemplateColumns:'1fr 220px 110px 260px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:30,height:30,borderRadius:15,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold,flexShrink:0}}>
                   {(u.email?.[0]||'?').toUpperCase()}
@@ -616,7 +629,8 @@ function UsersTab({ users, companies, currentUser, onDelete, T }) {
               <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
                 {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
               </div>
-              <div style={{display:'flex',gap:6}}>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                <button onClick={()=>setAccessTarget(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:700}}>Manage access</button>
                 <button onClick={()=>sendReset(u.email)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset pwd</button>
                 {!isMe&&<button onClick={()=>onDelete(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Delete</button>}
               </div>
@@ -625,6 +639,110 @@ function UsersTab({ users, companies, currentUser, onDelete, T }) {
         })}
       </div>
       <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:10}}>{filtered.length} of {users.length} users</div>
+
+      {accessTarget && (
+        <ManageAccessModal
+          targetUser={accessTarget}
+          companies={companies}
+          accessRows={accessRows}
+          setAccessRows={setAccessRows}
+          onClose={()=>setAccessTarget(null)}
+          T={T}
+        />
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MANAGE ACCESS MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, onClose, T }) {
+  const ownedIds  = new Set(companies.filter(c => c.owner_email === targetUser.email).map(c => c.id))
+  const currentAccessIds = new Set(accessRows.filter(r => r.user_id === targetUser.id).map(r => r.company_id))
+  // Pre-check: everything they currently have access to (owned + shared)
+  const [selectedIds, setSelectedIds] = useState(() => new Set([...ownedIds, ...currentAccessIds]))
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  function toggle(companyId) {
+    if (ownedIds.has(companyId)) return // can't untick owned
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(companyId)) next.delete(companyId)
+      else next.add(companyId)
+      return next
+    })
+  }
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    try {
+      // Only shared companies (not owned) get written to user_company_access
+      const sharedToGrant = [...selectedIds].filter(id => !ownedIds.has(id))
+      await api.setAllCompanyAccess(targetUser.id, targetUser.email, sharedToGrant)
+      // Update local state: drop all existing rows for this user, add fresh ones
+      setAccessRows(prev => {
+        const filtered = prev.filter(r => r.user_id !== targetUser.id)
+        const newRows = sharedToGrant.map(cid => ({
+          user_id: targetUser.id, company_id: cid, email: targetUser.email, is_admin: false
+        }))
+        return [...filtered, ...newRows]
+      })
+      onClose()
+    } catch(e) { setError(e.message || 'Failed to save') }
+    setSaving(false)
+  }
+
+  // Sort: owned first, then others alphabetical
+  const sorted = [...companies].sort((a, b) => {
+    const ao = ownedIds.has(a.id) ? 0 : 1
+    const bo = ownedIds.has(b.id) ? 0 : 1
+    if (ao !== bo) return ao - bo
+    return a.name.localeCompare(b.name)
+  })
+
+  return (
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:700,padding:'40px 16px',overflowY:'auto'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:18,width:'100%',maxWidth:600,padding:'28px 32px'}}>
+        <div style={{marginBottom:20}}>
+          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Manage company access</h2>
+          <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.6}}>
+            Grant or revoke access for <span style={{color:T.gold,fontWeight:700}}>{targetUser.email}</span>.
+            Owned companies cannot be removed here.
+          </p>
+        </div>
+
+        <div style={{maxHeight:420,overflowY:'auto',border:`1px solid ${T.border}`,borderRadius:10,marginBottom:16}}>
+          {sorted.map(co => {
+            const isOwner   = ownedIds.has(co.id)
+            const isChecked = selectedIds.has(co.id)
+            return (
+              <label key={co.id} onClick={()=>toggle(co.id)}
+                style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderBottom:`1px solid ${T.border}`,cursor:isOwner?'not-allowed':'pointer',opacity:isOwner?0.75:1}}>
+                <input type="checkbox" checked={isChecked} disabled={isOwner} readOnly
+                  style={{width:18,height:18,accentColor:co.color||T.gold,margin:0,cursor:isOwner?'not-allowed':'pointer'}}/>
+                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',minWidth:40,textAlign:'center'}}>{co.abbr}</span>
+                <span style={{flex:1,fontSize:13,color:T.text}}>{co.name}</span>
+                {isOwner && <span style={{fontFamily:mono,fontSize:9,color:T.green,background:T.green+'22',padding:'2px 6px',borderRadius:4,fontWeight:700}}>OWNER</span>}
+              </label>
+            )
+          })}
+          {companies.length === 0 && (
+            <div style={{padding:24,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>No companies yet.</div>
+          )}
+        </div>
+
+        {error && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:12}}>{error}</div>}
+
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{fontFamily:mono,fontSize:12,padding:'9px 20px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+          <button onClick={save} disabled={saving} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 20px',borderRadius:10,border:'none',background:saving?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>
+            {saving ? 'Saving…' : 'Save access'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

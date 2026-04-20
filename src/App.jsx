@@ -779,7 +779,10 @@ export default function App() {
 
   async function handleSaveCo(formData){
     try{
-      const co=await api.createCompany({...formData,user_id:user.id})
+      const coId=await api.createCompanyForOwner(formData.name, formData.abbr, formData.color)
+      // Fetch the newly created company to get the full row
+      const { data: co } = await supabase.from('companies').select('*').eq('id', coId).single()
+      if (!co) throw new Error('Company created but could not be loaded')
       // Auto-generate and save subdomain
       try {
         const sub = (formData.name||'')
@@ -788,7 +791,7 @@ export default function App() {
           .replace(/[^a-z0-9]+/g,'-')
           .replace(/^-+|-+$/g,'')
           .slice(0,30)
-        if (sub && co?.id) await api.saveCompanySubdomain(co.id, sub)
+        if (sub && co.id) await api.saveCompanySubdomain(co.id, sub)
       } catch(e) {}
       setCompanies(prev=>[...prev,co]);setActiveCoTab(co.id)
       showToast('Company added');setShowAddCo(false)
