@@ -1649,7 +1649,9 @@ function PropertyModal({prop,companies,onClose,onSave}){
   const s=(k,v)=>setForm(f=>({...f,[k]:v}))
   function handleSave(){
     if(!form.name||!form.address) return
-    onSave({...form,purchase_price:parseFloat(form.purchase_price)||0,refurb_cost:parseFloat(form.refurb_cost)||0,est_value:parseFloat(form.est_value)||0,mortgage_amount:parseFloat(form.mortgage_amount)||0,deposit:parseFloat(form.deposit)||0,stamp_duty:parseFloat(form.stamp_duty)||0,legal_fees:parseFloat(form.legal_fees)||0,rent_pcm:parseFloat(form.rent_pcm)||0,mortgage_rate:parseFloat(form.mortgage_rate)/100||0,mortgage_term:parseInt(form.mortgage_term)||25,insurance:parseFloat(form.insurance)||0,arrears:parseFloat(form.arrears)||0})
+    // Strip joined relation fields that aren't real columns on the properties table
+    const { company, compliance_items, tenancy, maintenance_jobs, rent_payments, refurb_phases, refurb_costs, documents, ...clean } = form
+    onSave({...clean,purchase_price:parseFloat(clean.purchase_price)||0,refurb_cost:parseFloat(clean.refurb_cost)||0,est_value:parseFloat(clean.est_value)||0,mortgage_amount:parseFloat(clean.mortgage_amount)||0,deposit:parseFloat(clean.deposit)||0,stamp_duty:parseFloat(clean.stamp_duty)||0,legal_fees:parseFloat(clean.legal_fees)||0,rent_pcm:parseFloat(clean.rent_pcm)||0,mortgage_rate:parseFloat(clean.mortgage_rate)/100||0,mortgage_term:parseInt(clean.mortgage_term)||25,insurance:parseFloat(clean.insurance)||0,arrears:parseFloat(clean.arrears)||0})
   }
   return <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div className="modal">
