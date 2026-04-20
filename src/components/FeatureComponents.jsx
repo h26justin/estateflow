@@ -527,7 +527,6 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   const [phone, setPhone]                   = useState('')
   const [profileLoading, setProfileLoading] = useState(true)
   const [milestoneConfig, setMilestoneConfig] = useState({})
-  const [milestoneLoading, setMilestoneLoading] = useState(false)
   const [profileSaving, setProfileSaving]   = useState(false)
   const [newEmail, setNewEmail]             = useState('')
   const [emailSaving, setEmailSaving]       = useState(false)
@@ -664,11 +663,10 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
   }
 
   const accountTabs = [
-    { key: 'account',       label: '👤 Account' },
-    { key: 'appearance',    label: '🎨 Appearance' },
+    { key: 'account',       label: '👤 Profile' },
+    { key: 'security',      label: '🔒 Security & Data' },
     { key: 'billing',       label: '💳 Billing' },
     { key: 'navbar',        label: '🧭 Navigation' },
-    { key: 'security',      label: '🔒 Security & Data' },
     { key: 'referral',      label: '🎁 Refer a Friend' },
   ]
   const portfolioTabs = [
@@ -677,22 +675,26 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
     { key: 'features',      label: '⚙ Features' },
     { key: 'notifications', label: '🔔 Notifications' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
-    { key: 'audit',         label: '📋 Audit Log' },
+  ]
+  const preferencesTabs = [
+    { key: 'display',       label: '🖥 Display' },
+    { key: 'reporting',     label: '📅 Reporting' },
+    { key: 'team',          label: '👥 Team & Access' },
     ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Platform Admin' }] : []),
   ]
-  const settingsTabs = [...accountTabs, ...portfolioTabs]
+  const settingsTabs = [...accountTabs, ...portfolioTabs, ...preferencesTabs]
 
   return (
     <div className="fade">
       <div style={{marginBottom:24}}>
         <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Settings</h1>
-        <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>Manage your account, appearance and property features.</p>
+        <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>Manage your profile, portfolio setup and personal preferences.</p>
       </div>
 
-      {/* Two-group settings nav */}
-      <div style={{marginBottom:24,borderBottom:`1px solid ${T.border}`,paddingBottom:12}}>
-        <div style={{marginBottom:10}}>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>My account</div>
+      {/* Three-group settings nav */}
+      <div style={{marginBottom:24,borderBottom:`1px solid ${T.border}`,paddingBottom:12,display:'grid',gap:12}}>
+        <div>
+          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>My Account</div>
           <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
             {accountTabs.map(t=>(
               <button key={t.key} onClick={()=>setSettingsTab(t.key)} style={{
@@ -705,9 +707,22 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
           </div>
         </div>
         <div>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>Portfolio setup</div>
+          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>Portfolio Setup</div>
           <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
             {portfolioTabs.map(t=>(
+              <button key={t.key} onClick={()=>setSettingsTab(t.key)} style={{
+                fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
+                border:`1px solid ${settingsTab===t.key?T.gold:T.border}`,
+                background:settingsTab===t.key?T.gold+'22':'transparent',
+                color:settingsTab===t.key?T.gold:T.muted,fontWeight:settingsTab===t.key?700:400,
+              }}>{t.label}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>Preferences</div>
+          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+            {preferencesTabs.map(t=>(
               <button key={t.key} onClick={()=>setSettingsTab(t.key)} style={{
                 fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${settingsTab===t.key?(t.key==='admin'?T.red:T.gold):T.border}`,
@@ -737,103 +752,101 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
               <div style={fieldStyle}>
                 <label style={labelStyle}>Email Address</label>
                 <input value={user?.email||''} disabled style={{opacity:0.5,cursor:'not-allowed'}}/>
-                <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:5}}>To change your email go to the Security section below.</div>
+                <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:5}}>To change your email or password go to the Security tab.</div>
               </div>
               <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
                 {profileSaving ? 'Saving…' : 'Save Profile'}
               </button>
             </div>
-
             <div style={sectionStyle}>
-              <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Email Address</div>
-              <div style={fieldStyle}>
-                <label style={labelStyle}>New Email Address</label>
-                <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder={user?.email} type="email"/>
-              </div>
-              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:12,lineHeight:1.6}}>A confirmation link will be sent to both addresses. The change takes effect once confirmed.</div>
-              <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
-                {emailSaving ? 'Sending…' : 'Update Email'}
-              </button>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>App Tour</div>
+              <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:12}}>Replay the getting started tour at any time.</div>
+              <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>Replay tour</button>
             </div>
-
-            <div style={sectionStyle}>
-              <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Password</div>
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Current Password</label>
-                <input value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Your current password"/>
-              </div>
-              <div style={fieldStyle}>
-                <label style={labelStyle}>New Password</label>
-                <input value={newPassword} onChange={e=>setNewPassword(e.target.value)} type={showPw?'text':'password'} placeholder="At least 8 characters"/>
-              </div>
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Confirm New Password</label>
-                <input value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Repeat new password"/>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
-                <input type="checkbox" id="showpwS" checked={showPw} onChange={e=>setShowPw(e.target.checked)} style={{width:'auto',margin:0}}/>
-                <label htmlFor="showpwS" style={{fontFamily:mono,fontSize:10,color:T.muted,cursor:'pointer',margin:0}}>Show passwords</label>
-              </div>
-              <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                <button className="btn btn-gold" onClick={updatePassword} disabled={pwSaving||!currentPassword||!newPassword||!confirmPassword}>
-                  {pwSaving ? 'Updating…' : 'Update Password'}
-                </button>
-                <button className="btn btn-ghost" onClick={sendResetEmail} style={{fontSize:11}}>Send Reset Email Instead</button>
-              </div>
-            </div>
-
-            <div style={sectionStyle}>
-                <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>App Tour</div>
-                <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:12}}>Replay the getting started tour at any time.</div>
-                <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>▶ Replay tour</button>
-              </div>
-
-            {isAdmin&&(
-              <div style={sectionStyle}>
-                <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>User Access</div>
-                <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:12}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
-                <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowAccessModal(true)}>⚙ Manage User Access</button>
-              </div>
-            )}
           </>
       )}
 
-      {/* ── APPEARANCE TAB ── */}
-      {settingsTab==='appearance' && (
-        <div style={sectionStyle}>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Theme</div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div>
-              <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>Colour Mode</div>
-              <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — clean and bright'}</div>
+      {/* ── SECURITY TAB ── */}
+      {settingsTab==='security' && (
+        <>
+          <div style={sectionStyle}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Email Address</div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>New Email Address</label>
+              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder={user?.email} type="email"/>
             </div>
-            <div style={{display:'flex',gap:8}}>
-              <button onClick={async()=>{setDarkMode(true);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:true})}catch(e){}}}
-                style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
-                  border:`1px solid ${darkMode?T.gold:T.border}`,
-                  background:darkMode?T.gold+'22':'transparent',
-                  color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
-                🌙 Dark
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:12,lineHeight:1.6}}>A confirmation link will be sent to both addresses. The change takes effect once confirmed.</div>
+            <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
+              {emailSaving ? 'Sending…' : 'Update Email'}
+            </button>
+          </div>
+          <div style={sectionStyle}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Password</div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Current Password</label>
+              <input value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Your current password"/>
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>New Password</label>
+              <input value={newPassword} onChange={e=>setNewPassword(e.target.value)} type={showPw?'text':'password'} placeholder="At least 8 characters"/>
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Confirm New Password</label>
+              <input value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Repeat new password"/>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+              <input type="checkbox" id="showpwS" checked={showPw} onChange={e=>setShowPw(e.target.checked)} style={{width:'auto',margin:0}}/>
+              <label htmlFor="showpwS" style={{fontFamily:mono,fontSize:10,color:T.muted,cursor:'pointer',margin:0}}>Show passwords</label>
+            </div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+              <button className="btn btn-gold" onClick={updatePassword} disabled={pwSaving||!currentPassword||!newPassword||!confirmPassword}>
+                {pwSaving ? 'Updating…' : 'Update Password'}
               </button>
-              <button onClick={async()=>{setDarkMode(false);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:false})}catch(e){}}}
-                style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
-                  border:`1px solid ${!darkMode?T.gold:T.border}`,
-                  background:!darkMode?T.gold+'22':'transparent',
-                  color:!darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
-                ☀️ Light
-              </button>
+              <button className="btn btn-ghost" onClick={sendResetEmail} style={{fontSize:11}}>Send Reset Email Instead</button>
+            </div>
+          </div>
+          <SecurityDataPanel user={user} T={T} showToast={showToast}/>
+        </>
+      )}
+
+      {/* ── DISPLAY TAB ── */}
+      {settingsTab==='display' && (
+        <>
+          <div style={sectionStyle}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Colour Mode</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>Theme</div>
+                <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — clean and bright'}</div>
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={async()=>{setDarkMode(true);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:true})}catch(e){}}}
+                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                    border:`1px solid ${darkMode?T.gold:T.border}`,
+                    background:darkMode?T.gold+'22':'transparent',
+                    color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
+                  🌙 Dark
+                </button>
+                <button onClick={async()=>{setDarkMode(false);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:false})}catch(e){}}}
+                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                    border:`1px solid ${!darkMode?T.gold:T.border}`,
+                    background:!darkMode?T.gold+'22':'transparent',
+                    color:!darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
+                  ☀️ Light
+                </button>
+              </div>
             </div>
           </div>
 
-          <div style={{marginTop:24,paddingTop:20,borderTop:`1px solid ${T.border}`}}>
+          <div style={sectionStyle}>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Yield Calculation</div>
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4}}>Yield basis</div>
                 <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
                   {yieldBasis==='cost'
-                    ? 'Calculated using purchase price + refurb cost — shows your return on actual investment.'
-                    : "Calculated using current property value — shows yield at today's market price."}
+                    ? 'Calculated on purchase price + refurb cost — your return on actual money invested.'
+                    : "Calculated on current property value — yield at today's market price."}
                 </div>
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
@@ -854,7 +867,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* ── NOTIFICATIONS TAB ── */}
@@ -1043,12 +1056,64 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
         <ReferralPanel user={user} T={T} showToast={showToast}/>
       )}
 
-      {settingsTab==='security' && (
-        <SecurityDataPanel user={user} T={T} showToast={showToast}/>
+      {/* ── REPORTING TAB ── */}
+      {settingsTab==='reporting' && (
+        <div style={sectionStyle}>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Default Reporting Period</div>
+          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20,lineHeight:1.7}}>
+            Choose whether reports default to the UK tax year (6 Apr — 5 Apr) or the calendar year (1 Jan — 31 Dec). You can always override this when running individual reports.
+          </div>
+          {companies.map(company => {
+            const cs = companySettings[company.id] || {}
+            const yearType = cs.year_type || 'tax_year'
+            return (
+              <div key={company.id} style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${T.border}`}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                  <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:company.color,background:company.color+'22',padding:'2px 8px',borderRadius:4}}>{company.abbr}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:T.text}}>{company.name}</span>
+                </div>
+                <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                  {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'}].map(opt=>(
+                    <button key={opt.k} onClick={async()=>{
+                      const updated={...cs,year_type:opt.k}
+                      try{
+                        const saved=await api.upsertCompanySettings(company.id,updated)
+                        setCompanySettings(prev=>({...prev,[company.id]:saved||updated}))
+                        showToast('Reporting period saved')
+                      }catch(e){showToast(e.message,'error')}
+                    }}
+                    style={{fontFamily:mono,fontSize:11,padding:'10px 16px',borderRadius:10,cursor:'pointer',textAlign:'left',
+                      border:`2px solid ${yearType===opt.k?T.gold:T.border}`,
+                      background:yearType===opt.k?T.gold+'11':T.bg,
+                      color:yearType===opt.k?T.gold:T.text,transition:'all 0.2s'}}>
+                      <div style={{fontWeight:700,marginBottom:2}}>{opt.label}</div>
+                      <div style={{fontSize:10,color:yearType===opt.k?T.gold:T.muted}}>{opt.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       )}
 
-      {settingsTab==='audit' && (
-        <AuditLogPanel user={user} companies={companies} T={T}/>
+      {/* ── TEAM & ACCESS TAB ── */}
+      {settingsTab==='team' && (
+        <>
+          {isAdmin&&(
+            <div style={sectionStyle}>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>User Access</div>
+              <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:4}}>Manage who can access each company in your portfolio.</div>
+              <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:16}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
+              <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAccessModal(true)}>Manage User Access</button>
+            </div>
+          )}
+          <div style={sectionStyle}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Audit Log</div>
+            <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.7}}>A full record of all actions taken in your account — for GDPR compliance and dispute resolution.</div>
+            <AuditLogPanel user={user} companies={companies} T={T}/>
+          </div>
+        </>
       )}
 
       {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast}/>}
@@ -2444,8 +2509,6 @@ function BrandingSettingsPanel({ companies, companySettings, setCompanySettings,
   const mono = "'DM Mono',monospace"
   const [selectedCo, setSelectedCo] = useState(companies[0]?.id || '')
   const [uploading, setUploading]   = useState(false)
-  const [saving, setSaving]         = useState(false)
-  const [yearType, setYearType]     = useState('tax_year')
   const [logoPreview, setLogoPreview] = useState(null)
 
   const co = companies.find(c => c.id === selectedCo)
@@ -2453,7 +2516,6 @@ function BrandingSettingsPanel({ companies, companySettings, setCompanySettings,
 
   useEffect(() => {
     if (selectedCo && companySettings[selectedCo]) {
-      setYearType(companySettings[selectedCo].year_type || 'tax_year')
       setLogoPreview(companySettings[selectedCo].logo_url || null)
     }
   }, [selectedCo, companySettings])
@@ -2473,19 +2535,6 @@ function BrandingSettingsPanel({ companies, companySettings, setCompanySettings,
       showToast('Logo uploaded')
     } catch(e) { showToast(e.message, 'error') }
     setUploading(false)
-  }
-
-  async function saveSettings() {
-    setSaving(true)
-    try {
-      await api.saveReportSettings(selectedCo, { year_type: yearType })
-      setCompanySettings(prev => ({
-        ...prev,
-        [selectedCo]: { ...prev[selectedCo], year_type: yearType }
-      }))
-      showToast('Report settings saved')
-    } catch(e) { showToast(e.message, 'error') }
-    setSaving(false)
   }
 
   async function removeLogo() {
@@ -2560,31 +2609,6 @@ function BrandingSettingsPanel({ companies, companySettings, setCompanySettings,
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Year type preference */}
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Default reporting period</div>
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
-              Choose whether reports default to the UK tax year (6 Apr – 5 Apr) or calendar year. You can always switch inside any report.
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              {[
-                { k: 'tax_year', label: '🇬🇧 UK Tax year', sub: '6 April – 5 April' },
-                { k: 'calendar', label: '📅 Calendar year', sub: '1 January – 31 December' },
-              ].map(opt => (
-                <div key={opt.k} onClick={() => setYearType(opt.k)}
-                  style={{ flex: 1, padding: '14px 16px', borderRadius: 10, cursor: 'pointer', transition: 'all 0.15s',
-                    border: `2px solid ${yearType === opt.k ? T.gold : T.border}`,
-                    background: yearType === opt.k ? T.gold + '11' : T.bg }}>
-                  <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: yearType === opt.k ? T.gold : T.text, marginBottom: 4 }}>{opt.label}</div>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{opt.sub}</div>
-                </div>
-              ))}
-            </div>
-            <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={saveSettings} disabled={saving}>
-              {saving ? 'Saving…' : 'Save settings'}
-            </button>
           </div>
 
           {/* Report accent colour */}
