@@ -355,8 +355,29 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
   const [renameName, setRenameName] = useState(co.name||'')
   const [renameAbbr, setRenameAbbr] = useState(co.abbr||'')
   const [renameSaving, setRenameSaving] = useState(false)
-  const [showDeleteCo, setShowDeleteCo] = useState(false)
   const [deletingCo, setDeletingCo]     = useState(false)
+  // Admin password confirmation
+  const [adminAction, setAdminAction] = useState(null) // {label, desc, danger, fn}
+  const [adminPw, setAdminPw] = useState('')
+  const [adminPwErr, setAdminPwErr] = useState('')
+  const [adminRunning, setAdminRunning] = useState(false)
+
+  async function confirmAdminAction() {
+    if (!adminPw) { setAdminPwErr('Enter your admin password'); return }
+    setAdminRunning(true); setAdminPwErr('')
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: user?.email, password: adminPw })
+      if (error) { setAdminPwErr('Incorrect password'); setAdminRunning(false); return }
+      await adminAction.fn()
+      setAdminAction(null); setAdminPw('')
+    } catch(e) { setAdminPwErr(e.message || 'Action failed') }
+    setAdminRunning(false)
+  }
+
+  function requireConfirm(label, desc, fn, danger=false) {
+    setAdminAction({ label, desc, danger, fn })
+    setAdminPw(''); setAdminPwErr('')
+  }
 
   useEffect(()=>{ api.fetchAdminNotes(co.id).then(setNotes).catch(()=>{}) },[co.id])
 
@@ -375,33 +396,39 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
   }
 
   async function extendTrial() {
-    setExtending(true)
-    try {
-      const d = await api.extendTrial(co.id, extendDays)
-      setTrialMsg('Trial extended to ' + d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}))
-    } catch(e) { setTrialMsg('Failed to extend trial') }
-    setExtending(false)
+    requireConfirm('Extend trial', `Extend the trial for "${co.name}" by ${extendDays} days.`, async () => {
+      setExtending(true)
+      try {
+        const d = await api.extendTrial(co.id, extendDays)
+        setTrialMsg('Trial extended to ' + d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}))
+      } catch(e) { setTrialMsg('Failed to extend trial') }
+      setExtending(false)
+    })
   }
 
   async function handleAdminRename() {
     if (!renameName.trim()) return
-    setRenameSaving(true)
-    try {
-      const abbr = renameAbbr.trim().slice(0,5).toUpperCase() || renameName.trim().slice(0,3).toUpperCase()
-      await api.updateCompany(co.id, { name: renameName.trim(), abbr })
-      if (onRename) onRename(co.id, renameName.trim(), abbr)
-      setShowRename(false)
-    } catch(e) {}
-    setRenameSaving(false)
+    requireConfirm('Rename company', `Rename "${co.name}" to "${renameName.trim()}"`, async () => {
+      setRenameSaving(true)
+      try {
+        const abbr = renameAbbr.trim().slice(0,5).toUpperCase() || renameName.trim().slice(0,3).toUpperCase()
+        await api.updateCompany(co.id, { name: renameName.trim(), abbr })
+        if (onRename) onRename(co.id, renameName.trim(), abbr)
+        setShowRename(false)
+      } catch(e) {}
+      setRenameSaving(false)
+    })
   }
 
   async function handleAdminDeleteCompany() {
-    setDeletingCo(true)
-    try {
-      await api.deleteCompany(co.id)
-      if (onDelete) onDelete(co.id)
-      onBack()
-    } catch(e) { setDeletingCo(false) }
+    requireConfirm('Delete company', `Permanently delete "${co.name}" and all its properties, rent data, compliance records and documents. This cannot be undone.`, async () => {
+      setDeletingCo(true)
+      try {
+        await api.deleteCompany(co.id)
+        if (onDelete) onDelete(co.id)
+        onBack()
+      } catch(e) { setDeletingCo(false) }
+    }, true)
   }
 
   const status = co.is_free_tier?'free_tier':(co.subscriptions?.[0]?.status||'trialing')
@@ -453,7 +480,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               </div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.red}}>Delete company</span>
-                <button onClick={()=>setShowDeleteCo(true)}
+                <button onClick={handleAdminDeleteCompany}
                   style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:'1px solid '+T.red+'44',background:'transparent',color:T.red,cursor:'pointer'}}>
                   Delete
                 </button>
@@ -462,7 +489,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Free tier</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontFamily:mono,fontSize:11,color:co.is_free_tier?T.gold:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
-                  <div onClick={onToggleFreeTier} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                  <div onClick={()=>requireConfirm(co.is_free_tier?'Remove free tier':'Grant free tier', co.is_free_tier?`Remove free tier from "${co.name}". They will need an active subscription.`:`Grant free tier to "${co.name}". They will not be billed.`, async()=>{ onToggleFreeTier() })} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.is_free_tier?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
                 </div>
@@ -471,7 +498,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Flag account</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontFamily:mono,fontSize:11,color:co.flagged?T.red:T.muted}}>{co.flagged?'Flagged':'Clear'}</span>
-                  <div onClick={onToggleFlag} style={{width:44,height:24,borderRadius:12,background:co.flagged?T.red:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                  <div onClick={()=>requireConfirm(co.flagged?'Unflag account':'Flag account', co.flagged?`Remove the flag from "${co.name}".`:`Flag "${co.name}" for review. This does not affect the account but marks it for admin attention.`, async()=>{ onToggleFlag() })} style={{width:44,height:24,borderRadius:12,background:co.flagged?T.red:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.flagged?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
                 </div>
@@ -544,20 +571,29 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         </div>
       )}
 
-      {showDeleteCo&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:'2px solid '+T.red+'44'}}>
+      {adminAction&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
+          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
             <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{fontSize:36,marginBottom:10}}>!</div>
-              <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.red,marginBottom:8}}>Delete company</h3>
-              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>Permanently delete <strong style={{color:T.text}}>{co.name}</strong> and all its data. Cannot be undone.</p>
+              <div style={{fontSize:36,marginBottom:10}}>{adminAction.danger?'⚠️':'🔒'}</div>
+              <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
+              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password to confirm</label>
+              <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
+                onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
+                autoFocus placeholder="Your password"
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+              {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
             </div>
             <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>setShowDeleteCo(false)}
-                style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-              <button onClick={handleAdminDeleteCompany} disabled={deletingCo}
-                style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:deletingCo?T.border:T.red,color:'white',cursor:'pointer'}}>
-                {deletingCo?'Deleting...':'Delete permanently'}
+              <button onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+              <button onClick={confirmAdminAction} disabled={adminRunning||!adminPw}
+                style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',
+                  background:adminRunning||!adminPw?T.border:adminAction.danger?T.red:T.gold,
+                  color:adminAction.danger?'white':'#1A2530',cursor:adminRunning?'wait':'pointer'}}>
+                {adminRunning?'Verifying...':'Confirm'}
               </button>
             </div>
           </div>
@@ -572,6 +608,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
 function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, onDelete, T }) {
   const [search, setSearch] = useState('')
   const [accessTarget, setAccessTarget] = useState(null)
+  const [resetConfirm, setResetConfirm] = useState(null)
   const filtered = users.filter(u=>!search||u.email?.toLowerCase().includes(search.toLowerCase()))
 
   // Build a map: userId -> Set of accessible companyIds
@@ -585,6 +622,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, on
 
   async function sendReset(email) {
     await supabase.auth.resetPasswordForEmail(email)
+    setResetConfirm(null)
     alert(`Password reset email sent to ${email}`)
   }
 
@@ -631,7 +669,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, on
               </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 <button onClick={()=>setAccessTarget(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:700}}>Manage access</button>
-                <button onClick={()=>sendReset(u.email)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset pwd</button>
+                <button onClick={()=>setResetConfirm(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset pwd</button>
                 {!isMe&&<button onClick={()=>onDelete(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Delete</button>}
               </div>
             </div>
@@ -639,6 +677,24 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, on
         })}
       </div>
       <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:10}}>{filtered.length} of {users.length} users</div>
+
+      {resetConfirm && (
+        <div onClick={()=>setResetConfirm(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:`1px solid ${T.border}`}}>
+            <div style={{textAlign:'center',marginBottom:20}}>
+              <div style={{fontSize:32,marginBottom:10}}>🔑</div>
+              <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Send password reset?</h3>
+              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
+                This will send a password reset email to <strong style={{color:T.gold}}>{resetConfirm.email}</strong>. They will receive a link to set a new password.
+              </p>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setResetConfirm(null)} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+              <button onClick={()=>sendReset(resetConfirm.email)} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:T.gold,color:'#1A2530',cursor:'pointer'}}>Send reset email</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {accessTarget && (
         <ManageAccessModal
