@@ -30,8 +30,10 @@ function calcMonthlyMortgage(p) {
   const r = p.mortgage_rate/12, n=(p.mortgage_term||25)*12
   return p.mortgage_amount * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1)
 }
-function calcGrossYield(p) {
-  const base=(p.purchase_price||0)+(p.refurb_cost||0)
+function calcGrossYield(p, basis='cost') {
+  const base = basis==='value'
+    ? (p.current_value||p.est_value||0)
+    : (p.purchase_price||0)+(p.refurb_cost||0)
   return base&&p.rent_pcm?((p.rent_pcm*12)/base)*100:0
 }
 function calcMonthlyProfit(p) {
@@ -449,6 +451,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
+  const [yieldBasis, setYieldBasis]      = useState('cost') // 'cost' = purchase+refurb, 'value' = current value
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginMode, setLoginMode] = useState('login')
   const [trialWarning, setTrialWarning] = useState(null)
@@ -546,9 +549,10 @@ export default function App() {
         await loadUserTheme(user.id, user.email)
         // Load nav preferences
         try {
-          const { data: prof } = await supabase.from('user_profiles').select('nav_items').eq('user_id', user.id).single()
+          const { data: prof } = await supabase.from('user_profiles').select('nav_items, yield_basis').eq('user_id', user.id).single()
           if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
           else setUserNavPrefs(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
+          if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
         } catch(e) {}
         // Load platform announcements
         try {
@@ -651,7 +655,7 @@ export default function App() {
         case 'status':       return (a.status||'').localeCompare(b.status||'')
         case 'rent-high':    return (b.rent_pcm||0)-(a.rent_pcm||0)
         case 'rent-low':     return (a.rent_pcm||0)-(b.rent_pcm||0)
-        case 'yield-high':   return calcGrossYield(b)-calcGrossYield(a)
+        case 'yield-high':   return calcGrossYield(b, yieldBasis)-calcGrossYield(a, yieldBasis)
         case 'arrears':      return (b.arrears||0)-(a.arrears||0)
         case 'value-high':   return (b.est_value||0)-(a.est_value||0)
         case 'custom':       return (a.sort_order||0)-(b.sort_order||0)
@@ -883,7 +887,10 @@ export default function App() {
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
                   </div>
                   {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                    </div>
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>
                   <Badge status={p.status}/>
                 </div>
@@ -1273,7 +1280,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties} sortBy={sortBy}/>
+            <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties} sortBy={sortBy} yieldBasis={yieldBasis}/>
             </div>}
           </div>}
 
@@ -1305,7 +1312,10 @@ export default function App() {
                         <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
                       </div>
                       {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}%</div>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                    </div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
                       <Badge status={p.status}/>
                       <HealthBadge property={p}/>
@@ -1319,7 +1329,7 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={properties} onBack={()=>setView('rent')}/>}
-          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs}/>}
+          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
@@ -1369,10 +1379,10 @@ export default function App() {
                     </div>
                   )
                 })()}
-                {detailTab==='overview'&&<OverviewTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={calcGrossYield} isAdmin={isAdmin} user={user} showToast={showToast}/>}
+                {detailTab==='overview'&&<OverviewTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} isAdmin={isAdmin} user={user} showToast={showToast}/>}
                 {false&&detailTab==='overview-old'&&<div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
-                    {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
+                    {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
                       <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
                         <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
                         <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</div>
@@ -1386,9 +1396,9 @@ export default function App() {
                 </div>}
                 {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
                 {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')}/>}
-                {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={calcGrossYield} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast}/>}
+                {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast}/>}
                 {false&&<div style={{display:'grid',gap:12}}>
-                  {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
+                  {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
                     <div key={si} className="card" style={{padding:'18px 22px'}}>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
@@ -1710,7 +1720,7 @@ function DeleteConfirmModal({propName, onClose, onConfirm}) {
 }
 
 // ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
-function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties, sortBy}) {
+function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties, sortBy, yieldBasis}) {
   const { T } = useTheme()
   const [items, setItems] = useState(filtered)
   const [dragging, setDragging] = useState(null)
@@ -1813,7 +1823,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} onClick={()=>openDetail(p)}>
               {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p).toFixed(1)}% yield</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
               </div>
               <Badge status={p.status}/>

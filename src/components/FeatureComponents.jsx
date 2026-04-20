@@ -516,7 +516,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs}) {
+export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis}) {
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -822,6 +822,36 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
                   color:!darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
                 ☀️ Light
               </button>
+            </div>
+          </div>
+
+          <div style={{marginTop:24,paddingTop:20,borderTop:`1px solid ${T.border}`}}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Yield Calculation</div>
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4}}>Yield basis</div>
+                <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
+                  {yieldBasis==='cost'
+                    ? 'Calculated using purchase price + refurb cost — shows your return on actual investment.'
+                    : 'Calculated using current property value — shows yield at today's market price.'}
+                </div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
+                <button onClick={async()=>{setYieldBasis('cost');try{await api.upsertUserProfile(user?.id,user?.email,{yield_basis:'cost'})}catch(e){}}}
+                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                    border:`1px solid ${yieldBasis==='cost'?T.gold:T.border}`,
+                    background:yieldBasis==='cost'?T.gold+'22':'transparent',
+                    color:yieldBasis==='cost'?T.gold:T.muted,transition:'all 0.2s'}}>
+                  📊 Purchase + refurb cost
+                </button>
+                <button onClick={async()=>{setYieldBasis('value');try{await api.upsertUserProfile(user?.id,user?.email,{yield_basis:'value'})}catch(e){}}}
+                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                    border:`1px solid ${yieldBasis==='value'?T.gold:T.border}`,
+                    background:yieldBasis==='value'?T.gold+'22':'transparent',
+                    color:yieldBasis==='value'?T.gold:T.muted,transition:'all 0.2s'}}>
+                  🏠 Current property value
+                </button>
+              </div>
             </div>
           </div>
         </div>
