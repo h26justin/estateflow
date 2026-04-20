@@ -291,6 +291,7 @@ function SectionTitle({ title, T }) {
 
 // ── EXPORT BUTTONS ────────────────────────────────────────────────────────────
 function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, companies, co, cs, T, accent, reportName }) {
+  const [exporting, setExporting] = useState(false)
   function exportCSV() {
     const rows = buildCSVRows(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
     if (!rows) return
@@ -300,11 +301,256 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
     const a = document.createElement('a'); a.href=url; a.download=`${reportId}-${range.label}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
+  async function exportPDF() {
+    setExporting(true)
+    try {
+      const data = buildReportData(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
+      await renderReportPDF({ ...data, reportName: reportName || data.title, company: co?.name || 'All companies', period: range.label, companyColor: co?.color })
+    } catch(e) { console.error('PDF export failed', e) }
+    setExporting(false)
+  }
   return (
     <div style={{display:'flex',gap:8}}>
+      <button onClick={exportPDF} disabled={exporting}
+        style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold,cursor:exporting?'wait':'pointer',fontWeight:700}}>
+        {exporting?'Generating...':'↓ PDF'}
+      </button>
       <button onClick={exportCSV} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>↓ CSV</button>
     </div>
   )
+}
+
+// ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
+function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
+  switch(id) {
+    case 'pnl': {
+      const rows = filtProps.map(p => { const rent=p.status==='rented'?(p.rent_pcm||0)*12:0; const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0); return {name:p.name,rent,exp,net:rent-exp,yield:p.est_value?((p.rent_pcm||0)*12/p.est_value*100):0}}).sort((a,b)=>b.net-a.net)
+      const tR=rows.reduce((s,r)=>s+r.rent,0), tE=rows.reduce((s,r)=>s+r.exp,0)
+      return { title:'Annual P&L', kpis:[['Total income',fmt(tR)],['Total expenses',fmt(tE)],['Net profit',fmt(tR-tE)],['Net margin',tR>0?fmtPct((tR-tE)/tR*100):'—']], headers:['Property','Annual Rent','Expenses','Net Profit','Gross Yield'], rows:rows.map(r=>[r.name,fmt(r.rent),fmt(r.exp),fmt(r.net),r.yield>0?fmtPct(r.yield):'—']), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE),''] }
+    }
+    case 'income_sched': {
+      const pRows = filtProps.map(p=>({name:p.name,rent:(p.rent_pcm||0)*12}))
+      const total = pRows.reduce((s,r)=>s+r.rent,0)
+      return { title:'Rental Income Schedule', kpis:[['Total income',fmt(total)],['Monthly average',fmt(Math.round(total/12))],['Properties',filtProps.length.toString()]], headers:['Property','Monthly Rent','Annual Rent'], rows:pRows.map(r=>[r.name,fmt(r.rent/12),fmt(r.rent)]), totals:['Total',fmt(total/12),fmt(total)] }
+    }
+    case 'expense_breakdown': {
+      const byCat = filtExp.reduce((a,e)=>{a[e.category||'Other']=(a[e.category||'Other']||0)+(e.amount||0);return a},{})
+      const cats = Object.entries(byCat).sort((a,b)=>b[1]-a[1])
+      const total = cats.reduce((s,[,v])=>s+v,0)
+      return { title:'Expense Breakdown', kpis:[['Total expenses',fmt(total)],['Largest category',cats[0]?cats[0][0]:'—'],['Items',filtExp.length.toString()]], headers:['Category','Amount','% of Total','Items'], rows:cats.map(([cat,amt])=>[cat,fmt(amt),fmtPct(amt/total*100),filtExp.filter(e=>(e.category||'Other')===cat).length.toString()]), totals:['Total',fmt(total),'100%',filtExp.length.toString()] }
+    }
+    case 'mortgage_interest': {
+      const rows = filtProps.filter(p=>p.mortgage_amount&&p.mortgage_rate).map(p=>({name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,annual:(p.mortgage_amount*(p.mortgage_rate/100)),credit:(p.mortgage_amount*(p.mortgage_rate/100))*0.2}))
+      const tI=rows.reduce((s,r)=>s+r.annual,0), tC=rows.reduce((s,r)=>s+r.credit,0)
+      return { title:'Mortgage Interest Summary', note:'Section 24: Mortgage interest receives a 20% tax credit, not a deduction.', kpis:[['Total interest',fmt(tI)],['20% tax credit',fmt(tC)],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Annual Interest','20% Credit'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate),fmt(r.annual),fmt(r.credit)]), totals:['Total','','',fmt(tI),fmt(tC)] }
+    }
+    case 'capital_gains': {
+      const rows = filtProps.map(p=>{const c=(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0);return{name:p.name,cost:c,val:p.est_value||0,gain:(p.est_value||0)-c}}).sort((a,b)=>b.gain-a.gain)
+      const tC=rows.reduce((s,r)=>s+r.cost,0),tV=rows.reduce((s,r)=>s+r.val,0)
+      return { title:'Capital Gains Summary', note:'Unrealised gains based on estimated values. Consult your accountant for CGT planning.', kpis:[['Cost base',fmt(tC)],['Portfolio value',fmt(tV)],['Unrealised gain',fmt(tV-tC)]], headers:['Property','Cost Base','Est. Value','Gain','Gain %'], rows:rows.map(r=>[r.name,fmt(r.cost),fmt(r.val),fmt(r.gain),r.cost>0?fmtPct(r.gain/r.cost*100):'—']), totals:['Total',fmt(tC),fmt(tV),fmt(tV-tC),''] }
+    }
+    case 'yield_compare': {
+      const rows = filtProps.map(p=>{const gy=p.est_value&&p.rent_pcm?((p.rent_pcm*12)/p.est_value)*100:0;return{name:p.name,rent:p.rent_pcm||0,val:p.est_value||0,gy}}).sort((a,b)=>b.gy-a.gy)
+      const avg = rows.length?rows.reduce((s,r)=>s+r.gy,0)/rows.length:0
+      return { title:'Yield Comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
+    }
+    case 'best_worst': {
+      const rows = filtProps.map(p=>{const rent=p.status==='rented'?(p.rent_pcm||0)*12:0;const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0);const net=rent-exp;const cost=(p.purchase_price||0)+(p.refurb_cost||0);return{name:p.name,net,yield:p.est_value&&p.rent_pcm?((p.rent_pcm*12)/p.est_value)*100:0,roi:cost>0?(net/cost)*100:0,status:p.status||'—'}}).sort((a,b)=>b.net-a.net)
+      return { title:'Best & Worst Performers', kpis:[['Top earner',rows[0]?.name||'—'],['Top monthly profit',rows[0]?fmt(rows[0].net/12):'—'],['Worst performer',rows[rows.length-1]?.name||'—']], headers:['Rank','Property','Annual Profit','Gross Yield','ROI','Status'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.net),fmtPct(r.yield),fmtPct(r.roi),r.status]) }
+    }
+    case 'occupancy': {
+      const rented=filtProps.filter(p=>p.status==='rented').length,vacant=filtProps.filter(p=>p.status==='vacant').length,rate=filtProps.length>0?(rented/filtProps.length)*100:0
+      return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(rate)],['Rented',rented.toString()],['Vacant',vacant.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,p.status||'—',fmt(p.rent_pcm),p.status==='rented'?'Yes':'No']) }
+    }
+    case 'rent_collect': {
+      const expected=filtProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+      const collected=filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
+      const rate=expected>0?(collected/expected)*100:100
+      return { title:'Rent Collection Rate', kpis:[['Collection rate',fmtPct(rate)],['Expected',fmt(expected)],['Collected',fmt(collected)]], headers:['Property','Expected Annual','Status'], rows:filtProps.filter(p=>p.status==='rented').map(p=>[p.name,fmt((p.rent_pcm||0)*12),'Rented']) }
+    }
+    case 'portfolio_growth': {
+      const tI=filtProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0),0),tV=filtProps.reduce((s,p)=>s+(p.est_value||0),0),tE=filtProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0)
+      return { title:'Portfolio Growth Tracker', kpis:[['Total invested',fmt(tI)],['Portfolio value',fmt(tV)],['Total equity',fmt(tE)],['Gain',fmt(tV-tI)]], headers:['Property','Invested','Est. Value','Equity','Growth %'], rows:filtProps.map(p=>{const inv=(p.purchase_price||0)+(p.refurb_cost||0);const val=p.est_value||0;return[p.name,fmt(inv),fmt(val),fmt(val-(p.mortgage_amount||0)),inv>0?fmtPct((val-inv)/inv*100):'—']}) }
+    }
+    case 'cashflow': {
+      const rent=filtProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0)*12
+      const exp=filtExp.reduce((s,e)=>s+(e.amount||0),0)
+      return { title:'Monthly Cash Flow', kpis:[['Total income',fmt(rent)],['Total outgoings',fmt(exp)],['Net cash flow',fmt(rent-exp)]], headers:['Month','Rent Income','Expenses','Net Cash Flow'], rows:MONTHS.map(m=>[m,fmt(Math.round(rent/12)),fmt(Math.round(exp/12)),fmt(Math.round((rent-exp)/12))]) }
+    }
+    case 'equity': {
+      const rows=filtProps.map(p=>({name:p.name,val:p.est_value||0,debt:p.mortgage_amount||0,eq:(p.est_value||0)-(p.mortgage_amount||0),ltv:p.est_value?((p.mortgage_amount||0)/p.est_value)*100:0})).sort((a,b)=>b.eq-a.eq)
+      const t=rows.reduce((s,r)=>({v:s.v+r.val,d:s.d+r.debt,e:s.e+r.eq}),{v:0,d:0,e:0})
+      return { title:'Equity Report', kpis:[['Portfolio value',fmt(t.v)],['Total debt',fmt(t.d)],['Total equity',fmt(t.e)],['Portfolio LTV',t.v>0?fmtPct(t.d/t.v*100):'—']], headers:['Property','Est. Value','Mortgage','Equity','LTV'], rows:rows.map(r=>[r.name,fmt(r.val),fmt(r.debt),fmt(r.eq),r.ltv>0?fmtPct(r.ltv):'—']), totals:['Total',fmt(t.v),fmt(t.d),fmt(t.e),''] }
+    }
+    case 'mortgage_port': {
+      const rows=filtProps.filter(p=>p.mortgage_amount>0).map(p=>{const m=p.mortgage_rate&&p.mortgage_amount?Math.round(p.mortgage_amount*(p.mortgage_rate/100/12)*Math.pow(1+p.mortgage_rate/100/12,(p.mortgage_term||25)*12)/(Math.pow(1+p.mortgage_rate/100/12,(p.mortgage_term||25)*12)-1)):0;return{name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,term:p.mortgage_term,monthly:m,ltv:p.est_value?((p.mortgage_amount||0)/p.est_value)*100:0}})
+      return { title:'Mortgage Portfolio Summary', kpis:[['Total debt',fmt(rows.reduce((s,r)=>s+r.loan,0))],['Monthly repayments',fmt(rows.reduce((s,r)=>s+r.monthly,0))],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Term','Monthly','LTV'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate||0),r.term?r.term+'y':'—',fmt(r.monthly),r.ltv>0?fmtPct(r.ltv):'—']) }
+    }
+    case 'arrears': {
+      const rows=filtProps.filter(p=>(p.arrears||0)>0).map(p=>({name:p.name,arrears:p.arrears||0,rent:p.rent_pcm||0})).sort((a,b)=>b.arrears-a.arrears)
+      const total=rows.reduce((s,r)=>s+r.arrears,0)
+      return { title:'Arrears Report', kpis:[['Properties in arrears',rows.length.toString()],['Total arrears',fmt(total)],['Clear properties',(filtProps.length-rows.length).toString()]], headers:['Property','Arrears Amount','Monthly Rent','Status'], rows:rows.length?rows.map(r=>[r.name,fmt(r.arrears),fmt(r.rent),'Overdue']):[['No arrears','','','All clear']] }
+    }
+    case 'compliance': {
+      const rows=filtComp.map(c=>{const d=daysUntil(c.expiry_date);return{prop:c.property?.name||'—',type:c.item_type||c.type||'—',expiry:c.expiry_date||'—',days:d,status:!c.expiry_date?'No date':d<0?'EXPIRED':d<=60?'Expiring':'Valid'}}).sort((a,b)=>(a.days||999)-(b.days||999))
+      const expired=rows.filter(r=>r.status==='EXPIRED').length,expiring=rows.filter(r=>r.status==='Expiring').length
+      return { title:'Compliance Status', kpis:[['Expired',expired.toString()],['Expiring <60 days',expiring.toString()],['Valid',rows.filter(r=>r.status==='Valid').length.toString()],['Total',rows.length.toString()]], headers:['Property','Certificate','Expiry Date','Days','Status'], rows:rows.map(r=>[r.prop,r.type,r.expiry,r.days!=null?r.days.toString():'—',r.status]) }
+    }
+    case 'expiring_certs': {
+      const rows=filtComp.filter(c=>c.expiry_date).map(c=>({prop:c.property?.name||'—',type:c.item_type||c.type||'—',expiry:c.expiry_date,days:daysUntil(c.expiry_date)})).filter(r=>r.days<=90).sort((a,b)=>a.days-b.days)
+      return { title:'Expiring Certificates', kpis:[['Certificates expiring <90 days',rows.length.toString()]], headers:['Property','Certificate','Expiry Date','Days Remaining'], rows:rows.length?rows.map(r=>[r.prop,r.type,r.expiry,r.days<0?Math.abs(r.days)+' overdue':r.days.toString()]):[['None','No certificates expiring within 90 days','','']] }
+    }
+    case 'tenancy_sched': {
+      const rows=filtTen.map(t=>({prop:t.property?.name||'—',tenant:t.tenant_name||'—',start:t.start_date||'—',end:t.end_date||'Rolling',rent:t.property?.rent_pcm||0,days:t.end_date?daysUntil(t.end_date):null})).sort((a,b)=>(a.days||9999)-(b.days||9999))
+      return { title:'Tenancy Schedule', kpis:[['Active tenancies',filtTen.length.toString()],['Expiring <90 days',rows.filter(r=>r.days!=null&&r.days<=90&&r.days>=0).length.toString()]], headers:['Property','Tenant','Start','End','Rent','Days to End'], rows:rows.map(r=>[r.prop,r.tenant,r.start,r.end,fmt(r.rent),r.days!=null?r.days.toString():'—']) }
+    }
+    case 'maintenance_report': {
+      const byProp=filtMaint.reduce((a,m)=>{const k=m.property?.name||'Unknown';if(!a[k])a[k]={name:k,total:0,jobs:0};a[k].total+=(m.cost||0);a[k].jobs++;return a},{})
+      const rows=Object.values(byProp).sort((a,b)=>b.total-a.total)
+      const total=rows.reduce((s,r)=>s+r.total,0)
+      return { title:'Maintenance Cost Report', kpis:[['Total spend',fmt(total)],['Jobs',filtMaint.length.toString()],['Avg cost',filtMaint.length?fmt(Math.round(total/filtMaint.length)):'—']], headers:['Property','Total Spend','Jobs','Avg per Job'], rows:rows.map(r=>[r.name,fmt(r.total),r.jobs.toString(),fmt(Math.round(r.total/r.jobs))]) }
+    }
+    case 'open_jobs': {
+      const open=filtMaint.filter(m=>m.status==='open'||m.status==='in-progress').sort((a,b)=>{const o={urgent:0,high:1,normal:2};return(o[a.priority]||2)-(o[b.priority]||2)})
+      return { title:'Open Jobs Report', kpis:[['Open jobs',open.length.toString()],['Urgent',open.filter(m=>m.priority==='urgent').length.toString()],['In progress',open.filter(m=>m.status==='in-progress').length.toString()]], headers:['Property','Issue','Priority','Status','Reported'], rows:open.length?open.map(m=>[m.property?.name||'—',m.title||m.description||'—',m.priority||'normal',m.status||'open',m.created_at?new Date(m.created_at).toLocaleDateString('en-GB'):'—']):[['None','No open jobs','','','']] }
+    }
+    case 'contractor_spend': {
+      const byC=filtMaint.filter(m=>m.contractor&&m.cost>0).reduce((a,m)=>{if(!a[m.contractor])a[m.contractor]={name:m.contractor,total:0,jobs:0};a[m.contractor].total+=(m.cost||0);a[m.contractor].jobs++;return a},{})
+      const rows=Object.values(byC).sort((a,b)=>b.total-a.total)
+      const total=rows.reduce((s,r)=>s+r.total,0)
+      return { title:'Contractor Spend Report', kpis:[['Total spend',fmt(total)],['Contractors',rows.length.toString()],['Top contractor',rows[0]?.name||'—']], headers:['Contractor','Total Paid','Jobs','Avg per Job'], rows:rows.length?rows.map(r=>[r.name,fmt(r.total),r.jobs.toString(),fmt(Math.round(r.total/r.jobs))]):[['None','No contractor costs recorded','','']] }
+    }
+    default: return { title:id, kpis:[], headers:['Report'], rows:[[id]] }
+  }
+}
+
+// ── RENDER PDF ─────────────────────────────────────────────────────────────────
+async function renderReportPDF({ title, kpis, headers, rows, totals, note, reportName, company, period, companyColor }) {
+  if (!window.jspdf) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+      s.onload = res; s.onerror = rej; document.head.appendChild(s)
+    })
+  }
+  const { jsPDF } = window.jspdf
+  const doc = new jsPDF({ orientation: headers.length > 5 ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
+  const W = headers.length > 5 ? 297 : 210
+  const H = headers.length > 5 ? 210 : 297
+  const gold = [200,168,75], dark = [11,13,20], surface = [23,27,40], muted = [107,113,145], green = [46,204,138], red = [224,85,85], white = [228,224,216], blue = [75,143,224]
+  const accent = companyColor ? companyColor.match(/[0-9a-f]{2}/gi)?.map(h=>parseInt(h,16)) || gold : gold
+  const margin = 14
+  const contentW = W - margin * 2
+
+  // ── HEADER ──────────────────────────────────────────────────────────────
+  doc.setFillColor(...dark); doc.rect(0, 0, W, 42, 'F')
+  doc.setFillColor(...accent); doc.rect(0, 0, 4, 42, 'F')
+  doc.setTextColor(...gold); doc.setFontSize(18); doc.setFont('helvetica','bold')
+  doc.text('Own Properly', margin, 15)
+  doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal')
+  doc.text('PROPERTY MANAGEMENT', margin, 20)
+  doc.setTextColor(...white); doc.setFontSize(14); doc.setFont('helvetica','bold')
+  doc.text(reportName || title, margin, 31)
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...muted)
+  doc.text(`${company} · ${period} · Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`, margin, 37)
+
+  let y = 50
+
+  // ── NOTE ─────────────────────────────────────────────────────────────────
+  if (note) {
+    doc.setFillColor(255, 248, 230); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'F')
+    doc.setDrawColor(...gold); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'S')
+    doc.setFontSize(8); doc.setTextColor(...dark); doc.setFont('helvetica','normal')
+    doc.text(note.length > 120 ? note.slice(0,117)+'...' : note, margin + 4, y + 7.5)
+    y += 18
+  }
+
+  // ── KPI CARDS ────────────────────────────────────────────────────────────
+  if (kpis.length > 0) {
+    const cardW = (contentW - (kpis.length-1)*6) / Math.min(kpis.length, 4)
+    const cardRows = Math.ceil(kpis.length / 4)
+    for (let row = 0; row < cardRows; row++) {
+      const rowKpis = kpis.slice(row*4, (row+1)*4)
+      const rCardW = (contentW - (rowKpis.length-1)*6) / rowKpis.length
+      rowKpis.forEach(([label, value], i) => {
+        const x = margin + i * (rCardW + 6)
+        doc.setFillColor(...surface); doc.roundedRect(x, y, rCardW, 20, 2, 2, 'F')
+        doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
+        doc.text(label.toUpperCase(), x + 4, y + 7)
+        doc.setFontSize(12); doc.setTextColor(...white); doc.setFont('helvetica','bold')
+        const valStr = String(value).length > 20 ? String(value).slice(0,18)+'...' : String(value)
+        doc.text(valStr, x + 4, y + 15.5)
+      })
+      y += 26
+    }
+  }
+
+  // ── TABLE ────────────────────────────────────────────────────────────────
+  y += 4
+  const colCount = headers.length
+  const colW = contentW / colCount
+  const firstColW = Math.min(colW * 1.8, contentW * 0.35)
+  const otherColW = (contentW - firstColW) / (colCount - 1)
+
+  function getColX(ci) { return ci === 0 ? margin : margin + firstColW + (ci-1) * otherColW }
+  function getColWidth(ci) { return ci === 0 ? firstColW : otherColW }
+
+  // Table header
+  doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 8, 'F')
+  doc.setFontSize(7); doc.setTextColor(80, 80, 100); doc.setFont('helvetica','bold')
+  headers.forEach((h, ci) => {
+    const x = getColX(ci)
+    doc.text(String(h).toUpperCase(), ci === 0 ? x + 3 : x + getColWidth(ci) - 3, y + 5.5, ci === 0 ? {} : { align: 'right' })
+  })
+  y += 9
+
+  // Table rows
+  doc.setFont('helvetica','normal'); doc.setFontSize(8)
+  rows.forEach((row, ri) => {
+    if (y > H - 20) { doc.addPage(); y = 20 }
+    // Alternating background
+    if (ri % 2 === 0) { doc.setFillColor(250, 250, 252); doc.rect(margin, y - 1, contentW, 6.5, 'F') }
+    doc.setTextColor(...dark)
+    row.forEach((cell, ci) => {
+      const val = String(cell ?? '—')
+      const x = getColX(ci)
+      const truncVal = val.length > 40 ? val.slice(0,37)+'...' : val
+      if (ci === 0) {
+        doc.setFont('helvetica','normal')
+        doc.text(truncVal, x + 3, y + 3.5)
+      } else {
+        doc.setFont('helvetica','normal')
+        doc.text(truncVal, x + getColWidth(ci) - 3, y + 3.5, { align: 'right' })
+      }
+    })
+    y += 6.5
+  })
+
+  // Totals row
+  if (totals && totals.length > 0) {
+    if (y > H - 20) { doc.addPage(); y = 20 }
+    doc.setFillColor(...surface); doc.rect(margin, y - 1, contentW, 8, 'F')
+    doc.setFontSize(8); doc.setTextColor(...white); doc.setFont('helvetica','bold')
+    totals.forEach((val, ci) => {
+      if (!val) return
+      const x = getColX(ci)
+      if (ci === 0) doc.text(String(val), x + 3, y + 4.5)
+      else doc.text(String(val), x + getColWidth(ci) - 3, y + 4.5, { align: 'right' })
+    })
+    y += 12
+  }
+
+  // ── FOOTER ──────────────────────────────────────────────────────────────
+  const pageCount = doc.internal.getNumberOfPages()
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p)
+    doc.setFillColor(...dark); doc.rect(0, (p===1?H:H) - 14, W, 14, 'F')
+    doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
+    doc.text('OwnProperly · ownproperly.com', margin, (p===1?H:H) - 5)
+    doc.text(`Page ${p} of ${pageCount}`, W - margin, (p===1?H:H) - 5, { align: 'right' })
+  }
+
+  doc.save(`${(reportName||title).replace(/[^a-zA-Z0-9]/g,'-').toLowerCase()}-${new Date().toISOString().slice(0,10)}.pdf`)
 }
 
 function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
