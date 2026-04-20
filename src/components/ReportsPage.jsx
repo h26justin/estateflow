@@ -305,7 +305,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
     setExporting(true)
     try {
       const data = buildReportData(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
-      await renderReportPDF({ ...data, reportName: reportName || data.title, company: co?.name || 'All companies', period: range.label, companyColor: co?.color })
+      await renderReportPDF({ ...data, reportName: reportName || data.title, company: co?.name || 'All companies', period: range.label, companyColor: co?.color, logoUrl: cs?.logo_url })
     } catch(e) { console.error('PDF export failed', e) }
     setExporting(false)
   }
@@ -425,7 +425,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
 }
 
 // ── RENDER PDF ─────────────────────────────────────────────────────────────────
-async function renderReportPDF({ title, kpis, headers, rows, totals, note, reportName, company, period, companyColor }) {
+async function renderReportPDF({ title, kpis, headers, rows, totals, note, reportName, company, period, companyColor, logoUrl }) {
   if (!window.jspdf) {
     await new Promise((res, rej) => {
       const s = document.createElement('script')
@@ -434,123 +434,214 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
     })
   }
   const { jsPDF } = window.jspdf
-  const doc = new jsPDF({ orientation: headers.length > 5 ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
-  const W = headers.length > 5 ? 297 : 210
-  const H = headers.length > 5 ? 210 : 297
-  const gold = [200,168,75], dark = [11,13,20], surface = [23,27,40], muted = [107,113,145], green = [46,204,138], red = [224,85,85], white = [228,224,216], blue = [75,143,224]
-  const accent = companyColor ? companyColor.match(/[0-9a-f]{2}/gi)?.map(h=>parseInt(h,16)) || gold : gold
-  const margin = 14
+  const isLandscape = headers.length > 5
+  const doc = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
+  const W = isLandscape ? 297 : 210
+  const H = isLandscape ? 210 : 297
+  const margin = 16
   const contentW = W - margin * 2
 
-  // ── HEADER ──────────────────────────────────────────────────────────────
-  doc.setFillColor(...dark); doc.rect(0, 0, W, 42, 'F')
-  doc.setFillColor(...accent); doc.rect(0, 0, 4, 42, 'F')
-  doc.setTextColor(...gold); doc.setFontSize(18); doc.setFont('helvetica','bold')
-  doc.text('Own Properly', margin, 15)
-  doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal')
-  doc.text('PROPERTY MANAGEMENT', margin, 20)
-  doc.setTextColor(...white); doc.setFontSize(14); doc.setFont('helvetica','bold')
-  doc.text(reportName || title, margin, 31)
-  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...muted)
-  doc.text(`${company} · ${period} · Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`, margin, 37)
+  // Colours — light professional theme
+  const gold = [200, 168, 75]
+  const dark = [35, 42, 55]
+  const mid = [90, 95, 115]
+  const light = [140, 145, 160]
+  const vlight = [230, 228, 222]
+  const green = [39, 174, 117]
+  const red = [200, 72, 72]
+  const white = [255, 255, 255]
+  const headerBg = [245, 244, 240]
+  const altRow = [250, 249, 246]
+  const accent = companyColor ? (companyColor.match(/[0-9a-f]{2}/gi)?.map(h => parseInt(h, 16)) || gold) : gold
 
-  let y = 50
+  // ── Load images ──────────────────────────────────────────────────────────
+  async function loadImage(url) {
+    try {
+      const resp = await fetch(url)
+      const blob = await resp.blob()
+      return await new Promise((res, rej) => {
+        const r = new FileReader()
+        r.onload = () => res(r.result)
+        r.onerror = rej
+        r.readAsDataURL(blob)
+      })
+    } catch(e) { return null }
+  }
+
+  let companyLogoData = null
+  let ownProperlyLogoData = null
+  if (logoUrl) companyLogoData = await loadImage(logoUrl)
+  try { ownProperlyLogoData = await loadImage('/logo.svg') } catch(e) {}
+
+  // ── HEADER ───────────────────────────────────────────────────────────────
+  // Gold accent line at very top
+  doc.setFillColor(...accent); doc.rect(0, 0, W, 3, 'F')
+
+  // Company logo (if available) — top left
+  let headerTextX = margin
+  if (companyLogoData) {
+    try {
+      doc.addImage(companyLogoData, 'PNG', margin, 8, 28, 14)
+      headerTextX = margin + 34
+    } catch(e) { /* logo failed, use text only */ }
+  }
+
+  // Company name and report title
+  doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
+  doc.text(company || 'Portfolio Report', headerTextX, 16)
+  doc.setFontSize(12); doc.setFont('helvetica', 'normal'); doc.setTextColor(...mid)
+  doc.text(reportName || title, headerTextX, 23)
+
+  // Right side — period and date
+  doc.setFontSize(9); doc.setTextColor(...light); doc.setFont('helvetica', 'normal')
+  doc.text(period, W - margin, 14, { align: 'right' })
+  doc.text('Generated ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - margin, 20, { align: 'right' })
+
+  // Divider
+  doc.setDrawColor(...vlight); doc.setLineWidth(0.5)
+  doc.line(margin, 28, W - margin, 28)
+
+  let y = 34
 
   // ── NOTE ─────────────────────────────────────────────────────────────────
   if (note) {
-    doc.setFillColor(255, 248, 230); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'F')
-    doc.setDrawColor(...gold); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'S')
-    doc.setFontSize(8); doc.setTextColor(...dark); doc.setFont('helvetica','normal')
-    doc.text(note.length > 120 ? note.slice(0,117)+'...' : note, margin + 4, y + 7.5)
+    doc.setFillColor(255, 251, 235); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'F')
+    doc.setDrawColor(...gold); doc.setLineWidth(0.3); doc.roundedRect(margin, y, contentW, 12, 2, 2, 'S')
+    doc.setFontSize(8); doc.setTextColor(...dark); doc.setFont('helvetica', 'italic')
+    doc.text(note.length > 140 ? note.slice(0, 137) + '...' : note, margin + 4, y + 7.5)
     y += 18
   }
 
   // ── KPI CARDS ────────────────────────────────────────────────────────────
   if (kpis.length > 0) {
-    const cardW = (contentW - (kpis.length-1)*6) / Math.min(kpis.length, 4)
-    const cardRows = Math.ceil(kpis.length / 4)
+    const perRow = Math.min(kpis.length, 4)
+    const cardRows = Math.ceil(kpis.length / perRow)
     for (let row = 0; row < cardRows; row++) {
-      const rowKpis = kpis.slice(row*4, (row+1)*4)
-      const rCardW = (contentW - (rowKpis.length-1)*6) / rowKpis.length
+      const rowKpis = kpis.slice(row * perRow, (row + 1) * perRow)
+      const rCardW = (contentW - (rowKpis.length - 1) * 5) / rowKpis.length
       rowKpis.forEach(([label, value], i) => {
-        const x = margin + i * (rCardW + 6)
-        doc.setFillColor(...surface); doc.roundedRect(x, y, rCardW, 20, 2, 2, 'F')
-        doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
-        doc.text(label.toUpperCase(), x + 4, y + 7)
-        doc.setFontSize(12); doc.setTextColor(...white); doc.setFont('helvetica','bold')
-        const valStr = String(value).length > 20 ? String(value).slice(0,18)+'...' : String(value)
-        doc.text(valStr, x + 4, y + 15.5)
+        const x = margin + i * (rCardW + 5)
+        // Card with subtle border
+        doc.setFillColor(...headerBg); doc.roundedRect(x, y, rCardW, 18, 2, 2, 'F')
+        doc.setDrawColor(...vlight); doc.setLineWidth(0.3); doc.roundedRect(x, y, rCardW, 18, 2, 2, 'S')
+        // Gold accent bar on left of card
+        doc.setFillColor(...accent); doc.rect(x, y + 2, 1.5, 14, 'F')
+        // Label
+        doc.setFontSize(7); doc.setTextColor(...light); doc.setFont('helvetica', 'normal')
+        doc.text(label.toUpperCase(), x + 6, y + 6.5)
+        // Value
+        doc.setFontSize(13); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
+        const valStr = String(value).length > 18 ? String(value).slice(0, 16) + '..' : String(value)
+        doc.text(valStr, x + 6, y + 14)
       })
-      y += 26
+      y += 24
     }
+    y += 2
   }
 
   // ── TABLE ────────────────────────────────────────────────────────────────
-  y += 4
   const colCount = headers.length
-  const colW = contentW / colCount
-  const firstColW = Math.min(colW * 1.8, contentW * 0.35)
-  const otherColW = (contentW - firstColW) / (colCount - 1)
+  const firstColW = Math.min(contentW * 0.32, 70)
+  const otherColW = (contentW - firstColW) / Math.max(colCount - 1, 1)
 
-  function getColX(ci) { return ci === 0 ? margin : margin + firstColW + (ci-1) * otherColW }
+  function getColX(ci) { return ci === 0 ? margin : margin + firstColW + (ci - 1) * otherColW }
   function getColWidth(ci) { return ci === 0 ? firstColW : otherColW }
 
-  // Table header
-  doc.setFillColor(240, 240, 245); doc.rect(margin, y, contentW, 8, 'F')
-  doc.setFontSize(7); doc.setTextColor(80, 80, 100); doc.setFont('helvetica','bold')
+  // Table header row
+  doc.setFillColor(...headerBg); doc.rect(margin, y, contentW, 8, 'F')
+  doc.setDrawColor(...vlight); doc.setLineWidth(0.3)
+  doc.line(margin, y, margin + contentW, y)
+  doc.line(margin, y + 8, margin + contentW, y + 8)
+  doc.setFontSize(7); doc.setTextColor(...mid); doc.setFont('helvetica', 'bold')
   headers.forEach((h, ci) => {
     const x = getColX(ci)
-    doc.text(String(h).toUpperCase(), ci === 0 ? x + 3 : x + getColWidth(ci) - 3, y + 5.5, ci === 0 ? {} : { align: 'right' })
+    if (ci === 0) doc.text(String(h).toUpperCase(), x + 3, y + 5.5)
+    else doc.text(String(h).toUpperCase(), x + getColWidth(ci) - 3, y + 5.5, { align: 'right' })
   })
   y += 9
 
-  // Table rows
-  doc.setFont('helvetica','normal'); doc.setFontSize(8)
+  // Table body rows
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
   rows.forEach((row, ri) => {
-    if (y > H - 20) { doc.addPage(); y = 20 }
-    // Alternating background
-    if (ri % 2 === 0) { doc.setFillColor(250, 250, 252); doc.rect(margin, y - 1, contentW, 6.5, 'F') }
-    doc.setTextColor(...dark)
+    if (y > H - 28) {
+      addFooter(doc, W, H, margin, ownProperlyLogoData, light, vlight, accent)
+      doc.addPage(); y = 16
+    }
+    // Alternating row background
+    if (ri % 2 === 0) { doc.setFillColor(...altRow); doc.rect(margin, y - 1.5, contentW, 7, 'F') }
+    // Bottom border
+    doc.setDrawColor(240, 238, 233); doc.setLineWidth(0.2); doc.line(margin, y + 5.5, margin + contentW, y + 5.5)
+
     row.forEach((cell, ci) => {
-      const val = String(cell ?? '—')
+      const val = String(cell != null ? cell : '')
       const x = getColX(ci)
-      const truncVal = val.length > 40 ? val.slice(0,37)+'...' : val
+      const truncVal = val.length > 36 ? val.slice(0, 33) + '...' : val
+      doc.setTextColor(...dark)
       if (ci === 0) {
-        doc.setFont('helvetica','normal')
+        doc.setFont('helvetica', 'normal')
         doc.text(truncVal, x + 3, y + 3.5)
       } else {
-        doc.setFont('helvetica','normal')
+        // Colour-code currency values
+        if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue')) doc.setTextColor(...red)
+        else if (val.startsWith('+') || val === 'Valid' || val === 'Yes' || val === 'Rented') doc.setTextColor(...green)
+        else doc.setTextColor(...dark)
+        doc.setFont('helvetica', 'normal')
         doc.text(truncVal, x + getColWidth(ci) - 3, y + 3.5, { align: 'right' })
       }
     })
-    y += 6.5
+    y += 7
   })
 
   // Totals row
   if (totals && totals.length > 0) {
-    if (y > H - 20) { doc.addPage(); y = 20 }
-    doc.setFillColor(...surface); doc.rect(margin, y - 1, contentW, 8, 'F')
-    doc.setFontSize(8); doc.setTextColor(...white); doc.setFont('helvetica','bold')
+    if (y > H - 28) {
+      addFooter(doc, W, H, margin, ownProperlyLogoData, light, vlight, accent)
+      doc.addPage(); y = 16
+    }
+    y += 1
+    doc.setFillColor(...headerBg); doc.rect(margin, y - 2, contentW, 8, 'F')
+    doc.setDrawColor(...accent); doc.setLineWidth(0.5); doc.line(margin, y - 2, margin + contentW, y - 2)
+    doc.setFontSize(8.5); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
     totals.forEach((val, ci) => {
       if (!val) return
       const x = getColX(ci)
-      if (ci === 0) doc.text(String(val), x + 3, y + 4.5)
-      else doc.text(String(val), x + getColWidth(ci) - 3, y + 4.5, { align: 'right' })
+      if (ci === 0) doc.text(String(val), x + 3, y + 3)
+      else doc.text(String(val), x + getColWidth(ci) - 3, y + 3, { align: 'right' })
     })
-    y += 12
   }
 
-  // ── FOOTER ──────────────────────────────────────────────────────────────
+  // ── ADD FOOTER TO ALL PAGES ──────────────────────────────────────────────
   const pageCount = doc.internal.getNumberOfPages()
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p)
-    doc.setFillColor(...dark); doc.rect(0, (p===1?H:H) - 14, W, 14, 'F')
-    doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
-    doc.text('OwnProperly · ownproperly.com', margin, (p===1?H:H) - 5)
-    doc.text(`Page ${p} of ${pageCount}`, W - margin, (p===1?H:H) - 5, { align: 'right' })
+    addFooter(doc, W, H, margin, ownProperlyLogoData, light, vlight, accent)
   }
 
-  doc.save(`${(reportName||title).replace(/[^a-zA-Z0-9]/g,'-').toLowerCase()}-${new Date().toISOString().slice(0,10)}.pdf`)
+  doc.save(`${(reportName || title).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`)
+}
+
+function addFooter(doc, W, H, margin, logoData, light, vlight, accent) {
+  const footerY = H - 16
+  // Top border
+  doc.setDrawColor(...vlight); doc.setLineWidth(0.3); doc.line(margin, footerY, W - margin, footerY)
+  // Gold accent line
+  doc.setFillColor(...accent); doc.rect(margin, footerY, W - margin * 2, 0.5, 'F')
+
+  // OwnProperly logo (left side)
+  if (logoData) {
+    try { doc.addImage(logoData, 'SVG', margin, footerY + 2.5, 18, 9) } catch(e) {}
+  }
+  // Text fallback / alongside logo
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(...light)
+  doc.text('OwnProperly', logoData ? margin + 20 : margin, footerY + 8)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5)
+  doc.text('ownproperly.com', logoData ? margin + 20 : margin, footerY + 12)
+
+  // Page number (right side)
+  const pageCount = doc.internal.getNumberOfPages()
+  const currentPage = doc.getCurrentPageInfo().pageNumber
+  doc.setFontSize(7); doc.setTextColor(...light); doc.setFont('helvetica', 'normal')
+  doc.text(`Page ${currentPage} of ${pageCount}`, W - margin, footerY + 8, { align: 'right' })
 }
 
 function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
