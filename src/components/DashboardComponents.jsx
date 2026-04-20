@@ -821,3 +821,354 @@ export function PortfolioChart({properties, companies}) {
     </div>
   )
 }
+
+// ── RENT REVIEW MODAL ────────────────────────────────────────────────────────
+export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClose }) {
+  const { T } = useTheme()
+  const mono = "'DM Mono',monospace"
+
+  // Only include rented properties with a rent figure
+  const eligible = properties.filter(p => (p.rent_pcm || 0) > 0)
+
+  const [globalPct, setGlobalPct]       = useState(0)
+  const [scope, setScope]               = useState('all') // 'all' | 'rented' | companyId
+  const [overrides, setOverrides]       = useState({})    // { [propId]: pct }
+  const [showOverrides, setShowOverrides] = useState(false)
+  const [exporting, setExporting]       = useState(false)
+
+  const presets = [
+    { label: '−5%',        value: -5   },
+    { label: '0%',         value: 0    },
+    { label: 'CPIH 2.8%',  value: 2.8  },
+    { label: 'CPI 3.1%',   value: 3.1  },
+    { label: '5%',         value: 5    },
+    { label: '10%',        value: 10   },
+  ]
+
+  // Filter by scope
+  const inScope = eligible.filter(p => {
+    if (scope === 'all')    return true
+    if (scope === 'rented') return p.status === 'rented'
+    return p.company_id === scope
+  })
+
+  // Tenancy status classifier
+  function tenancyBadge(p) {
+    if (p.status !== 'rented') return { label: 'Vacant',        color: T.green, dot: '🟢' }
+    if (!p.tenancy_end)        return { label: 'No end date',   color: T.muted, dot: '⚪' }
+    const today = new Date()
+    const end = new Date(p.tenancy_end)
+    const diffDays = Math.round((end - today) / (1000 * 60 * 60 * 24))
+    if (diffDays < 0)   return { label: 'Expired',                              color: T.green, dot: '🟢' }
+    if (diffDays <= 90) return { label: `Ends in ${diffDays}d`,                 color: T.amber, dot: '🟡' }
+    return { label: `Fixed to ${end.toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`, color: T.red, dot: '🔴' }
+  }
+
+  // Per-property computed row
+  const rows = inScope.map(p => {
+    const pct     = overrides[p.id] !== undefined ? overrides[p.id] : globalPct
+    const current = p.rent_pcm || 0
+    const next    = current * (1 + pct / 100)
+    const delta   = next - current
+    const co      = companies.find(c => c.id === p.company_id)
+    const basis   = yieldBasis === 'value'
+      ? (p.current_value || p.est_value || p.purchase_price || 0)
+      : (p.purchase_price || 0) + (p.refurb_cost || 0)
+    const currentYield = basis > 0 ? (current * 12 / basis) * 100 : 0
+    const newYield     = basis > 0 ? (next    * 12 / basis) * 100 : 0
+    return { p, co, pct, current, next, delta, badge: tenancyBadge(p), currentYield, newYield }
+  })
+
+  const totals = rows.reduce((a, r) => ({
+    current: a.current + r.current,
+    next:    a.next    + r.next,
+  }), { current: 0, next: 0 })
+  const monthlyDelta = totals.next - totals.current
+  const annualDelta  = monthlyDelta * 12
+
+  // Portfolio yield (weighted by basis)
+  const totalBasis = inScope.reduce((s, p) => {
+    if (yieldBasis === 'value') return s + (p.current_value || p.est_value || p.purchase_price || 0)
+    return s + (p.purchase_price || 0) + (p.refurb_cost || 0)
+  }, 0)
+  const currentYield = totalBasis > 0 ? (totals.current * 12 / totalBasis) * 100 : 0
+  const newYield     = totalBasis > 0 ? (totals.next    * 12 / totalBasis) * 100 : 0
+
+  function setOverride(id, pct) {
+    setOverrides(prev => ({ ...prev, [id]: pct }))
+  }
+  function clearOverride(id) {
+    setOverrides(prev => { const n = { ...prev }; delete n[id]; return n })
+  }
+
+  async function exportPDF() {
+    setExporting(true)
+    if (!window.jspdf) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script')
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+        s.onload = res; s.onerror = rej
+        document.head.appendChild(s)
+      })
+    }
+    const { jsPDF } = window.jspdf
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = 210
+    const gold = [200,168,75], dark = [11,13,20], muted = [107,113,145], white = [228,224,216], green = [46,204,138], red = [224,85,85]
+
+    // Header
+    doc.setFillColor(...dark); doc.rect(0, 0, W, 42, 'F')
+    doc.setFillColor(...gold); doc.rect(0, 0, 4, 42, 'F')
+    doc.setTextColor(...gold); doc.setFontSize(20); doc.setFont('helvetica','bold')
+    doc.text('Own Properly', 14, 16)
+    doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal')
+    doc.text('PROPERTY MANAGEMENT', 14, 21)
+    doc.setTextColor(...white); doc.setFontSize(13); doc.setFont('helvetica','bold')
+    doc.text('Rent Review Scenario', 14, 32)
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...muted)
+    const scopeLabel = scope === 'all' ? 'All properties' : scope === 'rented' ? 'Rented only' : (companies.find(c => c.id === scope)?.name || 'Selected')
+    doc.text(`${scopeLabel} · Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`, 14, 38)
+
+    let y = 54
+
+    // Summary
+    doc.setFontSize(9); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
+    doc.text('GLOBAL RENT INCREASE', 14, y); y += 6
+    doc.setFontSize(18); doc.setTextColor(...gold); doc.setFont('helvetica','bold')
+    doc.text(`${globalPct > 0 ? '+' : ''}${globalPct.toFixed(1)}%`, 14, y); y += 10
+
+    const cards = [
+      { l: 'Current monthly',  v: fmt(totals.current), c: white },
+      { l: 'New monthly',      v: fmt(totals.next),    c: gold  },
+      { l: 'Monthly delta',    v: (monthlyDelta >= 0 ? '+' : '') + fmt(monthlyDelta), c: monthlyDelta >= 0 ? green : red },
+      { l: 'Annual delta',     v: (annualDelta  >= 0 ? '+' : '') + fmt(annualDelta),  c: annualDelta  >= 0 ? green : red },
+      { l: 'Current yield',    v: currentYield.toFixed(2) + '%', c: white },
+      { l: 'New yield',        v: newYield.toFixed(2) + '%',     c: gold  },
+    ]
+    const cw = (W - 28 - 10) / 3
+    cards.forEach((k, i) => {
+      const col = i % 3, row = Math.floor(i / 3)
+      const cx = 14 + col * (cw + 5), cy = y + row * 20
+      doc.setDrawColor(60,60,70); doc.roundedRect(cx, cy, cw, 18, 2, 2)
+      doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
+      doc.text(k.l.toUpperCase(), cx + 3, cy + 5)
+      doc.setFontSize(11); doc.setTextColor(...k.c); doc.setFont('helvetica','bold')
+      doc.text(k.v, cx + 3, cy + 13)
+    })
+    y += 46
+
+    // Table
+    doc.setFontSize(9); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
+    doc.text('PER-PROPERTY BREAKDOWN', 14, y); y += 6
+    doc.setFillColor(240,240,245); doc.rect(14, y - 4, W - 28, 8, 'F')
+    doc.setFontSize(8); doc.setTextColor(...dark); doc.setFont('helvetica','bold')
+    doc.text('Property', 16, y + 1)
+    doc.text('Current', 100, y + 1, { align: 'right' })
+    doc.text('New',     130, y + 1, { align: 'right' })
+    doc.text('Δ/mo',    160, y + 1, { align: 'right' })
+    doc.text('Tenancy', 194, y + 1, { align: 'right' })
+    y += 7
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...dark)
+    rows.forEach(r => {
+      if (y > 280) { doc.addPage(); y = 20 }
+      const name = r.p.name.length > 44 ? r.p.name.slice(0,41) + '…' : r.p.name
+      doc.text(name, 16, y)
+      doc.text(fmt(r.current), 100, y, { align: 'right' })
+      doc.text(fmt(r.next),    130, y, { align: 'right' })
+      const deltaStr = (r.delta >= 0 ? '+' : '') + fmt(r.delta)
+      if (r.delta >= 0) doc.setTextColor(...green); else doc.setTextColor(...red)
+      doc.text(deltaStr, 160, y, { align: 'right' })
+      doc.setTextColor(...dark)
+      doc.text(r.badge.label.length > 18 ? r.badge.label.slice(0,17)+'…' : r.badge.label, 194, y, { align: 'right' })
+      y += 5.5
+    })
+
+    doc.save(`rent-review-${new Date().toISOString().slice(0,10)}.pdf`)
+    setExporting(false)
+  }
+
+  // ── RENDER ──────────────────────────────────────────────────────────────────
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:500, padding:'40px 16px', overflowY:'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:18, width:'100%', maxWidth:1100, padding:'28px 32px' }}>
+
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
+          <div>
+            <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em', marginBottom:4 }}>📈 Rent Review Planner</h2>
+            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, lineHeight:1.6 }}>
+              Model the impact of rent increases across your portfolio. {rows.length} properties in scope.
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={exportPDF} disabled={exporting || rows.length === 0}
+              style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:exporting?'wait':'pointer', border:`1px solid ${T.gold}`, background:T.gold+'22', color:T.gold, fontWeight:700 }}>
+              {exporting ? 'Generating…' : '📄 Export PDF'}
+            </button>
+            <button onClick={onClose}
+              style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:'pointer', border:`1px solid ${T.border}`, background:'transparent', color:T.muted }}>
+              ✕ Close
+            </button>
+          </div>
+        </div>
+
+        {/* Summary bar */}
+        <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:12, padding:'18px 22px', marginBottom:20 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:16 }}>
+            <div>
+              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Current monthly</div>
+              <div style={{ fontSize:20, fontWeight:700, color:T.text }}>{fmt(totals.current)}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>New monthly</div>
+              <div style={{ fontSize:20, fontWeight:700, color:T.gold }}>{fmt(totals.next)}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Monthly Δ</div>
+              <div style={{ fontSize:20, fontWeight:700, color: monthlyDelta >= 0 ? T.green : T.red }}>
+                {monthlyDelta >= 0 ? '+' : ''}{fmt(monthlyDelta)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Annual Δ</div>
+              <div style={{ fontSize:20, fontWeight:700, color: annualDelta >= 0 ? T.green : T.red }}>
+                {annualDelta >= 0 ? '+' : ''}{fmt(annualDelta)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Yield {yieldBasis === 'value' ? '(on value)' : '(on cost)'}</div>
+              <div style={{ fontSize:14, fontWeight:700, color:T.text }}>
+                {currentYield.toFixed(2)}% <span style={{ color:T.muted }}>→</span> <span style={{ color:T.gold }}>{newYield.toFixed(2)}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Slider + presets */}
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'18px 22px', marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:8 }}>
+            <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Global rent change</div>
+            <div style={{ fontFamily:mono, fontSize:22, fontWeight:700, color: globalPct === 0 ? T.muted : globalPct > 0 ? T.green : T.red }}>
+              {globalPct > 0 ? '+' : ''}{globalPct.toFixed(1)}%
+            </div>
+          </div>
+          <input type="range" min={-10} max={10} step={0.1} value={globalPct}
+            onChange={e => setGlobalPct(parseFloat(e.target.value))}
+            style={{ width:'100%', accentColor:T.gold, marginBottom:12 }}/>
+          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:mono, fontSize:9, color:T.muted, marginBottom:14 }}>
+            <span>−10%</span><span>0%</span><span>+10%</span>
+          </div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {presets.map(p => (
+              <button key={p.value} onClick={() => setGlobalPct(p.value)}
+                style={{ fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:20, cursor:'pointer',
+                  border:`1px solid ${Math.abs(globalPct - p.value) < 0.05 ? T.gold : T.border}`,
+                  background: Math.abs(globalPct - p.value) < 0.05 ? T.gold+'22' : 'transparent',
+                  color: Math.abs(globalPct - p.value) < 0.05 ? T.gold : T.muted,
+                  fontWeight: Math.abs(globalPct - p.value) < 0.05 ? 700 : 400 }}>
+                {p.label}
+              </button>
+            ))}
+            {Object.keys(overrides).length > 0 && (
+              <button onClick={() => setOverrides({})}
+                style={{ fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:20, cursor:'pointer',
+                  border:`1px solid ${T.red}44`, background:T.red+'11', color:T.red, marginLeft:'auto' }}>
+                Clear {Object.keys(overrides).length} override{Object.keys(overrides).length > 1 ? 's' : ''}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Scope filter */}
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16, alignItems:'center' }}>
+          <span style={{ fontFamily:mono, fontSize:10, color:T.muted, marginRight:4 }}>SCOPE:</span>
+          {[{ k:'all', l:'All' }, { k:'rented', l:'Rented only' }, ...companies.map(c => ({ k:c.id, l:c.abbr || c.name }))].map(opt => (
+            <button key={opt.k} onClick={() => setScope(opt.k)}
+              style={{ fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer',
+                border:`1px solid ${scope === opt.k ? T.gold : T.border}`,
+                background: scope === opt.k ? T.gold+'22' : 'transparent',
+                color: scope === opt.k ? T.gold : T.muted, fontWeight: scope === opt.k ? 700 : 400 }}>
+              {opt.l}
+            </button>
+          ))}
+          <button onClick={() => setShowOverrides(s => !s)}
+            style={{ fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer', marginLeft:'auto',
+              border:`1px solid ${showOverrides ? T.gold : T.border}`,
+              background: showOverrides ? T.gold+'22' : 'transparent',
+              color: showOverrides ? T.gold : T.muted }}>
+            {showOverrides ? '− Hide overrides' : '+ Show overrides'}
+          </button>
+        </div>
+
+        {/* Per-property table */}
+        {rows.length === 0 ? (
+          <div style={{ fontFamily:mono, fontSize:12, color:T.muted, textAlign:'center', padding:40 }}>
+            No properties with rent in this scope.
+          </div>
+        ) : (
+          <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, overflow:'hidden' }}>
+            <div style={{ display:'grid', gridTemplateColumns: showOverrides ? '1fr 70px 90px 90px 90px 110px 180px' : '1fr 70px 90px 90px 90px 140px',
+              gap:10, padding:'12px 18px', background:T.bg, fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>
+              <div>Property</div>
+              <div>Co.</div>
+              <div style={{ textAlign:'right' }}>Current</div>
+              <div style={{ textAlign:'right' }}>New</div>
+              <div style={{ textAlign:'right' }}>Δ/mo</div>
+              <div style={{ textAlign:'right' }}>Tenancy</div>
+              {showOverrides && <div style={{ textAlign:'right' }}>Override</div>}
+            </div>
+            {rows.map(r => (
+              <div key={r.p.id} style={{ display:'grid', gridTemplateColumns: showOverrides ? '1fr 70px 90px 90px 90px 110px 180px' : '1fr 70px 90px 90px 90px 140px',
+                gap:10, padding:'12px 18px', borderTop:`1px solid ${T.border}`, alignItems:'center' }}>
+                <div style={{ fontFamily:mono, fontSize:12, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  {r.p.name}
+                  {overrides[r.p.id] !== undefined && (
+                    <span style={{ marginLeft:8, fontSize:9, color:T.gold, fontWeight:700 }}>·OVERRIDE</span>
+                  )}
+                </div>
+                <div>
+                  <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, color:r.co?.color || T.muted, background:(r.co?.color || T.border) + '22', padding:'2px 7px', borderRadius:4 }}>
+                    {r.co?.abbr || '—'}
+                  </span>
+                </div>
+                <div style={{ fontFamily:mono, fontSize:12, color:T.text, textAlign:'right' }}>{fmt(r.current)}</div>
+                <div style={{ fontFamily:mono, fontSize:12, fontWeight:700, color:T.gold, textAlign:'right' }}>{fmt(r.next)}</div>
+                <div style={{ fontFamily:mono, fontSize:12, fontWeight:700, color: r.delta >= 0 ? T.green : T.red, textAlign:'right' }}>
+                  {r.delta >= 0 ? '+' : ''}{fmt(r.delta)}
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <span style={{ fontFamily:mono, fontSize:10, color:r.badge.color, background:r.badge.color + '22', padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
+                    {r.badge.label}
+                  </span>
+                </div>
+                {showOverrides && (
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <input type="range" min={-10} max={10} step={0.1}
+                      value={overrides[r.p.id] !== undefined ? overrides[r.p.id] : globalPct}
+                      onChange={e => setOverride(r.p.id, parseFloat(e.target.value))}
+                      style={{ flex:1, accentColor:T.gold }}/>
+                    <span style={{ fontFamily:mono, fontSize:10, color: r.pct === 0 ? T.muted : r.pct > 0 ? T.green : T.red, width:40, textAlign:'right', fontWeight:700 }}>
+                      {r.pct > 0 ? '+' : ''}{r.pct.toFixed(1)}%
+                    </span>
+                    {overrides[r.p.id] !== undefined && (
+                      <button onClick={() => clearOverride(r.p.id)}
+                        style={{ fontFamily:mono, fontSize:10, padding:'2px 6px', cursor:'pointer', border:'none', background:'transparent', color:T.muted }}
+                        title="Reset to global">✕</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ fontFamily:mono, fontSize:10, color:T.faint, marginTop:16, lineHeight:1.6 }}>
+          Yield calculated {yieldBasis === 'value' ? 'on current property value' : 'on purchase + refurb cost'}.
+          Tenancy badges based on tenancy end dates: 🟢 expired or vacant · 🟡 ends within 90 days · 🔴 fixed term &gt; 90 days remaining.
+          This tool is for scenario modelling — actual rent increases must follow legal notice requirements (Section 13 etc.).
+        </div>
+      </div>
+    </div>
+  )
+}

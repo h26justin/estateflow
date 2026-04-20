@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert } from './components/FeatureComponents'
-import { SmartAlerts, ContractorsPage } from './components/DashboardComponents'
+import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
 import { StatementImporter } from './components/StatementImporter'
@@ -1356,9 +1356,9 @@ export default function App() {
             })}
           </div>}
 
-          {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')}/>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={properties} onBack={()=>setView('rent')}/>}
-          {view==='settings'&&<SettingsPage companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
+          {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
@@ -1866,8 +1866,9 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 }
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
-function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker}) {
+function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis}) {
   const { T } = useTheme()
+  const [showRentReview, setShowRentReview] = useState(false)
 
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
@@ -1933,6 +1934,11 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               </button>
             ))}
           </div>
+          <button onClick={()=>setShowRentReview(true)}
+            style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+              border:`1px solid ${T.green}`,background:T.green+'22',color:T.green,whiteSpace:'nowrap'}}>
+            📈 Plan rent review
+          </button>
           <button onClick={onDayTracker}
             style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${'#C8A84B'}`,background:'#C8A84B22',color:'#C8A84B',whiteSpace:'nowrap'}}>
@@ -2041,6 +2047,16 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
           No properties found.
         </div>}
+
+      {showRentReview && (
+        <RentReviewModal
+          properties={properties}
+          companies={companies}
+          fmt={fmt}
+          yieldBasis={yieldBasis}
+          onClose={()=>setShowRentReview(false)}
+        />
+      )}
     </div>
   )
 }

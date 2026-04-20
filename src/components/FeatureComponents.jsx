@@ -516,7 +516,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis}) {
+export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis}) {
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -1030,6 +1030,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
       {settingsTab==='branding' && (
         <BrandingSettingsPanel
           companies={companies}
+          setCompanies={setCompanies}
           companySettings={companySettings}
           setCompanySettings={setCompanySettings}
           user={user}
@@ -2505,11 +2506,13 @@ function AdminSettingsPanel({ user, T, showToast }) {
 }
 
 // ── COMPANY BRANDING SETTINGS PANEL ──────────────────────────────────────────
-function BrandingSettingsPanel({ companies, companySettings, setCompanySettings, user, showToast, T }) {
+function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCompanySettings, user, showToast, T }) {
   const mono = "'DM Mono',monospace"
   const [selectedCo, setSelectedCo] = useState(companies[0]?.id || '')
   const [uploading, setUploading]   = useState(false)
   const [logoPreview, setLogoPreview] = useState(null)
+  const [savingColor, setSavingColor] = useState(false)
+  const [colorDraft, setColorDraft]   = useState(null)
 
   const co = companies.find(c => c.id === selectedCo)
   const cs = companySettings[selectedCo] || {}
@@ -2518,7 +2521,23 @@ function BrandingSettingsPanel({ companies, companySettings, setCompanySettings,
     if (selectedCo && companySettings[selectedCo]) {
       setLogoPreview(companySettings[selectedCo].logo_url || null)
     }
+    setColorDraft(null)
   }, [selectedCo, companySettings])
+
+  async function updateCompanyColor(newColor) {
+    if (!co || !newColor) return
+    if (!/^#[0-9A-Fa-f]{6}$/.test(newColor)) { showToast('Enter a valid hex colour (e.g. #4B8FE0)', 'error'); return }
+    if (newColor.toLowerCase() === (co.color || '').toLowerCase()) { setColorDraft(null); return }
+    setSavingColor(true)
+    try {
+      const { error } = await supabase.from('companies').update({ color: newColor }).eq('id', co.id)
+      if (error) throw error
+      setCompanies(prev => prev.map(c => c.id === co.id ? { ...c, color: newColor } : c))
+      setColorDraft(null)
+      showToast('Report colour updated')
+    } catch(e) { showToast(e.message || 'Failed to save colour', 'error') }
+    setSavingColor(false)
+  }
 
   async function handleLogoUpload(e) {
     const file = e.target.files?.[0]
@@ -2614,10 +2633,50 @@ function BrandingSettingsPanel({ companies, companySettings, setCompanySettings,
           {/* Report accent colour */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Report colour</div>
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 12, lineHeight: 1.7 }}>
-              PDF report headers and accents will use your company colour: <span style={{ fontWeight: 700, color: co.color || T.gold }}>{co.color || '#C8A84B'}</span>. To change this, update your company colour in the Companies section.
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
+              PDF report headers and accents will use this colour. It is also used as the accent colour for this company throughout the app.
             </div>
-            <div style={{ width: 48, height: 24, borderRadius: 6, background: co.color || T.gold }}/>
+
+            {/* Preset swatches */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              {['#C8A84B','#4B8FE0','#2ECC8A','#E0943A','#9B59B6','#E05555','#16A085','#34495E','#D35400','#7F8C8D'].map(c => {
+                const selected = (co.color || '').toLowerCase() === c.toLowerCase()
+                return (
+                  <button key={c} onClick={() => updateCompanyColor(c)}
+                    disabled={savingColor}
+                    style={{ width: 36, height: 36, borderRadius: 8, cursor: savingColor ? 'wait' : 'pointer',
+                      border: `2px solid ${selected ? T.text : 'transparent'}`,
+                      background: c, padding: 0, outline: 'none',
+                      boxShadow: selected ? `0 0 0 2px ${T.card}, 0 0 0 3px ${c}` : 'none' }}
+                    title={c}/>
+                )
+              })}
+            </div>
+
+            {/* Custom colour picker + hex input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="color" value={co.color || '#C8A84B'}
+                  onChange={e => setColorDraft(e.target.value)}
+                  onBlur={e => updateCompanyColor(e.target.value)}
+                  disabled={savingColor}
+                  style={{ width: 48, height: 36, border: `1px solid ${T.border}`, borderRadius: 8, cursor: 'pointer', background: 'transparent', padding: 2 }}/>
+                <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Custom</span>
+              </label>
+              <input type="text" value={colorDraft !== null ? colorDraft : (co.color || '#C8A84B')}
+                onChange={e => setColorDraft(e.target.value)}
+                onBlur={() => { if (colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft)) updateCompanyColor(colorDraft); else setColorDraft(null) }}
+                onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                placeholder="#C8A84B"
+                style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110, outline: 'none' }}/>
+              {savingColor && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Saving…</span>}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current:</div>
+              <div style={{ width: 48, height: 24, borderRadius: 6, background: co.color || T.gold }}/>
+              <span style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700 }}>{co.color || '#C8A84B'}</span>
+            </div>
           </div>
 
         </div>
