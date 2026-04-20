@@ -155,19 +155,19 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             Your entire property<br/>portfolio, perfectly organised
           </h1>
           <p className="hero-sub" style={{ fontSize: 19, color: '#B0BEC5', lineHeight: 1.75, marginBottom: 40, fontFamily: "'DM Mono',monospace", fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
-            Rent tracking, compliance, tenant portal, deal calculator, AI tools and 20 reports — all in one clean dashboard. Starting at £1 per property per month.
+            Rent tracking, compliance, tenant portal, deal calculator, AI tools and 20 reports — all in one clean dashboard. Starting at £2 per property per month.
           </p>
           <div className="mkt-hero-btns" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={()=>scrollTo('features')} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff44', fontSize: 14, padding: '16px 36px' }}>See all features</button>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6A7D8E', marginTop: 20 }}>14-day free trial · Cancel anytime · From £1/property/month</p>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6A7D8E', marginTop: 20 }}>14-day free trial · Cancel anytime · From £2/property/month</p>
         </div>
       </section>
 
       <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '28px 24px' }}>
         <div className="stats-grid" style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, textAlign: 'center' }}>
-          {[['£1/mo','per property'],['20+','built-in reports'],['6 modules','all included'],['Any device','PWA ready']].map(([val,lab]) => (
+          {[['£2/mo','per property'],['20+','built-in reports'],['6 modules','all included'],['Any device','PWA ready']].map(([val,lab]) => (
             <div key={val}>
               <div style={{ fontSize: 22, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', fontFamily: "'DM Mono',monospace" }}>{val}</div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{lab}</div>
@@ -288,7 +288,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             <div style={{ background: SLATE, borderRadius: 20, padding: '36px 32px', color: WHITE }}>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Everything included</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
-                <span style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-0.03em', color: WHITE }}>£1</span>
+                <span style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-0.03em', color: WHITE }}>£2</span>
                 <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: '#B0BEC5' }}>/property/month</span>
               </div>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#B0BEC5', marginBottom: 28, lineHeight: 1.7 }}>
@@ -317,7 +317,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             <div>
               <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px', marginBottom: 16 }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Example costs</div>
-                {[['5 properties','£5/mo'],['10 properties','£10/mo'],['25 properties','£25/mo'],['50 properties','£50/mo'],['100 properties','£100/mo']].map(([props,cost]) => (
+                {[['5 properties','£10/mo'],['10 properties','£20/mo'],['25 properties','£50/mo'],['50 properties','£100/mo'],['100 properties','£200/mo']].map(([props,cost]) => (
                   <div key={props} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${BORDER}` }}>
                     <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED }}>{props}</span>
                     <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 700, color: SLATE }}>{cost}</span>
@@ -354,7 +354,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={onSignIn} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff33', fontSize: 14, padding: '16px 36px' }}>Sign in</button>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#5A6A7A', marginTop: 20 }}>14-day free trial · £1/property/month after · Cancel anytime</p>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#5A6A7A', marginTop: 20 }}>14-day free trial · £2/property/month after · Cancel anytime</p>
         </div>
       </section>
 

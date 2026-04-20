@@ -90,8 +90,8 @@ export default function AdminDashboard({ onClose, user }) {
     const trialing = companies.filter(c=>!c.is_free_tier&&(!c.subscriptions?.[0]?.status||c.subscriptions?.[0]?.status==='trialing'))
     const free     = companies.filter(c=>c.is_free_tier)
     const pastDue  = companies.filter(c=>c.subscriptions?.[0]?.status==='past_due')
-    const mrrStripe = active.reduce((s,c)=>s+(c.paid_property_count||c.subscriptions?.[0]?.property_count||0),0)
-    const mrrProps  = companies.reduce((s,c)=>s+(c.real_property_count||0),0)
+    const mrrStripe = active.reduce((s,c)=>s+(c.paid_property_count||c.subscriptions?.[0]?.property_count||0),0) * 2
+    const mrrProps  = companies.reduce((s,c)=>s+(c.real_property_count||0),0) * 2
     const newThisMonth = companies.filter(c=>{
       const d=new Date(c.created_at); const n=new Date()
       return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()
@@ -227,7 +227,7 @@ export default function AdminDashboard({ onClose, user }) {
 function RevenueTab({ companies, users, metrics, T, fmt }) {
   const kpis = [
     {label:'MRR (Stripe active)',   value:fmt(metrics.mrrStripe), sub:'from paying subscriptions', color:T.green},
-    {label:'MRR (by properties)',   value:fmt(metrics.mrrProps),  sub:'£1 × all properties',       color:T.green},
+    {label:'MRR (by properties)',   value:fmt(metrics.mrrProps),  sub:'£2 × all properties',       color:T.green},
     {label:'ARR (est.)',            value:fmt(metrics.mrrStripe*12), sub:'annualised run rate',     color:T.text},
     {label:'Active accounts',       value:metrics.active,         sub:'paying subscribers',         color:T.green},
     {label:'On trial',              value:metrics.trialing,       sub:'not yet paying',             color:'#4B8FE0'},
@@ -308,7 +308,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
         {filtered.map(co=>{
           const status = co.is_free_tier?'free_tier':(co.subscriptions?.[0]?.status||'trialing')
           const props  = co.paid_property_count||co.subscriptions?.[0]?.property_count||0
-          const mrr    = status==='active'?props:0
+          const mrr    = status==='active'?props*2:0
           return (
             <div key={co.id} onClick={()=>onSelect(co)}
               style={{display:'grid',gridTemplateColumns:'1fr 140px 90px 90px 80px 120px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center',cursor:'pointer',transition:'background 0.15s'}}
