@@ -242,10 +242,38 @@ export function parseRMS(text) {
 export function matchProperties(items, properties) {
   var flatRe = /(?:flat|room|unit)\s*(\d+[ab]?)/i
   var numRe  = /^(\d+)\s/
+  // Extract all plausible unit/flat numbers from a string
+  function extractNumbers(str) {
+    var nums = new Set()
+    // "Flat 5", "Room 3", "Unit 12"
+    var fm = str.match(/(?:flat|room|unit)\s*(\d+[ab]?)/gi)
+    if (fm) fm.forEach(function(m) { var n = m.match(/(\d+[ab]?)/i); if (n) nums.add(n[1].toLowerCase()) })
+    // Leading number: "5 Watts Moses House" or "24 Watts Moses House"
+    var lm = str.match(/^(\d+)\s/)
+    if (lm) nums.add(lm[1])
+    // "No. 5" or "No 5"
+    var nm = str.match(/No\.?\s*(\d+)/gi)
+    if (nm) nm.forEach(function(m) { var n = m.match(/(\d+)/); if (n) nums.add(n[1]) })
+    return nums
+  }
+
+  // Extract the building/street name without numbers for comparison
+  function buildingName(str) {
+    return str.toLowerCase()
+      .replace(/^\d+\s*,?\s*/, '')           // strip leading number
+      .replace(/flat\s*\d+[ab]?\s*,?\s*/gi, '')  // strip "Flat X"
+      .replace(/room\s*\d+[ab]?\s*,?\s*/gi, '')
+      .replace(/unit\s*\d+[ab]?\s*,?\s*/gi, '')
+      .replace(/,/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
 
   return items.map(function(item) {
     if (!item.propertyName) return item
     var name = item.propertyName.toLowerCase()
+    var stmtNums = extractNumbers(item.propertyName)
+    var stmtBuilding = buildingName(item.propertyName)
     var bestMatch = null, bestScore = 0
 
     for (var k = 0; k < properties.length; k++) {
@@ -253,30 +281,48 @@ export function matchProperties(items, properties) {
       var propName = prop.name.toLowerCase()
       var propAddr = (prop.address || '').toLowerCase()
       var combined = propName + ' ' + propAddr
+      var propNums = extractNumbers(prop.name + ' ' + (prop.address || ''))
+      var propBuilding = buildingName(prop.name + ' ' + (prop.address || ''))
       var score = 0
-
-      // Flat number match — most reliable signal
-      var fn1 = name.match(flatRe), fn2 = combined.match(flatRe)
-      if (fn1 && fn2 && fn1[1] === fn2[1]) score += 10
-
-      // Street/road name word overlap
-      var nameWords = name.split(/\s+/).filter(w => w.length > 3 && !/^(flat|room|unit|the|and|for)$/i.test(w))
-      var propWords = combined.split(/\s+/)
-      var overlap = nameWords.filter(w => propWords.some(pw => pw.includes(w) || w.includes(pw)))
-      score += overlap.length * 3
-
-      // Street number match
-      var n1 = name.match(numRe), n2 = combined.match(numRe)
-      if (n1 && n2 && n1[1] === n2[1]) score += 5
 
       // Named building / road keyword bonuses
       var namedPatterns = [
-        /esplanade/i, /st\.?\s*george/i, /park\s+place\s+(?:east|west)/i,
-        /turnberry/i, /watts\s+moses/i, /maple/i, /oak/i, /riverside/i, /crown/i
+        /esplanade/i, /st\.?\s*george/i, /park\s+place\s*(?:east|west)?/i,
+        /turnberry/i, /watts\s*moses/i, /maple/i, /oak/i, /riverside/i, /crown/i
       ]
-      namedPatterns.forEach(re => {
-        if (re.test(name) && re.test(combined)) score += 6
+      var buildingMatch = false
+      namedPatterns.forEach(function(re) {
+        if (re.test(name) && re.test(combined)) { score += 6; buildingMatch = true }
       })
+
+      // Street/road name word overlap
+      var nameWords = name.split(/\s+/).filter(function(w) { return w.length > 3 && !/^(flat|room|unit|the|and|for|from|rent|house)$/i.test(w) })
+      var propWords = combined.split(/\s+/)
+      var overlap = nameWords.filter(function(w) { return propWords.some(function(pw) { return pw.includes(w) || w.includes(pw) }) })
+      score += overlap.length * 2
+
+      // Building name similarity (fuzzy)
+      if (stmtBuilding && propBuilding) {
+        var bWords = stmtBuilding.split(/\s+/).filter(function(w) { return w.length > 2 })
+        var pWords = propBuilding.split(/\s+/)
+        var bOverlap = bWords.filter(function(w) { return pWords.some(function(pw) { return pw === w }) })
+        if (bOverlap.length >= 2) buildingMatch = true
+      }
+
+      // Unit/flat number matching — the critical part
+      if (stmtNums.size > 0 && propNums.size > 0) {
+        var numberMatch = false
+        stmtNums.forEach(function(n) {
+          if (propNums.has(n)) numberMatch = true
+        })
+        if (numberMatch && buildingMatch) {
+          score += 20  // strong: same building AND same unit number
+        } else if (numberMatch) {
+          score += 8   // number matches but building unclear
+        } else if (buildingMatch) {
+          score -= 3   // same building but WRONG number — penalise
+        }
+      }
 
       if (score > bestScore) { bestScore = score; bestMatch = prop }
     }
