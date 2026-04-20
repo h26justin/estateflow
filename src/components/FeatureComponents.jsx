@@ -833,7 +833,7 @@ export function SettingsPage({companies, companySettings, setCompanySettings, us
                 <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
                   {yieldBasis==='cost'
                     ? 'Calculated using purchase price + refurb cost — shows your return on actual investment.'
-                    : 'Calculated using current property value — shows yield at today's market price.'}
+                    : "Calculated using current property value — shows yield at today's market price."}
                 </div>
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
