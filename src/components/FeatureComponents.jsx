@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import BillingPage from './BillingPage'
 import HelpCenter from './HelpCenter'
+import TrashPage from './TrashPage'
+import BackupsPage from './BackupsPage'
 // Exports: ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -666,8 +668,10 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   const accountTabs = [
     { key: 'account',       label: '👤 Profile' },
     { key: 'security',      label: '🔒 Security & Data' },
+    { key: 'backups',       label: '💾 Backups' },
     { key: 'billing',       label: '💳 Billing' },
     { key: 'navbar',        label: '🧭 Navigation' },
+    { key: 'trash',         label: '🗑 Trash' },
     { key: 'referral',      label: '🎁 Refer a Friend' },
     { key: 'help',          label: '📖 Help & Guides' },
   ]
@@ -1053,6 +1057,14 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           showToast={showToast}
           T={T}
         />
+      )}
+
+      {settingsTab==='trash' && (
+        <TrashPage user={user}/>
+      )}
+
+      {settingsTab==='backups' && (
+        <BackupsPage user={user} showToast={showToast}/>
       )}
 
       {settingsTab==='referral' && (
@@ -3091,15 +3103,17 @@ function SecurityDataPanel({ user, T, showToast }) {
     <div>
       {/* GDPR Data Export */}
       <div style={sectionCard}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your data (GDPR)</div>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>🔒 Your data</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
-          Download a complete copy of all your data — properties, companies, tenancies, rent records, expenses, deals and documents. This is provided in JSON format and satisfies your right to data portability under GDPR.
+          Under GDPR you have the right to data portability and to request deletion of your account. Download your complete data at any time from the Backups tab, or request account deletion here.
+        </div>
+        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 18px', marginBottom: 16, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.8 }}>
+          <div style={{ color: T.green, marginBottom: 6 }}>✓ <strong>Weekly automatic backups</strong> — saved and restorable from the Backups tab</div>
+          <div style={{ color: T.green, marginBottom: 6 }}>✓ <strong>30-day Trash</strong> — deleted items can be restored from the Trash tab</div>
+          <div style={{ color: T.green, marginBottom: 6 }}>✓ <strong>Full audit log</strong> — every change is logged to the audit trail</div>
+          <div style={{ color: T.green }}>✓ <strong>Row-level security</strong> — your data is isolated from other users at the database level</div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button onClick={handleExport} disabled={exporting}
-            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 22px', borderRadius: 8, border: 'none', background: T.gold, color: 'white', cursor: 'pointer' }}>
-            {exporting ? 'Preparing export…' : '↓ Download my data'}
-          </button>
           <button onClick={() => window.open('mailto:hello@ownproperly.com?subject=Data deletion request', '_blank')}
             style={{ fontFamily: mono, fontSize: 12, padding: '10px 22px', borderRadius: 8, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>
             Request account deletion

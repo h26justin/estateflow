@@ -1367,6 +1367,144 @@ export async function fetchDeletedProperties(userId) {
   return data || []
 }
 
+// ── SOFT-DELETE FOR ALL ENTITY TYPES ──────────────────────────────────────────
+// Generic helper: soft-delete any row in any table by ID
+export async function softDeleteEntity(table, id, userId) {
+  const { error } = await supabase.from(table)
+    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function restoreEntity(table, id) {
+  const { error } = await supabase.from(table)
+    .update({ deleted_at: null, deleted_by: null })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// Permanent hard delete (only for admins or from trash after 30 days)
+export async function hardDeleteEntity(table, id) {
+  const { error } = await supabase.from(table).delete().eq('id', id)
+  if (error) throw error
+}
+
+// ── FETCH ALL DELETED ITEMS (for Trash page) ──────────────────────────────────
+export async function fetchAllDeleted(userId) {
+  // Query each table in parallel for deleted rows belonging to the user
+  const safe = (p) => p.then(r => r.data || []).catch(() => [])
+
+  const [props, companies, tenancies, compliance, maintenance, expenses, deals] = await Promise.all([
+    safe(supabase.from('properties').select('id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('companies').select('id, name, abbr, color, deleted_at, deleted_by').eq('owner_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('tenancy_details').select('id, tenant_name, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('compliance_items').select('id, item_type, expiry_date, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('maintenance_jobs').select('id, title, description, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('property_expenses').select('id, description, amount, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('deals').select('id, title, address, deleted_at, deleted_by').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+  ])
+
+  return {
+    properties: props.map(r => ({ ...r, _type: 'properties', _label: 'Property', _name: r.name || r.address })),
+    companies: companies.map(r => ({ ...r, _type: 'companies', _label: 'Company', _name: r.name })),
+    tenancies: tenancies.map(r => ({ ...r, _type: 'tenancy_details', _label: 'Tenancy', _name: `${r.tenant_name || 'Tenant'} @ ${r.property?.name || '—'}` })),
+    compliance: compliance.map(r => ({ ...r, _type: 'compliance_items', _label: 'Certificate', _name: `${r.item_type} @ ${r.property?.name || '—'}` })),
+    maintenance: maintenance.map(r => ({ ...r, _type: 'maintenance_jobs', _label: 'Repair job', _name: `${r.title || r.description} @ ${r.property?.name || '—'}` })),
+    expenses: expenses.map(r => ({ ...r, _type: 'property_expenses', _label: 'Expense', _name: `${r.description} (£${r.amount}) @ ${r.property?.name || '—'}` })),
+    deals: deals.map(r => ({ ...r, _type: 'deals', _label: 'Deal', _name: r.title || r.address })),
+  }
+}
+
+// ── MANUAL BACKUP: downloads complete user data as a single JSON file ─────────
+export async function downloadFullBackup(userId, userEmail) {
+  const data = await exportUserData(userId)
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `ownproperly-backup-${userEmail?.split('@')[0] || userId}-${new Date().toISOString().slice(0,10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  // Log the backup event
+  await logAction(userId, null, 'backup.downloaded', 'backup', null, `Quick backup · ${data.properties?.length || 0} properties`)
+}
+
+// ── BACKUP HISTORY: list all backups for a user ──────────────────────────────
+export async function fetchUserBackups(userId) {
+  const { data, error } = await supabase
+    .from('user_backups')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) throw error
+  return data || []
+}
+
+// ── DOWNLOAD A SPECIFIC BACKUP FROM STORAGE ──────────────────────────────────
+export async function downloadBackupById(backupId, userId) {
+  // Get the storage path
+  const { data: backup, error } = await supabase
+    .from('user_backups')
+    .select('*')
+    .eq('id', backupId)
+    .eq('user_id', userId)
+    .single()
+  if (error) throw error
+
+  // Get a signed URL for the storage file (valid 60 seconds)
+  const { data: urlData, error: urlErr } = await supabase.storage
+    .from('user-backups')
+    .createSignedUrl(backup.storage_path, 60)
+  if (urlErr) throw urlErr
+
+  // Fetch the file and trigger download
+  const resp = await fetch(urlData.signedUrl)
+  if (!resp.ok) throw new Error('Failed to fetch backup file')
+  const blob = await resp.blob()
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `ownproperly-backup-${new Date(backup.created_at).toISOString().slice(0,10)}.json`
+  a.click()
+  URL.revokeObjectURL(a.href)
+
+  await logAction(userId, null, 'backup.downloaded', 'backup', backupId, 'Stored backup')
+  return backup
+}
+
+// ── CREATE A MANUAL BACKUP NOW (via Edge Function) ───────────────────────────
+export async function createManualBackup(userId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user-backups`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token}`,
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ user_id: userId, trigger: 'user_manual' }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Backup failed')
+  return data
+}
+
+// ── DELETE A SPECIFIC BACKUP ─────────────────────────────────────────────────
+export async function deleteBackup(backupId, userId) {
+  // Get storage path
+  const { data: backup } = await supabase
+    .from('user_backups')
+    .select('storage_path')
+    .eq('id', backupId)
+    .eq('user_id', userId)
+    .single()
+  if (backup?.storage_path) {
+    await supabase.storage.from('user-backups').remove([backup.storage_path])
+  }
+  const { error } = await supabase.from('user_backups').delete().eq('id', backupId).eq('user_id', userId)
+  if (error) throw error
+}
+
 // ── GDPR DATA EXPORT ──────────────────────────────────────────────────────────
 export async function exportUserData(userId) {
   const [
