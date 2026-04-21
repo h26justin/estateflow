@@ -632,9 +632,10 @@ export async function fetchOnboardingStatus(userId) {
 // ── ADMIN: CREATE COMPANY FOR A SPECIFIC USER ────────────────────────────────
 export async function adminCreateCompanyForUser(userId, userEmail, name, abbr, color) {
   // Creates a new company owned by a target user (admin action)
+  // Note: owner_email is NOT stored on the companies table — it's derived from user_profiles
   const { data: co, error } = await supabase
     .from('companies')
-    .insert({ name, abbr: (abbr || name.slice(0,3)).toUpperCase(), color: color || '#C8A84B', owner_id: userId, owner_email: userEmail })
+    .insert({ name, abbr: (abbr || name.slice(0,3)).toUpperCase(), color: color || '#C8A84B', owner_id: userId })
     .select()
     .single()
   if (error) throw error
@@ -671,9 +672,11 @@ export async function adminMergeCompanies(sourceCompanyId, targetCompanyId) {
 
 // ── ADMIN: TRANSFER COMPANY OWNERSHIP TO ANOTHER USER ────────────────────────
 export async function adminTransferCompany(companyId, newOwnerId, newOwnerEmail) {
+  // Note: owner_email is NOT stored on the companies table — it's derived from user_profiles
+  // We keep the 3rd parameter for API compatibility but don't write it
   const { error } = await supabase
     .from('companies')
-    .update({ owner_id: newOwnerId, owner_email: newOwnerEmail })
+    .update({ owner_id: newOwnerId })
     .eq('id', companyId)
   if (error) throw error
   return { success: true }
