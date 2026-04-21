@@ -457,6 +457,20 @@ export default function App() {
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  // Developer mode toggle — lets the developer choose to view the site as a regular user would.
+  // Stored in sessionStorage so it persists across page reloads but resets on sign out.
+  const [devModeDisabled, setDevModeDisabledState] = useState(() => {
+    try { return sessionStorage.getItem('ownproperly_dev_mode_off') === '1' } catch(e) { return false }
+  })
+  const setDevModeDisabled = (v) => {
+    try {
+      if (v) sessionStorage.setItem('ownproperly_dev_mode_off', '1')
+      else sessionStorage.removeItem('ownproperly_dev_mode_off')
+    } catch(e) {}
+    setDevModeDisabledState(v)
+  }
+  // Effective "see everything" flag — true if platform admin AND not temporarily disabled
+  const devModeActive = isPlatformAdmin && !devModeDisabled
   // Impersonation: when set, platform admin sees the app filtered to this user's data (read-only)
   const [impersonatingUser, setImpersonatingUser] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
@@ -675,11 +689,14 @@ export default function App() {
         // = owned + shared-access rows
         const accessibleCompanyIds = new Set([...ownedIds, ...accessIds])
 
+        // Check if developer mode is currently active (dev flag + toggle not disabled)
+        const devActive = isPlatformAdminFlag && !devModeDisabled
+
         // Filter companies and properties:
-        //   - Platform admins see EVERYTHING
-        //   - Regular users see only companies they own or have shared access to
-        let visibleCos = isPlatformAdminFlag ? cos : cos.filter(c => accessibleCompanyIds.has(c.id))
-        let visibleProps = isPlatformAdminFlag ? props : props.filter(p => accessibleCompanyIds.has(p.company_id))
+        //   - Developers in active mode see EVERYTHING
+        //   - Regular users (and devs who toggled dev mode off) see only companies they own or have shared access to
+        let visibleCos = devActive ? cos : cos.filter(c => accessibleCompanyIds.has(c.id))
+        let visibleProps = devActive ? props : props.filter(p => accessibleCompanyIds.has(p.company_id))
 
         // If impersonating, filter everything to only that user's data
         if (impersonatingUser) {
@@ -716,14 +733,14 @@ export default function App() {
         try {
           const tenantProfiles = await api.checkIsTenant(user.id)
           const myCompanies = await api.fetchMyCompanies().catch(()=>[])
-          const isLandlord = myCompanies.length > 0 || isPlatformAdminFlag
+          const isLandlord = myCompanies.length > 0 || devActive
           if (tenantProfiles.length > 0 && !isLandlord) { setIsTenant(true); return }
         } catch(e) {}
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
             api.fetchProperties().then(refreshed=>{
-              const vis = isPlatformAdminFlag ? refreshed : refreshed.filter(p=>accessibleCompanyIds.has(p.company_id))
+              const vis = devActive ? refreshed : refreshed.filter(p=>accessibleCompanyIds.has(p.company_id))
               setProperties(vis)
             })
           }
@@ -1079,10 +1096,41 @@ export default function App() {
           </button>
         </div>
       )}
-      {/* ── DEVELOPER MODE BANNER ── */}
+      {/* ── DEVELOPER MODE BANNER (with toggle) ── */}
       {isPlatformAdmin && !impersonatingUser && (
-        <div style={{background:'#1A2530',color:'#C8A84B',padding:'6px 16px',textAlign:'center',fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,letterSpacing:'0.1em',borderBottom:'1px solid #C8A84B44'}}>
-          🔐 DEVELOPER MODE — you see all user data across the platform
+        <div style={{
+          background: devModeActive ? '#1A2530' : '#2a4a2a',
+          color: devModeActive ? '#C8A84B' : '#9ecb9e',
+          padding:'6px 16px',
+          textAlign:'center',
+          fontFamily:"'DM Mono',monospace",
+          fontSize:10,
+          fontWeight:700,
+          letterSpacing:'0.1em',
+          borderBottom: devModeActive ? '1px solid #C8A84B44' : '1px solid #9ecb9e44',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'center',
+          gap:16,
+          flexWrap:'wrap'
+        }}>
+          {devModeActive ? (
+            <>
+              <span>🔐 DEVELOPER MODE — you see all user data across the platform</span>
+              <button onClick={()=>{ setDevModeDisabled(true); window.location.reload() }}
+                style={{background:'#C8A84B',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
+                👤 VIEW AS REGULAR USER
+              </button>
+            </>
+          ) : (
+            <>
+              <span>👤 REGULAR USER VIEW — developer mode is temporarily OFF (showing only your own companies)</span>
+              <button onClick={()=>{ setDevModeDisabled(false); window.location.reload() }}
+                style={{background:'#9ecb9e',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
+                🔐 ENABLE DEVELOPER MODE
+              </button>
+            </>
+          )}
         </div>
       )}
       {/* ── HEADER ── */}
