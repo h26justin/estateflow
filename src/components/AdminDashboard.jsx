@@ -7,21 +7,6 @@ const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',
 const mono = "'DM Mono',monospace"
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-// Helper: get a user's display name from their profile
-function userName(user) {
-  if (!user) return ''
-  const p = user.profile
-  if (p?.first_name && p?.last_name) return `${p.first_name} ${p.last_name}`
-  if (p?.full_name) return p.full_name
-  if (p?.first_name) return p.first_name
-  return ''
-}
-function userInitial(user) {
-  const name = userName(user)
-  if (name) return name[0].toUpperCase()
-  return (user?.email?.[0] || '?').toUpperCase()
-}
-
 const STATUS_CFG = {
   active:    { label:'Active',    bg:'#2ECC8A22', color:'#2ECC8A' },
   trialing:  { label:'Trialing',  bg:'#4B8FE022', color:'#4B8FE0' },
@@ -32,30 +17,7 @@ const STATUS_CFG = {
 
 export default function AdminDashboard({ onClose, user }) {
   const { T } = useTheme()
-  const [tab, setTabInternal] = useState(() => {
-    const h = window.location.hash.replace(/^#\/?/, '')
-    const parts = h.split('/').filter(Boolean)
-    if (parts[0] === 'admin' && parts[1]) return parts[1]
-    return 'revenue'
-  })
-
-  // Sync tab changes to URL
-  const setTab = (newTab) => {
-    setTabInternal(newTab)
-    const target = `#/admin/${newTab}`
-    if (window.location.hash !== target) {
-      window.history.pushState({ view: 'admin', adminTab: newTab }, '', target)
-    }
-  }
-
-  // Listen for URL-driven tab changes (from browser back/forward)
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.detail?.tab) setTabInternal(e.detail.tab)
-    }
-    window.addEventListener('ownproperly:set-admin-tab', handler)
-    return () => window.removeEventListener('ownproperly:set-admin-tab', handler)
-  }, [])
+  const [tab, setTab]             = useState('revenue')
   const [companies, setCompanies] = useState([])
   const [users, setUsers]         = useState([])
   const [accessRows, setAccessRows] = useState([])
@@ -653,7 +615,6 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   const [createCoTarget, setCreateCoTarget] = useState(null)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [transferTarget, setTransferTarget] = useState(null)
-  const [addUserTarget, setAddUserTarget] = useState(null)
   // Password confirmation state
   const [adminAction, setAdminAction] = useState(null)
   const [adminPw, setAdminPw] = useState('')
@@ -707,14 +668,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
 
   const filteredUsers = useMemo(() => {
     if (!search) return users
-    const q = search.toLowerCase()
-    return users.filter(u => {
-      if (u.email?.toLowerCase().includes(q)) return true
-      const name = userName(u).toLowerCase()
-      if (name && name.includes(q)) return true
-      if (u.profile?.phone?.toLowerCase().includes(q)) return true
-      return false
-    })
+    return users.filter(u => u.email?.toLowerCase().includes(search.toLowerCase()))
   }, [users, search])
 
   // Users with NO companies
@@ -782,9 +736,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   }
 
   function exportCSV() {
-    const rows = [['Name','Email','Phone','Companies','Signed up'],...users.map(u=>{
+    const rows = [['Email','Companies','Signed up'],...users.map(u=>{
       const cos = getUserCompanies(u).all.map(c=>c.name).join(', ')
-      return [userName(u), u.email, u.profile?.phone||'', cos, u.created_at?new Date(u.created_at).toLocaleDateString('en-GB'):'']
+      return [u.email, cos, u.created_at?new Date(u.created_at).toLocaleDateString('en-GB'):'']
     })]
     const csv = rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
     const a = document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
@@ -853,9 +807,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:coColor+'22',color:coColor,flexShrink:0}}>{co.abbr}</span>
                     <div style={{minWidth:0}}>
                       <div style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{co.name}</div>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                        {owner ? (userName(owner) ? `${userName(owner)} · ${owner.email}` : owner.email) : (co.owner_email || 'No owner')}
-                      </div>
+                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>{owner?.email || co.owner_email || 'No owner'}</div>
                     </div>
                   </div>
                   <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
@@ -907,7 +859,6 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     <div style={{borderTop:`1px dashed ${T.border}`,paddingTop:14,marginTop:10}}>
                       <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Company actions</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                        <button onClick={()=>setAddUserTarget(co)} style={btnSm(T.blue, T.blue+'11', T.blue+'44')}>+ Add user access</button>
                         <button onClick={()=>{const nm=prompt('New company name:',co.name);if(nm&&nm.trim()){const ab=prompt('New abbreviation:',co.abbr||'');doRenameCompany(co,nm.trim(),ab?.trim()||'')}}} style={btnSm()}>✎ Rename</button>
                         <button onClick={()=>setTransferTarget(co)} style={btnSm()}>↗ Transfer ownership</button>
                         <button onClick={()=>{const d=prompt('Extend trial by how many days?','30');if(d&&!isNaN(+d))doExtendTrial(co,+d)}} style={btnSm()}>⏱ Extend trial</button>
@@ -939,17 +890,12 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               {orphanUsers.map(u => (
                 <div key={u.id} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,padding:'10px 0',borderTop:`1px solid ${T.border}`,alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:10}}>
-                    <div style={{width:30,height:30,borderRadius:15,background:T.amber+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700,color:T.amber}}>
-                      {userInitial(u)}
+                    <div style={{width:28,height:28,borderRadius:14,background:T.amber+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.amber}}>
+                      {(u.email?.[0]||'?').toUpperCase()}
                     </div>
                     <div>
-                      <div style={{fontSize:13,color:T.text,fontWeight:600}}>{userName(u) || u.email}</div>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>
-                        {userName(u) ? u.email : null}
-                        {userName(u) && u.profile?.phone ? ' · ' : ''}
-                        {u.profile?.phone ? u.profile.phone : null}
-                        {!userName(u) && !u.profile?.phone ? `signed up ${u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}` : null}
-                      </div>
+                      <div style={{fontSize:13,color:T.text}}>{u.email}</div>
+                      <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>signed up {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}</div>
                     </div>
                   </div>
                   <div style={{display:'flex',gap:6}}>
@@ -969,35 +915,22 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         <>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14}}>{filteredUsers.length} of {users.length} users</div>
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
-            <div style={{display:'grid',gridTemplateColumns:'1.4fr 220px 110px 280px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-              {['User','Companies','Signed up','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 260px 110px 300px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+              {['Email','Companies','Signed up','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
             {filteredUsers.map(u=>{
               const { all: userCos } = getUserCompanies(u)
               const isMe = u.id===currentUser?.id
               const orphan = userCos.length === 0
-              const name = userName(u)
-              const phone = u?.profile?.phone
               return (
-                <div key={u.id} style={{display:'grid',gridTemplateColumns:'1.4fr 220px 110px 280px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-                    <div style={{width:34,height:34,borderRadius:17,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:13,fontWeight:700,color:orphan?T.amber:T.gold,flexShrink:0}}>
-                      {userInitial(u)}
+                <div key={u.id} style={{display:'grid',gridTemplateColumns:'1fr 260px 110px 300px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div style={{width:30,height:30,borderRadius:15,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700,color:orphan?T.amber:T.gold,flexShrink:0}}>
+                      {(u.email?.[0]||'?').toUpperCase()}
                     </div>
-                    <div style={{minWidth:0,flex:1}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-                        <span style={{fontSize:13,fontWeight:600,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                          {name || u.email}
-                        </span>
-                        {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.gold,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
-                        {orphan&&<span style={{fontFamily:mono,fontSize:9,color:T.amber,background:T.amber+'22',padding:'1px 6px',borderRadius:4}}>orphan</span>}
-                      </div>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                        {name ? u.email : null}
-                        {name && phone ? ' · ' : ''}
-                        {phone ? phone : null}
-                      </div>
-                    </div>
+                    <span style={{fontSize:13,color:T.text}}>{u.email}</span>
+                    {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.gold,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
+                    {orphan&&<span style={{fontFamily:mono,fontSize:9,color:T.amber,background:T.amber+'22',padding:'1px 6px',borderRadius:4}}>orphan</span>}
                   </div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                     {userCos.length===0?<span style={{fontFamily:mono,fontSize:10,color:T.muted}}>None</span>
@@ -1091,41 +1024,22 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         <TransferCompanyModal co={transferTarget} users={users} adminUser={adminUser} onClose={()=>setTransferTarget(null)}
           onTransferred={(coId,newOwnerId,newOwnerEmail)=>{setCompanies(prev=>prev.map(c=>c.id===coId?{...c,owner_id:newOwnerId,owner_email:newOwnerEmail}:c));setTransferTarget(null)}} T={T}/>
       )}
-
-      {/* ── ADD USER ACCESS MODAL ── */}
-      {addUserTarget && (
-        <AddUserAccessModal co={addUserTarget} users={users} accessRows={accessRows} adminUser={adminUser}
-          onClose={()=>setAddUserTarget(null)}
-          onAdded={(newRow)=>{setAccessRows(prev=>[...prev,newRow]);setAddUserTarget(null)}} T={T}/>
-      )}
     </div>
   )
 }
 
 // ── USER ROW (inside expanded company) ─────────────────────────────────────────
 function UserRow({ user, role, co, T, onManageAccess, onReset, onRemove, onDelete }) {
-  const name = userName(user)
-  const phone = user?.profile?.phone
   return (
     <div style={{display:'grid',gridTemplateColumns:'auto 1fr auto',gap:12,padding:'10px 14px',background:T.bg,borderRadius:8,marginBottom:6,alignItems:'center'}}>
-      <div style={{width:32,height:32,borderRadius:16,background:(role==='Owner'?T.gold:T.blue)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700,color:role==='Owner'?T.gold:T.blue}}>
-        {userInitial(user)}
+      <div style={{width:28,height:28,borderRadius:14,background:(role==='Owner'?T.gold:T.blue)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:role==='Owner'?T.gold:T.blue}}>
+        {(user.email?.[0]||'?').toUpperCase()}
       </div>
       <div style={{minWidth:0}}>
-        <div style={{fontSize:13,color:T.text,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-          {name || user.email}
+        <div style={{fontSize:12,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.email}</div>
+        <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:2}}>
+          {role} · signed up {user.created_at?new Date(user.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
         </div>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-          {name ? user.email : null}
-          {name && phone ? ' · ' : ''}
-          {phone ? phone : null}
-          {!name && !phone ? `${role} · signed up ${user.created_at?new Date(user.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}` : null}
-        </div>
-        {(name || phone) && (
-          <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:2}}>
-            {role} · signed up {user.created_at?new Date(user.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
-          </div>
-        )}
       </div>
       <div style={{display:'flex',gap:5}}>
         {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:600}}>Access</button>}
@@ -1309,15 +1223,11 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
         {search && !selectedUser && (
           <div style={{maxHeight:200,overflowY:'auto',marginBottom:12,background:T.bg,borderRadius:8,border:`1px solid ${T.border}`}}>
             {filtered.length===0 ? <div style={{padding:12,fontFamily:mono,fontSize:11,color:T.muted,textAlign:'center'}}>No matching users</div>
-              : filtered.map(u => {
-                const n = userName(u)
-                return (
-                  <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`}}>
-                    {n && <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{n}</div>}
-                    <div style={{fontFamily:mono,fontSize:11,color:n?T.muted:T.text}}>{u.email}</div>
-                  </div>
-                )
-              })}
+              : filtered.map(u => (
+                <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'9px 12px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:12,color:T.text}}>
+                  {u.email}
+                </div>
+              ))}
           </div>
         )}
 
@@ -1338,97 +1248,6 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
         <div style={{display:'flex',gap:10}}>
           <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
           <button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!selectedUser||!pw?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>{saving?'Transferring...':'Transfer ownership'}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── ADD USER ACCESS MODAL (grants a user access to one company) ──────────────
-function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded, T }) {
-  const [search, setSearch] = useState('')
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [pw, setPw] = useState('')
-  const [err, setErr] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  // Exclude users who already have access (owner or shared)
-  const existingUserIds = new Set([
-    ...users.filter(u => u.email === co.owner_email).map(u => u.id),
-    ...accessRows.filter(r => r.company_id === co.id).map(r => r.user_id),
-  ])
-  const filtered = users
-    .filter(u => !existingUserIds.has(u.id))
-    .filter(u => !search || u.email?.toLowerCase().includes(search.toLowerCase()))
-    .slice(0, 8)
-
-  async function submit() {
-    if (!selectedUser) { setErr('Select a user'); return }
-    if (!pw) { setErr('Enter your admin password'); return }
-    setSaving(true); setErr('')
-    try {
-      const { error: authErr } = await supabase.auth.signInWithPassword({ email: adminUser?.email, password: pw })
-      if (authErr) { setErr('Incorrect password'); setSaving(false); return }
-      const { data, error } = await supabase.from('user_company_access').insert({
-        user_id: selectedUser.id,
-        company_id: co.id,
-        email: selectedUser.email,
-      }).select().single()
-      if (error) throw error
-      onAdded(data)
-    } catch(e) { setErr(e.message || 'Failed to add access'); setSaving(false) }
-  }
-
-  return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
-        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Add user access</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.gold}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
-
-        <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
-          <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-        </div>
-
-        {!selectedUser && (
-          <div style={{maxHeight:220,overflowY:'auto',marginBottom:12,background:T.bg,borderRadius:8,border:`1px solid ${T.border}`}}>
-            {filtered.length===0 ? <div style={{padding:14,fontFamily:mono,fontSize:11,color:T.muted,textAlign:'center'}}>{search ? 'No matching users' : 'Start typing to search'}</div>
-              : filtered.map(u => {
-                const n = userName(u)
-                return (
-                  <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:10}}>
-                    <div style={{width:28,height:28,borderRadius:14,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.gold,flexShrink:0}}>
-                      {userInitial(u)}
-                    </div>
-                    <div style={{minWidth:0,flex:1}}>
-                      {n && <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:1}}>{n}</div>}
-                      <div style={{fontFamily:mono,fontSize:11,color:n?T.muted:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{u.email}</div>
-                    </div>
-                  </div>
-                )
-              })}
-          </div>
-        )}
-
-        {selectedUser && (
-          <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span>Grant access to: <strong style={{color:T.gold}}>{selectedUser.email}</strong></span>
-            <button onClick={()=>{setSelectedUser(null);setSearch('')}} style={{background:'none',border:'none',color:T.muted,fontFamily:mono,fontSize:10,cursor:'pointer'}}>change</button>
-          </div>
-        )}
-
-        <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
-            onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
-        </div>
-
-        <div style={{display:'flex',gap:10}}>
-          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!selectedUser||!pw?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>{saving?'Adding...':'Grant access'}</button>
         </div>
       </div>
     </div>

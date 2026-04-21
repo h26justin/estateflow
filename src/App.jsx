@@ -530,90 +530,6 @@ export default function App() {
     return () => window.removeEventListener('ownproperly:restart-tour', handler)
   }, [])
 
-  // ── BROWSER HISTORY INTEGRATION ────────────────────────────────────────────
-  // URLs map to state:
-  //   #/dashboard                         → view=dashboard
-  //   #/properties                        → view=properties, portfolioTab=properties
-  //   #/properties/companies              → view=properties, portfolioTab=companies
-  //   #/rent                              → view=rent
-  //   #/rent/day                          → view=daytracker
-  //   #/detail/<id>                       → view=detail, selectedId=<id>
-  //   #/detail/<id>/<tab>                 → view=detail, selectedId=<id>, detailTab=<tab>
-  //   #/settings                          → view=settings
-  //   #/settings/<tab>                    → view=settings, settingsTab=<tab>
-  //   #/admin/<tab>                       → open admin on a specific tab
-  //   #/<anything-else>                   → view=<anything-else>
-  useEffect(() => {
-    const parseHash = () => {
-      const h = window.location.hash.replace(/^#\/?/, '')
-      if (!h) return { view: 'dashboard' }
-      const parts = h.split('/').filter(Boolean)
-      if (parts[0] === 'detail' && parts[1]) {
-        return { view: 'detail', selectedId: parts[1], detailTab: parts[2] || 'overview' }
-      }
-      if (parts[0] === 'settings') {
-        return { view: 'settings', settingsTab: parts[1] || null }
-      }
-      if (parts[0] === 'admin') {
-        return { view: 'admin', adminTab: parts[1] || null }
-      }
-      if (parts[0] === 'properties' && parts[1] === 'companies') {
-        return { view: 'properties', portfolioTab: 'companies' }
-      }
-      if (parts[0] === 'rent' && parts[1] === 'day') {
-        return { view: 'daytracker' }
-      }
-      return { view: parts[0] || 'dashboard' }
-    }
-
-    // Restore on first load
-    const initial = parseHash()
-    if (initial.view && initial.view !== 'dashboard') setView(initial.view === 'admin' ? 'dashboard' : initial.view)
-    if (initial.selectedId) setSelectedId(initial.selectedId)
-    if (initial.detailTab) setDetailTab(initial.detailTab)
-    if (initial.portfolioTab) setPortfolioTab(initial.portfolioTab)
-    if (initial.view === 'admin') {
-      setShowAdmin(true)
-      if (initial.adminTab) window.dispatchEvent(new CustomEvent('ownproperly:set-admin-tab', { detail: { tab: initial.adminTab } }))
-    }
-    if (initial.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: initial.settingsTab } }))
-
-    // Listen for browser back/forward
-    const handlePopState = () => {
-      const parsed = parseHash()
-      if (parsed.view === 'admin') {
-        setShowAdmin(true)
-        if (parsed.adminTab) window.dispatchEvent(new CustomEvent('ownproperly:set-admin-tab', { detail: { tab: parsed.adminTab } }))
-        return
-      }
-      setShowAdmin(false)
-      setView(parsed.view || 'dashboard')
-      setSelectedId(parsed.selectedId || null)
-      if (parsed.detailTab) setDetailTab(parsed.detailTab)
-      if (parsed.portfolioTab) setPortfolioTab(parsed.portfolioTab)
-      if (parsed.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: parsed.settingsTab } }))
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
-
-  // Sync to URL whenever navigation state changes
-  useEffect(() => {
-    if (!user) return
-    let target = `#/${view}`
-    if (view === 'detail' && selectedId) {
-      target = `#/detail/${selectedId}`
-      if (detailTab && detailTab !== 'overview') target += `/${detailTab}`
-    } else if (view === 'properties' && portfolioTab === 'companies') {
-      target = '#/properties/companies'
-    } else if (view === 'daytracker') {
-      target = '#/rent/day'
-    }
-    if (window.location.hash !== target) {
-      window.history.pushState({ view, selectedId, detailTab, portfolioTab }, '', target)
-    }
-  }, [view, selectedId, detailTab, portfolioTab, user])
-
   useEffect(()=>{
     if (!user) return
     async function loadData() {
@@ -1209,13 +1125,14 @@ export default function App() {
                       <button key={c.id}
                         onClick={()=>setDashCoFilter(prev=>{
                           if(prev.length===0) {
-                            // Was 'all' — switch to just this one
-                            return [c.id]
+                            // Was 'all' — switch to all EXCEPT this one
+                            const next = companies.map(x=>x.id).filter(id=>id!==c.id)
+                            return next.length===0 ? [] : next
                           }
                           if(prev.includes(c.id)) {
-                            // Already selected — deselect. If empty after, go back to 'all'
+                            // Deselect — if that makes it empty, go back to all
                             const next = prev.filter(id=>id!==c.id)
-                            return next
+                            return next.length===0 ? [] : next
                           }
                           // Add to selection
                           const next = [...prev, c.id]
