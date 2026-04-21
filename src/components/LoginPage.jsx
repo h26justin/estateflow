@@ -23,6 +23,9 @@ const CSS = `
 export default function LoginPage({ initialMode = 'login', onClose }) {
   const [mode,     setMode]     = useState(initialMode)
   const [email,    setEmail]    = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName,  setLastName]  = useState('')
+  const [phone,    setPhone]    = useState('')
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
@@ -47,9 +50,34 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
         window.history.replaceState({}, '', window.location.pathname)
       }
     } else {
-      const { error } = await supabase.auth.signUp({ email, password })
+      // Validate required fields
+      if (!firstName.trim() || !lastName.trim()) {
+        setError('Please enter your first and last name')
+        setLoading(false); return
+      }
+      const fullName = `${firstName.trim()} ${lastName.trim()}`
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName, first_name: firstName.trim(), last_name: lastName.trim(), phone: phone.trim() } }
+      })
       if (error) setError(error.message)
-      else setSuccess('Account created! Check your email to confirm, then sign in.')
+      else {
+        // Save profile immediately (in case email confirmation is disabled they can use it right away)
+        if (signUpData?.user?.id) {
+          try {
+            await supabase.from('user_profiles').upsert({
+              user_id: signUpData.user.id,
+              email,
+              full_name: fullName,
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              phone: phone.trim(),
+            }, { onConflict: 'user_id' })
+          } catch(e) { /* profile save failure shouldn't block signup */ }
+        }
+        setSuccess('Account created! Check your email to confirm, then sign in.')
+      }
     }
     setLoading(false)
   }
@@ -78,10 +106,31 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
         </p>
 
         <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {mode==='signup' && (
+            <>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div>
+                  <label className="lp-label">First Name</label>
+                  <input className="lp-input" type="text" value={firstName} required
+                    autoFocus onChange={e=>setFirstName(e.target.value)} placeholder="Jane"/>
+                </div>
+                <div>
+                  <label className="lp-label">Last Name</label>
+                  <input className="lp-input" type="text" value={lastName} required
+                    onChange={e=>setLastName(e.target.value)} placeholder="Smith"/>
+                </div>
+              </div>
+              <div>
+                <label className="lp-label">Phone <span style={{textTransform:'none',letterSpacing:0,fontSize:10,opacity:0.7}}>(optional)</span></label>
+                <input className="lp-input" type="tel" value={phone}
+                  onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 900000"/>
+              </div>
+            </>
+          )}
           <div>
             <label className="lp-label">Email Address</label>
             <input className="lp-input" type="email" value={email} required
-              autoFocus onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/>
+              autoFocus={mode!=='signup'} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/>
           </div>
           <div>
             <label className="lp-label">Password {mode==='signup'&&<span style={{textTransform:'none',letterSpacing:0}}>(min. 8 characters)</span>}</label>

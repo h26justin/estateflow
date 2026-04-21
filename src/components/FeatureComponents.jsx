@@ -523,7 +523,31 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
-  const [settingsTab, setSettingsTab] = useState('account')
+  const [settingsTab, setSettingsTabInternal] = useState(() => {
+    // Initialize from URL hash if it matches a settings route
+    const h = window.location.hash.replace(/^#\/?/, '')
+    const parts = h.split('/').filter(Boolean)
+    if (parts[0] === 'settings' && parts[1]) return parts[1]
+    return 'account'
+  })
+
+  // Wrapper that syncs tab changes to the URL
+  const setSettingsTab = (tab) => {
+    setSettingsTabInternal(tab)
+    const target = `#/settings/${tab}`
+    if (window.location.hash !== target) {
+      window.history.pushState({ view: 'settings', settingsTab: tab }, '', target)
+    }
+  }
+
+  // Listen for URL-driven tab changes (from browser back/forward)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.tab) setSettingsTabInternal(e.detail.tab)
+    }
+    window.addEventListener('ownproperly:set-settings-tab', handler)
+    return () => window.removeEventListener('ownproperly:set-settings-tab', handler)
+  }, [])
 
   // ── Account state ──────────────────────────────────────────────────────────
   const [fullName, setFullName]             = useState('')

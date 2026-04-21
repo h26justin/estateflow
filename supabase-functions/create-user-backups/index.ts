@@ -128,7 +128,8 @@ serve(async (req) => {
     }
 
     // Prune old backups (keep latest 12 per user)
-    await admin.rpc('prune_old_backups').catch(() => {})
+    // Prune old backups (ignore errors — not critical)
+    try { await admin.rpc('prune_old_backups') } catch (_) {}
 
     return new Response(JSON.stringify({ processed: results.length, results }), {
       headers: { 'Content-Type': 'application/json' },

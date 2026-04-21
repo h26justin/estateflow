@@ -385,6 +385,19 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                           <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Gross yield</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grossYield>=6?T.green:grossYield>=4?T.amber:T.red}}>{fmtPct(grossYield)}</div></div>
                           <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Mo. profit</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:monthlyProfit>0?T.green:T.red}}>{fmt(monthlyProfit)}</div></div>
                           <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cash in</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(cashIn)}</div></div>
+                          {(() => {
+                            const scoreData = api.calcDealScore({ ...deal, expected_rent: grossRent })
+                            const scoreColor = scoreData.score >= 70 ? T.green : scoreData.score >= 55 ? T.amber : T.red
+                            return (
+                              <div>
+                                <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Deal score</div>
+                                <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:scoreColor,display:'flex',alignItems:'center',gap:6}}>
+                                  {scoreData.score}/100
+                                  <span style={{fontSize:9,padding:'2px 6px',borderRadius:4,background:scoreColor+'22',color:scoreColor,textTransform:'uppercase'}}>{scoreData.rating}</span>
+                                </div>
+                              </div>
+                            )
+                          })()}
                         </div>
                       </div>
                       <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={e=>e.stopPropagation()}>
@@ -851,6 +864,66 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <ResultRow label="ROCE" value={fmtPct(roce)} color={roce>=8?T.green:roce>=5?T.amber:T.red} T={T}/>
               <ResultRow label="Payback period" value={payback>0?payback.toFixed(1)+' years':'—'} T={T}/>
             </div>
+
+            {/* ── DSCR, STRESS TEST & OVERALL DEAL SCORE ── */}
+            {(() => {
+              const scoreData = api.calcDealScore({ ...form, expected_rent: grossMonthlyRent })
+              const scoreColor = scoreData.score >= 70 ? T.green : scoreData.score >= 55 ? T.amber : T.red
+              const stressData = form.purchase_type === 'cash' ? null : api.calcStressTest(loanAmount, num('mortgage_term') || 25, grossMonthlyRent * 12, num('mortgage_rate') || 5)
+              return (
+                <div style={{background:T.card,border:`2px solid ${scoreColor}44`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
+                    <span style={sect}>🎯 Deal score &amp; stress test</span>
+                    <div style={{display:'flex',alignItems:'center',gap:12}}>
+                      <div style={{fontSize:32,fontWeight:700,color:scoreColor,fontFamily:mono}}>{scoreData.score}</div>
+                      <div>
+                        <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>out of 100</div>
+                        <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:scoreColor,textTransform:'uppercase',background:scoreColor+'22',padding:'2px 10px',borderRadius:4,marginTop:2}}>{scoreData.rating}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Score breakdown */}
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:10,marginBottom:16}}>
+                    {Object.entries(scoreData.breakdown).map(([key, b]) => {
+                      const pct = (b.points / b.max) * 100
+                      const labels = { yield:'Yield', dscr:'DSCR', stress:'Stress test', cash_on_cash:'Cash-on-cash', ltv:'LTV' }
+                      const c = pct >= 80 ? T.green : pct >= 60 ? T.amber : T.red
+                      return (
+                        <div key={key} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
+                          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>{labels[key] || key}</div>
+                          <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.text,marginBottom:4}}>{b.value}</div>
+                          <div style={{height:4,background:T.border,borderRadius:2,overflow:'hidden'}}>
+                            <div style={{width:pct+'%',height:'100%',background:c,transition:'width 0.3s'}}/>
+                          </div>
+                          <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:3}}>{b.points}/{b.max} pts</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Stress test table */}
+                  {stressData && (
+                    <div style={{paddingTop:14,borderTop:`1px solid ${T.border}`}}>
+                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Interest rate stress test (DSCR at higher rates)</div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:8}}>
+                        {stressData.map((row, i) => (
+                          <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px',borderLeft:`3px solid ${row.passes?T.green:T.red}`}}>
+                            <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>@{row.rate}%</div>
+                            <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:row.passes?T.green:T.red,margin:'2px 0'}}>{row.dscr?.toFixed(2) || '—'}</div>
+                            <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>{fmt(row.monthlyPayment)}/mo</div>
+                            <div style={{fontFamily:mono,fontSize:9,color:row.passes?T.green:T.red,fontWeight:700,marginTop:2}}>{row.passes?'✓ PASS':'✕ FAIL'}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.5}}>
+                        Lenders typically require DSCR ≥ 1.25 when stressed at +2% above current rates. A deal that fails the stress test may struggle to get mortgage approval or refinance in the future.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {form.deal_type === 'brrr' && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>

@@ -117,6 +117,142 @@ export async function updateUserAccess(userId, companyId, email, grant) {
     if (error) throw error
   }
 }
+
+// ── ROLE MANAGEMENT ───────────────────────────────────────────────────────────
+// Update a user's role on a company. Role is one of: 'admin','editor','viewer'
+export async function updateUserRole(userId, companyId, role, permissionOverrides = {}) {
+  const validRoles = ['admin','editor','viewer']
+  if (!validRoles.includes(role)) throw new Error('Invalid role: ' + role)
+  const { error } = await supabase.from('user_company_access')
+    .update({ role, permissions: permissionOverrides, is_admin: role === 'admin' })
+    .eq('user_id', userId)
+    .eq('company_id', companyId)
+  if (error) throw error
+}
+
+// ── ROLE DEFAULTS ─────────────────────────────────────────────────────────────
+// Each role has a default set of permissions. These can be overridden per-user
+// via the permissions JSONB column.
+export const ROLE_DEFAULTS = {
+  owner: {
+    // Owner has everything (hardcoded in code, never stored)
+    view_properties: true, edit_properties: true,
+    view_tenancies: true, edit_tenancies: true,
+    view_tenant_personal: true,
+    view_rent: true, edit_rent: true,
+    view_compliance: true, edit_compliance: true,
+    view_maintenance: true, edit_maintenance: true,
+    view_financial: true, edit_financial: true,
+    view_expenses: true, edit_expenses: true,
+    manage_users: true,
+    edit_company_settings: true,
+    delete_company: true,
+    access_billing: true,
+    download_reports: true,
+  },
+  admin: {
+    view_properties: true, edit_properties: true,
+    view_tenancies: true, edit_tenancies: true,
+    view_tenant_personal: true,
+    view_rent: true, edit_rent: true,
+    view_compliance: true, edit_compliance: true,
+    view_maintenance: true, edit_maintenance: true,
+    view_financial: true, edit_financial: true,
+    view_expenses: true, edit_expenses: true,
+    manage_users: true,
+    edit_company_settings: true,
+    delete_company: false,       // only owner
+    access_billing: false,       // only owner
+    download_reports: true,
+  },
+  editor: {
+    view_properties: true, edit_properties: true,
+    view_tenancies: true, edit_tenancies: true,
+    view_tenant_personal: true,
+    view_rent: true, edit_rent: true,
+    view_compliance: true, edit_compliance: true,
+    view_maintenance: true, edit_maintenance: true,
+    view_financial: false, edit_financial: false,    // hidden by default
+    view_expenses: true, edit_expenses: true,
+    manage_users: false,
+    edit_company_settings: false,
+    delete_company: false,
+    access_billing: false,
+    download_reports: true,
+  },
+  viewer: {
+    view_properties: true, edit_properties: false,
+    view_tenancies: true, edit_tenancies: false,
+    view_tenant_personal: false,       // GDPR-friendly default
+    view_rent: true, edit_rent: false,
+    view_compliance: true, edit_compliance: false,
+    view_maintenance: true, edit_maintenance: false,
+    view_financial: false, edit_financial: false,
+    view_expenses: true, edit_expenses: false,
+    manage_users: false,
+    edit_company_settings: false,
+    delete_company: false,
+    access_billing: false,
+    download_reports: true,
+  },
+}
+
+// Friendly labels for each permission key
+export const PERMISSION_LABELS = {
+  view_properties: 'View properties',
+  edit_properties: 'Edit properties',
+  view_tenancies: 'View tenancies',
+  edit_tenancies: 'Edit tenancies',
+  view_tenant_personal: 'View tenant personal data (names, contacts)',
+  view_rent: 'View rent records & arrears',
+  edit_rent: 'Edit rent records',
+  view_compliance: 'View compliance certificates',
+  edit_compliance: 'Add/edit compliance certificates',
+  view_maintenance: 'View maintenance jobs',
+  edit_maintenance: 'Add/edit maintenance jobs',
+  view_financial: 'View financial data (mortgages, equity, yields)',
+  edit_financial: 'Edit financial data',
+  view_expenses: 'View expenses',
+  edit_expenses: 'Add/edit expenses',
+  manage_users: 'Invite/remove users',
+  edit_company_settings: 'Edit company settings & branding',
+  delete_company: 'Delete company / transfer ownership',
+  access_billing: 'Access billing & subscription',
+  download_reports: 'Download reports & exports',
+}
+
+// Permission groups (for organizing the UI)
+export const PERMISSION_GROUPS = [
+  { label: 'Properties', keys: ['view_properties','edit_properties'] },
+  { label: 'Tenancies', keys: ['view_tenancies','edit_tenancies','view_tenant_personal'] },
+  { label: 'Rent', keys: ['view_rent','edit_rent'] },
+  { label: 'Compliance', keys: ['view_compliance','edit_compliance'] },
+  { label: 'Maintenance', keys: ['view_maintenance','edit_maintenance'] },
+  { label: 'Financial', keys: ['view_financial','edit_financial'] },
+  { label: 'Expenses', keys: ['view_expenses','edit_expenses'] },
+  { label: 'Administration', keys: ['manage_users','edit_company_settings','delete_company','access_billing','download_reports'] },
+]
+
+// Resolve a user's effective permissions for a company
+// accessRow can be undefined (non-member), then returns all-false
+// If user is owner (company.owner_id === user.id), returns ROLE_DEFAULTS.owner
+export function getEffectivePermissions(accessRow, isOwner = false) {
+  if (isOwner) return { ...ROLE_DEFAULTS.owner }
+  if (!accessRow) return Object.keys(ROLE_DEFAULTS.admin).reduce((acc,k)=>({...acc,[k]:false}),{})
+  const role = accessRow.role || (accessRow.is_admin ? 'admin' : 'editor')
+  const base = ROLE_DEFAULTS[role] || ROLE_DEFAULTS.editor
+  const overrides = accessRow.permissions || {}
+  return { ...base, ...overrides }
+}
+
+// Check a single permission for a user on a company
+export function hasPermission(accessRow, permissionKey, isOwner = false) {
+  if (isOwner) return true
+  const perms = getEffectivePermissions(accessRow, isOwner)
+  return perms[permissionKey] === true
+}
+
+
 // ── COMPANY SETTINGS ──────────────────────────────────────
 export async function fetchCompanySettings(companyId) {
   const { data, error } = await supabase.from('company_settings').select('*').eq('company_id', companyId).single()
@@ -393,7 +529,19 @@ export async function deleteCompanyDocument(doc) {
 export async function fetchAllUsers() {
   const { data, error } = await supabase.rpc('list_auth_users')
   if (error) throw error
-  return data || []
+  const users = data || []
+  // Enrich with profile data (first_name, last_name, full_name, phone)
+  try {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, first_name, last_name, full_name, phone')
+    if (profiles) {
+      const profileMap = {}
+      profiles.forEach(p => { profileMap[p.user_id] = p })
+      return users.map(u => ({ ...u, profile: profileMap[u.id] || null }))
+    }
+  } catch(e) { /* Fall back to basic user list if profile fetch fails */ }
+  return users
 }
 
 export async function fetchAllAccessRows() {
@@ -620,9 +768,10 @@ export async function fetchOnboardingStatus(userId) {
 // ── ADMIN: CREATE COMPANY FOR A SPECIFIC USER ────────────────────────────────
 export async function adminCreateCompanyForUser(userId, userEmail, name, abbr, color) {
   // Creates a new company owned by a target user (admin action)
+  // Note: owner_email is NOT stored on the companies table — it's derived from user_profiles
   const { data: co, error } = await supabase
     .from('companies')
-    .insert({ name, abbr: (abbr || name.slice(0,3)).toUpperCase(), color: color || '#C8A84B', owner_id: userId, owner_email: userEmail })
+    .insert({ name, abbr: (abbr || name.slice(0,3)).toUpperCase(), color: color || '#C8A84B', owner_id: userId })
     .select()
     .single()
   if (error) throw error
@@ -659,10 +808,32 @@ export async function adminMergeCompanies(sourceCompanyId, targetCompanyId) {
 
 // ── ADMIN: TRANSFER COMPANY OWNERSHIP TO ANOTHER USER ────────────────────────
 export async function adminTransferCompany(companyId, newOwnerId, newOwnerEmail) {
+  // Note: owner_email is NOT stored on the companies table — it's derived from user_profiles
+  // Step 1: Update the company's owner
   const { error } = await supabase
     .from('companies')
-    .update({ owner_id: newOwnerId, owner_email: newOwnerEmail })
+    .update({ owner_id: newOwnerId })
     .eq('id', companyId)
+  if (error) throw error
+
+  // Step 2: Make sure the new owner has an access row with is_admin=true
+  // (Upsert — if they already had shared access it gets promoted to admin; if not it creates a fresh row)
+  try {
+    await supabase.from('user_company_access')
+      .upsert({ user_id: newOwnerId, company_id: companyId, email: newOwnerEmail, is_admin: true },
+              { onConflict: 'user_id,company_id' })
+  } catch (e) { /* Non-fatal — ownership transfer already succeeded */ }
+
+  return { success: true }
+}
+
+// ── TOGGLE ADMIN RIGHTS for a shared user on a single company ────────────────
+export async function setUserCompanyAdmin(userId, companyId, isAdmin) {
+  const { error } = await supabase
+    .from('user_company_access')
+    .update({ is_admin: isAdmin })
+    .eq('user_id', userId)
+    .eq('company_id', companyId)
   if (error) throw error
   return { success: true }
 }
@@ -1871,4 +2042,134 @@ export async function archiveLettingsProgression(id) {
 export async function deleteLettingsProgression(id) {
   const { error } = await supabase.from('lettings_progressions').delete().eq('id', id)
   if (error) throw error
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DEAL SCORING — DSCR, ROI, Stress Test, Overall Score (0-100)
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Debt Service Coverage Ratio: annual rent / annual mortgage payment
+// Lenders typically want 1.25+, stress-tested at 5.5%-6% interest rates
+export function calcDSCR(annualRent, annualMortgagePayment) {
+  if (!annualMortgagePayment || annualMortgagePayment <= 0) return null  // cash purchase
+  return annualRent / annualMortgagePayment
+}
+
+// Stress test: DSCR at higher interest rates
+export function calcStressTest(loanAmount, termYears, annualRent, currentRate) {
+  if (!loanAmount || loanAmount <= 0) return { cash: true }
+  const rates = [currentRate, currentRate + 1, currentRate + 2, currentRate + 3]
+  return rates.map(rate => {
+    // Interest-only mortgage payment approximation (more conservative)
+    const monthlyPayment = (loanAmount * (rate / 100)) / 12
+    const annualPayment = monthlyPayment * 12
+    const dscr = annualPayment > 0 ? annualRent / annualPayment : null
+    return {
+      rate,
+      monthlyPayment,
+      annualPayment,
+      dscr,
+      passes: dscr !== null && dscr >= 1.25,
+    }
+  })
+}
+
+// Cash-on-cash return: annual profit / cash invested
+export function calcCashOnCash(annualProfit, totalCashInvested) {
+  if (!totalCashInvested || totalCashInvested <= 0) return null
+  return (annualProfit / totalCashInvested) * 100
+}
+
+// LTV (loan-to-value) percentage
+export function calcLTV(loanAmount, propertyValue) {
+  if (!propertyValue || propertyValue <= 0) return null
+  return (loanAmount / propertyValue) * 100
+}
+
+// Overall deal score 0-100 — weighted across key metrics
+export function calcDealScore(deal) {
+  const purchasePrice = deal.purchase_price || 0
+  if (purchasePrice <= 0) return { score: 0, breakdown: {}, rating: 'insufficient-data' }
+
+  const grossRentPcm = deal.expected_rent || deal.rent_pcm || 0
+  const annualRent = grossRentPcm * 12
+  const grossYield = (annualRent / purchasePrice) * 100
+
+  const isCash = deal.purchase_type === 'cash'
+  const depositPercent = deal.deposit_percent || 25
+  const loanAmount = isCash ? 0 : purchasePrice * (1 - depositPercent / 100)
+  const mortgageRate = deal.mortgage_rate || 5
+  const annualMortgage = isCash ? 0 : loanAmount * (mortgageRate / 100) // interest-only approx
+
+  const operatingCosts = (deal.insurance || 0) + (deal.maintenance_budget || annualRent * 0.1) + (deal.management_fee_percent ? annualRent * (deal.management_fee_percent / 100) : 0)
+  const annualProfit = annualRent - annualMortgage - operatingCosts
+
+  const sd = deal.stamp_duty_override ?? 0
+  const totalCost = purchasePrice + sd + (deal.legal_fees || 0) + (deal.survey_cost || 0) + (deal.refurb_cost || 0) + (deal.other_costs || 0)
+  const cashIn = isCash ? totalCost : totalCost - loanAmount
+
+  const dscr = calcDSCR(annualRent, annualMortgage)
+  const cashOnCash = calcCashOnCash(annualProfit, cashIn)
+  const ltv = isCash ? 0 : calcLTV(loanAmount, purchasePrice)
+
+  // Stress test — does DSCR at +2% interest still pass?
+  const stressRate = mortgageRate + 2
+  const stressAnnualMortgage = isCash ? 0 : loanAmount * (stressRate / 100)
+  const stressDscr = isCash ? null : annualRent / stressAnnualMortgage
+  const stressPasses = isCash || (stressDscr !== null && stressDscr >= 1.25)
+
+  // Scoring (0-100 weighted)
+  let score = 0
+  const breakdown = {}
+
+  // Gross yield (25 points)
+  const yieldPoints = grossYield >= 10 ? 25 : grossYield >= 8 ? 22 : grossYield >= 6 ? 17 : grossYield >= 5 ? 12 : grossYield >= 4 ? 7 : 2
+  breakdown.yield = { value: grossYield.toFixed(2) + '%', points: yieldPoints, max: 25 }
+  score += yieldPoints
+
+  // DSCR (25 points) — only for mortgaged deals
+  if (!isCash) {
+    const dscrPoints = dscr >= 1.5 ? 25 : dscr >= 1.25 ? 20 : dscr >= 1.1 ? 12 : dscr >= 1.0 ? 5 : 0
+    breakdown.dscr = { value: dscr?.toFixed(2), points: dscrPoints, max: 25 }
+    score += dscrPoints
+  } else {
+    breakdown.dscr = { value: 'Cash (N/A)', points: 25, max: 25 }
+    score += 25
+  }
+
+  // Stress test resilience (20 points)
+  const stressPoints = stressPasses ? 20 : isCash ? 20 : stressDscr >= 1.0 ? 10 : 0
+  breakdown.stress = { value: isCash ? 'Cash (resilient)' : `${stressDscr?.toFixed(2)} @ +2%`, points: stressPoints, max: 20 }
+  score += stressPoints
+
+  // Cash-on-cash return (15 points)
+  const cocPoints = cashOnCash >= 15 ? 15 : cashOnCash >= 10 ? 12 : cashOnCash >= 7 ? 9 : cashOnCash >= 5 ? 6 : cashOnCash >= 3 ? 3 : 0
+  breakdown.cash_on_cash = { value: (cashOnCash || 0).toFixed(1) + '%', points: cocPoints, max: 15 }
+  score += cocPoints
+
+  // LTV (15 points) — lower LTV is safer
+  const ltvPoints = isCash ? 15 : ltv <= 60 ? 15 : ltv <= 70 ? 12 : ltv <= 75 ? 9 : ltv <= 80 ? 5 : 2
+  breakdown.ltv = { value: isCash ? 'Cash (0%)' : ltv?.toFixed(0) + '%', points: ltvPoints, max: 15 }
+  score += ltvPoints
+
+  const rating = score >= 85 ? 'excellent' : score >= 70 ? 'good' : score >= 55 ? 'fair' : score >= 40 ? 'marginal' : 'poor'
+
+  return {
+    score: Math.round(score),
+    rating,
+    breakdown,
+    metrics: {
+      grossYield,
+      dscr,
+      stressDscr,
+      stressPasses,
+      cashOnCash,
+      ltv,
+      annualRent,
+      annualMortgage,
+      annualProfit,
+      cashIn,
+      loanAmount,
+    },
+  }
 }

@@ -457,6 +457,10 @@ export default function App() {
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  // Impersonation: when set, platform admin sees the app filtered to this user's data (read-only)
+  const [impersonatingUser, setImpersonatingUser] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
+  })
   const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
   const [yieldBasis, setYieldBasis]      = useState('cost') // 'cost' = purchase+refurb, 'value' = current value
   const [showLoginModal, setShowLoginModal] = useState(false)
@@ -530,6 +534,90 @@ export default function App() {
     return () => window.removeEventListener('ownproperly:restart-tour', handler)
   }, [])
 
+  // ── BROWSER HISTORY INTEGRATION ────────────────────────────────────────────
+  // URLs map to state:
+  //   #/dashboard                         → view=dashboard
+  //   #/properties                        → view=properties, portfolioTab=properties
+  //   #/properties/companies              → view=properties, portfolioTab=companies
+  //   #/rent                              → view=rent
+  //   #/rent/day                          → view=daytracker
+  //   #/detail/<id>                       → view=detail, selectedId=<id>
+  //   #/detail/<id>/<tab>                 → view=detail, selectedId=<id>, detailTab=<tab>
+  //   #/settings                          → view=settings
+  //   #/settings/<tab>                    → view=settings, settingsTab=<tab>
+  //   #/admin/<tab>                       → open admin on a specific tab
+  //   #/<anything-else>                   → view=<anything-else>
+  useEffect(() => {
+    const parseHash = () => {
+      const h = window.location.hash.replace(/^#\/?/, '')
+      if (!h) return { view: 'dashboard' }
+      const parts = h.split('/').filter(Boolean)
+      if (parts[0] === 'detail' && parts[1]) {
+        return { view: 'detail', selectedId: parts[1], detailTab: parts[2] || 'overview' }
+      }
+      if (parts[0] === 'settings') {
+        return { view: 'settings', settingsTab: parts[1] || null }
+      }
+      if (parts[0] === 'admin') {
+        return { view: 'admin', adminTab: parts[1] || null }
+      }
+      if (parts[0] === 'properties' && parts[1] === 'companies') {
+        return { view: 'properties', portfolioTab: 'companies' }
+      }
+      if (parts[0] === 'rent' && parts[1] === 'day') {
+        return { view: 'daytracker' }
+      }
+      return { view: parts[0] || 'dashboard' }
+    }
+
+    // Restore on first load
+    const initial = parseHash()
+    if (initial.view && initial.view !== 'dashboard') setView(initial.view === 'admin' ? 'dashboard' : initial.view)
+    if (initial.selectedId) setSelectedId(initial.selectedId)
+    if (initial.detailTab) setDetailTab(initial.detailTab)
+    if (initial.portfolioTab) setPortfolioTab(initial.portfolioTab)
+    if (initial.view === 'admin') {
+      setShowAdmin(true)
+      if (initial.adminTab) window.dispatchEvent(new CustomEvent('ownproperly:set-admin-tab', { detail: { tab: initial.adminTab } }))
+    }
+    if (initial.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: initial.settingsTab } }))
+
+    // Listen for browser back/forward
+    const handlePopState = () => {
+      const parsed = parseHash()
+      if (parsed.view === 'admin') {
+        setShowAdmin(true)
+        if (parsed.adminTab) window.dispatchEvent(new CustomEvent('ownproperly:set-admin-tab', { detail: { tab: parsed.adminTab } }))
+        return
+      }
+      setShowAdmin(false)
+      setView(parsed.view || 'dashboard')
+      setSelectedId(parsed.selectedId || null)
+      if (parsed.detailTab) setDetailTab(parsed.detailTab)
+      if (parsed.portfolioTab) setPortfolioTab(parsed.portfolioTab)
+      if (parsed.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: parsed.settingsTab } }))
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  // Sync to URL whenever navigation state changes
+  useEffect(() => {
+    if (!user) return
+    let target = `#/${view}`
+    if (view === 'detail' && selectedId) {
+      target = `#/detail/${selectedId}`
+      if (detailTab && detailTab !== 'overview') target += `/${detailTab}`
+    } else if (view === 'properties' && portfolioTab === 'companies') {
+      target = '#/properties/companies'
+    } else if (view === 'daytracker') {
+      target = '#/rent/day'
+    }
+    if (window.location.hash !== target) {
+      window.history.pushState({ view, selectedId, detailTab, portfolioTab }, '', target)
+    }
+  }, [view, selectedId, detailTab, portfolioTab, user])
+
   useEffect(()=>{
     if (!user) return
     async function loadData() {
@@ -549,7 +637,9 @@ export default function App() {
         }
         const access = allAccess
         const accessIds = access.map(a=>a.company_id)
-        const isAdminUser = access.some(a=>a.is_admin || a.is_owner)
+        // A user is "admin" if any of their access rows has is_admin OR they own any company
+        const ownedCompanies = cos.filter(c => c.owner_id === user.id)
+        const isAdminUser = access.some(a=>a.is_admin || a.is_owner) || ownedCompanies.length > 0
         setIsAdmin(isAdminUser)
         setUserAccess(accessIds)
         // Load user's saved theme preference from Supabase
@@ -570,7 +660,23 @@ export default function App() {
         const onboarded = await api.fetchOnboardingStatus(user.id)
         if (!onboarded) setShowTour(true)
         const visibleCos   = cos
-        const visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
+        let visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
+
+        // If impersonating, filter everything to only that user's data
+        if (impersonatingUser) {
+          try {
+            const [targetAccess, targetAccessEmail] = await Promise.all([
+              api.fetchUserAccess(impersonatingUser.id),
+              api.fetchUserAccessByEmail(impersonatingUser.email)
+            ])
+            const targetCompanyIds = new Set([
+              ...cos.filter(c => c.owner_id === impersonatingUser.id).map(c => c.id),
+              ...targetAccess.map(a => a.company_id),
+              ...targetAccessEmail.map(a => a.company_id),
+            ])
+            visibleProps = props.filter(p => targetCompanyIds.has(p.company_id))
+          } catch(e) { console.error('Impersonation filter failed', e) }
+        }
         setCompanies(visibleCos)
         setProperties(visibleProps)
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
@@ -939,6 +1045,19 @@ export default function App() {
   return (
     <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
       <style>{CSS}</style>
+      {/* ── IMPERSONATION BANNER ── */}
+      {impersonatingUser && (
+        <div style={{background:'#8B1F1F',color:'white',padding:'10px 16px',textAlign:'center',fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:600,position:'sticky',top:0,zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',gap:16,flexWrap:'wrap'}}>
+          <span>🎭 <strong>Impersonating {impersonatingUser.name || impersonatingUser.email}</strong> — viewing their data (read-only for safety)</span>
+          <button onClick={()=>{
+            sessionStorage.removeItem('ownproperly_impersonate')
+            setImpersonatingUser(null)
+            window.location.reload()
+          }} style={{background:'white',color:'#8B1F1F',border:'none',padding:'5px 14px',borderRadius:5,fontFamily:'inherit',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+            ✕ Stop impersonating
+          </button>
+        </div>
+      )}
       {/* ── HEADER ── */}
       <a href='#main-content' style={{position:'absolute',left:'-9999px',top:'auto',width:1,height:1,overflow:'hidden'}} onFocus={e=>{e.target.style.left='16px';e.target.style.width='auto';e.target.style.height='auto'}} onBlur={e=>{e.target.style.left='-9999px';e.target.style.width='1px';e.target.style.height='1px'}}>Skip to main content</a>
       <header role='banner' style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
@@ -1125,14 +1244,13 @@ export default function App() {
                       <button key={c.id}
                         onClick={()=>setDashCoFilter(prev=>{
                           if(prev.length===0) {
-                            // Was 'all' — switch to all EXCEPT this one
-                            const next = companies.map(x=>x.id).filter(id=>id!==c.id)
-                            return next.length===0 ? [] : next
+                            // Was 'all' — switch to just this one
+                            return [c.id]
                           }
                           if(prev.includes(c.id)) {
-                            // Deselect — if that makes it empty, go back to all
+                            // Already selected — deselect. If empty after, go back to 'all'
                             const next = prev.filter(id=>id!==c.id)
-                            return next.length===0 ? [] : next
+                            return next
                           }
                           // Add to selection
                           const next = [...prev, c.id]
