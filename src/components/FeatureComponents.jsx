@@ -710,7 +710,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     { key: 'display',       label: '🖥 Display' },
     { key: 'reporting',     label: '📅 Reporting' },
     { key: 'team',          label: '👥 Team & Access' },
-    ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Platform Admin' }] : []),
+    ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Developer' }] : []),
   ]
   const settingsTabs = [...accountTabs, ...portfolioTabs, ...preferencesTabs]
 
@@ -1869,17 +1869,27 @@ function AccessModal({companies, onClose, showToast}) {
         api.fetchAllUsers().catch(()=>[]),
         api.fetchAllAccessRows().catch(()=>[])
       ])
+      // SECURITY: filter access rows to only those on companies the current user has shared
+      const myCompanyIds = new Set((companies || []).map(c => c.id))
+      const relevantRows = rows.filter(r => myCompanyIds.has(r.company_id))
+
       const map = {}
-      rows.forEach(row => {
+      relevantRows.forEach(row => {
         if (!map[row.user_id]) map[row.user_id] = []
         if (row.company_id) map[row.user_id].push(row.company_id)
       })
       setAccess(map)
-      if (authUsers.length > 0) {
-        setUsers(authUsers.map(u => ({ id: u.id, email: u.email })))
+
+      // Only show users who ALREADY have access to one of my companies.
+      // Do NOT expose the platform-wide user list to non-platform-admins.
+      const allowedUserIds = new Set(relevantRows.map(r => r.user_id))
+      const filteredUsers = authUsers.filter(u => allowedUserIds.has(u.id))
+
+      if (filteredUsers.length > 0) {
+        setUsers(filteredUsers.map(u => ({ id: u.id, email: u.email })))
       } else {
         const fromRows = {}
-        rows.forEach(row => {
+        relevantRows.forEach(row => {
           if (!fromRows[row.user_id]) fromRows[row.user_id] = { id: row.user_id, email: row.email || row.user_id }
         })
         setUsers(Object.values(fromRows))

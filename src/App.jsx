@@ -637,11 +637,23 @@ export default function App() {
         }
         const access = allAccess
         const accessIds = access.map(a=>a.company_id)
-        // A user is "admin" if any of their access rows has is_admin OR they own any company
+        // "isAdmin" here means "can see data for their companies" — NOT "can see all companies"
+        // Only platform_admin should bypass filtering (handled separately below)
         const ownedCompanies = cos.filter(c => c.owner_id === user.id)
+        const ownedIds = ownedCompanies.map(c => c.id)
+        // A user has access to companies they own OR have been granted access to
         const isAdminUser = access.some(a=>a.is_admin || a.is_owner) || ownedCompanies.length > 0
         setIsAdmin(isAdminUser)
         setUserAccess(accessIds)
+
+        // Check developer status EARLY — developers see everything (site owner / devs only)
+        let isPlatformAdminFlag = false
+        try {
+          const { data: profileData } = await supabase.from('user_profiles').select('is_developer, platform_admin').eq('user_id', user.id).single()
+          // Accept either is_developer (new) or platform_admin (legacy) for backwards compat
+          isPlatformAdminFlag = profileData?.is_developer === true || profileData?.platform_admin === true
+          setIsPlatformAdmin(isPlatformAdminFlag)
+        } catch(e) { setIsPlatformAdmin(false) }
         // Load user's saved theme preference from Supabase
         await loadUserTheme(user.id, user.email)
         // Load nav preferences
@@ -659,8 +671,15 @@ export default function App() {
         // Check if new user needs onboarding tour
         const onboarded = await api.fetchOnboardingStatus(user.id)
         if (!onboarded) setShowTour(true)
-        const visibleCos   = cos
-        let visibleProps = isAdminUser ? props : props.filter(p=>accessIds.includes(p.company_id))
+        // Build the set of company IDs this user has access to
+        // = owned + shared-access rows
+        const accessibleCompanyIds = new Set([...ownedIds, ...accessIds])
+
+        // Filter companies and properties:
+        //   - Platform admins see EVERYTHING
+        //   - Regular users see only companies they own or have shared access to
+        let visibleCos = isPlatformAdminFlag ? cos : cos.filter(c => accessibleCompanyIds.has(c.id))
+        let visibleProps = isPlatformAdminFlag ? props : props.filter(p => accessibleCompanyIds.has(p.company_id))
 
         // If impersonating, filter everything to only that user's data
         if (impersonatingUser) {
@@ -683,11 +702,6 @@ export default function App() {
         // Show onboarding for brand new users with no companies
         if (visibleCos.length === 0) setShowOnboarding(true)
         try { api.sendOnboardingEmail(user.email, '', 'welcome').catch(()=>{}) } catch(e) {}
-        // Check platform admin
-        try {
-          const { data: profileData } = await supabase.from('user_profiles').select('platform_admin').eq('user_id', user.id).single()
-          setIsPlatformAdmin(profileData?.platform_admin === true)
-        } catch(e) { setIsPlatformAdmin(false) }
         // Check for tenant invite link param
         const urlParams = new URLSearchParams(window.location.search)
         const tenantPropertyId = urlParams.get('tenant_property')
@@ -702,14 +716,14 @@ export default function App() {
         try {
           const tenantProfiles = await api.checkIsTenant(user.id)
           const myCompanies = await api.fetchMyCompanies().catch(()=>[])
-          const isLandlord = myCompanies.length > 0 || profileData?.platform_admin
+          const isLandlord = myCompanies.length > 0 || isPlatformAdminFlag
           if (tenantProfiles.length > 0 && !isLandlord) { setIsTenant(true); return }
         } catch(e) {}
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
             api.fetchProperties().then(refreshed=>{
-              const vis = isAdminUser ? refreshed : refreshed.filter(p=>accessIds.includes(p.company_id))
+              const vis = isPlatformAdminFlag ? refreshed : refreshed.filter(p=>accessibleCompanyIds.has(p.company_id))
               setProperties(vis)
             })
           }
@@ -726,12 +740,11 @@ export default function App() {
         })
         setCompanySettings(settingsMap)
       } catch(e) {
-        
-        setIsAdmin(true)
-        const [cos, props] = await Promise.all([api.fetchCompanies(), api.fetchProperties()])
-        setCompanies(cos)
-        setProperties(props)
-        if(cos.length>0) setActiveCoTab(cos[0].id)
+        // Data load failed — DO NOT fall back to showing everything. Show an error state.
+        console.error('Data load failed:', e)
+        setCompanies([])
+        setProperties([])
+        setIsAdmin(false)
       } finally {
         setLoading(false)
       }
@@ -743,9 +756,17 @@ export default function App() {
   const refreshData = useCallback(async () => {
     try {
       const props = await api.fetchProperties()
-      setProperties(props)
+      // Apply same access filter — use userAccess + owned
+      const { data: ownedCos } = await supabase.from('companies').select('id').eq('owner_id', user.id)
+      const ownedIds = (ownedCos || []).map(c => c.id)
+      const accessibleIds = new Set([...ownedIds, ...userAccess])
+      if (isPlatformAdmin) {
+        setProperties(props)
+      } else {
+        setProperties(props.filter(p => accessibleIds.has(p.company_id)))
+      }
     } catch(e) {}
-  }, [])
+  }, [userAccess, isPlatformAdmin, user])
 
   const filtered = useMemo(()=>{
     const f = properties.filter(p=>{
@@ -1056,6 +1077,12 @@ export default function App() {
           }} style={{background:'white',color:'#8B1F1F',border:'none',padding:'5px 14px',borderRadius:5,fontFamily:'inherit',fontSize:11,fontWeight:700,cursor:'pointer'}}>
             ✕ Stop impersonating
           </button>
+        </div>
+      )}
+      {/* ── DEVELOPER MODE BANNER ── */}
+      {isPlatformAdmin && !impersonatingUser && (
+        <div style={{background:'#1A2530',color:'#C8A84B',padding:'6px 16px',textAlign:'center',fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,letterSpacing:'0.1em',borderBottom:'1px solid #C8A84B44'}}>
+          🔐 DEVELOPER MODE — you see all user data across the platform
         </div>
       )}
       {/* ── HEADER ── */}
@@ -1486,6 +1513,15 @@ export default function App() {
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
+
+          {view==='detail'&&!selected&&<div className="fade" style={{padding:40,textAlign:'center'}}>
+            <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+            <h2 style={{fontSize:20,color:T.text,marginBottom:8}}>Property not found</h2>
+            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,marginBottom:20}}>
+              This property doesn't exist or you don't have access to it.
+            </p>
+            <button className="btn btn-gold" onClick={()=>{setView('properties');setSelectedId(null)}}>&lt;- Back to Properties</button>
+          </div>}
 
           {view==='detail'&&selected&&<div className="fade">
             <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>&lt;- Back</button>

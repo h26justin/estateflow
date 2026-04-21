@@ -667,12 +667,12 @@ export async function deleteInvitation(id) {
   if (error) throw error
 }
 
-// ── PLATFORM ADMIN ────────────────────────────────────────────────────────────
+// ── DEVELOPER / PLATFORM ADMIN ────────────────────────────────────────────────
 export async function fetchIsPlatformAdmin() {
   try {
     const { data } = await supabase.from('user_profiles')
-      .select('platform_admin').eq('user_id', (await supabase.auth.getUser()).data.user.id).single()
-    return data?.platform_admin === true
+      .select('is_developer, platform_admin').eq('user_id', (await supabase.auth.getUser()).data.user.id).single()
+    return data?.is_developer === true || data?.platform_admin === true
   } catch(e) { return false }
 }
 
