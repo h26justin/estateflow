@@ -174,6 +174,7 @@ export default function AdminDashboard({ onClose, user }) {
             {tab==='users'&&(
               <UsersTab users={users} companies={companies} currentUser={currentUser}
                 accessRows={accessRows} setAccessRows={setAccessRows}
+                setCompanies={setCompanies} adminUser={user} fmt={fmt}
                 onDelete={u=>{setDeleteTarget(u);setDeletePassword('');setDeleteError('')}}
                 T={T}/>
             )}
@@ -605,14 +606,39 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
 // ═══════════════════════════════════════════════════════════════════════════════
 // USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
-function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, onDelete, T }) {
+function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, setCompanies, adminUser, fmt, onDelete, T }) {
+  const [view, setView] = useState('by-company')
   const [search, setSearch] = useState('')
+  const [expandedCompanies, setExpandedCompanies] = useState(new Set())
   const [accessTarget, setAccessTarget] = useState(null)
   const [resetConfirm, setResetConfirm] = useState(null)
-  const filtered = users.filter(u=>!search||u.email?.toLowerCase().includes(search.toLowerCase()))
+  const [createCoTarget, setCreateCoTarget] = useState(null)
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [transferTarget, setTransferTarget] = useState(null)
+  // Password confirmation state
+  const [adminAction, setAdminAction] = useState(null)
+  const [adminPw, setAdminPw] = useState('')
+  const [adminPwErr, setAdminPwErr] = useState('')
+  const [adminRunning, setAdminRunning] = useState(false)
 
-  // Build a map: userId -> Set of accessible companyIds
-  // Includes owned (via owner_email) + shared (via user_company_access rows)
+  async function confirmAdminAction() {
+    if (!adminPw) { setAdminPwErr('Enter your admin password'); return }
+    setAdminRunning(true); setAdminPwErr('')
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: adminUser?.email, password: adminPw })
+      if (error) { setAdminPwErr('Incorrect password'); setAdminRunning(false); return }
+      await adminAction.fn()
+      setAdminAction(null); setAdminPw('')
+    } catch(e) { setAdminPwErr(e.message || 'Action failed') }
+    setAdminRunning(false)
+  }
+
+  function requireConfirm(label, desc, fn, danger=false) {
+    setAdminAction({ label, desc, danger, fn })
+    setAdminPw(''); setAdminPwErr('')
+  }
+
+  // Build a map: userId -> { owned, shared, all }
   function getUserCompanies(user) {
     const owned = companies.filter(c => c.owner_email === user.email)
     const sharedIds = new Set(accessRows.filter(r => r.user_id === user.id).map(r => r.company_id))
@@ -620,10 +646,93 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, on
     return { owned, shared, all: [...owned, ...shared] }
   }
 
+  // Build a map: companyId -> { owner, shared: [] }
+  function getCompanyUsers(company) {
+    const owner = users.find(u => u.email === company.owner_email) || null
+    const sharedIds = new Set(accessRows.filter(r => r.company_id === company.id).map(r => r.user_id))
+    const sharedUsers = users.filter(u => sharedIds.has(u.id) && u.email !== company.owner_email)
+    return { owner, shared: sharedUsers }
+  }
+
+  const filteredCompanies = useMemo(() => {
+    if (!search) return companies
+    const q = search.toLowerCase()
+    return companies.filter(c => {
+      if (c.name?.toLowerCase().includes(q)) return true
+      if (c.abbr?.toLowerCase().includes(q)) return true
+      if (c.owner_email?.toLowerCase().includes(q)) return true
+      const { shared } = getCompanyUsers(c)
+      return shared.some(u => u.email?.toLowerCase().includes(q))
+    })
+  }, [companies, search, users, accessRows])
+
+  const filteredUsers = useMemo(() => {
+    if (!search) return users
+    return users.filter(u => u.email?.toLowerCase().includes(search.toLowerCase()))
+  }, [users, search])
+
+  // Users with NO companies
+  const orphanUsers = useMemo(() => users.filter(u => getUserCompanies(u).all.length === 0), [users, companies, accessRows])
+
   async function sendReset(email) {
     await supabase.auth.resetPasswordForEmail(email)
     setResetConfirm(null)
     alert(`Password reset email sent to ${email}`)
+  }
+
+  function toggleExpand(coId) {
+    setExpandedCompanies(prev => {
+      const next = new Set(prev)
+      if (next.has(coId)) next.delete(coId); else next.add(coId)
+      return next
+    })
+  }
+
+  function expandAll() { setExpandedCompanies(new Set(filteredCompanies.map(c => c.id))) }
+  function collapseAll() { setExpandedCompanies(new Set()) }
+
+  // ── ADMIN ACTIONS ─────────────────────────────────────────────────────────
+  async function doRenameCompany(co, newName, newAbbr) {
+    requireConfirm('Rename company', `Rename "${co.name}" to "${newName}"`, async () => {
+      const abbr = (newAbbr || newName.slice(0,3)).toUpperCase().slice(0,5)
+      await api.updateCompany(co.id, { name: newName, abbr })
+      setCompanies(prev => prev.map(c => c.id===co.id ? { ...c, name: newName, abbr } : c))
+    })
+  }
+
+  async function doDeleteCompany(co) {
+    requireConfirm('Delete company', `Permanently delete "${co.name}" and all its properties, rent data, compliance records and documents. This cannot be undone.`, async () => {
+      await api.deleteCompany(co.id)
+      setCompanies(prev => prev.filter(c => c.id !== co.id))
+    }, true)
+  }
+
+  async function doToggleFreeTier(co) {
+    requireConfirm(co.is_free_tier ? 'Remove free tier' : 'Grant free tier', co.is_free_tier ? `Remove free tier status from "${co.name}". They will need an active subscription.` : `Grant free tier status to "${co.name}". They will not be billed.`, async () => {
+      await api.setCompanyFreeTier(co.id, !co.is_free_tier)
+      setCompanies(prev => prev.map(c => c.id===co.id ? { ...c, is_free_tier: !co.is_free_tier } : c))
+    })
+  }
+
+  async function doToggleFlag(co) {
+    requireConfirm(co.flagged ? 'Unflag account' : 'Flag account', co.flagged ? `Remove flag from "${co.name}".` : `Flag "${co.name}" for admin review.`, async () => {
+      await api.setCompanyFlag(co.id, !co.flagged)
+      setCompanies(prev => prev.map(c => c.id===co.id ? { ...c, flagged: !co.flagged } : c))
+    })
+  }
+
+  async function doExtendTrial(co, days) {
+    requireConfirm('Extend trial', `Extend the trial for "${co.name}" by ${days} days.`, async () => {
+      await api.extendTrial(co.id, days)
+      alert(`Trial extended by ${days} days`)
+    })
+  }
+
+  async function doRemoveUserFromCompany(userToRemove, co) {
+    requireConfirm('Remove access', `Remove access to "${co.name}" from ${userToRemove.email}.`, async () => {
+      await supabase.from('user_company_access').delete().eq('user_id', userToRemove.id).eq('company_id', co.id)
+      setAccessRows(prev => prev.filter(r => !(r.user_id===userToRemove.id && r.company_id===co.id)))
+    })
   }
 
   function exportCSV() {
@@ -631,53 +740,250 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, on
       const cos = getUserCompanies(u).all.map(c=>c.name).join(', ')
       return [u.email, cos, u.created_at?new Date(u.created_at).toLocaleDateString('en-GB'):'']
     })]
-    const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')
+    const csv = rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
     const a = document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
     a.download='ownproperly-users.csv'; a.click()
   }
 
+  // ── PILLS AND HELPERS ─────────────────────────────────────────────────────
+  const statusPill = (co) => {
+    const status = co.is_free_tier ? 'free' : (co.subscriptions?.[0]?.status || 'trialing')
+    const cfg = { active:{bg:T.green+'22',c:T.green,l:'Active'}, trialing:{bg:T.amber+'22',c:T.amber,l:'Trial'}, free:{bg:T.gold+'22',c:T.gold,l:'Free'}, past_due:{bg:T.red+'22',c:T.red,l:'Past due'}, canceled:{bg:T.muted+'22',c:T.muted,l:'Canceled'} }[status] || {bg:T.muted+'22',c:T.muted,l:status}
+    return <span style={{fontFamily:mono,fontSize:10,background:cfg.bg,color:cfg.c,padding:'2px 8px',borderRadius:10,fontWeight:700}}>{cfg.l}</span>
+  }
+
+  const btnSm = (color, bg, border) => ({fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${border||T.border}`,background:bg||'transparent',color:color||T.muted,fontWeight:600})
+
   return (
     <div>
-      <div style={{display:'flex',gap:10,marginBottom:20,justifyContent:'space-between',flexWrap:'wrap'}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by email…"
+      {/* ── TOP BAR: search + view toggle + global actions ── */}
+      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by company, email, or abbreviation…"
           style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px',outline:'none'}}/>
-        <button onClick={exportCSV} style={{fontFamily:mono,fontSize:11,padding:'8px 16px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>↓ Export CSV</button>
-      </div>
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 220px 110px 260px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-          {['Email','Companies','Signed up','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+        <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:2,gap:2}}>
+          {[['by-company','🏢 By company'],['by-user','👤 By user']].map(([k,l])=>(
+            <button key={k} onClick={()=>setView(k)}
+              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.gold:T.muted,fontWeight:view===k?700:400}}>
+              {l}
+            </button>
+          ))}
         </div>
-        {filtered.map(u=>{
-          const { all: userCos } = getUserCompanies(u)
-          const isMe = u.id===currentUser?.id
-          return (
-            <div key={u.id} style={{display:'grid',gridTemplateColumns:'1fr 220px 110px 260px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:30,height:30,borderRadius:15,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold,flexShrink:0}}>
-                  {(u.email?.[0]||'?').toUpperCase()}
-                </div>
-                <span style={{fontSize:13,color:T.text}}>{u.email}</span>
-                {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.gold,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
-              </div>
-              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                {userCos.length===0?<span style={{fontFamily:mono,fontSize:10,color:T.muted}}>None</span>
-                  :userCos.slice(0,3).map(co=><span key={co.id} style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>)}
-                {userCos.length>3&&<span style={{fontFamily:mono,fontSize:10,color:T.muted}}>+{userCos.length-3}</span>}
-              </div>
-              <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
-                {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
-              </div>
-              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                <button onClick={()=>setAccessTarget(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:700}}>Manage access</button>
-                <button onClick={()=>setResetConfirm(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset pwd</button>
-                {!isMe&&<button onClick={()=>onDelete(u)} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Delete</button>}
-              </div>
-            </div>
-          )
-        })}
+        <button onClick={()=>setMergeOpen(true)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>⚡ Merge companies</button>
+        <button onClick={exportCSV} style={btnSm()}>↓ Export CSV</button>
       </div>
-      <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:10}}>{filtered.length} of {users.length} users</div>
 
+      {/* ── BY COMPANY VIEW ── */}
+      {view==='by-company' && (
+        <>
+          <div style={{display:'flex',gap:8,marginBottom:14,alignItems:'center'}}>
+            <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{filteredCompanies.length} {filteredCompanies.length===1?'company':'companies'}</span>
+            <div style={{flex:1}}/>
+            <button onClick={expandAll} style={btnSm()}>Expand all</button>
+            <button onClick={collapseAll} style={btnSm()}>Collapse all</button>
+          </div>
+
+          {filteredCompanies.length===0 && (
+            <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'40px 20px',textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
+              No companies match your search.
+            </div>
+          )}
+
+          {filteredCompanies.map(co => {
+            const { owner, shared } = getCompanyUsers(co)
+            const isOpen = expandedCompanies.has(co.id)
+            const props = co.real_property_count || 0
+            const mrr = (co.subscriptions?.[0]?.status==='active') ? props * 2 : 0
+            const coColor = co.color || '#C8A84B'
+
+            return (
+              <div key={co.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:12,overflow:'hidden',borderLeft:`4px solid ${coColor}`}}>
+                {/* Company header row */}
+                <div onClick={()=>toggleExpand(co.id)}
+                  style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto auto',gap:14,padding:'14px 20px',cursor:'pointer',alignItems:'center',background:isOpen?T.bg:'transparent'}}>
+                  <span style={{fontFamily:mono,fontSize:12,color:isOpen?T.gold:T.faint,fontWeight:700}}>
+                    {isOpen ? '▼' : '▶'}
+                  </span>
+                  <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}>
+                    <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:coColor+'22',color:coColor,flexShrink:0}}>{co.abbr}</span>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{co.name}</div>
+                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>{owner?.email || co.owner_email || 'No owner'}</div>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+                    <div style={{fontFamily:mono,fontSize:11,color:T.text,fontWeight:700}}>{props} {props===1?'prop':'props'}</div>
+                    <div style={{fontFamily:mono,fontSize:10,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr)+'/mo':'—'}</div>
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                    {statusPill(co)}
+                    {co.flagged && <span style={{fontFamily:mono,fontSize:10,color:T.red}}>⚑</span>}
+                    {shared.length>0 && <span style={{fontFamily:mono,fontSize:10,color:T.muted,background:T.bg,padding:'2px 8px',borderRadius:10}}>+{shared.length}</span>}
+                  </div>
+                </div>
+
+                {/* Expanded: users + admin actions */}
+                {isOpen && (
+                  <div style={{padding:'16px 20px 20px',borderTop:`1px solid ${T.border}`}}>
+                    {/* OWNER */}
+                    {owner && (
+                      <div style={{marginBottom:14}}>
+                        <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Owner</div>
+                        <UserRow user={owner} role="Owner" co={co} T={T}
+                          onManageAccess={()=>setAccessTarget(owner)}
+                          onReset={()=>setResetConfirm(owner)}
+                          onDelete={owner.id===currentUser?.id ? null : ()=>onDelete(owner)}
+                          onRemove={null}/>
+                      </div>
+                    )}
+                    {!owner && co.owner_email && (
+                      <div style={{marginBottom:14,fontFamily:mono,fontSize:11,color:T.muted,padding:'10px 14px',background:T.bg,borderRadius:8}}>
+                        Owner email: {co.owner_email} <span style={{color:T.red}}>(user not found)</span>
+                      </div>
+                    )}
+
+                    {/* SHARED USERS */}
+                    {shared.length>0 && (
+                      <div style={{marginBottom:14}}>
+                        <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Shared access ({shared.length})</div>
+                        {shared.map(u=>(
+                          <UserRow key={u.id} user={u} role="Shared" co={co} T={T}
+                            onManageAccess={()=>setAccessTarget(u)}
+                            onReset={()=>setResetConfirm(u)}
+                            onRemove={()=>doRemoveUserFromCompany(u, co)}
+                            onDelete={u.id===currentUser?.id ? null : ()=>onDelete(u)}/>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* COMPANY ADMIN ACTIONS */}
+                    <div style={{borderTop:`1px dashed ${T.border}`,paddingTop:14,marginTop:10}}>
+                      <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Company actions</div>
+                      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                        <button onClick={()=>{const nm=prompt('New company name:',co.name);if(nm&&nm.trim()){const ab=prompt('New abbreviation:',co.abbr||'');doRenameCompany(co,nm.trim(),ab?.trim()||'')}}} style={btnSm()}>✎ Rename</button>
+                        <button onClick={()=>setTransferTarget(co)} style={btnSm()}>↗ Transfer ownership</button>
+                        <button onClick={()=>{const d=prompt('Extend trial by how many days?','30');if(d&&!isNaN(+d))doExtendTrial(co,+d)}} style={btnSm()}>⏱ Extend trial</button>
+                        <button onClick={()=>doToggleFreeTier(co)} style={btnSm(co.is_free_tier?T.gold:T.muted, co.is_free_tier?T.gold+'11':'transparent')}>
+                          {co.is_free_tier ? '✓ Free tier' : 'Grant free tier'}
+                        </button>
+                        <button onClick={()=>doToggleFlag(co)} style={btnSm(co.flagged?T.red:T.muted, co.flagged?T.red+'11':'transparent', co.flagged?T.red+'44':T.border)}>
+                          {co.flagged ? '⚑ Flagged' : 'Flag account'}
+                        </button>
+                        <div style={{flex:1}}/>
+                        <button onClick={()=>doDeleteCompany(co)} style={btnSm(T.red, 'transparent', T.red+'44')}>✕ Delete company</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {/* ── ORPHAN USERS (no companies) ── */}
+          {orphanUsers.length > 0 && (
+            <div style={{background:T.card,border:`1px solid ${T.amber}44`,borderRadius:12,padding:'16px 20px',marginTop:20}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                <span style={{fontFamily:mono,fontSize:11,color:T.amber,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>⚠ Users without companies ({orphanUsers.length})</span>
+              </div>
+              <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12,lineHeight:1.6}}>
+                These users signed up but don't own or have access to any company. They may need a company created for them, or may be test accounts that can be deleted.
+              </div>
+              {orphanUsers.map(u => (
+                <div key={u.id} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,padding:'10px 0',borderTop:`1px solid ${T.border}`,alignItems:'center'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div style={{width:28,height:28,borderRadius:14,background:T.amber+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.amber}}>
+                      {(u.email?.[0]||'?').toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{fontSize:13,color:T.text}}>{u.email}</div>
+                      <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>signed up {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}</div>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>setCreateCoTarget(u)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>+ Create company</button>
+                    <button onClick={()=>setResetConfirm(u)} style={btnSm()}>Reset pwd</button>
+                    {u.id!==currentUser?.id && <button onClick={()=>onDelete(u)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── BY USER VIEW ── */}
+      {view==='by-user' && (
+        <>
+          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14}}>{filteredUsers.length} of {users.length} users</div>
+          <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 260px 110px 300px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+              {['Email','Companies','Signed up','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+            </div>
+            {filteredUsers.map(u=>{
+              const { all: userCos } = getUserCompanies(u)
+              const isMe = u.id===currentUser?.id
+              const orphan = userCos.length === 0
+              return (
+                <div key={u.id} style={{display:'grid',gridTemplateColumns:'1fr 260px 110px 300px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div style={{width:30,height:30,borderRadius:15,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700,color:orphan?T.amber:T.gold,flexShrink:0}}>
+                      {(u.email?.[0]||'?').toUpperCase()}
+                    </div>
+                    <span style={{fontSize:13,color:T.text}}>{u.email}</span>
+                    {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.gold,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
+                    {orphan&&<span style={{fontFamily:mono,fontSize:9,color:T.amber,background:T.amber+'22',padding:'1px 6px',borderRadius:4}}>orphan</span>}
+                  </div>
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {userCos.length===0?<span style={{fontFamily:mono,fontSize:10,color:T.muted}}>None</span>
+                      :userCos.slice(0,4).map(co=><span key={co.id} style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>)}
+                    {userCos.length>4&&<span style={{fontFamily:mono,fontSize:10,color:T.muted}}>+{userCos.length-4}</span>}
+                  </div>
+                  <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
+                    {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
+                  </div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <button onClick={()=>setAccessTarget(u)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>Manage access</button>
+                    <button onClick={()=>setCreateCoTarget(u)} style={btnSm()}>+ Company</button>
+                    <button onClick={()=>setResetConfirm(u)} style={btnSm()}>Reset pwd</button>
+                    {!isMe&&<button onClick={()=>onDelete(u)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete</button>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {/* ── PASSWORD CONFIRMATION MODAL ── */}
+      {adminAction && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
+          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
+            <div style={{textAlign:'center',marginBottom:20}}>
+              <div style={{fontSize:36,marginBottom:10}}>{adminAction.danger?'⚠️':'🔒'}</div>
+              <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
+              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password</label>
+              <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
+                onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
+                autoFocus placeholder="Your password"
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+              {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+              <button onClick={confirmAdminAction} disabled={adminRunning||!adminPw}
+                style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',
+                  background:adminRunning||!adminPw?T.border:adminAction.danger?T.red:T.gold,
+                  color:adminAction.danger?'white':'#1A2530',cursor:adminRunning?'wait':'pointer'}}>
+                {adminRunning?'Verifying...':'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── RESET PASSWORD MODAL ── */}
       {resetConfirm && (
         <div onClick={()=>setResetConfirm(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
           <div onClick={e=>e.stopPropagation()} style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:`1px solid ${T.border}`}}>
@@ -685,7 +991,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, on
               <div style={{fontSize:32,marginBottom:10}}>🔑</div>
               <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Send password reset?</h3>
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
-                This will send a password reset email to <strong style={{color:T.gold}}>{resetConfirm.email}</strong>. They will receive a link to set a new password.
+                {"Send a password reset email to "}<strong style={{color:T.gold}}>{resetConfirm.email}</strong>.
               </p>
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -696,16 +1002,254 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, on
         </div>
       )}
 
+      {/* ── MANAGE ACCESS MODAL ── */}
       {accessTarget && (
-        <ManageAccessModal
-          targetUser={accessTarget}
-          companies={companies}
-          accessRows={accessRows}
-          setAccessRows={setAccessRows}
-          onClose={()=>setAccessTarget(null)}
-          T={T}
-        />
+        <ManageAccessModal targetUser={accessTarget} companies={companies} accessRows={accessRows} setAccessRows={setAccessRows} onClose={()=>setAccessTarget(null)} T={T}/>
       )}
+
+      {/* ── CREATE COMPANY FOR USER MODAL ── */}
+      {createCoTarget && (
+        <CreateCompanyForUserModal target={createCoTarget} adminUser={adminUser} onClose={()=>setCreateCoTarget(null)}
+          onCreated={(newCo)=>{setCompanies(prev=>[newCo,...prev]);setCreateCoTarget(null)}} T={T}/>
+      )}
+
+      {/* ── MERGE COMPANIES MODAL ── */}
+      {mergeOpen && (
+        <MergeCompaniesModal companies={companies} adminUser={adminUser} onClose={()=>setMergeOpen(false)}
+          onMerged={(removedId)=>{setCompanies(prev=>prev.filter(c=>c.id!==removedId));setMergeOpen(false)}} T={T}/>
+      )}
+
+      {/* ── TRANSFER OWNERSHIP MODAL ── */}
+      {transferTarget && (
+        <TransferCompanyModal co={transferTarget} users={users} adminUser={adminUser} onClose={()=>setTransferTarget(null)}
+          onTransferred={(coId,newOwnerId,newOwnerEmail)=>{setCompanies(prev=>prev.map(c=>c.id===coId?{...c,owner_id:newOwnerId,owner_email:newOwnerEmail}:c));setTransferTarget(null)}} T={T}/>
+      )}
+    </div>
+  )
+}
+
+// ── USER ROW (inside expanded company) ─────────────────────────────────────────
+function UserRow({ user, role, co, T, onManageAccess, onReset, onRemove, onDelete }) {
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'auto 1fr auto',gap:12,padding:'10px 14px',background:T.bg,borderRadius:8,marginBottom:6,alignItems:'center'}}>
+      <div style={{width:28,height:28,borderRadius:14,background:(role==='Owner'?T.gold:T.blue)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:role==='Owner'?T.gold:T.blue}}>
+        {(user.email?.[0]||'?').toUpperCase()}
+      </div>
+      <div style={{minWidth:0}}>
+        <div style={{fontSize:12,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user.email}</div>
+        <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:2}}>
+          {role} · signed up {user.created_at?new Date(user.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
+        </div>
+      </div>
+      <div style={{display:'flex',gap:5}}>
+        {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:600}}>Access</button>}
+        {onReset && <button onClick={onReset} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset</button>}
+        {onRemove && <button onClick={onRemove} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.amber}44`,background:'transparent',color:T.amber}}>Remove</button>}
+        {onDelete && <button onClick={onDelete} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Delete user</button>}
+      </div>
+    </div>
+  )
+}
+
+// ── CREATE COMPANY FOR USER MODAL ─────────────────────────────────────────────
+function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T }) {
+  const [name, setName] = useState('')
+  const [abbr, setAbbr] = useState('')
+  const [color, setColor] = useState('#C8A84B')
+  const [pw, setPw] = useState('')
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function submit() {
+    if (!name.trim()) { setErr('Enter a company name'); return }
+    if (!pw) { setErr('Enter your admin password'); return }
+    setSaving(true); setErr('')
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email: adminUser?.email, password: pw })
+      if (authErr) { setErr('Incorrect password'); setSaving(false); return }
+      const co = await api.adminCreateCompanyForUser(target.id, target.email, name.trim(), abbr.trim(), color)
+      onCreated({ ...co, owner_email: target.email, real_property_count: 0, paid_property_count: 0, subscriptions: [] })
+    } catch(e) { setErr(e.message || 'Failed to create company'); setSaving(false) }
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
+      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:460,padding:'28px',border:`1px solid ${T.border}`}}>
+        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Create company for user</h3>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.gold}}>{target.email}</strong></p>
+
+        <div style={{marginBottom:12}}>
+          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
+          <input value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 100px',gap:10,marginBottom:12}}>
+          <div>
+            <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
+            <input value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
+              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+          </div>
+          <div>
+            <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Colour</label>
+            <input type="color" value={color} onChange={e=>setColor(e.target.value)}
+              style={{width:'100%',height:40,padding:0,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',background:'transparent'}}/>
+          </div>
+        </div>
+        <div style={{marginBottom:16,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
+          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+            onKeyDown={e=>e.key==='Enter'&&submit()}
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+          <button onClick={submit} disabled={saving||!name.trim()||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!name.trim()||!pw?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>{saving?'Creating...':'Create company'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── MERGE COMPANIES MODAL ─────────────────────────────────────────────────────
+function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
+  const [sourceId, setSourceId] = useState('')
+  const [targetId, setTargetId] = useState('')
+  const [pw, setPw] = useState('')
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+  const source = companies.find(c => c.id === sourceId)
+  const target = companies.find(c => c.id === targetId)
+
+  async function submit() {
+    if (!sourceId || !targetId) { setErr('Select both companies'); return }
+    if (sourceId === targetId) { setErr('Source and target must be different'); return }
+    if (!pw) { setErr('Enter your admin password'); return }
+    setSaving(true); setErr('')
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email: adminUser?.email, password: pw })
+      if (authErr) { setErr('Incorrect password'); setSaving(false); return }
+      await api.adminMergeCompanies(sourceId, targetId)
+      onMerged(sourceId)
+    } catch(e) { setErr(e.message || 'Merge failed'); setSaving(false) }
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
+      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:520,padding:'28px',border:`2px solid ${T.red}44`}}>
+        <div style={{textAlign:'center',marginBottom:16}}>
+          <div style={{fontSize:36,marginBottom:8}}>⚡</div>
+          <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:6}}>Merge companies</h3>
+          <p style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>All properties and shared access from source will move into target. The source company will be permanently deleted.</p>
+        </div>
+
+        <div style={{marginBottom:12}}>
+          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Source company (will be deleted)</label>
+          <select value={sourceId} onChange={e=>setSourceId(e.target.value)}
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}>
+            <option value="">Select company...</option>
+            {companies.map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
+          </select>
+        </div>
+
+        <div style={{textAlign:'center',margin:'8px 0',fontFamily:mono,fontSize:18,color:T.muted}}>↓</div>
+
+        <div style={{marginBottom:12}}>
+          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Target company (keeps everything)</label>
+          <select value={targetId} onChange={e=>setTargetId(e.target.value)}
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}>
+            <option value="">Select company...</option>
+            {companies.filter(c=>c.id!==sourceId).map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
+          </select>
+        </div>
+
+        {source && target && (
+          <div style={{background:T.bg,borderRadius:10,padding:'12px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,lineHeight:1.7}}>
+            {(source.real_property_count||0)} properties will move from <strong style={{color:source.color||T.gold}}>{source.name}</strong> into <strong style={{color:target.color||T.gold}}>{target.name}</strong>, then <strong style={{color:T.red}}>{source.name}</strong> will be deleted.
+          </div>
+        )}
+
+        <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
+          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+            onKeyDown={e=>e.key==='Enter'&&submit()}
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
+        </div>
+
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+          <button onClick={submit} disabled={saving||!sourceId||!targetId||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!sourceId||!targetId||!pw?T.border:T.red,color:'white',cursor:saving?'wait':'pointer'}}>{saving?'Merging...':'Merge and delete source'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── TRANSFER COMPANY OWNERSHIP MODAL ──────────────────────────────────────────
+function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T }) {
+  const [search, setSearch] = useState('')
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [pw, setPw] = useState('')
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const filtered = users.filter(u => u.email?.toLowerCase().includes(search.toLowerCase()) && u.email !== co.owner_email).slice(0, 8)
+
+  async function submit() {
+    if (!selectedUser) { setErr('Select a new owner'); return }
+    if (!pw) { setErr('Enter your admin password'); return }
+    setSaving(true); setErr('')
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email: adminUser?.email, password: pw })
+      if (authErr) { setErr('Incorrect password'); setSaving(false); return }
+      await api.adminTransferCompany(co.id, selectedUser.id, selectedUser.email)
+      onTransferred(co.id, selectedUser.id, selectedUser.email)
+    } catch(e) { setErr(e.message || 'Transfer failed'); setSaving(false) }
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
+      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
+        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Transfer ownership</h3>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.gold}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
+
+        <div style={{marginBottom:12}}>
+          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+        </div>
+
+        {search && !selectedUser && (
+          <div style={{maxHeight:200,overflowY:'auto',marginBottom:12,background:T.bg,borderRadius:8,border:`1px solid ${T.border}`}}>
+            {filtered.length===0 ? <div style={{padding:12,fontFamily:mono,fontSize:11,color:T.muted,textAlign:'center'}}>No matching users</div>
+              : filtered.map(u => (
+                <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'9px 12px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:12,color:T.text}}>
+                  {u.email}
+                </div>
+              ))}
+          </div>
+        )}
+
+        {selectedUser && (
+          <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text}}>
+            New owner: <strong style={{color:T.gold}}>{selectedUser.email}</strong>
+          </div>
+        )}
+
+        <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
+          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+            onKeyDown={e=>e.key==='Enter'&&submit()}
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
+        </div>
+
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
+          <button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!selectedUser||!pw?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>{saving?'Transferring...':'Transfer ownership'}</button>
+        </div>
+      </div>
     </div>
   )
 }

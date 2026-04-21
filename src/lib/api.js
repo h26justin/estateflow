@@ -617,6 +617,56 @@ export async function fetchOnboardingStatus(userId) {
   } catch(e) { return false }
 }
 
+// ── ADMIN: CREATE COMPANY FOR A SPECIFIC USER ────────────────────────────────
+export async function adminCreateCompanyForUser(userId, userEmail, name, abbr, color) {
+  // Creates a new company owned by a target user (admin action)
+  const { data: co, error } = await supabase
+    .from('companies')
+    .insert({ name, abbr: (abbr || name.slice(0,3)).toUpperCase(), color: color || '#C8A84B', owner_id: userId, owner_email: userEmail })
+    .select()
+    .single()
+  if (error) throw error
+  return co
+}
+
+// ── ADMIN: MERGE TWO COMPANIES (move all properties from source to target, delete source) ──
+export async function adminMergeCompanies(sourceCompanyId, targetCompanyId) {
+  // Move all properties from source to target
+  const { error: pErr } = await supabase
+    .from('properties')
+    .update({ company_id: targetCompanyId })
+    .eq('company_id', sourceCompanyId)
+  if (pErr) throw pErr
+
+  // Move access rows
+  const { data: existingTarget } = await supabase.from('user_company_access').select('user_id').eq('company_id', targetCompanyId)
+  const existingIds = new Set((existingTarget || []).map(r => r.user_id))
+  const { data: sourceAccess } = await supabase.from('user_company_access').select('*').eq('company_id', sourceCompanyId)
+  if (sourceAccess) {
+    for (const row of sourceAccess) {
+      if (!existingIds.has(row.user_id)) {
+        await supabase.from('user_company_access').insert({ user_id: row.user_id, company_id: targetCompanyId, email: row.email })
+      }
+    }
+    await supabase.from('user_company_access').delete().eq('company_id', sourceCompanyId)
+  }
+
+  // Delete the source company
+  const { error: dErr } = await supabase.from('companies').delete().eq('id', sourceCompanyId)
+  if (dErr) throw dErr
+  return { success: true }
+}
+
+// ── ADMIN: TRANSFER COMPANY OWNERSHIP TO ANOTHER USER ────────────────────────
+export async function adminTransferCompany(companyId, newOwnerId, newOwnerEmail) {
+  const { error } = await supabase
+    .from('companies')
+    .update({ owner_id: newOwnerId, owner_email: newOwnerEmail })
+    .eq('id', companyId)
+  if (error) throw error
+  return { success: true }
+}
+
 // ── ADMIN: FULL COMPANY LIST WITH SUBS ───────────────────────────────────────
 export async function fetchAdminAllCompanies() {
   const { data, error } = await supabase
