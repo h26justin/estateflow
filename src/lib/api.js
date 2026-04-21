@@ -393,7 +393,19 @@ export async function deleteCompanyDocument(doc) {
 export async function fetchAllUsers() {
   const { data, error } = await supabase.rpc('list_auth_users')
   if (error) throw error
-  return data || []
+  const users = data || []
+  // Enrich with profile data (first_name, last_name, full_name, phone)
+  try {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, first_name, last_name, full_name, phone')
+    if (profiles) {
+      const profileMap = {}
+      profiles.forEach(p => { profileMap[p.user_id] = p })
+      return users.map(u => ({ ...u, profile: profileMap[u.id] || null }))
+    }
+  } catch(e) { /* Fall back to basic user list if profile fetch fails */ }
+  return users
 }
 
 export async function fetchAllAccessRows() {
