@@ -7,6 +7,16 @@ const fmtPct = (n,d=1) => (n||0).toFixed(d)+'%'
 const mono = "'DM Mono',monospace"
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+// Natural sort: company name first, then property name with numeric ordering (Flat 1, Flat 2, Flat 10)
+function sortByCompanyName(props) {
+  const nat = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
+  return [...props].sort((a, b) => {
+    const coA = a.company?.name || ''; const coB = b.company?.name || ''
+    if (coA !== coB) return nat(coA, coB)
+    return nat(a.name || '', b.name || '')
+  })
+}
+
 // Tax year: 6 Apr → 5 Apr. Calendar: Jan → Dec
 function getYearRange(year, type) {
   if (type === 'tax') return { start: new Date(`${year}-04-06`), end: new Date(`${year+1}-04-05`), label: `${year}/${String(year+1).slice(2)} Tax Year` }
@@ -103,7 +113,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const range = useMemo(() => getYearRange(year, yearType), [year, yearType])
 
   // Filtered by company
-  const filtProps = useMemo(() => selectedCompany === 'all' ? properties : properties.filter(p => p.company_id === selectedCompany), [properties, selectedCompany])
+  const filtProps = useMemo(() => sortByCompanyName(selectedCompany === 'all' ? properties : properties.filter(p => p.company_id === selectedCompany)), [properties, selectedCompany])
   const filtExp   = useMemo(() => expenses.filter(e => (selectedCompany==='all'||e.property?.company_id===selectedCompany) && inRange(e.date, range)), [expenses, selectedCompany, range])
   const filtRent  = useMemo(() => rentPayments.filter(r => (selectedCompany==='all'||r.property?.company_id===selectedCompany) && inRange(r.payment_date||r.month, range)), [rentPayments, selectedCompany, range])
   const filtComp  = useMemo(() => compliance.filter(c => selectedCompany==='all'||c.property?.company_id===selectedCompany), [compliance, selectedCompany])
