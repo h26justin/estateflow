@@ -1209,14 +1209,13 @@ export default function App() {
                       <button key={c.id}
                         onClick={()=>setDashCoFilter(prev=>{
                           if(prev.length===0) {
-                            // Was 'all' — switch to all EXCEPT this one
-                            const next = companies.map(x=>x.id).filter(id=>id!==c.id)
-                            return next.length===0 ? [] : next
+                            // Was 'all' — switch to just this one
+                            return [c.id]
                           }
                           if(prev.includes(c.id)) {
-                            // Deselect — if that makes it empty, go back to all
+                            // Already selected — deselect. If empty after, go back to 'all'
                             const next = prev.filter(id=>id!==c.id)
-                            return next.length===0 ? [] : next
+                            return next
                           }
                           // Add to selection
                           const next = [...prev, c.id]
