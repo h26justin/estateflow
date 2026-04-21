@@ -32,7 +32,30 @@ const STATUS_CFG = {
 
 export default function AdminDashboard({ onClose, user }) {
   const { T } = useTheme()
-  const [tab, setTab]             = useState('revenue')
+  const [tab, setTabInternal] = useState(() => {
+    const h = window.location.hash.replace(/^#\/?/, '')
+    const parts = h.split('/').filter(Boolean)
+    if (parts[0] === 'admin' && parts[1]) return parts[1]
+    return 'revenue'
+  })
+
+  // Sync tab changes to URL
+  const setTab = (newTab) => {
+    setTabInternal(newTab)
+    const target = `#/admin/${newTab}`
+    if (window.location.hash !== target) {
+      window.history.pushState({ view: 'admin', adminTab: newTab }, '', target)
+    }
+  }
+
+  // Listen for URL-driven tab changes (from browser back/forward)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.tab) setTabInternal(e.detail.tab)
+    }
+    window.addEventListener('ownproperly:set-admin-tab', handler)
+    return () => window.removeEventListener('ownproperly:set-admin-tab', handler)
+  }, [])
   const [companies, setCompanies] = useState([])
   const [users, setUsers]         = useState([])
   const [accessRows, setAccessRows] = useState([])
