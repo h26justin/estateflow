@@ -1273,6 +1273,9 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
   const [selectedCategory, setSelectedCategory] = useState('other')
   const [filterCategory, setFilterCategory] = useState('all')
   const [docName, setDocName] = useState('')
+  // OCR state
+  const [expandedOcrId, setExpandedOcrId] = useState(null)
+  const [ocrRunning, setOcrRunning] = useState(null)
   const fileInputRef = useState(null)
   const inputRef = { current: null }
 
@@ -1445,45 +1448,142 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                 const cat = getCatInfo(doc.category)
                 const isPDF = doc.file_type?.includes('pdf') || doc.name?.endsWith('.pdf')
                 const isImage = doc.file_type?.includes('image')
+                const ocrEligible = isPDF || isImage
+                const status = doc.extraction_status || 'not_requested'
+                const isExpanded = expandedOcrId === doc.id
+                const extractedFields = doc.extracted_fields
+
+                async function runOcr() {
+                  if (!ocrEligible) { showToast('OCR only works on PDFs and images', 'error'); return }
+                  try {
+                    setOcrRunning(doc.id)
+                    await api.markDocumentForExtraction(doc.id)
+                    // Optimistically update UI to show processing
+                    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, extraction_status: 'processing' } : d))
+                    await api.triggerDocumentOCR(doc.id)
+                    // Refetch this document to get extracted fields
+                    const updated = await api.fetchDocumentExtraction(doc.id)
+                    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, ...updated } : d))
+                    setExpandedOcrId(doc.id)
+                    showToast('✨ Fields extracted!')
+                  } catch(e) {
+                    showToast('Extraction failed: ' + (e.message || 'unknown'), 'error')
+                    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, extraction_status: 'failed', extraction_error: e.message } : d))
+                  } finally {
+                    setOcrRunning(null)
+                  }
+                }
+
                 return (
                   <div key={doc.id} style={{background:T.bg,borderRadius:10,padding:'12px 16px',
-                    display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',
+                    display:'flex',flexDirection:'column',gap:8,
                     border:`1px solid ${T.border}`}}>
-                    {/* Icon */}
-                    <div style={{fontSize:24,flexShrink:0}}>
-                      {isPDF?'📄':isImage?'🖼':cat.icon}
-                    </div>
-                    {/* Info */}
-                    <div style={{flex:1,minWidth:150}}>
-                      <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
-                      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.gold,
-                          background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
-                          {cat.icon} {cat.label}
-                        </span>
-                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
-                          {formatDate(doc.created_at)}
-                        </span>
-                        {doc.file_size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
-                          {formatSize(doc.file_size)}
-                        </span>}
+                    <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                      {/* Icon */}
+                      <div style={{fontSize:24,flexShrink:0}}>
+                        {isPDF?'📄':isImage?'🖼':cat.icon}
+                      </div>
+                      {/* Info */}
+                      <div style={{flex:1,minWidth:150}}>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.gold,
+                            background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
+                            {cat.icon} {cat.label}
+                          </span>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                            {formatDate(doc.created_at)}
+                          </span>
+                          {doc.file_size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
+                            {formatSize(doc.file_size)}
+                          </span>}
+                          {/* OCR status badge */}
+                          {status === 'processing' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.blue,background:T.blue+'22',padding:'1px 6px',borderRadius:20}}>🤖 Extracting…</span>}
+                          {status === 'completed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.green,background:T.green+'22',padding:'1px 6px',borderRadius:20}}>✨ AI-extracted</span>}
+                          {status === 'failed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.red,background:T.red+'22',padding:'1px 6px',borderRadius:20}} title={doc.extraction_error}>⚠ Extraction failed</span>}
+                        </div>
+                      </div>
+                      {/* Actions */}
+                      <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap'}}>
+                        {ocrEligible && isAdmin && status !== 'processing' && (
+                          <button onClick={runOcr} disabled={ocrRunning === doc.id}
+                            style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                              background: status === 'completed' ? T.surface : T.gold+'22',
+                              color: status === 'completed' ? T.muted : T.gold,
+                              border: `1px solid ${T.gold}44`,
+                              borderRadius:8,cursor: ocrRunning === doc.id ? 'wait' : 'pointer',opacity: ocrRunning === doc.id ? 0.6 : 1}}>
+                            {ocrRunning === doc.id ? '🤖 …' : status === 'completed' ? '🔄 Re-extract' : '🤖 Extract'}
+                          </button>
+                        )}
+                        {status === 'completed' && (
+                          <button onClick={()=>setExpandedOcrId(isExpanded ? null : doc.id)}
+                            style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                              background:T.surface,color:T.text,border:`1px solid ${T.border}`,
+                              borderRadius:8,cursor:'pointer'}}>
+                            {isExpanded ? '▲ Hide' : '▼ View fields'}
+                          </button>
+                        )}
+                        <a href={doc.file_url} target="_blank" rel="noreferrer"
+                          style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
+                            background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
+                            borderRadius:8,cursor:'pointer',textDecoration:'none'}}>
+                          ⬇ View
+                        </a>
+                        {isAdmin&&<button onClick={()=>handleDelete(doc)}
+                          style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                            background:'#2B1010',color:T.red,border:`1px solid #3D1A1A`,
+                            borderRadius:8,cursor:'pointer'}}>
+                          Delete
+                        </button>}
                       </div>
                     </div>
-                    {/* Actions */}
-                    <div style={{display:'flex',gap:6,flexShrink:0}}>
-                      <a href={doc.file_url} target="_blank" rel="noreferrer"
-                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
-                          background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
-                          borderRadius:8,cursor:'pointer',textDecoration:'none'}}>
-                        ⬇ View
-                      </a>
-                      {isAdmin&&<button onClick={()=>handleDelete(doc)}
-                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
-                          background:'#2B1010',color:T.red,border:`1px solid #3D1A1A`,
-                          borderRadius:8,cursor:'pointer'}}>
-                        Delete
-                      </button>}
-                    </div>
+
+                    {/* Expanded OCR fields */}
+                    {isExpanded && status === 'completed' && extractedFields && (
+                      <div style={{background:T.surface,borderRadius:8,padding:'12px 16px',border:`1px dashed ${T.green}44`,marginTop:4}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                            ✨ AI-extracted fields {doc.extracted_at && <span style={{color:T.faint,textTransform:'none',letterSpacing:0,marginLeft:6}}>— extracted {formatDate(doc.extracted_at)}</span>}
+                          </div>
+                        </div>
+                        {extractedFields._parse_error ? (
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.amber,lineHeight:1.6}}>
+                            <strong>Raw AI response (couldn't parse as JSON):</strong>
+                            <div style={{background:T.bg,padding:10,borderRadius:6,marginTop:6,whiteSpace:'pre-wrap',maxHeight:280,overflow:'auto'}}>{extractedFields._raw_response}</div>
+                          </div>
+                        ) : (
+                          <div style={{display:'grid',gap:6}}>
+                            {Object.entries(extractedFields).map(([key, value]) => {
+                              if (value === null || value === undefined || value === '') return null
+                              const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                              const displayValue = Array.isArray(value)
+                                ? value.length === 0 ? '—' : value.join(', ')
+                                : typeof value === 'object'
+                                  ? JSON.stringify(value)
+                                  : typeof value === 'boolean'
+                                    ? value ? '✓ Yes' : '✕ No'
+                                    : String(value)
+                              return (
+                                <div key={key} style={{display:'flex',gap:10,padding:'6px 10px',background:T.bg,borderRadius:6,alignItems:'flex-start'}}>
+                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,minWidth:140,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
+                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,wordBreak:'break-word'}}>{displayValue}</div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.faint,marginTop:10,lineHeight:1.5}}>
+                          AI extraction is best-effort. Always verify critical values against the original document.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Failed extraction details */}
+                    {status === 'failed' && doc.extraction_error && (
+                      <div style={{background:T.red+'11',borderRadius:6,padding:'8px 12px',border:`1px solid ${T.red}44`,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,lineHeight:1.5}}>
+                        <strong>Extraction error:</strong> {doc.extraction_error.slice(0,200)}
+                      </div>
+                    )}
                   </div>
                 )
               })}

@@ -2332,3 +2332,64 @@ export async function saveWidgetPrefs(widgets) {
     await supabase.from('user_profiles').update({ dashboard_widgets: widgets }).eq('user_id', u.id)
   } catch(e) { console.error('save widget prefs failed', e) }
 }
+
+
+// ── DOCUMENT OCR EXTRACTION ──────────────────────────────────────────────────
+// Works with the existing property_documents table which has:
+//   name, file_url, file_path, file_type, file_size, category
+// OCR adds: extraction_status, extracted_fields, extraction_error, extracted_at
+
+// Map UI category -> Anthropic extraction schema key
+export const OCR_TYPE_MAP = {
+  tenancy: 'tenancy_agreement',
+  gas: 'gas_cert',
+  eicr: 'eicr',
+  epc: 'epc',
+  insurance: 'insurance',
+  mortgage: 'mortgage_offer',
+  inventory: 'other',
+  legal: 'other',
+  maintenance: 'other',
+  other: 'other',
+}
+
+// Trigger OCR extraction for a document. Only works for PDFs and images.
+export async function triggerDocumentOCR(documentId) {
+  const session = (await supabase.auth.getSession()).data.session
+  if (!session) throw new Error('Not signed in')
+  const url = supabase.supabaseUrl.replace(/\/$/, '') + '/functions/v1/extract-document'
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.access_token,
+      'apikey': supabase.supabaseKey,
+    },
+    body: JSON.stringify({ document_id: documentId }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error('OCR failed: ' + err.slice(0, 200))
+  }
+  return await res.json()
+}
+
+// Mark extraction as queued in the DB (called right before invoking the Edge Function)
+export async function markDocumentForExtraction(documentId) {
+  const { error } = await supabase
+    .from('property_documents')
+    .update({ extraction_status: 'pending', extraction_error: null })
+    .eq('id', documentId)
+  if (error) throw error
+}
+
+// Fetch extraction status + fields for a document
+export async function fetchDocumentExtraction(documentId) {
+  const { data, error } = await supabase
+    .from('property_documents')
+    .select('extraction_status, extracted_fields, extraction_error, extracted_at')
+    .eq('id', documentId)
+    .single()
+  if (error) throw error
+  return data
+}
