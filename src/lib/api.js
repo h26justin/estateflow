@@ -2313,3 +2313,22 @@ export async function fetchMyPermissionsMap(isDeveloper = false) {
     return map
   }
 }
+
+// ── DASHBOARD WIDGET PREFS ────────────────────────────────────────────────────
+// Stored per-user in user_profiles.dashboard_widgets as JSONB array of { key, enabled }
+export async function fetchWidgetPrefs() {
+  try {
+    const u = (await supabase.auth.getUser()).data.user
+    if (!u) return null
+    const { data } = await supabase.from('user_profiles').select('dashboard_widgets').eq('user_id', u.id).single()
+    return data?.dashboard_widgets || null
+  } catch(e) { return null }
+}
+
+export async function saveWidgetPrefs(widgets) {
+  try {
+    const u = (await supabase.auth.getUser()).data.user
+    if (!u) return
+    await supabase.from('user_profiles').update({ dashboard_widgets: widgets }).eq('user_id', u.id)
+  } catch(e) { console.error('save widget prefs failed', e) }
+}
