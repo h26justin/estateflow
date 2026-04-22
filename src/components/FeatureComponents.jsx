@@ -1286,6 +1286,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
     try {
       const {data} = await supabase.from('property_documents')
         .select('*').eq('property_id', propertyId)
+        .is('deleted_at', null)
         .order('created_at', {ascending:false})
       setDocs(data||[])
     } catch(e) { }
@@ -1344,14 +1345,15 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
   async function handleDelete(doc) {
     try {
-      // Delete from storage
-      if (doc.file_path) {
-        await supabase.storage.from('property-documents').remove([doc.file_path])
-      }
-      // Delete from DB
-
-      setDocs(prev=>prev.filter(d=>d.id!==doc.id))
-      showToast('Document deleted')
+      const { data: { user: u } } = await supabase.auth.getUser()
+      // Soft-delete: flip deleted_at/deleted_by. Keep Storage file intact
+      // so the doc can be restored from Trash for 30 days.
+      const { error } = await supabase.from('property_documents')
+        .update({ deleted_at: new Date().toISOString(), deleted_by: u?.id })
+        .eq('id', doc.id)
+      if (error) throw error
+      setDocs(prev => prev.filter(d => d.id !== doc.id))
+      showToast('Document moved to Trash')
     } catch(e) {
       showToast(e.message, 'error')
     }

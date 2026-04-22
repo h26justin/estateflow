@@ -5,13 +5,14 @@ import * as api from '../lib/api'
 const mono = "'DM Mono',monospace"
 
 const TYPE_CONFIG = {
-  properties:        { icon: '🏠', label: 'Property',    color: '#C8A84B' },
-  companies:         { icon: '🏢', label: 'Company',     color: '#2ECC8A' },
-  tenancy_details:   { icon: '📋', label: 'Tenancy',     color: '#4B8FE0' },
-  compliance_items:  { icon: '✅', label: 'Certificate', color: '#7B68EE' },
-  maintenance_jobs:  { icon: '🔧', label: 'Repair',      color: '#E0943A' },
-  property_expenses: { icon: '💷', label: 'Expense',     color: '#D46F97' },
-  deals:             { icon: '🎯', label: 'Deal',        color: '#3AAFB9' },
+  properties:         { icon: '🏠', label: 'Property',    color: '#C8A84B' },
+  companies:          { icon: '🏢', label: 'Company',     color: '#2ECC8A' },
+  tenancy_details:    { icon: '📋', label: 'Tenancy',     color: '#4B8FE0' },
+  compliance_items:   { icon: '✅', label: 'Certificate', color: '#7B68EE' },
+  maintenance_jobs:   { icon: '🔧', label: 'Repair',      color: '#E0943A' },
+  property_expenses:  { icon: '💷', label: 'Expense',     color: '#D46F97' },
+  deals:              { icon: '🎯', label: 'Deal',        color: '#3AAFB9' },
+  property_documents: { icon: '📄', label: 'Document',    color: '#9B8AC2' },
 }
 
 function daysAgo(dateStr) {
@@ -63,7 +64,11 @@ export default function TrashPage({ user, onRestored }) {
     if (!confirm(`Permanently delete "${item._name}"? This cannot be undone.`)) return
     setWorking(item.id)
     try {
-      await api.hardDeleteEntity(item._type, item.id)
+      if (item._type === 'property_documents') {
+        await api.hardDeleteDocument(item)
+      } else {
+        await api.hardDeleteEntity(item._type, item.id)
+      }
       await load()
     } catch(e) { alert('Delete failed: ' + (e.message || 'unknown error')) }
     setWorking(null)
@@ -77,6 +82,7 @@ export default function TrashPage({ user, onRestored }) {
     ...(groups.maintenance || []),
     ...(groups.expenses || []),
     ...(groups.deals || []),
+    ...(groups.documents || []),
   ].sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at))
 
   const filtered = filter === 'all' ? allItems : allItems.filter(i => i._type === filter)

@@ -471,7 +471,9 @@ export async function deleteNote(id) {
 // ── PROPERTY DOCUMENTS ────────────────────────────────────────────────────────
 export async function fetchDocuments(propertyId) {
   const { data, error } = await supabase.from('property_documents')
-    .select('*').eq('property_id', propertyId).order('created_at', { ascending: false })
+    .select('*').eq('property_id', propertyId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
 }
@@ -492,7 +494,19 @@ export async function uploadDocument(propertyId, propertyName, file, userId) {
 }
 
 export async function deleteDocument(doc) {
-  if (doc.file_path) await supabase.storage.from('property-documents').remove([doc.file_path])
+  // Soft-delete: flip deleted_at. Storage file stays until 30-day purge/hard-delete.
+  const userId = await uid()
+  const { error } = await supabase.from('property_documents')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq('id', doc.id)
+  if (error) throw error
+}
+
+// Permanent removal: deletes Storage file AND the DB row. Use only from Trash purge.
+export async function hardDeleteDocument(doc) {
+  if (doc.file_path) {
+    try { await supabase.storage.from('property-documents').remove([doc.file_path]) } catch(e) {}
+  }
   const { error } = await supabase.from('property_documents').delete().eq('id', doc.id)
   if (error) throw error
 }
@@ -1354,6 +1368,7 @@ export async function fetchTenantRentPayments(propertyId, userId) {
 export async function fetchTenantDocuments(propertyId) {
   const { data, error } = await supabase.from('property_documents')
     .select('*').eq('property_id', propertyId).eq('shared_with_tenant', true)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
@@ -1565,7 +1580,7 @@ export async function fetchAllDeleted(userId) {
   // Query each table in parallel for deleted rows belonging to the user
   const safe = (p) => p.then(r => r.data || []).catch(() => [])
 
-  const [props, companies, tenancies, compliance, maintenance, expenses, deals] = await Promise.all([
+  const [props, companies, tenancies, compliance, maintenance, expenses, deals, documents] = await Promise.all([
     safe(supabase.from('properties').select('id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
     safe(supabase.from('companies').select('id, name, abbr, color, deleted_at, deleted_by').eq('owner_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
     safe(supabase.from('tenancy_details').select('id, tenant_name, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
@@ -1573,6 +1588,7 @@ export async function fetchAllDeleted(userId) {
     safe(supabase.from('maintenance_jobs').select('id, title, description, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
     safe(supabase.from('property_expenses').select('id, description, amount, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
     safe(supabase.from('deals').select('id, title, address, deleted_at, deleted_by').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('property_documents').select('id, name, file_path, file_url, category, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
   ])
 
   return {
@@ -1583,6 +1599,7 @@ export async function fetchAllDeleted(userId) {
     maintenance: maintenance.map(r => ({ ...r, _type: 'maintenance_jobs', _label: 'Repair job', _name: `${r.title || r.description} @ ${r.property?.name || '—'}` })),
     expenses: expenses.map(r => ({ ...r, _type: 'property_expenses', _label: 'Expense', _name: `${r.description} (£${r.amount}) @ ${r.property?.name || '—'}` })),
     deals: deals.map(r => ({ ...r, _type: 'deals', _label: 'Deal', _name: r.title || r.address })),
+    documents: documents.map(r => ({ ...r, _type: 'property_documents', _label: 'Document', _name: `${r.name} @ ${r.property?.name || '—'}` })),
   }
 }
 
