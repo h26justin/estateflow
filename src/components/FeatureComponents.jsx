@@ -2382,6 +2382,8 @@ function AdminSettingsPanel({ user, T, showToast }) {
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}` }}>
         <button style={tabBtn('accounts')} onClick={() => setTab('accounts')}>🏢 Accounts ({companies.length})</button>
         <button style={tabBtn('users')} onClick={() => setTab('users')}>👥 Users ({users.length})</button>
+        <button style={tabBtn('flags')} onClick={() => setTab('flags')}>🚩 Feature Flags</button>
+        <button style={tabBtn('revenue')} onClick={() => setTab('revenue')}>📊 Revenue</button>
       </div>
 
       {loading ? (
@@ -2502,6 +2504,12 @@ function AdminSettingsPanel({ user, T, showToast }) {
               <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>{users.length} total users · Your own account cannot be deleted</div>
             </>
           )}
+
+          {/* FEATURE FLAGS TAB */}
+          {tab === 'flags' && <FeatureFlagsPanel users={users} companies={companies} T={T} showToast={showToast}/>}
+
+          {/* REVENUE TAB */}
+          {tab === 'revenue' && <RevenueAnalyticsPanel companies={companies} T={T} showToast={showToast}/>}
         </>
       )}
 
@@ -2554,6 +2562,386 @@ function AdminSettingsPanel({ user, T, showToast }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── FEATURE FLAGS PANEL (Developer only) ─────────────────────────────────────
+function FeatureFlagsPanel({ users, companies, T, showToast }) {
+  const mono = "'DM Mono',monospace"
+  const [flags, setFlags] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [editingFlag, setEditingFlag] = useState(null)
+  const [showNew, setShowNew] = useState(false)
+  const [newFlag, setNewFlag] = useState({ key:'', name:'', description:'', enabled_globally:false })
+
+  useEffect(()=>{ load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const data = await api.fetchFeatureFlags()
+      setFlags(data)
+    } catch(e) { showToast('Failed to load flags','error') }
+    setLoading(false)
+  }
+
+  async function toggleGlobal(flag) {
+    try {
+      await api.updateFeatureFlag(flag.key, { enabled_globally: !flag.enabled_globally })
+      await load()
+      showToast(`${flag.name} ${!flag.enabled_globally ? 'enabled' : 'disabled'} globally`)
+    } catch(e) { showToast('Update failed','error') }
+  }
+
+  async function createFlag() {
+    if (!newFlag.key || !newFlag.name) { showToast('Key and name required','error'); return }
+    try {
+      await api.createFeatureFlag(newFlag)
+      setShowNew(false)
+      setNewFlag({ key:'', name:'', description:'', enabled_globally:false })
+      await load()
+      showToast('Flag created')
+    } catch(e) { showToast(e.message || 'Create failed','error') }
+  }
+
+  async function removeFlag(key) {
+    if (!confirm(`Delete flag "${key}"? This cannot be undone.`)) return
+    try {
+      await api.deleteFeatureFlag(key)
+      await load()
+      showToast('Flag deleted')
+    } catch(e) { showToast('Delete failed','error') }
+  }
+
+  if (loading) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading flags…</div>
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:12}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>🚩 Feature Flags</div>
+          <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Enable features globally, per user, or per company. Priority: user override → company override → global.</div>
+        </div>
+        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowNew(true)}>+ New Flag</button>
+      </div>
+
+      {showNew && (
+        <div style={{background:T.bg,border:`2px dashed ${T.gold}`,borderRadius:10,padding:16,marginBottom:16}}>
+          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:10,textTransform:'uppercase',letterSpacing:'0.1em'}}>New feature flag</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+            <div>
+              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Key (snake_case, unique)</label>
+              <input value={newFlag.key} onChange={e=>setNewFlag({...newFlag,key:e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'_')})}
+                placeholder="eg. advanced_reports" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
+            </div>
+            <div>
+              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Display name</label>
+              <input value={newFlag.name} onChange={e=>setNewFlag({...newFlag,name:e.target.value})}
+                placeholder="eg. Advanced Reports" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
+            </div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Description</label>
+            <input value={newFlag.description} onChange={e=>setNewFlag({...newFlag,description:e.target.value})}
+              placeholder="What does this feature do?" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
+          </div>
+          <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:mono,fontSize:11,color:T.text,marginBottom:12,cursor:'pointer'}}>
+            <input type="checkbox" checked={newFlag.enabled_globally} onChange={e=>setNewFlag({...newFlag,enabled_globally:e.target.checked})}/>
+            Enable globally by default
+          </label>
+          <div style={{display:'flex',gap:8}}>
+            <button className="btn btn-gold" style={{fontSize:11}} onClick={createFlag}>Create</button>
+            <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowNew(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:'grid',gap:10}}>
+        {flags.length === 0 && <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:30,textAlign:'center'}}>No flags yet. Create your first flag above.</div>}
+        {flags.map(flag => (
+          <div key={flag.key} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4,flexWrap:'wrap'}}>
+                  <span style={{fontSize:14,fontWeight:700,color:T.text}}>{flag.name}</span>
+                  <code style={{fontFamily:mono,fontSize:10,background:T.bg,padding:'2px 8px',borderRadius:4,color:T.muted}}>{flag.key}</code>
+                  <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:flag.enabled_globally?T.green+'22':T.muted+'22',color:flag.enabled_globally?T.green:T.muted,textTransform:'uppercase'}}>
+                    {flag.enabled_globally ? '✓ Globally ON' : 'Globally OFF'}
+                  </span>
+                </div>
+                {flag.description && <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:6}}>{flag.description}</div>}
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                <button onClick={()=>toggleGlobal(flag)}
+                  style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${flag.enabled_globally?T.red:T.green}`,background:(flag.enabled_globally?T.red:T.green)+'22',color:flag.enabled_globally?T.red:T.green}}>
+                  {flag.enabled_globally ? 'Disable globally' : 'Enable globally'}
+                </button>
+                <button onClick={()=>setEditingFlag(flag)}
+                  style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:T.bg,color:T.text}}>
+                  Overrides →
+                </button>
+                <button onClick={()=>removeFlag(flag.key)}
+                  style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
+                  🗑
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editingFlag && <FlagOverridesModal flag={editingFlag} users={users} companies={companies} onClose={()=>setEditingFlag(null)} T={T} showToast={showToast}/>}
+    </div>
+  )
+}
+
+function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
+  const mono = "'DM Mono',monospace"
+  const [userOverrides, setUserOverrides] = useState([])
+  const [companyOverrides, setCompanyOverrides] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pickMode, setPickMode] = useState(null) // 'user' | 'company' | null
+  const [search, setSearch] = useState('')
+
+  useEffect(()=>{ load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const [u, c] = await Promise.all([
+        api.fetchFlagUserOverrides(flag.key),
+        api.fetchFlagCompanyOverrides(flag.key),
+      ])
+      setUserOverrides(u)
+      setCompanyOverrides(c)
+    } catch(e) {}
+    setLoading(false)
+  }
+
+  async function addUserOverride(userId, enabled) {
+    try { await api.setFlagUserOverride(flag.key, userId, enabled); await load(); setPickMode(null); setSearch('') } catch(e) { showToast('Failed','error') }
+  }
+  async function removeUserOverride(userId) {
+    try { await api.removeFlagUserOverride(flag.key, userId); await load() } catch(e) { showToast('Failed','error') }
+  }
+  async function addCompanyOverride(companyId, enabled) {
+    try { await api.setFlagCompanyOverride(flag.key, companyId, enabled); await load(); setPickMode(null); setSearch('') } catch(e) { showToast('Failed','error') }
+  }
+  async function removeCompanyOverride(companyId) {
+    try { await api.removeFlagCompanyOverride(flag.key, companyId); await load() } catch(e) { showToast('Failed','error') }
+  }
+
+  const userOverrideIds = new Set(userOverrides.map(o => o.user_id))
+  const companyOverrideIds = new Set(companyOverrides.map(o => o.company_id))
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:14,maxWidth:700,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+          <div>
+            <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>🚩 {flag.name}</h2>
+            <code style={{fontFamily:mono,fontSize:10,color:T.muted}}>{flag.key}</code>
+          </div>
+          <button onClick={onClose} style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
+        </div>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.6}}>
+          Global: <strong style={{color:flag.enabled_globally?T.green:T.muted}}>{flag.enabled_globally ? 'ON' : 'OFF'}</strong>. Overrides below take priority.
+        </p>
+
+        {/* USER OVERRIDES */}
+        <div style={{marginBottom:20}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>👥 Per-user overrides ({userOverrides.length})</div>
+            <button onClick={()=>setPickMode('user')} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>+ Add user</button>
+          </div>
+          {userOverrides.length === 0 && <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:10}}>No user overrides.</div>}
+          {userOverrides.map(o => {
+            const u = users.find(u=>u.id===o.user_id)
+            return (
+              <div key={o.user_id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:T.bg,borderRadius:6,marginBottom:6}}>
+                <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{u?.email || o.user_id}</span>
+                <div style={{display:'flex',gap:6}}>
+                  <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
+                    {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
+                  </span>
+                  <button onClick={()=>removeUserOverride(o.user_id)} style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* COMPANY OVERRIDES */}
+        <div style={{marginBottom:20}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>🏢 Per-company overrides ({companyOverrides.length})</div>
+            <button onClick={()=>setPickMode('company')} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>+ Add company</button>
+          </div>
+          {companyOverrides.length === 0 && <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:10}}>No company overrides.</div>}
+          {companyOverrides.map(o => {
+            const c = companies.find(c=>c.id===o.company_id)
+            return (
+              <div key={o.company_id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:T.bg,borderRadius:6,marginBottom:6}}>
+                <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{c?.name || o.company_id}</span>
+                <div style={{display:'flex',gap:6}}>
+                  <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
+                    {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
+                  </span>
+                  <button onClick={()=>removeCompanyOverride(o.company_id)} style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* PICK SUBJECT */}
+        {pickMode && (
+          <div style={{background:T.bg,border:`2px dashed ${T.gold}`,borderRadius:10,padding:14,marginTop:10}}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+              Select {pickMode === 'user' ? 'user' : 'company'} to add override
+            </div>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…"
+              style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12,marginBottom:10}}/>
+            <div style={{maxHeight:260,overflow:'auto'}}>
+              {pickMode === 'user' && users.filter(u => !userOverrideIds.has(u.id) && (!search || u.email?.toLowerCase().includes(search.toLowerCase()))).slice(0,30).map(u => (
+                <div key={u.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',marginBottom:4,background:T.surface,borderRadius:6}}>
+                  <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{u.email}</span>
+                  <div style={{display:'flex',gap:4}}>
+                    <button onClick={()=>addUserOverride(u.id, true)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
+                    <button onClick={()=>addUserOverride(u.id, false)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
+                  </div>
+                </div>
+              ))}
+              {pickMode === 'company' && companies.filter(c => !companyOverrideIds.has(c.id) && (!search || c.name?.toLowerCase().includes(search.toLowerCase()))).slice(0,30).map(c => (
+                <div key={c.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',marginBottom:4,background:T.surface,borderRadius:6}}>
+                  <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{c.name}</span>
+                  <div style={{display:'flex',gap:4}}>
+                    <button onClick={()=>addCompanyOverride(c.id, true)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
+                    <button onClick={()=>addCompanyOverride(c.id, false)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>{setPickMode(null);setSearch('')}} style={{marginTop:8,fontFamily:mono,fontSize:10,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Cancel</button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── REVENUE ANALYTICS PANEL (Developer only) ────────────────────────────────
+function RevenueAnalyticsPanel({ companies, T, showToast }) {
+  const mono = "'DM Mono',monospace"
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0, totalCompanies: 0, totalProperties: 0, mrr: 0, signupsLast30: 0, signupsLast7: 0, cohorts: [] })
+
+  useEffect(()=>{ load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const [users, properties] = await Promise.all([
+        api.fetchAllUsers().catch(()=>[]),
+        supabase.from('properties').select('id, user_id, company_id, created_at').then(r=>r.data||[]),
+      ])
+      const totalUsers = users.length
+      const totalCompanies = companies.length
+      const totalProperties = properties.length
+      const mrr = totalProperties * 2  // £2/property/month
+
+      const now = Date.now()
+      const signupsLast30 = users.filter(u => new Date(u.created_at).getTime() > now - 30*24*60*60*1000).length
+      const signupsLast7 = users.filter(u => new Date(u.created_at).getTime() > now - 7*24*60*60*1000).length
+      const propertyOwnerIds = new Set(properties.map(p=>p.user_id))
+      const activeUsers = propertyOwnerIds.size
+
+      // Build monthly signup cohorts (last 6 months)
+      const cohorts = []
+      const today = new Date()
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+        const nextD = new Date(today.getFullYear(), today.getMonth() - i + 1, 1)
+        const monthUsers = users.filter(u => {
+          const t = new Date(u.created_at).getTime()
+          return t >= d.getTime() && t < nextD.getTime()
+        })
+        const monthActive = monthUsers.filter(u => propertyOwnerIds.has(u.id)).length
+        cohorts.push({
+          month: d.toLocaleDateString('en-GB', { month:'short', year:'2-digit' }),
+          signups: monthUsers.length,
+          active: monthActive,
+          retention: monthUsers.length > 0 ? (monthActive/monthUsers.length*100) : 0,
+        })
+      }
+
+      setStats({ totalUsers, activeUsers, totalCompanies, totalProperties, mrr, signupsLast30, signupsLast7, cohorts })
+    } catch(e) { showToast('Failed to load revenue data','error') }
+    setLoading(false)
+  }
+
+  if (loading) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading revenue analytics…</div>
+
+  const arpu = stats.activeUsers > 0 ? stats.mrr / stats.activeUsers : 0
+  const conversionRate = stats.totalUsers > 0 ? (stats.activeUsers / stats.totalUsers) * 100 : 0
+  const fmt = n => '£'+(n||0).toLocaleString('en-GB',{maximumFractionDigits:0})
+
+  return (
+    <div>
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>📊 Revenue Analytics</div>
+        <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Key metrics updated in real-time. MRR assumes £2/property/month.</div>
+      </div>
+
+      {/* KPI cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',gap:12,marginBottom:24}}>
+        {[
+          { label:'MRR', value: fmt(stats.mrr), color:T.gold, sub:`${fmt(stats.mrr*12)} ARR projected`},
+          { label:'Total users', value: stats.totalUsers, color:T.text, sub:`${stats.activeUsers} with properties (${conversionRate.toFixed(1)}% activation)`},
+          { label:'ARPU', value: fmt(arpu), color:T.green, sub:'per active user per month'},
+          { label:'Total properties', value: stats.totalProperties, color:T.blue, sub:`across ${stats.totalCompanies} companies`},
+          { label:'Signups (30d)', value: stats.signupsLast30, color:T.gold, sub:`${stats.signupsLast7} last 7 days`},
+        ].map((k,i) => (
+          <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:14}}>
+            <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>
+            <div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:k.color,marginBottom:4}}>{k.value}</div>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Monthly signup cohorts */}
+      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:16,marginBottom:20}}>
+        <div style={{fontFamily:mono,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Monthly cohort performance</div>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontFamily:mono,fontSize:11}}>
+            <thead>
+              <tr style={{borderBottom:`1px solid ${T.border}`}}>
+                <th style={{textAlign:'left',padding:'6px 8px',color:T.muted,fontWeight:700}}>Cohort</th>
+                <th style={{textAlign:'right',padding:'6px 8px',color:T.muted,fontWeight:700}}>Signups</th>
+                <th style={{textAlign:'right',padding:'6px 8px',color:T.muted,fontWeight:700}}>Activated</th>
+                <th style={{textAlign:'right',padding:'6px 8px',color:T.muted,fontWeight:700}}>Retention %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.cohorts.map((c,i) => (
+                <tr key={i} style={{borderBottom:`1px solid ${T.border}`}}>
+                  <td style={{padding:'8px',color:T.text}}>{c.month}</td>
+                  <td style={{padding:'8px',textAlign:'right',color:T.text}}>{c.signups}</td>
+                  <td style={{padding:'8px',textAlign:'right',color:T.green}}>{c.active}</td>
+                  <td style={{padding:'8px',textAlign:'right',fontWeight:700,color:c.retention>=50?T.green:c.retention>=25?T.amber:T.red}}>
+                    {c.signups === 0 ? '—' : c.retention.toFixed(0)+'%'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.6}}>
+          "Activated" = user has created at least one property. Retention = % of signups who activated.
+        </div>
+      </div>
     </div>
   )
 }

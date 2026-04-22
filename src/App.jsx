@@ -40,6 +40,16 @@ function calcMonthlyProfit(p) {
   return (p.rent_pcm||0)-calcMonthlyMortgage(p)-(p.insurance||0)/12
 }
 
+// Permission helper — check if current user can perform action on a company
+// permissionsMap: { [companyId]: { edit_properties: true, view_financial: false, ... } }
+// Returns true if permission granted; treats missing company as allowed (backwards compat)
+function canDo(permissionsMap, companyId, permissionKey) {
+  if (!companyId) return true  // no company context
+  const perms = permissionsMap?.[companyId]
+  if (!perms) return true  // no permission data loaded yet → don't block
+  return perms[permissionKey] === true
+}
+
 const STATUS_CFG = {
   rented:   {label:'Rented',    bg:'#0D2B1F',fg:'#2ECC8A',dot:'#2ECC8A'},
   vacant:   {label:'Vacant',    bg:'#2B1010',fg:'#E05555',dot:'#E05555'},
@@ -471,6 +481,10 @@ export default function App() {
   }
   // Effective "see everything" flag — true if platform admin AND not temporarily disabled
   const devModeActive = isPlatformAdmin && !devModeDisabled
+  // Per-company permission map: { [companyId]: { view_rent: true, edit_financial: false, ... } }
+  const [permissionsMap, setPermissionsMap] = useState({})
+  // Active feature flags for current user
+  const [activeFlags, setActiveFlags] = useState(new Set())
   // Impersonation: when set, platform admin sees the app filtered to this user's data (read-only)
   const [impersonatingUser, setImpersonatingUser] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
@@ -668,6 +682,17 @@ export default function App() {
           isPlatformAdminFlag = profileData?.is_developer === true || profileData?.platform_admin === true
           setIsPlatformAdmin(isPlatformAdminFlag)
         } catch(e) { setIsPlatformAdmin(false) }
+
+        // Load permissions map and active feature flags in parallel
+        const devActiveEarly = isPlatformAdminFlag && !devModeDisabled
+        try {
+          const [permMap, flags] = await Promise.all([
+            api.fetchMyPermissionsMap(devActiveEarly),
+            api.fetchMyActiveFlags().catch(()=>new Set())
+          ])
+          setPermissionsMap(permMap)
+          setActiveFlags(flags)
+        } catch(e) { /* non-fatal */ }
         // Load user's saved theme preference from Supabase
         await loadUserTheme(user.id, user.email)
         // Load nav preferences
@@ -1472,7 +1497,7 @@ export default function App() {
             {portfolioTab==='contractors'&&<ContractorsPage user={user} companies={companies} showToast={showToast}/>}
             {portfolioTab==='properties'&&<div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',marginBottom:16}}>
-              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}}>+ Add Property</button>
+              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
               <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search name or address…" style={{width:230,padding:'7px 12px',fontSize:12}}/>
@@ -1585,7 +1610,9 @@ export default function App() {
                       {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:'#1A1D27',border:'1px solid #2E3044',fontFamily:"'DM Mono',monospace",fontSize:10,color:'#8B8FA8'}}>🏢 {selected.managed_by}</div>}
                     </div>
                     <div style={{display:'flex',gap:8}}>
-                      <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</button>
+                      {(canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive) && (
+                        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</button>
+                      )}
                       <button className="btn btn-ghost" style={{fontSize:11,color:T.muted,borderColor:T.border}}
                           onClick={()=>setShowDeleteConfirm(selected.id)}
                           title="Delete property">⋯</button>
