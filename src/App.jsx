@@ -1183,10 +1183,12 @@ export default function App() {
                 <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
                 <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.gold,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
               </div>
-              <button onClick={()=>openRename(c)}
-                style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
-                ✏ Rename
-              </button>
+              {(canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive) && (
+                <button onClick={()=>openRename(c)}
+                  style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                  ✏ Rename
+                </button>
+              )}
             </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
               <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
@@ -1195,22 +1197,24 @@ export default function App() {
               <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
             </div>
             <div style={{display:'grid',gap:10}}>
-              {cProps.map(p=>(
+              {cProps.map(p=>{
+                const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
+                return (
                 <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
                   <div style={{flex:1,minWidth:150}}>
                     <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
                   </div>
                   {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+                  {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
-                    </div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>
+                    </div>}
+                  {canFin && <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
                   <Badge status={p.status}/>
                 </div>
-              ))}
-              {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}
+              )})}
+              {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
             </div>
           </div>
         })}
@@ -1656,7 +1660,7 @@ export default function App() {
           </div>}
 
           {view==='deals'&&<div className="fade">
-            <DealsPage user={user} companies={companies} properties={properties} showToast={showToast}
+            <DealsPage user={user} companies={companies} properties={properties} showToast={showToast} activeFlags={activeFlags}
               onConvertToProperty={(deal)=>{
                 setShowAddProp(true)
                 showToast('Deal data ready — fill in the property form')
@@ -1771,7 +1775,7 @@ export default function App() {
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={properties} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
-          {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user}/></div>}
+          {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
@@ -1831,7 +1835,7 @@ export default function App() {
                     </div>
                   )
                 })()}
-                {detailTab==='overview'&&<OverviewTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} isAdmin={isAdmin} user={user} showToast={showToast}/>}
+                {detailTab==='overview'&&<OverviewTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditProperty={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
                 {false&&detailTab==='overview-old'&&<div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
                     {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
@@ -1848,7 +1852,7 @@ export default function App() {
                 </div>}
                 {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
                 {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')}/>}
-                {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast}/>}
+                {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditFinancial={canDo(permissionsMap, selected.company_id, 'edit_financial') || devModeActive}/>}
                 {false&&<div style={{display:'grid',gap:12}}>
                   {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
                     <div key={si} className="card" style={{padding:'18px 22px'}}>
@@ -1866,8 +1870,8 @@ export default function App() {
                 </div>}
                 {detailTab==='contractors'&&<ContractorsPage propertyFilter={selected.id} showToast={showToast} user={user} compact={true}/>}
                 {(detailTab==='overview'||detailTab==='tenancy')&&<TenancyRenewalAlert propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
-                {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance"/>}
-                {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy"/>}
+                {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_compliance') || devModeActive}/>}
+                {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
                 {detailTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
@@ -1875,8 +1879,8 @@ export default function App() {
                 {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
                 {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
                 {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast}/>}
-                {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance"/>}
-                {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses"/>}
+                {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_maintenance') || devModeActive}/>}
+                {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses" canEdit={canDo(permissionsMap, selected.company_id, 'edit_expenses') || devModeActive} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive}/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
               </div>
               <div style={{display:'grid',gap:12}}>

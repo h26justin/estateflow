@@ -133,7 +133,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   )
 }
 
-export default function DealsPage({ user, companies, properties = [], onConvertToProperty, showToast }) {
+export default function DealsPage({ user, companies, properties = [], onConvertToProperty, showToast, activeFlags = new Set() }) {
   const { T } = useTheme()
   const [view, setView]       = useState('list')
   const [dealView, setDealView] = useState('list') // list | pipeline | tools // list | deal
@@ -310,7 +310,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
         <div style={{display:'grid',gap:16}}>
           <ListingYieldCalculator T={T} onAutoFill={()=>{ createNewDeal(); showToast('New deal created — fill in the figures from the listing') }}/>
           <PortfolioModellerInDeals properties={properties} T={T}/>
-          <AIListingWriter T={T}/>
+          {activeFlags.has('ai_listing_writer') && <AIListingWriter T={T}/>}
         </div>
       )}
 

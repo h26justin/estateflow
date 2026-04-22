@@ -32,7 +32,7 @@ function ExpiryBadge({dateStr}) {
 }
 
 // ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
-export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
+export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = true}) {
   const { T } = useTheme()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -85,7 +85,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Certificate</button>
+        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Certificate</button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
@@ -129,7 +129,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
                   {item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
                 </div>
                 <ExpiryBadge dateStr={item.expiry_date}/>
-                <button onClick={()=>handleDelete(item.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>
+                {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
               </div>
             )
           })}
@@ -143,7 +143,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user}) {
 }
 
 // ── TENANCY TAB ───────────────────────────────────────────────────────────────
-export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
+export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit = true, canViewPersonal = true}) {
   const { T } = useTheme()
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -179,7 +179,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Tenancy Details</div>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setEditing(v=>!v)}>{editing?'Cancel':'Edit Details'}</button>
+        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setEditing(v=>!v)}>{editing?'Cancel':'Edit Details'}</button>}
       </div>
 
       {renewalDays!==null && renewalDays<=60 && (
@@ -216,9 +216,9 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
        ) : details ? (
         <div style={{display:'grid',gap:10}}>
           {[
-            {l:'Tenant(s)',       v:details.tenant_names||'—'},
-            {l:'Phone',           v:details.tenant_phone||'—'},
-            {l:'Email',           v:details.tenant_email||'—'},
+            {l:'Tenant(s)',       v: canViewPersonal ? (details.tenant_names||'—') : '🔒 Hidden'},
+            {l:'Phone',           v: canViewPersonal ? (details.tenant_phone||'—') : '🔒 Hidden'},
+            {l:'Email',           v: canViewPersonal ? (details.tenant_email||'—') : '🔒 Hidden'},
             {l:'Tenancy Start',   v:formatDate(details.tenancy_start)},
             {l:'Tenancy End',     v:formatDate(details.tenancy_end), alert:renewalDays!==null&&renewalDays<=60},
             {l:'Deposit',         v:fmt(details.deposit_amount), sub:details.deposit_scheme},
@@ -249,7 +249,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user}) {
 }
 
 // ── MAINTENANCE TAB ───────────────────────────────────────────────────────────
-export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user}) {
+export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEdit = true}) {
   const { T } = useTheme()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -305,7 +305,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user}) {
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Maintenance & Repairs</div>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint,marginTop:2}}>{openJobs.length} open · Total cost {fmt(totalCost)}</div>
         </div>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log Job</button>
+        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log Job</button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
@@ -339,11 +339,11 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user}) {
        : <div>
           {openJobs.length>0&&<div style={{marginBottom:16}}>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Open Jobs</div>
-            {openJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES}/>)}
+            {openJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit}/>)}
           </div>}
           {completedJobs.length>0&&<div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Completed</div>
-            {completedJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES}/>)}
+            {completedJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit}/>)}
           </div>}
         </div>
       }
@@ -354,7 +354,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user}) {
   )
 }
 
-function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES}) {
+function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = true}) {
   const pCol = PRIORITIES.find(p=>p.v===job.priority)?.c || T.muted
   const st   = STATUSES.find(s=>s.v===job.status)
   return (
@@ -378,8 +378,8 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES}) {
           {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
           {job.quoted_cost&&job.actual_cost&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted}}>Quoted {fmt(job.quoted_cost)}</div>}
           <div style={{display:'flex',gap:6,marginTop:6,justifyContent:'flex-end'}}>
-            <button onClick={()=>onEdit(job)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'transparent',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>
-            <button onClick={()=>onDelete(job.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Remove</button>
+            {canEdit && <button onClick={()=>onEdit(job)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'transparent',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>}
+            {canEdit && <button onClick={()=>onDelete(job.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Remove</button>}
           </div>
         </div>
       </div>
@@ -388,7 +388,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES}) {
 }
 
 // ── EXPENSES TAB ──────────────────────────────────────────────────────────────
-export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}) {
+export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user, canEdit = true, canViewFinancial = true}) {
   const { T } = useTheme()
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -459,7 +459,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Expense Log</div>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Expense</button>
+        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Expense</button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
@@ -505,7 +505,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user}
                   </div>
                 </div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:T.red}}>{fmt(exp.amount)}</div>
-                <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>
+                {canEdit && <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
               </div>
             )
           })}
@@ -1501,7 +1501,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
 
 // ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
-export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast}) {
+export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast, canViewFinancial = true, canEditProperty = true}) {
   const { T } = useTheme()
   const [allNotes, setAllNotes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1538,18 +1538,19 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
 
   const mortgage = calcMonthlyMortgage(selected)
   const yield_ = calcGrossYield(selected)
+  const HIDDEN = '🔒'
 
   return (
     <div>
       {/* Quick stats */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
         {[
-          {l:'Purchase Price',   v:fmt(selected.purchase_price),    c:'#C8A84B'},
-          {l:'Estimated Value',  v:fmt(selected.est_value),         c:'#C8A84B'},
-          {l:'Gross Yield',      v:yield_>0?yield_.toFixed(1)+'%':'—', c:'#2ECC8A'},
-          {l:'Monthly Rent',     v:fmt(selected.rent_pcm),          c:'#2ECC8A'},
-          {l:'Monthly Mortgage', v:mortgage>0?fmt(mortgage):'—',    c:'#9B59B6'},
-          {l:'Arrears',          v:fmt(selected.arrears||0),        c:(selected.arrears||0)>0?'#E05555':'#2ECC8A'},
+          {l:'Purchase Price',   v:canViewFinancial?fmt(selected.purchase_price):HIDDEN,     c:'#C8A84B'},
+          {l:'Estimated Value',  v:canViewFinancial?fmt(selected.est_value):HIDDEN,          c:'#C8A84B'},
+          {l:'Gross Yield',      v:canViewFinancial?(yield_>0?yield_.toFixed(1)+'%':'—'):HIDDEN, c:'#2ECC8A'},
+          {l:'Monthly Rent',     v:canViewFinancial?fmt(selected.rent_pcm):HIDDEN,           c:'#2ECC8A'},
+          {l:'Monthly Mortgage', v:canViewFinancial?(mortgage>0?fmt(mortgage):'—'):HIDDEN,   c:'#9B59B6'},
+          {l:'Arrears',          v:fmt(selected.arrears||0),                                  c:(selected.arrears||0)>0?'#E05555':'#2ECC8A'},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
@@ -1612,8 +1613,21 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
 }
 
 // ── FINANCIALS TAB ────────────────────────────────────────────────────────────
-export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast}) {
+export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast, canViewFinancial = true, canEditFinancial = true}) {
   const { T } = useTheme()
+
+  if (!canViewFinancial) {
+    return (
+      <div style={{padding:40, textAlign:'center'}}>
+        <div style={{fontSize:48, marginBottom:12}}>🔒</div>
+        <div style={{fontFamily:"'DM Mono',monospace", fontSize:12, color:T.muted, marginBottom:8}}>Financial data is hidden</div>
+        <div style={{fontFamily:"'DM Mono',monospace", fontSize:11, color:T.faint, maxWidth:420, margin:'0 auto', lineHeight:1.6}}>
+          You don't have permission to view financial information for this property. Ask the company owner to grant you the "View financial data" permission.
+        </div>
+      </div>
+    )
+  }
+
   const mortgage = calcMonthlyMortgage(selected)
   const yield_ = calcGrossYield(selected)
   const monthlyProfit = calcMonthlyProfit(selected)
