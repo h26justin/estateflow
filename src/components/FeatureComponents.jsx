@@ -1531,8 +1531,10 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                         </a>
                         {isAdmin&&<button onClick={()=>handleDelete(doc)}
                           style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
-                            background:'#2B1010',color:T.red,border:`1px solid #3D1A1A`,
-                            borderRadius:8,cursor:'pointer'}}>
+                            background:T.surface,color:T.muted,border:`1px solid ${T.border}`,
+                            borderRadius:8,cursor:'pointer',transition:'color 0.15s, border-color 0.15s'}}
+                          onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
+                          onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>
                           Delete
                         </button>}
                       </div>
@@ -1556,17 +1558,34 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                             {Object.entries(extractedFields).map(([key, value]) => {
                               if (value === null || value === undefined || value === '') return null
                               const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                              const displayValue = Array.isArray(value)
-                                ? value.length === 0 ? '—' : value.join(', ')
-                                : typeof value === 'object'
-                                  ? JSON.stringify(value)
-                                  : typeof value === 'boolean'
-                                    ? value ? '✓ Yes' : '✕ No'
-                                    : String(value)
+                              // Format a single item (primitive or {label,value} / {date,description} / etc.)
+                              const fmtItem = v => {
+                                if (v === null || v === undefined) return '—'
+                                if (typeof v !== 'object') return String(v)
+                                if (Array.isArray(v)) return v.map(fmtItem).join(', ')
+                                // Object: prefer common human-readable shapes
+                                const labelKey = v.label ?? v.name ?? v.type ?? v.description ?? v.date
+                                const valueKey = v.value ?? v.amount ?? v.date ?? v.description
+                                if (labelKey && valueKey && labelKey !== valueKey) return `${labelKey}: ${valueKey}`
+                                if (labelKey) return String(labelKey)
+                                // Fallback: pretty key/value pairs, not raw JSON
+                                return Object.entries(v)
+                                  .filter(([,vv]) => vv !== null && vv !== undefined && vv !== '')
+                                  .map(([k,vv]) => `${k.replace(/_/g,' ')}: ${fmtItem(vv)}`)
+                                  .join(', ')
+                              }
+                              // For arrays of objects, render each on its own line for readability
+                              const isArrayOfObjects = Array.isArray(value) && value.length > 0
+                                && value.some(v => v && typeof v === 'object' && !Array.isArray(v))
+                              let displayValue
+                              if (typeof value === 'boolean') displayValue = value ? '✓ Yes' : '✕ No'
+                              else if (Array.isArray(value)) displayValue = value.length === 0 ? '—' : value.map(fmtItem).join(isArrayOfObjects ? '\n' : ', ')
+                              else if (typeof value === 'object') displayValue = fmtItem(value)
+                              else displayValue = String(value)
                               return (
                                 <div key={key} style={{display:'flex',gap:10,padding:'6px 10px',background:T.bg,borderRadius:6,alignItems:'flex-start'}}>
                                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,minWidth:140,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
-                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,wordBreak:'break-word'}}>{displayValue}</div>
+                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,wordBreak:'break-word',whiteSpace:'pre-line'}}>{displayValue}</div>
                                 </div>
                               )
                             })}
