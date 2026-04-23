@@ -151,7 +151,9 @@ export function parseRMS(text) {
 
   var refRe   = /Reference:\s*(\S+)/i
   var dateRe  = /Date:\s*(\d{2}\/\d{2}\/\d{4})/i
-  var rentRe  = /Rent Received From (.+?) - (\d{2}\/\d{2}\/\d{4}) to (\d{2}\/\d{2}\/\d{4})/i
+  // RMS is inconsistent: some statements say "Rent Received From ...", others just
+  // "Received from ...". Treat both the same. /i handles case variations.
+  var rentRe  = /(?:Rent\s+)?Received\s+from\s+(.+?)\s+-\s+(\d{2}\/\d{2}\/\d{4})\s+to\s+(\d{2}\/\d{2}\/\d{4})/i
   var mgmtRe  = /Management Fee @ ([\d.]+)%\s*-\s*\(([\d.]+)%\s+of\s+[\u00A3]([\d,]+\.?\d*)\)/i
   var feeRe   = /([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/
   var maintRe = /\(Inv:([^)]+)\)\s+(.+?)(?:\s+([\d,]+\.\d{2}))?$/
