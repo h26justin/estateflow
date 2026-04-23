@@ -156,8 +156,39 @@ export function parseRMS(text) {
   var feeRe   = /([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})/
   var maintRe = /\(Inv:([^)]+)\)\s+(.+?)(?:\s+([\d,]+\.\d{2}))?$/
   var amtRe   = /([\d,]+\.\d{2})/
-  var propRe  = /Avenue|Street|Road|House|Place|Flat|Room/i
   var payRe   = /Payment made to Owner\s+([\d,]+\.\d{2})/i
+
+  // Expanded list of UK road/street/place suffixes — was previously only
+  // Avenue|Street|Road|House|Place which missed Grove, Drive, Close, etc.
+  var ROAD_SUFFIXES = 'Road|Street|Avenue|Lane|Drive|Way|Close|Crescent|Grove|' +
+    'Place|Court|Gardens|Terrace|Square|Mews|Walk|Hill|Rise|Park|Row|View|' +
+    'Heights|Vale|House|Villas|Green|Fields?|Cottages?|Buildings?|Yard|' +
+    'Quay|Wharf|Parade|Boulevard'
+
+  // Strip dates and £amounts, then look for "NUMBER WORDS SUFFIX" or "Flat N ..."
+  function extractPropertyFromLine(line) {
+    if (!line) return null
+    // Skip full postal addresses (agent/company headers contain UK postcodes)
+    if (/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/.test(line)) return null
+    var cleaned = line
+      .replace(/\d{2}[\/-]\d{2}[\/-]\d{4}/g, ' ')          // DD/MM/YYYY
+      .replace(/[\u00A3]?[\d,]+\.\d{2}/g, ' ')             // £1,234.56
+      .replace(/\s+/g, ' ').trim()
+    // "12 Chester Grove", "24 Watts Moses House", etc.
+    var numPattern = new RegExp(
+      '\\b(\\d+[a-z]?,?\\s+' +
+      '(?:[A-Z][a-zA-Z\'\\-]*(?:\\s+[A-Z][a-zA-Z\'\\-]*){0,4}?)\\s+' +
+      '(?:' + ROAD_SUFFIXES + '))\\b',
+      'i'
+    )
+    var m = cleaned.match(numPattern)
+    if (m) return m[1].replace(/\s*,\s*$/, '').trim()
+    // "Flat 2, 42 High Street" / "Room 3 Maple House"
+    var flatPattern = /\b((?:Flat|Room|Unit)\s+\d+[a-z]?,?(?:\s+\d+,?)?(?:\s+[A-Z][a-zA-Z'\-]*){1,5})\b/i
+    var fm = cleaned.match(flatPattern)
+    if (fm) return fm[1].trim()
+    return null
+  }
 
   for (var x = 0; x < lines.length; x++) {
     var l = lines[x]
@@ -166,11 +197,15 @@ export function parseRMS(text) {
     if (!result.company && /(?:Property Group|Vale|EXH)/i.test(l)) result.company = l
   }
 
-  function findPropBefore(lines, idx) {
+  // Find property name for the item at line `idx`.
+  // Check the current line first (RMS puts property in the same row as the item),
+  // then fall back to scanning up to 5 lines back for wrapped rows.
+  function findPropForLine(lines, idx) {
+    var here = extractPropertyFromLine(lines[idx])
+    if (here) return here
     for (var j = idx - 1; j >= Math.max(0, idx - 5); j--) {
-      if (propRe.test(lines[j]) && !/Rent|Management|Fee/i.test(lines[j])) {
-        return lines[j].replace(/\s+/g, ' ').trim()
-      }
+      var candidate = extractPropertyFromLine(lines[j])
+      if (candidate) return candidate
     }
     return ''
   }
@@ -180,7 +215,7 @@ export function parseRMS(text) {
 
     var rentM = line.match(rentRe)
     if (rentM) {
-      var propName = findPropBefore(lines, i)
+      var propName = findPropForLine(lines, i)
       var am = line.match(amtRe)
       if (am) {
         var amount = parseCurrency(am[1])
@@ -200,10 +235,10 @@ export function parseRMS(text) {
 
     var mgmtM = line.match(mgmtRe)
     if (mgmtM) {
-      var propName2 = findPropBefore(lines, i)
-      var fm = line.match(feeRe)
-      if (fm) {
-        var total = parseCurrency(fm[3])
+      var propName2 = findPropForLine(lines, i)
+      var fm2 = line.match(feeRe)
+      if (fm2) {
+        var total = parseCurrency(fm2[3])
         result.items.push({
           propertyName: propName2, type: 'fee',
           amount: total, tenant: '', period: result.date,
@@ -217,7 +252,7 @@ export function parseRMS(text) {
 
     var maintM = line.match(maintRe)
     if (maintM && !line.includes('Balance') && !line.includes('Fee')) {
-      var propName3 = findPropBefore(lines, i)
+      var propName3 = findPropForLine(lines, i)
       var ma = line.match(amtRe)
       if (ma) {
         var mamount = parseCurrency(ma[1])
