@@ -1755,7 +1755,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
   const totalInvested = (selected.purchase_price||0)+(selected.refurb_cost||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)
   const currentVal = selected.current_value || selected.est_value || 0
   const equity = currentVal - (selected.mortgage_amount||0)
-  const ltv = currentVal ? (((selected.mortgage_amount||0)/selected.est_value)*100).toFixed(1) : '—'
+  const ltv = currentVal ? (((selected.mortgage_amount||0)/currentVal)*100).toFixed(1) : '—'
 
   const sections = [
     {title:'Purchase & Costs', items:[

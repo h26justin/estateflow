@@ -56,11 +56,31 @@ export async function createRefurbPhase(propertyId, phase) {
   if (error) throw error
   return data
 }
+export async function updateRefurbPhase(id, fields) {
+  const { data, error } = await supabase
+    .from('refurb_phases').update(fields).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deleteRefurbPhase(id) {
+  const { error } = await supabase.from('refurb_phases').delete().eq('id', id)
+  if (error) throw error
+}
 export async function createRefurbCost(propertyId, cost) {
   const { data, error } = await supabase
     .from('refurb_costs').insert({ ...cost, property_id: propertyId, user_id: await uid() }).select().single()
   if (error) throw error
   return data
+}
+export async function updateRefurbCost(id, fields) {
+  const { data, error } = await supabase
+    .from('refurb_costs').update(fields).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+export async function deleteRefurbCost(id) {
+  const { error } = await supabase.from('refurb_costs').delete().eq('id', id)
+  if (error) throw error
 }
 
 export async function upsertRentPayment(propertyId, year, month, status, amount, notes, periodStart, periodEnd) {

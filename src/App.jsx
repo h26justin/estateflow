@@ -1117,6 +1117,33 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
+  async function handleUpdatePhase(propId, phaseId, fields){
+    try{
+      const updated=await api.updateRefurbPhase(phaseId, fields)
+      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_phases:(p.refurb_phases||[]).map(ph=>ph.id===phaseId?updated:ph)}:p))
+    }catch(e){showToast(e.message,'error')}
+  }
+  async function handleDeletePhase(propId, phaseId){
+    if(!confirm('Delete this refurb phase?')) return
+    try{
+      await api.deleteRefurbPhase(phaseId)
+      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_phases:(p.refurb_phases||[]).filter(ph=>ph.id!==phaseId)}:p))
+    }catch(e){showToast(e.message,'error')}
+  }
+  async function handleUpdateCost(propId, costId, fields){
+    try{
+      const updated=await api.updateRefurbCost(costId, fields)
+      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_costs:(p.refurb_costs||[]).map(c=>c.id===costId?updated:c)}:p))
+    }catch(e){showToast(e.message,'error')}
+  }
+  async function handleDeleteCost(propId, costId){
+    if(!confirm('Delete this cost entry?')) return
+    try{
+      await api.deleteRefurbCost(costId)
+      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_costs:(p.refurb_costs||[]).filter(c=>c.id!==costId)}:p))
+    }catch(e){showToast(e.message,'error')}
+  }
+
   async function handleUpdatePropField(id,field,value){
     try{
       await api.updateProperty(id,{[field]:value})
@@ -1850,7 +1877,7 @@ export default function App() {
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
                   </div>}
                 </div>}
-                {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
+                {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdatePhase={handleUpdatePhase} onDeletePhase={handleDeletePhase} onUpdateCost={handleUpdateCost} onDeleteCost={handleDeleteCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
                 {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')}/>}
                 {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditFinancial={canDo(permissionsMap, selected.company_id, 'edit_financial') || devModeActive}/>}
                 {false&&<div style={{display:'grid',gap:12}}>
@@ -1886,7 +1913,15 @@ export default function App() {
               <div style={{display:'grid',gap:12}}>
                 <div className="card" style={{padding:'18px 20px'}}>
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
-                  {[{l:'Total Capital In',v:fmt((selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0))},{l:'Estimated Value',v:fmt(selected.est_value)},{l:'Equity',v:fmt((selected.est_value||0)-(selected.mortgage_amount||0))},{l:'LTV',v:selected.est_value&&selected.mortgage_amount?((selected.mortgage_amount/selected.est_value)*100).toFixed(0)+'%':'-'}].map((item,i)=>(
+                  {(() => {
+                    const cv = selected.current_value || selected.est_value || 0
+                    return [
+                      {l:'Total Capital In', v:fmt((selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0))},
+                      {l:'Current Value',    v:fmt(cv)},
+                      {l:'Equity',           v:fmt(cv - (selected.mortgage_amount||0))},
+                      {l:'LTV',              v:cv && selected.mortgage_amount ? ((selected.mortgage_amount/cv)*100).toFixed(0)+'%' : '-'},
+                    ]
+                  })().map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8,marginBottom:6}}>
                       <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
                       <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.gold}}>{item.v}</span>
@@ -1999,16 +2034,28 @@ export default function App() {
   )
 }
 
-function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
+function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpdateCost,onDeleteCost,onUpdateField,isAdmin,user}){
   const { T } = useTheme()
   const [phaseForm,setPhaseForm]=useState({name:'',start_date:'',end_date:'',done:false,notes:''})
   const [costForm,setCostForm]=useState({trade:'',cost:'',paid:false,date:'',notes:''})
   const [showPF,setShowPF]=useState(false)
   const [showCF,setShowCF]=useState(false)
+  const [editingPhaseId,setEditingPhaseId]=useState(null)
+  const [editingCostId,setEditingCostId]=useState(null)
+  const [phaseEdit,setPhaseEdit]=useState({})
+  const [costEdit,setCostEdit]=useState({})
   const phases=prop.refurb_phases||[]
   const costs=prop.refurb_costs||[]
   const totalCost=costs.reduce((s,i)=>s+(parseFloat(i.cost)||0),0)
   const paidCost=costs.filter(i=>i.paid).reduce((s,i)=>s+(parseFloat(i.cost)||0),0)
+
+  function startEditPhase(ph){ setEditingPhaseId(ph.id); setPhaseEdit({name:ph.name||'',start_date:ph.start_date||'',end_date:ph.end_date||'',done:!!ph.done,notes:ph.notes||''}) }
+  function startEditCost(c){ setEditingCostId(c.id); setCostEdit({trade:c.trade||'',cost:c.cost||'',paid:!!c.paid,date:c.date||'',notes:c.notes||''}) }
+  function savePhaseEdit(){ if(phaseEdit.name){ onUpdatePhase(prop.id, editingPhaseId, phaseEdit); setEditingPhaseId(null) } }
+  function saveCostEdit(){ if(costEdit.trade){ onUpdateCost(prop.id, editingCostId, {...costEdit, cost:parseFloat(costEdit.cost)||0}); setEditingCostId(null) } }
+
+  const iconBtn = {fontFamily:"'DM Mono',monospace",fontSize:11,padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:6,cursor:'pointer',color:T.muted}
+
   return <div>
     <div className="card" style={{padding:'14px 18px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
       <div>
@@ -2041,11 +2088,37 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
       </div>}
       {phases.length===0&&!showPF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'12px 0'}}>No phases yet.</div>}
       {phases.map(ph=>(
-        <div key={ph.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{width:10,height:10,borderRadius:'50%',background:ph.done?'#2ECC8A':'#E0943A',flexShrink:0}}/>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:ph.done?'#2ECC8A':'#E0943A'}}>{ph.done?'✓ Done':'In Progress'}</span>
-        </div>
+        editingPhaseId===ph.id ? (
+          <div key={ph.id} className="card" style={{padding:'14px 16px',marginBottom:8,border:`1px solid ${T.gold}44`}}>
+            <div className="g2" style={{marginBottom:10}}>
+              <div><label>Phase Name</label><input value={phaseEdit.name} onChange={e=>setPhaseEdit(f=>({...f,name:e.target.value}))}/></div>
+              <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:18}}><input type="checkbox" checked={phaseEdit.done} onChange={e=>setPhaseEdit(f=>({...f,done:e.target.checked}))} style={{width:'auto'}}/><label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Complete</label></div>
+            </div>
+            <div className="g2" style={{marginBottom:10}}>
+              <div><label>Start Date</label><input type="date" value={phaseEdit.start_date} onChange={e=>setPhaseEdit(f=>({...f,start_date:e.target.value}))}/></div>
+              <div><label>End Date</label><input type="date" value={phaseEdit.end_date} onChange={e=>setPhaseEdit(f=>({...f,end_date:e.target.value}))}/></div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-gold" style={{fontSize:11}} onClick={savePhaseEdit}>Save</button>
+              <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setEditingPhaseId(null)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div key={ph.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:10,height:10,borderRadius:'50%',background:ph.done?'#2ECC8A':'#E0943A',flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
+            <button onClick={()=>onUpdatePhase(prop.id, ph.id, {done:!ph.done})} title={ph.done?'Mark in progress':'Mark complete'}
+              style={{...iconBtn,color:ph.done?'#2ECC8A':'#E0943A',borderColor:(ph.done?'#2ECC8A':'#E0943A')+'44'}}>
+              {ph.done?'✓ Done':'In Progress'}
+            </button>
+            {isAdmin&&<>
+              <button onClick={()=>startEditPhase(ph)} style={iconBtn} title="Edit">✎</button>
+              <button onClick={()=>onDeletePhase(prop.id, ph.id)} style={iconBtn} title="Delete"
+                onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
+                onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>🗑</button>
+            </>}
+          </div>
+        )
       ))}
     </div>
     <div>
@@ -2067,11 +2140,38 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdateField,isAdmin,user}){
       </div>}
       {costs.length===0&&!showCF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'12px 0'}}>No costs logged yet.</div>}
       {costs.map(item=>(
-        <div key={item.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{item.trade}</div>{item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{item.notes}</div>}{item.date&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>{item.date}</div>}</div>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:item.paid?'#2ECC8A':'#E0943A'}}>{fmt(item.cost)}</div>
-          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:item.paid?'#2ECC8A':'#E0943A'}}>{item.paid?'✓ Paid':'Unpaid'}</span>
-        </div>
+        editingCostId===item.id ? (
+          <div key={item.id} className="card" style={{padding:'14px 16px',marginBottom:8,border:`1px solid ${T.gold}44`}}>
+            <div className="g2" style={{marginBottom:10}}>
+              <div><label>Trade / Description</label><input value={costEdit.trade} onChange={e=>setCostEdit(f=>({...f,trade:e.target.value}))}/></div>
+              <div><label>Cost (£)</label><input type="number" value={costEdit.cost} onChange={e=>setCostEdit(f=>({...f,cost:e.target.value}))}/></div>
+            </div>
+            <div className="g2" style={{marginBottom:10}}>
+              <div><label>Date</label><input type="date" value={costEdit.date} onChange={e=>setCostEdit(f=>({...f,date:e.target.value}))}/></div>
+              <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:18}}><input type="checkbox" checked={costEdit.paid} onChange={e=>setCostEdit(f=>({...f,paid:e.target.checked}))} style={{width:'auto'}}/><label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Paid</label></div>
+            </div>
+            <div style={{marginBottom:10}}><label>Notes</label><input value={costEdit.notes} onChange={e=>setCostEdit(f=>({...f,notes:e.target.value}))}/></div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-gold" style={{fontSize:11}} onClick={saveCostEdit}>Save</button>
+              <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setEditingCostId(null)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div key={item.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{item.trade}</div>{item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{item.notes}</div>}{item.date&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>{item.date}</div>}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:item.paid?'#2ECC8A':'#E0943A'}}>{fmt(item.cost)}</div>
+            <button onClick={()=>onUpdateCost(prop.id, item.id, {paid:!item.paid})} title={item.paid?'Mark unpaid':'Mark paid'}
+              style={{...iconBtn,color:item.paid?'#2ECC8A':'#E0943A',borderColor:(item.paid?'#2ECC8A':'#E0943A')+'44'}}>
+              {item.paid?'✓ Paid':'Unpaid'}
+            </button>
+            {isAdmin&&<>
+              <button onClick={()=>startEditCost(item)} style={iconBtn} title="Edit">✎</button>
+              <button onClick={()=>onDeleteCost(prop.id, item.id)} style={iconBtn} title="Delete"
+                onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
+                onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>🗑</button>
+            </>}
+          </div>
+        )
       ))}
     </div>
     <div style={{marginTop:20}}>
