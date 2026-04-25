@@ -22,6 +22,7 @@ import DealsPage from './components/DealsPage'
 import DayTrackerPage from './components/DayTrackerPage'
 import OnboardingTour from './components/OnboardingTour'
 import CalcExplain from './components/CalcExplain'
+import ActionMenu from './components/ActionMenu'
 
 
 
@@ -57,6 +58,7 @@ const STATUS_CFG = {
   vacant:   {label:'Vacant',    bg:'#2B1010',fg:'#E05555',dot:'#E05555'},
   purchased:{label:'Purchased', bg:'#2B200A',fg:'#E0943A',dot:'#E0943A'},
   refurb:   {label:'Refurbing', bg:'#0A1A2B',fg:'#4B8FE0',dot:'#4B8FE0'},
+  sold:     {label:'Sold',      bg:'#1A1A2B',fg:'#9B8AC2',dot:'#9B8AC2'},
 }
 const REFURB_CFG = {
   complete:     {label:'Complete',    color:'#2ECC8A'},
@@ -560,6 +562,7 @@ export default function App() {
   const [statusFilter,setStatusFilter] = useState('all')
   const [searchQ,     setSearchQ]      = useState('')
   const [sortBy,      setSortBy]       = useState('company-name')
+  const [showArchived,setShowArchived] = useState(false)
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
@@ -573,6 +576,8 @@ export default function App() {
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
+  const [showSellModal,      setShowSellModal]      = useState(null) // property id
+  const [propertyActionBusy, setPropertyActionBusy] = useState(false)
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [isTenant, setIsTenant] = useState(false)
@@ -929,6 +934,7 @@ export default function App() {
 
   const filtered = useMemo(()=>{
     const f = properties.filter(p=>{
+      if(!showArchived && p.archived_at) return false
       if(coFilter!=='all'&&p.company_id!==coFilter) return false
       if(statusFilter!=='all'&&p.status!==statusFilter) return false
       if(searchQ&&!p.name.toLowerCase().includes(searchQ.toLowerCase())&&!p.address.toLowerCase().includes(searchQ.toLowerCase())) return false
@@ -955,11 +961,17 @@ export default function App() {
         default:             return 0
       }
     })
-  },[properties,coFilter,statusFilter,searchQ,sortBy])
+  },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived])
+
+  // Dashboard counts/widgets exclude archived properties unconditionally —
+  // archived = "not actively managing." If you sold a flat 2 years ago you
+  // don't want it inflating your Total Invested figure.
+  const activeProperties = useMemo(() => properties.filter(p => !p.archived_at), [properties])
+  const archivedCount = properties.length - activeProperties.length
 
   const dashProps = useMemo(()=>
-    dashCoFilter.length === 0 ? properties : properties.filter(p => dashCoFilter.includes(p.company_id))
-  , [properties, dashCoFilter])
+    dashCoFilter.length === 0 ? activeProperties : activeProperties.filter(p => dashCoFilter.includes(p.company_id))
+  , [activeProperties, dashCoFilter])
 
   const dashCos = useMemo(()=>
     dashCoFilter.length === 0 ? companies : companies.filter(c => dashCoFilter.includes(c.id))
@@ -1061,6 +1073,47 @@ export default function App() {
       showToast('Property deleted')
       return true
     }catch(e){showToast(e.message,'error'); return false}
+  }
+
+  async function handleDuplicateProp(id) {
+    setPropertyActionBusy(true)
+    try {
+      const created = await api.duplicateProperty(id)
+      setProperties(prev => [...prev, created])
+      showToast(`Duplicated as "${created.name}"`)
+      // Navigate to the new property
+      setSelectedId(created.id)
+      setView('detail')
+      setDetailTab('overview')
+    } catch (e) { showToast(e.message, 'error') }
+    setPropertyActionBusy(false)
+  }
+
+  async function handleArchiveProp(id, archive = true) {
+    setPropertyActionBusy(true)
+    try {
+      const updated = archive
+        ? await api.archiveProperty(id)
+        : await api.unarchiveProperty(id)
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
+      showToast(archive ? 'Property archived' : 'Property restored')
+      if (archive) {
+        // Send the user back to the list — archived items are hidden by default
+        setView('properties'); setSelectedId(null)
+      }
+    } catch (e) { showToast(e.message, 'error') }
+    setPropertyActionBusy(false)
+  }
+
+  async function handleMarkSold(id, salePrice, saleDate) {
+    setPropertyActionBusy(true)
+    try {
+      const updated = await api.markPropertyAsSold(id, salePrice, saleDate)
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
+      setShowSellModal(null)
+      showToast('Marked as sold')
+    } catch (e) { showToast(e.message, 'error') }
+    setPropertyActionBusy(false)
   }
 
   async function handleSaveCo(formData){
@@ -1203,7 +1256,7 @@ export default function App() {
         </div>
         {companies.filter(c=>c.id===activeCoTab).map(c=>{
           const cs=companyStats.find(x=>x.id===c.id)||{count:0,rented:0,vacant:0,monthlyRent:0,invested:0,estVal:0,arrears:0}
-          const cProps=properties.filter(p=>p.company_id===c.id)
+          const cProps=activeProperties.filter(p=>p.company_id===c.id)
           return <div key={c.id}>
             {/* Company header with rename button */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
@@ -1727,9 +1780,22 @@ export default function App() {
                   <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
-                {['all','rented','vacant','purchased','refurb'].map(f=>(
+                {['all','rented','vacant','purchased','refurb','sold'].map(f=>(
                   <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold+'22':'transparent',color:statusFilter===f?T.gold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':STATUS_CFG[f]?.label||f}</button>
                 ))}
+                {archivedCount > 0 && (
+                  <>
+                    <div style={{width:1,background:T.border,margin:'0 2px'}}/>
+                    <button onClick={()=>setShowArchived(v=>!v)}
+                      title={showArchived ? `Hide ${archivedCount} archived` : `Show ${archivedCount} archived`}
+                      style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                        border:`1px solid ${showArchived?T.muted:T.border}`,
+                        background:showArchived?T.muted+'22':'transparent',
+                        color:showArchived?T.text:T.muted,transition:'all 0.18s'}}>
+                      📦 {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             {/* Sort control */}
@@ -1770,7 +1836,7 @@ export default function App() {
             </div>
             {companies.filter(c=>c.id===activeCoTab).map(c=>{
               const cs=companyStats.find(x=>x.id===c.id)
-              const cProps=properties.filter(p=>p.company_id===c.id)
+              const cProps=activeProperties.filter(p=>p.company_id===c.id)
               return <div key={c.id}>
                 <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
                   <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
@@ -1801,8 +1867,8 @@ export default function App() {
             })}
           </div>}
 
-          {view==='rent'&&<RentTrackerOverview companies={companies} properties={properties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis}/>}
-          {view==='daytracker'&&<DayTrackerPage companies={companies} properties={properties} onBack={()=>setView('rent')}/>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis}/>}
+          {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
@@ -1829,14 +1895,46 @@ export default function App() {
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{selected.address}</div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>{selected.prop_type}</div>
                       {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:'#1A1D27',border:'1px solid #2E3044',fontFamily:"'DM Mono',monospace",fontSize:10,color:'#8B8FA8'}}>🏢 {selected.managed_by}</div>}
+                      {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>📦 Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
                     </div>
                     <div style={{display:'flex',gap:8}}>
                       {(canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive) && (
                         <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</button>
                       )}
-                      <button className="btn btn-ghost" style={{fontSize:11,color:T.muted,borderColor:T.border}}
-                          onClick={()=>setShowDeleteConfirm(selected.id)}
-                          title="Delete property">⋯</button>
+                      {(() => {
+                        const canEdit = canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive
+                        return (
+                          <ActionMenu items={[
+                            // Duplicate / Mark sold / Archive / Delete all mutate the property — gate by edit permission
+                            ...(canEdit ? [{ label: 'Duplicate property', icon: '⊕',
+                              onSelect: () => handleDuplicateProp(selected.id) }] : []),
+                            ...(canEdit && selected.status !== 'sold' ? [{
+                              label: 'Mark as sold', icon: '£',
+                              onSelect: () => setShowSellModal(selected.id) }] : []),
+                            // Export PDF is read-only — available to anyone who can see the property
+                            { label: 'Export PDF summary', icon: '⤓',
+                              onSelect: async () => {
+                                try { await api.exportPropertySummaryPDF(selected) }
+                                catch(e) { showToast(e.message, 'error') }
+                              }},
+                            ...(canEdit ? [
+                              { divider: true },
+                              ...(selected.archived_at
+                                ? [{ label: 'Restore from archive', icon: '↩',
+                                     onSelect: () => handleArchiveProp(selected.id, false) }]
+                                : [{ label: 'Archive property', icon: '📦',
+                                     onSelect: () => {
+                                       if (confirm('Archive this property? It will be hidden from the active list and dashboard. You can restore it later.'))
+                                         handleArchiveProp(selected.id, true)
+                                     }}]
+                              ),
+                              { label: 'Delete property', icon: '🗑',
+                                destructive: true,
+                                onSelect: () => setShowDeleteConfirm(selected.id) },
+                            ] : []),
+                          ]}/>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -2072,8 +2170,13 @@ export default function App() {
       )}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
       {/* Access modal now lives inside Settings page */}
-      {showImporter&&<StatementImporter properties={properties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/>}
+      {showImporter&&<StatementImporter properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/>}
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
+      {showSellModal&&<SellPropertyModal
+        property={properties.find(p=>p.id===showSellModal)}
+        onClose={()=>setShowSellModal(null)}
+        onConfirm={(price, date)=>handleMarkSold(showSellModal, price, date)}
+        busy={propertyActionBusy}/>}
 
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
 
@@ -2280,7 +2383,7 @@ function PropertyModal({prop,companies,onClose,onSave}){
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
         <div className="g2"><div><label>Property Name *</label><input value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Flat 1, Station Road"/></div><div><label>Company *</label><select value={form.company_id} onChange={e=>s('company_id',e.target.value)}>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div></div>
         <div><label>Full Address *</label><input value={form.address} onChange={e=>s('address',e.target.value)}/></div>
-        <div className="g2"><div><label>Property Type</label><input value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{['purchased','refurb','rented','vacant'].map(x=><option key={x}>{x}</option>)}</select></div></div>
+        <div className="g2"><div><label>Property Type</label><input value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{['purchased','refurb','rented','vacant','sold'].map(x=><option key={x}>{x}</option>)}</select></div></div>
           <div><label>Managed By</label><input value={form.managed_by||''} onChange={e=>s('managed_by',e.target.value)} placeholder="e.g. Propertunity, Rook Matthews Sayer"/></div>
         <div className="g2"><div><label>Purchase Price (£)</label><input type="number" value={form.purchase_price} onChange={e=>s('purchase_price',e.target.value)}/></div><div><label>Estimated Value (£)</label><input type="number" value={form.est_value} onChange={e=>s('est_value',e.target.value)}/></div></div>
         <div className="g2"><div><label>Refurb Cost (£)</label><input type="number" value={form.refurb_cost} onChange={e=>s('refurb_cost',e.target.value)}/></div><div><label>Mortgage Amount (£)</label><input type="number" value={form.mortgage_amount} onChange={e=>s('mortgage_amount',e.target.value)}/></div></div>
@@ -2360,6 +2463,75 @@ function DeleteConfirmModal({propName, onClose, onConfirm}) {
             <button disabled={loading} onClick={handleConfirm}
               style={{flex:1,fontFamily:"'DM Mono',monospace",fontWeight:600,background:loading?'#3D1A1A':'#2B1010',color:'#E05555',border:'1px solid #5C2C2C',borderRadius:8,padding:'10px',fontSize:13,cursor:loading?'not-allowed':'pointer'}}>
               {loading?'Verifying…':'Delete Permanently'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── SELL PROPERTY MODAL ─────────────────────────────────────────────────────
+function SellPropertyModal({ property, onClose, onConfirm, busy }) {
+  const { T } = useTheme()
+  const [price, setPrice] = useState(property?.current_value || property?.est_value || '')
+  const [date,  setDate]  = useState(new Date().toISOString().slice(0, 10))
+
+  // Total invested for capital-gain preview
+  const totalInvested = (property?.purchase_price||0)+(property?.refurb_cost||0)+(property?.stamp_duty||0)+(property?.legal_fees||0)
+  const numPrice = parseFloat(price) || 0
+  const gain = numPrice ? numPrice - totalInvested : 0
+
+  function handleConfirm() {
+    if (!numPrice) return
+    if (!date)     return
+    onConfirm(numPrice, date)
+  }
+
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:460}}>
+        <div style={{padding:'28px 28px'}}>
+          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as Sold</h2>
+          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:20}}>{property?.name}</p>
+          <div style={{marginBottom:14}}>
+            <label>Sale Price (£)</label>
+            <input type="number" value={price} onChange={e=>setPrice(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
+              placeholder="0" autoFocus/>
+          </div>
+          <div style={{marginBottom:14}}>
+            <label>Sale Date</label>
+            <input type="date" value={date} onChange={e=>setDate(e.target.value)}/>
+          </div>
+          {numPrice > 0 && totalInvested > 0 && (
+            <div style={{
+              fontFamily:"'DM Mono',monospace",fontSize:11,
+              padding:'10px 12px',marginBottom:18,
+              background:T.bg,borderRadius:8,
+              border:`1px solid ${T.border}`}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4,color:T.muted}}>
+                <span>Total invested</span>
+                <span>{fmt(totalInvested)}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4,color:T.muted}}>
+                <span>Sale price</span>
+                <span>{fmt(numPrice)}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',paddingTop:6,marginTop:4,borderTop:`1px solid ${T.border}`,fontWeight:700,color:gain>=0?T.green:T.red}}>
+                <span>Capital gain (gross)</span>
+                <span>{gain>=0?'+':''}{fmt(gain)}</span>
+              </div>
+              <div style={{fontSize:9,color:T.faint,marginTop:8,lineHeight:1.5}}>
+                Excludes selling costs (estate agent fees, solicitor) and CGT. For an actual tax figure, consult your accountant.
+              </div>
+            </div>
+          )}
+          <div style={{display:'flex',gap:10}}>
+            <button className="btn btn-ghost" style={{flex:1}} onClick={onClose}>Cancel</button>
+            <button disabled={busy||!numPrice||!date} onClick={handleConfirm}
+              style={{flex:1,fontFamily:"'DM Mono',monospace",fontWeight:600,background:T.gold,color:'white',border:'none',borderRadius:8,padding:'10px',fontSize:13,cursor:busy?'wait':'pointer',opacity:(!numPrice||!date)?0.5:1}}>
+              {busy?'Saving…':'Mark as sold'}
             </button>
           </div>
         </div>
@@ -2670,7 +2842,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
       {showRentReview && (
         <RentReviewModal
-          properties={properties}
+          properties={activeProperties}
           companies={companies}
           fmt={fmt}
           yieldBasis={yieldBasis}

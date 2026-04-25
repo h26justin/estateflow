@@ -50,6 +50,181 @@ export async function deleteProperty(id) {
   if (error) throw error
 }
 
+/**
+ * Duplicate a property — creates a fresh row with the same financial / status
+ * data but a new ID. Children (refurb_phases, refurb_costs, compliance_items,
+ * tenancy, etc.) are NOT cloned — duplicated properties start with a clean slate.
+ * Name is suffixed with " (copy)" for clarity.
+ */
+export async function duplicateProperty(propertyId) {
+  // Fetch the source row directly (raw, no joins) so we get every column
+  const { data: source, error: fetchErr } = await supabase
+    .from('properties').select('*').eq('id', propertyId).single()
+  if (fetchErr) throw fetchErr
+  if (!source) throw new Error('Property not found')
+
+  // Strip identity, audit, soft-delete, archive, sale, and stateful fields
+  // — the duplicate is a fresh property, not a snapshot in time.
+  // arrears in particular shouldn't carry over — it's a current-state figure.
+  const {
+    id, created_at, updated_at,
+    deleted_at, deleted_by,
+    archived_at, sale_price, sale_date,
+    arrears,
+    user_id: _ignored,           // recreated from auth context below
+    ...payload
+  } = source
+
+  const newName = (source.name || 'Untitled') + ' (copy)'
+  const { data: created, error: insertErr } = await supabase
+    .from('properties')
+    .insert({ ...payload, name: newName, user_id: await uid() })
+    .select('*, company:companies(id,name,abbr,color)').single()
+  if (insertErr) throw insertErr
+  return { ...created, refurb_phases: [], refurb_costs: [], rent_payments: [] }
+}
+
+/** Archive a property — hides from active list. Reversible. */
+export async function archiveProperty(id) {
+  const { data, error } = await supabase.from('properties')
+    .update({ archived_at: new Date().toISOString() }).eq('id', id)
+    .select('*, company:companies(id,name,abbr,color)').single()
+  if (error) throw error
+  return data
+}
+
+/** Reverse archiveProperty. */
+export async function unarchiveProperty(id) {
+  const { data, error } = await supabase.from('properties')
+    .update({ archived_at: null }).eq('id', id)
+    .select('*, company:companies(id,name,abbr,color)').single()
+  if (error) throw error
+  return data
+}
+
+/**
+ * Generate a single-property summary PDF and trigger download.
+ * Lazy-loads jsPDF from CDN if not already present (matches ReportsPage pattern).
+ * Returns nothing — opens a download in the browser.
+ */
+export async function exportPropertySummaryPDF(property) {
+  if (!window.jspdf) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+      s.onload = res; s.onerror = () => rej(new Error('Could not load PDF library'))
+      document.head.appendChild(s)
+    })
+  }
+  const { jsPDF } = window.jspdf
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const W = 210, margin = 16
+  const fmt = n => 'GBP ' + new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(n || 0)
+
+  let y = margin
+
+  // Header
+  doc.setFontSize(20); doc.setFont('helvetica', 'bold')
+  doc.text(property.name || 'Property Summary', margin, y); y += 8
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(107, 118, 145)
+  if (property.address) { doc.text(property.address, margin, y); y += 5 }
+  if (property.prop_type) { doc.text(property.prop_type, margin, y); y += 5 }
+  doc.text('Generated ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), margin, y); y += 10
+
+  doc.setTextColor(26, 37, 48)
+
+  // Helper: render a section with key/value rows
+  function section(title, rows) {
+    if (y > 260) { doc.addPage(); y = margin }
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(107, 118, 145)
+    doc.text(title.toUpperCase(), margin, y); y += 5
+    doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(26, 37, 48)
+    rows.filter(r => r[1] !== null && r[1] !== undefined && r[1] !== '').forEach(([k, v]) => {
+      if (y > 280) { doc.addPage(); y = margin }
+      doc.text(String(k), margin, y)
+      doc.text(String(v), W - margin, y, { align: 'right' })
+      y += 5
+    })
+    y += 4
+  }
+
+  // Status / company
+  section('Overview', [
+    ['Status',  property.status || '—'],
+    ['Company', property.company?.name || '—'],
+    ['Bedrooms', property.bedrooms],
+    ['Bathrooms', property.bathrooms],
+  ])
+
+  // Financials
+  const totalInvested = (property.purchase_price || 0) + (property.refurb_cost || 0)
+    + (property.stamp_duty || 0) + (property.legal_fees || 0)
+  const currentVal = property.current_value || property.est_value || 0
+  const equity = currentVal - (property.mortgage_amount || 0)
+  const annualRent = (property.rent_pcm || 0) * 12
+  const yieldDenom = (property.purchase_price || 0) + (property.refurb_cost || 0)
+  const grossYield = yieldDenom && property.rent_pcm ? ((property.rent_pcm * 12) / yieldDenom * 100) : 0
+
+  section('Purchase & Costs', [
+    ['Purchase Price', fmt(property.purchase_price)],
+    ['Deposit',        fmt(property.deposit)],
+    ['Refurb Cost',    fmt(property.refurb_cost)],
+    ['Stamp Duty',     fmt(property.stamp_duty)],
+    ['Legal Fees',     fmt(property.legal_fees)],
+    ['Total Invested', fmt(totalInvested)],
+  ])
+
+  section('Mortgage', [
+    ['Mortgage Amount', fmt(property.mortgage_amount)],
+    ['Mortgage Rate',   property.mortgage_rate ? (property.mortgage_rate * 100).toFixed(2) + '%' : null],
+    ['Mortgage Term',   property.mortgage_term ? property.mortgage_term + ' years' : null],
+    ['LTV',             currentVal && property.mortgage_amount
+      ? ((property.mortgage_amount / currentVal) * 100).toFixed(1) + '%' : null],
+  ])
+
+  section('Returns', [
+    ['Estimated Value', fmt(property.est_value)],
+    ['Current Value',   fmt(currentVal)],
+    ['Equity',          fmt(equity)],
+    ['Monthly Rent',    fmt(property.rent_pcm)],
+    ['Annual Rent',     fmt(annualRent)],
+    ['Gross Yield',     grossYield > 0 ? grossYield.toFixed(2) + '%' : null],
+  ])
+
+  if (property.status === 'sold') {
+    section('Sale', [
+      ['Sale Price', fmt(property.sale_price)],
+      ['Sale Date',  property.sale_date],
+      ['Capital Gain (gross)', fmt((property.sale_price || 0) - totalInvested)],
+    ])
+  }
+
+  // Footer
+  doc.setFontSize(8); doc.setTextColor(160, 165, 178)
+  doc.text('OwnProperly — Property Summary', margin, 290)
+
+  // Trigger download
+  const safeName = (property.name || 'property').replace(/[^a-z0-9]+/gi, '_').toLowerCase()
+  doc.save(`${safeName}_summary.pdf`)
+}
+
+/**
+ * Mark a property as sold. Sets status='sold', records sale_price + sale_date.
+ * Does NOT archive — sold properties stay visible so they appear in capital
+ * gains reports. Caller can archive separately if desired.
+ */
+export async function markPropertyAsSold(id, salePrice, saleDate) {
+  const { data, error } = await supabase.from('properties')
+    .update({
+      status: 'sold',
+      sale_price: salePrice,
+      sale_date: saleDate,
+    }).eq('id', id)
+    .select('*, company:companies(id,name,abbr,color)').single()
+  if (error) throw error
+  return data
+}
+
 export async function createRefurbPhase(propertyId, phase) {
   const { data, error } = await supabase
     .from('refurb_phases').insert({ ...phase, property_id: propertyId, user_id: await uid() }).select().single()
