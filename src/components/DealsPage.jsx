@@ -1388,7 +1388,16 @@ function DocumentsTab({ dealId, userId, showToast }) {
               <div key={doc.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
                 <span style={{fontSize:20}}>📄</span>
                 <div style={{flex:1}}>
-                  <a href={doc.url} target="_blank" rel="noreferrer" style={{fontSize:13,fontWeight:600,color:T.gold,textDecoration:'none'}}>{doc.name}</a>
+                  <button onClick={async()=>{
+                    try {
+                      const url = await api.getDocumentSignedUrl(doc.file_path)
+                      if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                      else if (showToast) showToast('Could not generate view link', 'error')
+                    } catch(e) { if (showToast) showToast('Could not view: '+(e.message||'unknown'), 'error') }
+                  }}
+                    style={{background:'none',border:'none',padding:0,fontSize:13,fontWeight:600,color:T.gold,cursor:'pointer',textAlign:'left'}}>
+                    {doc.name}
+                  </button>
                   <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>
                     {doc.size ? (doc.size/1024).toFixed(0)+'KB · ' : ''}
                     {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}

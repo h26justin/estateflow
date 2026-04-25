@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
+import { RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert } from './components/tenancy'
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
@@ -20,6 +21,7 @@ import PrivacyPolicy from './components/PrivacyPolicy'
 import DealsPage from './components/DealsPage'
 import DayTrackerPage from './components/DayTrackerPage'
 import OnboardingTour from './components/OnboardingTour'
+import CalcExplain from './components/CalcExplain'
 
 
 
@@ -1944,16 +1946,65 @@ export default function App() {
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
                   {(() => {
                     const cv = selected.current_value || selected.est_value || 0
+                    const totalCapIn = (selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0)
+                    const eq = cv - (selected.mortgage_amount||0)
+                    const ltvNum = cv && selected.mortgage_amount ? (selected.mortgage_amount/cv)*100 : null
                     return [
-                      {l:'Total Capital In', v:fmt((selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0))},
-                      {l:'Current Value',    v:fmt(cv)},
-                      {l:'Equity',           v:fmt(cv - (selected.mortgage_amount||0))},
-                      {l:'LTV',              v:cv && selected.mortgage_amount ? ((selected.mortgage_amount/cv)*100).toFixed(0)+'%' : '-'},
+                      {l:'Total Capital In', v:fmt(totalCapIn),
+                        explain: {
+                          title: 'Total Capital In',
+                          formula: 'Deposit + Stamp Duty + Legal Fees + Refurb Cost',
+                          inputs: [
+                            { label: 'Deposit',     value: fmt(selected.deposit) },
+                            { label: 'Stamp Duty',  value: fmt(selected.stamp_duty) },
+                            { label: 'Legal Fees',  value: fmt(selected.legal_fees) },
+                            { label: 'Refurb Cost', value: fmt(selected.refurb_cost) },
+                          ],
+                          result: fmt(totalCapIn),
+                          note: !selected.mortgage_amount
+                            ? "Heads up: this property has no mortgage recorded. For cash purchases, you may want to add the Purchase Price into Deposit so this number reflects the true cash you put in."
+                            : "Cash you actually put in (excluding the mortgage). For mortgage purchases this is your real out-of-pocket.",
+                        }},
+                      {l:'Current Value', v:fmt(cv),
+                        explain: {
+                          title: 'Current Value',
+                          formula: 'Current Value (or Estimated Value as fallback)',
+                          inputs: [
+                            { label: 'Current Value',   value: selected.current_value ? fmt(selected.current_value) : '— (not set)' },
+                            { label: 'Estimated Value', value: fmt(selected.est_value) },
+                          ],
+                          result: fmt(cv),
+                          note: 'Set Current Value separately on Overview to track market changes vs. your initial estimate.',
+                        }},
+                      {l:'Equity', v:fmt(eq),
+                        explain: {
+                          title: 'Equity',
+                          formula: 'Current Value − Mortgage Amount',
+                          inputs: [
+                            { label: 'Current Value',   value: fmt(cv) },
+                            { label: 'Mortgage Amount', value: fmt(selected.mortgage_amount) },
+                          ],
+                          result: fmt(eq),
+                          note: 'Your stake today. Goes negative if mortgage > value.',
+                        }},
+                      {l:'LTV', v: ltvNum !== null ? ltvNum.toFixed(0)+'%' : '-',
+                        explain: {
+                          title: 'Loan to Value (LTV)',
+                          formula: 'Mortgage Amount ÷ Current Value × 100',
+                          inputs: [
+                            { label: 'Mortgage Amount', value: fmt(selected.mortgage_amount) },
+                            { label: 'Current Value',   value: fmt(cv) },
+                          ],
+                          result: ltvNum !== null ? ltvNum.toFixed(1)+'%' : '— (no mortgage or value)',
+                        }},
                     ]
                   })().map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8,marginBottom:6}}>
                       <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.gold}}>{item.v}</span>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.gold,display:'inline-flex',alignItems:'center',gap:2}}>
+                        {item.v}
+                        {item.explain && <CalcExplain {...item.explain}/>}
+                      </span>
                     </div>
                   ))}
                 </div>

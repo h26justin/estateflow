@@ -83,7 +83,16 @@ function buildPrompt(docType: string): string {
       "monthly_repayment": "number|null"
     }`,
   }
-  const schema = schemas[docType] || `{
+  // The DocumentsTab UI uses short category codes ('gas', 'eicr', 'epc',
+  // 'tenancy', 'insurance', 'mortgage'). Map them to the schema keys here so
+  // either the short code or the explicit key works.
+  const aliases: Record<string, string> = {
+    gas: 'gas_cert',
+    tenancy: 'tenancy_agreement',
+    mortgage: 'mortgage_offer',
+  }
+  const key = aliases[docType] || docType
+  const schema = schemas[key] || `{
     "document_type": "string",
     "key_dates": [{ "label": "string", "date": "DD/MM/YYYY" }],
     "key_amounts": [{ "label": "string", "amount": "number" }],
@@ -103,10 +112,11 @@ serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-    // Fetch the document row
+    // Fetch the document row.
+    // Schema uses file_path / category / file_type (not storage_path / doc_type / mime_type).
     const { data: doc, error: docErr } = await admin
       .from('property_documents')
-      .select('id, storage_path, doc_type, mime_type')
+      .select('id, file_path, category, file_type')
       .eq('id', document_id)
       .single()
 
@@ -115,10 +125,11 @@ serve(async (req) => {
     // Mark as processing
     await admin.from('property_documents').update({ extraction_status: 'processing' }).eq('id', document_id)
 
-    // Download file from Storage
+    // Download file from Storage (uses service role — bypasses RLS, works
+    // whether bucket is public or private).
     const { data: fileData, error: fileErr } = await admin.storage
       .from('property-documents')
-      .download(doc.storage_path)
+      .download(doc.file_path)
 
     if (fileErr || !fileData) throw new Error('Could not download file: ' + (fileErr?.message || 'unknown'))
 
@@ -129,8 +140,8 @@ serve(async (req) => {
     for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
     const base64 = btoa(binary)
 
-    const prompt = buildPrompt(doc.doc_type || 'other')
-    const mimeType = doc.mime_type || 'application/pdf'
+    const prompt = buildPrompt(doc.category || 'other')
+    const mimeType = doc.file_type || 'application/pdf'
     const contentType = mimeType.startsWith('image/') ? 'image' : 'document'
 
     // Call Anthropic

@@ -17,6 +17,26 @@ export class ErrorBoundary extends Component {
     this.setState({ info })
   }
 
+  goHome = () => {
+    // Send the user to the dashboard AND clear the error state so the app
+    // re-renders. Plain reload() reloads the same crashed URL — users got
+    // stuck and had to retype the domain. Reset hash first, then state.
+    window.location.hash = '/'
+    this.setState({ hasError: false, error: null, info: null })
+  }
+
+  goBack = () => {
+    // Pop back one entry, then reset state so the previous (working) view
+    // re-mounts. If there's no history, fall back to going home.
+    if (window.history.length > 1) {
+      window.history.back()
+      // Defer state clear so the popstate handler fires first
+      setTimeout(() => this.setState({ hasError: false, error: null, info: null }), 50)
+    } else {
+      this.goHome()
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       const msg = this.state.error?.message || String(this.state.error || '')
@@ -37,7 +57,7 @@ export class ErrorBoundary extends Component {
               Something went wrong
             </h2>
             <p style={{ fontSize: 13, color: '#6B7191', marginBottom: 20, lineHeight: 1.6 }}>
-              An unexpected error occurred. Your data is safe — please refresh the page to continue.
+              An unexpected error occurred. Your data is safe.
             </p>
             {msg && (
               <div style={{
@@ -50,14 +70,35 @@ export class ErrorBoundary extends Component {
                 {msg}
               </div>
             )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={this.goBack}
+                style={{
+                  background: 'white', color: '#2D3C4A', border: '1px solid #E2DFD8',
+                  borderRadius: 10, padding: '12px 24px', fontSize: 13,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                ← Go Back
+              </button>
+              <button
+                onClick={this.goHome}
+                style={{
+                  background: '#2D3C4A', color: 'white', border: 'none',
+                  borderRadius: 10, padding: '12px 28px', fontSize: 13,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                Go to Dashboard
+              </button>
+            </div>
             <button
               onClick={() => window.location.reload()}
               style={{
-                background: '#2D3C4A', color: 'white', border: 'none',
-                borderRadius: 10, padding: '12px 28px', fontSize: 13,
-                cursor: 'pointer', fontFamily: 'inherit',
+                marginTop: 14,
+                background: 'transparent', color: '#6B7191', border: 'none',
+                fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                textDecoration: 'underline',
               }}>
-              Refresh Page
+              Or try refreshing this page
             </button>
           </div>
         </div>
