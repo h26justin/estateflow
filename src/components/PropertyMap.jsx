@@ -25,7 +25,8 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   const [libReady, setLibReady]   = useState(!!window.mapboxgl)
   const [libError, setLibError]   = useState(null)
   const [geocoding, setGeocoding] = useState(null)  // { done, total } | null
-  const [popupProp, setPopupProp] = useState(null)  // currently-open popup property
+  const [popupProp, setPopupProp]   = useState(null)  // single-property popup
+  const [popupGroup, setPopupGroup] = useState(null)  // cluster popup: { key, properties, lat, lng }
   const mono = "'DM Mono',monospace"
 
   // Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
@@ -36,6 +37,29 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
     purchased: '#E0943A',
     refurb:    '#4B8FE0',
     sold:      '#9B8AC2',
+  }
+
+  // Build a normalized "building key" from an address. Strips flat-number
+  // prefixes and optional postcode suffix, then takes the first comma-chunk
+  // (typically the building name) plus the second-to-last chunk (typically
+  // the town). This puts "Flat 1, Watts Moses House, Sunderland" and
+  // "Flat 2, Watts Moses House, High Street East, Sunderland, SR1 2BX" into
+  // the same group.
+  function groupKeyForAddress(address) {
+    if (!address) return null
+    let s = String(address).trim()
+    // Strip leading "Flat 1B," / "Apt 12," / "Unit 4," / "Room 3," (one round)
+    s = s.replace(/^\s*(?:flat|apt|apartment|unit|room|suite)\s+\w+\s*,\s*/i, '')
+    const parts = s.split(',').map(p => p.trim()).filter(Boolean)
+    if (parts.length === 0) return null
+    // Building/street is the first chunk; town is the second-to-last (skipping postcode if present)
+    // UK postcode pattern in the last chunk
+    const ukPostcode = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i
+    let town = parts[parts.length - 1]
+    if (ukPostcode.test(town) && parts.length > 1) town = parts[parts.length - 2]
+    const building = parts[0]
+    const norm = (x) => (x || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    return norm(building) + '|' + norm(town)
   }
 
   // ─── Library bootstrap ──────────────────────────────────────────────────
@@ -143,53 +167,113 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
     )
     if (withCoords.length === 0) return
 
+    // ── Group properties by building key ──────────────────────────────────
+    // Properties with the same address-derived key share a single marker.
+    // Properties without a derivable key (e.g. address blank) get their own
+    // singleton group keyed by id so they still render.
+    const groups = new Map()
     withCoords.forEach(p => {
-      const color = STATUS_COLOR[p.status] || '#888EA8'
+      const key = groupKeyForAddress(p.address) || ('singleton:' + p.id)
+      if (!groups.has(key)) groups.set(key, { key, properties: [], lat: 0, lng: 0 })
+      groups.get(key).properties.push(p)
+    })
+    // Compute group centroid (mean lat/lng) — handles tiny geocoding jitter
+    // between flats that ought to be at the same building.
+    groups.forEach(g => {
+      g.lat = g.properties.reduce((s, p) => s + p.latitude,  0) / g.properties.length
+      g.lng = g.properties.reduce((s, p) => s + p.longitude, 0) / g.properties.length
+    })
 
-      // Build a custom HTML marker so we can colour-code
+    groups.forEach(group => {
+      const isCluster = group.properties.length > 1
       const el = document.createElement('div')
-      el.style.width = '22px'
-      el.style.height = '22px'
-      el.style.borderRadius = '50%'
-      el.style.background = color
-      el.style.border = '3px solid white'
-      el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)'
-      el.style.cursor = 'pointer'
-      // Subtle ring on pinned (manually placed) pins so the user knows it's locked
-      if (p.geocode_pinned) {
-        el.style.outline = '2px solid ' + color + '66'
-        el.style.outlineOffset = '2px'
-      }
 
-      const marker = new window.mapboxgl.Marker({ element: el, draggable: true })
-        .setLngLat([p.longitude, p.latitude])
-        .addTo(map)
+      if (isCluster) {
+        // Cluster pin — circle showing count, slight stripe of constituent
+        // status colours so a glance still tells you the rough composition.
+        const count = group.properties.length
+        // Pick the dominant status colour (or gold if mixed)
+        const statusCounts = {}
+        group.properties.forEach(p => {
+          statusCounts[p.status] = (statusCounts[p.status] || 0) + 1
+        })
+        const [topStatus] = Object.entries(statusCounts).sort((a, b) => b[1] - a[1])[0] || ['rented']
+        const dominantColor = STATUS_COLOR[topStatus] || '#888EA8'
+        const isMixed = Object.keys(statusCounts).length > 1
 
-      // Click → open popup card via React state. We avoid Mapbox's built-in
-      // Popup so we can render a richer card with our own theme.
-      el.addEventListener('click', (e) => {
-        e.stopPropagation()
-        setPopupProp(p)
-        map.flyTo({ center: [p.longitude, p.latitude], zoom: Math.max(map.getZoom(), 13), speed: 0.8 })
-      })
+        el.style.minWidth = '32px'
+        el.style.height = '32px'
+        el.style.padding = '0 6px'
+        el.style.borderRadius = '999px'
+        el.style.background = isMixed ? '#C8A84B' : dominantColor
+        el.style.border = '3px solid white'
+        el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)'
+        el.style.cursor = 'pointer'
+        el.style.display = 'flex'
+        el.style.alignItems = 'center'
+        el.style.justifyContent = 'center'
+        el.style.color = 'white'
+        el.style.fontFamily = "'DM Mono', monospace"
+        el.style.fontSize = '12px'
+        el.style.fontWeight = '700'
+        el.textContent = String(count)
 
-      // Drag end → save new pin location
-      marker.on('dragend', async () => {
-        const lngLat = marker.getLngLat()
-        try {
-          const updated = await api.setPropertyPin(p.id, lngLat.lat, lngLat.lng)
-          if (setProperties) {
-            setProperties(prev => prev.map(x => x.id === p.id ? { ...x, ...updated } : x))
-          }
-          if (showToast) showToast('Pin location saved')
-        } catch (err) {
-          if (showToast) showToast('Could not save pin: ' + err.message, 'error')
-          // Revert visual position
-          marker.setLngLat([p.longitude, p.latitude])
+        const marker = new window.mapboxgl.Marker({ element: el })
+          .setLngLat([group.lng, group.lat])
+          .addTo(map)
+
+        el.addEventListener('click', (e) => {
+          e.stopPropagation()
+          setPopupProp(null)
+          setPopupGroup(group)
+          map.flyTo({ center: [group.lng, group.lat], zoom: Math.max(map.getZoom(), 15), speed: 0.8 })
+        })
+
+        markersRef.current.push({ marker, groupKey: group.key })
+      } else {
+        // Single-property pin (existing behaviour)
+        const p = group.properties[0]
+        const color = STATUS_COLOR[p.status] || '#888EA8'
+
+        el.style.width = '22px'
+        el.style.height = '22px'
+        el.style.borderRadius = '50%'
+        el.style.background = color
+        el.style.border = '3px solid white'
+        el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)'
+        el.style.cursor = 'pointer'
+        if (p.geocode_pinned) {
+          el.style.outline = '2px solid ' + color + '66'
+          el.style.outlineOffset = '2px'
         }
-      })
 
-      markersRef.current.push({ marker, propertyId: p.id })
+        const marker = new window.mapboxgl.Marker({ element: el, draggable: true })
+          .setLngLat([p.longitude, p.latitude])
+          .addTo(map)
+
+        el.addEventListener('click', (e) => {
+          e.stopPropagation()
+          setPopupGroup(null)
+          setPopupProp(p)
+          map.flyTo({ center: [p.longitude, p.latitude], zoom: Math.max(map.getZoom(), 13), speed: 0.8 })
+        })
+
+        marker.on('dragend', async () => {
+          const lngLat = marker.getLngLat()
+          try {
+            const updated = await api.setPropertyPin(p.id, lngLat.lat, lngLat.lng)
+            if (setProperties) {
+              setProperties(prev => prev.map(x => x.id === p.id ? { ...x, ...updated } : x))
+            }
+            if (showToast) showToast('Pin location saved')
+          } catch (err) {
+            if (showToast) showToast('Could not save pin: ' + err.message, 'error')
+            marker.setLngLat([p.longitude, p.latitude])
+          }
+        })
+
+        markersRef.current.push({ marker, propertyId: p.id })
+      }
     })
 
     // Fit map to bounds (with sensible padding) on every update.
@@ -293,6 +377,62 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
             </button>
           </div>
         )}
+
+        {/* Cluster popup — shown when user clicks a multi-property pin */}
+        {popupGroup && (() => {
+          // Sort properties naturally (so Flat 1, Flat 2, Flat 10 sort numerically not alphabetically)
+          const sorted = [...popupGroup.properties].sort((a, b) =>
+            (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
+          )
+          // Headline: building name = first sorted property's address minus the flat prefix
+          const sample = sorted[0]
+          const buildingLabel = (sample.address || '').replace(/^\s*(?:flat|apt|apartment|unit|room|suite)\s+\w+\s*,\s*/i, '').split(',').slice(0, 2).join(',').trim()
+          // Status counts for the summary chip row
+          const statusCounts = {}
+          sorted.forEach(p => { statusCounts[p.status] = (statusCounts[p.status] || 0) + 1 })
+          // Total monthly rent across the building
+          const totalRent = sorted.reduce((s, p) => s + (p.rent_pcm || 0), 0)
+          return (
+            <div style={{ position: 'absolute', top: 16, left: 16, width: 320, maxHeight: 'calc(100% - 32px)', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', overflow: 'hidden', zIndex: 10, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    Building · {sorted.length} {sorted.length === 1 ? 'property' : 'properties'}
+                  </div>
+                  <button onClick={() => setPopupGroup(null)} aria-label="Close"
+                    style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{buildingLabel}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  {Object.entries(statusCounts).map(([s, c]) => (
+                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: (STATUS_COLOR[s] || '#888EA8') + '22', color: STATUS_COLOR[s] || '#888EA8', fontFamily: mono, fontSize: 10, fontWeight: 600 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[s] || '#888EA8' }}/>
+                      {c} {s}
+                    </span>
+                  ))}
+                </div>
+                {totalRent > 0 && (
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8 }}>
+                    Total rent: <span style={{ color: T.text, fontWeight: 600 }}>£{totalRent.toLocaleString()}/mo</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ overflowY: 'auto', maxHeight: 320 }}>
+                {sorted.map(p => (
+                  <button key={p.id} onClick={() => onOpenProperty && onOpenProperty(p.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', border: 'none', borderBottom: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.bg}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[p.status] || '#888EA8', flexShrink: 0 }}/>
+                    <span style={{ flex: 1, fontFamily: mono, fontSize: 12, color: T.text }}>{p.name}</span>
+                    {p.rent_pcm > 0 && <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>£{p.rent_pcm.toLocaleString()}</span>}
+                    <span style={{ fontFamily: mono, fontSize: 14, color: T.faint, marginLeft: 4 }}>›</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Legend */}
@@ -303,7 +443,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
             {k}
           </span>
         ))}
-        <span style={{ marginLeft: 'auto', color: T.faint }}>Tip: drag a pin to fix its location.</span>
+        <span style={{ marginLeft: 'auto', color: T.faint }}>Click a number to see all flats. Drag a single pin to fix its location.</span>
       </div>
     </div>
   )
