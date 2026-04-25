@@ -1848,9 +1848,6 @@ export default function App() {
                   tabs.push('deposit')
                   tabs.push('notices')
                   tabs.push('rent history')
-                  tabs.push('deposit')
-                  tabs.push('notices')
-                  tabs.push('rent history')
                   if(cs.feature_maintenance) tabs.push('maintenance')
                   if(cs.feature_documents)   tabs.push('documents')
                   if(cs.feature_expenses)    tabs.push('expenses')
@@ -1902,10 +1899,7 @@ export default function App() {
                 {detailTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
-                {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
-                {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
-                {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast}/>}
-                {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast}/>}
+                {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast} T={T}/>}
                 {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_maintenance') || devModeActive}/>}
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses" canEdit={canDo(permissionsMap, selected.company_id, 'edit_expenses') || devModeActive} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive}/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
