@@ -53,7 +53,12 @@ export default function TrashPage({ user, onRestored }) {
     if (!confirm(`Restore "${item._name}"?`)) return
     setWorking(item.id)
     try {
-      await api.restoreEntity(item._type, item.id)
+      // Companies use a cascade-aware restore so cascade-deleted properties also come back
+      if (item._type === 'companies') {
+        await api.restoreCompanyAndCascade(item.id, user.id)
+      } else {
+        await api.restoreEntity(item._type, item.id)
+      }
       await load()
       if (onRestored) onRestored()
     } catch(e) { alert('Restore failed: ' + (e.message || 'unknown error')) }

@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 const uid = async () => (await supabase.auth.getUser()).data.user.id
 
 export async function fetchCompanies() {
-  const { data, error } = await supabase.from('companies').select('*').order('name')
+  const { data, error } = await supabase.from('companies').select('*').is('deleted_at', null).order('name')
   if (error) throw error
   return data
 }
@@ -26,6 +26,7 @@ export async function fetchProperties() {
   const { data, error } = await supabase
     .from('properties')
     .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(*)')
+    .is('deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
   if (error) throw error
@@ -2001,6 +2002,117 @@ export async function restoreEntity(table, id) {
 export async function hardDeleteEntity(table, id) {
   const { error } = await supabase.from(table).delete().eq('id', id)
   if (error) throw error
+}
+
+// ── COMPANY CASCADE SOFT-DELETE ──────────────────────────────────────────────
+// When a company is soft-deleted, all its (currently-active) properties are
+// soft-deleted with the same `deletion_batch_id`. On restore, we use that
+// batch ID to re-link them. We deliberately do NOT touch properties that
+// were already soft-deleted before the company delete — those keep their
+// original deleted_at / deleted_by and won't auto-restore later.
+
+/**
+ * Returns a preview of what would be removed if a company were deleted.
+ * Used to populate the confirmation modal. Read-only — no side effects.
+ */
+export async function getCompanyDeletionPreview(companyId) {
+  // Active properties that would cascade-delete
+  const { count: activeProps } = await supabase.from('properties')
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+  // Tenancies on those active properties
+  const { data: propRows } = await supabase.from('properties')
+    .select('id').eq('company_id', companyId).is('deleted_at', null)
+  const propIds = (propRows || []).map(p => p.id)
+  let tenancies = 0, documents = 0
+  if (propIds.length > 0) {
+    const { count: tCount } = await supabase.from('tenancy_details')
+      .select('*', { count: 'exact', head: true })
+      .in('property_id', propIds)
+      .is('deleted_at', null)
+    tenancies = tCount || 0
+    const { count: dCount } = await supabase.from('property_documents')
+      .select('*', { count: 'exact', head: true })
+      .in('property_id', propIds)
+      .is('deleted_at', null)
+    documents = dCount || 0
+  }
+  // Direct company-level documents
+  const { count: companyDocs } = await supabase.from('company_documents')
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', companyId)
+  return {
+    properties:       activeProps || 0,
+    tenancies,
+    documents,
+    company_documents: companyDocs || 0,
+  }
+}
+
+/**
+ * Soft-delete a company and all its currently-active properties as one batch.
+ * Sets deletion_batch_id on every affected row so restore can be exact.
+ * Does NOT touch properties that were already soft-deleted independently.
+ *
+ * Note: tenancies, documents, etc. are NOT explicitly soft-deleted here. They
+ * become invisible automatically because the property they belong to is gone
+ * (queries that join on properties will filter them out, and the Trash page
+ * will hide rows whose parent property is deleted).
+ */
+export async function softDeleteCompanyCascade(companyId, userId) {
+  // Generate a fresh batch ID — a UUID via crypto.randomUUID (browser-safe)
+  const batchId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const now = new Date().toISOString()
+
+  // Step 1 — soft-delete the active properties for this company, tagged with batchId
+  const { error: pErr } = await supabase.from('properties')
+    .update({ deleted_at: now, deleted_by: userId, deletion_batch_id: batchId })
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+  if (pErr) throw pErr
+
+  // Step 2 — soft-delete the company with the same batchId
+  const { error: cErr } = await supabase.from('companies')
+    .update({ deleted_at: now, deleted_by: userId, deletion_batch_id: batchId })
+    .eq('id', companyId)
+  if (cErr) throw cErr
+
+  // Audit log (best effort — don't fail the delete if this errors)
+  try { await logAction(userId, companyId, 'company.deleted', 'company', companyId, null) } catch (e) {}
+  return { batchId }
+}
+
+/**
+ * Restore a soft-deleted company AND any properties that were cascade-deleted
+ * with it (matching deletion_batch_id). Does NOT restore properties that were
+ * deleted independently before the company delete.
+ */
+export async function restoreCompanyAndCascade(companyId, userId) {
+  // Find the deletion_batch_id for the company
+  const { data: co, error: cErr } = await supabase.from('companies')
+    .select('deletion_batch_id')
+    .eq('id', companyId).single()
+  if (cErr) throw cErr
+  const batchId = co?.deletion_batch_id
+
+  // Restore the company itself
+  const { error: rcErr } = await supabase.from('companies')
+    .update({ deleted_at: null, deleted_by: null, deletion_batch_id: null })
+    .eq('id', companyId)
+  if (rcErr) throw rcErr
+
+  // Restore properties that share this batch ID (i.e. cascade-deleted together)
+  if (batchId) {
+    const { error: rpErr } = await supabase.from('properties')
+      .update({ deleted_at: null, deleted_by: null, deletion_batch_id: null })
+      .eq('deletion_batch_id', batchId)
+    if (rpErr) throw rpErr
+  }
+
+  try { await logAction(userId, companyId, 'company.restored', 'company', companyId, null) } catch (e) {}
 }
 
 // ── FETCH ALL DELETED ITEMS (for Trash page) ──────────────────────────────────
