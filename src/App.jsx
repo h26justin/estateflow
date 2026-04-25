@@ -23,6 +23,7 @@ import DayTrackerPage from './components/DayTrackerPage'
 import OnboardingTour from './components/OnboardingTour'
 import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
+import PropertyMap from './components/PropertyMap'
 
 
 
@@ -1756,7 +1757,7 @@ export default function App() {
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
               </div>
               <div style={{display:'flex',gap:8}}>
-                {[['properties','🏘 Properties'],['companies','🏢 Companies'],['contractors','🔧 Contractors']].map(([k,l])=>(
+                {[['properties','🏘 Properties'],['companies','🏢 Companies'],['map','🗺 Map'],['contractors','🔧 Contractors']].map(([k,l])=>(
                   <button key={k} onClick={()=>setPortfolioTab(k)}
                     style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                       border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
@@ -1769,6 +1770,11 @@ export default function App() {
             </div>
             {portfolioTab==='companies'&&<CompaniesPanel companies={companies} setCompanies={setCompanies} user={user} showToast={showToast} companySettings={companySettings} setCompanySettings={setCompanySettings} T={T}/>}
             {portfolioTab==='contractors'&&<ContractorsPage user={user} companies={companies} showToast={showToast}/>}
+            {portfolioTab==='map'&&<PropertyMap
+              properties={filtered}
+              setProperties={setProperties}
+              showToast={showToast}
+              onOpenProperty={(id)=>{ setSelectedId(id); setView('detail'); setDetailTab('overview') }}/>}
             {portfolioTab==='properties'&&<div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',marginBottom:16}}>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
