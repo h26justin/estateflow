@@ -23,6 +23,7 @@ function daysUntil(dateStr) {
 }
 
 function ExpiryBadge({dateStr}) {
+  const { T } = useTheme()
   const days = daysUntil(dateStr)
   if (days === null) return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>No expiry set</span>
   if (days < 0)   return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:T.red,background:'#2B1010',padding:'2px 8px',borderRadius:20}}>EXPIRED {Math.abs(days)}d ago</span>
@@ -355,6 +356,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
 }
 
 function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = true}) {
+  const { T } = useTheme()
   const pCol = PRIORITIES.find(p=>p.v===job.priority)?.c || T.muted
   const st   = STATUSES.find(s=>s.v===job.status)
   return (
