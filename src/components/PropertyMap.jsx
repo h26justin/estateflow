@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
+import { FLAT_PREFIX_RE, groupKeyForAddress } from '../lib/addressUtils'
 
 /**
  * PropertyMap — a Mapbox-powered map of all visible properties.
@@ -41,35 +42,9 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
     sold:      '#9B8AC2',
   }
 
-  // Build a normalized "building key" from an address. Strips flat-number
-  // prefixes and optional postcode suffix, then takes the first comma-chunk
-  // (typically the building name) plus the second-to-last chunk (typically
-  // the town). This puts "Flat 1, Watts Moses House, Sunderland" and
-  // "Flat 2, Watts Moses House, High Street East, Sunderland, SR1 2BX" into
-  // the same group.
-  //
-  // Recognised prefix forms:
-  //   "Flat 1, " / "Flat 1B, " / "Apt 12, " / "Apartment 4, " / "Unit 3, "
-  //   "Room 5, " / "Suite 12, "
-  //   "Ground Floor Flat, " / "First Floor Flat, " / etc. (named-floor)
-  //   "Ground Floor, " / "First Floor, " (unit-implied)
-  //   "Basement Flat, " / "Garden Flat, " / "Penthouse, "
-  const FLAT_PREFIX_RE = /^\s*(?:(?:flat|apt|apartment|unit|room|suite)\s+\w+|(?:ground|first|second|third|fourth|fifth|top|basement|garden|lower|upper)(?:\s+floor)?(?:\s+flat)?|penthouse)\s*,\s*/i
-  function groupKeyForAddress(address) {
-    if (!address) return null
-    let s = String(address).trim()
-    s = s.replace(FLAT_PREFIX_RE, '')
-    const parts = s.split(',').map(p => p.trim()).filter(Boolean)
-    if (parts.length === 0) return null
-    // Building/street is the first chunk; town is the second-to-last (skipping postcode if present)
-    // UK postcode pattern in the last chunk
-    const ukPostcode = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i
-    let town = parts[parts.length - 1]
-    if (ukPostcode.test(town) && parts.length > 1) town = parts[parts.length - 2]
-    const building = parts[0]
-    const norm = (x) => (x || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-    return norm(building) + '|' + norm(town)
-  }
+  // Note: FLAT_PREFIX_RE and groupKeyForAddress are imported from
+  // ../lib/addressUtils so this clustering logic stays in sync with the
+  // list-sort logic in App.jsx.
 
   // ─── Library bootstrap ──────────────────────────────────────────────────
   // Load Mapbox GL JS + CSS from CDN once. We don't want a build-time dep

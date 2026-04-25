@@ -25,6 +25,7 @@ import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
 import PropertyMap from './components/PropertyMap'
 import { safeOverlayClose, isFormDirty } from './lib/modalUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
 
 
 
@@ -923,16 +924,27 @@ export default function App() {
   // Expose loadData for refresh after import
   const refreshData = useCallback(async () => {
     try {
-      const props = await api.fetchProperties()
+      const [props, cos] = await Promise.all([
+        api.fetchProperties(),
+        api.fetchCompanies(),
+      ])
       // Apply same access filter — use userAccess + owned
-      const { data: ownedCos } = await supabase.from('companies').select('id').eq('owner_id', user.id)
+      const { data: ownedCos } = await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)
       const ownedIds = (ownedCos || []).map(c => c.id)
       const accessibleIds = new Set([...ownedIds, ...userAccess])
       if (isPlatformAdmin) {
         setProperties(props)
+        setCompanies(cos)
       } else {
         setProperties(props.filter(p => accessibleIds.has(p.company_id)))
+        setCompanies(cos.filter(c => accessibleIds.has(c.id)))
       }
+      // If the user was viewing a tab for a company that no longer exists, clear it
+      setActiveCoTab(prev => {
+        if (!prev) return prev
+        const stillExists = cos.some(c => c.id === prev)
+        return stillExists ? prev : null
+      })
     } catch(e) {}
   }, [userAccess, isPlatformAdmin, user])
 
@@ -947,14 +959,22 @@ export default function App() {
     // Sort
     // Natural sort: handles "Room 2" < "Room 10" correctly
     const natSort = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    // Building-aware sort: properties in the same building cluster together,
+    // then within a building they're ordered by flat/room number.
+    const byBuilding = (a, b) => {
+      const ka = groupKeyForAddress(a.address) || ''
+      const kb = groupKeyForAddress(b.address) || ''
+      if (ka !== kb) return natSort(ka, kb)
+      return natSort(flatKeyWithinBuilding(a.name), flatKeyWithinBuilding(b.name))
+    }
     return [...f].sort((a,b)=>{
       switch(sortBy) {
         case 'company-name': {
           const coA = a.company?.name||''; const coB = b.company?.name||''
           if(coA!==coB) return natSort(coA, coB)
-          return natSort(a.name, b.name)
+          return byBuilding(a, b)
         }
-        case 'name':         return natSort(a.name, b.name)
+        case 'name':         return byBuilding(a, b)
         case 'status':       return (a.status||'').localeCompare(b.status||'')
         case 'rent-high':    return (b.rent_pcm||0)-(a.rent_pcm||0)
         case 'rent-low':     return (a.rent_pcm||0)-(b.rent_pcm||0)
