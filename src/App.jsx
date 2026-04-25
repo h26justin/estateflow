@@ -1841,20 +1841,23 @@ export default function App() {
                 {(()=>{
                   const co = selected?.company_id
                   const cs = companySettings[co] || {}
+                  // Top-level tabs: 9 max. Tenancy-related sub-views (Right to Rent / Deposit /
+                  // Notices / Rent History) are now nested inside Tenancy as sub-tabs to keep
+                  // the top row scannable. Old deep-link URLs (#/detail/<id>/deposit etc.) still
+                  // work because the tenancy section detects sub-tab URLs and switches accordingly.
                   const tabs = ['overview','refurb','rent','financials']
                   if(cs.feature_compliance)  tabs.push('compliance')
                   if(cs.feature_tenancy)     tabs.push('tenancy')
-                  tabs.push('right to rent')
-                  tabs.push('deposit')
-                  tabs.push('notices')
-                  tabs.push('rent history')
                   if(cs.feature_maintenance) tabs.push('maintenance')
                   if(cs.feature_documents)   tabs.push('documents')
                   if(cs.feature_expenses)    tabs.push('expenses')
+                  // Treat tenancy sub-tab URLs as if "tenancy" is the active top-level tab
+                  const TENANCY_SUB = ['right to rent','deposit','notices','rent history']
+                  const activeTop = TENANCY_SUB.includes(detailTab) ? 'tenancy' : detailTab
                   return (
                     <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
                       {tabs.map(t=>(
-                        <button key={t} className={`tab ${detailTab===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:'capitalize'}}>{t}</button>
+                        <button key={t} className={`tab ${activeTop===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:'capitalize'}}>{t}</button>
                       ))}
                     </div>
                   )
@@ -1893,13 +1896,45 @@ export default function App() {
                   ))}
                 </div>}
                 {detailTab==='contractors'&&<ContractorsPage propertyFilter={selected.id} showToast={showToast} user={user} compact={true}/>}
-                {(detailTab==='overview'||detailTab==='tenancy')&&<TenancyRenewalAlert propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                {(detailTab==='overview'||detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_compliance') || devModeActive}/>}
-                {detailTab==='tenancy'&&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
-                {detailTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
-                {detailTab==='deposit'&&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
-                {detailTab==='notices'&&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
-                {detailTab==='rent history'&&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast} T={T}/>}
+                {(detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&(()=>{
+                  // The four legacy values map to themselves as sub-tabs; "tenancy" => "details".
+                  const subTab = detailTab==='tenancy' ? 'details' : detailTab
+                  const SUBS = [
+                    ['details',       'Details'],
+                    ['right to rent', 'Right to Rent'],
+                    ['deposit',       'Deposit'],
+                    ['notices',       'Notices'],
+                    ['rent history',  'Rent History'],
+                  ]
+                  return (
+                    <div>
+                      <div style={{display:'flex',gap:2,marginBottom:14,flexWrap:'wrap',borderBottom:`1px solid ${T.border}`,paddingBottom:0}}>
+                        {SUBS.map(([k,label])=>(
+                          <button key={k}
+                            onClick={()=>setDetailTab(k==='details' ? 'tenancy' : k)}
+                            style={{
+                              fontFamily:"'DM Mono',monospace",fontSize:11,padding:'8px 14px',
+                              border:'none',borderBottom:`2px solid ${subTab===k?T.gold:'transparent'}`,
+                              background:'transparent',cursor:'pointer',
+                              color:subTab===k?T.text:T.muted,
+                              fontWeight:subTab===k?700:400,
+                              transition:'all 0.15s',
+                              marginBottom:-1,
+                            }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {subTab==='details'      &&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
+                      {subTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                      {subTab==='deposit'      &&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                      {subTab==='notices'      &&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                      {subTab==='rent history' &&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast} T={T}/>}
+                    </div>
+                  )
+                })()}
                 {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_maintenance') || devModeActive}/>}
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses" canEdit={canDo(permissionsMap, selected.company_id, 'edit_expenses') || devModeActive} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive}/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
