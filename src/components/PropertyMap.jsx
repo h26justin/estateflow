@@ -47,11 +47,18 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   // the town). This puts "Flat 1, Watts Moses House, Sunderland" and
   // "Flat 2, Watts Moses House, High Street East, Sunderland, SR1 2BX" into
   // the same group.
+  //
+  // Recognised prefix forms:
+  //   "Flat 1, " / "Flat 1B, " / "Apt 12, " / "Apartment 4, " / "Unit 3, "
+  //   "Room 5, " / "Suite 12, "
+  //   "Ground Floor Flat, " / "First Floor Flat, " / etc. (named-floor)
+  //   "Ground Floor, " / "First Floor, " (unit-implied)
+  //   "Basement Flat, " / "Garden Flat, " / "Penthouse, "
+  const FLAT_PREFIX_RE = /^\s*(?:(?:flat|apt|apartment|unit|room|suite)\s+\w+|(?:ground|first|second|third|fourth|fifth|top|basement|garden|lower|upper)(?:\s+floor)?(?:\s+flat)?|penthouse)\s*,\s*/i
   function groupKeyForAddress(address) {
     if (!address) return null
     let s = String(address).trim()
-    // Strip leading "Flat 1B," / "Apt 12," / "Unit 4," / "Room 3," (one round)
-    s = s.replace(/^\s*(?:flat|apt|apartment|unit|room|suite)\s+\w+\s*,\s*/i, '')
+    s = s.replace(FLAT_PREFIX_RE, '')
     const parts = s.split(',').map(p => p.trim()).filter(Boolean)
     if (parts.length === 0) return null
     // Building/street is the first chunk; town is the second-to-last (skipping postcode if present)
@@ -403,7 +410,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
           )
           // Headline: building name = first sorted property's address minus the flat prefix
           const sample = sorted[0]
-          const buildingLabel = (sample.address || '').replace(/^\s*(?:flat|apt|apartment|unit|room|suite)\s+\w+\s*,\s*/i, '').split(',').slice(0, 2).join(',').trim()
+          const buildingLabel = (sample.address || '').replace(FLAT_PREFIX_RE, '').split(',').slice(0, 2).join(',').trim()
           // Status counts for the summary chip row
           const statusCounts = {}
           sorted.forEach(p => { statusCounts[p.status] = (statusCounts[p.status] || 0) + 1 })
