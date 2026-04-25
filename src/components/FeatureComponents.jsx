@@ -8,6 +8,7 @@ import CalcExplain from './CalcExplain'
 // Exports: ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { safeOverlayClose } from '../lib/modalUtils'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -2265,7 +2266,7 @@ function AccessModal({companies, onClose, showToast}) {
   })
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose)}>
       <div className="modal" style={{maxWidth:660}}>
         <div style={{padding:'22px 26px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>

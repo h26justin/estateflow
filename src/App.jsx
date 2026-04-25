@@ -24,6 +24,7 @@ import OnboardingTour from './components/OnboardingTour'
 import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
 import PropertyMap from './components/PropertyMap'
+import { safeOverlayClose, isFormDirty } from './lib/modalUtils'
 
 
 
@@ -558,6 +559,7 @@ export default function App() {
   const [detailTab,   setDetailTab]    = useState('overview')
   const [portfolioTab, setPortfolioTab] = useState('properties')
   const [showModeller, setShowModeller] = useState(false)
+  const [showDashMap,  setShowDashMap]  = useState(true)
   const [coFilter,    setCoFilter]     = useState('all')
   const [dashCoFilter, setDashCoFilter] = useState([]) // [] = all companies
   const [statusFilter,setStatusFilter] = useState('all')
@@ -1722,6 +1724,23 @@ export default function App() {
             }
             <SmartAlerts properties={dashProps} companies={dashCos} fmt={fmt} openDetail={openDetail}/>
             <TenantInbox user={user} companies={companies} showToast={showToast} companySettings={companySettings}/>
+            {/* Portfolio map — collapsible, slimmer dashboard variant */}
+            {showDashMap && <div style={{ marginTop: 28 }}>
+              <PropertyMap
+                compact
+                properties={dashProps}
+                setProperties={setProperties}
+                showToast={showToast}
+                onOpenProperty={(id)=>{ setSelectedId(id); setView('detail'); setDetailTab('overview') }}
+                onViewFullMap={()=>{ setView('properties'); setPortfolioTab('map') }}
+              />
+            </div>}
+            <div style={{marginTop:16}}>
+              <button onClick={()=>setShowDashMap(v=>!v)}
+                style={{fontFamily:"'DM Mono',monospace",fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>
+                {showDashMap?'▲ Hide property map':'🗺 Show property map'}
+              </button>
+            </div>
             {/* Portfolio Modeller — collapsible */}
             {showModeller && <PortfolioModellerWidget properties={dashProps}/>}
             <div style={{marginTop:16}}>
@@ -2372,7 +2391,10 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
 function PropertyModal({prop,companies,onClose,onSave}){
   const { T } = useTheme()
   const blank={name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:''}
-  const [form,setForm]=useState(prop?.id?{...prop,company_id:prop.company_id||prop.company?.id||'',mortgage_rate:prop.mortgage_rate?(prop.mortgage_rate*100).toFixed(2):''}:blank)
+  const initialForm = prop?.id?{...prop,company_id:prop.company_id||prop.company?.id||'',mortgage_rate:prop.mortgage_rate?(prop.mortgage_rate*100).toFixed(2):''}:blank
+  const [form,setForm]=useState(initialForm)
+  const [snapshot]=useState(initialForm)
+  const isDirty = isFormDirty(snapshot, form)
   const s=(k,v)=>setForm(f=>({...f,[k]:v}))
   function handleSave(){
     if(!form.name||!form.address) return
@@ -2380,7 +2402,7 @@ function PropertyModal({prop,companies,onClose,onSave}){
     const { company, compliance_items, tenancy, maintenance_jobs, rent_payments, refurb_phases, refurb_costs, documents, ...clean } = form
     onSave({...clean,purchase_price:parseFloat(clean.purchase_price)||0,refurb_cost:parseFloat(clean.refurb_cost)||0,est_value:parseFloat(clean.est_value)||0,mortgage_amount:parseFloat(clean.mortgage_amount)||0,deposit:parseFloat(clean.deposit)||0,stamp_duty:parseFloat(clean.stamp_duty)||0,legal_fees:parseFloat(clean.legal_fees)||0,rent_pcm:parseFloat(clean.rent_pcm)||0,mortgage_rate:parseFloat(clean.mortgage_rate)/100||0,mortgage_term:parseInt(clean.mortgage_term)||25,insurance:parseFloat(clean.insurance)||0,arrears:parseFloat(clean.arrears)||0})
   }
-  return <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
     <div className="modal">
       <div style={{padding:'24px 28px 0'}}>
         <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id?'Edit Property':'Add New Property'}</h2>
@@ -2409,9 +2431,12 @@ function PropertyModal({prop,companies,onClose,onSave}){
 
 function CompanyModal({onClose,onSave}){
   const { T } = useTheme()
-  const [form,setForm]=useState({name:'',abbr:'',color:'#C8A84B'})
+  const initialForm = {name:'',abbr:'',color:'#C8A84B'}
+  const [form,setForm]=useState(initialForm)
+  const [snapshot]=useState(initialForm)
+  const isDirty = isFormDirty(snapshot, form)
   const s=(k,v)=>setForm(f=>({...f,[k]:v}))
-  return <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
     <div className="modal" style={{maxWidth:420}}>
       <div style={{padding:'24px 28px 0'}}>
         <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add Company</h2>
@@ -2480,8 +2505,11 @@ function DeleteConfirmModal({propName, onClose, onConfirm}) {
 // ─── SELL PROPERTY MODAL ─────────────────────────────────────────────────────
 function SellPropertyModal({ property, onClose, onConfirm, busy }) {
   const { T } = useTheme()
-  const [price, setPrice] = useState(property?.current_value || property?.est_value || '')
-  const [date,  setDate]  = useState(new Date().toISOString().slice(0, 10))
+  const initialPrice = property?.current_value || property?.est_value || ''
+  const initialDate  = new Date().toISOString().slice(0, 10)
+  const [price, setPrice] = useState(initialPrice)
+  const [date,  setDate]  = useState(initialDate)
+  const isDirty = String(price) !== String(initialPrice) || date !== initialDate
 
   // Total invested for capital-gain preview
   const totalInvested = (property?.purchase_price||0)+(property?.refurb_cost||0)+(property?.stamp_duty||0)+(property?.legal_fees||0)
@@ -2495,7 +2523,7 @@ function SellPropertyModal({ property, onClose, onConfirm, busy }) {
   }
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
       <div className="modal" style={{maxWidth:460}}>
         <div style={{padding:'28px 28px'}}>
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as Sold</h2>
@@ -3092,7 +3120,7 @@ function AccessModal({companies, userId, onClose, showToast}) {
   }
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose)}>
       <div className="modal" style={{maxWidth:580}}>
         <div style={{padding:'24px 28px 0'}}>
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>⚙ Company Access Control</h2>

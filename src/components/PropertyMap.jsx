@@ -16,8 +16,10 @@ import * as api from '../lib/api'
  *   onOpenProperty  — (propertyId) => void; called when user taps "Open"
  *   setProperties   — React setter so we can update rows after geocoding/pinning
  *   showToast       — toast helper from App.jsx
+ *   compact         — when true, renders a smaller dashboard-friendly variant
+ *   onViewFullMap   — optional callback: when present and compact=true, shows a "View full map" link
  */
-export default function PropertyMap({ properties = [], onOpenProperty, setProperties, showToast }) {
+export default function PropertyMap({ properties = [], onOpenProperty, setProperties, showToast, compact = false, onViewFullMap }) {
   const { T } = useTheme()
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -305,6 +307,21 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 
   return (
     <div style={{ position: 'relative' }}>
+      {/* Compact header — only renders on the dashboard variant */}
+      {compact && (
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>Property Map</h2>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>{withCoords} of {total} located</div>
+          </div>
+          {onViewFullMap && (
+            <button onClick={onViewFullMap}
+              style={{ background: 'none', border: 'none', padding: 0, fontFamily: mono, fontSize: 11, color: T.gold, cursor: 'pointer', textDecoration: 'underline' }}>
+              View full map →
+            </button>
+          )}
+        </div>
+      )}
       {/* Status strip */}
       {(geocoding || pending > 0) && (
         <div style={{ marginBottom: 10, fontFamily: mono, fontSize: 11, color: T.muted }}>
@@ -316,7 +333,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 
       {/* Map container */}
       <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.border}` }}>
-        <div ref={containerRef} style={{ width: '100%', height: 560, background: T.bg }}/>
+        <div ref={containerRef} style={{ width: '100%', height: compact ? 380 : 560, background: T.bg }}/>
 
         {/* Loading overlay until lib + first pins are ready */}
         {!libReady && (

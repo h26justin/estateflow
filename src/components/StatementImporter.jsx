@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/ThemeContext'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
+import { safeOverlayClose } from '../lib/modalUtils'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
@@ -185,7 +186,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
   const totalToImport = includedItems.reduce((s,i) => s + (i.type==='rent' ? i.editAmount : 0), 0)
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose)}>
       <div className="modal" style={{maxWidth:720,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
 
         {/* Header */}
