@@ -1208,10 +1208,23 @@ export default function App() {
       // recoverable, and the row keeps existing for any FK-linked children
       // (refurb, expenses, compliance, etc) until the user explicitly purges.
       await api.softDeleteProperty(id, user.id)
+      // Optimistic local removal so the UI reflects the change immediately.
       setProperties(prev=>prev.filter(p=>p.id!==id))
-      setView('properties');setSelectedId(null)
+      // Navigate away from the detail page first…
+      setView('properties')
+      setSelectedId(null)
       setShowDeleteConfirm(null)
       showToast('Property moved to Trash')
+      // …then re-fetch the source-of-truth list. This protects against any
+      // stale closures or sub-component caches that might still be holding
+      // a reference to the deleted row. The user sees an instant local
+      // update; this fetch quietly reconciles in the background.
+      try {
+        const fresh = await api.fetchProperties()
+        const accessibleIds = new Set([...((await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)).data || []).map(c=>c.id), ...userAccess])
+        const visible = isPlatformAdmin ? fresh : fresh.filter(p => accessibleIds.has(p.company_id))
+        setProperties(visible)
+      } catch(e) { /* non-fatal — local filter already removed the row */ }
       return true
     }catch(e){showToast(e.message,'error'); return false}
   }
