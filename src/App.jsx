@@ -271,39 +271,49 @@ const Spinner = () => {
 }
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────────
-function CustomizeWidgetsModal({ currentPrefs, onClose, onSave, T }) {
+// Combined dashboard customization modal. Two tabs: Sections (top-level layout)
+// and Widgets (KPI card customization). Both support up/down arrows AND
+// HTML5 drag-and-drop. Pure JS — no third-party DnD library.
+function CustomizeDashModal({
+  initialTab = 'sections',
+  sectionDefs, currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled, onSaveSections,
+  widgetDefs, currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled, onSaveWidgets,
+  onClose, T,
+}) {
   const mono = "'DM Mono',monospace"
-  const ALL_WIDGETS = [
-    { key:'portfolio_value', icon:'🏡', label:'Portfolio Value', description:'Total property value and unrealised gains' },
-    { key:'monthly_rent', icon:'💷', label:'Monthly Rental Income', description:'Rent per month, occupancy, annualised' },
-    { key:'arrears', icon:'⚠', label:'Total Arrears', description:'Overdue rent and vacant properties' },
-    { key:'refurb', icon:'🔨', label:'In Refurbishment', description:'Properties under renovation' },
-    { key:'mortgages', icon:'🏦', label:'Mortgages Outstanding', description:'Debt, equity and repayment costs' },
-    { key:'property_count', icon:'🏠', label:'Property Count', description:'Total properties with rented/vacant split' },
-    { key:'occupancy_rate', icon:'📊', label:'Occupancy Rate', description:'Occupancy % and vacancy cost' },
-  ]
-  const DEFAULT_ORDER = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','property_count','occupancy_rate']
+  const [tab, setTab] = useState(initialTab)
 
-  // Build initial state, ensuring all widgets have an entry
-  const [widgets, setWidgets] = useState(() => {
-    const existing = currentPrefs || []
-    const map = {}
-    existing.forEach(w => { map[w.key] = w.enabled })
-    // Default: 5 core widgets on, 2 extra off
-    const DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, property_count:false, occupancy_rate:false }
-    const existingKeys = new Set(existing.map(w=>w.key))
+  // Build initial section state, with all known keys
+  const buildState = (current, defOrder, defEnabled) => {
+    const map = {}; (current || []).forEach(w => { map[w.key] = w.enabled })
+    const existing = (current || []).map(w => w.key)
+    const existingSet = new Set(existing)
     const orderedKeys = existing.length > 0
-      ? [...existing.map(w=>w.key), ...DEFAULT_ORDER.filter(k=>!existingKeys.has(k))]
-      : DEFAULT_ORDER
-    return orderedKeys.map(k => ({ key:k, enabled: map[k] !== undefined ? map[k] : DEFAULT_ENABLED[k] }))
-  })
+      ? [...existing, ...defOrder.filter(k => !existingSet.has(k))]
+      : [...defOrder]
+    return orderedKeys.map(k => ({ key:k, enabled: map[k] !== undefined ? map[k] : (defEnabled[k] !== false) }))
+  }
+  const [sections, setSections] = useState(() =>
+    buildState(currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled))
+  const [widgets, setWidgets] = useState(() =>
+    buildState(currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled))
+
+  // For drag-and-drop visual feedback
+  const [dragKey, setDragKey] = useState(null)
+  const [dropTarget, setDropTarget] = useState(null)
+
+  function activeList() { return tab === 'sections' ? sections : widgets }
+  function setActiveList(updater) {
+    if (tab === 'sections') setSections(updater)
+    else                    setWidgets(updater)
+  }
+  function activeDefs() { return tab === 'sections' ? sectionDefs : widgetDefs }
 
   function toggle(key) {
-    setWidgets(prev => prev.map(w => w.key === key ? {...w, enabled: !w.enabled} : w))
+    setActiveList(prev => prev.map(w => w.key === key ? { ...w, enabled: !w.enabled } : w))
   }
-
   function move(index, direction) {
-    setWidgets(prev => {
+    setActiveList(prev => {
       const newArr = [...prev]
       const newIndex = index + direction
       if (newIndex < 0 || newIndex >= newArr.length) return prev
@@ -313,46 +323,105 @@ function CustomizeWidgetsModal({ currentPrefs, onClose, onSave, T }) {
       return newArr
     })
   }
-
+  function moveByKey(srcKey, dstKey) {
+    if (!srcKey || !dstKey || srcKey === dstKey) return
+    setActiveList(prev => {
+      const arr = [...prev]
+      const srcIdx = arr.findIndex(w => w.key === srcKey)
+      const dstIdx = arr.findIndex(w => w.key === dstKey)
+      if (srcIdx < 0 || dstIdx < 0) return prev
+      const [moved] = arr.splice(srcIdx, 1)
+      arr.splice(dstIdx, 0, moved)
+      return arr
+    })
+  }
   function resetToDefault() {
-    setWidgets(DEFAULT_ORDER.map(k => ({ key:k, enabled: ['portfolio_value','monthly_rent','arrears','refurb','mortgages'].includes(k) })))
+    if (tab === 'sections') {
+      setSections(defaultSectionOrder.map(k => ({ key:k, enabled: defaultSectionEnabled[k] !== false })))
+    } else {
+      setWidgets(defaultWidgetOrder.map(k => ({ key:k, enabled: defaultWidgetEnabled[k] !== false })))
+    }
+  }
+  function handleSave() {
+    onSaveSections(sections)
+    onSaveWidgets(widgets)
+    onClose()
   }
 
-  const enabledCount = widgets.filter(w => w.enabled).length
+  const list = activeList()
+  const defs = activeDefs()
+  const enabledCount = list.filter(w => w.enabled).length
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:14,maxWidth:640,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
+    <div className="overlay" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:14,maxWidth:680,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>⚙ Customize Dashboard</h2>
-            <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Choose which widgets appear and in what order. {enabledCount} showing.</div>
+            <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Drag to reorder, toggle to show/hide. {enabledCount} {tab === 'sections' ? 'sections' : 'cards'} on.</div>
           </div>
           <button onClick={onClose} style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
         </div>
-        <div style={{display:'grid',gap:8,marginBottom:16}}>
-          {widgets.map((w, i) => {
-            const def = ALL_WIDGETS.find(x=>x.key===w.key)
-            if (!def) return null
-            return (
-              <div key={w.key} style={{
-                display:'flex',alignItems:'center',gap:10,
-                background: w.enabled ? T.card : T.bg,
-                border:`1px solid ${w.enabled ? T.border : T.border+'66'}`,
-                borderRadius:8,padding:'10px 12px',opacity:w.enabled?1:0.6,transition:'opacity 0.2s'
+
+        {/* Tab switcher */}
+        <div style={{display:'flex',gap:6,marginBottom:14,borderBottom:`1px solid ${T.border}`}}>
+          {['sections','widgets'].map(t => (
+            <button key={t} onClick={()=>setTab(t)}
+              style={{fontFamily:mono,fontSize:11,padding:'8px 14px',cursor:'pointer',background:'transparent',border:'none',
+                color: tab === t ? T.gold : T.muted,
+                borderBottom: tab === t ? `2px solid ${T.gold}` : '2px solid transparent',
+                fontWeight: tab === t ? 700 : 400,
+                marginBottom: -1,
               }}>
+              {t === 'sections' ? '📐 Sections' : '📊 KPI Cards'}
+            </button>
+          ))}
+        </div>
+
+        <div style={{fontFamily:mono,fontSize:10,color:T.faint,marginBottom:10,fontStyle:'italic'}}>
+          {tab === 'sections'
+            ? 'Reorder major page sections. Drag the ⋮⋮ handle, or use the arrows.'
+            : 'Reorder and toggle the KPI cards at the top of the dashboard.'}
+        </div>
+
+        <div style={{display:'grid',gap:8,marginBottom:16}}>
+          {list.map((w, i) => {
+            const def = defs[w.key]
+            if (!def) return null
+            const isDragging = dragKey === w.key
+            const isDropTarget = dropTarget === w.key && dragKey !== w.key
+            return (
+              <div key={w.key}
+                draggable
+                onDragStart={(e) => { setDragKey(w.key); e.dataTransfer.effectAllowed = 'move' }}
+                onDragOver={(e) => { e.preventDefault(); setDropTarget(w.key); e.dataTransfer.dropEffect = 'move' }}
+                onDragLeave={() => { if (dropTarget === w.key) setDropTarget(null) }}
+                onDrop={(e) => { e.preventDefault(); moveByKey(dragKey, w.key); setDragKey(null); setDropTarget(null) }}
+                onDragEnd={() => { setDragKey(null); setDropTarget(null) }}
+                style={{
+                  display:'flex',alignItems:'center',gap:10,
+                  background: w.enabled ? T.card : T.bg,
+                  border:`1px solid ${isDropTarget ? T.gold : (w.enabled ? T.border : T.border+'66')}`,
+                  borderRadius:8,padding:'10px 12px',
+                  opacity: isDragging ? 0.4 : (w.enabled ? 1 : 0.6),
+                  transition:'opacity 0.15s, border-color 0.15s',
+                  cursor:'move',
+                }}>
+                {/* Drag handle */}
+                <div title="Drag to reorder" style={{fontFamily:mono,fontSize:14,color:T.muted,padding:'0 4px',userSelect:'none',cursor:'grab',lineHeight:1}}>⋮⋮</div>
+                {/* Up/down arrows for keyboard/accessibility */}
                 <div style={{display:'flex',flexDirection:'column',gap:2}}>
                   <button onClick={()=>move(i,-1)} disabled={i===0}
                     style={{fontFamily:mono,fontSize:10,padding:'2px 6px',borderRadius:4,cursor:i===0?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===0?T.muted+'55':T.text}}>▲</button>
-                  <button onClick={()=>move(i,1)} disabled={i===widgets.length-1}
-                    style={{fontFamily:mono,fontSize:10,padding:'2px 6px',borderRadius:4,cursor:i===widgets.length-1?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===widgets.length-1?T.muted+'55':T.text}}>▼</button>
+                  <button onClick={()=>move(i,1)} disabled={i===list.length-1}
+                    style={{fontFamily:mono,fontSize:10,padding:'2px 6px',borderRadius:4,cursor:i===list.length-1?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===list.length-1?T.muted+'55':T.text}}>▼</button>
                 </div>
                 <div style={{fontSize:22}}>{def.icon}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:2}}>{def.label}</div>
                   <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{def.description}</div>
                 </div>
-                <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}} onClick={e=>e.stopPropagation()}>
                   <input type="checkbox" checked={w.enabled} onChange={()=>toggle(w.key)} style={{width:18,height:18,cursor:'pointer'}}/>
                   <span style={{fontFamily:mono,fontSize:10,color:w.enabled?T.green:T.muted,fontWeight:700,textTransform:'uppercase'}}>{w.enabled ? 'ON' : 'OFF'}</span>
                 </label>
@@ -363,14 +432,14 @@ function CustomizeWidgetsModal({ currentPrefs, onClose, onSave, T }) {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
           <button onClick={resetToDefault}
             style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
-            ↻ Reset to default
+            ↻ Reset {tab === 'sections' ? 'sections' : 'cards'} to default
           </button>
           <div style={{display:'flex',gap:8}}>
             <button onClick={onClose}
               style={{fontFamily:mono,fontSize:11,padding:'8px 16px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
               Cancel
             </button>
-            <button onClick={()=>onSave(widgets)} className="btn btn-gold" style={{fontSize:11,padding:'8px 20px'}}>
+            <button onClick={handleSave} className="btn btn-gold" style={{fontSize:11,padding:'8px 20px'}}>
               Save
             </button>
           </div>
@@ -562,8 +631,6 @@ export default function App() {
   const [selectedId,  setSelectedId]   = useState(null)
   const [detailTab,   setDetailTab]    = useState('overview')
   const [portfolioTab, setPortfolioTab] = useState('properties')
-  const [showModeller, setShowModeller] = useState(false)
-  const [showDashMap,  setShowDashMap]  = useState(true)
   const [coFilter,    setCoFilter]     = useState('all')
   const [dashCoFilter, setDashCoFilter] = useState([]) // [] = all companies
   const [statusFilter,setStatusFilter] = useState('all')
@@ -594,7 +661,42 @@ export default function App() {
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   // Dashboard widget customization
   const [widgetPrefs, setWidgetPrefs] = useState(null) // null = defaults
-  const [showCustomizeWidgets, setShowCustomizeWidgets] = useState(false)
+  // Dashboard section reordering & show/hide. Stored per-user in localStorage.
+  // Format: [{ key: 'kpi_grid', enabled: true }, ...]
+  // Keyed by user id so multiple users on the same browser don't share prefs.
+  const [sectionPrefs, setSectionPrefs] = useState(null)
+  // Customize-dashboard modal has two tabs: 'sections' and 'widgets'
+  const [showCustomizeDash, setShowCustomizeDash] = useState(false)
+  const [customizeDashTab, setCustomizeDashTab] = useState('sections')
+
+  // ── Metadata for the customize modal ────────────────────────────────────
+  // The actual render functions live inside the dashboard render block (so
+  // they close over dashProps, companies, etc). These metadata constants are
+  // used by CustomizeDashModal for display only.
+  const SECTION_META = {
+    kpi_grid:           { icon:'📊', label:'KPI cards',                   description:'Portfolio value, monthly rent, arrears, and other key metrics' },
+    by_company:         { icon:'🏢', label:'By Company',                  description:'A card per company with its property/rent stats' },
+    smart_alerts:       { icon:'⚠',  label:'Items needing attention',     description:'Smart alerts: overdue rent, expiring compliance, vacant properties' },
+    tenant_inbox:       { icon:'📬', label:'Tenant Inbox',                description:'Latest messages and repair requests from tenants' },
+    property_map:       { icon:'🗺', label:'Property Map',                description:'Compact map showing all your properties' },
+    portfolio_modeller: { icon:'📈', label:'Portfolio What-If Modeller',  description:'Model rent changes, refinancing, and other scenarios' },
+    company_documents:  { icon:'📁', label:'Company Documents',           description:'Documents stored at company level (only shows when a company is selected)' },
+  }
+  const SECTION_DEFAULT_ORDER   = ['kpi_grid','by_company','smart_alerts','tenant_inbox','property_map','portfolio_modeller','company_documents']
+  const SECTION_DEFAULT_ENABLED = { kpi_grid:true, by_company:true, smart_alerts:true, tenant_inbox:true, property_map:true, portfolio_modeller:false, company_documents:true }
+
+  const WIDGET_META = {
+    portfolio_value:  { icon:'🏡', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
+    monthly_rent:     { icon:'💷', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
+    arrears:          { icon:'⚠',  label:'Total Arrears',           description:'Overdue rent and vacant properties' },
+    refurb:           { icon:'🔨', label:'In Refurbishment',        description:'Properties under renovation' },
+    mortgages:        { icon:'🏦', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
+    property_count:   { icon:'🏠', label:'Property Count',          description:'Total properties with rented/vacant split' },
+    occupancy_rate:   { icon:'📊', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
+  }
+  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','property_count','occupancy_rate']
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, property_count:false, occupancy_rate:false }
+
   // Developer mode toggle — lets the developer choose to view the site as a regular user would.
   // Stored in sessionStorage so it persists across page reloads but resets on sign out.
   const [devModeDisabled, setDevModeDisabledState] = useState(() => {
@@ -823,6 +925,11 @@ export default function App() {
           setActiveFlags(flags)
           setWidgetPrefs(widgets)
         } catch(e) { /* non-fatal */ }
+        // Load dashboard section preferences from localStorage (per-user keyed)
+        try {
+          const raw = localStorage.getItem(`ownproperly_section_prefs_${user.id}`)
+          if (raw) setSectionPrefs(JSON.parse(raw))
+        } catch(e) { /* non-fatal — fall back to defaults */ }
         // Load user's saved theme preference from Supabase
         await loadUserTheme(user.id, user.email)
         // Load nav preferences
@@ -1605,192 +1712,266 @@ export default function App() {
               )}
             </div>
             {(() => {
-              // Widget definitions — each returns a StatCard JSX element
-              const WIDGET_DEFS = {
-                portfolio_value: { icon:'🏡', label:'Portfolio Value', render: () => (
-                  <StatCard icon="🏡" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
-                    breakdown={[
-                      {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
-                      {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
-                      {label:'Purchase prices', value:fmt(dashProps.reduce((s,p)=>s+(p.purchase_price||0),0)), indent:true},
-                      {label:'Refurb costs', value:fmt(dashProps.reduce((s,p)=>s+(p.refurb_cost||0),0)), indent:true},
-                      {label:'Unrealised gain', value:fmt(stats.totalEstVal-stats.totalInvested), color:stats.totalEstVal>stats.totalInvested?T.green:T.red, separator:true, note:'Est. portfolio value minus total invested (purchase + refurb)'},
-                      {label:'Transaction costs', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0)+(p.legal_fees||0),0)), separator:true},
-                      {label:'Stamp duty', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0),0)), indent:true},
-                      {label:'Legal fees', value:fmt(dashProps.reduce((s,p)=>s+(p.legal_fees||0),0)), indent:true},
-                    ]}
-                  />
-                )},
-                monthly_rent: { icon:'💷', label:'Monthly Rental Income', render: () => (
-                  <StatCard icon="💷" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
-                    breakdown={[
-                      ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
-                      {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
-                      {label:'Rented units', value:`${stats.rented} of ${stats.total}`},
-                      {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
-                    ]}
-                  />
-                )},
-                arrears: { icon:'⚠', label:'Total Arrears', render: () => (
-                  <StatCard icon="⚠" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
-                    breakdown={[
-                      ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
-                      ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
-                      {label:'Vacant units', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
-                    ]}
-                  />
-                )},
-                refurb: { icon:'🔨', label:'In Refurbishment', render: () => (
-                  <StatCard icon="🔨" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
-                    breakdown={[
-                      ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
-                      ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
-                      {label:'Planned refurbs', value:dashProps.filter(p=>p.refurb_status==='planned').length},
-                      {label:'Completed refurbs', value:dashProps.filter(p=>p.refurb_status==='complete').length, color:T.green},
-                    ]}
-                  />
-                )},
-                mortgages: { icon:'🏦', label:'Mortgages Outstanding', render: () => (
-                  <StatCard icon="🏦" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
-                    breakdown={[
-                      {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
-                      {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
-                      {label:'Monthly repayments', value:fmt(stats.monthlyMortgageCost)},
-                      {label:'Annual repayments', value:fmt(stats.monthlyMortgageCost*12)},
-                      {label:'Average LTV', value:stats.totalEstVal>0?((stats.totalMortgage/stats.totalEstVal)*100).toFixed(1)+'%':'-'},
-                      ...companyStats.map(c=>({
-                        label:c.name+' debt',
-                        value:fmt(dashProps.filter(p=>p.company_id===c.id).reduce((s,p)=>s+(p.mortgage_amount||0),0)),
-                        color:c.color
-                      })),
-                    ]}
-                  />
-                )},
-                property_count: { icon:'🏠', label:'Property Count', render: () => (
-                  <StatCard icon="🏠" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
-                    breakdown={[
-                      {label:'Total properties', value:stats.total},
-                      {label:'Rented', value:stats.rented, color:T.green},
-                      {label:'Vacant', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
-                      {label:'In refurbishment', value:stats.inRefurb, color:T.blue},
-                      ...companyStats.map(c=>({label:c.name, value:c.count, color:c.color})),
-                    ]}
-                  />
-                )},
-                occupancy_rate: { icon:'📊', label:'Occupancy Rate', render: () => {
-                  const rate = stats.total > 0 ? Math.round((stats.rented/stats.total)*100) : 0
-                  return (
-                    <StatCard icon="📊" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red}
+              // ───────────────────────────────────────────────────────────────
+              // Dashboard sections registry — each section is a labelled chunk
+              // that the user can reorder and show/hide. Section content is
+              // rendered by the function below. The KPI grid is one of these
+              // sections too, with its own internal customisation preserved.
+              // ───────────────────────────────────────────────────────────────
+
+              const SECTION_DEFS = {
+                kpi_grid: {
+                  icon: '📊',
+                  label: 'KPI cards',
+                  description: 'Portfolio value, monthly rent, arrears, and other key metrics',
+                  render: () => renderKpiGrid(),
+                },
+                by_company: {
+                  icon: '🏢',
+                  label: 'By Company',
+                  description: 'A card per company with its property/rent stats',
+                  render: () => renderByCompany(),
+                },
+                smart_alerts: {
+                  icon: '⚠',
+                  label: 'Items needing attention',
+                  description: 'Smart alerts: overdue rent, expiring compliance, vacant properties',
+                  render: () => <SmartAlerts properties={dashProps} companies={dashCos} fmt={fmt} openDetail={openDetail}/>,
+                },
+                tenant_inbox: {
+                  icon: '📬',
+                  label: 'Tenant Inbox',
+                  description: 'Latest messages and repair requests from tenants',
+                  render: () => <TenantInbox user={user} companies={companies} showToast={showToast} companySettings={companySettings}/>,
+                },
+                property_map: {
+                  icon: '🗺',
+                  label: 'Property Map',
+                  description: 'Compact map showing all your properties',
+                  render: () => (
+                    <div style={{ marginTop: 28 }}>
+                      <PropertyMap
+                        compact
+                        properties={dashProps}
+                        setProperties={setProperties}
+                        showToast={showToast}
+                        onOpenProperty={(id)=>{ setSelectedId(id); setView('detail'); setDetailTab('overview') }}
+                        onViewFullMap={()=>{ setView('properties'); setPortfolioTab('map') }}
+                      />
+                    </div>
+                  ),
+                },
+                portfolio_modeller: {
+                  icon: '📈',
+                  label: 'Portfolio What-If Modeller',
+                  description: 'Model rent changes, refinancing, and other scenarios',
+                  render: () => <PortfolioModellerWidget properties={dashProps}/>,
+                },
+                company_documents: {
+                  icon: '📁',
+                  label: 'Company Documents',
+                  description: 'Documents stored at company level (only shows when a company is selected)',
+                  render: () => (
+                    activeCoTab && (companySettings[activeCoTab]||{}).feature_documents
+                      ? <div style={{marginTop:28}}>
+                          <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:6}}>Company Documents</h2>
+                          <p style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:14}}>
+                            Documents stored at company level — for items that apply across all properties (e.g. company insurance, bank letters)
+                          </p>
+                          <CompanyDocumentsTab companyId={activeCoTab} showToast={showToast} isAdmin={isAdmin} user={user}/>
+                        </div>
+                      : null
+                  ),
+                },
+              }
+
+              // Default order — applied when user has no saved prefs
+              const SECTION_DEFAULT_ORDER = ['kpi_grid','by_company','smart_alerts','tenant_inbox','property_map','portfolio_modeller','company_documents']
+              const SECTION_DEFAULT_ENABLED = { kpi_grid:true, by_company:true, smart_alerts:true, tenant_inbox:true, property_map:true, portfolio_modeller:false, company_documents:true }
+
+              // Resolve current section prefs, filling in any missing keys from defaults
+              const savedSections = sectionPrefs || []
+              const savedKeys = new Set(savedSections.map(s => s.key))
+              const resolvedSections = [
+                ...savedSections.filter(s => SECTION_DEFS[s.key]),       // saved order, drop unknown keys
+                ...SECTION_DEFAULT_ORDER.filter(k => !savedKeys.has(k))  // append any new keys at end
+                  .map(k => ({ key: k, enabled: SECTION_DEFAULT_ENABLED[k] !== false })),
+              ]
+
+              // ── Renderers for each section. Defined here to keep closures
+              //    over dashProps/companies/etc lexically simple.
+
+              function renderKpiGrid() {
+                // Widget definitions — each returns a StatCard JSX element
+                const WIDGET_DEFS = {
+                  portfolio_value: { icon:'🏡', label:'Portfolio Value', render: () => (
+                    <StatCard icon="🏡" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                       breakdown={[
-                        {label:'Occupied', value:stats.rented, color:T.green},
-                        {label:'Vacant', value:stats.vacant, color:T.amber},
-                        {label:'Occupancy %', value:rate+'%', color:rate>=90?T.green:T.amber},
-                        {label:'Vacancy cost (est)', value:fmt(dashProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0))+'/mo lost', color:T.red},
+                        {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
+                        {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
+                        {label:'Purchase prices', value:fmt(dashProps.reduce((s,p)=>s+(p.purchase_price||0),0)), indent:true},
+                        {label:'Refurb costs', value:fmt(dashProps.reduce((s,p)=>s+(p.refurb_cost||0),0)), indent:true},
+                        {label:'Unrealised gain', value:fmt(stats.totalEstVal-stats.totalInvested), color:stats.totalEstVal>stats.totalInvested?T.green:T.red, separator:true, note:'Est. portfolio value minus total invested (purchase + refurb)'},
+                        {label:'Transaction costs', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0)+(p.legal_fees||0),0)), separator:true},
+                        {label:'Stamp duty', value:fmt(dashProps.reduce((s,p)=>s+(p.stamp_duty||0),0)), indent:true},
+                        {label:'Legal fees', value:fmt(dashProps.reduce((s,p)=>s+(p.legal_fees||0),0)), indent:true},
                       ]}
                     />
-                  )
-                }},
+                  )},
+                  monthly_rent: { icon:'💷', label:'Monthly Rental Income', render: () => (
+                    <StatCard icon="💷" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
+                      breakdown={[
+                        ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
+                        {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
+                        {label:'Rented units', value:`${stats.rented} of ${stats.total}`},
+                        {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
+                      ]}
+                    />
+                  )},
+                  arrears: { icon:'⚠', label:'Total Arrears', render: () => (
+                    <StatCard icon="⚠" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
+                      breakdown={[
+                        ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
+                        ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
+                        {label:'Vacant units', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
+                      ]}
+                    />
+                  )},
+                  refurb: { icon:'🔨', label:'In Refurbishment', render: () => (
+                    <StatCard icon="🔨" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
+                      breakdown={[
+                        ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
+                        ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
+                        {label:'Planned refurbs', value:dashProps.filter(p=>p.refurb_status==='planned').length},
+                        {label:'Completed refurbs', value:dashProps.filter(p=>p.refurb_status==='complete').length, color:T.green},
+                      ]}
+                    />
+                  )},
+                  mortgages: { icon:'🏦', label:'Mortgages Outstanding', render: () => (
+                    <StatCard icon="🏦" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
+                      breakdown={[
+                        {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
+                        {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
+                        {label:'Monthly repayments', value:fmt(stats.monthlyMortgageCost)},
+                        {label:'Annual repayments', value:fmt(stats.monthlyMortgageCost*12)},
+                        {label:'Average LTV', value:stats.totalEstVal>0?((stats.totalMortgage/stats.totalEstVal)*100).toFixed(1)+'%':'-'},
+                        ...companyStats.map(c=>({
+                          label:c.name+' debt',
+                          value:fmt(dashProps.filter(p=>p.company_id===c.id).reduce((s,p)=>s+(p.mortgage_amount||0),0)),
+                          color:c.color
+                        })),
+                      ]}
+                    />
+                  )},
+                  property_count: { icon:'🏠', label:'Property Count', render: () => (
+                    <StatCard icon="🏠" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
+                      breakdown={[
+                        {label:'Total properties', value:stats.total},
+                        {label:'Rented', value:stats.rented, color:T.green},
+                        {label:'Vacant', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
+                        {label:'In refurbishment', value:stats.inRefurb, color:T.blue},
+                        ...companyStats.map(c=>({label:c.name, value:c.count, color:c.color})),
+                      ]}
+                    />
+                  )},
+                  occupancy_rate: { icon:'📊', label:'Occupancy Rate', render: () => {
+                    const rate = stats.total > 0 ? Math.round((stats.rented/stats.total)*100) : 0
+                    return (
+                      <StatCard icon="📊" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red}
+                        breakdown={[
+                          {label:'Occupied', value:stats.rented, color:T.green},
+                          {label:'Vacant', value:stats.vacant, color:T.amber},
+                          {label:'Occupancy %', value:rate+'%', color:rate>=90?T.green:T.amber},
+                          {label:'Vacancy cost (est)', value:fmt(dashProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0))+'/mo lost', color:T.red},
+                        ]}
+                      />
+                    )
+                  }},
+                }
+                // Default widget config
+                const DEFAULT_WIDGETS = [
+                  { key:'portfolio_value', enabled:true },
+                  { key:'monthly_rent', enabled:true },
+                  { key:'arrears', enabled:true },
+                  { key:'refurb', enabled:true },
+                  { key:'mortgages', enabled:true },
+                  { key:'property_count', enabled:false },
+                  { key:'occupancy_rate', enabled:false },
+                ]
+                const currentWidgets = widgetPrefs || DEFAULT_WIDGETS
+                // Add any new widget keys that aren't in saved prefs (default to disabled so existing users aren't surprised)
+                const knownKeys = new Set(currentWidgets.map(w=>w.key))
+                Object.keys(WIDGET_DEFS).forEach(k => {
+                  if (!knownKeys.has(k)) currentWidgets.push({ key:k, enabled:false })
+                })
+                const enabledWidgets = currentWidgets.filter(w => w.enabled && WIDGET_DEFS[w.key])
+                const count = enabledWidgets.length
+                return (
+                  <div style={{marginBottom:20}}>
+                    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10}}>
+                      {enabledWidgets.map(w => (
+                        <div key={w.key} style={{display:'contents'}}>{WIDGET_DEFS[w.key].render()}</div>
+                      ))}
+                    </div>
+                  </div>
+                )
               }
-              // Default widget config
-              const DEFAULT_WIDGETS = [
-                { key:'portfolio_value', enabled:true },
-                { key:'monthly_rent', enabled:true },
-                { key:'arrears', enabled:true },
-                { key:'refurb', enabled:true },
-                { key:'mortgages', enabled:true },
-                { key:'property_count', enabled:false },
-                { key:'occupancy_rate', enabled:false },
-              ]
-              const currentWidgets = widgetPrefs || DEFAULT_WIDGETS
-              // Add any new widget keys that aren't in saved prefs (default to disabled so existing users aren't surprised)
-              const knownKeys = new Set(currentWidgets.map(w=>w.key))
-              Object.keys(WIDGET_DEFS).forEach(k => {
-                if (!knownKeys.has(k)) currentWidgets.push({ key:k, enabled:false })
-              })
-              const enabledWidgets = currentWidgets.filter(w => w.enabled && WIDGET_DEFS[w.key])
-              const count = enabledWidgets.length
+
+              function renderByCompany() {
+                return (
+                  <>
+                    <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>By Company</h2>
+                    {companies.length===0
+                      ?<div className="card" style={{padding:32,textAlign:'center'}}>
+                          <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:16}}>No companies yet. Add your first one to get started.</div>
+                          <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>+ Add Company</button>
+                        </div>
+                      :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14,marginBottom:28}}>
+                          {companyStats.map(c=>(
+                            <div key={c.id} className="card" style={{padding:'20px 22px',borderLeft:`3px solid ${c.color}`}}>
+                              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:c.color,background:c.color+'22',padding:'3px 10px',borderRadius:4}}>{c.abbr}</div>
+                                <div style={{fontSize:14,fontWeight:600}}>{c.name}</div>
+                              </div>
+                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                                {[{l:'Properties',v:c.count},{l:'Rented',v:`${c.rented}/${c.count}`},{l:'Monthly Income',v:fmt(c.monthlyRent)},{l:'Arrears',v:fmt(c.arrears),red:c.arrears>0}].map((item,i)=>(
+                                  <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
+                                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
+                                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:item.red?T.red:T.gold}}>{item.v}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setActiveCoTab(c.id);setView('companies')}}>View Properties -&gt;</button>
+                            </div>
+                          ))}
+                        </div>
+                    }
+                  </>
+                )
+              }
+
+              // ── Render the visible sections in their preferred order ──
+              const visibleSections = resolvedSections.filter(s => s.enabled)
               return (
                 <>
+                  {/* Customize Dashboard button — single source of truth for both sections and widget toggles */}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
-                      Dashboard widgets · {count} showing
+                      Dashboard · {visibleSections.length} sections shown
                     </div>
-                    <button onClick={()=>setShowCustomizeWidgets(true)}
+                    <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
                       style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
                       ⚙ Customize
                     </button>
                   </div>
-                  <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10,marginBottom:20}}>
-                    {enabledWidgets.map(w => (
-                      <div key={w.key} style={{display:'contents'}}>{WIDGET_DEFS[w.key].render()}</div>
-                    ))}
-                  </div>
+                  {visibleSections.map(s => {
+                    const def = SECTION_DEFS[s.key]
+                    if (!def) return null
+                    return <div key={s.key}>{def.render()}</div>
+                  })}
                 </>
               )
             })()}
-            <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>By Company</h2>
-            {companies.length===0
-              ?<div className="card" style={{padding:32,textAlign:'center'}}>
-                  <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:16}}>No companies yet. Add your first one to get started.</div>
-                  <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>+ Add Company</button>
-                </div>
-              :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14,marginBottom:28}}>
-                  {companyStats.map(c=>(
-                    <div key={c.id} className="card" style={{padding:'20px 22px',borderLeft:`3px solid ${c.color}`}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:c.color,background:c.color+'22',padding:'3px 10px',borderRadius:4}}>{c.abbr}</div>
-                        <div style={{fontSize:14,fontWeight:600}}>{c.name}</div>
-                      </div>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                        {[{l:'Properties',v:c.count},{l:'Rented',v:`${c.rented}/${c.count}`},{l:'Monthly Income',v:fmt(c.monthlyRent)},{l:'Arrears',v:fmt(c.arrears),red:c.arrears>0}].map((item,i)=>(
-                          <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
-                            <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:item.red?T.red:T.gold}}>{item.v}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setActiveCoTab(c.id);setView('companies')}}>View Properties -&gt;</button>
-                    </div>
-                  ))}
-                </div>
-            }
-            <SmartAlerts properties={dashProps} companies={dashCos} fmt={fmt} openDetail={openDetail}/>
-            <TenantInbox user={user} companies={companies} showToast={showToast} companySettings={companySettings}/>
-            {/* Portfolio map — collapsible, slimmer dashboard variant */}
-            {showDashMap && <div style={{ marginTop: 28 }}>
-              <PropertyMap
-                compact
-                properties={dashProps}
-                setProperties={setProperties}
-                showToast={showToast}
-                onOpenProperty={(id)=>{ setSelectedId(id); setView('detail'); setDetailTab('overview') }}
-                onViewFullMap={()=>{ setView('properties'); setPortfolioTab('map') }}
-              />
-            </div>}
-            <div style={{marginTop:16}}>
-              <button onClick={()=>setShowDashMap(v=>!v)}
-                style={{fontFamily:"'DM Mono',monospace",fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>
-                {showDashMap?'▲ Hide property map':'🗺 Show property map'}
-              </button>
-            </div>
-            {/* Portfolio Modeller — collapsible */}
-            {showModeller && <PortfolioModellerWidget properties={dashProps}/>}
-            <div style={{marginTop:16}}>
-              <button onClick={()=>setShowModeller(v=>!v)}
-                style={{fontFamily:"'DM Mono',monospace",fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>
-                {showModeller?'▲ Hide portfolio modeller':'📈 Portfolio what-if modeller'}
-              </button>
-            </div>
-            {/* Company documents section */}
-            {activeCoTab&&(companySettings[activeCoTab]||{}).feature_documents&&(
-              <div style={{marginTop:28}}>
-                <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:6}}>Company Documents</h2>
-                <p style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:14}}>
-                  Documents stored at company level — for items that apply across all properties (e.g. company insurance, bank letters)
-                </p>
-                <CompanyDocumentsTab companyId={activeCoTab} showToast={showToast} isAdmin={isAdmin} user={user}/>
-              </div>
-            )}
           </div>}
 
           {view==='deals'&&<div className="fade">
@@ -2188,15 +2369,26 @@ export default function App() {
 
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
-      {showCustomizeWidgets && <CustomizeWidgetsModal
-        currentPrefs={widgetPrefs}
-        onClose={()=>setShowCustomizeWidgets(false)}
-        onSave={async (newPrefs) => {
+      {showCustomizeDash && <CustomizeDashModal
+        initialTab={customizeDashTab}
+        sectionDefs={SECTION_META}
+        currentSectionPrefs={sectionPrefs}
+        defaultSectionOrder={SECTION_DEFAULT_ORDER}
+        defaultSectionEnabled={SECTION_DEFAULT_ENABLED}
+        onSaveSections={(newPrefs) => {
+          setSectionPrefs(newPrefs)
+          try { localStorage.setItem(`ownproperly_section_prefs_${user.id}`, JSON.stringify(newPrefs)) } catch(e) {}
+        }}
+        widgetDefs={WIDGET_META}
+        currentWidgetPrefs={widgetPrefs}
+        defaultWidgetOrder={WIDGET_DEFAULT_ORDER}
+        defaultWidgetEnabled={WIDGET_DEFAULT_ENABLED}
+        onSaveWidgets={async (newPrefs) => {
           setWidgetPrefs(newPrefs)
           await api.saveWidgetPrefs(newPrefs).catch(()=>{})
-          setShowCustomizeWidgets(false)
           showToast('Dashboard saved')
         }}
+        onClose={() => setShowCustomizeDash(false)}
         T={T}
       />}
       {renameCoTarget&&(
