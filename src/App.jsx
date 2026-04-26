@@ -1196,28 +1196,52 @@ export default function App() {
   }
 
   async function handleDeleteProp(id, password){
+    console.log('[DELETE-DIAG] handleDeleteProp called for id:', id)
     try{
       // Re-authenticate with password before deleting
       const { error } = await supabase.auth.signInWithPassword({
         email: user.email, password
       })
       if (error) { showToast('Incorrect password - property not deleted', 'error'); return false }
-      // Soft-delete: flips deleted_at instead of hard-deleting. The property
-      // moves to Trash where it can be restored within 30 days; the auto-purge
-      // handles permanent removal. This means accidental deletes are
-      // recoverable, and the row keeps existing for any FK-linked children
-      // (refurb, expenses, compliance, etc) until the user explicitly purges.
+      console.log('[DELETE-DIAG] auth OK, calling softDeleteProperty')
       await api.softDeleteProperty(id, user.id)
-      // Local state removal — the DraggablePropertyList renders directly
-      // from this `properties` state via the `filtered` useMemo, so this
-      // single update propagates everywhere in one render.
-      setProperties(prev=>prev.filter(p=>p.id!==id))
+      console.log('[DELETE-DIAG] softDeleteProperty returned. Updating state.')
+      // Diagnostic: log before/after counts so we can see if the filter ran
+      setProperties(prev => {
+        const after = prev.filter(p => p.id !== id)
+        console.log(`[DELETE-DIAG] setProperties: prev.length=${prev.length}, after.length=${after.length}, filtered out=${prev.length - after.length}`)
+        return after
+      })
       setView('properties')
       setSelectedId(null)
       setShowDeleteConfirm(null)
       showToast('Property moved to Trash')
+      // Background re-fetch a moment later so any sub-component caches reconcile.
+      // We schedule it with setTimeout so it runs AFTER React has flushed the
+      // synchronous state updates above.
+      setTimeout(async () => {
+        try {
+          console.log('[DELETE-DIAG] background re-fetch starting')
+          const fresh = await api.fetchProperties()
+          console.log(`[DELETE-DIAG] background re-fetch returned ${fresh.length} rows`)
+          // Re-apply the visibility filter (same logic as initial loadData)
+          const { data: ownedCos } = await supabase.from('companies')
+            .select('id').eq('owner_id', user.id).is('deleted_at', null)
+          const ownedIds = (ownedCos || []).map(c => c.id)
+          const accessibleIds = new Set([...ownedIds, ...userAccess])
+          const visible = isPlatformAdmin ? fresh : fresh.filter(p => accessibleIds.has(p.company_id))
+          console.log(`[DELETE-DIAG] background re-fetch visible=${visible.length}, includes deleted=${visible.some(p=>p.id===id)}`)
+          setProperties(visible)
+        } catch(e) {
+          console.error('[DELETE-DIAG] background re-fetch failed:', e)
+        }
+      }, 100)
       return true
-    }catch(e){showToast(e.message,'error'); return false}
+    }catch(e){
+      console.error('[DELETE-DIAG] handleDeleteProp error:', e)
+      showToast(e.message,'error')
+      return false
+    }
   }
 
   async function handleDuplicateProp(id) {
