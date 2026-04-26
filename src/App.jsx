@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, MaintenanceTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
+import { ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
+import { MaintenanceTab } from './components/maintenance'
 import { RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert } from './components/tenancy'
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
@@ -26,6 +27,7 @@ import ActionMenu from './components/ActionMenu'
 import PropertyMap from './components/PropertyMap'
 import { safeOverlayClose, isFormDirty } from './lib/modalUtils'
 import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
+import { useConfirm } from './lib/ConfirmContext'
 
 
 
@@ -551,6 +553,7 @@ function FeedbackPage({ user, showToast }) {
 
 export default function App() {
   const {session,user} = useAuth()
+  const confirmDialog = useConfirm()
   const [properties,  setProperties]  = useState([])
   const [companies,        setCompanies]        = useState([])
   const [companySettings,  setCompanySettings]   = useState({})  // companyId -> settings
@@ -1203,7 +1206,7 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
   async function handleDeletePhase(propId, phaseId){
-    if(!confirm('Delete this refurb phase?')) return
+    if(!await confirmDialog({ title: 'Delete refurb phase?', confirmLabel: 'Delete', destructive: true })) return
     try{
       await api.deleteRefurbPhase(phaseId)
       setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_phases:(p.refurb_phases||[]).filter(ph=>ph.id!==phaseId)}:p))
@@ -1216,7 +1219,7 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
   async function handleDeleteCost(propId, costId){
-    if(!confirm('Delete this cost entry?')) return
+    if(!await confirmDialog({ title: 'Delete cost entry?', confirmLabel: 'Delete', destructive: true })) return
     try{
       await api.deleteRefurbCost(costId)
       setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_costs:(p.refurb_costs||[]).filter(c=>c.id!==costId)}:p))
@@ -1382,7 +1385,7 @@ export default function App() {
             </>
           ) : (
             <>
-              <span>👤 REGULAR USER VIEW — developer mode is temporarily OFF (showing only your own companies)</span>
+              <span>👤 REGULAR USER VIEW — permission gates active (data-level access unchanged)</span>
               <button onClick={()=>{ setDevModeDisabled(false); window.location.reload() }}
                 style={{background:'#9ecb9e',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
                 🔐 ENABLE DEVELOPER MODE
@@ -1985,8 +1988,12 @@ export default function App() {
                                 ? [{ label: 'Restore from archive', icon: '↩',
                                      onSelect: () => handleArchiveProp(selected.id, false) }]
                                 : [{ label: 'Archive property', icon: '📦',
-                                     onSelect: () => {
-                                       if (confirm('Archive this property? It will be hidden from the active list and dashboard. You can restore it later.'))
+                                     onSelect: async () => {
+                                       if (await confirmDialog({
+                                         title: 'Archive this property?',
+                                         body: 'It will be hidden from the active list and dashboard. You can restore it later.',
+                                         confirmLabel: 'Archive',
+                                       }))
                                          handleArchiveProp(selected.id, true)
                                      }}]
                               ),

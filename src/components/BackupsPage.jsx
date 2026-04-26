@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 
 const mono = "'DM Mono',monospace"
@@ -32,6 +33,7 @@ function relativeTime(dateStr) {
 
 export default function BackupsPage({ user, showToast }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [backups, setBackups] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -78,7 +80,12 @@ export default function BackupsPage({ user, showToast }) {
   }
 
   async function remove(backup) {
-    if (!confirm(`Delete this backup from ${formatDate(backup.created_at)}? This cannot be undone.`)) return
+    if (!await confirmDialog({
+      title: `Delete backup from ${formatDate(backup.created_at)}?`,
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    })) return
     setDeleting(backup.id)
     try {
       await api.deleteBackup(backup.id, user?.id)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import { AIListingWriter, ListingYieldCalculator } from './AITools'
 import LettingsPipeline from './LettingsPipeline'
 import * as api from '../lib/api'
@@ -135,6 +136,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
 
 export default function DealsPage({ user, companies, properties = [], onConvertToProperty, showToast, activeFlags = new Set() }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [view, setView]       = useState('list')
   const [dealView, setDealView] = useState('list') // list | pipeline | tools // list | deal
   const [deals, setDeals]     = useState([])
@@ -196,7 +198,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   }
 
   async function deleteDeal(id) {
-    if (!confirm('Delete this deal? This cannot be undone.')) return
+    if (!await confirmDialog({ title: 'Delete this deal?', body: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true })) return
     try {
       await api.deleteDeal(id)
       setDeals(prev => prev.filter(d => d.id !== id))
@@ -1151,6 +1153,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
 // ── CONTACTS TAB ──────────────────────────────────────────────────────────────
 function ContactsTab({ dealId, userId, showToast }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [contacts, setContacts]       = useState([])
   const [addressBook, setAddressBook] = useState([])
   const [editing, setEditing]         = useState(null)
@@ -1202,7 +1205,7 @@ function ContactsTab({ dealId, userId, showToast }) {
   }
 
   async function deleteFromBook(id) {
-    if (!confirm('Remove from address book?')) return
+    if (!await confirmDialog({ title: 'Remove from address book?', confirmLabel: 'Remove' })) return
     try {
       await api.deleteAddressBookEntry(id)
       setAddressBook(prev=>prev.filter(e=>e.id!==id))

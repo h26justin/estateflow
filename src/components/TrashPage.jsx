@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 
 const mono = "'DM Mono',monospace"
@@ -33,6 +34,7 @@ function daysUntilPurge(dateStr) {
 
 export default function TrashPage({ user, onRestored }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [loading, setLoading] = useState(true)
   const [groups, setGroups] = useState({})
   const [filter, setFilter] = useState('all')
@@ -50,7 +52,7 @@ export default function TrashPage({ user, onRestored }) {
   useEffect(() => { if (user?.id) load() }, [user?.id])
 
   async function restore(item) {
-    if (!confirm(`Restore "${item._name}"?`)) return
+    if (!await confirmDialog({ title: `Restore "${item._name}"?`, confirmLabel: 'Restore' })) return
     setWorking(item.id)
     try {
       // Companies use a cascade-aware restore so cascade-deleted properties also come back
@@ -66,7 +68,12 @@ export default function TrashPage({ user, onRestored }) {
   }
 
   async function purgeNow(item) {
-    if (!confirm(`Permanently delete "${item._name}"? This cannot be undone.`)) return
+    if (!await confirmDialog({
+      title: `Permanently delete "${item._name}"?`,
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete forever',
+      destructive: true,
+    })) return
     setWorking(item.id)
     try {
       if (item._type === 'property_documents') {

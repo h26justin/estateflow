@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 
 const mono = "'DM Mono',monospace"
@@ -24,6 +25,7 @@ const ROLE_INFO = {
 
 export default function RolePermissionsModal({ user, company, accessRow, onClose, onSaved, showToast }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [role, setRole] = useState(accessRow?.role || (accessRow?.is_admin ? 'admin' : 'editor'))
   const [overrides, setOverrides] = useState(accessRow?.permissions || {})
   const [saving, setSaving] = useState(false)
@@ -47,8 +49,8 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
     })
   }
 
-  function resetOverrides() {
-    if (confirm('Reset all custom permissions back to the default for ' + role + '?')) {
+  async function resetOverrides() {
+    if (await confirmDialog({ title: 'Reset all custom permissions?', body: `All overrides will be removed and the role's default permissions for "${role}" will apply.`, confirmLabel: 'Reset' })) {
       setOverrides({})
     }
   }

@@ -30,6 +30,11 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   const [geocoding, setGeocoding] = useState(null)  // { done, total } | null
   const [popupProp, setPopupProp]   = useState(null)  // single-property popup
   const [popupGroup, setPopupGroup] = useState(null)  // cluster popup: { key, properties, lat, lng }
+  const [searchQ, setSearchQ]       = useState('')    // map-only search filter (live)
+  const [heatmapMode, setHeatmapMode] = useState(false)
+  const [heatmapMetric, setHeatmapMetric] = useState('rent')  // 'rent' | 'yield' | 'arrears'
+  const heatmapSourceId = 'ownproperly-heat-source'
+  const heatmapLayerId  = 'ownproperly-heat-layer'
   const mono = "'DM Mono',monospace"
 
   // Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
@@ -137,6 +142,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 
   // ─── Pin rendering ──────────────────────────────────────────────────────
   // Re-renders pins whenever the property list changes.
+  // Skipped entirely when heatmapMode is on (the map shows the heatmap layer instead).
   useEffect(() => {
     const map = mapRef.current
     if (!map || !libReady) return
@@ -145,10 +151,17 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
     markersRef.current.forEach(m => { try { m.marker.remove() } catch (e) {} })
     markersRef.current = []
 
-    const withCoords = properties.filter(p =>
-      p.latitude && p.longitude &&
-      typeof p.latitude === 'number' && typeof p.longitude === 'number'
-    )
+    if (heatmapMode) return  // heatmap layer renders separately
+
+    // Apply on-map search filter (case-insensitive, matches name or address).
+    // This is in ADDITION to the parent-level filters already applied to `properties`.
+    const q = searchQ.trim().toLowerCase()
+    const withCoords = properties.filter(p => {
+      if (!(p.latitude && p.longitude)) return false
+      if (typeof p.latitude !== 'number' || typeof p.longitude !== 'number') return false
+      if (!q) return true
+      return (p.name || '').toLowerCase().includes(q) || (p.address || '').toLowerCase().includes(q)
+    })
     if (withCoords.length === 0) return
 
     // ── Group properties by building key ──────────────────────────────────
@@ -268,7 +281,125 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
       withCoords.forEach(p => bounds.extend([p.longitude, p.latitude]))
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 })
     }
-  }, [properties, libReady])
+  }, [properties, libReady, searchQ, heatmapMode])
+
+  // ─── Heatmap layer ──────────────────────────────────────────────────────
+  // When heatmapMode is on, build a GeoJSON FeatureCollection from properties
+  // and add it as a Mapbox heatmap source/layer. The `weight` property feeds
+  // the heatmap intensity at each point — higher weight = warmer area.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !libReady) return
+
+    // Helper: get weight for a property based on selected metric.
+    // Normalised against the max within the visible set so the heat-map
+    // contrast adapts to the portfolio's range, not absolute values.
+    function rawWeight(p) {
+      switch (heatmapMetric) {
+        case 'rent':    return p.rent_pcm || 0
+        case 'arrears': return p.arrears  || 0
+        case 'yield': {
+          if (!p.purchase_price || !p.rent_pcm) return 0
+          return ((p.rent_pcm * 12) / p.purchase_price) * 100
+        }
+        default: return 0
+      }
+    }
+
+    function clearLayer() {
+      try {
+        if (map.getLayer(heatmapLayerId)) map.removeLayer(heatmapLayerId)
+        if (map.getSource(heatmapSourceId)) map.removeSource(heatmapSourceId)
+      } catch (e) {}
+    }
+
+    if (!heatmapMode) { clearLayer(); return }
+
+    function applyLayer() {
+      // Build features. Use the same search filter as the pin path for consistency.
+      const q = searchQ.trim().toLowerCase()
+      const candidates = properties.filter(p =>
+        p.latitude && p.longitude &&
+        typeof p.latitude === 'number' && typeof p.longitude === 'number' &&
+        (!q || (p.name||'').toLowerCase().includes(q) || (p.address||'').toLowerCase().includes(q))
+      )
+      if (candidates.length === 0) { clearLayer(); return }
+
+      // Find the max raw weight so we can normalise to [0, 1] for Mapbox.
+      // Skip zero/negative values when finding max so a portfolio with one
+      // property at rent=£1000 doesn't become a single hot dot — the heatmap
+      // should still scale meaningfully.
+      const maxRaw = Math.max(1, ...candidates.map(rawWeight))
+      const features = candidates.map(p => ({
+        type: 'Feature',
+        properties: {
+          weight: Math.max(0, rawWeight(p)) / maxRaw,
+        },
+        geometry: { type: 'Point', coordinates: [p.longitude, p.latitude] },
+      }))
+      const data = { type: 'FeatureCollection', features }
+
+      // Update existing source or create
+      const existing = map.getSource(heatmapSourceId)
+      if (existing) {
+        existing.setData(data)
+      } else {
+        map.addSource(heatmapSourceId, { type: 'geojson', data })
+      }
+
+      if (!map.getLayer(heatmapLayerId)) {
+        map.addLayer({
+          id: heatmapLayerId,
+          type: 'heatmap',
+          source: heatmapSourceId,
+          paint: {
+            // Weight per-point — drives intensity contributions
+            'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 1, 1],
+            // Overall intensity ramps with zoom — without this the heatmap
+            // would look identical at every zoom level
+            'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 16, 3],
+            // Color ramp — cold (blue/transparent) to hot (red)
+            'heatmap-color': [
+              'interpolate', ['linear'], ['heatmap-density'],
+              0,   'rgba(33,102,172,0)',
+              0.2, 'rgba(103,169,207,0.5)',
+              0.4, 'rgba(209,229,240,0.7)',
+              0.6, 'rgba(253,219,199,0.8)',
+              0.8, 'rgba(239,138,98,0.9)',
+              1,   'rgba(178,24,43,1)',
+            ],
+            // Radius grows with zoom so heat blobs stay legible
+            'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 8, 16, 40],
+            // Slightly fade out at very high zooms (where individual points should dominate)
+            'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 1, 18, 0.6],
+          },
+        })
+      }
+
+      // Fit bounds for the heatmap as well
+      if (candidates.length > 1) {
+        const bounds = new window.mapboxgl.LngLatBounds()
+        candidates.forEach(p => bounds.extend([p.longitude, p.latitude]))
+        map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 })
+      }
+    }
+
+    // Mapbox styles can be loaded asynchronously — guard against adding
+    // a source before the style is ready. Use a cancellation flag so a
+    // rapid toggle doesn't leave a dangling styledata listener that would
+    // re-add the layer after we've turned heatmap mode off.
+    let cancelled = false
+    function safeApply() { if (!cancelled) applyLayer() }
+    if (map.isStyleLoaded()) applyLayer()
+    else map.once('styledata', safeApply)
+
+    // Cleanup: cancel any pending styledata callback. We do NOT clear the
+    // layer here on every re-run — that would cause flicker on data changes
+    // while heatmap is on. Layer removal happens via the early-return at the
+    // top of the effect when heatmapMode flips to false, or when the
+    // component unmounts (the whole map goes with it).
+    return () => { cancelled = true }
+  }, [properties, libReady, searchQ, heatmapMode, heatmapMetric])
 
   // ─── Render ─────────────────────────────────────────────────────────────
   if (libError) {
@@ -316,6 +447,24 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
       {/* Map container */}
       <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.border}` }}>
         <div ref={containerRef} style={{ width: '100%', height: compact ? 380 : 560, background: T.bg }}/>
+
+        {/* Search input — top-left of map, hidden when a popup is open */}
+        {libReady && !popupProp && !popupGroup && (
+          <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 9, background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', padding: '4px 8px', gap: 6, minWidth: 220 }}>
+            <span style={{ fontSize: 12, color: T.muted, lineHeight: 1 }}>🔍</span>
+            <input
+              type="text"
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              placeholder="Search by name or address…"
+              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: T.text, fontFamily: mono, fontSize: 12, padding: '6px 0', minWidth: 0 }}/>
+            {searchQ && (
+              <button onClick={() => setSearchQ('')}
+                aria-label="Clear search"
+                style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 4px' }}>×</button>
+            )}
+          </div>
+        )}
 
         {/* Loading overlay until lib + first pins are ready */}
         {!libReady && (
@@ -434,16 +583,63 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
         })()}
       </div>
 
-      {/* Legend */}
-      <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: mono, fontSize: 10, color: T.muted }}>
-        {Object.entries(STATUS_COLOR).map(([k, c]) => (
-          <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}/>
-            {k}
-          </span>
-        ))}
-        <span style={{ marginLeft: 'auto', color: T.faint }}>Click a number to see all flats. Drag a single pin to fix its location.</span>
+      {/* View-mode toggle: Pins | Heatmap. Hidden in compact (dashboard) mode where space is tight. */}
+      {!compact && (
+      <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>View:</span>
+        <button onClick={() => setHeatmapMode(false)}
+          style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+            border: `1px solid ${!heatmapMode ? T.gold : T.border}`,
+            background: !heatmapMode ? T.gold + '22' : 'transparent',
+            color: !heatmapMode ? T.gold : T.muted }}>📍 Pins</button>
+        <button onClick={() => setHeatmapMode(true)}
+          style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+            border: `1px solid ${heatmapMode ? T.gold : T.border}`,
+            background: heatmapMode ? T.gold + '22' : 'transparent',
+            color: heatmapMode ? T.gold : T.muted }}>🔥 Heatmap</button>
+        {heatmapMode && (
+          <>
+            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginLeft: 8 }}>by</span>
+            {[
+              { v: 'rent',    l: 'Rent £' },
+              { v: 'yield',   l: 'Yield %' },
+              { v: 'arrears', l: 'Arrears £' },
+            ].map(({ v, l }) => (
+              <button key={v} onClick={() => setHeatmapMetric(v)}
+                style={{ fontFamily: mono, fontSize: 10, padding: '3px 8px', borderRadius: 5, cursor: 'pointer',
+                  border: `1px solid ${heatmapMetric === v ? T.text : T.border}`,
+                  background: heatmapMetric === v ? T.text + '11' : 'transparent',
+                  color: heatmapMetric === v ? T.text : T.muted }}>{l}</button>
+            ))}
+          </>
+        )}
       </div>
+      )}
+
+      {/* Legend — only shown in pin mode (heatmap has its own colour ramp) */}
+      {!heatmapMode && !compact && (
+        <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: mono, fontSize: 10, color: T.muted }}>
+          {Object.entries(STATUS_COLOR).map(([k, c]) => (
+            <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}/>
+              {k}
+            </span>
+          ))}
+          <span style={{ marginLeft: 'auto', color: T.faint }}>Click a number to see all flats. Drag a single pin to fix its location.</span>
+        </div>
+      )}
+      {heatmapMode && !compact && (
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, alignItems: 'center', fontFamily: mono, fontSize: 10, color: T.muted }}>
+          <span>Cold</span>
+          <span style={{ flex: 1, height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgba(33,102,172,0.3), rgba(103,169,207,0.7), rgba(253,219,199,0.9), rgba(239,138,98,1), rgba(178,24,43,1))' }}/>
+          <span>Hot</span>
+          <span style={{ marginLeft: 8, color: T.faint }}>
+            {heatmapMetric === 'rent' && 'Higher rent = warmer'}
+            {heatmapMetric === 'yield' && 'Higher yield = warmer'}
+            {heatmapMetric === 'arrears' && 'More arrears = warmer'}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

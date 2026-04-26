@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 
 const mono = "'DM Mono',monospace"
@@ -77,6 +78,7 @@ function stageProgress(stage, checklist = {}) {
 
 export default function LettingsPipeline({ user, companies = [], properties = [], showToast, triggerNew = false, onNewHandled }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [lettings, setLettings] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
@@ -152,7 +154,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   }
 
   async function deleteLetting(id) {
-    if (!confirm('Delete this letting progression?')) return
+    if (!await confirmDialog({ title: 'Delete this letting progression?', confirmLabel: 'Delete', destructive: true })) return
     try {
       await api.deleteLettingsProgression(id)
       setLettings(prev => prev.filter(l => l.id !== id))

@@ -2116,7 +2116,53 @@ export async function restoreCompanyAndCascade(companyId, userId) {
 }
 
 // ── FETCH ALL DELETED ITEMS (for Trash page) ──────────────────────────────────
+// ── AUTO-PURGE EXPIRED TRASH ─────────────────────────────────────────────────
+// Hard-deletes any rows whose deleted_at is older than the retention window.
+// Called lazily by fetchAllDeleted so the Trash page only ever shows
+// recoverable items. Best-effort: errors on individual tables are swallowed
+// so a failure on one table doesn't block the rest.
+//
+// Retention window is currently 30 days. Tables with cascade-aware deletes
+// (companies, properties) are purged just like the others — when a company
+// is hard-deleted via this purge, its still-soft-deleted properties also
+// reach their 30 day mark in the same time frame, so they purge alongside.
+const TRASH_RETENTION_DAYS = 30
+
+export async function purgeExpiredTrash(userId) {
+  if (!userId) return { purged: 0 }
+  const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const tables = [
+    { table: 'properties',         scope: { col: 'user_id',  val: userId } },
+    { table: 'companies',          scope: { col: 'owner_id', val: userId } },
+    { table: 'tenancy_details',    scope: { col: 'user_id',  val: userId } },
+    { table: 'compliance_items',   scope: { col: 'user_id',  val: userId } },
+    { table: 'maintenance_jobs',   scope: { col: 'user_id',  val: userId } },
+    { table: 'property_expenses',  scope: { col: 'user_id',  val: userId } },
+    { table: 'deals',              scope: { col: 'user_id',  val: userId } },
+    { table: 'property_documents', scope: { col: 'user_id',  val: userId } },
+  ]
+  let purged = 0
+  for (const { table, scope } of tables) {
+    try {
+      const { error, count } = await supabase.from(table)
+        .delete({ count: 'exact' })
+        .eq(scope.col, scope.val)
+        .lt('deleted_at', cutoff)
+        .not('deleted_at', 'is', null)
+      if (!error && count) purged += count
+    } catch (e) { /* table-level error: continue with the others */ }
+  }
+  return { purged, retentionDays: TRASH_RETENTION_DAYS }
+}
+
 export async function fetchAllDeleted(userId) {
+  // Lazy auto-purge: removes expired trash before showing what remains.
+  // We don't await this on a critical path because it's "best effort".
+  // We DO await it here because we want the Trash page to reflect the
+  // state immediately after purge — otherwise the user sees rows that
+  // are about to vanish on the next reload.
+  try { await purgeExpiredTrash(userId) } catch (e) {}
+
   // Query each table in parallel for deleted rows belonging to the user
   const safe = (p) => p.then(r => r.data || []).catch(() => [])
 
