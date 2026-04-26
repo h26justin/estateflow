@@ -46,7 +46,19 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
       else if (inviteToken) {
-        try { await api.acceptInvitation(inviteToken) } catch(e) {}
+        // Handle both kinds of invite token:
+        //  - UUID-style per-email invitation token → acceptInvitation
+        //  - Code-style company invite (e.g. HMD-7K3X) → redeemCompanyInvite
+        // We sniff by shape: UUIDs always contain hyphens in fixed positions
+        // and are lowercase hex; our codes are uppercase letters/numbers
+        // with a dash but otherwise look very different.
+        try {
+          if (looksLikeCompanyInviteCode(inviteToken)) {
+            await api.redeemCompanyInvite(inviteToken)
+          } else {
+            await api.acceptInvitation(inviteToken)
+          }
+        } catch(e) { /* non-fatal: surface via toast on dashboard load if needed */ }
         window.history.replaceState({}, '', window.location.pathname)
       }
     } else {
@@ -76,10 +88,42 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
             }, { onConflict: 'user_id' })
           } catch(e) { /* profile save failure shouldn't block signup */ }
         }
+        // If they used an invite, stash it so it gets redeemed once they
+        // confirm their email and sign in. The redeem MUST run while signed
+        // in (auth.uid() check), so we can't run it now if email confirmation
+        // is required.
+        if (inviteToken) {
+          try { localStorage.setItem('pending_invite_token', inviteToken) } catch(e) {}
+        }
+        // If signup also created a session (i.e. confirmation disabled), try
+        // to redeem right away.
+        if (signUpData?.session && inviteToken) {
+          try {
+            if (looksLikeCompanyInviteCode(inviteToken)) {
+              await api.redeemCompanyInvite(inviteToken)
+            } else {
+              await api.acceptInvitation(inviteToken)
+            }
+            try { localStorage.removeItem('pending_invite_token') } catch(e) {}
+          } catch(e) { /* non-fatal */ }
+        }
         setSuccess('Account created! Check your email to confirm, then sign in.')
       }
     }
     setLoading(false)
+  }
+
+  // A company-invite code looks like "ABC-7K3X" (3+ chars, dash, 3+ chars,
+  // all uppercase letters/digits). A per-email invitation is a UUID with
+  // 4 hyphens in fixed positions.
+  function looksLikeCompanyInviteCode(s) {
+    if (!s || typeof s !== 'string') return false
+    const upper = s.toUpperCase()
+    // Reject anything with multiple hyphens (UUIDs have 4)
+    const dashCount = (upper.match(/-/g) || []).length
+    if (dashCount !== 1) return false
+    // Must be uppercase A-Z 0-9 with one dash
+    return /^[A-Z0-9]+-[A-Z0-9]+$/.test(upper) && upper.length <= 16
   }
 
   const isModal = !!onClose
