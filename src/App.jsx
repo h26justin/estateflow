@@ -1202,11 +1202,16 @@ export default function App() {
         email: user.email, password
       })
       if (error) { showToast('Incorrect password - property not deleted', 'error'); return false }
-      await api.deleteProperty(id)
+      // Soft-delete: flips deleted_at instead of hard-deleting. The property
+      // moves to Trash where it can be restored within 30 days; the auto-purge
+      // handles permanent removal. This means accidental deletes are
+      // recoverable, and the row keeps existing for any FK-linked children
+      // (refurb, expenses, compliance, etc) until the user explicitly purges.
+      await api.softDeleteProperty(id, user.id)
       setProperties(prev=>prev.filter(p=>p.id!==id))
       setView('properties');setSelectedId(null)
       setShowDeleteConfirm(null)
-      showToast('Property deleted')
+      showToast('Property moved to Trash')
       return true
     }catch(e){showToast(e.message,'error'); return false}
   }
