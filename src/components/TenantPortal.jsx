@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { SignedPhoto } from '../lib/SignedPhoto'
 
 const mono = "'DM Mono',monospace"
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -462,11 +463,18 @@ function TenantMaintenance({ property, user, brandColor }) {
     for (const file of files.slice(0,5)) {
       try {
         const ext = file.name.split('.').pop()
-        const path = `maintenance/pending-${Date.now()}.${ext}`
+        // Tenant uploads now live under their auth user-id folder so storage
+        // RLS can scope writes to the uploader. The bucket is private — we
+        // store the path durably and fetch a signed URL on display.
+        const tenantUid = user?.id || 'anon'
+        const path = `${tenantUid}/tenant-uploads/${Date.now()}.${ext}`
         const { error } = await supabase.storage.from('property-documents').upload(path, file, {upsert:true})
         if (!error) {
-          const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
-          uploaded.push({ url: publicUrl, path, name: file.name })
+          // Use a local object URL for the immediate preview — works without
+          // a server round-trip and doesn't rely on bucket public access.
+          // The durable `path` is what gets persisted on the maintenance job.
+          const previewUrl = URL.createObjectURL(file)
+          uploaded.push({ url: previewUrl, path, name: file.name })
         }
       } catch(e) {}
     }
@@ -584,9 +592,8 @@ function TenantMaintenance({ property, user, brandColor }) {
                 {jobPhotos.length>0 && (
                   <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
                     {jobPhotos.map((p,i)=>(
-                      <a key={i} href={p.url} target="_blank" rel="noreferrer">
-                        <img src={p.url} alt="" style={{width:60,height:60,objectFit:'cover',borderRadius:6,border:'1px solid #e0e0e0'}}/>
-                      </a>
+                      <SignedPhoto key={i} path={p.path} url={p.url}
+                        style={{width:60,height:60,objectFit:'cover',borderRadius:6,border:'1px solid #e0e0e0'}}/>
                     ))}
                   </div>
                 )}

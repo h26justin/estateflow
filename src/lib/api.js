@@ -921,7 +921,10 @@ export async function fetchDocuments(propertyId) {
 
 export async function uploadDocument(propertyId, propertyName, file, userId) {
   const ext = file.name.split('.').pop()
-  const path = `${propertyId}/${Date.now()}.${ext}`
+  // Path layout: {user_id}/properties/{propertyId}/{ts}.{ext}
+  // Top-level folder = user id, so the storage RLS policy (which checks
+  // foldername[1] = auth.uid()) admits the user's own writes.
+  const path = `${userId}/properties/${propertyId}/${Date.now()}.${ext}`
   const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
   if (uploadErr) throw uploadErr
   // Bucket is private — do NOT store a public URL. Always generate signed URLs
@@ -977,7 +980,8 @@ export async function fetchCompanyDocuments(companyId) {
 
 export async function uploadCompanyDocument(companyId, file, userId) {
   const ext = file.name.split('.').pop()
-  const path = `company_${companyId}/${Date.now()}.${ext}`
+  // {user_id}/company_documents/{companyId}/{ts}.{ext} — see uploadDocument for layout rationale
+  const path = `${userId}/company_documents/${companyId}/${Date.now()}.${ext}`
   const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
   if (uploadErr) throw uploadErr
   // Private bucket — no public URL storage.
@@ -1496,7 +1500,8 @@ export async function fetchDealDocuments(dealId) {
 
 export async function uploadDealDocument(dealId, file, userId) {
   const ext = file.name.split('.').pop()
-  const path = `deal_${dealId}/${Date.now()}.${ext}`
+  // {user_id}/deals/{dealId}/{ts}.{ext} — see uploadDocument for layout rationale
+  const path = `${userId}/deals/${dealId}/${Date.now()}.${ext}`
   const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
   if (uploadErr) throw uploadErr
   // Private bucket — no public URL stored. View links generated on demand
@@ -1645,12 +1650,17 @@ export async function saveCompanyYearType(companyId, yearType) {
 }
 
 export async function uploadCompanyLogo(companyId, file) {
+  // Logos go to the public-assets bucket so they remain accessible without
+  // authentication (e.g. embedded in PDFs, dashboards). Stored under the
+  // landlord's user-folder so RLS limits writes/deletes to the owner.
+  const userId = await uid()
   const ext = file.name.split('.').pop()
-  const path = `company_logos/${companyId}.${ext}`
-  await supabase.storage.from('property-documents').remove([path]).catch(()=>{})
-  const { error: upErr } = await supabase.storage.from('property-documents').upload(path, file, { upsert: true })
+  const path = `${userId}/company_logos/${companyId}.${ext}`
+  // Best-effort cleanup of any older logo (different ext, etc) to avoid orphans.
+  await supabase.storage.from('public-assets').remove([path]).catch(()=>{})
+  const { error: upErr } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true })
   if (upErr) throw upErr
-  const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
+  const { data: { publicUrl } } = supabase.storage.from('public-assets').getPublicUrl(path)
   const { error } = await supabase.from('company_settings').upsert(
     { company_id: companyId, logo_url: publicUrl, logo_path: path },
     { onConflict: 'company_id' }
@@ -1942,12 +1952,18 @@ export async function saveCompanySubdomain(companyId, subdomain) {
 }
 
 export async function uploadMaintenancePhoto(jobId, file) {
+  // Maintenance photos can show home interiors so they live in the private
+  // bucket. Stored under the landlord's user-folder for RLS scoping. We DO
+  // NOT return a public URL — callers should use getDocumentSignedUrl when
+  // they need to display the photo. The `path` is the durable identifier;
+  // signed URLs are generated on-demand and expire after 5 minutes.
+  const userId = await uid()
   const ext = file.name.split('.').pop()
-  const path = `maintenance/${jobId}/${Date.now()}.${ext}`
+  const path = `${userId}/maintenance/${jobId}/${Date.now()}.${ext}`
   const { error } = await supabase.storage.from('property-documents').upload(path, file, { upsert: true })
   if (error) throw error
-  const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)
-  return { url: publicUrl, path, name: file.name }
+  // Return path only — caller fetches a signed URL when displaying.
+  return { path, name: file.name }
 }
 
 export async function attachPhotosToJob(jobId, photos) {

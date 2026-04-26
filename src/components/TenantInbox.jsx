@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { SignedPhoto } from '../lib/SignedPhoto'
 
 const mono = "'DM Mono',monospace"
 const PRIORITY_CFG = {
@@ -308,9 +309,8 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
               <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Photos from tenant</div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 {photos.map((p,i) => (
-                  <a key={i} href={p.url} target="_blank" rel="noreferrer">
-                    <img src={p.url} alt="" style={{ width:100, height:100, objectFit:'cover', borderRadius:8, border:`1px solid ${T.border}`, cursor:'pointer' }}/>
-                  </a>
+                  <SignedPhoto key={i} path={p.path} url={p.url}
+                    style={{ width:100, height:100, objectFit:'cover', borderRadius:8, border:`1px solid ${T.border}`, cursor:'pointer' }}/>
                 ))}
               </div>
             </div>
