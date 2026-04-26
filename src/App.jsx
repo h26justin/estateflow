@@ -1208,23 +1208,14 @@ export default function App() {
       // recoverable, and the row keeps existing for any FK-linked children
       // (refurb, expenses, compliance, etc) until the user explicitly purges.
       await api.softDeleteProperty(id, user.id)
-      // Optimistic local removal so the UI reflects the change immediately.
+      // Local state removal — the DraggablePropertyList renders directly
+      // from this `properties` state via the `filtered` useMemo, so this
+      // single update propagates everywhere in one render.
       setProperties(prev=>prev.filter(p=>p.id!==id))
-      // Navigate away from the detail page first…
       setView('properties')
       setSelectedId(null)
       setShowDeleteConfirm(null)
       showToast('Property moved to Trash')
-      // …then re-fetch the source-of-truth list. This protects against any
-      // stale closures or sub-component caches that might still be holding
-      // a reference to the deleted row. The user sees an instant local
-      // update; this fetch quietly reconciles in the background.
-      try {
-        const fresh = await api.fetchProperties()
-        const accessibleIds = new Set([...((await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)).data || []).map(c=>c.id), ...userAccess])
-        const visible = isPlatformAdmin ? fresh : fresh.filter(p => accessibleIds.has(p.company_id))
-        setProperties(visible)
-      } catch(e) { /* non-fatal — local filter already removed the row */ }
       return true
     }catch(e){showToast(e.message,'error'); return false}
   }
@@ -2964,14 +2955,15 @@ function PreviewRow({ label, value, T, mono }) {
 // ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
 function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties, sortBy, yieldBasis}) {
   const { T } = useTheme()
-  const [items, setItems] = useState(filtered)
+  // We deliberately do NOT keep a local `items` copy. Holding a duplicated
+  // list created subtle bugs where the local copy lagged behind the parent's
+  // `filtered` after deletes/edits — for example after soft-deleting a
+  // property, the parent state filtered the row out but this component
+  // still showed it until the next mount. Reading directly from `filtered`
+  // every render keeps the source of truth in one place.
   const [dragging, setDragging] = useState(null)
   const [dragOver, setDragOver] = useState(null)
-
-  // Sync when filtered changes (e.g. filter applied)
-  useEffect(()=>{
-    setItems(filtered)
-  },[filtered])
+  const items = filtered
 
   function handleDragStart(e, idx) {
     setDragging(idx)
@@ -2988,12 +2980,20 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
   function handleDrop(e, targetIdx) {
     e.preventDefault()
     if (dragging === null || dragging === targetIdx) return
-    const newItems = [...items]
-    const [moved] = newItems.splice(dragging, 1)
-    newItems.splice(targetIdx, 0, moved)
-    setItems(newItems)
+    // Compute the new ordering of the visible items.
+    const newOrder = [...items]
+    const [moved] = newOrder.splice(dragging, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    // Build a quick lookup of the new sort_order per id.
+    const sortMap = new Map(newOrder.map((p, i) => [p.id, i]))
+    // Update parent state so `filtered` will re-derive on the next render
+    // with the new sort_order values applied. This replaces the previous
+    // local-items approach which drifted from parent state.
+    setProperties(prev => prev.map(p =>
+      sortMap.has(p.id) ? { ...p, sort_order: sortMap.get(p.id) } : p
+    ))
     // Persist new order to DB in background
-    newItems.forEach((p, i) => {
+    newOrder.forEach((p, i) => {
       if (p.sort_order !== i) {
         api.updatePropertySortOrder(p.id, i).catch(()=>{})
       }
