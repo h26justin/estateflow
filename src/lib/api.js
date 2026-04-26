@@ -45,6 +45,34 @@ export async function createProperty(prop) {
   }
   return { ...data, refurb_phases: [], refurb_costs: [], rent_payments: [] }
 }
+
+/**
+ * Bulk-create properties in a single round-trip. Used by the "Add Block of Flats"
+ * wizard. All properties are tagged with the current user_id and the joined
+ * company info is selected back so the UI can append them without a re-fetch.
+ *
+ * Returns the array of created rows in the same order as input. Geocoding is
+ * fired-and-forgotten per row, just like createProperty.
+ *
+ * Throws on the first DB error — partial success is NOT swallowed because that
+ * would leave the user in a confusing half-saved state. The wizard validates
+ * inputs before calling this so DB errors should be rare.
+ */
+export async function bulkCreateProperties(props) {
+  if (!Array.isArray(props) || props.length === 0) return []
+  const u = await uid()
+  const rows = props.map(p => ({ ...p, user_id: u }))
+  const { data, error } = await supabase
+    .from('properties').insert(rows)
+    .select('*, company:companies(id,name,abbr,color)')
+  if (error) throw error
+  // Geocode each new property in the background.
+  for (const row of (data || [])) {
+    if (row?.address) geocodeProperty(row.id, row.address).catch(() => {})
+  }
+  return (data || []).map(d => ({ ...d, refurb_phases: [], refurb_costs: [], rent_payments: [] }))
+}
+
 export async function updateProperty(id, updates) {
   const { data, error } = await supabase
     .from('properties').update(updates).eq('id', id)

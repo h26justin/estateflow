@@ -25,6 +25,7 @@ import OnboardingTour from './components/OnboardingTour'
 import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
 import PropertyMap from './components/PropertyMap'
+import BulkAddPropertyModal from './components/BulkAddPropertyModal'
 import { safeOverlayClose, isFormDirty } from './lib/modalUtils'
 import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
@@ -639,6 +640,7 @@ export default function App() {
   const [showArchived,setShowArchived] = useState(false)
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
+  const [showAddBulk, setShowAddBulk]  = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
   const [renameCoTarget, setRenameCoTarget] = useState(null)
   const [renameCo, setRenameCo]        = useState({ name:'', abbr:'' })
@@ -1544,6 +1546,7 @@ export default function App() {
                       padding:'6px',minWidth:210,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
                         {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
+                        {icon:'🏘',label:'Add Block of Flats', action:()=>setShowAddBulk(true)},
                         {icon:'🏢',label:'Add Company',     action:()=>setShowAddCo(true)},
                         {icon:'📄',label:'Import Statement',action:()=>setShowImporter(true)},
                         {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property and go to Expenses tab')}},
@@ -1612,6 +1615,7 @@ export default function App() {
             <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
               {[
                 {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}},
+                {icon:'🏘',label:'Add Block of Flats', action:()=>{setShowAddBulk(true);setShowDrawer(false)}},
                 {icon:'🏢',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
                 {icon:'📄',label:'Import Statement',action:()=>{setShowImporter(true);setShowDrawer(false)}},
                 {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property → Expenses tab');setShowDrawer(false)}},
@@ -2016,7 +2020,8 @@ export default function App() {
                 onOpenProperty={(id)=>{ setSelectedId(id); setView('detail'); setDetailTab('overview') }}/>
             </>}
             {portfolioTab==='properties'&&<div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8,marginBottom:16}}>
+              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddBulk(true)} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)">🏘 + Add Block</button>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
@@ -2368,6 +2373,15 @@ export default function App() {
       </main>
 
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
+      {showAddBulk&&<BulkAddPropertyModal
+        companies={companies}
+        onClose={()=>setShowAddBulk(false)}
+        onSaved={(created)=>{
+          setProperties(prev => [...prev, ...created])
+          setShowAddBulk(false)
+        }}
+        showToast={showToast}
+      />}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
       {showCustomizeDash && <CustomizeDashModal
         initialTab={customizeDashTab}
