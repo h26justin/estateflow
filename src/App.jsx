@@ -1426,6 +1426,8 @@ export default function App() {
         {companies.filter(c=>c.id===activeCoTab).map(c=>{
           const cs=companyStats.find(x=>x.id===c.id)||{count:0,rented:0,vacant:0,monthlyRent:0,invested:0,estVal:0,arrears:0}
           const cProps=activeProperties.filter(p=>p.company_id===c.id)
+          // eslint-disable-next-line no-console
+          console.log(`[DELETE-DIAG] CompaniesPanel render: company=${c.name}, activeProperties.length=${activeProperties.length}, cProps.length=${cProps.length}, cProps ids=`, cProps.map(p=>p.id))
           return <div key={c.id}>
             {/* Company header with rename button */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
