@@ -1174,7 +1174,16 @@ function generateInviteCode(companyName) {
  * as a link or a short code (the underlying record is the same).
  */
 export async function createCompanyInvite(companyId, opts = {}) {
-  const { maxUses = null, expiresAt = null, isAdmin = false, label = '' } = opts
+  // Accepts both new `role` and legacy `isAdmin`. Role is preferred and is
+  // one of 'admin' | 'editor' | 'viewer'. If only isAdmin is passed (older
+  // callers), we map true → 'admin' and false → 'editor'.
+  let { maxUses = null, expiresAt = null, role = null, isAdmin = false, label = '' } = opts
+  if (!role) role = isAdmin ? 'admin' : 'editor'
+  if (!['admin','editor','viewer'].includes(role)) role = 'editor'
+  // Keep is_admin in sync with role for legacy code paths that still read
+  // company_invites.is_admin without checking role.
+  isAdmin = role === 'admin'
+
   const userId = (await supabase.auth.getUser()).data.user.id
   // Look up the company name to seed the code prefix
   const { data: co } = await supabase.from('companies').select('name').eq('id', companyId).single()
@@ -1194,6 +1203,7 @@ export async function createCompanyInvite(companyId, opts = {}) {
     code,
     max_uses:   maxUses,
     expires_at: expiresAt,
+    role,
     is_admin:   isAdmin,
     label:      label || null,
   }).select().single()
@@ -1239,7 +1249,8 @@ export async function revokeCompanyInvite(inviteId) {
  * - 'invite_not_found' — bad code
  * - 'invite_revoked' / 'invite_expired' / 'invite_exhausted'
  *
- * Returns: { company_id, is_admin, company_name }
+ * Returns: { company_id, role, company_name }
+ *   role is one of 'admin' | 'editor' | 'viewer'.
  */
 export async function redeemCompanyInvite(code) {
   const { data, error } = await supabase.rpc('redeem_company_invite', { p_code: code })

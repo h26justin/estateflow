@@ -2324,7 +2324,9 @@ function ShareableLinksTab({ companies, showToast, T }) {
   const [formCompanyId, setFormCompanyId] = useState(companies[0]?.id || '')
   const [formMaxUses,   setFormMaxUses]   = useState('')   // '' = unlimited
   const [formExpiry,    setFormExpiry]    = useState('7d') // preset key
-  const [formIsAdmin,   setFormIsAdmin]   = useState(false)
+  // Role joiners get when they redeem this code. Defaults to 'editor' which
+  // matches what most "I'm sharing this with my team" cases want.
+  const [formRole,      setFormRole]      = useState('editor')
   const [formLabel,     setFormLabel]     = useState('')
   const [creating,      setCreating]      = useState(false)
 
@@ -2368,7 +2370,7 @@ function ShareableLinksTab({ companies, showToast, T }) {
       const maxUses = formMaxUses === '' ? null : Math.max(1, parseInt(formMaxUses) || 1)
       const expiresAt = expiryToTimestamp(formExpiry)
       const created = await api.createCompanyInvite(formCompanyId, {
-        maxUses, expiresAt, isAdmin: formIsAdmin, label: formLabel.trim()
+        maxUses, expiresAt, role: formRole, label: formLabel.trim()
       })
       // Optimistically update the grouped list
       setInvitesByCompany(prev => ({
@@ -2479,11 +2481,39 @@ function ShareableLinksTab({ companies, showToast, T }) {
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: mono, fontSize: 11, color: T.muted }}>
-            <input type="checkbox" checked={formIsAdmin} onChange={e => setFormIsAdmin(e.target.checked)}/>
-            Joiners are admins (can edit, not just view)
-          </label>
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Role for joiners</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { v: 'viewer', l: 'Viewer',  desc: 'Read-only access' },
+              { v: 'editor', l: 'Editor',  desc: 'Edit properties, rent, compliance' },
+              { v: 'admin',  l: 'Admin',   desc: 'Editor + manage users & settings' },
+            ].map(opt => {
+              const active = formRole === opt.v
+              return (
+                <label key={opt.v}
+                  style={{
+                    flex: '1 1 140px', cursor: 'pointer',
+                    border: `1px solid ${active ? T.gold : T.border}`,
+                    background: active ? T.gold + '11' : 'transparent',
+                    borderRadius: 8, padding: '8px 12px',
+                    transition: 'border-color 0.15s, background 0.15s',
+                  }}>
+                  <input type="radio" name="formRole" value={opt.v} checked={active}
+                    onChange={() => setFormRole(opt.v)}
+                    style={{ marginRight: 6, verticalAlign: 'middle' }}/>
+                  <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: active ? T.gold : T.text, verticalAlign: 'middle' }}>
+                    {opt.l}
+                  </span>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2, marginLeft: 22 }}>
+                    {opt.desc}
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
           <button type="submit" disabled={creating || !formCompanyId} className="btn btn-gold" style={{ fontSize: 11 }}>
             {creating ? 'Generating…' : '+ Generate invite'}
           </button>
@@ -2518,11 +2548,22 @@ function ShareableLinksTab({ companies, showToast, T }) {
                                 <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: '0.05em' }}>
                                   {inv.code}
                                 </span>
-                                {inv.is_admin && (
-                                  <span style={{ fontFamily: mono, fontSize: 9, color: T.gold, background: T.gold + '22', padding: '2px 6px', borderRadius: 4 }}>
-                                    Admin
-                                  </span>
-                                )}
+                                {/* Role badge — colour-coded per role.
+                                    Older rows pre-date the `role` column so we
+                                    fall back to is_admin → Admin / Editor. */}
+                                {(() => {
+                                  const role = inv.role || (inv.is_admin ? 'admin' : 'editor')
+                                  const meta = {
+                                    admin:  { label: 'Admin',  bg: T.gold,  text: T.gold },
+                                    editor: { label: 'Editor', bg: T.blue || '#4B8FE0', text: T.blue || '#4B8FE0' },
+                                    viewer: { label: 'Viewer', bg: T.muted, text: T.muted },
+                                  }[role] || { label: role, bg: T.muted, text: T.muted }
+                                  return (
+                                    <span style={{ fontFamily: mono, fontSize: 9, color: meta.text, background: meta.bg + '22', padding: '2px 6px', borderRadius: 4 }}>
+                                      {meta.label}
+                                    </span>
+                                  )
+                                })()}
                                 {inv.label && (
                                   <span style={{ fontFamily: mono, fontSize: 10, color: T.faint, fontStyle: 'italic' }}>{inv.label}</span>
                                 )}
