@@ -346,7 +346,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 
       {/* Cashflow panel — aggregate cash commitments across all live deals.
           Hidden when there are no deals; collapsible by the user. */}
-      <CashflowPanel deals={deals} T={T}/>
+      <CashflowPanel deals={deals} properties={properties} T={T}/>
 
       {/* Filters - only show on list view */}
       {dealView === 'list' && <div style={{display:'flex',gap:10,marginBottom:4,flexWrap:'wrap',fontSize:11}}><span style={{fontFamily:mono,color:T.muted,fontSize:10,alignSelf:'center'}}>List view · {filtered.length} deals</span></div>}
@@ -473,12 +473,12 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 // group (pipeline / committed / refurb pending) and by time horizon
 // (next 30 / 31-60 / 61-90 / 91+ / undated). Collapsible — for users with
 // hundreds of deals or who don't want the dashboard front and centre.
-function CashflowPanel({ deals, T }) {
+function CashflowPanel({ deals, properties, T }) {
   const [collapsed, setCollapsed] = useState(false)
   const [view, setView] = useState('group') // 'group' or 'timeline'
 
-  // Aggregate once per deals-list change. Pure function so re-runs are cheap.
-  const agg = useMemo(() => aggregateDeals(deals), [deals])
+  // Aggregate once per deals/properties change. Pure function so re-runs are cheap.
+  const agg = useMemo(() => aggregateDeals(deals, properties), [deals, properties])
 
   // Hide entirely if there are no live (non-dead, non-deleted) deals.
   // 'pipeline' deals with no money entered yet still count — even £0 totals
@@ -495,7 +495,7 @@ function CashflowPanel({ deals, T }) {
           <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
             <span style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>💰 Cashflow</span>
             <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(agg.totalHeadline)}</span>
-            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>headline · {fmt(agg.totalCashOut)} cash out · {agg.totalCount} deals</span>
+            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>headline · {fmt(agg.totalCashOut)} cash out · {agg.totalCount} {agg.totalCount===1?'item':'items'}</span>
           </div>
           <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>▼ Expand</span>
         </div>
@@ -533,7 +533,7 @@ function CashflowPanel({ deals, T }) {
         <div>
           <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Total headline value</div>
           <div style={{fontFamily:mono,fontSize:22,fontWeight:700,color:T.text,letterSpacing:'-0.02em'}}>{fmt(agg.totalHeadline)}</div>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>Full deal cost · {agg.totalCount} deals</div>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>Full deal cost · {agg.totalCount} {agg.totalCount===1?'item':'items'}</div>
         </div>
         <div>
           <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Cash out of pocket</div>
@@ -547,20 +547,28 @@ function CashflowPanel({ deals, T }) {
         <div style={{display:'grid',gap:8}}>
           {['pipeline','committed','refurb'].map(g => {
             const row = agg.byGroup[g]
+            const dealCount = row.deals.length
+            const propCount = row.properties.length
+            // Build a count phrase that mentions both sources when relevant
+            const countParts = []
+            if (dealCount > 0) countParts.push(`${dealCount} ${dealCount===1?'deal':'deals'}`)
+            if (propCount > 0) countParts.push(`${propCount} ${propCount===1?'property':'properties'}`)
+            const countLabel = countParts.join(' + ') || 'No items'
+
             if (row.count === 0) return (
               <div key={g} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8,opacity:0.5}}>
                 <div>
                   <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.muted}}>{STATUS_GROUP_LABEL[g]}</div>
                   <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:1}}>{STATUS_GROUP_DESC[g]}</div>
                 </div>
-                <div style={{fontFamily:mono,fontSize:11,color:T.faint}}>No deals</div>
+                <div style={{fontFamily:mono,fontSize:11,color:T.faint}}>No items</div>
               </div>
             )
             return (
               <div key={g} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8}}>
                 <div>
                   <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.text}}>{STATUS_GROUP_LABEL[g]}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{STATUS_GROUP_DESC[g]} · {row.count} {row.count===1?'deal':'deals'}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{STATUS_GROUP_DESC[g]} · {countLabel}</div>
                 </div>
                 <div style={{textAlign:'right'}}>
                   <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
@@ -573,6 +581,13 @@ function CashflowPanel({ deals, T }) {
               </div>
             )
           })}
+          {/* Hint: encourage user to itemise refurb costs if they're using
+              the budgeted fallback (less accurate). One line, friendly. */}
+          {agg.propertyRefurbBudgeted > 0 && (
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
+              💡 {agg.propertyRefurbBudgeted} {agg.propertyRefurbBudgeted===1?'property is':'properties are'} using the full refurb budget as the unpaid amount. Add itemised costs (with paid/unpaid status) on the property's Refurb tab for a more accurate cashflow figure.
+            </div>
+          )}
         </div>
       )}
 
@@ -581,13 +596,19 @@ function CashflowPanel({ deals, T }) {
           {TIME_BUCKETS.map(b => {
             const row = agg.byBucket[b]
             if (row.count === 0) return null  // hide empty buckets in timeline view, less noise
+            const dealCount = row.deals.length
+            const propCount = row.properties.length
+            const countParts = []
+            if (dealCount > 0) countParts.push(`${dealCount} ${dealCount===1?'deal':'deals'}`)
+            if (propCount > 0) countParts.push(`${propCount} ${propCount===1?'property':'properties'}`)
+            const countLabel = countParts.join(' + ')
             const urgent = b === 'overdue' || b === '0-30'
             const labelColor = b === 'overdue' ? T.red : b === '0-30' ? T.amber : T.text
             return (
               <div key={b} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:urgent?(b==='overdue'?T.red+'11':T.amber+'11'):T.bg,borderRadius:8,borderLeft:urgent?`3px solid ${b==='overdue'?T.red:T.amber}`:'none'}}>
                 <div>
                   <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:labelColor}}>{TIME_BUCKET_LABEL[b]}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{row.count} {row.count===1?'deal':'deals'}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{countLabel}</div>
                 </div>
                 <div style={{textAlign:'right'}}>
                   <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
@@ -600,10 +621,10 @@ function CashflowPanel({ deals, T }) {
               </div>
             )
           })}
-          {/* Helpful nudge if too many deals are 'undated' — hint them to fill in dates */}
+          {/* Helpful nudge if too many items are 'undated' — hint them to fill in dates */}
           {agg.byBucket.undated.count > agg.totalCount / 2 && (
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
-              💡 Most deals don't have completion or refurb dates set. Add them in each deal's Timeline section to see them in 30/60/90 day buckets.
+              💡 Most items don't have completion or refurb dates set. Add them in each deal's Timeline section, or set refurb dates on properties, to see them in 30/60/90 day buckets.
             </div>
           )}
         </div>

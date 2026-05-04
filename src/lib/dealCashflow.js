@@ -20,6 +20,22 @@
 // AND by time bucket (next 30 / 31-60 / 61-90 days / later / undated).
 // Time bucketing uses expected_completion_date (or refurb_start_date when
 // the deal is already completed) as the trigger date.
+//
+// PROPERTY CONTRIBUTIONS to the 'refurb' group:
+// Once a deal converts to a property (or a property is created directly),
+// the deal record disappears but real cash may still need to flow out for
+// refurb. To capture this we ALSO scan the properties list for unpaid
+// refurb commitments and add them to the 'refurb' bucket. Logic:
+//   1. If property has itemised refurb_costs rows: sum cost where !paid.
+//      This is the accurate path — user has marked which lines are settled.
+//   2. If no itemised rows but the property has a refurb_cost field set
+//      and status is 'purchased' or 'refurb': assume the whole budget is
+//      still pending. Approximation, but better than missing it entirely.
+//   3. Otherwise (rented/sold/vacant, no itemised lines): exclude. Assume
+//      the refurb is historically done.
+// Properties are NOT included in 'committed' or 'pipeline' groups because
+// once it's a property record, the purchase has already happened — the
+// schema has no flag for "purchase still pending".
 
 // ── Status grouping ──────────────────────────────────────────────────────
 // We collapse the 6 deal statuses into 3 buckets that match real cashflow
@@ -114,6 +130,55 @@ export function dealCashflow(deal) {
   return { headline, cashOut, group }
 }
 
+// ── Per-property refurb cashflow ─────────────────────────────────────────
+/**
+ * Returns the unpaid refurb commitment for a single property, plus a
+ * `source` flag describing how we computed it (so the UI can show the
+ * right level of confidence).
+ *
+ *   { unpaid, headline, source }
+ *     source: 'itemised'  — sum of refurb_costs rows with paid=false (most accurate)
+ *             'budgeted'  — fallback to property.refurb_cost (no line items yet)
+ *             'excluded'  — refurb assumed historical/done; not pending
+ *
+ *   unpaid:   what the user still needs to pay (the cashflow number)
+ *   headline: total refurb scope, paid-or-not (matches deal headline)
+ */
+export function propertyRefurbCashflow(property) {
+  if (!property || property.deleted_at) return { unpaid: 0, headline: 0, source: 'excluded' }
+  if (property.status === 'sold') return { unpaid: 0, headline: 0, source: 'excluded' }
+
+  const num = (v) => Number(v) || 0
+  const lines = Array.isArray(property.refurb_costs) ? property.refurb_costs : []
+  const totalLines  = lines.reduce((s, l) => s + num(l.cost), 0)
+  const unpaidLines = lines.filter(l => !l.paid).reduce((s, l) => s + num(l.cost), 0)
+
+  // Path 1: itemised lines exist — trust them as source of truth.
+  if (lines.length > 0) {
+    return {
+      unpaid: unpaidLines,
+      headline: Math.max(totalLines, num(property.refurb_cost)),
+      source: 'itemised',
+    }
+  }
+
+  // Path 2: no itemised lines, but property is in a state where refurb is
+  // typically still pending. Treat refurb_cost as the unpaid budget.
+  if (property.status === 'purchased' || property.status === 'refurb') {
+    return {
+      unpaid: num(property.refurb_cost),
+      headline: num(property.refurb_cost),
+      source: 'budgeted',
+    }
+  }
+
+  // Path 3: rented/vacant/etc with no itemised lines — assume done.
+  // The user can break the budget into line items if they want this to
+  // appear in the cashflow panel.
+  return { unpaid: 0, headline: 0, source: 'excluded' }
+}
+
+
 // ── Time bucketing ────────────────────────────────────────────────────────
 // Bucket a deal into a time horizon based on its trigger date.
 // Trigger date logic:
@@ -159,25 +224,33 @@ export function dealTimeBucket(deal) {
 
 // ── Aggregator ────────────────────────────────────────────────────────────
 /**
- * Given an array of deals, returns:
+ * Given arrays of deals and (optionally) properties, returns:
  *   {
- *     byGroup: { pipeline: { count, headline, cashOut }, committed: {...}, refurb: {...} },
- *     byBucket: { '0-30': { count, headline, cashOut }, ..., undated: {...} },
- *     totalHeadline, totalCashOut, totalCount
+ *     byGroup: { pipeline: {...}, committed: {...}, refurb: {...} },
+ *     byBucket: { '0-30': {...}, ..., undated: {...} },
+ *     totalHeadline, totalCashOut, totalCount, propertyRefurbCount,
+ *     propertyRefurbBudgeted (count of properties contributing via budgeted
+ *       fallback rather than itemised lines — surfaced in UI as a hint).
  *   }
- * Excludes deleted and 'dead' deals.
+ *
+ * Properties contribute to the 'refurb' group only (see propertyRefurbCashflow
+ * for the rules). They never appear in 'pipeline' or 'committed' because the
+ * schema has no signal for "purchase still pending" on a property record.
+ *
+ * Excludes deleted deals and 'dead'-status deals; sold/deleted properties.
  */
-export function aggregateDeals(deals) {
+export function aggregateDeals(deals, properties = []) {
   const byGroup = {
-    pipeline:  { count: 0, headline: 0, cashOut: 0, deals: [] },
-    committed: { count: 0, headline: 0, cashOut: 0, deals: [] },
-    refurb:    { count: 0, headline: 0, cashOut: 0, deals: [] },
+    pipeline:  { count: 0, headline: 0, cashOut: 0, deals: [], properties: [] },
+    committed: { count: 0, headline: 0, cashOut: 0, deals: [], properties: [] },
+    refurb:    { count: 0, headline: 0, cashOut: 0, deals: [], properties: [] },
   }
   const byBucket = {}
-  for (const b of TIME_BUCKETS) byBucket[b] = { count: 0, headline: 0, cashOut: 0, deals: [] }
+  for (const b of TIME_BUCKETS) byBucket[b] = { count: 0, headline: 0, cashOut: 0, deals: [], properties: [] }
 
   let totalHeadline = 0, totalCashOut = 0, totalCount = 0
 
+  // Pass 1: deals
   for (const d of (deals || [])) {
     if (d.deleted_at) continue
     const cf = dealCashflow(d)
@@ -199,5 +272,54 @@ export function aggregateDeals(deals) {
     totalCount    += 1
   }
 
-  return { byGroup, byBucket, totalHeadline, totalCashOut, totalCount }
+  // Pass 2: properties — refurb group only
+  let propertyRefurbCount = 0
+  let propertyRefurbBudgeted = 0
+  for (const p of (properties || [])) {
+    const rcf = propertyRefurbCashflow(p)
+    if (rcf.source === 'excluded' || rcf.unpaid <= 0) continue
+
+    propertyRefurbCount += 1
+    if (rcf.source === 'budgeted') propertyRefurbBudgeted += 1
+
+    // Time bucket: properties don't have completion dates in the same way
+    // deals do. We use refurb_start_date if set on the property; otherwise
+    // 'undated'. (Property schema may not track this — treated as 'undated'
+    // for now.)
+    const triggerStr = p.refurb_start_date || p.refurb_end_date
+    let bucket = 'undated'
+    if (triggerStr) {
+      const trigger = new Date(triggerStr)
+      if (!isNaN(trigger.getTime())) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const diff = Math.floor((trigger - today) / (1000 * 60 * 60 * 24))
+        if (diff < 0)        bucket = 'overdue'
+        else if (diff <= 30) bucket = '0-30'
+        else if (diff <= 60) bucket = '31-60'
+        else if (diff <= 90) bucket = '61-90'
+        else                 bucket = '91+'
+      }
+    }
+
+    byGroup.refurb.count    += 1
+    byGroup.refurb.headline += rcf.headline
+    byGroup.refurb.cashOut  += rcf.unpaid
+    byGroup.refurb.properties.push({ ...p, _refurbCashflow: rcf })
+
+    byBucket[bucket].count    += 1
+    byBucket[bucket].headline += rcf.headline
+    byBucket[bucket].cashOut  += rcf.unpaid
+    byBucket[bucket].properties.push({ ...p, _refurbCashflow: rcf })
+
+    totalHeadline += rcf.headline
+    totalCashOut  += rcf.unpaid
+    totalCount    += 1
+  }
+
+  return {
+    byGroup, byBucket,
+    totalHeadline, totalCashOut, totalCount,
+    propertyRefurbCount, propertyRefurbBudgeted,
+  }
 }
