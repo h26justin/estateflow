@@ -4,6 +4,8 @@
 
 import { useState, useEffect } from 'react'
 import * as api from '../../lib/api'
+import { fmt } from '../../lib/format'
+import MoneyInput from '../../lib/MoneyInput'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
 export function RightToRentTab({ propertyId, userId, showToast, T }) {
@@ -181,7 +183,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
         <div style={{ background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div><label style={lbl}>Tenant name</label><input value={form.tenant_name||''} onChange={e=>setForm(p=>({...p,tenant_name:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Deposit amount (£)</label><input type="number" value={form.amount||''} onChange={e=>setForm(p=>({...p,amount:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl}>Deposit amount</label><MoneyInput prefix="£" value={form.amount} onChange={v=>setForm(p=>({...p,amount:v}))} style={inp}/></div>
             <div><label style={lbl}>Protection scheme</label>
               <select value={form.scheme||'dps'} onChange={e=>setForm(p=>({...p,scheme:e.target.value}))} style={inp}>
                 {SCHEMES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
@@ -216,7 +218,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 3 }}>{r.tenant_name} — {SCHEMES.find(s=>s.key===r.scheme)?.label.split('—')[0]||r.scheme}</div>
               <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
-                Ref: {r.reference||'—'} · Registered: {r.registered_date||'—'} · Amount: £{r.amount||'—'}
+                Ref: {r.reference||'—'} · Registered: {r.registered_date||'—'} · Amount: {r.amount ? fmt(r.amount) : '—'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -410,8 +412,8 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
               </select>
             </div>
             <div><label style={lbl}>Effective date</label><input type="date" value={form.effective_date||''} onChange={e=>setForm(p=>({...p,effective_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Previous rent (£/mo)</label><input type="number" value={form.previous_rent||''} onChange={e=>setForm(p=>({...p,previous_rent:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>New rent (£/mo)</label><input type="number" value={form.new_rent||''} onChange={e=>setForm(p=>({...p,new_rent:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl}>Previous rent</label><MoneyInput prefix="£" suffix="/mo" value={form.previous_rent} onChange={v=>setForm(p=>({...p,previous_rent:v}))} style={inp}/></div>
+            <div><label style={lbl}>New rent</label><MoneyInput prefix="£" suffix="/mo" value={form.new_rent} onChange={v=>setForm(p=>({...p,new_rent:v}))} style={inp}/></div>
             <div><label style={lbl}>Next review date</label><input type="date" value={form.next_review_date||''} onChange={e=>setForm(p=>({...p,next_review_date:e.target.value}))} style={inp}/></div>
             <div><label style={lbl}>Notice served to tenant</label>
               <select value={form.notice_served||'no'} onChange={e=>setForm(p=>({...p,notice_served:e.target.value}))} style={inp}>
@@ -445,10 +447,10 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 2 }}>
-                        {r.new_rent ? `£${r.new_rent}/mo` : 'Rent review'}
+                        {r.new_rent ? `${fmt(r.new_rent)}/mo` : 'Rent review'}
                         {pct && <span style={{ fontFamily: mono, fontSize: 10, marginLeft: 8, color: isIncrease?'#2ECC8A':'#4B8FE0' }}>({isIncrease?'+':''}{pct}%)</span>}
                       </div>
-                      {r.previous_rent && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Previous: £{r.previous_rent}/mo</div>}
+                      {r.previous_rent && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Previous: {fmt(r.previous_rent)}/mo</div>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{r.effective_date}</div>
@@ -515,7 +517,7 @@ export function TenancyRenewalAlert({ propertyId, showToast, T }) {
           </div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888' }}>
             End date: {new Date(tenancy.tenancy_end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-            {tenancy.rent_pcm ? ` · Current rent: £${tenancy.rent_pcm}/mo` : ''}
+            {tenancy.rent_pcm ? ` · Current rent: ${fmt(tenancy.rent_pcm)}/mo` : ''}
           </div>
         </div>
         {!showForm && (
@@ -534,7 +536,7 @@ export function TenancyRenewalAlert({ propertyId, showToast, T }) {
           </div>
           <div>
             <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4 }}>New rent (optional)</div>
-            <input type="number" value={form.new_rent || ''} onChange={e => setForm(p => ({ ...p, new_rent: e.target.value }))}
+            <MoneyInput prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
               placeholder="Same as current"
               style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120, outline: 'none' }}/>
           </div>

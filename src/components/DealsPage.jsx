@@ -4,6 +4,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { AIListingWriter, ListingYieldCalculator } from './AITools'
 import LettingsPipeline from './LettingsPipeline'
 import * as api from '../lib/api'
+import MoneyInput from '../lib/MoneyInput'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -18,8 +19,8 @@ const STATUS_CFG = {
   dead:       { label:'Dead',        color:'#E05555' },
 }
 
-const DEAL_TYPES = ['btl','hmo','sa','brrr']
-const DEAL_TYPE_LABELS = { btl:'Buy-to-Let', hmo:'HMO', sa:'Serviced Apartment', brrr:'BRRR' }
+const DEAL_TYPES = ['btl','hmo','sa','brrr','flip']
+const DEAL_TYPE_LABELS = { btl:'Buy-to-Let', hmo:'HMO', sa:'Serviced Apartment', brrr:'BRRR', flip:'Flip' }
 const PURCHASE_TYPES = { cash:'Cash', mortgage:'Mortgage', bridge:'Bridging Finance' }
 const CONTACT_ROLES = { solicitor:'Solicitor', estate_agent:'Estate Agent', mortgage_broker:'Mortgage Broker', surveyor:'Surveyor', other:'Other' }
 
@@ -33,21 +34,33 @@ const STAGE_LABELS = {
 
 // ── MODULE-LEVEL COMPONENTS (outside DealsPage to prevent focus loss) ─────────
 function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, step=1, placeholder='', form, set, T }) {
+  // For numeric fields use MoneyInput so values display with thousand
+  // separators while typing. Non-numeric fields fall back to a plain input.
+  // (We pass step through as `allowDecimals` heuristic — step=1 means
+  // whole pounds, anything else allows decimals.)
   return (
     <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
       <span style={{fontFamily:mono,fontSize:12,color:T.text}}>{label}</span>
       <div style={{display:'flex',alignItems:'center',gap:4}}>
         {prefix && <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{prefix}</span>}
-        <input
-          type={type}
-          value={form[field] ?? ''}
-          min={min}
-          step={step}
-          placeholder={placeholder}
-          onChange={e => set(field, type==='number' ? e.target.value : e.target.value)}
-          onBlur={e => { if (type==='number') set(field, parseFloat(e.target.value) || 0) }}
-          style={{fontFamily:mono,fontSize:13,width:100,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}
-        />
+        {type === 'number' ? (
+          <MoneyInput
+            value={form[field]}
+            onChange={v => set(field, v == null ? '' : v)}
+            allowDecimals={step !== 1}
+            min={min}
+            placeholder={placeholder}
+            style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}
+          />
+        ) : (
+          <input
+            type={type}
+            value={form[field] ?? ''}
+            placeholder={placeholder}
+            onChange={e => set(field, e.target.value)}
+            style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}
+          />
+        )}
         {suffix && <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{suffix}</span>}
       </div>
     </div>
@@ -445,6 +458,11 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const [tab, setTab]     = useState('calculator')
   const [form, setForm]   = useState(deal ? { ...deal } : {})
   const [saving, setSaving] = useState(false)
+  // Ref for the title input so the Edit button can focus + select-all,
+  // making it visually obvious the title is editable. Without this affordance
+  // the title looks like static text (Georgia serif, no border) and people
+  // don't realise they can click it.
+  const nameInputRef = useRef(null)
 
   if (!deal) return null
 
@@ -519,10 +537,25 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
         <button onClick={onBack} style={{fontFamily:mono,fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 12px',cursor:'pointer'}}>← All Deals</button>
-        <div style={{flex:1}}>
-          <input value={form.name} onChange={e=>set('name',e.target.value)} onBlur={handleSave}
-            style={{fontSize:20,fontWeight:700,background:'none',border:'none',color:T.text,outline:'none',width:'100%',fontFamily:'Georgia,serif'}}
+        <div style={{flex:1,display:'flex',alignItems:'center',gap:6}}>
+          <input ref={nameInputRef} value={form.name} onChange={e=>set('name',e.target.value)} onBlur={handleSave}
+            style={{fontSize:20,fontWeight:700,background:'none',border:'none',color:T.text,outline:'none',flex:1,minWidth:0,fontFamily:'Georgia,serif'}}
             placeholder="Deal name…"/>
+          {/* Edit button signposts that the title is editable. Clicking
+              focuses the input and selects the whole text so the user can
+              start typing immediately. */}
+          <button
+            type="button"
+            onClick={() => {
+              if (nameInputRef.current) {
+                nameInputRef.current.focus()
+                nameInputRef.current.select()
+              }
+            }}
+            title="Rename deal"
+            style={{fontFamily:mono,fontSize:10,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:6,padding:'4px 10px',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+            ✎ Edit
+          </button>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <select value={form.status} onChange={e=>{set('status',e.target.value);handleSave()}}
@@ -544,8 +577,22 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
         <input value={form.address||''} onChange={e=>set('address',e.target.value)}
           onBlur={async e => {
             const addr = e.target.value.trim()
-            // Auto-rename deal if name is still the default
-            if (addr && (!form.name || form.name === 'New Deal' || form.name === 'New Deal (copy)')) {
+            // Decide whether to auto-rename the deal title.
+            // We auto-rename when the title is one of:
+            //   - empty
+            //   - a default placeholder ('New Deal' / 'New Deal (copy)')
+            //   - the previous saved address (i.e. it was last auto-named
+            //     and the user is just fixing a typo or refining the address)
+            // We do NOT auto-rename when the title differs from the old
+            // address, since that means the user has manually titled the
+            // deal something custom (e.g. "Watts Moses House — try 2") and
+            // we don't want to clobber that.
+            const wasAutoNamed = !form.name
+              || form.name === 'New Deal'
+              || form.name === 'New Deal (copy)'
+              || (deal.address && form.name === deal.address)
+              || (deal.address && form.name.trim() === deal.address.trim())
+            if (addr && wasAutoNamed) {
               set('name', addr)
               await onSave({ ...form, address: addr, name: addr })
             } else {
@@ -604,11 +651,26 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   Auction purchase
                 </label>
                 <label style={{fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
-                  <input type="checkbox" checked={!!form.is_additional_property} onChange={e=>set('is_additional_property',e.target.checked)} style={{width:'auto',margin:0}}/>
+                  <input type="checkbox" checked={!!form.is_additional_property}
+                    onChange={e=>{
+                      // Mutually exclusive: ticking "additional property" means
+                      // they're not a first-time buyer. Untick the other to
+                      // avoid an impossible combination of SDLT bands.
+                      const v = e.target.checked
+                      set('is_additional_property', v)
+                      if (v) set('is_first_time_buyer', false)
+                    }}
+                    style={{width:'auto',margin:0}}/>
                   Additional property (+5% SDLT surcharge)
                 </label>
                 <label style={{fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
-                  <input type="checkbox" checked={!!form.is_first_time_buyer} onChange={e=>set('is_first_time_buyer',e.target.checked)} style={{width:'auto',margin:0}}/>
+                  <input type="checkbox" checked={!!form.is_first_time_buyer}
+                    onChange={e=>{
+                      const v = e.target.checked
+                      set('is_first_time_buyer', v)
+                      if (v) set('is_additional_property', false)
+                    }}
+                    style={{width:'auto',margin:0}}/>
                   First-time buyer
                 </label>
               </div>
@@ -634,9 +696,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     : <button onClick={()=>set('stamp_duty_override', null)} style={{fontFamily:mono,fontSize:9,color:T.amber,background:'none',border:`1px solid ${T.amber}44`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Auto</button>
                   }
                   {form.stamp_duty_override != null && (
-                    <input type="number" value={form.stamp_duty_override} min={0}
-                      onChange={e=>set('stamp_duty_override',parseFloat(e.target.value)||0)}
-                      style={{fontFamily:mono,fontSize:13,width:90,background:T.bg,border:`1px solid ${T.gold}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
+                    <MoneyInput value={form.stamp_duty_override} min={0}
+                      onChange={v=>set('stamp_duty_override',v||0)}
+                      style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.gold}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
                   )}
                 </div>
               </div>
@@ -734,15 +796,15 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                           <span style={{fontFamily:mono,fontSize:12,color:T.text,flexShrink:0}}>Room {i+1}</span>
                           <div style={{display:'flex',alignItems:'center',gap:4}}>
                             <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>£</span>
-                            <input type="number" min={0} step={1} value={val}
-                              onChange={e=>{
+                            <MoneyInput value={val} min={0}
+                              onChange={v=>{
                                 const n=Math.max(1,parseInt(form.hmo_rooms)||1)
                                 const r=Array.isArray(form.hmo_room_rents)?[...form.hmo_room_rents]:Array(n).fill(form.hmo_rent_per_room||0)
                                 while(r.length<n) r.push(form.hmo_rent_per_room||0)
-                                r[i]=parseFloat(e.target.value)||0
+                                r[i]=v||0
                                 set('hmo_room_rents',r)
                               }}
-                              style={{fontFamily:mono,fontSize:13,width:90,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
+                              style={{fontFamily:mono,fontSize:13,width:100,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
                             <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>/mo</span>
                           </div>
                         </div>

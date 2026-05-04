@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
 import { NotesTimeline } from '../FeatureComponents'
+import MoneyInput from '../../lib/MoneyInput'
 
 // Local copy of formatDate (used by JobCard for raised/resolved dates).
 // Matches the implementation in FeatureComponents.jsx so behaviour is identical.
@@ -96,8 +97,8 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
           <div><label>Contractor Phone</label><input value={form.contractor_phone} onChange={e=>s('contractor_phone',e.target.value)}/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Quoted Cost (£)</label><input type="number" value={form.quoted_cost} onChange={e=>s('quoted_cost',e.target.value)}/></div>
-          <div><label>Actual Cost (£)</label><input type="number" value={form.actual_cost} onChange={e=>s('actual_cost',e.target.value)}/></div>
+          <div><label>Quoted Cost</label><MoneyInput prefix="£" value={form.quoted_cost} onChange={v=>s('quoted_cost',v)}/></div>
+          <div><label>Actual Cost</label><MoneyInput prefix="£" value={form.actual_cost} onChange={v=>s('actual_cost',v)}/></div>
           <div><label>Date Resolved</label><input type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
         </div>
         <div style={{display:'flex',gap:8}}>

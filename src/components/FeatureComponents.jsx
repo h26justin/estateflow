@@ -10,6 +10,7 @@ import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
+import MoneyInput from '../lib/MoneyInput'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -205,7 +206,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
             <div><label>Tenancy End</label><input type="date" value={form.tenancy_end||''} onChange={e=>s('tenancy_end',e.target.value)}/></div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-            <div><label>Deposit Amount (£)</label><input type="number" value={form.deposit_amount||''} onChange={e=>s('deposit_amount',+e.target.value)}/></div>
+            <div><label>Deposit Amount</label><MoneyInput prefix="£" value={form.deposit_amount} onChange={v=>s('deposit_amount',v)}/></div>
             <div><label>Deposit Scheme</label><select value={form.deposit_scheme||''} onChange={e=>s('deposit_scheme',e.target.value)}><option value="">Select…</option>{DEPOSIT_SCHEMES.map(x=><option key={x}>{x}</option>)}</select></div>
             <div><label>Deposit Reference</label><input value={form.deposit_ref||''} onChange={e=>s('deposit_ref',e.target.value)}/></div>
           </div>
@@ -337,7 +338,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
           <div><label>Description *</label><input value={form.description} onChange={e=>s('description',e.target.value)} placeholder="e.g. Annual buildings insurance"/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Amount (£) *</label><input type="number" step="0.01" value={form.amount} onChange={e=>s('amount',e.target.value)}/></div>
+          <div><label>Amount *</label><MoneyInput prefix="£" value={form.amount} onChange={v=>s('amount',v)}/></div>
           <div><label>Date *</label><input type="date" value={form.date} onChange={e=>s('date',e.target.value)}/></div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:12,flexWrap:'wrap'}}>
@@ -2823,7 +2824,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
           { label: 'Active paying',  value: active,           color: T.green },
           { label: 'On trial',       value: trialing,         color: T.blue  },
           { label: 'Past due',       value: pastDue,          color: T.amber },
-          { label: 'Est. MRR',       value: `£${mrr}`,        color: T.green },
+          { label: 'Est. MRR',       value: fmt(mrr),         color: T.green },
         ].map(m => (
           <div key={m.label} style={{ background: T.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${T.border}` }}>
             <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{m.label}</div>
@@ -2889,7 +2890,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
                         <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: sc.color + '22', color: sc.color }}>{sc.label}</span>
                       </div>
                       <div style={{ fontFamily: mono, fontSize: 12, color: T.text }}>{propCount}</div>
-                      <div style={{ fontFamily: mono, fontSize: 12, color: monthlyRev > 0 ? T.green : T.muted }}>{monthlyRev > 0 ? `£${monthlyRev}` : '—'}</div>
+                      <div style={{ fontFamily: mono, fontSize: 12, color: monthlyRev > 0 ? T.green : T.muted }}>{monthlyRev > 0 ? fmt(monthlyRev) : '—'}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontFamily: mono, fontSize: 10, color: co.is_free_tier ? T.gold : T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
                         <div onClick={() => saving !== co.id && toggleFreeTier(co.id, co.is_free_tier)}

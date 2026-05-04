@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/ThemeContext'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 import { safeOverlayClose } from '../lib/modalUtils'
+import MoneyInput from '../lib/MoneyInput'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
@@ -382,10 +383,10 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                         <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,marginBottom:3}}>AMOUNT</div>
                         <div style={{display:'flex',alignItems:'center',gap:4}}>
                           <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:T.muted}}>£</span>
-                          <input type="number" step="0.01"
+                          <MoneyInput allowDecimals
                             value={item.editAmount}
-                            onChange={e=>updateItem(idx,'editAmount',parseFloat(e.target.value)||0)}
-                            style={{width:70,textAlign:'right',fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,
+                            onChange={v=>updateItem(idx,'editAmount',v||0)}
+                            style={{width:90,textAlign:'right',fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,
                               color:typeColor[item.type],padding:'3px 6px'}}/>
                         </div>
                       </div>

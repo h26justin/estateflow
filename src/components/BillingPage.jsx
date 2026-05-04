@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
+import { fmt } from '../lib/format'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
@@ -107,7 +108,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                   <div style={{ textAlign: 'right' }}>
                     {status !== 'free_tier' && (
                       <>
-                        <div style={{ fontSize: 24, fontWeight: 700, color: T.gold, letterSpacing: '-0.02em' }}>£{monthly}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: T.gold, letterSpacing: '-0.02em' }}>{fmt(monthly)}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
                         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{propCount} {propCount===1?'property':'properties'} × £2</div>
                       </>
                     )}

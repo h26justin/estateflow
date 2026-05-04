@@ -15,6 +15,7 @@ import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { safeOverlayClose, isFormDirty } from '../lib/modalUtils'
+import MoneyInput from '../lib/MoneyInput'
 
 const mono = "'DM Mono',monospace"
 
@@ -461,15 +462,15 @@ function Step2({
           <>
             <div className="g2">
               <div>
-                <label>Total purchase price (£)</label>
-                <input type="number" value={totalPurchase} onChange={e => setTotalPurchase(e.target.value)}/>
+                <label>Total purchase price</label>
+                <MoneyInput prefix="£" value={totalPurchase} onChange={v => setTotalPurchase(v)}/>
                 {totalPurchase && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3 }}>
                   ≈ {fmt(splitPurchase)} per unit
                 </div>}
               </div>
               <div>
-                <label>Total mortgage (£)</label>
-                <input type="number" value={totalMortgage} onChange={e => setTotalMortgage(e.target.value)}/>
+                <label>Total mortgage</label>
+                <MoneyInput prefix="£" value={totalMortgage} onChange={v => setTotalMortgage(v)}/>
                 {totalMortgage && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3 }}>
                   ≈ {fmt(splitMortgage)} per unit
                 </div>}
@@ -477,12 +478,12 @@ function Step2({
             </div>
             <div className="g2" style={{ marginTop: 8 }}>
               <div>
-                <label>Total stamp duty (£)</label>
-                <input type="number" value={totalStampDuty} onChange={e => setTotalStampDuty(e.target.value)}/>
+                <label>Total stamp duty</label>
+                <MoneyInput prefix="£" value={totalStampDuty} onChange={v => setTotalStampDuty(v)}/>
               </div>
               <div>
-                <label>Total legal fees (£)</label>
-                <input type="number" value={totalLegalFees} onChange={e => setTotalLegalFees(e.target.value)}/>
+                <label>Total legal fees</label>
+                <MoneyInput prefix="£" value={totalLegalFees} onChange={v => setTotalLegalFees(v)}/>
               </div>
             </div>
           </>
@@ -496,19 +497,19 @@ function Step2({
 
       <div className="g2">
         <div>
-          <label>Default rent per unit (£/mo)</label>
-          <input type="number" value={defaultRent} onChange={e => setDefaultRent(e.target.value)}
+          <label>Default rent per unit</label>
+          <MoneyInput prefix="£" suffix="/mo" value={defaultRent} onChange={v => setDefaultRent(v)}
             placeholder="Override per unit on next step"/>
         </div>
         <div>
-          <label>Insurance (£)</label>
-          <input type="number" value={insurance} onChange={e => setInsurance(e.target.value)}/>
+          <label>Insurance</label>
+          <MoneyInput prefix="£" value={insurance} onChange={v => setInsurance(v)}/>
         </div>
       </div>
       <div className="g2">
         <div>
-          <label>Mortgage rate (%)</label>
-          <input type="number" step="0.01" value={mortgageRate} onChange={e => setMortgageRate(e.target.value)}/>
+          <label>Mortgage rate</label>
+          <MoneyInput suffix="%" value={mortgageRate} onChange={v => setMortgageRate(v)}/>
         </div>
         <div>
           <label>Mortgage term (years)</label>
@@ -578,17 +579,17 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
                   </select>
                 </td>
                 <td style={cellStyle(T, 'cell')}>
-                  <input type="number" value={u.rent} onChange={e => setRow(i, { rent: e.target.value })}
+                  <MoneyInput value={u.rent} onChange={v => setRow(i, { rent: v })}
                     style={cellInput(T)}/>
                 </td>
                 {pricingMode === 'per_unit' && (
                   <>
                     <td style={cellStyle(T, 'cell')}>
-                      <input type="number" value={u.purchase} onChange={e => setRow(i, { purchase: e.target.value })}
+                      <MoneyInput value={u.purchase} onChange={v => setRow(i, { purchase: v })}
                         style={cellInput(T)}/>
                     </td>
                     <td style={cellStyle(T, 'cell')}>
-                      <input type="number" value={u.mortgage} onChange={e => setRow(i, { mortgage: e.target.value })}
+                      <MoneyInput value={u.mortgage} onChange={v => setRow(i, { mortgage: v })}
                         style={cellInput(T)}/>
                     </td>
                   </>

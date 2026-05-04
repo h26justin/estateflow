@@ -26,6 +26,7 @@ import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
 import PropertyMap from './components/PropertyMap'
 import BulkAddPropertyModal from './components/BulkAddPropertyModal'
+import MoneyInput from './lib/MoneyInput'
 import { safeOverlayClose, isFormDirty } from './lib/modalUtils'
 import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
@@ -2625,7 +2626,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
       {showCF&&<div className="card" style={{padding:'14px 16px',marginBottom:10}}>
         <div className="g2" style={{marginBottom:10}}>
           <div><label>Trade / Description</label><input value={costForm.trade} onChange={e=>setCostForm(f=>({...f,trade:e.target.value}))} placeholder="e.g. Plumber"/></div>
-          <div><label>Cost (£)</label><input type="number" value={costForm.cost} onChange={e=>setCostForm(f=>({...f,cost:e.target.value}))} placeholder="0"/></div>
+          <div><label>Cost</label><MoneyInput prefix="£" value={costForm.cost} onChange={v=>setCostForm(f=>({...f,cost:v}))} placeholder="0"/></div>
         </div>
         <div className="g2" style={{marginBottom:10}}>
           <div><label>Date</label><input type="date" value={costForm.date} onChange={e=>setCostForm(f=>({...f,date:e.target.value}))}/></div>
@@ -2640,7 +2641,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
           <div key={item.id} className="card" style={{padding:'14px 16px',marginBottom:8,border:`1px solid ${T.gold}44`}}>
             <div className="g2" style={{marginBottom:10}}>
               <div><label>Trade / Description</label><input value={costEdit.trade} onChange={e=>setCostEdit(f=>({...f,trade:e.target.value}))}/></div>
-              <div><label>Cost (£)</label><input type="number" value={costEdit.cost} onChange={e=>setCostEdit(f=>({...f,cost:e.target.value}))}/></div>
+              <div><label>Cost</label><MoneyInput prefix="£" value={costEdit.cost} onChange={v=>setCostEdit(f=>({...f,cost:v}))}/></div>
             </div>
             <div className="g2" style={{marginBottom:10}}>
               <div><label>Date</label><input type="date" value={costEdit.date} onChange={e=>setCostEdit(f=>({...f,date:e.target.value}))}/></div>
@@ -2701,11 +2702,11 @@ function PropertyModal({prop,companies,onClose,onSave}){
         <div><label>Full Address *</label><input value={form.address} onChange={e=>s('address',e.target.value)}/></div>
         <div className="g2"><div><label>Property Type</label><input value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{['purchased','refurb','rented','vacant','sold'].map(x=><option key={x}>{x}</option>)}</select></div></div>
           <div><label>Managed By</label><input value={form.managed_by||''} onChange={e=>s('managed_by',e.target.value)} placeholder="e.g. Propertunity, Rook Matthews Sayer"/></div>
-        <div className="g2"><div><label>Purchase Price (£)</label><input type="number" value={form.purchase_price} onChange={e=>s('purchase_price',e.target.value)}/></div><div><label>Estimated Value (£)</label><input type="number" value={form.est_value} onChange={e=>s('est_value',e.target.value)}/></div></div>
-        <div className="g2"><div><label>Refurb Cost (£)</label><input type="number" value={form.refurb_cost} onChange={e=>s('refurb_cost',e.target.value)}/></div><div><label>Mortgage Amount (£)</label><input type="number" value={form.mortgage_amount} onChange={e=>s('mortgage_amount',e.target.value)}/></div></div>
-        <div className="g2"><div><label>Stamp Duty (£)</label><input type="number" value={form.stamp_duty} onChange={e=>s('stamp_duty',e.target.value)}/></div><div><label>Legal Fees (£)</label><input type="number" value={form.legal_fees} onChange={e=>s('legal_fees',e.target.value)}/></div></div>
-        <div className="g2"><div><label>Monthly Rent (£)</label><input type="number" value={form.rent_pcm} onChange={e=>s('rent_pcm',e.target.value)}/></div><div><label>Mortgage Rate (%)</label><input type="number" step="0.01" value={form.mortgage_rate} onChange={e=>s('mortgage_rate',e.target.value)}/></div></div>
-        <div className="g2"><div><label>Rent Due Day</label><input value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div><div><label>Arrears (£)</label><input type="number" value={form.arrears} onChange={e=>s('arrears',e.target.value)}/></div></div>
+        <div className="g2"><div><label>Purchase Price</label><MoneyInput prefix="£" value={form.purchase_price} onChange={v=>s('purchase_price',v)}/></div><div><label>Estimated Value</label><MoneyInput prefix="£" value={form.est_value} onChange={v=>s('est_value',v)}/></div></div>
+        <div className="g2"><div><label>Refurb Cost</label><MoneyInput prefix="£" value={form.refurb_cost} onChange={v=>s('refurb_cost',v)}/></div><div><label>Mortgage Amount</label><MoneyInput prefix="£" value={form.mortgage_amount} onChange={v=>s('mortgage_amount',v)}/></div></div>
+        <div className="g2"><div><label>Stamp Duty</label><MoneyInput prefix="£" value={form.stamp_duty} onChange={v=>s('stamp_duty',v)}/></div><div><label>Legal Fees</label><MoneyInput prefix="£" value={form.legal_fees} onChange={v=>s('legal_fees',v)}/></div></div>
+        <div className="g2"><div><label>Monthly Rent</label><MoneyInput prefix="£" value={form.rent_pcm} onChange={v=>s('rent_pcm',v)}/></div><div><label>Mortgage Rate</label><MoneyInput suffix="%" value={form.mortgage_rate} onChange={v=>s('mortgage_rate',v)}/></div></div>
+        <div className="g2"><div><label>Rent Due Day</label><input value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div><div><label>Arrears</label><MoneyInput prefix="£" value={form.arrears} onChange={v=>s('arrears',v)}/></div></div>
         <div><label>Tenancy End</label><input value={form.tenancy_end} onChange={e=>s('tenancy_end',e.target.value)} placeholder="e.g. 31st March 2026"/></div>
         <div><label>Notes</label><textarea value={form.notes} onChange={e=>s('notes',e.target.value)} rows={3} style={{resize:'vertical'}}/></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
@@ -2865,8 +2866,8 @@ function SellPropertyModal({ property, onClose, onConfirm, busy }) {
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as Sold</h2>
           <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:20}}>{property?.name}</p>
           <div style={{marginBottom:14}}>
-            <label>Sale Price (£)</label>
-            <input type="number" value={price} onChange={e=>setPrice(e.target.value)}
+            <label>Sale Price</label>
+            <MoneyInput prefix="£" value={price} onChange={v=>setPrice(v)}
               onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
               placeholder="0" autoFocus/>
           </div>

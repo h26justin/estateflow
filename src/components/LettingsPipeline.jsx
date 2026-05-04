@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
+import MoneyInput from '../lib/MoneyInput'
 
 const mono = "'DM Mono',monospace"
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
@@ -224,8 +225,8 @@ export default function LettingsPipeline({ user, companies = [], properties = []
               </select>
             </div>
             <div>
-              <label style={lbl}>Expected rent (£/mo)</label>
-              <input style={inp} type="number" placeholder="e.g. 1200" value={newForm.agreed_rent} onChange={e => setNewForm(f => ({ ...f, agreed_rent: e.target.value }))} />
+              <label style={lbl}>Expected rent</label>
+              <MoneyInput prefix="£" suffix="/mo" placeholder="e.g. 1,200" value={newForm.agreed_rent} onChange={v => setNewForm(f => ({ ...f, agreed_rent: v }))} style={inp} />
             </div>
             <div>
               <label style={lbl}>Available from</label>
@@ -369,9 +370,11 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                       {/* Editable fields */}
                       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
                         <div>
-                          <label style={lbl}>Agreed rent (£/mo)</label>
-                          <input style={inp} type="number" defaultValue={selected.agreed_rent || ''} placeholder="e.g. 1200"
-                            onBlur={e => updateField(selected.id, { agreed_rent: parseFloat(e.target.value) || null })} />
+                          <label style={lbl}>Agreed rent</label>
+                          <MoneyInput prefix="£" suffix="/mo" placeholder="e.g. 1,200"
+                            value={selected.agreed_rent}
+                            onChange={v => updateField(selected.id, { agreed_rent: v })}
+                            style={inp} />
                         </div>
                         <div>
                           <label style={lbl}>Available from</label>

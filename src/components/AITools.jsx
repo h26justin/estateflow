@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import MoneyInput from '../lib/MoneyInput'
 
 const mono = "'DM Mono',monospace"
 
@@ -220,11 +221,11 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
                 Asking price {scraped.price ? '✓ auto-detected' : '— enter manually'}
               </div>
-              <input type="number" value={scraped.price || ''}
-                onChange={e=>setScraped(p=>({...p, price:parseInt(e.target.value)||0}))}
-                placeholder="e.g. 175000"
+              <MoneyInput prefix="£" value={scraped.price}
+                onChange={v=>setScraped(p=>({...p, price:v||0}))}
+                placeholder="e.g. 175,000"
                 style={{fontFamily:mono, fontSize:13, background:scraped.price?T.gold+'11':T.bg,
-                  border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%', outline:'none'}}/>
+                  border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%', outline:'none'}}/>
             </div>
             <div>
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
@@ -249,10 +250,10 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               </div>
             )}
             <div>
-              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Expected monthly rent (£)</div>
-              <input type="number" value={rent} onChange={e=>setRent(e.target.value)}
+              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Expected monthly rent</div>
+              <MoneyInput prefix="£" value={rent} onChange={v=>setRent(v)}
                 placeholder="e.g. 850"
-                style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%', outline:'none'}}/>
+                style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%', outline:'none'}}/>
             </div>
           </div>
 
