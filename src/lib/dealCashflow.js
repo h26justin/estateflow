@@ -256,16 +256,20 @@ export function aggregateDeals(deals, properties = []) {
     const cf = dealCashflow(d)
     if (!cf.group) continue
     const bucket = dealTimeBucket(d)
+    // Attach cashflow numbers to a copy of the deal so the UI can render
+    // per-row breakdowns without recomputing. Same approach as properties
+    // (we attach _refurbCashflow on properties below).
+    const dWithCf = { ...d, _cashflow: cf }
 
     byGroup[cf.group].count    += 1
     byGroup[cf.group].headline += cf.headline
     byGroup[cf.group].cashOut  += cf.cashOut
-    byGroup[cf.group].deals.push(d)
+    byGroup[cf.group].deals.push(dWithCf)
 
     byBucket[bucket].count    += 1
     byBucket[bucket].headline += cf.headline
     byBucket[bucket].cashOut  += cf.cashOut
-    byBucket[bucket].deals.push(d)
+    byBucket[bucket].deals.push(dWithCf)
 
     totalHeadline += cf.headline
     totalCashOut  += cf.cashOut

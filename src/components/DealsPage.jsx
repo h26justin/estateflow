@@ -473,9 +473,100 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 // group (pipeline / committed / refurb pending) and by time horizon
 // (next 30 / 31-60 / 61-90 / 91+ / undated). Collapsible — for users with
 // hundreds of deals or who don't want the dashboard front and centre.
+
+// Breakdown sublist — shown when a group/bucket row is expanded. Lists each
+// contributing deal and property with name, key info, and the unpaid amount.
+// Pure presentational; no state of its own.
+function CashflowBreakdown({ deals = [], properties = [], T }) {
+  if (deals.length === 0 && properties.length === 0) {
+    return (
+      <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 28px',fontStyle:'italic'}}>
+        No items yet.
+      </div>
+    )
+  }
+  // Indent the breakdown so the user can see it belongs to the parent row.
+  const itemRow = {
+    display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:10,alignItems:'center',
+    padding:'7px 12px 7px 32px',
+    fontFamily:mono,fontSize:11,
+    borderBottom:`1px solid ${T.border}`,
+  }
+  return (
+    <div style={{marginTop:4,marginBottom:4,paddingTop:2,paddingBottom:2}}>
+      {/* Deals section */}
+      {deals.length > 0 && (
+        <>
+          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',padding:'8px 12px 4px 32px'}}>
+            From deals
+          </div>
+          {deals.map(d => {
+            const cf = d._cashflow || {}
+            return (
+              <div key={`d-${d.id}`} style={itemRow}>
+                <span style={{fontSize:10}}>🎯</span>
+                <div style={{minWidth:0}}>
+                  <div style={{color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.name || d.address || 'Untitled deal'}</div>
+                  {d.address && d.address !== d.name && (
+                    <div style={{fontSize:9,color:T.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.address}</div>
+                  )}
+                </div>
+                <div style={{textAlign:'right',color:T.muted,fontSize:11}}>{fmt(cf.headline || 0)}</div>
+                <div style={{textAlign:'right',color:T.gold,fontWeight:700,fontSize:11}}>{fmt(cf.cashOut || 0)}</div>
+              </div>
+            )
+          })}
+        </>
+      )}
+
+      {/* Properties section */}
+      {properties.length > 0 && (
+        <>
+          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',padding:'8px 12px 4px 32px'}}>
+            From properties
+          </div>
+          {properties.map(p => {
+            const rcf = p._refurbCashflow || {}
+            // Source tag tells the user how the unpaid number was derived —
+            // crucial for trust in the figure.
+            const sourceTag = rcf.source === 'itemised'
+              ? { label: 'Itemised', color: T.green }
+              : rcf.source === 'budgeted'
+                ? { label: 'Budgeted', color: T.amber }
+                : null
+            return (
+              <div key={`p-${p.id}`} style={itemRow}>
+                <span style={{fontSize:10}}>🏠</span>
+                <div style={{minWidth:0}}>
+                  <div style={{color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name || p.address || 'Untitled property'}</span>
+                    {sourceTag && (
+                      <span style={{fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:4,background:sourceTag.color+'22',color:sourceTag.color,flexShrink:0}}>
+                        {sourceTag.label}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{fontSize:9,color:T.muted}}>{p.status || '—'}{p.address && p.address !== p.name ? ` · ${p.address}` : ''}</div>
+                </div>
+                <div style={{textAlign:'right',color:T.muted,fontSize:11}}>{fmt(rcf.headline || 0)}</div>
+                <div style={{textAlign:'right',color:T.gold,fontWeight:700,fontSize:11}}>{fmt(rcf.unpaid || 0)}</div>
+              </div>
+            )
+          })}
+        </>
+      )}
+    </div>
+  )
+}
+
 function CashflowPanel({ deals, properties, T }) {
   const [collapsed, setCollapsed] = useState(false)
   const [view, setView] = useState('group') // 'group' or 'timeline'
+  // Which group/bucket row is expanded to show its contributing items.
+  // Only one open at a time to keep the panel from getting overwhelming.
+  // Cleared when switching between 'group' and 'timeline' views.
+  const [expanded, setExpanded] = useState(null)
+  const toggleExpanded = (key) => setExpanded(prev => prev === key ? null : key)
 
   // Aggregate once per deals/properties change. Pure function so re-runs are cheap.
   const agg = useMemo(() => aggregateDeals(deals, properties), [deals, properties])
@@ -513,7 +604,7 @@ function CashflowPanel({ deals, properties, T }) {
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           {[['group','By stage'],['timeline','By date']].map(([v,l])=>(
-            <button key={v} onClick={()=>setView(v)}
+            <button key={v} onClick={()=>{setView(v); setExpanded(null)}}
               style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',
                 border:`1px solid ${view===v?T.gold:T.border}`,
                 background:view===v?T.gold+'22':'transparent',
@@ -564,20 +655,28 @@ function CashflowPanel({ deals, properties, T }) {
                 <div style={{fontFamily:mono,fontSize:11,color:T.faint}}>No items</div>
               </div>
             )
+            const isOpen = expanded === `g:${g}`
             return (
-              <div key={g} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8}}>
-                <div>
-                  <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.text}}>{STATUS_GROUP_LABEL[g]}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{STATUS_GROUP_DESC[g]} · {countLabel}</div>
+              <div key={g}>
+                {/* Clickable header row — entire row is the click target,
+                    chevron on the left signposts the action. */}
+                <div onClick={()=>toggleExpanded(`g:${g}`)} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8,cursor:'pointer',userSelect:'none'}}>
+                  <span style={{fontFamily:mono,fontSize:10,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
+                  <div>
+                    <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.text}}>{STATUS_GROUP_LABEL[g]}</div>
+                    <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{STATUS_GROUP_DESC[g]} · {countLabel}</div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
+                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.gold}}>{fmt(row.cashOut)}</div>
+                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
+                  </div>
                 </div>
-                <div style={{textAlign:'right'}}>
-                  <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
-                </div>
-                <div style={{textAlign:'right'}}>
-                  <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.gold}}>{fmt(row.cashOut)}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
-                </div>
+                {/* Breakdown — items contributing to this group's totals */}
+                {isOpen && <CashflowBreakdown deals={row.deals} properties={row.properties} T={T}/>}
               </div>
             )
           })}
@@ -604,20 +703,25 @@ function CashflowPanel({ deals, properties, T }) {
             const countLabel = countParts.join(' + ')
             const urgent = b === 'overdue' || b === '0-30'
             const labelColor = b === 'overdue' ? T.red : b === '0-30' ? T.amber : T.text
+            const isOpen = expanded === `b:${b}`
             return (
-              <div key={b} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:urgent?(b==='overdue'?T.red+'11':T.amber+'11'):T.bg,borderRadius:8,borderLeft:urgent?`3px solid ${b==='overdue'?T.red:T.amber}`:'none'}}>
-                <div>
-                  <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:labelColor}}>{TIME_BUCKET_LABEL[b]}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{countLabel}</div>
+              <div key={b}>
+                <div onClick={()=>toggleExpanded(`b:${b}`)} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:urgent?(b==='overdue'?T.red+'11':T.amber+'11'):T.bg,borderRadius:8,borderLeft:urgent?`3px solid ${b==='overdue'?T.red:T.amber}`:'none',cursor:'pointer',userSelect:'none'}}>
+                  <span style={{fontFamily:mono,fontSize:10,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
+                  <div>
+                    <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:labelColor}}>{TIME_BUCKET_LABEL[b]}</div>
+                    <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{countLabel}</div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
+                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.gold}}>{fmt(row.cashOut)}</div>
+                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
+                  </div>
                 </div>
-                <div style={{textAlign:'right'}}>
-                  <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
-                </div>
-                <div style={{textAlign:'right'}}>
-                  <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.gold}}>{fmt(row.cashOut)}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
-                </div>
+                {isOpen && <CashflowBreakdown deals={row.deals} properties={row.properties} T={T}/>}
               </div>
             )
           })}
