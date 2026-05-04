@@ -1551,7 +1551,18 @@ export const DEFAULT_MILESTONES_BRRR = [
 ]
 
 export async function fetchDeals(userId) {
-  const { data, error } = await supabase.from('deals').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+  // We deliberately DO NOT filter by user_id here. RLS handles visibility:
+  // a deal is visible if (a) you created it, or (b) you have access to its
+  // company. So the simplest correct query is "select all" — Postgres will
+  // return only the rows you're allowed to see.
+  //
+  // The userId param is kept for backwards-compat with callers that still
+  // pass it; we just ignore it. Pre-RLS this function was the gatekeeper,
+  // but now it's just one of many layers and trust lives in the database.
+  const { data, error } = await supabase
+    .from('deals')
+    .select('*')
+    .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
 }
