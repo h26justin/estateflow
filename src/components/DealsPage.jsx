@@ -344,9 +344,30 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       {/* ── LIST VIEW ── */}
       {dealView==='list' && <div>
 
+      {/* Top-level company filter — pills, matches the Portfolio look.
+          Drives the cashflow panel AND the deals list below so they stay
+          in sync. The 'Unassigned' chip catches deals with company_id=null
+          (drafts that haven't been assigned to a company yet). */}
+      {companies.length > 1 && (
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
+          <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+          {[{id:'all',abbr:'All',color:T.gold},...companies,{id:'',abbr:'Unassigned',color:T.muted}].map(c=>(
+            <button key={c.id||'unassigned'} onClick={()=>setCoFilter(c.id)}
+              style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,
+                background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',
+                color:coFilter===c.id?(c.color||T.gold):T.muted,
+                transition:'all 0.18s'}}>
+              {c.abbr || c.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Cashflow panel — aggregate cash commitments across all live deals.
-          Hidden when there are no deals; collapsible by the user. */}
-      <CashflowPanel deals={deals} properties={properties} T={T}/>
+          Hidden when there are no deals; collapsible by the user.
+          Filtered by company (coFilter) so the totals match what's below. */}
+      <CashflowPanel deals={deals} properties={properties} coFilter={coFilter} T={T}/>
 
       {/* Filters - only show on list view */}
       {dealView === 'list' && <div style={{display:'flex',gap:10,marginBottom:4,flexWrap:'wrap',fontSize:11}}><span style={{fontFamily:mono,color:T.muted,fontSize:10,alignSelf:'center'}}>List view · {filtered.length} deals</span></div>}
@@ -356,14 +377,6 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
           <option value="all">All statuses</option>
           {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
         </select>
-        {companies.length > 1 && (
-          <select value={coFilter} onChange={e=>setCoFilter(e.target.value)}
-            style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
-            <option value="all">All companies</option>
-            <option value="">Unassigned</option>
-            {companies.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
-          </select>
-        )}
       </div>
 
       {loading
@@ -533,7 +546,9 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
               ? { label: 'Itemised', color: T.green }
               : rcf.source === 'budgeted'
                 ? { label: 'Budgeted', color: T.amber }
-                : null
+                : rcf.source === 'user-flag'
+                  ? { label: 'Flagged', color: T.blue }
+                  : null
             return (
               <div key={`p-${p.id}`} style={itemRow}>
                 <span style={{fontSize:10}}>🏠</span>
@@ -559,7 +574,7 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
   )
 }
 
-function CashflowPanel({ deals, properties, T }) {
+function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
   const [collapsed, setCollapsed] = useState(false)
   const [view, setView] = useState('group') // 'group' or 'timeline'
   // Which group/bucket row is expanded to show its contributing items.
@@ -568,8 +583,23 @@ function CashflowPanel({ deals, properties, T }) {
   const [expanded, setExpanded] = useState(null)
   const toggleExpanded = (key) => setExpanded(prev => prev === key ? null : key)
 
-  // Aggregate once per deals/properties change. Pure function so re-runs are cheap.
-  const agg = useMemo(() => aggregateDeals(deals, properties), [deals, properties])
+  // Filter deals + properties by company. 'all' = everything; '' = unassigned
+  // (no company_id); otherwise = exact company id match. Matches the filter
+  // semantics used elsewhere in the app.
+  const filteredDeals = useMemo(() => {
+    if (coFilter === 'all') return deals || []
+    if (coFilter === '')    return (deals || []).filter(d => !d.company_id)
+    return (deals || []).filter(d => d.company_id === coFilter)
+  }, [deals, coFilter])
+
+  const filteredProperties = useMemo(() => {
+    if (coFilter === 'all') return properties || []
+    if (coFilter === '')    return (properties || []).filter(p => !p.company_id)
+    return (properties || []).filter(p => p.company_id === coFilter)
+  }, [properties, coFilter])
+
+  // Aggregate once per filtered list change. Pure function so re-runs are cheap.
+  const agg = useMemo(() => aggregateDeals(filteredDeals, filteredProperties), [filteredDeals, filteredProperties])
 
   // Hide entirely if there are no live (non-dead, non-deleted) deals.
   // 'pipeline' deals with no money entered yet still count — even £0 totals

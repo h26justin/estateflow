@@ -137,12 +137,17 @@ export function dealCashflow(deal) {
  * right level of confidence).
  *
  *   { unpaid, headline, source }
- *     source: 'itemised'  — sum of refurb_costs rows with paid=false (most accurate)
- *             'budgeted'  — fallback to property.refurb_cost (no line items yet)
- *             'excluded'  — refurb assumed historical/done; not pending
+ *     source: 'itemised'   — sum of refurb_costs rows with paid=false (most accurate)
+ *             'budgeted'   — fallback to property.refurb_cost (no line items yet)
+ *             'user-flag'  — property explicitly marked refurb_cost_unpaid=true
+ *             'excluded'   — refurb assumed historical/done; not pending
  *
  *   unpaid:   what the user still needs to pay (the cashflow number)
  *   headline: total refurb scope, paid-or-not (matches deal headline)
+ *
+ * The 'user-flag' path lets users include refurb costs in cashflow even
+ * for properties where status='rented' (e.g. a property that's already
+ * tenanted but where the user still owes contractors). Avoids us guessing.
  */
 export function propertyRefurbCashflow(property) {
   if (!property || property.deleted_at) return { unpaid: 0, headline: 0, source: 'excluded' }
@@ -162,8 +167,19 @@ export function propertyRefurbCashflow(property) {
     }
   }
 
-  // Path 2: no itemised lines, but property is in a state where refurb is
-  // typically still pending. Treat refurb_cost as the unpaid budget.
+  // Path 2: user has explicitly flagged this property's refurb_cost as
+  // "still owed". Honour the flag regardless of status — user knows best
+  // whether this is historical or current liability.
+  if (property.refurb_cost_unpaid && num(property.refurb_cost) > 0) {
+    return {
+      unpaid: num(property.refurb_cost),
+      headline: num(property.refurb_cost),
+      source: 'user-flag',
+    }
+  }
+
+  // Path 3: no itemised lines and no flag, but property is in a state where
+  // refurb is typically still pending. Treat refurb_cost as the unpaid budget.
   if (property.status === 'purchased' || property.status === 'refurb') {
     return {
       unpaid: num(property.refurb_cost),
@@ -172,9 +188,9 @@ export function propertyRefurbCashflow(property) {
     }
   }
 
-  // Path 3: rented/vacant/etc with no itemised lines — assume done.
-  // The user can break the budget into line items if they want this to
-  // appear in the cashflow panel.
+  // Path 4: rented/vacant/etc with no itemised lines and no flag — assume done.
+  // The user can either tick the "unpaid" flag on the property, or break the
+  // budget into line items, to surface this in the cashflow panel.
   return { unpaid: 0, headline: 0, source: 'excluded' }
 }
 
