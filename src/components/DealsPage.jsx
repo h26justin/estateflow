@@ -33,11 +33,13 @@ const STAGE_LABELS = {
 }
 
 // ── MODULE-LEVEL COMPONENTS (outside DealsPage to prevent focus loss) ─────────
-function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, step=1, placeholder='', form, set, T }) {
+function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, step=1, placeholder='', form, set, onBlur, T }) {
   // For numeric fields use MoneyInput so values display with thousand
   // separators while typing. Non-numeric fields fall back to a plain input.
   // (We pass step through as `allowDecimals` heuristic — step=1 means
   // whole pounds, anything else allows decimals.)
+  // onBlur: called after the field loses focus. Used by DealDetail to
+  // trigger auto-save on every field exit.
   return (
     <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
       <span style={{fontFamily:mono,fontSize:12,color:T.text}}>{label}</span>
@@ -47,6 +49,7 @@ function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, 
           <MoneyInput
             value={form[field]}
             onChange={v => set(field, v == null ? '' : v)}
+            onBlur={onBlur}
             allowDecimals={step !== 1}
             min={min}
             placeholder={placeholder}
@@ -58,6 +61,7 @@ function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, 
             value={form[field] ?? ''}
             placeholder={placeholder}
             onChange={e => set(field, e.target.value)}
+            onBlur={onBlur}
             style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}
           />
         )}
@@ -198,14 +202,18 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     } catch(e) {}
   }
 
-  async function saveDeal(fields) {
+  async function saveDeal(fields, opts = {}) {
+    // opts.silent — don't show a toast on success. Used by auto-save
+    // so the user isn't spammed with "Deal saved" every time they tab
+    // out of a field. The 💾 Save button still passes silent:false to
+    // give explicit feedback when the user clicks it on purpose.
     if (!selectedDeal) return
     setSaving(true)
     try {
       const updated = await api.updateDeal(selectedDeal.id, fields)
       setSelectedDeal(updated)
       setDeals(prev => prev.map(d => d.id === updated.id ? updated : d))
-      showToast('Deal saved')
+      if (!opts.silent) showToast('Deal saved')
     } catch(e) { showToast(e.message, 'error') }
     setSaving(false)
   }
@@ -463,6 +471,12 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   // the title looks like static text (Georgia serif, no border) and people
   // don't realise they can click it.
   const nameInputRef = useRef(null)
+  // Ref mirror of `form` so async handlers (auto-save on blur) read the
+  // latest value, not a stale closure. React batches state updates between
+  // events, but for change+blur in rapid succession the blur handler can
+  // capture an out-of-date `form`. Reading from a ref avoids that.
+  const formRef = useRef(form)
+  useEffect(() => { formRef.current = form }, [form])
 
   if (!deal) return null
 
@@ -515,9 +529,34 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const brrrMoneyLeft = cashIn - (brrrNewLoan - loanAmount)
   const brrrCashOnCash = brrrMoneyLeft > 0 ? (annualProfit / brrrMoneyLeft) * 100 : 0
 
+  // Track when we last successfully saved, for the "Saved ✓" indicator.
+  const [savedAt, setSavedAt] = useState(0)
+  // showJustSaved is true for ~2s after each save, then auto-clears.
+  // We use a separate boolean state (rather than checking savedAt against
+  // a clock) so the UI doesn't need to re-render on a timer.
+  const [showJustSaved, setShowJustSaved] = useState(false)
+  useEffect(() => {
+    if (!savedAt) return
+    setShowJustSaved(true)
+    const t = setTimeout(() => setShowJustSaved(false), 2000)
+    return () => clearTimeout(t)
+  }, [savedAt])
+
   async function handleSave() {
     setSaving(true)
-    await onSave(form)
+    // Read from the ref, not closure — guarantees we save the latest form
+    // even if the blur fired before React re-rendered after the change.
+    await onSave(formRef.current)
+    setSavedAt(Date.now())
+    setSaving(false)
+  }
+
+  // Silent variant used by auto-save on blur. No toast, just a brief
+  // visual indicator. Identical save logic otherwise.
+  async function autoSave() {
+    setSaving(true)
+    await onSave(formRef.current, { silent: true })
+    setSavedAt(Date.now())
     setSaving(false)
   }
 
@@ -557,7 +596,16 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             ✎ Edit
           </button>
         </div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+          {/* Save status indicator. Shows "Saving…" while a save is in
+              flight, "Saved ✓" briefly after success (auto-hides via the
+              showJustSaved memo). Sits to the left of the controls so users
+              can see at a glance their auto-save is working. */}
+          {saving ? (
+            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>Saving…</span>
+          ) : showJustSaved ? (
+            <span style={{fontFamily:mono,fontSize:10,color:T.green}}>Saved ✓</span>
+          ) : null}
           <select value={form.status} onChange={e=>{set('status',e.target.value);handleSave()}}
             style={{fontFamily:mono,fontSize:11,background:sc.color+'22',border:`1px solid ${sc.color}44`,color:sc.color,borderRadius:8,padding:'6px 10px',fontWeight:700}}>
             {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
@@ -625,7 +673,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <span style={sect}>Deal type</span>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14}}>
                 {DEAL_TYPES.map(t=>(
-                  <button key={t} onClick={()=>set('deal_type',t)}
+                  <button key={t} onClick={()=>{set('deal_type',t); setTimeout(autoSave,0)}}
                     style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',
                       border:`1px solid ${form.deal_type===t?T.gold:T.border}`,
                       background:form.deal_type===t?T.gold+'22':'transparent',
@@ -636,7 +684,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               </div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
                 {Object.entries(PURCHASE_TYPES).map(([k,l])=>(
-                  <button key={k} onClick={()=>set('purchase_type',k)}
+                  <button key={k} onClick={()=>{set('purchase_type',k); setTimeout(autoSave,0)}}
                     style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',
                       border:`1px solid ${form.purchase_type===k?T.blue:T.border}`,
                       background:form.purchase_type===k?T.blue+'22':'transparent',
@@ -647,7 +695,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               </div>
               <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
                 <label style={{fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
-                  <input type="checkbox" checked={!!form.is_auction} onChange={e=>set('is_auction',e.target.checked)} style={{width:'auto',margin:0}}/>
+                  <input type="checkbox" checked={!!form.is_auction} onChange={e=>{set('is_auction',e.target.checked); setTimeout(autoSave,0)}} style={{width:'auto',margin:0}}/>
                   Auction purchase
                 </label>
                 <label style={{fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
@@ -659,6 +707,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                       const v = e.target.checked
                       set('is_additional_property', v)
                       if (v) set('is_first_time_buyer', false)
+                      setTimeout(autoSave,0)
                     }}
                     style={{width:'auto',margin:0}}/>
                   Additional property (+5% SDLT surcharge)
@@ -669,6 +718,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                       const v = e.target.checked
                       set('is_first_time_buyer', v)
                       if (v) set('is_additional_property', false)
+                      setTimeout(autoSave,0)
                     }}
                     style={{width:'auto',margin:0}}/>
                   First-time buyer
@@ -679,7 +729,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             {/* Acquisition costs */}
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Acquisition costs</span>
-              <InputRow label="Purchase price" field="purchase_price"form={form} set={set} T={T}/>
+              <InputRow label="Purchase price" field="purchase_price"form={form} set={set} onBlur={autoSave} T={T}/>
               <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                 <div>
                   <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Stamp duty (SDLT)</span>
@@ -692,17 +742,18 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     {form.stamp_duty_override != null ? '' : '≈ '}{fmt(sd)}
                   </span>
                   {form.stamp_duty_override == null
-                    ? <button onClick={()=>set('stamp_duty_override', sd)} style={{fontFamily:mono,fontSize:9,color:T.muted,background:'none',border:`1px solid ${T.border}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Override</button>
-                    : <button onClick={()=>set('stamp_duty_override', null)} style={{fontFamily:mono,fontSize:9,color:T.amber,background:'none',border:`1px solid ${T.amber}44`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Auto</button>
+                    ? <button onClick={()=>{set('stamp_duty_override', sd); setTimeout(autoSave,0)}} style={{fontFamily:mono,fontSize:9,color:T.muted,background:'none',border:`1px solid ${T.border}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Override</button>
+                    : <button onClick={()=>{set('stamp_duty_override', null); setTimeout(autoSave,0)}} style={{fontFamily:mono,fontSize:9,color:T.amber,background:'none',border:`1px solid ${T.amber}44`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Auto</button>
                   }
                   {form.stamp_duty_override != null && (
                     <MoneyInput value={form.stamp_duty_override} min={0}
                       onChange={v=>set('stamp_duty_override',v||0)}
+                      onBlur={autoSave}
                       style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.gold}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
                   )}
                 </div>
               </div>
-              <InputRow label="Legal fees" field="legal_fees" form={form} set={set} T={T}/>
+              <InputRow label="Legal fees" field="legal_fees" form={form} set={set} onBlur={autoSave} T={T}/>
               {!form.show_conv_breakdown ? (
                 <div style={{padding:'3px 0',borderBottom:`1px solid ${T.border}`}}>
                   <button onClick={()=>set('show_conv_breakdown',true)}
@@ -711,28 +762,28 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   </button>
                 </div>
               ) : (<>
-                <InputRow label="→ Solicitor fee" field="solicitor_fee" form={form} set={set} T={T}/>
-                <InputRow label="→ Search fees" field="search_fees" form={form} set={set} T={T}/>
-                <InputRow label="→ Disbursements" field="disbursements" form={form} set={set} T={T}/>
+                <InputRow label="→ Solicitor fee" field="solicitor_fee" form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="→ Search fees" field="search_fees" form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="→ Disbursements" field="disbursements" form={form} set={set} onBlur={autoSave} T={T}/>
               </>)}
-              <InputRow label="Survey / valuation" field="survey_cost" form={form} set={set} T={T}/>
-              {form.is_auction && <InputRow label="Auction fees" field="auction_fees"form={form} set={set} T={T}/>}
-              <InputRow label="Broker / finder fee" field="broker_fee" form={form} set={set} T={T}/>
-              <InputRow label="Refurbishment cost" field="refurb_cost"form={form} set={set} T={T}/>
-              <InputRow label={form.other_costs_label||'Other costs'} field="other_costs"form={form} set={set} T={T}/>
+              <InputRow label="Survey / valuation" field="survey_cost" form={form} set={set} onBlur={autoSave} T={T}/>
+              {form.is_auction && <InputRow label="Auction fees" field="auction_fees"form={form} set={set} onBlur={autoSave} T={T}/>}
+              <InputRow label="Broker / finder fee" field="broker_fee" form={form} set={set} onBlur={autoSave} T={T}/>
+              <InputRow label="Refurbishment cost" field="refurb_cost"form={form} set={set} onBlur={autoSave} T={T}/>
+              <InputRow label={form.other_costs_label||'Other costs'} field="other_costs"form={form} set={set} onBlur={autoSave} T={T}/>
             </div>
 
             {/* Finance */}
             {form.purchase_type !== 'cash' && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
                 <span style={sect}>Finance</span>
-                <InputRow label="Deposit" field="deposit_percent" prefix="" suffix="%" min={0} step={1} form={form} set={set} T={T}/>
+                <InputRow label="Deposit" field="deposit_percent" prefix="" suffix="%" min={0} step={1} form={form} set={set} onBlur={autoSave} T={T}/>
                 {/* Mortgage type toggle */}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                   <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Mortgage type</span>
                   <div style={{display:'flex',gap:6}}>
                     {[['interest_only','Interest only'],['repayment','Repayment']].map(([k,l])=>(
-                      <button key={k} onClick={()=>set('mortgage_type',k)}
+                      <button key={k} onClick={()=>{set('mortgage_type',k); setTimeout(autoSave,0)}}
                         style={{fontFamily:mono,fontSize:11,padding:'4px 12px',borderRadius:20,cursor:'pointer',
                           border:`1px solid ${(form.mortgage_type||'interest_only')===k?T.gold:T.border}`,
                           background:(form.mortgage_type||'interest_only')===k?T.gold+'22':'transparent',
@@ -742,9 +793,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     ))}
                   </div>
                 </div>
-                <InputRow label="Mortgage rate" field="mortgage_rate" prefix="" suffix="% p.a." min={0} step={0.1} form={form} set={set} T={T}/>
+                <InputRow label="Mortgage rate" field="mortgage_rate" prefix="" suffix="% p.a." min={0} step={0.1} form={form} set={set} onBlur={autoSave} T={T}/>
                 {(form.mortgage_type||'interest_only') === 'repayment' && (
-                  <InputRow label="Mortgage term" field="mortgage_term" prefix="" suffix="years" min={1} step={1} form={form} set={set} T={T}/>
+                  <InputRow label="Mortgage term" field="mortgage_term" prefix="" suffix="years" min={1} step={1} form={form} set={set} onBlur={autoSave} T={T}/>
                 )}
                 {(form.mortgage_type||'interest_only') === 'interest_only' && (
                   <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:11}}>
@@ -752,7 +803,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     <span style={{color:T.muted}}>Not required for interest-only</span>
                   </div>
                 )}
-                <InputRow label="Arrangement fee" field="mortgage_fee_percent" prefix="" suffix="% of loan" min={0} step={0.1} form={form} set={set} T={T}/>
+                <InputRow label="Arrangement fee" field="mortgage_fee_percent" prefix="" suffix="% of loan" min={0} step={0.1} form={form} set={set} onBlur={autoSave} T={T}/>
                 {num('mortgage_fee_percent') > 0 && (
                   <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',fontFamily:mono,fontSize:11}}>
                     <span style={{color:T.muted}}>= {fmt(loanAmount * num('mortgage_fee_percent') / 100)} added to costs</span>
@@ -765,16 +816,16 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Rental income</span>
               {(form.deal_type==='btl'||form.deal_type==='brrr') && (
-                <InputRow label="Monthly rent" field="monthly_rent"form={form} set={set} T={T}/>
+                <InputRow label="Monthly rent" field="monthly_rent"form={form} set={set} onBlur={autoSave} T={T}/>
               )}
               {form.deal_type==='hmo' && (<>
-                <InputRow label="Number of rooms" field="hmo_rooms" prefix="" suffix="rooms" min={1} step={1} form={form} set={set} T={T}/>
+                <InputRow label="Number of rooms" field="hmo_rooms" prefix="" suffix="rooms" min={1} step={1} form={form} set={set} onBlur={autoSave} T={T}/>
                 {/* Rent mode toggle */}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                   <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Rent entry</span>
                   <div style={{display:'flex',gap:6}}>
                     {[['same','Same rate'],['individual','Per room']].map(([k,l])=>(
-                      <button key={k} onClick={()=>set('hmo_rent_mode',k)}
+                      <button key={k} onClick={()=>{set('hmo_rent_mode',k); setTimeout(autoSave,0)}}
                         style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                           border:`1px solid ${(form.hmo_rent_mode||'same')===k?T.gold:T.border}`,
                           background:(form.hmo_rent_mode||'same')===k?T.gold+'22':'transparent',
@@ -785,7 +836,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   </div>
                 </div>
                 {(form.hmo_rent_mode||'same')==='same' ? (
-                  <InputRow label="Rent per room" field="hmo_rent_per_room" form={form} set={set} T={T}/>
+                  <InputRow label="Rent per room" field="hmo_rent_per_room" form={form} set={set} onBlur={autoSave} T={T}/>
                 ) : (
                   <div style={{padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                     {Array.from({length:Math.max(1,parseInt(form.hmo_rooms)||1)},(_,i)=>{
@@ -804,6 +855,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                                 r[i]=v||0
                                 set('hmo_room_rents',r)
                               }}
+                              onBlur={autoSave}
                               style={{fontFamily:mono,fontSize:13,width:100,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
                             <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>/mo</span>
                           </div>
@@ -818,10 +870,10 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 </div>
               </>)}
               {form.deal_type==='sa' && (<>
-                <InputRow label="Nightly rate" field="sa_nightly_rate"form={form} set={set} T={T}/>
-                <InputRow label="Occupancy" field="sa_occupancy_percent" prefix="" suffix="%" min={0} max={100} step={1}form={form} set={set} T={T}/>
+                <InputRow label="Nightly rate" field="sa_nightly_rate"form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="Occupancy" field="sa_occupancy_percent" prefix="" suffix="%" min={0} max={100} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
               </>)}
-              <InputRow label="Void allowance" field="void_percent" prefix="" suffix="%" min={0} max={100} step={1}form={form} set={set} T={T}/>
+              <InputRow label="Void allowance" field="void_percent" prefix="" suffix="%" min={0} max={100} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
             </div>
 
             {/* Running costs */}
@@ -835,6 +887,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     <input type="number" min={0} max={30} step={0.5}
                       value={form.agent_fee_percent??10}
                       onChange={e=>set('agent_fee_percent',parseFloat(e.target.value)||0)}
+                      onBlur={autoSave}
                       style={{fontFamily:mono,fontSize:13,width:52,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 6px',textAlign:'right',outline:'none'}}/>
                     <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>% of rent</span>
                   </div>
@@ -843,7 +896,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>VAT treatment</span>
                   <div style={{display:'flex',gap:5}}>
                     {[['ex_vat','+ VAT (20%)'],['inc_vat','Inc. VAT']].map(([k,l])=>(
-                      <button key={k} onClick={()=>set('agent_fee_vat',k)}
+                      <button key={k} onClick={()=>{set('agent_fee_vat',k); setTimeout(autoSave,0)}}
                         style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:20,cursor:'pointer',
                           border:`1px solid ${(form.agent_fee_vat||'ex_vat')===k?T.amber:T.border}`,
                           background:(form.agent_fee_vat||'ex_vat')===k?T.amber+'22':'transparent',
@@ -859,14 +912,14 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   </div>
                 )}
               </div>
-              <InputRow label="Maintenance reserve" field="maintenance_percent" prefix="" suffix="% of rent" min={0} step={1}form={form} set={set} T={T}/>
-              <InputRow label="Buildings insurance" field="insurance_monthly"form={form} set={set} T={T}/>
-              <InputRow label="Service charge" field="service_charge_monthly"form={form} set={set} T={T}/>
-              <InputRow label="Ground rent" field="ground_rent_monthly"form={form} set={set} T={T}/>
+              <InputRow label="Maintenance reserve" field="maintenance_percent" prefix="" suffix="% of rent" min={0} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
+              <InputRow label="Buildings insurance" field="insurance_monthly"form={form} set={set} onBlur={autoSave} T={T}/>
+              <InputRow label="Service charge" field="service_charge_monthly"form={form} set={set} onBlur={autoSave} T={T}/>
+              <InputRow label="Ground rent" field="ground_rent_monthly"form={form} set={set} onBlur={autoSave} T={T}/>
               {form.deal_type==='hmo' && (<>
-                <InputRow label="Utilities (monthly)" field="hmo_utilities_monthly"form={form} set={set} T={T}/>
-                <InputRow label="Council tax (monthly)" field="hmo_council_tax_monthly"form={form} set={set} T={T}/>
-                <InputRow label="HMO licence (annual)" field="hmo_licence_annual"form={form} set={set} T={T}/>
+                <InputRow label="Utilities (monthly)" field="hmo_utilities_monthly"form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="Council tax (monthly)" field="hmo_council_tax_monthly"form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="HMO licence (annual)" field="hmo_licence_annual"form={form} set={set} onBlur={autoSave} T={T}/>
               </>)}
             </div>
 
@@ -874,17 +927,17 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             {(form.deal_type==='brrr') && (
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
                 <span style={sect}>BRRR — Refinance</span>
-                <InputRow label="Estimated end value (post refurb)" field="brrr_end_value"form={form} set={set} T={T}/>
-                <InputRow label="Refinance LTV" field="brrr_refinance_ltv" prefix="" suffix="%" min={0} max={90} step={1}form={form} set={set} T={T}/>
-                <InputRow label="New mortgage rate" field="brrr_new_rate" prefix="" suffix="% p.a." min={0} step={0.1}form={form} set={set} T={T}/>
-                <InputRow label="New mortgage term" field="brrr_new_term" prefix="" suffix="years" min={1} step={1}form={form} set={set} T={T}/>
+                <InputRow label="Estimated end value (post refurb)" field="brrr_end_value"form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="Refinance LTV" field="brrr_refinance_ltv" prefix="" suffix="%" min={0} max={90} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="New mortgage rate" field="brrr_new_rate" prefix="" suffix="% p.a." min={0} step={0.1}form={form} set={set} onBlur={autoSave} T={T}/>
+                <InputRow label="New mortgage term" field="brrr_new_term" prefix="" suffix="years" min={1} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
               </div>
             )}
 
             {/* Notes */}
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Notes</span>
-              <textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)} rows={4}
+              <textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)} onBlur={autoSave} rows={4}
                 placeholder="Vendor motivation, planning notes, estate agent contact, viewing notes…"
                 style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical',outline:'none'}}/>
             </div>
@@ -1010,7 +1063,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             <span style={sect}>Section 24 tax impact</span>
             <div style={{display:'flex',gap:6}}>
               {[['personal','Personal'],['ltd','Ltd Co']].map(([k,l])=>(
-                <button key={k} onClick={()=>set('ownership_type',k)}
+                <button key={k} onClick={()=>{set('ownership_type',k); setTimeout(autoSave,0)}}
                   style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${(form.ownership_type||'personal')===k?T.gold:T.border}`,
                     background:(form.ownership_type||'personal')===k?T.gold+'22':'transparent',
@@ -1033,7 +1086,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               </div>
               <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
                 {[[20,'20% Basic'],[40,'40% Higher'],[45,'45% Additional']].map(([r,l])=>(
-                  <button key={r} onClick={()=>set('section24_rate',r)}
+                  <button key={r} onClick={()=>{set('section24_rate',r); setTimeout(autoSave,0)}}
                     style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                       border:`1px solid ${(form.section24_rate||40)===r?T.amber:T.border}`,
                       background:(form.section24_rate||40)===r?T.amber+'22':'transparent',
