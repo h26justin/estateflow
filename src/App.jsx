@@ -700,7 +700,7 @@ export default function App() {
     arrears:            { icon:'⚠',  label:'Total Arrears',           description:'Overdue rent and vacant properties' },
     refurb:             { icon:'🔨', label:'In Refurbishment',        description:'Properties under renovation' },
     mortgages:          { icon:'🏦', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
-    cashflow_forecast:  { icon:'💰', label:'Cashflow Forecast (90d)', description:'Cash needed across deals + properties in next 90 days' },
+    cashflow_forecast:  { icon:'💰', label:'Cash Committed', description:'Total cash out across deals + properties, with 90-day urgency split' },
     property_count:     { icon:'🏠', label:'Property Count',          description:'Total properties with rented/vacant split' },
     occupancy_rate:     { icon:'📊', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
@@ -1908,7 +1908,7 @@ export default function App() {
                       ]}
                     />
                   )},
-                  cashflow_forecast: { icon:'💰', label:'Cashflow Forecast (90d)', render: () => {
+                  cashflow_forecast: { icon:'💰', label:'Cash Committed', render: () => {
                     // Filter deals by the dashboard's company filter so the
                     // widget stays in sync with the rest of the page. Properties
                     // are already filtered (dashProps).
@@ -1916,10 +1916,12 @@ export default function App() {
                       ? dashboardDeals
                       : dashboardDeals.filter(d => dashCoFilter.includes(d.company_id))
                     const cashAgg = aggregateDeals(filteredDeals, dashProps)
-                    // 90-day total = anything that's overdue, 0-30, 31-60, or 61-90.
-                    // Pipeline + undated items don't have a date so they're
-                    // excluded from this lookahead. They're still in the Deals
-                    // page panel for full visibility.
+                    // Big number is total cash out across ALL live items
+                    // (committed AND pipeline). The sub-line and breakdown
+                    // give the urgency split. Earlier we tried "next 90 days"
+                    // as the headline but it was £0 for users without dates
+                    // set — useless out of the box. Total exposure is more
+                    // honest as a glanceable headline.
                     const next90 = (cashAgg.byBucket.overdue?.cashOut || 0)
                                  + (cashAgg.byBucket['0-30']?.cashOut || 0)
                                  + (cashAgg.byBucket['31-60']?.cashOut || 0)
@@ -1930,23 +1932,29 @@ export default function App() {
                                       + (cashAgg.byBucket['61-90']?.count || 0)
                     const overdueCash = cashAgg.byBucket.overdue?.cashOut || 0
                     const overdueCount = cashAgg.byBucket.overdue?.count || 0
-                    // Accent: red if overdue, amber if next 30d > 0, gold otherwise
+                    const pipelineCash = cashAgg.byGroup.pipeline?.cashOut || 0
+                    // Accent: red if overdue, amber if anything due in 30d,
+                    // gold otherwise (purely planning view).
                     const accent = overdueCash > 0 ? T.red
                                  : (cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber
                                  : T.gold
-                    const sub = next90Count === 0
-                      ? 'Nothing dated · all in pipeline'
-                      : `${next90Count} ${next90Count===1?'item':'items'} · ${fmt(cashAgg.totalCashOut)} total`
+                    // Sub-line gives the urgency split at a glance:
+                    //   "£X due in 90d · £Y in pipeline"
+                    // Falls back to a friendly hint if there's nothing live.
+                    const sub = cashAgg.totalCount === 0
+                      ? 'No live deals or properties'
+                      : `${fmt(next90)} due in 90d · ${fmt(pipelineCash)} in pipeline`
                     return (
-                      <StatCard icon="💰" label="Cashflow Forecast (90d)" value={fmt(next90)} sub={sub} accent={accent}
+                      <StatCard icon="💰" label="Cash Committed" value={fmt(cashAgg.totalCashOut)} sub={sub} accent={accent}
                         breakdown={[
                           ...(overdueCash > 0 ? [{label:`Overdue (${overdueCount} ${overdueCount===1?'item':'items'})`, value:fmt(overdueCash), color:T.red, separator:true}] : []),
                           {label:'Next 30 days', value:fmt(cashAgg.byBucket['0-30']?.cashOut || 0), color:(cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber : T.muted, note:`${cashAgg.byBucket['0-30']?.count || 0} item(s) needing cash this month`},
                           {label:'31-60 days',   value:fmt(cashAgg.byBucket['31-60']?.cashOut || 0), color:T.text},
                           {label:'61-90 days',   value:fmt(cashAgg.byBucket['61-90']?.cashOut || 0), color:T.text},
+                          {label:'Subtotal: due in next 90 days', value:fmt(next90), color:next90 > 0 ? T.gold : T.muted, separator:true, note:`${next90Count} item(s) with completion or refurb dates set`},
                           {label:'Later (90+ days)', value:fmt(cashAgg.byBucket['91+']?.cashOut || 0), color:T.muted, separator:true},
-                          {label:'Pipeline (no date set)', value:fmt(cashAgg.byGroup.pipeline?.cashOut || 0), color:T.muted, note:'Estimated, not yet committed'},
-                          {label:'Total cash out across all live deals/properties', value:fmt(cashAgg.totalCashOut), color:T.gold, separator:true},
+                          {label:'Pipeline (no date set)', value:fmt(pipelineCash), color:T.muted, note:'Deals still being analysed/offered. Set expected completion dates to move these into the dated buckets above.'},
+                          {label:'Total cash out across all live items', value:fmt(cashAgg.totalCashOut), color:T.gold, separator:true},
                           ...(cashAgg.propertyRefurbBudgeted > 0 ? [{label:`${cashAgg.propertyRefurbBudgeted} property(ies) using budgeted fallback`, value:'⚠', color:T.amber, note:'Add itemised refurb costs (paid/unpaid) for more accuracy'}] : []),
                         ]}
                       />
