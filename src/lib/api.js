@@ -2846,7 +2846,12 @@ export function calcDSCR(annualRent, annualMortgagePayment) {
 
 // Stress test: DSCR at higher interest rates
 export function calcStressTest(loanAmount, termYears, annualRent, currentRate) {
-  if (!loanAmount || loanAmount <= 0) return { cash: true }
+  // No loan = no stress test to do (cash purchase, or unanalysed deal).
+  // Return null so callers can simply skip rendering — they all guard with
+  // `stressData && stressData.map(...)`. (Previously this returned
+  // `{ cash: true }` which is truthy but not an array, causing
+  // `stressData.map is not a function` on brand-new empty deals.)
+  if (!loanAmount || loanAmount <= 0) return null
   const rates = [currentRate, currentRate + 1, currentRate + 2, currentRate + 3]
   return rates.map(rate => {
     // Interest-only mortgage payment approximation (more conservative)

@@ -905,7 +905,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   </div>
 
                   {/* Stress test table */}
-                  {stressData && (
+                  {Array.isArray(stressData) && stressData.length > 0 && (
                     <div style={{paddingTop:14,borderTop:`1px solid ${T.border}`}}>
                       <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Interest rate stress test (DSCR at higher rates)</div>
                       <div style={{display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:8}}>
