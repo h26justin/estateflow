@@ -1556,12 +1556,16 @@ export async function fetchDeals(userId) {
   // company. So the simplest correct query is "select all" — Postgres will
   // return only the rows you're allowed to see.
   //
+  // We DO filter out soft-deleted rows here. Those are accessed separately
+  // via the Trash page (fetchAllDeleted), not the main deals list.
+  //
   // The userId param is kept for backwards-compat with callers that still
-  // pass it; we just ignore it. Pre-RLS this function was the gatekeeper,
-  // but now it's just one of many layers and trust lives in the database.
+  // pass it; we just ignore it for filtering. Pre-RLS this function was the
+  // gatekeeper, but now trust lives in the database.
   const { data, error } = await supabase
     .from('deals')
     .select('*')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
@@ -1582,9 +1586,21 @@ export async function updateDeal(id, fields) {
   return data
 }
 
-export async function deleteDeal(id) {
-  const { error } = await supabase.from('deals').delete().eq('id', id)
+export async function deleteDeal(id, userId) {
+  // Soft-delete: marks the row as trashed rather than removing it. Goes to
+  // Trash and auto-purges after 30 days (handled by purgeExpiredTrash).
+  // userId is captured in deleted_by so Trash can show "deleted by [name]"
+  // if we ever surface that, and so RLS could allow restore by the deleter.
+  const { error } = await supabase.from('deals')
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: userId || null,
+    })
+    .eq('id', id)
   if (error) throw error
+  if (userId) {
+    try { await logAction(userId, null, 'deal.deleted', 'deal', id, null) } catch(_) {}
+  }
 }
 
 export async function duplicateDeal(deal) {
@@ -2370,7 +2386,7 @@ export async function fetchAllDeleted(userId) {
     safe(supabase.from('compliance_items').select('id, item_type, expiry_date, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
     safe(supabase.from('maintenance_jobs').select('id, title, description, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
     safe(supabase.from('property_expenses').select('id, description, amount, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('deals').select('id, title, address, deleted_at, deleted_by').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    safe(supabase.from('deals').select('id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
     safe(supabase.from('property_documents').select('id, name, file_path, file_url, category, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
   ])
 
@@ -2381,7 +2397,7 @@ export async function fetchAllDeleted(userId) {
     compliance: compliance.map(r => ({ ...r, _type: 'compliance_items', _label: 'Certificate', _name: `${r.item_type} @ ${r.property?.name || '—'}` })),
     maintenance: maintenance.map(r => ({ ...r, _type: 'maintenance_jobs', _label: 'Repair job', _name: `${r.title || r.description} @ ${r.property?.name || '—'}` })),
     expenses: expenses.map(r => ({ ...r, _type: 'property_expenses', _label: 'Expense', _name: `${r.description} (£${r.amount}) @ ${r.property?.name || '—'}` })),
-    deals: deals.map(r => ({ ...r, _type: 'deals', _label: 'Deal', _name: r.title || r.address })),
+    deals: deals.map(r => ({ ...r, _type: 'deals', _label: 'Deal', _name: r.name || r.address || 'Untitled deal' })),
     documents: documents.map(r => ({ ...r, _type: 'property_documents', _label: 'Document', _name: `${r.name} @ ${r.property?.name || '—'}` })),
   }
 }

@@ -220,12 +220,15 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   }
 
   async function deleteDeal(id) {
-    if (!await confirmDialog({ title: 'Delete this deal?', body: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true })) return
+    // Soft-delete now goes to Trash and auto-purges after 30 days, so the
+    // confirm copy reflects that — users can restore if they change their
+    // mind. The actionable bit (it disappears from this list) is the same.
+    if (!await confirmDialog({ title: 'Delete this deal?', body: 'It will be moved to Trash. You can restore it within 30 days.', confirmLabel: 'Delete', destructive: true })) return
     try {
-      await api.deleteDeal(id)
+      await api.deleteDeal(id, user?.id)
       setDeals(prev => prev.filter(d => d.id !== id))
       if (selectedDeal?.id === id) { setSelectedDeal(null); setView('list') }
-      showToast('Deal deleted')
+      showToast('Deal moved to Trash')
     } catch(e) { showToast(e.message, 'error') }
   }
 
