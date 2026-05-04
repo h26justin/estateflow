@@ -27,6 +27,7 @@ import ActionMenu from './components/ActionMenu'
 import PropertyMap from './components/PropertyMap'
 import BulkAddPropertyModal from './components/BulkAddPropertyModal'
 import MoneyInput from './lib/MoneyInput'
+import { aggregateDeals } from './lib/dealCashflow'
 import { safeOverlayClose, isFormDirty } from './lib/modalUtils'
 import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
@@ -626,6 +627,11 @@ export default function App() {
   const {session,user} = useAuth()
   const confirmDialog = useConfirm()
   const [properties,  setProperties]  = useState([])
+  // Deals loaded at App level so the Dashboard cashflow widget can read them.
+  // DealsPage still owns its OWN local deals state for its own list/CRUD —
+  // it pushes updates back here via onDealsChange so the dashboard stays
+  // in sync without us having to fully lift state.
+  const [dashboardDeals, setDashboardDeals] = useState([])
   const [companies,        setCompanies]        = useState([])
   const [companySettings,  setCompanySettings]   = useState({})  // companyId -> settings
   const [loading,     setLoading]      = useState(true)
@@ -689,16 +695,17 @@ export default function App() {
   const SECTION_DEFAULT_ENABLED = { kpi_grid:true, by_company:true, smart_alerts:true, tenant_inbox:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
   const WIDGET_META = {
-    portfolio_value:  { icon:'🏡', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
-    monthly_rent:     { icon:'💷', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
-    arrears:          { icon:'⚠',  label:'Total Arrears',           description:'Overdue rent and vacant properties' },
-    refurb:           { icon:'🔨', label:'In Refurbishment',        description:'Properties under renovation' },
-    mortgages:        { icon:'🏦', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
-    property_count:   { icon:'🏠', label:'Property Count',          description:'Total properties with rented/vacant split' },
-    occupancy_rate:   { icon:'📊', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
+    portfolio_value:    { icon:'🏡', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
+    monthly_rent:       { icon:'💷', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
+    arrears:            { icon:'⚠',  label:'Total Arrears',           description:'Overdue rent and vacant properties' },
+    refurb:             { icon:'🔨', label:'In Refurbishment',        description:'Properties under renovation' },
+    mortgages:          { icon:'🏦', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
+    cashflow_forecast:  { icon:'💰', label:'Cashflow Forecast (90d)', description:'Cash needed across deals + properties in next 90 days' },
+    property_count:     { icon:'🏠', label:'Property Count',          description:'Total properties with rented/vacant split' },
+    occupancy_rate:     { icon:'📊', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
-  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','property_count','occupancy_rate']
-  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, property_count:false, occupancy_rate:false }
+  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','property_count','occupancy_rate']
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, property_count:false, occupancy_rate:false }
 
   // Developer mode toggle — lets the developer choose to view the site as a regular user would.
   // Stored in sessionStorage so it persists across page reloads but resets on sign out.
@@ -890,6 +897,10 @@ export default function App() {
           api.fetchUserAccess(user.id),
           api.fetchUserAccessByEmail(user.email)
         ])
+        // Load deals separately and non-blocking — if it fails, the
+        // dashboard widget falls back to "no data". Deals are not critical
+        // to App boot.
+        api.fetchDeals(user.id).then(setDashboardDeals).catch(()=>setDashboardDeals([]))
         // Merge access by ID and by email
         const allAccess = [...accessById, ...accessByEmail.filter(a=>!accessById.find(b=>b.company_id===a.company_id))]
         // If user was found by email but not ID, update their user_id
@@ -1897,6 +1908,50 @@ export default function App() {
                       ]}
                     />
                   )},
+                  cashflow_forecast: { icon:'💰', label:'Cashflow Forecast (90d)', render: () => {
+                    // Filter deals by the dashboard's company filter so the
+                    // widget stays in sync with the rest of the page. Properties
+                    // are already filtered (dashProps).
+                    const filteredDeals = dashCoFilter.length === 0
+                      ? dashboardDeals
+                      : dashboardDeals.filter(d => dashCoFilter.includes(d.company_id))
+                    const cashAgg = aggregateDeals(filteredDeals, dashProps)
+                    // 90-day total = anything that's overdue, 0-30, 31-60, or 61-90.
+                    // Pipeline + undated items don't have a date so they're
+                    // excluded from this lookahead. They're still in the Deals
+                    // page panel for full visibility.
+                    const next90 = (cashAgg.byBucket.overdue?.cashOut || 0)
+                                 + (cashAgg.byBucket['0-30']?.cashOut || 0)
+                                 + (cashAgg.byBucket['31-60']?.cashOut || 0)
+                                 + (cashAgg.byBucket['61-90']?.cashOut || 0)
+                    const next90Count = (cashAgg.byBucket.overdue?.count || 0)
+                                      + (cashAgg.byBucket['0-30']?.count || 0)
+                                      + (cashAgg.byBucket['31-60']?.count || 0)
+                                      + (cashAgg.byBucket['61-90']?.count || 0)
+                    const overdueCash = cashAgg.byBucket.overdue?.cashOut || 0
+                    const overdueCount = cashAgg.byBucket.overdue?.count || 0
+                    // Accent: red if overdue, amber if next 30d > 0, gold otherwise
+                    const accent = overdueCash > 0 ? T.red
+                                 : (cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber
+                                 : T.gold
+                    const sub = next90Count === 0
+                      ? 'Nothing dated · all in pipeline'
+                      : `${next90Count} ${next90Count===1?'item':'items'} · ${fmt(cashAgg.totalCashOut)} total`
+                    return (
+                      <StatCard icon="💰" label="Cashflow Forecast (90d)" value={fmt(next90)} sub={sub} accent={accent}
+                        breakdown={[
+                          ...(overdueCash > 0 ? [{label:`Overdue (${overdueCount} ${overdueCount===1?'item':'items'})`, value:fmt(overdueCash), color:T.red, separator:true}] : []),
+                          {label:'Next 30 days', value:fmt(cashAgg.byBucket['0-30']?.cashOut || 0), color:(cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber : T.muted, note:`${cashAgg.byBucket['0-30']?.count || 0} item(s) needing cash this month`},
+                          {label:'31-60 days',   value:fmt(cashAgg.byBucket['31-60']?.cashOut || 0), color:T.text},
+                          {label:'61-90 days',   value:fmt(cashAgg.byBucket['61-90']?.cashOut || 0), color:T.text},
+                          {label:'Later (90+ days)', value:fmt(cashAgg.byBucket['91+']?.cashOut || 0), color:T.muted, separator:true},
+                          {label:'Pipeline (no date set)', value:fmt(cashAgg.byGroup.pipeline?.cashOut || 0), color:T.muted, note:'Estimated, not yet committed'},
+                          {label:'Total cash out across all live deals/properties', value:fmt(cashAgg.totalCashOut), color:T.gold, separator:true},
+                          ...(cashAgg.propertyRefurbBudgeted > 0 ? [{label:`${cashAgg.propertyRefurbBudgeted} property(ies) using budgeted fallback`, value:'⚠', color:T.amber, note:'Add itemised refurb costs (paid/unpaid) for more accuracy'}] : []),
+                        ]}
+                      />
+                    )
+                  }},
                   property_count: { icon:'🏠', label:'Property Count', render: () => (
                     <StatCard icon="🏠" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
                       breakdown={[
@@ -1929,6 +1984,7 @@ export default function App() {
                   { key:'arrears', enabled:true },
                   { key:'refurb', enabled:true },
                   { key:'mortgages', enabled:true },
+                  { key:'cashflow_forecast', enabled:true },
                   { key:'property_count', enabled:false },
                   { key:'occupancy_rate', enabled:false },
                 ]
@@ -2010,6 +2066,7 @@ export default function App() {
 
           {view==='deals'&&<div className="fade">
             <DealsPage user={user} companies={companies} properties={properties} showToast={showToast} activeFlags={activeFlags}
+              onDealsChange={setDashboardDeals}
               onConvertToProperty={(deal)=>{
                 setShowAddProp(true)
                 showToast('Deal data ready — fill in the property form')

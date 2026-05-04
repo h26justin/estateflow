@@ -152,7 +152,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   )
 }
 
-export default function DealsPage({ user, companies, properties = [], onConvertToProperty, showToast, activeFlags = new Set() }) {
+export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set() }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const [view, setView]       = useState('list')
@@ -169,6 +169,10 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [triggerNewLetting, setTriggerNewLetting] = useState(false)
 
   useEffect(() => { loadDeals() }, [])
+  // Push deals up to parent (App.jsx) whenever they change so the
+  // dashboard cashflow widget can read fresh data without re-fetching.
+  // Optional callback — DealsPage works fine without it.
+  useEffect(() => { onDealsChange && onDealsChange(deals) }, [deals, onDealsChange])
 
   async function loadDeals() {
     setLoading(true)
