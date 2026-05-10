@@ -2076,8 +2076,59 @@ export default function App() {
             <DealsPage user={user} companies={companies} properties={properties} showToast={showToast} activeFlags={activeFlags}
               onDealsChange={setDashboardDeals}
               onConvertToProperty={(deal)=>{
+                // Map deal fields to property fields so the user doesn't
+                // have to retype everything. Fields without a clean 1:1
+                // mapping (e.g. timeline dates, deal_type) are dropped —
+                // they live on the deal record. The user just fills in
+                // anything that's specific to the property going forward
+                // (estimated value, rent, tenancy details).
+                //
+                // Computed fields:
+                //   mortgage_amount = purchase * (1 - deposit_percent/100)
+                //   deposit         = purchase * deposit_percent/100
+                // Cash deals get mortgage_amount=0, deposit=full price.
+                const num = (v) => Number(v) || 0
+                const price = num(deal.purchase_price)
+                const depPct = num(deal.deposit_percent) || 25
+                const isCash = deal.purchase_type === 'cash'
+                const mortgageAmount = isCash ? 0 : Math.round(price * (1 - depPct / 100))
+                const depositAmount  = isCash ? price : Math.round(price * depPct / 100)
+                // Stamp duty: use the user's override if they set one,
+                // otherwise use whatever's stored in stamp_duty (calculator
+                // writes the auto-computed value here on save).
+                const sd = deal.stamp_duty_override != null
+                  ? num(deal.stamp_duty_override)
+                  : num(deal.stamp_duty)
+                const prefill = {
+                  // Identity
+                  name:        deal.name || deal.address || '',
+                  address:     deal.address || '',
+                  company_id:  deal.company_id || '',
+                  // Money
+                  purchase_price:  price || '',
+                  refurb_cost:     num(deal.refurb_cost) || '',
+                  stamp_duty:      sd || '',
+                  legal_fees:      num(deal.legal_fees) || '',
+                  mortgage_amount: mortgageAmount || '',
+                  deposit:         depositAmount || '',
+                  // Mortgage terms
+                  mortgage_rate:   num(deal.mortgage_rate) || '',
+                  mortgage_term:   num(deal.mortgage_term) || 25,
+                  // Status: 'purchased' makes sense for a freshly converted
+                  // deal — the user will switch it to 'refurb' or 'rented'
+                  // once that phase begins.
+                  status:          'purchased',
+                  // Notes carry across — useful context for property
+                  notes:           deal.notes || '',
+                  // Source link — once we add a deal_id column on properties
+                  // this would be deal.id. For now we just store a
+                  // breadcrumb in notes if there isn't already a notes
+                  // value, so the user can find their way back to the deal.
+                  // Skipped to avoid clobbering — left as a TODO.
+                }
+                setEditProp(prefill)
                 setShowAddProp(true)
-                showToast('Deal data ready — fill in the property form')
+                showToast('Deal data pre-filled — review and save')
               }}/>
           </div>}
 
@@ -2745,7 +2796,16 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
 function PropertyModal({prop,companies,onClose,onSave}){
   const { T } = useTheme()
   const blank={name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:''}
-  const initialForm = prop?.id?{...prop,company_id:prop.company_id||prop.company?.id||'',mortgage_rate:prop.mortgage_rate?(prop.mortgage_rate*100).toFixed(2):''}:blank
+  // Three modes:
+  //   1. Edit existing property — prop has an id, spread it over blank, and
+  //      scale the mortgage_rate from decimal (0.05 stored) to percent (5.00).
+  //   2. Convert from deal — prop is a prefill object WITHOUT id; spread it
+  //      over blank so the user sees pre-populated fields. mortgage_rate
+  //      from a deal is already in percent form so no scaling needed.
+  //   3. Add fresh — no prop at all; just blank.
+  const initialForm = prop?.id
+    ? {...blank, ...prop, company_id: prop.company_id || prop.company?.id || '', mortgage_rate: prop.mortgage_rate ? (prop.mortgage_rate*100).toFixed(2) : ''}
+    : (prop ? {...blank, ...prop} : blank)
   const [form,setForm]=useState(initialForm)
   const [snapshot]=useState(initialForm)
   const isDirty = isFormDirty(snapshot, form)
@@ -2759,8 +2819,8 @@ function PropertyModal({prop,companies,onClose,onSave}){
   return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
     <div className="modal">
       <div style={{padding:'24px 28px 0'}}>
-        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id?'Edit Property':'Add New Property'}</h2>
-        <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Fill in the details below.</p>
+        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit Property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>
+        <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>{prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}</p>
       </div>
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
         <div className="g2"><div><label>Property Name *</label><input value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Flat 1, Station Road"/></div><div><label>Company *</label><select value={form.company_id} onChange={e=>s('company_id',e.target.value)}>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div></div>
