@@ -717,20 +717,32 @@ export default function App() {
   const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','property_count','occupancy_rate']
   const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, property_count:false, occupancy_rate:false }
 
-  // Developer mode toggle — lets the developer choose to view the site as a regular user would.
-  // Stored in sessionStorage so it persists across page reloads but resets on sign out.
-  const [devModeDisabled, setDevModeDisabledState] = useState(() => {
-    try { return sessionStorage.getItem('ownproperly_dev_mode_off') === '1' } catch(e) { return false }
+  // Developer mode toggle — lets a platform admin choose to "see everything"
+  // (bypasses per-company permissions). Default OFF on every login: more
+  // accurate preview of what a regular user sees, and avoids accidental
+  // data exposure if the admin is screen-sharing.
+  //
+  // Persistence: stored in sessionStorage, OPT-IN. The flag records when
+  // the user explicitly turned dev mode ON. Closing the tab / new login
+  // clears it. (Previously this was inverted — default ON, opt-out — which
+  // surprised admins on every login.)
+  const [devModeEnabled, setDevModeEnabledState] = useState(() => {
+    try { return sessionStorage.getItem('ownproperly_dev_mode_on') === '1' } catch(e) { return false }
   })
-  const setDevModeDisabled = (v) => {
+  const setDevModeEnabled = (v) => {
     try {
-      if (v) sessionStorage.setItem('ownproperly_dev_mode_off', '1')
-      else sessionStorage.removeItem('ownproperly_dev_mode_off')
+      if (v) sessionStorage.setItem('ownproperly_dev_mode_on', '1')
+      else sessionStorage.removeItem('ownproperly_dev_mode_on')
     } catch(e) {}
-    setDevModeDisabledState(v)
+    setDevModeEnabledState(v)
   }
-  // Effective "see everything" flag — true if platform admin AND not temporarily disabled
-  const devModeActive = isPlatformAdmin && !devModeDisabled
+  // Backwards-compat aliases for any code still using the old names —
+  // these export the inverted semantics so callers don't need updating.
+  const devModeDisabled = !devModeEnabled
+  const setDevModeDisabled = (v) => setDevModeEnabled(!v)
+  // Effective "see everything" flag — true ONLY when platform admin has
+  // explicitly opted into dev mode for this session.
+  const devModeActive = isPlatformAdmin && devModeEnabled
   // Per-company permission map: { [companyId]: { view_rent: true, edit_financial: false, ... } }
   const [permissionsMap, setPermissionsMap] = useState({})
   // Active feature flags for current user
