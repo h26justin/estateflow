@@ -8,6 +8,7 @@ import { RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab,
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 import ReportsPage from './components/ReportsPage'
+import InsurancePage from './components/InsurancePage'
 import { StatementImporter } from './components/StatementImporter'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
@@ -28,6 +29,7 @@ import PropertyMap from './components/PropertyMap'
 import BulkAddPropertyModal from './components/BulkAddPropertyModal'
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
+import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
 import { safeOverlayClose, isFormDirty } from './lib/modalUtils'
 import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
@@ -62,11 +64,13 @@ function canDo(permissionsMap, companyId, permissionKey) {
 }
 
 const STATUS_CFG = {
-  rented:   {label:'Rented',    bg:'#0D2B1F',fg:'#2ECC8A',dot:'#2ECC8A'},
-  vacant:   {label:'Vacant',    bg:'#2B1010',fg:'#E05555',dot:'#E05555'},
-  purchased:{label:'Purchased', bg:'#2B200A',fg:'#E0943A',dot:'#E0943A'},
-  refurb:   {label:'Refurbing', bg:'#0A1A2B',fg:'#4B8FE0',dot:'#4B8FE0'},
-  sold:     {label:'Sold',      bg:'#1A1A2B',fg:'#9B8AC2',dot:'#9B8AC2'},
+  rented:       {label:'Rented',       bg:'#0D2B1F',fg:'#2ECC8A',dot:'#2ECC8A'},
+  notice_given: {label:'Notice given', bg:'#2B200A',fg:'#F0B850',dot:'#F0B850'},  // amber — still rented but vacancy looming
+  let_agreed:   {label:'Let agreed',   bg:'#2B250A',fg:'#C8A84B',dot:'#C8A84B'},  // gold — contracts being signed, not yet rented
+  vacant:       {label:'Vacant',       bg:'#2B1010',fg:'#E05555',dot:'#E05555'},
+  purchased:    {label:'Purchased',    bg:'#2B200A',fg:'#E0943A',dot:'#E0943A'},
+  refurb:       {label:'Refurbing',    bg:'#0A1A2B',fg:'#4B8FE0',dot:'#4B8FE0'},
+  sold:         {label:'Sold',         bg:'#1A1A2B',fg:'#9B8AC2',dot:'#9B8AC2'},
 }
 const REFURB_CFG = {
   complete:     {label:'Complete',    color:'#2ECC8A'},
@@ -632,6 +636,11 @@ export default function App() {
   // it pushes updates back here via onDealsChange so the dashboard stays
   // in sync without us having to fully lift state.
   const [dashboardDeals, setDashboardDeals] = useState([])
+  // Insurance policies loaded at App level for the dashboard widget +
+  // per-property indicators. The InsurancePage manages its own local copy
+  // for CRUD; we don't try to keep them in sync constantly (re-fetched on
+  // page mount). This is acceptable for slowly-changing data like policies.
+  const [insurancePolicies, setInsurancePolicies] = useState([])
   const [companies,        setCompanies]        = useState([])
   const [companySettings,  setCompanySettings]   = useState({})  // companyId -> settings
   const [loading,     setLoading]      = useState(true)
@@ -701,11 +710,12 @@ export default function App() {
     refurb:             { icon:'🔨', label:'In Refurbishment',        description:'Properties under renovation' },
     mortgages:          { icon:'🏦', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
     cashflow_forecast:  { icon:'💰', label:'Cash Committed', description:'Total cash out across deals + properties, with 90-day urgency split' },
+    insurance_renewals: { icon:'🛡', label:'Insurance Renewals',      description:'Policies expiring soon with annual premium totals' },
     property_count:     { icon:'🏠', label:'Property Count',          description:'Total properties with rented/vacant split' },
     occupancy_rate:     { icon:'📊', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
-  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','property_count','occupancy_rate']
-  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, property_count:false, occupancy_rate:false }
+  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','property_count','occupancy_rate']
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, property_count:false, occupancy_rate:false }
 
   // Developer mode toggle — lets the developer choose to view the site as a regular user would.
   // Stored in sessionStorage so it persists across page reloads but resets on sign out.
@@ -729,7 +739,7 @@ export default function App() {
   const [impersonatingUser, setImpersonatingUser] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
   })
-  const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
+  const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
   const [yieldBasis, setYieldBasis]      = useState('cost') // 'cost' = purchase+refurb, 'value' = current value
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginMode, setLoginMode] = useState('login')
@@ -901,6 +911,8 @@ export default function App() {
         // dashboard widget falls back to "no data". Deals are not critical
         // to App boot.
         api.fetchDeals(user.id).then(setDashboardDeals).catch(()=>setDashboardDeals([]))
+        // Load insurance policies for the dashboard widget. Non-blocking.
+        api.fetchInsurancePolicies().then(setInsurancePolicies).catch(()=>setInsurancePolicies([]))
         // Merge access by ID and by email
         const allAccess = [...accessById, ...accessByEmail.filter(a=>!accessById.find(b=>b.company_id===a.company_id))]
         // If user was found by email but not ID, update their user_id
@@ -973,7 +985,7 @@ export default function App() {
         try {
           const { data: prof } = await supabase.from('user_profiles').select('nav_items, yield_basis').eq('user_id', user.id).single()
           if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
-          else setUserNavPrefs(['dashboard','properties','companies','rent','deals','reports','contractors','settings'])
+          else setUserNavPrefs(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
           if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
         } catch(e) {}
         // Load platform announcements
@@ -1148,11 +1160,14 @@ export default function App() {
     dashCoFilter.length === 0 ? companies : companies.filter(c => dashCoFilter.includes(c.id))
   , [companies, dashCoFilter])
 
-  // Stats computed from dashProps (filtered by selected companies)
+  // Stats computed from dashProps (filtered by selected companies).
+  // Uses isPropertyEarningRent/isPropertyOccupied helpers so 'notice_given'
+  // counts toward income and occupancy (tenant is still paying), while
+  // 'let_agreed' does NOT (no tenant has moved in yet).
   const stats = useMemo(()=>({
     totalInvested:       dashProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
     totalEstVal:         dashProps.reduce((s,p)=>s+(p.est_value||0),0),
-    monthlyRent:         dashProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0),
+    monthlyRent:         dashProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
     totalArrears:        dashProps.reduce((s,p)=>s+(p.arrears||0),0),
     totalMortgage:       dashProps.reduce((s,p)=>s+(p.mortgage_amount||0),0),
     totalEquity:         dashProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0),
@@ -1162,7 +1177,9 @@ export default function App() {
       return s+p.mortgage_amount*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)
     },0),
     mortgaged:           dashProps.filter(p=>(p.mortgage_amount||0)>0).length,
-    rented:              dashProps.filter(p=>p.status==='rented').length,
+    rented:              dashProps.filter(p=>isPropertyOccupied(p.status)).length,
+    noticeGiven:         dashProps.filter(p=>p.status==='notice_given').length,
+    letAgreed:           dashProps.filter(p=>p.status==='let_agreed').length,
     vacant:              dashProps.filter(p=>p.status==='vacant').length,
     inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
     total:               dashProps.length,
@@ -1173,9 +1190,9 @@ export default function App() {
     return {...c, count:ps.length,
       invested:    ps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
       estVal:      ps.reduce((s,p)=>s+(p.est_value||0),0),
-      monthlyRent: ps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0),
+      monthlyRent: ps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
       arrears:     ps.reduce((s,p)=>s+(p.arrears||0),0),
-      rented:      ps.filter(p=>p.status==='rented').length,
+      rented:      ps.filter(p=>isPropertyOccupied(p.status)).length,
       vacant:      ps.filter(p=>p.status==='vacant').length,
     }
   }),[dashCos, dashProps])
@@ -1402,6 +1419,7 @@ export default function App() {
     {key:'properties', label:'Portfolio', icon:'🏘', short:'Portfolio',required:true},
     {key:'rent',       label:'Rent Tracker',   icon:'💰', short:'Rent',  required:false},
     {key:'deals',      label:'Deals',     icon:'🎯', short:'Deals',    required:false},
+    {key:'insurance',  label:'Insurance', icon:'🛡', short:'Insurance', required:false},
     {key:'reports',    label:'Reports',   icon:'📊', short:'Reports',  required:false},
     {key:'feedback',   label:'Feedback',  icon:'💬', short:'Feedback', required:true},
     {key:'settings',   label:'Settings',  icon:'⚙',  short:'Settings', required:true},
@@ -1700,7 +1718,7 @@ export default function App() {
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
                 <div>
                   <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
-                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {stats.rented} rented · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
+                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                   {dashProps.some(p=>p.current_value>0) && <>
                     {' · Portfolio value: '}
                     <span style={{color:T.green,fontWeight:700}}>
@@ -1960,6 +1978,66 @@ export default function App() {
                       />
                     )
                   }},
+                  insurance_renewals: { icon:'🛡', label:'Insurance Renewals', render: () => {
+                    // Filter policies by the dashboard's company filter, mirroring
+                    // how the cashflow widget handles dashCoFilter. RLS already
+                    // limits the user's visible set.
+                    const visiblePolicies = dashCoFilter.length === 0
+                      ? insurancePolicies
+                      : insurancePolicies.filter(p => dashCoFilter.includes(p.company_id))
+                    const today = new Date(); today.setHours(0, 0, 0, 0)
+                    const daysUntil = (d) => Math.floor((new Date(d) - today) / (1000 * 60 * 60 * 24))
+                    // Buckets:
+                    //   expired   — already past expiry, needs urgent action
+                    //   d30       — renewing in next 30 days (amber alert)
+                    //   d60       — renewing in 31-60 days
+                    //   d90       — renewing in 61-90 days
+                    //   later     — beyond 90 days
+                    // For each bucket we sum premiums so the user sees what
+                    // money is committed and roughly when.
+                    const bucketed = { expired: [], d30: [], d60: [], d90: [], later: [] }
+                    visiblePolicies.forEach(p => {
+                      if (!p.expiry_date) return
+                      const d = daysUntil(p.expiry_date)
+                      if (d < 0)       bucketed.expired.push(p)
+                      else if (d <= 30) bucketed.d30.push(p)
+                      else if (d <= 60) bucketed.d60.push(p)
+                      else if (d <= 90) bucketed.d90.push(p)
+                      else              bucketed.later.push(p)
+                    })
+                    const sumP = (arr) => arr.reduce((s, p) => s + (Number(p.premium) || 0), 0)
+                    // Big number = total annual premium across all active
+                    // policies (anything not yet expired). Catches the eye and
+                    // tells the user their total insurance bill.
+                    const totalAnnual = visiblePolicies
+                      .filter(p => p.expiry_date && daysUntil(p.expiry_date) >= 0)
+                      .reduce((s, p) => s + (Number(p.premium) || 0), 0)
+                    const activeCount = visiblePolicies.filter(p => p.expiry_date && daysUntil(p.expiry_date) >= 0).length
+                    // Accent: red if anything's expired, amber if renewing
+                    // in 30 days, gold otherwise.
+                    const accent = bucketed.expired.length > 0 ? T.red
+                                 : bucketed.d30.length > 0 ? T.amber
+                                 : T.gold
+                    const sub = visiblePolicies.length === 0
+                      ? 'No policies tracked'
+                      : bucketed.expired.length > 0
+                        ? `${bucketed.expired.length} expired · ${activeCount} active`
+                        : bucketed.d30.length > 0
+                          ? `${bucketed.d30.length} renewing in 30 days · ${activeCount} active`
+                          : `${activeCount} active ${activeCount === 1 ? 'policy' : 'policies'}`
+                    return (
+                      <StatCard icon="🛡" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent}
+                        breakdown={[
+                          ...(bucketed.expired.length > 0 ? [{label:`Expired (${bucketed.expired.length})`, value:fmt(sumP(bucketed.expired)), color:T.red, separator:true, note:'Policies past their expiry date. Renew immediately.'}] : []),
+                          {label:'Next 30 days', value:fmt(sumP(bucketed.d30)), color:bucketed.d30.length > 0 ? T.amber : T.muted, note:`${bucketed.d30.length} ${bucketed.d30.length === 1 ? 'policy' : 'policies'} renewing this month`},
+                          {label:'31-60 days',   value:fmt(sumP(bucketed.d60)), color:T.text, note:bucketed.d60.length > 0 ? `${bucketed.d60.length} ${bucketed.d60.length === 1 ? 'policy' : 'policies'}` : null},
+                          {label:'61-90 days',   value:fmt(sumP(bucketed.d90)), color:T.text, note:bucketed.d90.length > 0 ? `${bucketed.d90.length} ${bucketed.d90.length === 1 ? 'policy' : 'policies'}` : null},
+                          {label:'Later',        value:fmt(sumP(bucketed.later)), color:T.muted, note:`${bucketed.later.length} ${bucketed.later.length === 1 ? 'policy' : 'policies'} beyond 90 days`, separator:true},
+                          {label:'Total annual premium (all active)', value:fmt(totalAnnual), color:T.gold, separator:true},
+                        ]}
+                      />
+                    )
+                  }},
                   property_count: { icon:'🏠', label:'Property Count', render: () => (
                     <StatCard icon="🏠" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
                       breakdown={[
@@ -1993,6 +2071,7 @@ export default function App() {
                   { key:'refurb', enabled:true },
                   { key:'mortgages', enabled:true },
                   { key:'cashflow_forecast', enabled:true },
+                  { key:'insurance_renewals', enabled:true },
                   { key:'property_count', enabled:false },
                   { key:'occupancy_rate', enabled:false },
                 ]
@@ -2177,8 +2256,8 @@ export default function App() {
                   <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
-                {['all','rented','vacant','purchased','refurb','sold'].map(f=>(
-                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold+'22':'transparent',color:statusFilter===f?T.gold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':STATUS_CFG[f]?.label||f}</button>
+                {['all', ...PROPERTY_STATUSES].map(f=>(
+                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold+'22':'transparent',color:statusFilter===f?T.gold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
                 ))}
                 {archivedCount > 0 && (
                   <>
@@ -2268,6 +2347,7 @@ export default function App() {
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags}/></div>}
+          {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
 
@@ -2364,6 +2444,67 @@ export default function App() {
                   )
                 })()}
                 {detailTab==='overview'&&<OverviewTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditProperty={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
+                {detailTab==='overview' && (() => {
+                  // Insurance summary: find policies covering THIS property.
+                  // Includes:
+                  //  - policies with an explicit property link
+                  //  - company-wide policies (no property links) belonging to
+                  //    the same company as this property
+                  const myPolicies = insurancePolicies.filter(pol => {
+                    if (pol.company_id !== selected.company_id) return false
+                    const links = pol.properties || []
+                    return links.length === 0 || links.some(p => p.id === selected.id)
+                  })
+                  if (myPolicies.length === 0) {
+                    return (
+                      <div className="card" style={{padding:'14px 20px',marginTop:14,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+                        <div>
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>🛡 Insurance</div>
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>No policies cover this property yet.</div>
+                        </div>
+                        <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setView('insurance')}>Add policy →</button>
+                      </div>
+                    )
+                  }
+                  // Show the next-expiring policy prominently, with a small
+                  // list of any others. Sorted by expiry date ascending.
+                  const sorted = [...myPolicies].sort((a,b) => new Date(a.expiry_date) - new Date(b.expiry_date))
+                  const today = new Date(); today.setHours(0,0,0,0)
+                  return (
+                    <div className="card" style={{padding:'16px 20px',marginTop:14}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
+                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                          🛡 Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
+                        </div>
+                        <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>setView('insurance')}>Manage →</button>
+                      </div>
+                      <div style={{display:'grid',gap:6}}>
+                        {sorted.map(pol => {
+                          const expiry = new Date(pol.expiry_date)
+                          const days = Math.floor((expiry - today) / (1000*60*60*24))
+                          const color = days < 0 ? T.red : days <= 30 ? T.amber : days <= 90 ? T.gold : T.green
+                          const status = days < 0
+                            ? `Expired ${Math.abs(days)} ${Math.abs(days)===1?'day':'days'} ago`
+                            : `Renews in ${days} ${days===1?'day':'days'}`
+                          const isCompanyWide = (pol.properties || []).length === 0
+                          return (
+                            <div key={pol.id} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:12,alignItems:'center',padding:'8px 10px',background:T.bg,borderRadius:8,borderLeft:`3px solid ${color}`}}>
+                              <div style={{minWidth:0}}>
+                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                                  {pol.policy_name}
+                                  {isCompanyWide && <span style={{fontSize:9,color:T.muted,marginLeft:6,fontWeight:400}}>· company-wide</span>}
+                                </div>
+                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{pol.provider || '—'} · expires {pol.expiry_date}</div>
+                              </div>
+                              <div style={{textAlign:'right',fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:color}}>{status}</div>
+                              <div style={{textAlign:'right',fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.text}}>{fmt(pol.premium)}/yr</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
                 {false&&detailTab==='overview-old'&&<div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
                     {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
@@ -2825,7 +2966,7 @@ function PropertyModal({prop,companies,onClose,onSave}){
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
         <div className="g2"><div><label>Property Name *</label><input value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Flat 1, Station Road"/></div><div><label>Company *</label><select value={form.company_id} onChange={e=>s('company_id',e.target.value)}>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div></div>
         <div><label>Full Address *</label><input value={form.address} onChange={e=>s('address',e.target.value)}/></div>
-        <div className="g2"><div><label>Property Type</label><input value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{['purchased','refurb','rented','vacant','sold'].map(x=><option key={x}>{x}</option>)}</select></div></div>
+        <div className="g2"><div><label>Property Type</label><input value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{PROPERTY_STATUSES.map(x=><option key={x} value={x}>{PROPERTY_STATUS_LABELS[x]}</option>)}</select></div></div>
           <div><label>Managed By</label><input value={form.managed_by||''} onChange={e=>s('managed_by',e.target.value)} placeholder="e.g. Propertunity, Rook Matthews Sayer"/></div>
         <div className="g2"><div><label>Purchase Price</label><MoneyInput prefix="£" value={form.purchase_price} onChange={v=>s('purchase_price',v)}/></div><div><label>Estimated Value</label><MoneyInput prefix="£" value={form.est_value} onChange={v=>s('est_value',v)}/></div></div>
         <div className="g2"><div><label>Refurb Cost</label><MoneyInput prefix="£" value={form.refurb_cost} onChange={v=>s('refurb_cost',v)}/></div><div><label>Mortgage Amount</label><MoneyInput prefix="£" value={form.mortgage_amount} onChange={v=>s('mortgage_amount',v)}/></div></div>
@@ -3370,7 +3511,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
       {/* Companies */}
       {companies.map(c=>{
-        const cps = properties.filter(p=>p.company_id===c.id&&(p.rent_payments?.length>0||p.status==='rented'))
+        const cps = properties.filter(p=>p.company_id===c.id&&(p.rent_payments?.length>0||isPropertyEarningRent(p.status)))
         if (!cps.length) return null
         const totals = getCompanyTotals(cps, globalYear)
         const isOpen = expandedCompanies[c.id] !== false // default open

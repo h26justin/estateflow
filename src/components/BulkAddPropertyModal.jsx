@@ -29,12 +29,15 @@ const PREFIXES = [
   { v: 'custom',    l: 'Custom prefix…' },
 ]
 
-// Status options aligned with the rest of the app
+// Status options aligned with the rest of the app. Order matches the typical
+// lifecycle: bought → refurbed → let-agreed → rented → notice → vacant.
 const STATUSES = [
-  { v: 'vacant',    l: 'Vacant' },
-  { v: 'rented',    l: 'Rented' },
-  { v: 'refurb',    l: 'In Refurb' },
-  { v: 'purchased', l: 'Purchased (not let)' },
+  { v: 'purchased',    l: 'Purchased (not let)' },
+  { v: 'refurb',       l: 'In Refurb' },
+  { v: 'let_agreed',   l: 'Let agreed' },
+  { v: 'rented',       l: 'Rented' },
+  { v: 'notice_given', l: 'Notice given' },
+  { v: 'vacant',       l: 'Vacant' },
 ]
 
 export default function BulkAddPropertyModal({ companies = [], onClose, onSaved, showToast }) {

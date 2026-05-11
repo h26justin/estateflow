@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
+import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = (n,d=1) => (n||0).toFixed(d)+'%'
@@ -334,7 +335,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
   switch(id) {
     case 'pnl': {
-      const rows = filtProps.map(p => { const rent=p.status==='rented'?(p.rent_pcm||0)*12:0; const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0); return {name:p.name,rent,exp,net:rent-exp,yield:p.est_value?((p.rent_pcm||0)*12/p.est_value*100):0}}).sort((a,b)=>b.net-a.net)
+      const rows = filtProps.map(p => { const rent=isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0; const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0); return {name:p.name,rent,exp,net:rent-exp,yield:p.est_value?((p.rent_pcm||0)*12/p.est_value*100):0}}).sort((a,b)=>b.net-a.net)
       const tR=rows.reduce((s,r)=>s+r.rent,0), tE=rows.reduce((s,r)=>s+r.exp,0)
       return { title:'Annual P&L', kpis:[['Total income',fmt(tR)],['Total expenses',fmt(tE)],['Net profit',fmt(tR-tE)],['Net margin',tR>0?fmtPct((tR-tE)/tR*100):'—']], headers:['Property','Annual Rent','Expenses','Net Profit','Gross Yield'], rows:rows.map(r=>[r.name,fmt(r.rent),fmt(r.exp),fmt(r.net),r.yield>0?fmtPct(r.yield):'—']), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE),''] }
     }
@@ -365,25 +366,25 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Yield Comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
     }
     case 'best_worst': {
-      const rows = filtProps.map(p=>{const rent=p.status==='rented'?(p.rent_pcm||0)*12:0;const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0);const net=rent-exp;const cost=(p.purchase_price||0)+(p.refurb_cost||0);return{name:p.name,net,yield:p.est_value&&p.rent_pcm?((p.rent_pcm*12)/p.est_value)*100:0,roi:cost>0?(net/cost)*100:0,status:p.status||'—'}}).sort((a,b)=>b.net-a.net)
+      const rows = filtProps.map(p=>{const rent=isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0;const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0);const net=rent-exp;const cost=(p.purchase_price||0)+(p.refurb_cost||0);return{name:p.name,net,yield:p.est_value&&p.rent_pcm?((p.rent_pcm*12)/p.est_value)*100:0,roi:cost>0?(net/cost)*100:0,status:p.status||'—'}}).sort((a,b)=>b.net-a.net)
       return { title:'Best & Worst Performers', kpis:[['Top earner',rows[0]?.name||'—'],['Top monthly profit',rows[0]?fmt(rows[0].net/12):'—'],['Worst performer',rows[rows.length-1]?.name||'—']], headers:['Rank','Property','Annual Profit','Gross Yield','ROI','Status'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.net),fmtPct(r.yield),fmtPct(r.roi),r.status]) }
     }
     case 'occupancy': {
-      const rented=filtProps.filter(p=>p.status==='rented').length,vacant=filtProps.filter(p=>p.status==='vacant').length,rate=filtProps.length>0?(rented/filtProps.length)*100:0
-      return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(rate)],['Rented',rented.toString()],['Vacant',vacant.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,p.status||'—',fmt(p.rent_pcm),p.status==='rented'?'Yes':'No']) }
+      const rented=filtProps.filter(p=>isPropertyEarningRent(p.status)).length,vacant=filtProps.filter(p=>p.status==='vacant').length,rate=filtProps.length>0?(rented/filtProps.length)*100:0
+      return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(rate)],['Rented',rented.toString()],['Vacant',vacant.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,p.status||'—',fmt(p.rent_pcm),isPropertyEarningRent(p.status)?'Yes':'No']) }
     }
     case 'rent_collect': {
-      const expected=filtProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+      const expected=filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
       const collected=filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
       const rate=expected>0?(collected/expected)*100:100
-      return { title:'Rent Collection Rate', kpis:[['Collection rate',fmtPct(rate)],['Expected',fmt(expected)],['Collected',fmt(collected)]], headers:['Property','Expected Annual','Status'], rows:filtProps.filter(p=>p.status==='rented').map(p=>[p.name,fmt((p.rent_pcm||0)*12),'Rented']) }
+      return { title:'Rent Collection Rate', kpis:[['Collection rate',fmtPct(rate)],['Expected',fmt(expected)],['Collected',fmt(collected)]], headers:['Property','Expected Annual','Status'], rows:filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p=>[p.name,fmt((p.rent_pcm||0)*12),'Rented']) }
     }
     case 'portfolio_growth': {
       const tI=filtProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0),0),tV=filtProps.reduce((s,p)=>s+(p.est_value||0),0),tE=filtProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0)
       return { title:'Portfolio Growth Tracker', kpis:[['Total invested',fmt(tI)],['Portfolio value',fmt(tV)],['Total equity',fmt(tE)],['Gain',fmt(tV-tI)]], headers:['Property','Invested','Est. Value','Equity','Growth %'], rows:filtProps.map(p=>{const inv=(p.purchase_price||0)+(p.refurb_cost||0);const val=p.est_value||0;return[p.name,fmt(inv),fmt(val),fmt(val-(p.mortgage_amount||0)),inv>0?fmtPct((val-inv)/inv*100):'—']}) }
     }
     case 'cashflow': {
-      const rent=filtProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0)*12
+      const rent=filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)*12
       const exp=filtExp.reduce((s,e)=>s+(e.amount||0),0)
       return { title:'Monthly Cash Flow', kpis:[['Total income',fmt(rent)],['Total outgoings',fmt(exp)],['Net cash flow',fmt(rent-exp)]], headers:['Month','Rent Income','Expenses','Net Cash Flow'], rows:MONTHS.map(m=>[m,fmt(Math.round(rent/12)),fmt(Math.round(exp/12)),fmt(Math.round((rent-exp)/12))]) }
     }
@@ -640,7 +641,7 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     case 'pnl': return [
       ['Property','Status','Annual Rent','Expenses','Net Profit','Gross Yield','Est Value'],
       ...filtProps.map(p=>{
-        const rent = p.status==='rented'?(p.rent_pcm||0)*12:0
+        const rent = isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0
         const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
         return [p.name,p.status,rent,exp,rent-exp,p.est_value?((p.rent_pcm||0)*12/(p.est_value)*100).toFixed(1)+'%':'—',p.est_value||0]
       })
@@ -663,7 +664,7 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
 
 function ReportPnL({ filtProps, filtExp, range, T, accent, fmt, fmtPct }) {
   const rows = filtProps.map(p => {
-    const rent = p.status==='rented' ? (p.rent_pcm||0)*12 : 0
+    const rent = isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0
     const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
     const yield_ = p.est_value ? ((p.rent_pcm||0)*12/p.est_value)*100 : 0
@@ -871,7 +872,7 @@ function ReportYieldComparison({ filtProps, T, accent, fmt, fmtPct }) {
 
 function ReportBestWorst({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
   const rows = filtProps.map(p => {
-    const rent = p.status==='rented'?(p.rent_pcm||0)*12:0
+    const rent = isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0
     const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
     const cost = (p.purchase_price||0)+(p.refurb_cost||0)
@@ -895,7 +896,7 @@ function ReportBestWorst({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
           {v:fmt(r.net),color:r.net>=0?T.green:T.red,bold:true,right:true},
           {v:r.yield>0?fmtPct(r.yield):'—',color:r.yield>=6?T.green:r.yield>=4?T.amber:T.red,right:true},
           {v:r.roi>0?fmtPct(r.roi):'—',color:accent,right:true},
-          {v:r.p.status||'—',color:r.p.status==='rented'?T.green:T.amber},
+          {v:r.p.status||'—',color:r.isPropertyEarningRent(p.status)?T.green:T.amber},
         ])}
       />
     </>
@@ -904,7 +905,7 @@ function ReportBestWorst({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
 
 function ReportOccupancy({ filtProps, T, accent, fmt }) {
   const total = filtProps.length
-  const rented = filtProps.filter(p=>p.status==='rented').length
+  const rented = filtProps.filter(p=>isPropertyEarningRent(p.status)).length
   const vacant = filtProps.filter(p=>p.status==='vacant').length
   const rate = total>0?(rented/total)*100:0
   const voidCost = filtProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0)
@@ -920,9 +921,9 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
         headers={[{label:'Property'},{label:'Status',width:'120px'},{label:'Monthly rent',right:true,width:'130px'},{label:'Occupied',width:'100px'}]}
         rows={filtProps.sort((a,b)=>a.status==='vacant'?-1:1).map(p=>[
           p.name,
-          {v:p.status||'unknown',color:p.status==='rented'?T.green:T.red},
+          {v:p.status||'unknown',color:isPropertyEarningRent(p.status)?T.green:T.red},
           {v:fmt(p.rent_pcm),right:true},
-          {v:p.status==='rented'?'Yes':'No',color:p.status==='rented'?T.green:T.red},
+          {v:isPropertyEarningRent(p.status)?'Yes':'No',color:isPropertyEarningRent(p.status)?T.green:T.red},
         ])}
       />
     </>
@@ -930,7 +931,7 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
 }
 
 function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
-  const expected = filtProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+  const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
   const collected = filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
   const overdue = filtRent.filter(r=>r.status==='overdue').reduce((s,r)=>s+(r.amount||0),0)
   const rate = expected>0?(collected/expected)*100:100
@@ -944,7 +945,7 @@ function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
       ]}/>
       <ReportTable T={T} accent={accent}
         headers={[{label:'Property'},{label:'Expected annual',right:true,width:'150px'},{label:'Status',width:'120px'}]}
-        rows={filtProps.filter(p=>p.status==='rented').map(p=>[
+        rows={filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p=>[
           p.name,
           {v:fmt((p.rent_pcm||0)*12),right:true},
           {v:'Rented',color:T.green},
@@ -984,7 +985,7 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
     ? [3,4,5,6,7,8,9,10,11,0,1,2].map(m=>({m,y:m>=3?year:year+1}))
     : [0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({m,y:year}))
   const mData = months.map(({m,y}) => {
-    const rent = filtProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0)
+    const rent = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
     const exp = filtExp.filter(e => new Date(e.date).getMonth()===m && new Date(e.date).getFullYear()===y).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
     return { label: MONTHS[m], rent, exp, net }

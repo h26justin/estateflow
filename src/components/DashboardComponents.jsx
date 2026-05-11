@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { supabase } from '../lib/supabase'
+import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -175,7 +176,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
   })
 
   // P&L calculations
-  const annualRent = filteredProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+  const annualRent = filteredProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
   const totalExpenses = filteredExp.reduce((s,e)=>s+(e.amount||0),0)
   const netProfit = annualRent - totalExpenses
   const totalMortgage = filteredProps.reduce((s,p)=>s+(p.mortgage_amount||0),0)
@@ -186,7 +187,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
 
   // Per-property P&L
   const propPnL = filteredProps.map(p=>{
-    const rent = p.status==='rented' ? (p.rent_pcm||0)*12 : 0
+    const rent = isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0
     const exp = filteredExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
     const yield_ = p.est_value ? ((p.rent_pcm||0)*12/(p.est_value))*100 : 0
@@ -531,7 +532,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       {/* Summary cards */}
       <div className="kpi-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
         {[
-          {l:'Annual Rent Income',   v:fmt(annualRent),    c:T.green,  sub:`${filteredProps.filter(p=>p.status==='rented').length} rented properties`},
+          {l:'Annual Rent Income',   v:fmt(annualRent),    c:T.green,  sub:`${filteredProps.filter(p=>isPropertyEarningRent(p.status)).length} rented properties`},
           {l:'Total Expenses',       v:fmt(totalExpenses), c:T.red,    sub:`${selectedYear} recorded expenses`},
           {l:'Net Profit (Est.)',    v:fmt(netProfit),     c:netProfit>=0?T.green:T.red, sub:'Before tax'},
           {l:'Portfolio Value',      v:fmt(filteredProps.reduce((s,p)=>s+(p.est_value||0),0)), c:T.gold, sub:`${filteredProps.length} properties`},
@@ -604,7 +605,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
         <div style={{display:'grid',gap:12}}>
           {companies.filter(c=>selectedCompany==='all'||c.id===selectedCompany).map(c=>{
             const cProps = properties.filter(p=>p.company_id===c.id)
-            const cRent = cProps.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+            const cRent = cProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
             const cExp = filteredExp.filter(e=>e.property?.company_id===c.id).reduce((s,e)=>s+(e.amount||0),0)
             const maxVal = Math.max(cRent, cExp, 1)
             if (cRent===0 && cExp===0) return null
@@ -796,7 +797,7 @@ export function PortfolioChart({properties, companies}) {
   // Cumulative properties and value by year (using purchase_date if available, else estimate)
   const yearData = years.map(yr=>{
     const propsToDate = properties // All properties (we don't have exact purchase dates)
-    const rent = properties.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0)
+    const rent = properties.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
     return {year:yr, properties:properties.length, monthlyRent:rent, value:properties.reduce((s,p)=>s+(p.est_value||0),0)}
   })
 
@@ -809,7 +810,7 @@ export function PortfolioChart({properties, companies}) {
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
         {[
           {l:'Total Properties', v:properties.length, c:T.gold},
-          {l:'Monthly Rent Roll', v:`£${(properties.filter(p=>p.status==='rented').reduce((s,p)=>s+(p.rent_pcm||0),0)).toLocaleString()}`, c:T.green},
+          {l:'Monthly Rent Roll', v:`£${(properties.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)).toLocaleString()}`, c:T.green},
           {l:'Est. Portfolio Value', v:`£${(properties.reduce((s,p)=>s+(p.est_value||0),0)/1000000).toFixed(1)}m`, c:T.gold},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px',textAlign:'center'}}>
@@ -848,14 +849,18 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
   // Filter by scope
   const inScope = eligible.filter(p => {
     if (scope === 'all')    return true
-    if (scope === 'rented') return p.status === 'rented'
+    if (scope === 'rented') return isPropertyEarningRent(p.status)
     return p.company_id === scope
   })
 
   // Tenancy status classifier
   function tenancyBadge(p) {
-    if (p.status !== 'rented') return { label: 'Vacant',        color: T.green, dot: '🟢' }
-    if (!p.tenancy_end)        return { label: 'No end date',   color: T.muted, dot: '⚪' }
+    // notice_given is still rented (tenant paying) but with an imminent
+    // end date — so it gets the same date-based classification as a
+    // regular rented property. let_agreed / vacant / etc are "vacant"
+    // from a tenancy-expiry perspective.
+    if (!isPropertyOccupied(p.status)) return { label: 'Vacant',        color: T.green, dot: '🟢' }
+    if (!p.tenancy_end)                return { label: 'No end date',   color: T.muted, dot: '⚪' }
     const today = new Date()
     const end = new Date(p.tenancy_end)
     const diffDays = Math.round((end - today) / (1000 * 60 * 60 * 24))

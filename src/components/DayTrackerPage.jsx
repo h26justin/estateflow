@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
+import { isPropertyEarningRent } from '../lib/propertyStatus'
 
 const mono = "'DM Mono',monospace"
 
@@ -44,9 +45,10 @@ function isPropertyOverdue(prop) {
       return true
     }
   }
-  // Also flag rented properties with a past month that has no payment row
-  // (i.e. fell through the cracks). Look back up to 3 months.
-  if (prop.status === 'rented') {
+  // Also flag rented (or notice_given) properties with a past month that has
+  // no payment row — these are properties still earning rent that may have
+  // fallen through the cracks. Look back up to 3 months.
+  if (isPropertyEarningRent(prop.status)) {
     for (let backMonths = 1; backMonths <= 3; backMonths++) {
       const d = new Date(now.getFullYear(), now.getMonth() - backMonths, 1)
       const y = d.getFullYear(), m = d.getMonth() + 1
@@ -108,9 +110,10 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
   const DOW = ['M','T','W','T','F','S','S']
   const firstDow = (new Date(year, month-1, 1).getDay() + 6) % 7 // 0=Mon
 
-  // Filter to properties that have any payments or are rented
+  // Filter to properties that have any payments or are currently earning
+  // rent (rented or notice_given). Excludes vacant, refurb, sold, etc.
   const baseActiveProps = properties.filter(p =>
-    (p.rent_payments?.length > 0) || p.status === 'rented'
+    (p.rent_payments?.length > 0) || isPropertyEarningRent(p.status)
   )
   // Apply overdue filter mode. 'overdue-highlighted' keeps everything visible
   // and just adds a red border later. 'overdue-only' actually filters the list.
@@ -203,7 +206,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
           const payments = p.rent_payments || []
           for (const { y, m } of months) {
             const match = payments.find(rp => rp.year === y && rp.month === m)
-            const status = match ? match.status : (p.status === 'rented' ? 'void' : '')
+            const status = match ? match.status : (isPropertyEarningRent(p.status) ? 'void' : '')
             const amount = match ? (match.amount || '') : ''
             const ps = match?.period_start || ''
             const pe = match?.period_end || ''
