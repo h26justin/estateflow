@@ -54,10 +54,14 @@ export default function InsurancePage({ user, companies = [], properties = [], s
   const [policies, setPolicies] = useState([])
   const [loading, setLoading]   = useState(true)
   const [coFilter, setCoFilter] = useState('all')
-  const [view, setView]         = useState('active')      // 'active' | 'all' | 'history'
+  const [view, setView]         = useState('by_property')  // 'by_property' | 'active' | 'all' | 'history'
   const [historyChainId, setHistoryChainId] = useState(null)
   const [editing, setEditing]   = useState(null)          // policy being edited, or {} for new
   const [renewing, setRenewing] = useState(null)          // policy being renewed (snapshot for the modal)
+  // When the user clicks a property with multiple policies, we show a small
+  // picker rather than opening one of them by guesswork. Tracks the property
+  // whose picker is open; null means no picker showing.
+  const [propertyPicker, setPropertyPicker] = useState(null)
 
   useEffect(() => { reload() }, [])
 
@@ -158,6 +162,37 @@ export default function InsurancePage({ user, companies = [], properties = [], s
     })
   }
 
+  /**
+   * Smart routing when a user clicks a property in the "By Property" view:
+   *   - 0 policies covering this property → open new-policy modal pre-ticked
+   *   - 1 policy                          → open edit modal for that policy
+   *   - >1 policies                       → show picker, user chooses what to manage
+   *
+   * "Covering this property" includes both per-property links AND company-wide
+   * policies (no property links) belonging to the same company.
+   */
+  function policiesForProperty(property) {
+    return policies.filter(pol => {
+      if (pol.company_id !== property.company_id) return false
+      const links = pol.properties || []
+      return links.length === 0 || links.some(p => p.id === property.id)
+    })
+  }
+  function handlePropertyClick(property) {
+    const covering = policiesForProperty(property)
+    if (covering.length === 0) {
+      // No policies — open new-policy modal with this property pre-selected
+      setEditing({
+        company_id:   property.company_id,
+        _propertyIds: [property.id],
+      })
+    } else if (covering.length === 1) {
+      setEditing(covering[0])
+    } else {
+      setPropertyPicker({ property, policies: covering })
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
 
@@ -197,7 +232,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
 
       {/* View toggle */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {[['active', 'Active'], ['all', 'All'], ['history', 'History']].map(([k, l]) => (
+        {[['by_property', 'By Property'], ['active', 'Active'], ['all', 'All'], ['history', 'History']].map(([k, l]) => (
           <button key={k} onClick={() => setView(k)}
             style={{
               fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
@@ -215,6 +250,16 @@ export default function InsurancePage({ user, companies = [], properties = [], s
         <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading policies…</div>
         </div>
+      ) : view === 'by_property' ? (
+        <ByPropertyView
+          properties={properties}
+          companies={companies}
+          policies={policies}
+          coFilter={coFilter}
+          policiesForProperty={policiesForProperty}
+          onPropertyClick={handlePropertyClick}
+          T={T}
+        />
       ) : view === 'history' ? (
         <HistoryView
           chain={historyChain}
@@ -256,6 +301,76 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           onClose={() => setEditing(null)}
           onSave={handleSave}
         />
+      )}
+
+      {/* Property picker — shown when a property has multiple policies and
+          the user clicks it from By Property view. Lets them choose which
+          policy to manage, or add a new one. */}
+      {propertyPicker && (
+        <div className="overlay" onClick={() => setPropertyPicker(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div style={{ padding: '22px 26px 0' }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
+                Manage insurance
+              </h2>
+              <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 16 }}>
+                {propertyPicker.property.name || propertyPicker.property.address} is covered by {propertyPicker.policies.length} policies. Which would you like to manage?
+              </p>
+            </div>
+            <div style={{ padding: '0 26px 22px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {propertyPicker.policies.map(pol => {
+                const days = Math.floor((new Date(pol.expiry_date) - new Date()) / 86400000)
+                const color = days < 0 ? T.red : days <= 30 ? T.amber : days <= 90 ? T.gold : T.green
+                return (
+                  <button
+                    key={pol.id}
+                    onClick={() => { setEditing(pol); setPropertyPicker(null) }}
+                    style={{
+                      display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+                      padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                      background: T.bg, border: `1px solid ${T.border}`,
+                      borderLeft: `3px solid ${color}`,
+                      textAlign: 'left', fontFamily: mono,
+                    }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{pol.policy_name}</div>
+                      <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>
+                        {TYPE_LABEL[pol.policy_type] || pol.policy_type} · expires {pol.expiry_date}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: T.text }}>{fmt(pol.premium)}/yr</div>
+                      <div style={{ fontSize: 9, color }}>
+                        {days < 0 ? `Expired ${Math.abs(days)}d ago` : `Renews ${days}d`}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+              {/* Add another policy option */}
+              <button
+                onClick={() => {
+                  // Open new-policy modal pre-ticked to this property
+                  setEditing({
+                    company_id:   propertyPicker.property.company_id,
+                    _propertyIds: [propertyPicker.property.id],
+                  })
+                  setPropertyPicker(null)
+                }}
+                style={{
+                  padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                  background: 'transparent', border: `1px dashed ${T.gold}`,
+                  color: T.gold, fontFamily: mono, fontSize: 11, fontWeight: 700,
+                  textAlign: 'center', marginTop: 4,
+                }}>
+                + Add another policy
+              </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setPropertyPicker(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -346,7 +461,227 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
   )
 }
 
-// ── History view ──────────────────────────────────────────────────────────
+// ── By Property view ──────────────────────────────────────────────────────
+// Mirrors the Rent Tracker layout: group properties by company, show each
+// property's insurance status with a colour-coded pill. Clicking a property
+// triggers smart routing in the parent (handlePropertyClick).
+//
+// This is the most useful default landing because it answers the question
+// "what's NOT insured?" at a glance — which is much harder to answer from
+// the policy-centric Active/All views.
+function ByPropertyView({ properties, companies, policies, coFilter, policiesForProperty, onPropertyClick, T }) {
+  // Exclude sold/archived properties, like the rent tracker does.
+  // 'archived_at' presence means manually archived; status='sold' means
+  // disposed of. Neither needs insurance tracking going forward.
+  const activeProps = useMemo(
+    () => properties.filter(p => p.status !== 'sold' && !p.archived_at),
+    [properties]
+  )
+  // Apply the company filter from the parent (the pills at the top).
+  // Default 'all' = every company; otherwise filter to one.
+  const visibleProps = useMemo(
+    () => coFilter === 'all' ? activeProps : activeProps.filter(p => p.company_id === coFilter),
+    [activeProps, coFilter]
+  )
+  const visibleCos = useMemo(
+    () => coFilter === 'all' ? companies : companies.filter(c => c.id === coFilter),
+    [companies, coFilter]
+  )
+
+  // Group by company, dropping empty groups so we don't render blank cards.
+  const groups = useMemo(() =>
+    visibleCos
+      .map(c => ({
+        company: c,
+        props: visibleProps
+          .filter(p => p.company_id === c.id)
+          // Sort naturally by name so "Flat 2" comes before "Flat 10"
+          .sort((a, b) => String(a.name || a.address || '').localeCompare(
+            String(b.name || b.address || ''),
+            undefined,
+            { numeric: true, sensitivity: 'base' }
+          )),
+      }))
+      .filter(g => g.props.length > 0),
+    [visibleCos, visibleProps]
+  )
+
+  /**
+   * Classify a property's insurance status based on the BEST of all its
+   * covering policies — i.e. the one with the longest time to expiry.
+   * That way a property covered by one expiring policy AND one new policy
+   * shows as healthy, not as "expired".
+   *
+   * Returns one of:
+   *   { kind: 'insured',     label, color, days, nextExpiry, count }   — active, beyond 30 days
+   *   { kind: 'renewing',    label, color, days, nextExpiry, count }   — within 30 days
+   *   { kind: 'expired',     label, color, days, nextExpiry, count }   — all policies past expiry
+   *   { kind: 'not_insured', label, color }                            — no policies at all
+   */
+  function classify(property) {
+    const covering = policiesForProperty(property)
+    if (covering.length === 0) {
+      return { kind: 'not_insured', label: '❌ Not insured', color: T.red }
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    // For each policy, compute days-to-expiry. The "best" is the largest
+    // (or least-negative if all expired).
+    const ranked = covering
+      .map(p => ({ pol: p, days: Math.floor((new Date(p.expiry_date) - today) / 86400000) }))
+      .sort((a, b) => b.days - a.days)
+    const best = ranked[0]
+    const days = best.days
+    if (days < 0) {
+      return {
+        kind: 'expired',
+        label: `🔴 Expired ${Math.abs(days)}d ago`,
+        color: T.red, days,
+        nextExpiry: best.pol.expiry_date, count: covering.length,
+      }
+    }
+    if (days <= 30) {
+      return {
+        kind: 'renewing',
+        label: `⚠ Renews in ${days}d`,
+        color: T.amber, days,
+        nextExpiry: best.pol.expiry_date, count: covering.length,
+      }
+    }
+    return {
+      kind: 'insured',
+      label: `✅ Insured`,
+      color: T.green, days,
+      nextExpiry: best.pol.expiry_date, count: covering.length,
+    }
+  }
+
+  const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '16px 18px' }
+
+  // Empty state
+  if (groups.length === 0) {
+    return (
+      <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🏠</div>
+        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
+          {properties.length === 0
+            ? 'No properties yet. Add properties to start tracking insurance coverage.'
+            : 'No properties match the current filter.'}
+        </div>
+      </div>
+    )
+  }
+
+  // Portfolio-level summary numbers — gives a "we're covered/we're not" feel
+  // at the top of the page.
+  const allVisible = visibleProps.map(p => ({ prop: p, status: classify(p) }))
+  const insuredCount    = allVisible.filter(x => x.status.kind === 'insured').length
+  const renewingCount   = allVisible.filter(x => x.status.kind === 'renewing').length
+  const expiredCount    = allVisible.filter(x => x.status.kind === 'expired').length
+  const notInsuredCount = allVisible.filter(x => x.status.kind === 'not_insured').length
+
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      {/* Summary strip */}
+      <div style={card}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {[
+            { l: 'Insured',     v: insuredCount,    c: T.green,  i: '✅' },
+            { l: 'Renewing',    v: renewingCount,   c: T.amber,  i: '⚠'  },
+            { l: 'Expired',     v: expiredCount,    c: T.red,    i: '🔴' },
+            { l: 'Not insured', v: notInsuredCount, c: T.red,    i: '❌' },
+          ].map(item => (
+            <div key={item.l} style={{ padding: '10px 12px', background: T.bg, borderRadius: 8, borderLeft: `3px solid ${item.c}` }}>
+              <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+                {item.i} {item.l}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: item.v > 0 && (item.l === 'Not insured' || item.l === 'Expired') ? item.c : T.text }}>
+                {item.v}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+          Click any property to view or update its policy. Properties with no coverage open a new-policy form pre-ticked.
+        </div>
+      </div>
+
+      {/* Company groups */}
+      {groups.map(({ company, props }) => {
+        const ps = props.map(p => ({ prop: p, status: classify(p) }))
+        const groupInsured    = ps.filter(x => x.status.kind === 'insured').length
+        const groupTotal      = ps.length
+        return (
+          <div key={company.id} style={card}>
+            {/* Group header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
+                  background: (company.color || T.gold) + '22',
+                  color: company.color || T.gold }}>
+                  {company.abbr}
+                </span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{company.name}</span>
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
+                {groupInsured} of {groupTotal} covered
+              </div>
+            </div>
+            {/* Property rows */}
+            <div style={{ display: 'grid', gap: 6 }}>
+              {ps.map(({ prop, status }) => (
+                <button
+                  key={prop.id}
+                  onClick={() => onPropertyClick(prop)}
+                  style={{
+                    display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, alignItems: 'center',
+                    padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                    background: T.bg, border: `1px solid ${T.border}`,
+                    borderLeft: `3px solid ${status.color}`,
+                    fontFamily: mono, fontSize: 11, color: T.text,
+                    textAlign: 'left',
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.card}
+                  onMouseLeave={e => e.currentTarget.style.background = T.bg}
+                  title="Click to manage insurance for this property"
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {prop.name || prop.address || 'Untitled'}
+                    </div>
+                    {prop.address && prop.address !== prop.name && (
+                      <div style={{ fontSize: 9, color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {prop.address}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{
+                      fontFamily: mono, fontSize: 10, fontWeight: 700,
+                      padding: '3px 8px', borderRadius: 4,
+                      background: status.color + '22', color: status.color,
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {status.label}
+                    </span>
+                    {status.kind !== 'not_insured' && status.count > 1 && (
+                      <div style={{ fontSize: 9, color: T.muted, marginTop: 2 }}>
+                        {status.count} policies
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ color: T.muted, fontSize: 16 }}>›</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+
 // Lets the user pick a policy "head" and walks the chain backwards via
 // previous_policy_id. Shows year-over-year premium with deltas.
 function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
