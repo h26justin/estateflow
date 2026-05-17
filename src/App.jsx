@@ -647,6 +647,10 @@ export default function App() {
   const [view,        setView]         = useState('dashboard')
   const [selectedId,  setSelectedId]   = useState(null)
   const [detailTab,   setDetailTab]    = useState('overview')
+  // Selected report id when drilled into a specific report. Lifted up here
+  // so it can participate in browser history (back/forward) instead of
+  // being purely local state inside ReportsPage. null = catalogue view.
+  const [selectedReportId, setSelectedReportId] = useState(null)
   const [portfolioTab, setPortfolioTab] = useState('properties')
   const [coFilter,    setCoFilter]     = useState('all')
   const [dashCoFilter, setDashCoFilter] = useState([]) // [] = all companies
@@ -857,6 +861,11 @@ export default function App() {
       if (parts[0] === 'rent' && parts[1] === 'day') {
         return { view: 'daytracker' }
       }
+      // /reports                — catalogue
+      // /reports/<reportId>     — drilled into a specific report
+      if (parts[0] === 'reports' && parts[1]) {
+        return { view: 'reports', selectedReportId: parts[1] }
+      }
       return { view: parts[0] || 'dashboard' }
     }
 
@@ -866,6 +875,7 @@ export default function App() {
     if (initial.selectedId) setSelectedId(initial.selectedId)
     if (initial.detailTab) setDetailTab(initial.detailTab)
     if (initial.portfolioTab) setPortfolioTab(initial.portfolioTab)
+    if (initial.selectedReportId) setSelectedReportId(initial.selectedReportId)
     if (initial.view === 'admin') {
       setShowAdmin(true)
       if (initial.adminTab) window.dispatchEvent(new CustomEvent('ownproperly:set-admin-tab', { detail: { tab: initial.adminTab } }))
@@ -883,6 +893,9 @@ export default function App() {
       setShowAdmin(false)
       setView(parsed.view || 'dashboard')
       setSelectedId(parsed.selectedId || null)
+      // Always reflect the report id from the URL (including clearing it
+      // when the user pops back from a specific report to the catalogue).
+      setSelectedReportId(parsed.selectedReportId || null)
       if (parsed.detailTab) setDetailTab(parsed.detailTab)
       if (parsed.portfolioTab) setPortfolioTab(parsed.portfolioTab)
       if (parsed.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: parsed.settingsTab } }))
@@ -894,6 +907,12 @@ export default function App() {
   // Sync to URL whenever navigation state changes
   useEffect(() => {
     if (!user) return
+    // Leaving the reports view? Drop any selected report id so we don't
+    // carry stale state into the next visit.
+    if (view !== 'reports' && selectedReportId) {
+      setSelectedReportId(null)
+      return  // re-trigger this effect with the cleared id
+    }
     let target = `#/${view}`
     if (view === 'detail' && selectedId) {
       target = `#/detail/${selectedId}`
@@ -902,11 +921,15 @@ export default function App() {
       target = '#/properties/companies'
     } else if (view === 'daytracker') {
       target = '#/rent/day'
+    } else if (view === 'reports' && selectedReportId) {
+      // When drilled into a specific report, encode its id so browser
+      // back returns to the catalogue (the bare /reports URL).
+      target = `#/reports/${selectedReportId}`
     }
     if (window.location.hash !== target) {
-      window.history.pushState({ view, selectedId, detailTab, portfolioTab }, '', target)
+      window.history.pushState({ view, selectedId, detailTab, portfolioTab, selectedReportId }, '', target)
     }
-  }, [view, selectedId, detailTab, portfolioTab, user])
+  }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user])
 
   useEffect(()=>{
     if (!user) return
@@ -2358,7 +2381,7 @@ export default function App() {
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
-          {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags}/></div>}
+          {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags} selectedReportId={selectedReportId} onSelectReport={setSelectedReportId}/></div>}
           {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}

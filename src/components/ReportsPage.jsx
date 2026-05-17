@@ -59,10 +59,19 @@ const REPORT_CATALOGUE = [
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
 const CAT_COLORS = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#9B59B6', maintenance:'#E0943A' }
 
-export default function ReportsPage({ properties, companies, companySettings, user }) {
+export default function ReportsPage({ properties, companies, companySettings, user, selectedReportId, onSelectReport }) {
   const { T } = useTheme()
-  const [view, setView]       = useState('catalogue')
-  const [activeReport, setActiveReport] = useState(null)
+  // Local view state: 'catalogue' shows the grid of reports, 'report'
+  // shows a specific report's content. Driven by the selectedReportId
+  // prop (which is URL-synced) when provided — falls back to local state
+  // so older callers / tests still work.
+  const [localActiveReport, setLocalActiveReport] = useState(null)
+  // Resolve the "active" report from the controlled prop if present.
+  // The catalogue is shown whenever selectedReportId is null/undefined.
+  const activeReport = selectedReportId
+    ? (REPORT_CATALOGUE.find(r => r.id === selectedReportId) || null)
+    : localActiveReport
+  const view = activeReport ? 'report' : 'catalogue'
   const [catFilter, setCatFilter] = useState('all')
   const [selectedCompany, setSelectedCompany] = useState('all')
   const [yearType, setYearType] = useState('tax')
@@ -121,8 +130,17 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const filtMaint = useMemo(() => maintenance.filter(m => selectedCompany==='all'||m.property?.company_id===selectedCompany), [maintenance, selectedCompany])
   const filtTen   = useMemo(() => tenancies.filter(t => selectedCompany==='all'||t.property?.company_id===selectedCompany), [tenancies, selectedCompany])
 
-  function openReport(report) { setActiveReport(report); setView('report') }
-  function backToCatalogue() { setView('catalogue'); setActiveReport(null) }
+  // Open a specific report. If a parent supplied onSelectReport (the URL
+  // sync) we delegate so the URL stays in sync and browser back works.
+  // Otherwise fall back to local state.
+  function openReport(report) {
+    if (onSelectReport) onSelectReport(report.id)
+    else setLocalActiveReport(report)
+  }
+  function backToCatalogue() {
+    if (onSelectReport) onSelectReport(null)
+    else setLocalActiveReport(null)
+  }
 
   const co = companies.find(c => c.id === selectedCompany)
   const cs = companySettings?.[selectedCompany] || {}
