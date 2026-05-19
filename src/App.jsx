@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo, useCallback, memo } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
@@ -7,25 +7,28 @@ import { MaintenanceTab } from './components/maintenance'
 import { RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert } from './components/tenancy'
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
-import ReportsPage from './components/ReportsPage'
-import InsurancePage from './components/InsurancePage'
+// Heavy / rarely-on-first-paint pages — code-split via React.lazy so they
+// don't bloat the initial bundle. Each one drops into its own chunk and
+// only fetches when the user navigates there.
+const ReportsPage     = lazy(() => import('./components/ReportsPage'))
+const AdminDashboard  = lazy(() => import('./components/AdminDashboard'))
+const MarketingSite   = lazy(() => import('./components/MarketingSite'))
+const TenantPortal    = lazy(() => import('./components/TenantPortal'))
+const DealsPage       = lazy(() => import('./components/DealsPage'))
+const DayTrackerPage  = lazy(() => import('./components/DayTrackerPage'))
+const PropertyMap     = lazy(() => import('./components/PropertyMap'))
+const InsurancePage   = lazy(() => import('./components/InsurancePage'))
 import { StatementImporter } from './components/StatementImporter'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
 import LoginPage from './components/LoginPage'
 import OnboardingWizard from './components/OnboardingWizard'
-import MarketingSite from './components/MarketingSite'
 import BillingPage from './components/BillingPage'
-import AdminDashboard from './components/AdminDashboard'
-import TenantPortal from './components/TenantPortal'
 import PrivacyPolicy from './components/PrivacyPolicy'
-import DealsPage from './components/DealsPage'
-import DayTrackerPage from './components/DayTrackerPage'
 import OnboardingTour from './components/OnboardingTour'
 import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
-import PropertyMap from './components/PropertyMap'
 import BulkAddPropertyModal from './components/BulkAddPropertyModal'
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
@@ -288,6 +291,18 @@ const Spinner = () => {
   return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:200}}>
     <div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
   </div>
+}
+
+// Full-viewport spinner used by Suspense fallbacks while a lazy-loaded
+// page chunk is downloaded. Takes T directly because <Suspense> renders
+// the fallback before any nested theme hooks resolve.
+function PageLoadingSpinner({ T }) {
+  return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style>
+      <div style={{ width: 32, height: 32, border: `3px solid ${T.border}`, borderTopColor: T.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}/>
+    </div>
+  )
 }
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────────
@@ -1227,11 +1242,13 @@ export default function App() {
   if (authLoading) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return (
     <>
-      <MarketingSite
-        onSignIn={()=>{ setLoginMode('login'); setShowLoginModal(true) }}
-        onSignUp={()=>{ setLoginMode('signup'); setShowLoginModal(true) }}
-        onPrivacy={()=>setShowPrivacy(true)}
-      />
+      <Suspense fallback={<PageLoadingSpinner T={T}/>}>
+        <MarketingSite
+          onSignIn={()=>{ setLoginMode('login'); setShowLoginModal(true) }}
+          onSignUp={()=>{ setLoginMode('signup'); setShowLoginModal(true) }}
+          onPrivacy={()=>setShowPrivacy(true)}
+        />
+      </Suspense>
       {showLoginModal && (
         <div onClick={e=>e.target===e.currentTarget&&setShowLoginModal(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16,backdropFilter:'blur(4px)'}}>
@@ -1242,10 +1259,12 @@ export default function App() {
   )
   if (showPrivacy) return <PrivacyPolicy onBack={()=>setShowPrivacy(false)}/>
   if (isTenant) return (
-    <TenantPortal user={user}
-      onSignOut={()=>supabase.auth.signOut()}
-      onSwitchToLandlord={()=>setIsTenant(false)}
-    />
+    <Suspense fallback={<PageLoadingSpinner T={T}/>}>
+      <TenantPortal user={user}
+        onSignOut={()=>supabase.auth.signOut()}
+        onSwitchToLandlord={()=>setIsTenant(false)}
+      />
+    </Suspense>
   )
 
   if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
@@ -1782,7 +1801,7 @@ export default function App() {
         )
       })}
       <main style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%'}}>
-        {loading?<Spinner/>:<>
+        {loading?<Spinner/>:<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
             <div style={{marginBottom:isMobile?14:20}}>
@@ -2752,7 +2771,7 @@ export default function App() {
               </div>
             </div>
           </div>}
-        </>}
+        </Suspense>}
       </main>
 
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
@@ -2875,7 +2894,9 @@ export default function App() {
 
       {/* ── ADMIN DASHBOARD OVERLAY ── */}
       {showAdmin && isPlatformAdmin && (
-        <AdminDashboard onClose={()=>setShowAdmin(false)} user={user}/>
+        <Suspense fallback={<PageLoadingSpinner T={T}/>}>
+          <AdminDashboard onClose={()=>setShowAdmin(false)} user={user}/>
+        </Suspense>
       )}
 
       {/* ── ONBOARDING TOUR ── */}
