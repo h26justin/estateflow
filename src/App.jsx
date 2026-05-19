@@ -543,6 +543,13 @@ export default function App() {
     .overlay{padding:0!important;align-items:flex-end!important;}
     .card{border-radius:10px!important;}
     input,select,textarea{font-size:16px!important;}
+    /* Defense-in-depth: stop any single child from forcing the page wider
+       than the viewport. Long text wraps; oversized images/iframes scale
+       down. Without this, a single forgotten flex child can blow the
+       horizontal scroll on iPhone — see commit fixing the dashboard
+       "Portfolio Overview" header. */
+    main img, main iframe, main video, main canvas, main pre { max-width: 100% !important; }
+    main p, main h1, main h2, main h3, main label { overflow-wrap: anywhere; word-break: break-word; }
   }
   @media(min-width:769px){
     .mobile-nav{display:none!important;}
@@ -1642,11 +1649,11 @@ export default function App() {
         {loading?<Spinner/>:<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
-            <div style={{marginBottom:isMobile?14:20}}>
+            <div style={{marginBottom:isMobile?14:20,minWidth:0}}>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:isMobile?10:16}}>
-                <div>
+                <div style={{flex:'1 1 100%',minWidth:0}}>
                   <h1 style={{fontSize:isMobile?20:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?2:4}}>Portfolio Overview</h1>
-                  <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5}}>
+                  <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
                     {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                     {dashProps.some(p=>p.current_value>0) && <>
                       {/* On mobile drop to a new line so the value/equity pair has its own row */}
@@ -2075,7 +2082,7 @@ export default function App() {
                 <>
                   {/* Customize Dashboard button — single source of truth for both sections and widget toggles */}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
-                    <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                    <div style={{flex:'1 1 auto',minWidth:0,fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                       Dashboard · {visibleSections.length} sections shown
                     </div>
                     <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
@@ -2155,11 +2162,11 @@ export default function App() {
 
           {view==='properties'&&<div className="fade">
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
-              <div>
-                <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio</h1>
+              <div style={{flex:'1 1 auto',minWidth:0}}>
+                <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio</h1>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
               </div>
-              <div style={{display:'flex',gap:8}}>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 {[['properties','🏘 Properties'],['companies','🏢 Companies'],['map','🗺 Map'],['contractors','🔧 Contractors']].map(([k,l])=>(
                   <button key={k} onClick={()=>setPortfolioTab(k)}
                     style={{fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
@@ -2192,7 +2199,7 @@ export default function App() {
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
-              <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search name or address…" style={{width:230,padding:'7px 12px',fontSize:12}}/>
+              <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search name or address…" style={{flex:'1 1 200px',minWidth:0,maxWidth:'100%',width:'auto',padding:'7px 12px',fontSize:12}}/>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
                   <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
@@ -2243,9 +2250,9 @@ export default function App() {
           </div>}
 
           {view==='companies'&&<div className="fade">
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-              <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em'}}>Companies</h1>
-              <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:20}}>
+              <h1 style={{flex:'1 1 auto',minWidth:0,fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em'}}>Companies</h1>
+              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
               {companies.map(c=>(
@@ -2319,11 +2326,11 @@ export default function App() {
 
           {view==='detail'&&selected&&<div className="fade">
             <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>&lt;- Back</button>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 280px',gap:18,alignItems:'start'}}>
-              <div>
-                <div className="card" style={{padding:'24px 28px',marginBottom:16}}>
+            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 280px',gap:18,alignItems:'start'}}>
+              <div style={{minWidth:0}}>
+                <div className="card" style={{padding:isMobile?'18px 16px':'24px 28px',marginBottom:16}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:16}}>
-                    <div>
+                    <div style={{flex:'1 1 auto',minWidth:0}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}><CompanyPill company={selected.company}/><Badge status={selected.status}/></div>
                       <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:3}}>{selected.name}</h1>
                       <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{selected.address}</div>
