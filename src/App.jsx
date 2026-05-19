@@ -1648,22 +1648,26 @@ export default function App() {
         {loading?<Spinner/>:<>
 
           {view==='dashboard'&&<div className="fade">
-            <div style={{marginBottom:20}}>
-              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
+            <div style={{marginBottom:isMobile?14:20}}>
+              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:isMobile?10:16}}>
                 <div>
-                  <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio Overview</h1>
-                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
-                  {dashProps.some(p=>p.current_value>0) && <>
-                    {' · Portfolio value: '}
-                    <span style={{color:T.green,fontWeight:700}}>
-                      {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0),0))}
-                    </span>
-                    {' · Equity: '}
-                    <span style={{color:T.green,fontWeight:700}}>
-                      {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0)-(p.mortgage_amount||0),0))}
-                    </span>
-                  </>}
-                </p>
+                  <h1 style={{fontSize:isMobile?20:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?2:4}}>Portfolio Overview</h1>
+                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5}}>
+                    {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
+                    {dashProps.some(p=>p.current_value>0) && <>
+                      {/* On mobile drop to a new line so the value/equity pair has its own row */}
+                      {isMobile ? <br/> : ' · '}
+                      <span style={{color:T.muted}}>Value </span>
+                      <span style={{color:T.green,fontWeight:700}}>
+                        {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0),0))}
+                      </span>
+                      {' · '}
+                      <span style={{color:T.muted}}>Equity </span>
+                      <span style={{color:T.green,fontWeight:700}}>
+                        {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0)-(p.mortgage_amount||0),0))}
+                      </span>
+                    </>}
+                  </p>
                 </div>
               </div>
               {/* Company filter pills */}
@@ -1782,8 +1786,12 @@ export default function App() {
                 },
               }
 
-              // Default order — applied when user has no saved prefs
-              const SECTION_DEFAULT_ORDER = ['kpi_grid','by_company','smart_alerts','tenant_inbox','property_map','portfolio_modeller','company_documents']
+              // Default order — applied when user has no saved prefs.
+              // Mobile-first: attention-needed sections appear first so the
+              // "what do I need to do today?" view is visible without
+              // scrolling. Power users on desktop can reorder via the
+              // Customize Dashboard modal — saved prefs always win.
+              const SECTION_DEFAULT_ORDER = ['smart_alerts','tenant_inbox','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
               const SECTION_DEFAULT_ENABLED = { kpi_grid:true, by_company:true, smart_alerts:true, tenant_inbox:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
               // Resolve current section prefs, filling in any missing keys from defaults
