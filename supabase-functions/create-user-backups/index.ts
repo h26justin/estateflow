@@ -88,11 +88,18 @@ async function backupOneUser(admin: any, userId: string, userEmail: string, trig
   return { user_id: userId, email: userEmail, size, counts, path }
 }
 
+function jsonError(status: number, message: string) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 serve(async (req) => {
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-    // Check if a specific user ID was passed
+    // Parse body first so we know whether this is a single-user or mass call.
     let targetUserId: string | null = null
     let triggerSource = 'weekly_cron'
     if (req.method === 'POST') {
@@ -101,6 +108,36 @@ serve(async (req) => {
         if (body?.user_id) targetUserId = body.user_id
         if (body?.trigger) triggerSource = body.trigger
       } catch (_) {}
+    }
+
+    // Auth: the cron path passes the service-role key in the Authorization
+    // header (set by pg_cron). User-initiated manual backups pass the
+    // signed-in user's JWT. We must verify *which* of those is happening and
+    // gate access accordingly — without this, any logged-in user could POST
+    // `{ user_id: "<victim>" }` and trigger an admin-level dump of another
+    // user's data.
+    const authHeader = req.headers.get('Authorization') || ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+    const isServiceCall = !!token && token === SERVICE_ROLE_KEY
+
+    if (!isServiceCall) {
+      if (!token) return jsonError(401, 'Missing Authorization header')
+      const { data: userData, error: userErr } = await admin.auth.getUser(token)
+      const caller = userData?.user
+      if (userErr || !caller) return jsonError(401, 'Invalid or expired session')
+
+      // Non-service callers must target themselves (or be a platform admin).
+      // A missing user_id is also rejected — mass-backup is service-only.
+      if (!targetUserId) return jsonError(400, 'user_id required for user-initiated backups')
+      if (targetUserId !== caller.id) {
+        const { data: prof } = await admin
+          .from('user_profiles')
+          .select('is_developer, platform_admin')
+          .eq('user_id', caller.id)
+          .single()
+        const isPlatformAdmin = prof?.is_developer === true || prof?.platform_admin === true
+        if (!isPlatformAdmin) return jsonError(403, 'Forbidden')
+      }
     }
 
     // Get target user list

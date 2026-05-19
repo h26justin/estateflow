@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import * as api from '../lib/api'
+import { looksLikeCompanyInviteCode } from '../lib/inviteUtils'
 
 const SLATE  = '#2D3C4A'
 const WHITE  = '#FFFFFF'
@@ -111,19 +112,6 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
       }
     }
     setLoading(false)
-  }
-
-  // A company-invite code looks like "ABC-7K3X" (3+ chars, dash, 3+ chars,
-  // all uppercase letters/digits). A per-email invitation is a UUID with
-  // 4 hyphens in fixed positions.
-  function looksLikeCompanyInviteCode(s) {
-    if (!s || typeof s !== 'string') return false
-    const upper = s.toUpperCase()
-    // Reject anything with multiple hyphens (UUIDs have 4)
-    const dashCount = (upper.match(/-/g) || []).length
-    if (dashCount !== 1) return false
-    // Must be uppercase A-Z 0-9 with one dash
-    return /^[A-Z0-9]+-[A-Z0-9]+$/.test(upper) && upper.length <= 16
   }
 
   const isModal = !!onClose

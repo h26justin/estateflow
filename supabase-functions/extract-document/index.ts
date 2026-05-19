@@ -103,24 +103,54 @@ function buildPrompt(docType: string): string {
   return base + '\n\nReturn JSON matching this shape:\n' + schema
 }
 
+function jsonError(status: number, message: string) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  // Authenticate caller. Reject anonymous / service-role calls — extraction is
+  // always user-initiated, and access must be tied to the calling user's
+  // ownership of the document.
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) return jsonError(401, 'Missing Authorization header')
+  const { data: userData, error: userErr } = await admin.auth.getUser(token)
+  const caller = userData?.user
+  if (userErr || !caller) return jsonError(401, 'Invalid or expired session')
 
   try {
     const { document_id } = await req.json()
     if (!document_id) throw new Error('document_id required')
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
-
     // Fetch the document row.
     // Schema uses file_path / category / file_type (not storage_path / doc_type / mime_type).
     const { data: doc, error: docErr } = await admin
       .from('property_documents')
-      .select('id, file_path, category, file_type')
+      .select('id, file_path, category, file_type, user_id')
       .eq('id', document_id)
       .single()
 
     if (docErr || !doc) throw new Error('Document not found')
+
+    // Ownership check — only the document's owner (or a platform admin)
+    // may trigger extraction. Without this anyone with a valid JWT can
+    // read any document's extracted fields by guessing the UUID.
+    if (doc.user_id !== caller.id) {
+      const { data: prof } = await admin
+        .from('user_profiles')
+        .select('is_developer, platform_admin')
+        .eq('user_id', caller.id)
+        .single()
+      const isPlatformAdmin = prof?.is_developer === true || prof?.platform_admin === true
+      if (!isPlatformAdmin) return jsonError(403, 'Forbidden')
+    }
 
     // Mark as processing
     await admin.from('property_documents').update({ extraction_status: 'processing' }).eq('id', document_id)
@@ -206,7 +236,6 @@ serve(async (req) => {
     try {
       const { document_id } = await req.clone().json().catch(() => ({}))
       if (document_id) {
-        const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
         await admin.from('property_documents').update({
           extraction_status: 'failed',
           extraction_error: errMsg.slice(0, 500),

@@ -1,6 +1,7 @@
+import { useState } from 'react'
+import { useTheme } from '../lib/ThemeContext'
 
-// ── FEEDBACK PAGE ─────────────────────────────────────────────────────────────
-function FeedbackPage({ user, showToast }) {
+export default function FeedbackPage({ user, showToast }) {
   const { T } = useTheme()
   const mono = "'DM Mono',monospace"
   const [type, setType] = useState('feature')
@@ -109,4 +110,3 @@ function FeedbackPage({ user, showToast }) {
     </div>
   )
 }
-
