@@ -33,7 +33,7 @@ import BulkAddPropertyModal from './components/BulkAddPropertyModal'
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
-import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName } from './lib/addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
@@ -2949,11 +2949,43 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
     }
   }
 
+  // When not in custom-sort mode, re-order items so units in the same
+  // building are adjacent AND naturally sorted within the building
+  // ("Flat 1, 2, 3, 10" instead of the lexical "Flat 1, 10, 2, 3").
+  // Companies stay in their original relative order; standalone properties
+  // keep their position relative to other standalones.
+  let renderItems = items
+  if (!isCustomSort) {
+    // Tag items with a stable group key + original index so we can
+    // group-sort without losing the parent's company ordering.
+    const tagged = items.map((p, i) => ({
+      p, i,
+      tail: buildingTailFromName(p.name) || null,
+    }))
+    // Determine which company each building first appears in so groups
+    // stay anchored to their owning company in the company-sorted view.
+    const firstSeen = new Map()
+    tagged.forEach(({ p, i, tail }) => {
+      const key = tail && buildingCounts.get(tail) > 1 ? `b:${tail}` : `s:${i}`
+      if (!firstSeen.has(key)) firstSeen.set(key, { firstIdx: i, companyId: p.company_id })
+    })
+    // Sort: primary by group's first-seen index (preserves company order),
+    // secondary by natural-compare of name (Flat 1 < Flat 10).
+    renderItems = [...tagged].sort((a, b) => {
+      const ak = a.tail && buildingCounts.get(a.tail) > 1 ? `b:${a.tail}` : `s:${a.i}`
+      const bk = b.tail && buildingCounts.get(b.tail) > 1 ? `b:${b.tail}` : `s:${b.i}`
+      if (ak !== bk) return firstSeen.get(ak).firstIdx - firstSeen.get(bk).firstIdx
+      return naturalCompare(a.p.name, b.p.name)
+    }).map(t => t.p)
+  }
+
   return (
     <div style={{display:'grid',gap:8}}>
-      {items.map((p, idx) => {
-        // Company group header when sorted by company
-        const showCompanyHeader = isByCompany && (idx===0 || items[idx-1].company_id !== p.company_id)
+      {renderItems.map((p, idx) => {
+        // Company group header when sorted by company. Look back into the
+        // already-rendered (post-grouping) order, not the input array.
+        const prev = idx > 0 ? renderItems[idx-1] : null
+        const showCompanyHeader = isByCompany && (idx===0 || prev.company_id !== p.company_id)
         const co = p.company
 
         // Building grouping: header when the *previous* item had a different
@@ -2962,7 +2994,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
         const tail = !isCustomSort ? buildingTailFromName(p.name) : null
         const buildingSize = tail ? (buildingCounts.get(tail) || 0) : 0
         const inBuilding = buildingSize > 1
-        const prevTail = idx > 0 ? buildingTailFromName(items[idx-1].name) : null
+        const prevTail = prev ? buildingTailFromName(prev.name) : null
         const showBuildingHeader = inBuilding && tail !== prevTail
         // Inside a multi-unit building, drop the redundant suffix from the
         // displayed name (so "Room 1, Watts Moses House" → "Room 1").
@@ -2976,7 +3008,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
               <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:co.color||T.gold}}>{co.abbr}</span>
               <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
               <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
-                {items.filter(x=>x.company_id===co.id).length} properties
+                {renderItems.filter(x=>x.company_id===co.id).length} properties
               </span>
             </div>
           )}
@@ -3040,6 +3072,9 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   const { T } = useTheme()
   const [showRentReview, setShowRentReview] = useState(false)
   const [showBankConnect, setShowBankConnect] = useState(false)
+  // Empty array = "all companies visible". Toggle pills below the header
+  // to focus on a subset; identical UX to the dashboard's dashCoFilter.
+  const [coFilter, setCoFilter] = useState([])
 
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
@@ -3126,8 +3161,44 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
       {showBankConnect && <BankConnectionsModal onClose={()=>setShowBankConnect(false)}/>}
 
-      {/* Companies */}
-      {companies.map(c=>{
+      {/* Company filter pills (only render if there's more than one
+          company to choose from — saves vertical space for solo landlords) */}
+      {companies.length > 1 && (
+        <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginBottom:18}}>
+          <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+          <button onClick={()=>setCoFilter([])}
+            style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+              border:`1px solid ${coFilter.length===0?T.gold:T.border}`,
+              background:coFilter.length===0?T.gold+'22':'transparent',
+              color:coFilter.length===0?T.gold:T.muted,fontWeight:coFilter.length===0?700:400}}>
+            All companies
+          </button>
+          {companies.map(c => {
+            const sel = coFilter.includes(c.id)
+            return (
+              <button key={c.id}
+                onClick={()=>setCoFilter(prev => {
+                  if (prev.length === 0) return [c.id]  // was 'all' → focus this one
+                  if (prev.includes(c.id)) {
+                    const next = prev.filter(id => id !== c.id)
+                    return next  // deselecting → may end up at [] = all
+                  }
+                  const next = [...prev, c.id]
+                  return next.length === companies.length ? [] : next  // all selected → snap back to 'all'
+                })}
+                style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                  border:`1px solid ${sel?(c.color||T.gold):T.border}`,
+                  background:sel?(c.color||T.gold)+'22':'transparent',
+                  color:sel?(c.color||T.gold):T.muted}}>
+                {sel?'✓ ':''}{c.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Companies — filtered by the pill row above */}
+      {(coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))).map(c=>{
         const cps = properties.filter(p=>p.company_id===c.id&&(p.rent_payments?.length>0||isPropertyEarningRent(p.status)))
         if (!cps.length) return null
         const totals = getCompanyTotals(cps, globalYear)
@@ -3180,6 +3251,17 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                     groups.push({ key, name: tail, items: [] })
                   }
                   groups[indexByTail.get(key)].items.push(p)
+                }
+
+                // Natural-sort items inside each multi-unit building so
+                // "Flat 1, 2, 3, 10" reads correctly instead of the
+                // lexical "1, 10, 2, 3". Single-property groups are
+                // untouched (the parent properties list already controls
+                // their order via sort_order / name).
+                for (const g of groups) {
+                  if (g.items.length > 1) {
+                    g.items.sort((a, b) => naturalCompare(a.name, b.name))
+                  }
                 }
 
                 // Flat index for row striping across the whole company

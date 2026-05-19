@@ -863,6 +863,11 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
     if (!p.tenancy_end)                return { label: 'No end date',   color: T.muted, dot: '⚪' }
     const today = new Date()
     const end = new Date(p.tenancy_end)
+    // The property modal accepts free-text dates ("31st March 2026") which
+    // Date() can't parse → Invalid Date → previously rendered as
+    // "Fixed to Invalid Date". Fall back to showing the raw input so the
+    // user at least sees what they typed.
+    if (isNaN(end.getTime())) return { label: `Fixed to ${p.tenancy_end}`, color: T.muted, dot: '⚪' }
     const diffDays = Math.round((end - today) / (1000 * 60 * 60 * 24))
     if (diffDays < 0)   return { label: 'Expired',                              color: T.green, dot: '🟢' }
     if (diffDays <= 90) return { label: `Ends in ${diffDays}d`,                 color: T.amber, dot: '🟡' }

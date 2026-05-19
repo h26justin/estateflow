@@ -73,6 +73,23 @@ export function buildingTailFromName(name) {
 }
 
 /**
+ * Natural-numeric string comparison. "Flat 2" < "Flat 10" — without this
+ * helper a lexical sort would interleave them ("Flat 1", "Flat 10",
+ * "Flat 2"). Uses Intl.Collator's numeric option, which the test runner
+ * + every supported browser supports natively.
+ *
+ * Use as the comparator for Array.prototype.sort:
+ *   items.sort((a, b) => naturalCompare(a.name, b.name))
+ */
+export function naturalCompare(a, b) {
+  return String(a == null ? '' : a).localeCompare(
+    String(b == null ? '' : b),
+    'en-GB',
+    { numeric: true, sensitivity: 'base' },
+  )
+}
+
+/**
  * Extract a sortable "secondary key" within a building. Used to order
  * flats/rooms 1, 2, 3, ..., 10, 11 within their building cluster.
  *

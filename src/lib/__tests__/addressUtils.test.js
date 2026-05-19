@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName } from '../addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare } from '../addressUtils'
 
 describe('groupKeyForAddress', () => {
   it('returns null for empty input', () => {
@@ -59,6 +59,30 @@ describe('flatKeyWithinBuilding', () => {
   it('returns empty string for empty input', () => {
     expect(flatKeyWithinBuilding('')).toBe('')
     expect(flatKeyWithinBuilding(null)).toBe('')
+  })
+})
+
+describe('naturalCompare', () => {
+  it('sorts numeric suffixes numerically, not lexically', () => {
+    const items = ['Flat 10', 'Flat 1', 'Flat 2', 'Flat 3', 'Flat 11']
+    items.sort(naturalCompare)
+    expect(items).toEqual(['Flat 1', 'Flat 2', 'Flat 3', 'Flat 10', 'Flat 11'])
+  })
+
+  it('sorts room and unit prefixes', () => {
+    const items = ['Room 100', 'Room 9', 'Room 10']
+    items.sort(naturalCompare)
+    expect(items).toEqual(['Room 9', 'Room 10', 'Room 100'])
+  })
+
+  it('case-insensitive', () => {
+    expect(naturalCompare('flat 1', 'FLAT 2')).toBeLessThan(0)
+  })
+
+  it('handles null/undefined safely', () => {
+    expect(naturalCompare(null, 'a')).toBeLessThan(0)
+    expect(naturalCompare('a', undefined)).toBeGreaterThan(0)
+    expect(naturalCompare(null, undefined)).toBe(0)
   })
 })
 
