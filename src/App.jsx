@@ -1361,7 +1361,7 @@ export default function App() {
                       <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
                     </div>
                   )}
-                  <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?22:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?12:0}}>
+                  <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
                     {group.items.map(p => {
                       const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
                       const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
@@ -2272,7 +2272,7 @@ export default function App() {
                           <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
                         </div>
                       )}
-                      <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?22:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?12:0}}>
+                      <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
                         {group.items.map(p => {
                           const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
                           return (
@@ -3099,6 +3099,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
 function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis}) {
   const { T } = useTheme()
+  const isMobile = useIsMobile(769)
   const [showRentReview, setShowRentReview] = useState(false)
   const [showBankConnect, setShowBankConnect] = useState(false)
   // Empty array = "all companies visible". Toggle pills below the header
@@ -3144,9 +3145,9 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   return (
     <div className="fade">
       {/* Header + global year filter */}
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:isMobile?8:12,marginBottom:isMobile?14:24}}>
         <div>
-          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Rent Tracker</h1>
+          <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
             {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
@@ -3170,20 +3171,23 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
             ))}
           </div>
           <button onClick={()=>setShowRentReview(true)}
+            title="Plan rent review"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.green}`,background:T.green+'22',color:T.green,whiteSpace:'nowrap'}}>
-            📈 Plan rent review
+            📈 {isMobile ? 'Review' : 'Plan rent review'}
           </button>
           <button onClick={()=>setShowBankConnect(true)}
+            title="Connect bank (early access)"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.blue}`,background:T.blue+'22',color:T.blue,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
-            🏦 Connect bank
+            🏦 {isMobile ? 'Bank' : 'Connect bank'}
             <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>EARLY</span>
           </button>
           <button onClick={onDayTracker}
+            title="Day-by-day view"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${'#C8A84B'}`,background:'#C8A84B22',color:'#C8A84B',whiteSpace:'nowrap'}}>
-            📅 Day view
+            📅 {isMobile ? 'Day' : 'Day view'}
           </button>
         </div>
       </div>
@@ -3324,10 +3328,10 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                         const s = getStats(p.rent_payments||[], globalYear, p.rent_pcm)
                         return (
                           <div key={p.id}
-                            style={{padding:`14px 18px 14px ${isBuilding ? 38 : 18}px`,borderBottom:pi<totalRows-1?`1px solid ${T.border}`:'none',
+                            style={{padding:`14px 18px 14px ${isBuilding ? (isMobile ? 22 : 30) : 18}px`,borderBottom:pi<totalRows-1?`1px solid ${T.border}`:'none',
                               background:pi%2===0?T.card:T.surface,cursor:'pointer',transition:'background 0.15s',
                               borderLeft: isBuilding ? `2px solid ${T.gold}33` : 'none',
-                              marginLeft: isBuilding ? 18 : 0,
+                              marginLeft: isBuilding ? (isMobile ? 10 : 14) : 0,
                             }}
                             onClick={()=>openDetail(p)}
                             onMouseEnter={e=>e.currentTarget.style.background=T.border}
