@@ -33,7 +33,7 @@ import BulkAddPropertyModal from './components/BulkAddPropertyModal'
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
-import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare } from './lib/addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
@@ -1352,23 +1352,37 @@ export default function App() {
               <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
             </div>
             <div style={{display:'grid',gap:10}}>
-              {cProps.map(p=>{
-                const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
-                return (
-                <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
-                  <div style={{flex:1,minWidth:150}}>
-                    <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                    <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
+              {groupPropertiesByBuilding(cProps).map(group => (
+                <div key={group.tail || group.items[0].id}>
+                  {group.isBuilding && (
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
+                      <span style={{fontSize:13}} aria-hidden="true">🏘</span>
+                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
+                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
+                    </div>
+                  )}
+                  <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?22:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?12:0}}>
+                    {group.items.map(p => {
+                      const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
+                      const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
+                      return (
+                      <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
+                        <div style={{flex:1,minWidth:150}}>
+                          <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
+                          <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
+                        </div>
+                        {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
+                        {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+                            <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                            <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                          </div>}
+                        {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
+                        <Badge status={p.status}/>
+                      </div>
+                    )})}
                   </div>
-                  {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                  {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                      <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                      <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
-                    </div>}
-                  {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
-                  <Badge status={p.status}/>
                 </div>
-              )})}
+              ))}
               {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
             </div>
           </div>
@@ -2249,20 +2263,35 @@ export default function App() {
                   <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
                 </div>
                 <div style={{display:'grid',gap:10}}>
-                  {cProps.map(p=>(
-                    <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
-                      <div style={{flex:1,minWidth:150}}>
-                        <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                        <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
+                  {groupPropertiesByBuilding(cProps).map(group => (
+                    <div key={group.tail || group.items[0].id}>
+                      {group.isBuilding && (
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
+                          <span style={{fontSize:13}} aria-hidden="true">🏘</span>
+                          <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
+                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
+                        </div>
+                      )}
+                      <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?22:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?12:0}}>
+                        {group.items.map(p => {
+                          const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
+                          return (
+                          <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
+                            <div style={{flex:1,minWidth:150}}>
+                              <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
+                              <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
+                            </div>
+                            {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
+                            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+                              <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                              <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                            </div>
+                            <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
+                            <Badge status={p.status}/>
+                            <HealthBadge property={p}/>
+                          </div>
+                        )})}
                       </div>
-                      {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                      <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                      <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
-                    </div>
-                      <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
-                      <Badge status={p.status}/>
-                      <HealthBadge property={p}/>
                     </div>
                   ))}
                   {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}

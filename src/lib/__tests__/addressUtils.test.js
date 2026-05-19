@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare } from '../addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from '../addressUtils'
 
 describe('groupKeyForAddress', () => {
   it('returns null for empty input', () => {
@@ -59,6 +59,53 @@ describe('flatKeyWithinBuilding', () => {
   it('returns empty string for empty input', () => {
     expect(flatKeyWithinBuilding('')).toBe('')
     expect(flatKeyWithinBuilding(null)).toBe('')
+  })
+})
+
+describe('groupPropertiesByBuilding', () => {
+  it('groups same-building properties and natural-sorts them', () => {
+    const groups = groupPropertiesByBuilding([
+      { id: 'a', name: 'Flat 10, Watts Moses House' },
+      { id: 'b', name: '13 Lumley Street' },
+      { id: 'c', name: 'Flat 1, Watts Moses House' },
+      { id: 'd', name: 'Flat 2, Watts Moses House' },
+    ])
+    expect(groups).toHaveLength(2)
+    expect(groups[0].tail).toBe('Watts Moses House')
+    expect(groups[0].isBuilding).toBe(true)
+    expect(groups[0].items.map(i => i.name)).toEqual([
+      'Flat 1, Watts Moses House',
+      'Flat 2, Watts Moses House',
+      'Flat 10, Watts Moses House',
+    ])
+    expect(groups[1].tail).toBeNull()
+    expect(groups[1].isBuilding).toBe(false)
+    expect(groups[1].items.map(i => i.name)).toEqual(['13 Lumley Street'])
+  })
+
+  it('preserves first-seen ordering across multiple buildings', () => {
+    const groups = groupPropertiesByBuilding([
+      { id: '1', name: 'Flat 1, Building A' },
+      { id: '2', name: 'Flat 1, Building B' },
+      { id: '3', name: 'Flat 2, Building A' },
+    ])
+    expect(groups.map(g => g.tail)).toEqual(['Building A', 'Building B'])
+    expect(groups[0].items).toHaveLength(2)
+    expect(groups[1].items).toHaveLength(1)
+  })
+
+  it('returns an empty array for empty/null input', () => {
+    expect(groupPropertiesByBuilding([])).toEqual([])
+    expect(groupPropertiesByBuilding(null)).toEqual([])
+  })
+
+  it('treats solo properties as separate groups', () => {
+    const groups = groupPropertiesByBuilding([
+      { id: '1', name: 'House A' },
+      { id: '2', name: 'House B' },
+    ])
+    expect(groups).toHaveLength(2)
+    expect(groups.every(g => !g.isBuilding)).toBe(true)
   })
 })
 

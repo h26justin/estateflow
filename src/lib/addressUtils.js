@@ -73,6 +73,52 @@ export function buildingTailFromName(name) {
 }
 
 /**
+ * Group a list of properties by their building tail. Standalone
+ * properties (no comma in the name) become single-item groups; properties
+ * that share a tail (e.g. all the "Room N, Watts Moses House") become
+ * multi-item groups whose `items` are natural-sorted ("Flat 1, 2, 3, 10"
+ * instead of "Flat 1, 10, 2, 3").
+ *
+ * Returns an array of groups in the order their first occurrence appeared
+ * in the input, so the caller's overall sort (by company, by name, by
+ * sort_order) is preserved at the group level.
+ *
+ *   groupPropertiesByBuilding([
+ *     { id: 'a', name: 'Flat 10, Watts Moses House' },
+ *     { id: 'b', name: '13 Lumley Street' },
+ *     { id: 'c', name: 'Flat 1, Watts Moses House' },
+ *   ])
+ *   // → [
+ *   //     { tail: 'Watts Moses House', isBuilding: true,
+ *   //       items: [{name: 'Flat 1, …'}, {name: 'Flat 10, …'}] },
+ *   //     { tail: null, isBuilding: false,
+ *   //       items: [{name: '13 Lumley Street'}] },
+ *   //   ]
+ */
+export function groupPropertiesByBuilding(items) {
+  if (!Array.isArray(items) || items.length === 0) return []
+  const groups = []
+  const indexByKey = new Map()
+  for (const p of items) {
+    const tail = buildingTailFromName(p?.name)
+    // Solo properties each get their own group keyed by a unique id so they
+    // never merge with other solos.
+    const key = tail || `__solo__${p?.id ?? Math.random()}`
+    if (!indexByKey.has(key)) {
+      indexByKey.set(key, groups.length)
+      groups.push({ tail, name: tail, items: [] })
+    }
+    groups[indexByKey.get(key)].items.push(p)
+  }
+  for (const g of groups) {
+    if (g.items.length > 1) {
+      g.items.sort((a, b) => naturalCompare(a?.name, b?.name))
+    }
+  }
+  return groups.map(g => ({ ...g, isBuilding: g.items.length > 1 }))
+}
+
+/**
  * Natural-numeric string comparison. "Flat 2" < "Flat 10" — without this
  * helper a lexical sort would interleave them ("Flat 1", "Flat 10",
  * "Flat 2"). Uses Intl.Collator's numeric option, which the test runner
