@@ -183,7 +183,11 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        // Haiku 4.5 is fast, cheap, and plenty accurate for structured field
+        // extraction from PDFs/images. Switched from sonnet-4-5 (~5x cost
+        // for similar accuracy on this task). If extraction quality drops on
+        // hand-scanned documents, fall back to claude-opus-4-7.
+        model: 'claude-haiku-4-5',
         max_tokens: 2000,
         messages: [{
           role: 'user',

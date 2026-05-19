@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
+import { showAppToast } from '../lib/toast'
 
 const mono = "'DM Mono',monospace"
 
@@ -63,7 +64,7 @@ export default function TrashPage({ user, onRestored }) {
       }
       await load()
       if (onRestored) onRestored()
-    } catch(e) { alert('Restore failed: ' + (e.message || 'unknown error')) }
+    } catch(e) { showAppToast('Restore failed: ' + (e.message || 'unknown error'), 'error') }
     setWorking(null)
   }
 
@@ -82,7 +83,7 @@ export default function TrashPage({ user, onRestored }) {
         await api.hardDeleteEntity(item._type, item.id)
       }
       await load()
-    } catch(e) { alert('Delete failed: ' + (e.message || 'unknown error')) }
+    } catch(e) { showAppToast('Delete failed: ' + (e.message || 'unknown error'), 'error') }
     setWorking(null)
   }
 

@@ -1134,6 +1134,14 @@ export default function App() {
 
   const showToast = useCallback((msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),3500)},[])
 
+  // Listen for global toast events so deep-tree components can trigger a
+  // toast without receiving showToast as a prop. See src/lib/toast.js.
+  useEffect(() => {
+    function handler(e) { showToast(e.detail?.message, e.detail?.kind || 'success') }
+    window.addEventListener('ownproperly:toast', handler)
+    return () => window.removeEventListener('ownproperly:toast', handler)
+  }, [showToast])
+
   // Early returns AFTER all hooks
   if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return (

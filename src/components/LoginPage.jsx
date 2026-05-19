@@ -190,7 +190,8 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
         {mode==='login'&&(
           <div style={{ textAlign:'right', marginTop:10 }}>
             <button className="lp-link" style={{ fontSize:11 }} onClick={async()=>{
-              if(!email){alert('Enter your email first');return}
+              if(!email){setError('Enter your email first');return}
+              setError('')
               await supabase.auth.resetPasswordForEmail(email)
               setSuccess('Password reset email sent — check your inbox.')
             }}>Forgot password?</button>

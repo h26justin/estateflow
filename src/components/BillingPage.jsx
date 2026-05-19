@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
+import { showAppToast } from '../lib/toast'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
@@ -34,7 +35,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
       const url = await api.createCheckoutSession(companyId, action)
       window.location.href = url
     } catch(e) {
-      alert('Billing error: ' + e.message)
+      showAppToast('Billing error: ' + e.message, 'error')
     }
     setWorking(null)
   }
@@ -43,7 +44,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
     try {
       await api.setCompanyFreeTier(companyId, !current, user.id)
       await loadData()
-    } catch(e) { alert(e.message) }
+    } catch(e) { showAppToast(e.message, 'error') }
   }
 
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 26px', marginBottom: 16 }

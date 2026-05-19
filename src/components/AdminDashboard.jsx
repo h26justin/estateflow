@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { showAppToast } from '../lib/toast'
 import RolePermissionsModal from './RolePermissionsModal'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -712,7 +713,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       setAccessRows(prev => prev.map(r =>
         (r.user_id === u.id && r.company_id === co.id) ? { ...r, is_admin: newVal } : r
       ))
-    } catch(e) { alert('Failed: ' + (e.message || 'unknown error')) }
+    } catch(e) { showAppToast('Failed: ' + (e.message || 'unknown error'), 'error') }
   }
 
   const filteredCompanies = useMemo(() => {
@@ -745,7 +746,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   async function sendReset(email) {
     await supabase.auth.resetPasswordForEmail(email)
     setResetConfirm(null)
-    alert(`Password reset email sent to ${email}`)
+    showAppToast(`Password reset email sent to ${email}`)
   }
 
   function toggleExpand(coId) {
@@ -792,7 +793,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   async function doExtendTrial(co, days) {
     requireConfirm('Extend trial', `Extend the trial for "${co.name}" by ${days} days.`, async () => {
       await api.extendTrial(co.id, days)
-      alert(`Trial extended by ${days} days`)
+      showAppToast(`Trial extended by ${days} days`)
     })
   }
 

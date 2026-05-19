@@ -18,6 +18,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
+import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
 
 const mono = "'DM Mono',monospace"
@@ -848,7 +849,8 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
 
   function handleSubmit() {
     if (!form.policy_name || !form.company_id || !form.start_date || !form.expiry_date) {
-      return alert('Policy name, company, start date and expiry date are required.')
+      showAppToast('Policy name, company, start date and expiry date are required.', 'error')
+      return
     }
     const data = {
       ...form,
