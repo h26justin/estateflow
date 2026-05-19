@@ -33,6 +33,7 @@ import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPro
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
+import { logError } from './lib/logError'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
@@ -529,7 +530,7 @@ function PortfolioModellerWidget({ properties = [] }) {
 
 
 export default function App() {
-  const {session,user} = useAuth()
+  const {session,user,loading: authLoading} = useAuth()
   const confirmDialog = useConfirm()
   const [properties,  setProperties]  = useState([])
   // Deals loaded at App level so the Dashboard cashflow widget can read them.
@@ -889,7 +890,7 @@ export default function App() {
           setPermissionsMap(permMap)
           setActiveFlags(flags)
           setWidgetPrefs(widgets)
-        } catch(e) { /* non-fatal */ }
+        } catch(e) { logError('loadData:permissions+flags', e) }
         // Load dashboard section preferences from localStorage (per-user keyed)
         try {
           const raw = localStorage.getItem(`ownproperly_section_prefs_${user.id}`)
@@ -926,12 +927,12 @@ export default function App() {
           if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
           else setUserNavPrefs(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
           if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
-        } catch(e) {}
+        } catch(e) { logError('loadData:nav_prefs', e) }
         // Load platform announcements
         try {
           const anns = await api.fetchAnnouncements()
           setAnnouncements(anns)
-        } catch(e) {}
+        } catch(e) { logError('loadData:announcements', e) }
         // Check if new user needs onboarding tour
         const onboarded = await api.fetchOnboardingStatus(user.id)
         if (!onboarded) setShowTour(true)
@@ -969,6 +970,9 @@ export default function App() {
         // Show onboarding for brand new users with no companies
         if (visibleCos.length === 0) setShowOnboarding(true)
         try { api.sendOnboardingEmail(user.email, '', 'welcome').catch(()=>{}) } catch(e) {}
+        // Drop trial-expiring notifications into the bell (deduped daily
+        // per company via localStorage). Fire-and-forget; failure is fine.
+        api.maybeWarnTrialsExpiring(visibleCos).catch(() => {})
         // Check for tenant invite link param
         const urlParams = new URLSearchParams(window.location.search)
         const tenantPropertyId = urlParams.get('tenant_property')
@@ -976,7 +980,7 @@ export default function App() {
           try {
             await api.registerTenantProfile(user.id, tenantPropertyId)
             window.history.replaceState({}, '', window.location.pathname)
-          } catch(e) {}
+          } catch(e) { logError('loadData:registerTenantProfile', e) }
         }
         // Check if this user is a tenant (not a landlord)
         // Skip tenant portal if user has their own companies or is platform admin
@@ -985,7 +989,7 @@ export default function App() {
           const myCompanies = await api.fetchMyCompanies().catch(()=>[])
           const isLandlord = myCompanies.length > 0 || devActive
           if (tenantProfiles.length > 0 && !isLandlord) { setIsTenant(true); return }
-        } catch(e) {}
+        } catch(e) { logError('loadData:tenantDetection', e) }
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
@@ -1220,7 +1224,7 @@ export default function App() {
   }, [properties, companies, darkMode])
 
   // Early returns AFTER all hooks
-  if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
+  if (authLoading) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return (
     <>
       <MarketingSite
@@ -3089,12 +3093,35 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
   const isCustomSort = sortBy === 'custom' || !sortBy
   const isByCompany  = sortBy === 'company-name'
 
+  // Precompute building counts so we only show a building header when a
+  // building actually has 2+ adjacent items in the current sort. We skip
+  // grouping in custom-sort mode to keep drag-and-drop semantics simple.
+  const buildingCounts = new Map()
+  if (!isCustomSort) {
+    for (const p of items) {
+      const tail = buildingTailFromName(p.name)
+      if (tail) buildingCounts.set(tail, (buildingCounts.get(tail) || 0) + 1)
+    }
+  }
+
   return (
     <div style={{display:'grid',gap:8}}>
       {items.map((p, idx) => {
         // Company group header when sorted by company
         const showCompanyHeader = isByCompany && (idx===0 || items[idx-1].company_id !== p.company_id)
         const co = p.company
+
+        // Building grouping: header when the *previous* item had a different
+        // building tail and this building has 2+ properties in the visible
+        // list. Indent the row itself if it belongs to a multi-unit building.
+        const tail = !isCustomSort ? buildingTailFromName(p.name) : null
+        const buildingSize = tail ? (buildingCounts.get(tail) || 0) : 0
+        const inBuilding = buildingSize > 1
+        const prevTail = idx > 0 ? buildingTailFromName(items[idx-1].name) : null
+        const showBuildingHeader = inBuilding && tail !== prevTail
+        // Inside a multi-unit building, drop the redundant suffix from the
+        // displayed name (so "Room 1, Watts Moses House" → "Room 1").
+        const displayName = inBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
 
         return (
         <div key={p.id}>
@@ -3106,6 +3133,13 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
               <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
                 {items.filter(x=>x.company_id===co.id).length} properties
               </span>
+            </div>
+          )}
+          {showBuildingHeader&&(
+            <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
+              <span style={{fontSize:13}} aria-hidden="true">🏘</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.text}}>{tail}</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>· {buildingSize} units</span>
             </div>
           )}
           <div
@@ -3121,14 +3155,17 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           }}>
           <div className="card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:12,
             borderColor: dragOver===idx && dragging!==idx ? T.gold : T.border,
-            cursor:isCustomSort?'grab':'default'}}>
+            cursor:isCustomSort?'grab':'default',
+            marginLeft: inBuilding ? 22 : 0,
+            borderLeft: inBuilding ? `2px solid ${T.gold}33` : `1px solid ${dragOver===idx && dragging!==idx ? T.gold : T.border}`,
+          }}>
             {/* Drag handle - only show in custom sort mode */}
             {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">&#x283F;</div>}
             {!isCustomSort&&<div style={{width:4,flexShrink:0}}/>}
             {/* Content */}
             <div style={{flex:1,minWidth:180,cursor:'pointer'}} onClick={()=>openDetail(p)}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
-                <span style={{fontSize:15,fontWeight:700}}>{p.name}</span>
+                <span style={{fontSize:15,fontWeight:700}}>{displayName}</span>
                 <CompanyPill company={p.company}/>
               </div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>

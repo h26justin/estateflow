@@ -38,6 +38,29 @@ function certTypeLabel(type: string): string {
   return labels[type?.toLowerCase()] || type || 'Certificate'
 }
 
+// Where to send users to book a renewal. For now we link to the relevant
+// trade body's "find a tradesperson" search — those are authoritative and
+// free to use. When we have partner contracts with national contractor
+// networks (Gas Safe Direct, Trustmark, etc.) these can swap to deep-link
+// affiliate URLs that pay a referral fee per booking.
+function renewalBookingUrl(type: string, postcode?: string | null): { label: string; url: string } | null {
+  const t = type?.toLowerCase()
+  const pc = (postcode || '').replace(/\s+/g, '+').trim()
+  const pcq = pc ? `?postcode=${pc}` : ''
+  const renewalMap: Record<string, { label: string; url: string }> = {
+    gas:         { label: 'Find a Gas Safe engineer',     url: `https://www.gassaferegister.co.uk/find-an-engineer-or-check-the-register/${pcq}` },
+    eicr:        { label: 'Find an NICEIC electrician',   url: `https://www.niceic.com/find-a-contractor${pcq}` },
+    epc:         { label: 'Find an EPC assessor',         url: 'https://www.gov.uk/find-energy-certificate' },
+    pat:         { label: 'Find a PAT tester',            url: 'https://www.napit.org.uk/find-a-contractor' },
+    fire:        { label: 'Find a fire risk assessor',    url: 'https://www.ifsm.org.uk/find-an-assessor' },
+    legionella:  { label: 'Find a legionella assessor',   url: 'https://www.lcaregister.com/' },
+    alarm:       { label: 'Find an electrician',          url: `https://www.niceic.com/find-a-contractor${pcq}` },
+    insurance:   { label: 'Compare landlord insurance',   url: 'https://www.simplybusiness.co.uk/landlord-insurance/' },
+    hmo:         { label: 'Apply on your council site',   url: 'https://www.gov.uk/house-in-multiple-occupation-licence' },
+  }
+  return renewalMap[t] || null
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -118,9 +141,13 @@ serve(async (req) => {
           : days === 0 ? `<span style="color:#DC2626;font-weight:700">EXPIRES TODAY</span>`
           : days <= 7 ? `<span style="color:#E0943A;font-weight:700">${days} days</span>`
           : `<span style="color:#5A6A7A">${days} days</span>`
+        const booking = renewalBookingUrl(i.cert_type || i.item_type, i.property?.postcode)
+        const bookingLink = booking
+          ? `<br><a href="${booking.url}" target="_blank" rel="noreferrer" style="color:#C8A84B;font-size:11px;text-decoration:underline">${booking.label} →</a>`
+          : ''
         return `
           <tr style="border-bottom:1px solid #E5E7EB">
-            <td style="padding:10px 6px;font-size:13px">${certTypeLabel(i.cert_type || i.item_type)}</td>
+            <td style="padding:10px 6px;font-size:13px">${certTypeLabel(i.cert_type || i.item_type)}${bookingLink}</td>
             <td style="padding:10px 6px;font-size:13px">${i.property?.name || i.property?.address || '—'}</td>
             <td style="padding:10px 6px;font-size:13px">${new Date(i.expiry_date).toLocaleDateString('en-GB')}</td>
             <td style="padding:10px 6px;font-size:13px;text-align:right">${urgency}</td>
@@ -193,13 +220,20 @@ serve(async (req) => {
             const urgency = days < 0 ? `Expired ${Math.abs(days)} days ago`
               : days === 0 ? 'Expires today'
               : `Expires in ${days} day${days === 1 ? '' : 's'}`
+            const booking = renewalBookingUrl(i.cert_type || i.item_type, i.property?.postcode)
             return {
               user_id: userId,
               type: 'compliance',
               title: `${certLabel} — ${urgency}`,
               body: propLabel,
               link: i.property_id ? `#/detail/${i.property_id}/compliance` : '#/properties',
-              metadata: { compliance_item_id: i.id, property_id: i.property_id, days_until: days },
+              metadata: {
+                compliance_item_id: i.id,
+                property_id: i.property_id,
+                days_until: days,
+                booking_url: booking?.url || null,
+                booking_label: booking?.label || null,
+              },
             }
           })
           if (rows.length > 0) await admin.from('notifications').insert(rows)

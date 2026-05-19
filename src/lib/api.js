@@ -2473,6 +2473,16 @@ export async function createManualBackup(userId) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Backup failed')
+  // Drop a notification so the bell icon picks it up too.
+  // Fire-and-forget — backup itself succeeded, this is just UX.
+  try {
+    await createNotification({
+      type: 'backup',
+      title: 'Backup created',
+      body: 'A manual backup of your portfolio data has been saved.',
+      link: '#/settings/backups',
+    })
+  } catch (_) {}
   return data
 }
 
@@ -3415,6 +3425,54 @@ export async function markAllNotificationsRead() {
 export async function deleteNotification(id) {
   const { error } = await supabase.from('notifications').delete().eq('id', id)
   if (error) throw error
+}
+
+// Walks the user's companies and inserts a "trial expiring" notification
+// when one is within `days` of expiry. Deduped per company per day via
+// localStorage so opening the dashboard repeatedly doesn't spam the bell.
+//
+// Pure client-side because:
+//   - companies are already loaded
+//   - the trial date lives on company rows which clients already read
+//   - we don't need cron-level reliability for a UX notification
+//
+// Returns the number of notifications inserted.
+export async function maybeWarnTrialsExpiring(companies, days = 3) {
+  if (!Array.isArray(companies) || companies.length === 0) return 0
+  const STAMP_PREFIX = 'notif_trial_'
+  const now = Date.now()
+  const dayMs = 86_400_000
+  let inserted = 0
+
+  for (const co of companies) {
+    if (!co?.trial_ends_at || co.is_free_tier) continue
+    const endsAt = new Date(co.trial_ends_at).getTime()
+    if (Number.isNaN(endsAt)) continue
+    const daysLeft = Math.ceil((endsAt - now) / dayMs)
+    // Only warn if 0 < daysLeft <= window. Expired trials are billing's job.
+    if (daysLeft <= 0 || daysLeft > days) continue
+
+    // Dedup: don't insert if we already warned for this company today.
+    let lastWarn = 0
+    try {
+      const raw = localStorage.getItem(STAMP_PREFIX + co.id)
+      if (raw) lastWarn = parseInt(raw, 10) || 0
+    } catch (_) {}
+    if (now - lastWarn < dayMs) continue
+
+    try {
+      await createNotification({
+        type: 'trial',
+        title: `${co.name || 'Your company'}: trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+        body: 'Add a payment method to keep your data accessible after the trial ends.',
+        link: '#/settings/billing',
+        metadata: { company_id: co.id, days_left: daysLeft },
+      })
+      inserted++
+      try { localStorage.setItem(STAMP_PREFIX + co.id, String(now)) } catch (_) {}
+    } catch (_) { /* non-fatal */ }
+  }
+  return inserted
 }
 
 // Create a notification for the current user. Used for client-side events

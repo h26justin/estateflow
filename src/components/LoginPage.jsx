@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import * as api from '../lib/api'
 import { looksLikeCompanyInviteCode } from '../lib/inviteUtils'
+import { logError } from '../lib/logError'
 
 const SLATE  = '#2D3C4A'
 const WHITE  = '#FFFFFF'
@@ -59,7 +60,7 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
           } else {
             await api.acceptInvitation(inviteToken)
           }
-        } catch(e) { /* non-fatal: surface via toast on dashboard load if needed */ }
+        } catch(e) { logError('signin:redeemInvite', e) /* non-fatal: surfaced on dashboard if needed */ }
         window.history.replaceState({}, '', window.location.pathname)
       }
     } else {
@@ -87,7 +88,7 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
               last_name: lastName.trim(),
               phone: phone.trim(),
             }, { onConflict: 'user_id' })
-          } catch(e) { /* profile save failure shouldn't block signup */ }
+          } catch(e) { logError('signup:profileUpsert', e) /* non-fatal — signup itself succeeded */ }
         }
         // If they used an invite, stash it so it gets redeemed once they
         // confirm their email and sign in. The redeem MUST run while signed
@@ -106,7 +107,7 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
               await api.acceptInvitation(inviteToken)
             }
             try { localStorage.removeItem('pending_invite_token') } catch(e) {}
-          } catch(e) { /* non-fatal */ }
+          } catch(e) { logError('signup:immediateRedeem', e) /* non-fatal — pending_invite_token still set for retry on next signin */ }
         }
         setSuccess('Account created! Check your email to confirm, then sign in.')
       }

@@ -201,6 +201,20 @@ export default function NotificationCentre() {
                           {n.body}
                         </div>
                       )}
+                      {n.metadata?.booking_url && n.metadata?.booking_label && (
+                        <a href={n.metadata.booking_url} target="_blank" rel="noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            display: 'inline-block', marginTop: 6,
+                            fontFamily: mono, fontSize: 10, fontWeight: 600,
+                            padding: '4px 9px', borderRadius: 6,
+                            background: T.gold + '14', color: T.gold,
+                            border: `1px solid ${T.gold}55`,
+                            textDecoration: 'none',
+                          }}>
+                          {n.metadata.booking_label} →
+                        </a>
+                      )}
                     </div>
                     <button onClick={e => handleDismiss(n.id, e)}
                       aria-label="Dismiss"

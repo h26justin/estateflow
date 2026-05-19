@@ -46,11 +46,29 @@ function formatDateLong(iso) {
   catch { return iso }
 }
 
+// Pre-flight checklist items. The user must tick all applicable ones (or
+// confirm "not applicable") before being allowed onto the form. Each item
+// maps to a specific invalidation reason from housing case law — getting
+// any of these wrong is the most common way a possession claim fails.
+const PREFLIGHT_ITEMS = [
+  { id: 'deposit', label: 'Deposit protected in a government scheme (DPS/TDS/mydeposits) within 30 days of receipt, AND prescribed information served on the tenant.', appliesTo: ['s21'] },
+  { id: 'epc',     label: 'A valid Energy Performance Certificate (EPC) has been served on the tenant.', appliesTo: ['s21'] },
+  { id: 'gas',     label: 'A current Gas Safety Certificate (CP12) has been served on the tenant.', appliesTo: ['s21'] },
+  { id: 'htr',     label: 'The current "How to Rent" booklet has been served on the tenant.', appliesTo: ['s21'] },
+  { id: '4month',  label: 'Today is at least 4 months after the start of the original tenancy.', appliesTo: ['s21'] },
+  { id: 'noimprov',label: 'The local council has NOT served an improvement notice or emergency remedial action in the last 6 months (retaliatory eviction protection).', appliesTo: ['s21'] },
+  { id: 'fixedterm',label: 'If the tenancy is in its fixed term, the tenancy agreement contains a Section 21 break clause permitting this.', appliesTo: ['s21'] },
+  { id: 'particulars',label: 'I have detailed particulars for each ground I am claiming (dates, amounts, specific events).', appliesTo: ['s8'] },
+  { id: 'noticeperiod',label: 'The notice period I am about to set is long enough for the strictest ground claimed (varies 2 weeks – 2 months).', appliesTo: ['s8'] },
+  { id: 'solicitor',label: 'I will have this notice reviewed by a housing solicitor or landlord-association advisor before serving.', appliesTo: ['s21','s8'] },
+]
+
 export default function NoticeGenerator({ property, userId, onClose, showToast }) {
   const { T } = useTheme()
   const mono = MONO
   const [step, setStep] = useState('disclaimer')
   const [type, setType] = useState('s21')
+  const [checklist, setChecklist] = useState({})  // { itemId: 'yes' | 'na' }
 
   const [form, setForm] = useState({
     landlord_name:    '',
@@ -159,9 +177,119 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
                 style={{ fontFamily: mono, fontSize: 12, padding: '10px 18px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={() => setStep('form')}
+              <button onClick={() => setStep('checklist')}
                 style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 18px', borderRadius: 8, border: 'none', background: T.amber, color: '#1A2530', cursor: 'pointer' }}>
                 I understand — continue
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── CHECKLIST STEP ──────────────────────────────────────────────────
+  if (step === 'checklist') {
+    const items = PREFLIGHT_ITEMS.filter(it => it.appliesTo.includes(type))
+    const allAnswered = items.every(it => checklist[it.id] === 'yes' || checklist[it.id] === 'na')
+    const hasNotApplicable = items.some(it => checklist[it.id] === 'na')
+
+    return (
+      <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+        <div className="modal" style={{ maxWidth: 640 }}>
+          <div style={{ padding: '22px 26px 0' }}>
+            <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6, color: T.text }}>
+              Pre-flight checklist
+            </h2>
+            <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
+              Confirm each item below applies to your situation. Any item left unticked is a likely reason your notice will be struck out.
+            </p>
+            {/* Type switch — also visible here so user can flip between S21
+                and S8 and see the relevant checklist */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+              {[
+                { key: 's21', label: 'Section 21' },
+                { key: 's8',  label: 'Section 8'  },
+              ].map(opt => (
+                <button key={opt.key} onClick={() => setType(opt.key)}
+                  style={{
+                    flex: 1, fontFamily: mono, fontSize: 12,
+                    padding: '8px 10px', borderRadius: 8,
+                    border: `1.5px solid ${type === opt.key ? T.gold : T.border}`,
+                    background: type === opt.key ? T.gold + '14' : 'transparent',
+                    color: type === opt.key ? T.gold : T.text,
+                    cursor: 'pointer', fontWeight: 700,
+                  }}>{opt.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ padding: '0 26px 20px', maxHeight: '55vh', overflowY: 'auto' }}>
+            {items.map(it => {
+              const answer = checklist[it.id]
+              return (
+                <div key={it.id} style={{
+                  border: `1px solid ${answer ? T.gold + '55' : T.border}`,
+                  background: answer === 'yes' ? T.green + '0A' : answer === 'na' ? T.bg : 'transparent',
+                  borderRadius: 10, padding: '12px 14px', marginBottom: 8,
+                  display: 'flex', gap: 12, alignItems: 'flex-start',
+                }}>
+                  <div style={{ flex: 1, fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.55 }}>
+                    {it.label}
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    {[
+                      { v: 'yes', label: '✓ Yes', activeFg: T.green, activeBg: T.green + '22', activeBd: T.green + '66' },
+                      { v: 'na',  label: 'N/A',   activeFg: T.muted, activeBg: T.bg,           activeBd: T.border },
+                    ].map(opt => {
+                      const active = answer === opt.v
+                      return (
+                        <button key={opt.v}
+                          onClick={() => setChecklist(c => ({ ...c, [it.id]: opt.v }))}
+                          style={{
+                            fontFamily: mono, fontSize: 10, fontWeight: 700,
+                            padding: '4px 9px', borderRadius: 6,
+                            border: `1px solid ${active ? opt.activeBd : T.border}`,
+                            background: active ? opt.activeBg : 'transparent',
+                            color: active ? opt.activeFg : T.muted, cursor: 'pointer',
+                          }}>{opt.label}</button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+
+            {hasNotApplicable && (
+              <div style={{
+                background: T.amber + '11', border: `1px solid ${T.amber}55`,
+                borderRadius: 8, padding: '10px 14px', marginTop: 10,
+                fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.6,
+              }}>
+                ⚠ You marked at least one item as "N/A". Be sure you understand which items genuinely don't apply to your tenancy. If unsure, get advice <em>before</em> serving this notice.
+              </div>
+            )}
+          </div>
+
+          <div style={{ padding: '0 26px 22px', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <button onClick={() => setStep('disclaimer')}
+              style={{ fontFamily: mono, fontSize: 11, padding: '9px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+              ← Back
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={onClose}
+                style={{ fontFamily: mono, fontSize: 12, padding: '10px 18px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => setStep('form')} disabled={!allAnswered}
+                style={{
+                  fontFamily: mono, fontSize: 12, fontWeight: 700,
+                  padding: '10px 18px', borderRadius: 8, border: 'none',
+                  background: allAnswered ? T.gold : T.border,
+                  color: allAnswered ? '#1A2530' : T.muted,
+                  cursor: allAnswered ? 'pointer' : 'not-allowed',
+                }}>
+                Continue to form
               </button>
             </div>
           </div>
@@ -280,7 +408,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginTop: 6 }}>
-            <button onClick={() => setStep('disclaimer')}
+            <button onClick={() => setStep('checklist')}
               style={{ fontFamily: mono, fontSize: 11, padding: '9px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
               ← Back
             </button>
