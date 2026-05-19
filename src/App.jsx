@@ -42,6 +42,7 @@ import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
 import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
 import TenantReferenceModal from './components/TenantReferenceModal'
+import BankConnectionsModal from './components/BankConnectionsModal'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -3215,6 +3216,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis}) {
   const { T } = useTheme()
   const [showRentReview, setShowRentReview] = useState(false)
+  const [showBankConnect, setShowBankConnect] = useState(false)
 
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
@@ -3285,6 +3287,12 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               border:`1px solid ${T.green}`,background:T.green+'22',color:T.green,whiteSpace:'nowrap'}}>
             📈 Plan rent review
           </button>
+          <button onClick={()=>setShowBankConnect(true)}
+            style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+              border:`1px solid ${T.blue}`,background:T.blue+'22',color:T.blue,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
+            🏦 Connect bank
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>EARLY</span>
+          </button>
           <button onClick={onDayTracker}
             style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${'#C8A84B'}`,background:'#C8A84B22',color:'#C8A84B',whiteSpace:'nowrap'}}>
@@ -3292,6 +3300,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           </button>
         </div>
       </div>
+
+      {showBankConnect && <BankConnectionsModal onClose={()=>setShowBankConnect(false)}/>}
 
       {/* Companies */}
       {companies.map(c=>{

@@ -31,6 +31,11 @@ export default defineConfig({
     pure: ['console.log', 'console.debug', 'console.info'],
     drop: ['debugger'],
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.js'],
+  },
   build: {
     chunkSizeWarningLimit: 600,
     rollupOptions: {
