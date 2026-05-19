@@ -37,6 +37,7 @@ import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
 import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
+import TenantReferenceModal from './components/TenantReferenceModal'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -571,6 +572,7 @@ export default function App() {
   const [showNewMenu, setShowNewMenu]  = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [showPalette, setShowPalette]   = useState(false)
+  const [showReferencing, setShowReferencing] = useState(false)
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
@@ -2631,7 +2633,7 @@ export default function App() {
                   ]
                   return (
                     <div>
-                      <div style={{display:'flex',gap:2,marginBottom:14,flexWrap:'wrap',borderBottom:`1px solid ${T.border}`,paddingBottom:0}}>
+                      <div style={{display:'flex',gap:2,marginBottom:14,flexWrap:'wrap',borderBottom:`1px solid ${T.border}`,paddingBottom:0,alignItems:'center'}}>
                         {SUBS.map(([k,label])=>(
                           <button key={k}
                             onClick={()=>setDetailTab(k==='details' ? 'tenancy' : k)}
@@ -2647,6 +2649,17 @@ export default function App() {
                             {label}
                           </button>
                         ))}
+                        <button onClick={()=>setShowReferencing(true)}
+                          style={{
+                            marginLeft:'auto',marginBottom:6,
+                            fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
+                            padding:'5px 12px',borderRadius:6,
+                            border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,
+                            cursor:'pointer',display:'flex',alignItems:'center',gap:6,
+                          }}>
+                          🪪 Tenant Referencing
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.gold}}>EARLY</span>
+                        </button>
                       </div>
                       {subTab==='details'      &&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
                       {subTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
@@ -2739,6 +2752,7 @@ export default function App() {
       </main>
 
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
+      {showReferencing && selected && <TenantReferenceModal property={selected} onClose={()=>setShowReferencing(false)}/>}
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
       {showAddBulk&&<BulkAddPropertyModal
         companies={companies}
