@@ -150,25 +150,25 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section id="home" style={{ background: `linear-gradient(160deg, ${DARK} 0%, ${SLATE} 100%)`, padding: '100px 24px 120px', textAlign: 'center' }}>
         <div style={{ maxWidth: 820, margin: '0 auto' }}>
           <div style={{ display: 'inline-block', background: GOLD + '22', border: `1px solid ${GOLD}44`, borderRadius: 20, padding: '5px 16px', fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 28 }}>
-            Built for UK landlords
+            Built this decade · UK landlords
           </div>
           <h1 style={{ fontSize: 54, fontWeight: 600, color: WHITE, lineHeight: 1.13, letterSpacing: '-0.025em', marginBottom: 24 }}>
-            Your entire property<br/>portfolio, perfectly organised
+            Property software that<br/>doesn't feel like 2010
           </h1>
           <p className="hero-sub" style={{ fontSize: 19, color: '#B0BEC5', lineHeight: 1.75, marginBottom: 40, fontFamily: "'DM Mono',monospace", fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
-            Rent tracking, compliance, tenant portal, deal calculator, AI tools and 20 reports — all in one clean dashboard. Starting at £2 per property per month.
+            Run your entire UK rental portfolio from one dashboard. Rent, compliance, tenant portal, deals and AI tools — every feature, every plan, £2 per property a month.
           </p>
           <div className="mkt-hero-btns" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={()=>scrollTo('features')} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff44', fontSize: 14, padding: '16px 36px' }}>See all features</button>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6A7D8E', marginTop: 20 }}>14-day free trial · Cancel anytime · From £2/property/month</p>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6A7D8E', marginTop: 20 }}>14-day free trial · Cancel anytime · No per-user fees, ever</p>
         </div>
       </section>
 
       <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '28px 24px' }}>
         <div className="stats-grid" style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, textAlign: 'center' }}>
-          {[['£2/mo','per property'],['20+','built-in reports'],['6 modules','all included'],['Any device','PWA ready']].map(([val,lab]) => (
+          {[['£2/mo','per property, no tiers'],['0','per-user fees'],['6 modules','all included'],['14 days','free, no card']].map(([val,lab]) => (
             <div key={val}>
               <div style={{ fontSize: 22, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', fontFamily: "'DM Mono',monospace" }}>{val}</div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{lab}</div>
@@ -177,7 +177,50 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </div>
 
-      <section style={{ padding: '88px 24px', background: CREAM }}>
+      <section style={{ padding: '88px 24px 72px', background: WHITE }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 52 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Why OwnProperly</div>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>The landlord tool you'd actually choose</h2>
+            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 580, margin: '0 auto' }}>
+              Most property software was built before the iPhone. Ours wasn't. Here's what that means in practice.
+            </p>
+          </div>
+          <div className="feat-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+            {[
+              {
+                icon: '⚡',
+                title: 'Built for 2026, not 2010',
+                desc: "Clean modern UI, dark mode, keyboard-friendly, works on every device. Feels like the apps you actually use — not the ones your accountant forces on you.",
+                tag: 'Modern'
+              },
+              {
+                icon: '🎯',
+                title: 'Every feature, every plan',
+                desc: "No Pro tier. No add-on for tenants. No charge per user. £2 a property gets you all six modules, AI tools, tenant portal — the lot. Add or remove properties anytime.",
+                tag: 'Honest'
+              },
+              {
+                icon: '🤖',
+                title: 'AI that does the busywork',
+                desc: "Our AI writes your Rightmove listings, extracts data from your gas certs and EICRs, and pre-fills your tenancy agreements. While other tools are 'considering it for 2027'.",
+                tag: 'Smart'
+              },
+            ].map(c => (
+              <div key={c.title} style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '28px 26px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: GOLD + '18', border: `1px solid ${GOLD}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{c.icon}</div>
+                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: GOLD, background: GOLD + '14', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
+                </div>
+                <h3 style={{ fontSize: 17, fontWeight: 600, color: SLATE, marginBottom: 10, lineHeight: 1.3 }}>{c.title}</h3>
+                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, lineHeight: 1.8 }}>{c.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section style={{ padding: '72px 24px 88px', background: CREAM }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How it works</div>
@@ -254,10 +297,10 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ padding: '72px 24px', background: `linear-gradient(135deg, ${DARK} 0%, #1E3040 100%)` }}>
         <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI powered</div>
-            <h2 style={{ fontSize: 32, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16, lineHeight: 1.25 }}>Write your property listings in seconds</h2>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI included · not a £20/mo add-on</div>
+            <h2 style={{ fontSize: 32, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16, lineHeight: 1.25 }}>Listings written for you in 10 seconds</h2>
             <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: '#9AAAB8', lineHeight: 1.8, marginBottom: 24 }}>
-              Our AI listing writer generates professional Rightmove and Zoopla descriptions from your property details. Choose professional, warm or luxury tone — done in under 10 seconds.
+              Generate Rightmove and Zoopla descriptions in your choice of tone — professional, warm or luxury. Plus AI that reads your uploaded gas certs, EICRs and tenancy agreements and fills in the data for you. All in the base £2/property price.
             </p>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 13, padding: '12px 24px' }}>Try it free</button>
           </div>
@@ -280,9 +323,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section id="pricing" style={{ padding: '88px 24px 100px', background: CREAM }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Simple pricing</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Pay only for what you use</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7 }}>No tiers, no feature gates, no hidden fees. Every feature, for every landlord.</p>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Honest pricing</div>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>£2 a property. That's the whole pricing page.</h2>
+            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>No tiers, no feature gates, no per-user fees, no minimums. Every feature for every landlord — whether you have one rental or a hundred.</p>
           </div>
 
           <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
@@ -347,9 +390,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
 
       <section style={{ background: SLATE, padding: '80px 24px', textAlign: 'center' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 34, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to run your portfolio properly?</h2>
+          <h2 style={{ fontSize: 34, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to switch to modern property software?</h2>
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: '#B0BEC5', marginBottom: 32, lineHeight: 1.75 }}>
-            Join landlords and property managers using OwnProperly to stay on top of rent, compliance, tenants and deals — all in one place.
+            14 days free. Every feature unlocked. No credit card. If it doesn't beat what you're using now, walk away.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
