@@ -181,6 +181,30 @@ serve(async (req) => {
           throw new Error(`Email send failed (${res.status}): ${err.slice(0, 200)}`)
         }
 
+        // Mirror into the in-app notification centre. One row per certificate
+        // so the user can click straight through to the property. We fire-and-
+        // forget here — a notification insert failure shouldn't block marking
+        // reminders sent or fail the cron run.
+        try {
+          const rows = userItems.map((i: any) => {
+            const days = daysUntil(i.expiry_date)
+            const certLabel = certTypeLabel(i.cert_type || i.item_type)
+            const propLabel = i.property?.name || i.property?.address || 'a property'
+            const urgency = days < 0 ? `Expired ${Math.abs(days)} days ago`
+              : days === 0 ? 'Expires today'
+              : `Expires in ${days} day${days === 1 ? '' : 's'}`
+            return {
+              user_id: userId,
+              type: 'compliance',
+              title: `${certLabel} — ${urgency}`,
+              body: propLabel,
+              link: i.property_id ? `#/detail/${i.property_id}/compliance` : '#/properties',
+              metadata: { compliance_item_id: i.id, property_id: i.property_id, days_until: days },
+            }
+          })
+          if (rows.length > 0) await admin.from('notifications').insert(rows)
+        } catch (_) { /* non-fatal — email still went out */ }
+
         // Mark items as reminded
         const ids = userItems.map((i: any) => i.id)
         await admin.from('compliance_items').update({ last_reminder_sent_at: now.toISOString() }).in('id', ids)

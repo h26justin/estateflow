@@ -3368,3 +3368,66 @@ export async function renewInsurancePolicy(oldPolicyId, overrides = {}) {
   const propertyIds = (old.insurance_policy_properties || []).map(j => j.property_id)
   return createInsurancePolicy(newPolicy, propertyIds)
 }
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────────
+// In-app notification centre. Server-side writers (edge functions, cron) use
+// the service role and bypass RLS; client-side reads and updates are gated
+// by per-user RLS policies defined in 2026-05-19_notifications.sql.
+
+export async function fetchNotifications(limit = 30) {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id, type, title, body, link, metadata, read_at, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchUnreadNotificationCount() {
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .is('read_at', null)
+  if (error) throw error
+  return count || 0
+}
+
+export async function markNotificationRead(id) {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('read_at', null)  // no-op if already read; avoids needless writes
+  if (error) throw error
+}
+
+export async function markAllNotificationsRead() {
+  const userId = (await supabase.auth.getUser()).data.user.id
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .is('read_at', null)
+  if (error) throw error
+}
+
+export async function deleteNotification(id) {
+  const { error } = await supabase.from('notifications').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Create a notification for the current user. Used for client-side events
+// (e.g. "backup created", "tenant invited"). Server-side events should write
+// directly with the service role from the edge function.
+export async function createNotification({ type, title, body = null, link = null, metadata = {} }) {
+  const userId = (await supabase.auth.getUser()).data.user.id
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({ user_id: userId, type, title, body, link, metadata })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+

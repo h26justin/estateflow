@@ -34,6 +34,7 @@ import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import FeedbackPage from './components/FeedbackPage'
+import NotificationCentre from './components/NotificationCentre'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -1560,6 +1561,7 @@ export default function App() {
                 )}
               </div>
             )}
+            <NotificationCentre/>
             {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>⚙ Admin</button>}
             {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()} aria-label="Sign out">Sign Out</button>}
             {/* Hamburger - mobile only */}
