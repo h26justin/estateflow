@@ -74,7 +74,13 @@ export const STATUS_GROUP_DESC = {
  * just the refurb cost.
  */
 export function dealCashflow(deal) {
-  const group = STATUS_GROUP[deal?.status] ?? 'pipeline'
+  // Resolve the cashflow group from the deal status. We can't use `??` here:
+  // STATUS_GROUP.dead is an explicit `null` (meaning "exclude"), which `??`
+  // would treat as "no value" and fall back to 'pipeline' — wrongly counting
+  // dead deals as live pipeline cash. Use `in` to distinguish "known status,
+  // explicitly null" from "unknown status, default to pipeline".
+  const status = deal?.status
+  const group = status && status in STATUS_GROUP ? STATUS_GROUP[status] : 'pipeline'
   if (group == null) return { headline: 0, cashOut: 0, group: null }
 
   const num = (v) => Number(v) || 0
