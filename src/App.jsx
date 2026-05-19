@@ -37,6 +37,7 @@ import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName } from 
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
+import { MONO } from './lib/styles'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
@@ -98,7 +99,7 @@ const REFURB_CFG = {
 const Badge = memo(({status}) => {
   const { T } = useTheme()
   const c = STATUS_CFG[status]||STATUS_CFG.purchased
-  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:c.fg,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:600}}>
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:c.fg,fontSize:11,fontFamily:MONO,fontWeight:600}}>
     <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
   </span>
 })
@@ -108,7 +109,7 @@ const HealthBadge = memo(({property}) => {
   return (
     <span title={`Health: ${h.score}/100${h.issues.length ? ' · ' + h.issues[0].text : ''}`}
       style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:20,
-        background:h.color+'22',color:h.color,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:700,cursor:'default'}}>
+        background:h.color+'22',color:h.color,fontSize:11,fontFamily:MONO,fontWeight:700,cursor:'default'}}>
       {h.grade} {h.score}
     </span>
   )
@@ -116,7 +117,7 @@ const HealthBadge = memo(({property}) => {
 
 const CompanyPill = memo(({company}) => {
   if (!company) return null
-  return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||'#C8A84B')+'22',color:company.color||'#C8A84B',border:`1px solid ${(company.color||'#C8A84B')}44`}}>{company.abbr}</span>
+  return <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||'#C8A84B')+'22',color:company.color||'#C8A84B',border:`1px solid ${(company.color||'#C8A84B')}44`}}>{company.abbr}</span>
 })
 
 const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
@@ -127,24 +128,24 @@ const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
       onClick={breakdown?()=>setOpen(o=>!o):undefined}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         <div style={{fontSize:20,marginBottom:8}}>{icon}</div>
-        {breakdown&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',marginTop:2}}>{open?'▲ CLOSE':'▼ DETAIL'}</span>}
+        {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',marginTop:2}}>{open?'▲ CLOSE':'▼ DETAIL'}</span>}
       </div>
-      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
+      <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
-      {sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>{sub}</div>}
+      {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
       {open&&breakdown&&(
         <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:12,display:'grid',gap:4}}>
           {breakdown.map((item,i)=>(
             <div key={i}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingLeft:item.indent?16:0}}>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:item.indent?9:10,color:item.indent?T.faint:T.muted,flex:1,display:'flex',alignItems:'center',gap:4}}>
+                <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:item.indent?T.faint:T.muted,flex:1,display:'flex',alignItems:'center',gap:4}}>
                   {item.indent&&<span style={{color:T.border}}>└</span>}
                   {item.label}
                 </span>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:item.indent?10:11,fontWeight:item.indent?400:700,color:item.color||(item.indent?T.muted:T.text)}}>{item.value}</span>
+                <span style={{fontFamily:MONO,fontSize:item.indent?10:11,fontWeight:item.indent?400:700,color:item.color||(item.indent?T.muted:T.text)}}>{item.value}</span>
               </div>
-              {item.note&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2}}>{item.note}</div>}
+              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2}}>{item.note}</div>}
             </div>
           ))}
         </div>
@@ -167,7 +168,7 @@ function getStatusColor(status) {
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
 function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const year = payment.year, month = payment.month
   const days = new Date(year, month, 0).getDate()
   const firstDow = (new Date(year, month-1, 1).getDay() + 6) % 7
@@ -279,7 +280,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
             onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.2)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:8,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none'}}>{letter}</span>
+            <span style={{fontFamily:MONO,fontSize:8,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none'}}>{letter}</span>
           </div>
         )
       })}
@@ -316,7 +317,7 @@ function CustomizeDashModal({
   widgetDefs, currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled, onSaveWidgets,
   onClose, T,
 }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [tab, setTab] = useState(initialTab)
 
   // Build initial section state, with all known keys
@@ -492,7 +493,7 @@ function PortfolioModellerWidget({ properties = [] }) {
   const [avgYield, setAvgYield] = useState(6.5)
   const [years, setYears] = useState(10)
   const [growthRate, setGrowthRate] = useState(3)
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const currentIncome = properties.reduce((s,p) => s + (p.rent_pcm||0)*12, 0)
   const currentValue  = properties.reduce((s,p) => s + (p.current_value||p.est_value||0), 0)
   const newIncome = extraProps * avgPrice * (avgYield/100)
@@ -691,11 +692,11 @@ export default function App() {
   html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
   *{box-sizing:border-box;margin:0;padding:0;}
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${T.bg}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
-  input,select,textarea{font-family:'DM Mono',monospace;background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
+  input,select,textarea{font-family:${MONO};background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
   input:focus,select:focus,textarea:focus{border-color:${T.gold};}
   select option{background:${T.surface};}
-  label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
-  .btn{font-family:'DM Mono',monospace;font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
+  label{font-family:${MONO};font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
+  .btn{font-family:${MONO};font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
   .btn-gold{background:${T.gold};color:${T.bg};}.btn-gold:hover{background:${T.gold}dd;}
   .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.gold};}
   .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
@@ -732,7 +733,7 @@ export default function App() {
   @keyframes spin{to{transform:rotate(360deg)}}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px);}
   .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
-  .tab{font-family:'DM Mono',monospace;font-size:11px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
+  .tab{font-family:${MONO};font-size:11px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
   .tab.active{background:${T.border};color:${T.gold};}.tab:hover{color:${T.text};}
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:700px){.g2{grid-template-columns:1fr}}
@@ -1474,7 +1475,7 @@ export default function App() {
   const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
 
   function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
-    const mono = "'DM Mono',monospace"
+    const mono = MONO
 
     function openRename(c) {
       setRenameCoTarget(c)
@@ -1535,18 +1536,18 @@ export default function App() {
                 <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
                   <div style={{flex:1,minWidth:150}}>
                     <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
+                    <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
                   </div>
-                  {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
+                  {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                   {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                      <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                      <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
                     </div>}
-                  {canFin && <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
+                  {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
                   <Badge status={p.status}/>
                 </div>
               )})}
-              {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
+              {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
             </div>
           </div>
         })}
@@ -1561,7 +1562,7 @@ export default function App() {
       <style>{CSS}</style>
       {/* ── IMPERSONATION BANNER ── */}
       {impersonatingUser && (
-        <div style={{background:'#8B1F1F',color:'white',padding:'10px 16px',textAlign:'center',fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:600,position:'sticky',top:0,zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',gap:16,flexWrap:'wrap'}}>
+        <div style={{background:'#8B1F1F',color:'white',padding:'10px 16px',textAlign:'center',fontFamily:MONO,fontSize:12,fontWeight:600,position:'sticky',top:0,zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',gap:16,flexWrap:'wrap'}}>
           <span>🎭 <strong>Impersonating {impersonatingUser.name || impersonatingUser.email}</strong> — viewing their data (read-only for safety)</span>
           <button onClick={()=>{
             sessionStorage.removeItem('ownproperly_impersonate')
@@ -1579,7 +1580,7 @@ export default function App() {
           color: devModeActive ? '#C8A84B' : '#9ecb9e',
           padding:'6px 16px',
           textAlign:'center',
-          fontFamily:"'DM Mono',monospace",
+          fontFamily:MONO,
           fontSize:10,
           fontWeight:700,
           letterSpacing:'0.1em',
@@ -1629,7 +1630,7 @@ export default function App() {
           </nav>}
 
           {/* Mobile: current page title */}
-          {isMobile&&<div style={{flex:1,textAlign:'center',fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
+          {isMobile&&<div style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
             {navItems.find(n=>n.key===view)?.icon} {navItems.find(n=>n.key===view)?.label||'Dashboard'}
           </div>}
 
@@ -1667,7 +1668,7 @@ export default function App() {
                           onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                           onMouseLeave={e=>e.currentTarget.style.background='none'}>
                           <span style={{fontSize:16,width:22,textAlign:'center'}}>{item.icon}</span>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
+                          <span style={{fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
                         </button>
                       ))}
                     </div>
@@ -1708,8 +1709,8 @@ export default function App() {
                           onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                           onMouseLeave={e=>e.currentTarget.style.background='none'}>
                           <span style={{fontSize:14,width:22,textAlign:'center'}}>{item.icon}</span>
-                          <span style={{flex:1,fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
-                          {item.hint && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
+                          <span style={{flex:1,fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
+                          {item.hint && <span style={{fontFamily:MONO,fontSize:10,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
                         </button>
                       ))}
                     </div>
@@ -1771,7 +1772,7 @@ export default function App() {
                   style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
                     background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',textAlign:'left'}}>
                   <span style={{fontSize:15}}>{item.icon}</span>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.text,fontWeight:500}}>{item.label}</span>
+                  <span style={{fontFamily:MONO,fontSize:11,color:T.text,fontWeight:500}}>{item.label}</span>
                 </button>
               ))}
               <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px',marginTop:4}}
@@ -1793,11 +1794,11 @@ export default function App() {
         const col=colors[a.type]||colors.info
         return (
           <div key={a.id} style={{background:col+'18',borderBottom:`1px solid ${col}33`,padding:'10px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:col}}>
+            <span style={{fontFamily:MONO,fontSize:12,color:col}}>
               {a.message}{a.link_url&&a.link_text&&<a href={a.link_url} target="_blank" rel="noreferrer" style={{color:col,marginLeft:12,fontWeight:700}}>{a.link_text} →</a>}
             </span>
             <button onClick={()=>{const n=[...dismissedAnns,a.id];setDismissedAnns(n);localStorage.setItem('dismissed_anns',JSON.stringify(n))}}
-              style={{background:'none',border:'none',color:col,cursor:'pointer',fontFamily:"'DM Mono',monospace",fontSize:11,flexShrink:0}}>Dismiss ✕</button>
+              style={{background:'none',border:'none',color:col,cursor:'pointer',fontFamily:MONO,fontSize:11,flexShrink:0}}>Dismiss ✕</button>
           </div>
         )
       })}
@@ -1809,7 +1810,7 @@ export default function App() {
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:isMobile?10:16}}>
                 <div>
                   <h1 style={{fontSize:isMobile?20:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?2:4}}>Portfolio Overview</h1>
-                  <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5}}>
+                  <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5}}>
                     {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                     {dashProps.some(p=>p.current_value>0) && <>
                       {/* On mobile drop to a new line so the value/equity pair has its own row */}
@@ -1830,10 +1831,10 @@ export default function App() {
               {/* Company filter pills */}
               {companies.length > 1 && (
                 <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+                  <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
                   <button
                     onClick={()=>setDashCoFilter([])}
-                    style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                    style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                       border:`1px solid ${dashCoFilter.length===0?T.gold:T.border}`,
                       background:dashCoFilter.length===0?T.gold+'22':'transparent',
                       color:dashCoFilter.length===0?T.gold:T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
@@ -1858,7 +1859,7 @@ export default function App() {
                           // If all companies selected, snap back to 'all'
                           return next.length===companies.length ? [] : next
                         })}
-                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                        style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                           border:`1px solid ${sel?(c.color||T.gold):T.border}`,
                           background:sel?(c.color||T.gold)+'22':'transparent',
                           color:sel?(c.color||T.gold):T.muted}}>
@@ -1939,7 +1940,7 @@ export default function App() {
                     activeCoTab && (companySettings[activeCoTab]||{}).feature_documents
                       ? <div style={{marginTop:28}}>
                           <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:6}}>Company Documents</h2>
-                          <p style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:14}}>
+                          <p style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:14}}>
                             Documents stored at company level — for items that apply across all properties (e.g. company insurance, bank letters)
                           </p>
                           <CompanyDocumentsTab companyId={activeCoTab} showToast={showToast} isAdmin={isAdmin} user={user}/>
@@ -2205,21 +2206,21 @@ export default function App() {
                     <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>By Company</h2>
                     {companies.length===0
                       ?<div className="card" style={{padding:32,textAlign:'center'}}>
-                          <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:16}}>No companies yet. Add your first one to get started.</div>
+                          <div style={{fontFamily:MONO,color:T.muted,fontSize:12,marginBottom:16}}>No companies yet. Add your first one to get started.</div>
                           <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>+ Add Company</button>
                         </div>
                       :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14,marginBottom:28}}>
                           {companyStats.map(c=>(
                             <div key={c.id} className="card" style={{padding:'20px 22px',borderLeft:`3px solid ${c.color}`}}>
                               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:c.color,background:c.color+'22',padding:'3px 10px',borderRadius:4}}>{c.abbr}</div>
+                                <div style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:c.color,background:c.color+'22',padding:'3px 10px',borderRadius:4}}>{c.abbr}</div>
                                 <div style={{fontSize:14,fontWeight:600}}>{c.name}</div>
                               </div>
                               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                                 {[{l:'Properties',v:c.count},{l:'Rented',v:`${c.rented}/${c.count}`},{l:'Monthly Income',v:fmt(c.monthlyRent)},{l:'Arrears',v:fmt(c.arrears),red:c.arrears>0}].map((item,i)=>(
                                   <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
-                                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:item.red?T.red:T.gold}}>{item.v}</div>
+                                    <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
+                                    <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.gold}}>{item.v}</div>
                                   </div>
                                 ))}
                               </div>
@@ -2238,11 +2239,11 @@ export default function App() {
                 <>
                   {/* Customize Dashboard button — single source of truth for both sections and widget toggles */}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                    <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                       Dashboard · {visibleSections.length} sections shown
                     </div>
                     <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
-                      style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                      style={{fontFamily:MONO,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
                       ⚙ Customize
                     </button>
                   </div>
@@ -2320,12 +2321,12 @@ export default function App() {
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
               <div>
                 <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio</h1>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
+                <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
               </div>
               <div style={{display:'flex',gap:8}}>
                 {[['properties','🏘 Properties'],['companies','🏢 Companies'],['map','🗺 Map'],['contractors','🔧 Contractors']].map(([k,l])=>(
                   <button key={k} onClick={()=>setPortfolioTab(k)}
-                    style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
+                    style={{fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                       border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
                       background:portfolioTab===k?T.gold+'22':'transparent',
                       color:portfolioTab===k?T.gold:T.muted,fontWeight:portfolioTab===k?700:400}}>
@@ -2338,9 +2339,9 @@ export default function App() {
             {portfolioTab==='contractors'&&<ContractorsPage user={user} companies={companies} showToast={showToast}/>}
             {portfolioTab==='map'&&<>
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+                <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
                 {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
                 ))}
               </div>
               <PropertyMap
@@ -2358,18 +2359,18 @@ export default function App() {
               <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search name or address…" style={{width:230,padding:'7px 12px',fontSize:12}}/>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
                 {['all', ...PROPERTY_STATUSES].map(f=>(
-                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold+'22':'transparent',color:statusFilter===f?T.gold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
+                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold+'22':'transparent',color:statusFilter===f?T.gold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
                 ))}
                 {archivedCount > 0 && (
                   <>
                     <div style={{width:1,background:T.border,margin:'0 2px'}}/>
                     <button onClick={()=>setShowArchived(v=>!v)}
                       title={showArchived ? `Hide ${archivedCount} archived` : `Show ${archivedCount} archived`}
-                      style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                      style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
                         border:`1px solid ${showArchived?T.muted:T.border}`,
                         background:showArchived?T.muted+'22':'transparent',
                         color:showArchived?T.text:T.muted,transition:'all 0.18s'}}>
@@ -2381,7 +2382,7 @@ export default function App() {
             </div>
             {/* Sort control */}
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',flexShrink:0}}>Sort by:</span>
+              <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',flexShrink:0}}>Sort by:</span>
               {[
                 {v:'company-name', l:'Company / Name'},
                 {v:'name',         l:'Name A-Z'},
@@ -2393,7 +2394,7 @@ export default function App() {
                 {v:'custom',       l:'Custom Order'},
               ].map(opt=>(
                 <button key={opt.v} onClick={()=>setSortBy(opt.v)}
-                  style={{fontFamily:"'DM Mono',monospace",fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
+                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
                     background:sortBy===opt.v?T.gold+'22':'transparent',
                     color:sortBy===opt.v?T.gold:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
@@ -2430,19 +2431,19 @@ export default function App() {
                     <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
                       <div style={{flex:1,minWidth:150}}>
                         <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name}</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
+                        <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
                       </div>
-                      {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
+                      {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                       <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                      <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                      <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
                     </div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
+                      <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
                       <Badge status={p.status}/>
                       <HealthBadge property={p}/>
                     </div>
                   ))}
-                  {cProps.length===0&&<div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}
+                  {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}
                 </div>
               </div>
             })}
@@ -2459,7 +2460,7 @@ export default function App() {
           {view==='detail'&&!selected&&<div className="fade" style={{padding:40,textAlign:'center'}}>
             <div style={{fontSize:48,marginBottom:16}}>🔒</div>
             <h2 style={{fontSize:20,color:T.text,marginBottom:8}}>Property not found</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,marginBottom:20}}>
+            <p style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:20}}>
               This property doesn't exist or you don't have access to it.
             </p>
             <button className="btn btn-gold" onClick={()=>{setView('properties');setSelectedId(null)}}>&lt;- Back to Properties</button>
@@ -2474,10 +2475,10 @@ export default function App() {
                     <div>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}><CompanyPill company={selected.company}/><Badge status={selected.status}/></div>
                       <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:3}}>{selected.name}</h1>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{selected.address}</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>{selected.prop_type}</div>
-                      {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:'#1A1D27',border:'1px solid #2E3044',fontFamily:"'DM Mono',monospace",fontSize:10,color:'#8B8FA8'}}>🏢 {selected.managed_by}</div>}
-                      {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>📦 Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
+                      <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{selected.address}</div>
+                      <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{selected.prop_type}</div>
+                      {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:'#1A1D27',border:'1px solid #2E3044',fontFamily:MONO,fontSize:10,color:'#8B8FA8'}}>🏢 {selected.managed_by}</div>}
+                      {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:10,color:T.muted}}>📦 Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
                     </div>
                     <div style={{display:'flex',gap:8}}>
                       {(canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive) && (
@@ -2564,8 +2565,8 @@ export default function App() {
                     return (
                       <div className="card" style={{padding:'14px 20px',marginTop:14,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
                         <div>
-                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>🛡 Insurance</div>
-                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>No policies cover this property yet.</div>
+                          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>🛡 Insurance</div>
+                          <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>No policies cover this property yet.</div>
                         </div>
                         <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setView('insurance')}>Add policy →</button>
                       </div>
@@ -2578,7 +2579,7 @@ export default function App() {
                   return (
                     <div className="card" style={{padding:'16px 20px',marginTop:14}}>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                           🛡 Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
                         </div>
                         <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>setView('insurance')}>Manage →</button>
@@ -2595,14 +2596,14 @@ export default function App() {
                           return (
                             <div key={pol.id} style={{display:'grid',gridTemplateColumns:'1fr auto auto',gap:12,alignItems:'center',padding:'8px 10px',background:T.bg,borderRadius:8,borderLeft:`3px solid ${color}`}}>
                               <div style={{minWidth:0}}>
-                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                                   {pol.policy_name}
                                   {isCompanyWide && <span style={{fontSize:9,color:T.muted,marginLeft:6,fontWeight:400}}>· company-wide</span>}
                                 </div>
-                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{pol.provider || '—'} · expires {pol.expiry_date}</div>
+                                <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{pol.provider || '—'} · expires {pol.expiry_date}</div>
                               </div>
-                              <div style={{textAlign:'right',fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:color}}>{status}</div>
-                              <div style={{textAlign:'right',fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.text}}>{fmt(pol.premium)}/yr</div>
+                              <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:color}}>{status}</div>
+                              <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{fmt(pol.premium)}/yr</div>
                             </div>
                           )
                         })}
@@ -2614,14 +2615,14 @@ export default function App() {
                   <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
                     {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
                       <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</div>
+                        <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+                        <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</div>
                       </div>
                     ))}
                   </div>
                   {selected.notes&&<div className="card" style={{padding:'16px 20px'}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Notes</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
+                    <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Notes</div>
+                    <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
                   </div>}
                 </div>}
                 {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdatePhase={handleUpdatePhase} onDeletePhase={handleDeletePhase} onUpdateCost={handleUpdateCost} onDeleteCost={handleDeleteCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
@@ -2630,12 +2631,12 @@ export default function App() {
                 {false&&<div style={{display:'grid',gap:12}}>
                   {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
                     <div key={si} className="card" style={{padding:'18px 22px'}}>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
+                      <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                         {section.items.map((item,i)=>(
                           <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
-                            <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
-                            <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</span>
+                            <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
+                            <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</span>
                           </div>
                         ))}
                       </div>
@@ -2662,7 +2663,7 @@ export default function App() {
                           <button key={k}
                             onClick={()=>setDetailTab(k==='details' ? 'tenancy' : k)}
                             style={{
-                              fontFamily:"'DM Mono',monospace",fontSize:11,padding:'8px 14px',
+                              fontFamily:MONO,fontSize:11,padding:'8px 14px',
                               border:'none',borderBottom:`2px solid ${subTab===k?T.gold:'transparent'}`,
                               background:'transparent',cursor:'pointer',
                               color:subTab===k?T.text:T.muted,
@@ -2676,7 +2677,7 @@ export default function App() {
                         <button onClick={()=>setShowReferencing(true)}
                           style={{
                             marginLeft:'auto',marginBottom:6,
-                            fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,
+                            fontFamily:MONO,fontSize:11,fontWeight:700,
                             padding:'5px 12px',borderRadius:6,
                             border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,
                             cursor:'pointer',display:'flex',alignItems:'center',gap:6,
@@ -2699,7 +2700,7 @@ export default function App() {
               </div>
               <div style={{display:'grid',gap:12}}>
                 <div className="card" style={{padding:'18px 20px'}}>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
                   {(() => {
                     const cv = selected.current_value || selected.est_value || 0
                     const totalCapIn = (selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0)
@@ -2756,8 +2757,8 @@ export default function App() {
                     ]
                   })().map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8,marginBottom:6}}>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.gold,display:'inline-flex',alignItems:'center',gap:2}}>
+                      <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
+                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.gold,display:'inline-flex',alignItems:'center',gap:2}}>
                         {item.v}
                         {item.explain && <CalcExplain {...item.explain}/>}
                       </span>
@@ -2765,9 +2766,9 @@ export default function App() {
                   ))}
                 </div>
                 {(selected.arrears||0)>0&&<div className="card" style={{padding:'16px 18px',borderLeft:`3px solid ${T.red}`}}>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>⚠ Rent Arrears</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:22,fontWeight:700,color:T.red,marginBottom:4}}>{fmt(selected.arrears)}</div>
-                  {selected.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,lineHeight:1.6}}>{selected.notes}</div>}
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.red,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>⚠ Rent Arrears</div>
+                  <div style={{fontFamily:MONO,fontSize:22,fontWeight:700,color:T.red,marginBottom:4}}>{fmt(selected.arrears)}</div>
+                  {selected.notes&&<div style={{fontFamily:MONO,fontSize:11,color:T.muted,lineHeight:1.6}}>{selected.notes}</div>}
                 </div>}
               </div>
             </div>
@@ -2815,33 +2816,33 @@ export default function App() {
           <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:420,padding:'32px 28px',border:`1px solid ${T.border}`}}>
             <div style={{fontSize:32,marginBottom:12,textAlign:'center'}}>✏️</div>
             <h2 style={{fontSize:18,fontWeight:700,textAlign:'center',marginBottom:6}}>Rename company</h2>
-            <p style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,textAlign:'center',marginBottom:24}}>Currently: <strong style={{color:T.text}}>{renameCoTarget.name}</strong></p>
+            <p style={{fontFamily:MONO,fontSize:12,color:T.muted,textAlign:'center',marginBottom:24}}>Currently: <strong style={{color:T.text}}>{renameCoTarget.name}</strong></p>
             <div style={{display:'grid',gap:14,marginBottom:20}}>
               <div>
-                <label style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>New company name</label>
+                <label style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>New company name</label>
                 <input value={renameCo.name} onChange={e=>setRenameCo(p=>({...p,name:e.target.value}))} autoFocus
-                  style={{width:'100%',fontFamily:"'DM Mono',monospace",fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
               </div>
               <div>
-                <label style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation (up to 5 chars)</label>
+                <label style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation (up to 5 chars)</label>
                 <input value={renameCo.abbr} onChange={e=>setRenameCo(p=>({...p,abbr:e.target.value.toUpperCase().slice(0,5)}))} placeholder="e.g. ACME"
-                  style={{width:'100%',fontFamily:"'DM Mono',monospace",fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
               </div>
               <div>
-                <label style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your password to confirm</label>
+                <label style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your password to confirm</label>
                 <input type="password" value={renameCoPassword} onChange={e=>{setRenameCoPassword(e.target.value);setRenameCoError('')}}
                   placeholder="Enter your password"
-                  style={{width:'100%',fontFamily:"'DM Mono',monospace",fontSize:13,background:T.bg,border:`1.5px solid ${renameCoError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
-                {renameCoError&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red,marginTop:6}}>{renameCoError}</div>}
+                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1.5px solid ${renameCoError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                {renameCoError&&<div style={{fontFamily:MONO,fontSize:11,color:T.red,marginTop:6}}>{renameCoError}</div>}
               </div>
             </div>
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setRenameCoTarget(null)}
-                style={{flex:1,fontFamily:"'DM Mono',monospace",fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                style={{flex:1,fontFamily:MONO,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
                 Cancel
               </button>
               <button onClick={handleRenameCompany} disabled={renameCoSaving}
-                style={{flex:2,fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameCoSaving?T.border:T.gold,color:'#1A2530',cursor:'pointer'}}>
+                style={{flex:2,fontFamily:MONO,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameCoSaving?T.border:T.gold,color:'#1A2530',cursor:'pointer'}}>
                 {renameCoSaving?'Saving…':'Save new name'}
               </button>
             </div>
@@ -2867,7 +2868,7 @@ export default function App() {
           showToast(`${deleteCoTarget.name} deleted — restore from Trash within 30 days`)
         }}/>}
 
-      {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
+      {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:MONO,fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
 
       {/* Mobile bottom nav - consistent icons, + More opens drawer */}
       <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
@@ -2878,7 +2879,7 @@ export default function App() {
             <button key={key} onClick={()=>{setView(key);setSelectedId(null)}}
               style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
                 alignItems:'center',gap:2,padding:'4px 8px',flex:1,
-                color:active?T.gold:T.muted,fontFamily:"'DM Mono',monospace"}}>
+                color:active?T.gold:T.muted,fontFamily:MONO}}>
               <span style={{fontSize:20}}>{n.icon}</span>
               <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>{n.short}</span>
             </button>
@@ -2887,7 +2888,7 @@ export default function App() {
         <button onClick={()=>setShowDrawer(true)}
           style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
             alignItems:'center',gap:2,padding:'4px 8px',flex:1,
-            color:T.muted,fontFamily:"'DM Mono',monospace"}}>
+            color:T.muted,fontFamily:MONO}}>
           <span style={{fontSize:20}}>☰</span>
           <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>More</span>
         </button>
@@ -2928,17 +2929,17 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
   function savePhaseEdit(){ if(phaseEdit.name){ onUpdatePhase(prop.id, editingPhaseId, phaseEdit); setEditingPhaseId(null) } }
   function saveCostEdit(){ if(costEdit.trade){ onUpdateCost(prop.id, editingCostId, {...costEdit, cost:parseFloat(costEdit.cost)||0}); setEditingCostId(null) } }
 
-  const iconBtn = {fontFamily:"'DM Mono',monospace",fontSize:11,padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:6,cursor:'pointer',color:T.muted}
+  const iconBtn = {fontFamily:MONO,fontSize:11,padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:6,cursor:'pointer',color:T.muted}
 
   return <div>
     <div className="card" style={{padding:'14px 18px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
       <div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Refurb Status</div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:REFURB_CFG[prop.refurb_status]?.color||'#C8A84B'}}>{REFURB_CFG[prop.refurb_status]?.label||prop.refurb_status}</div>
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Refurb Status</div>
+        <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:REFURB_CFG[prop.refurb_status]?.color||'#C8A84B'}}>{REFURB_CFG[prop.refurb_status]?.label||prop.refurb_status}</div>
       </div>
       <div style={{display:'flex',gap:20}}>
-        <div style={{textAlign:'right'}}><div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Total Cost</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:T.amber}}>{fmt(totalCost)}</div></div>
-        <div style={{textAlign:'right'}}><div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Paid Out</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:T.green}}>{fmt(paidCost)}</div></div>
+        <div style={{textAlign:'right'}}><div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Total Cost</div><div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:T.amber}}>{fmt(totalCost)}</div></div>
+        <div style={{textAlign:'right'}}><div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Paid Out</div><div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:T.green}}>{fmt(paidCost)}</div></div>
       </div>
       <select value={prop.refurb_status} onChange={e=>onUpdateField(prop.id,'refurb_status',e.target.value)} style={{width:'auto',fontSize:11,padding:'6px 10px'}}>
         <option value="planned">Planned</option><option value="in-progress">In Progress</option><option value="complete">Complete</option>
@@ -2946,7 +2947,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
     </div>
     <div style={{marginBottom:16}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Phases</div>
+        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Phases</div>
         <button className="btn btn-ghost" style={{fontSize:10,padding:'5px 10px'}} onClick={()=>setShowPF(v=>!v)}>+ Add Phase</button>
       </div>
       {showPF&&<div className="card" style={{padding:'14px 16px',marginBottom:10}}>
@@ -2960,7 +2961,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
         </div>
         <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{if(phaseForm.name){onAddPhase(prop.id,phaseForm);setPhaseForm({name:'',start_date:'',end_date:'',done:false,notes:''});setShowPF(false)}}}>Add Phase</button>
       </div>}
-      {phases.length===0&&!showPF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'12px 0'}}>No phases yet.</div>}
+      {phases.length===0&&!showPF&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'12px 0'}}>No phases yet.</div>}
       {phases.map(ph=>(
         editingPhaseId===ph.id ? (
           <div key={ph.id} className="card" style={{padding:'14px 16px',marginBottom:8,border:`1px solid ${T.gold}44`}}>
@@ -2980,7 +2981,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
         ) : (
           <div key={ph.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
             <div style={{width:10,height:10,borderRadius:'50%',background:ph.done?'#2ECC8A':'#E0943A',flexShrink:0}}/>
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
             <button onClick={()=>onUpdatePhase(prop.id, ph.id, {done:!ph.done})} title={ph.done?'Mark in progress':'Mark complete'}
               style={{...iconBtn,color:ph.done?'#2ECC8A':'#E0943A',borderColor:(ph.done?'#2ECC8A':'#E0943A')+'44'}}>
               {ph.done?'✓ Done':'In Progress'}
@@ -2997,7 +2998,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
     </div>
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Trade Costs</div>
+        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Trade Costs</div>
         <button className="btn btn-ghost" style={{fontSize:10,padding:'5px 10px'}} onClick={()=>setShowCF(v=>!v)}>+ Add Cost</button>
       </div>
       {showCF&&<div className="card" style={{padding:'14px 16px',marginBottom:10}}>
@@ -3012,7 +3013,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
         <div style={{marginBottom:10}}><label>Notes</label><input value={costForm.notes} onChange={e=>setCostForm(f=>({...f,notes:e.target.value}))} placeholder="Optional"/></div>
         <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{if(costForm.trade){onAddCost(prop.id,{...costForm,cost:parseFloat(costForm.cost)||0});setCostForm({trade:'',cost:'',paid:false,date:'',notes:''});setShowCF(false)}}}>Add Cost</button>
       </div>}
-      {costs.length===0&&!showCF&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'12px 0'}}>No costs logged yet.</div>}
+      {costs.length===0&&!showCF&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'12px 0'}}>No costs logged yet.</div>}
       {costs.map(item=>(
         editingCostId===item.id ? (
           <div key={item.id} className="card" style={{padding:'14px 16px',marginBottom:8,border:`1px solid ${T.gold}44`}}>
@@ -3032,8 +3033,8 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
           </div>
         ) : (
           <div key={item.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{item.trade}</div>{item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{item.notes}</div>}{item.date&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>{item.date}</div>}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:item.paid?'#2ECC8A':'#E0943A'}}>{fmt(item.cost)}</div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{item.trade}</div>{item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{item.notes}</div>}{item.date&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint}}>{item.date}</div>}</div>
+            <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:item.paid?'#2ECC8A':'#E0943A'}}>{fmt(item.cost)}</div>
             <button onClick={()=>onUpdateCost(prop.id, item.id, {paid:!item.paid})} title={item.paid?'Mark unpaid':'Mark paid'}
               style={{...iconBtn,color:item.paid?'#2ECC8A':'#E0943A',borderColor:(item.paid?'#2ECC8A':'#E0943A')+'44'}}>
               {item.paid?'✓ Paid':'Unpaid'}
@@ -3109,7 +3110,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
   }
 
   if (items.length === 0) return (
-    <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>No properties match this filter.</div>
+    <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>No properties match this filter.</div>
   )
 
   const isCustomSort = sortBy === 'custom' || !sortBy
@@ -3150,9 +3151,9 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           {showCompanyHeader&&co&&(
             <div style={{display:'flex',alignItems:'center',gap:10,marginTop:idx>0?16:0,marginBottom:8}}>
               <div style={{width:3,height:18,background:co.color||T.gold,borderRadius:2,flexShrink:0}}/>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:co.color||T.gold}}>{co.abbr}</span>
+              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:co.color||T.gold}}>{co.abbr}</span>
               <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                 {items.filter(x=>x.company_id===co.id).length} properties
               </span>
             </div>
@@ -3160,8 +3161,8 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           {showBuildingHeader&&(
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
               <span style={{fontSize:13}} aria-hidden="true">🏘</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.text}}>{tail}</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>· {buildingSize} units</span>
+              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{tail}</span>
+              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {buildingSize} units</span>
             </div>
           )}
           <div
@@ -3190,17 +3191,17 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
                 <span style={{fontSize:15,fontWeight:700}}>{displayName}</span>
                 <CompanyPill company={p.company}/>
               </div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
+              <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>
                 {p.prop_type} · {p.address}
                 {p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}
               </div>
             </div>
             {/* Stats */}
             <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} onClick={()=>openDetail(p)}>
-              {p.arrears>0&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
+              {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
+                <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
+                <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
               </div>
               <Badge status={p.status}/>
             </div>
@@ -3262,7 +3263,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
             {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
-              <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
+              <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
                 <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
               </span>
             ))}
@@ -3271,10 +3272,10 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         {/* Right side: year filter + day tracker button */}
         <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
           <div style={{display:'flex',gap:6,alignItems:'center'}}>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginRight:4}}>FILTER YEAR:</span>
+            <span style={{fontFamily:MONO,fontSize:10,color:T.muted,marginRight:4}}>FILTER YEAR:</span>
             {[null,...allYears].map(yr=>(
               <button key={yr||'all'} onClick={()=>setGlobalYear(yr)}
-                style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
+                style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${globalYear===yr?T.gold:T.border}`,
                   background:globalYear===yr?T.gold+'22':'transparent',
                   color:globalYear===yr?T.gold:T.muted,transition:'all 0.18s'}}>
@@ -3283,18 +3284,18 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
             ))}
           </div>
           <button onClick={()=>setShowRentReview(true)}
-            style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+            style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.green}`,background:T.green+'22',color:T.green,whiteSpace:'nowrap'}}>
             📈 Plan rent review
           </button>
           <button onClick={()=>setShowBankConnect(true)}
-            style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+            style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.blue}`,background:T.blue+'22',color:T.blue,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
             🏦 Connect bank
             <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>EARLY</span>
           </button>
           <button onClick={onDayTracker}
-            style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+            style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${'#C8A84B'}`,background:'#C8A84B22',color:'#C8A84B',whiteSpace:'nowrap'}}>
             📅 Day view
           </button>
@@ -3321,7 +3322,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <div style={{flex:1}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <h2 style={{fontSize:15,fontWeight:700}}>{c.name}</h2>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{cps.length} properties</span>
+                  <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{cps.length} properties</span>
                 </div>
               </div>
               {/* Company summary for selected year */}
@@ -3332,12 +3333,12 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                   {v:totals.late,c:T.amber, l:'late'},
                   {v:totals.refurb, c:T.blue,  l:'refurb'},
                 ].filter(x=>x.v>0).map(x=>(
-                  <span key={x.l} style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:x.c,fontWeight:600}}>
+                  <span key={x.l} style={{fontFamily:MONO,fontSize:11,color:x.c,fontWeight:600}}>
                     {x.v} {x.l}
                   </span>
                 ))}
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.gold}}>{fmt(totals.income)}</span>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted}}>{isOpen?'▲':'▼'}</span>
+                <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(totals.income)}</span>
+                <span style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{isOpen?'▲':'▼'}</span>
               </div>
             </div>
 
@@ -3374,7 +3375,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                           padding: '10px 18px', background: T.bg,
                           borderBottom: `1px solid ${T.border}`,
                           display: 'flex', alignItems: 'center', gap: 10,
-                          fontFamily: "'DM Mono',monospace",
+                          fontFamily: MONO,
                         }}>
                           <span style={{ fontSize: 14 }} aria-hidden="true">🏘</span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
@@ -3407,9 +3408,9 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                         building suffix from each row's display name. */}
                                     {isBuilding ? (p.name.split(',')[0].trim() || p.name) : p.name}
                                   </span>
-                                  {(p.arrears||0)>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
+                                  {(p.arrears||0)>0&&<span style={{fontFamily:MONO,fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
                                 </div>
-                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>
+                                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>
                                   {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                                 </div>
                                 <RentDots payments={p.rent_payments||[]} filterYear={globalYear} onDayTracker={onDayTracker}/>
@@ -3424,12 +3425,12 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                     {v:s.late, c:T.amber, l:'L'},
                                     {v:s.refurb,  c:T.blue,  l:'R'},
                                   ].map(x=>(
-                                    <span key={x.l} style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:x.v>0?x.c:T.faint}}>
+                                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.v>0?x.c:T.faint}}>
                                       {x.v} {x.l}
                                     </span>
                                   ))}
                                 </div>
-                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.gold}}>
+                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}}>
                                   {fmt(s.income)}
                                 </div>
                               </div>
@@ -3447,7 +3448,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       })}
 
       {companies.every(c=>!properties.some(p=>p.company_id===c.id))&&
-        <div style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
+        <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
           No properties found.
         </div>}
 
@@ -3493,8 +3494,8 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
           {l:'Arrears',      v:fmt(selected.arrears||0), accent:selected.arrears>0?T.red:T.green},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:700,color:item.accent||T.text}}>{item.v}</div>
+            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.accent||T.text}}>{item.v}</div>
           </div>
         ))}
       </div>
@@ -3503,18 +3504,18 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
       {payments.length>0&&<div className="card" style={{padding:'16px 20px',marginBottom:14}}>
         {/* Year filter buttons */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:12}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
             Payment History <span style={{fontSize:9}}>(click dot to update)</span>
           </div>
           <div style={{display:'flex',gap:6}}>
             <button onClick={()=>setFilterYear(null)}
-              style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+              style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${filterYear===null?T.gold:T.border}`,
                 background:filterYear===null?T.gold+'22':'transparent',
                 color:filterYear===null?T.gold:T.muted}}>All</button>
             {years.map(yr=>(
               <button key={yr} onClick={()=>setFilterYear(yr)}
-                style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${filterYear===yr?T.gold:T.border}`,
                   background:filterYear===yr?T.gold+'22':'transparent',
                   color:filterYear===yr?T.gold:T.muted}}>{yr}</button>
@@ -3528,7 +3529,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
           {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
-            <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+            <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>
           ))}
@@ -3536,7 +3537,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
         {/* Year summary */}
         <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.border}`}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>
+          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>
             {filterYear ? `${filterYear} Summary` : 'All Time Summary'}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
@@ -3549,9 +3550,9 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
               {l:'Total Received', v:fmt(totalIncome), c:T.gold, sub:`${paid} months`, big:true},
             ].map((item,i)=>(
               <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:item.big?15:17,fontWeight:700,color:item.c}}>{item.v}</div>
-                {item.sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.faint,marginTop:2}}>{item.sub}</div>}
+                <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
+                <div style={{fontFamily:MONO,fontSize:item.big?15:17,fontWeight:700,color:item.c}}>{item.v}</div>
+                {item.sub&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2}}>{item.sub}</div>}
               </div>
             ))}
           </div>
