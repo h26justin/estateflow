@@ -30,7 +30,7 @@ import BulkAddPropertyModal from './components/BulkAddPropertyModal'
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
-import { groupKeyForAddress, flatKeyWithinBuilding } from './lib/addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName } from './lib/addressUtils'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import FeedbackPage from './components/FeedbackPage'
@@ -3273,59 +3273,106 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               </div>
             </div>
 
-            {/* Property rows */}
+            {/* Property rows — grouped by building when 2+ units share a
+                name suffix (e.g. "Room 1, Piers View" + "Room 10, Piers
+                View"). Single properties render flat as before. */}
             {isOpen&&<div style={{border:`1px solid ${T.border}`,borderTop:'none',borderRadius:'0 0 12px 12px',overflow:'hidden'}}>
-              {cps.map((p,pi)=>{
-                const s = getStats(p.rent_payments||[], globalYear, p.rent_pcm)
-                const filteredPayments = globalYear
-                  ? (p.rent_payments||[]).filter(pm=>pm.year===globalYear)
-                  : (p.rent_payments||[])
-                return (
-                  <div key={p.id}
-                    style={{padding:'14px 18px',borderBottom:pi<cps.length-1?`1px solid ${T.border}`:'none',
-                      background:pi%2===0?T.card:T.surface,cursor:'pointer',transition:'background 0.15s'}}
-                    onClick={()=>openDetail(p)}
-                    onMouseEnter={e=>e.currentTarget.style.background=T.border}
-                    onMouseLeave={e=>e.currentTarget.style.background=pi%2===0?T.card:T.surface}>
-                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
-                      {/* Left: name + dots */}
-                      <div style={{flex:1,minWidth:200}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
-                          <span style={{fontSize:13,fontWeight:600}}>{p.name}</span>
-                          {(p.arrears||0)>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
-                        </div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>
-                          {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
-                        </div>
-                        {/* Dots filtered by global year */}
-                        <RentDots payments={p.rent_payments||[]} filterYear={globalYear} onDayTracker={onDayTracker}/>
-                      </div>
+              {(() => {
+                // Group consecutive properties by shared building tail
+                const groups = []
+                const indexByTail = new Map()
+                for (const p of cps) {
+                  const tail = buildingTailFromName(p.name)
+                  const key = tail || `__solo__${p.id}`
+                  if (!indexByTail.has(key)) {
+                    indexByTail.set(key, groups.length)
+                    groups.push({ key, name: tail, items: [] })
+                  }
+                  groups[indexByTail.get(key)].items.push(p)
+                }
 
-                      {/* Right: stats + badge */}
-                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
-                        <Badge status={p.status}/>
-                        {/* Year stats */}
-                        <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                          {[
-                            {v:s.paid,    c:T.green, l:'P'},
-                            {v:s.missed,  c:T.red,   l:'M'},
-                            {v:s.late, c:T.amber, l:'L'},
-                            {v:s.refurb,  c:T.blue,  l:'R'},
-                          ].map(x=>(
-                            <span key={x.l} style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:x.v>0?x.c:T.faint}}>
-                              {x.v} {x.l}
-                            </span>
-                          ))}
+                // Flat index for row striping across the whole company
+                let rowIdx = 0
+                const totalRows = cps.length
+
+                return groups.map((group) => {
+                  const isBuilding = group.items.length > 1
+                  // Sum building-level totals for the header
+                  const bgRent = group.items.reduce((s,p) => s + (Number(p.rent_pcm)||0), 0)
+                  return (
+                    <div key={group.key}>
+                      {isBuilding && (
+                        <div style={{
+                          padding: '10px 18px', background: T.bg,
+                          borderBottom: `1px solid ${T.border}`,
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          fontFamily: "'DM Mono',monospace",
+                        }}>
+                          <span style={{ fontSize: 14 }} aria-hidden="true">🏘</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
+                            {group.name}
+                          </span>
+                          <span style={{ fontSize: 10, color: T.muted }}>
+                            · {group.items.length} units · {fmt(bgRent)}/mo
+                          </span>
                         </div>
-                        {/* Income for filtered period */}
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.gold}}>
-                          {fmt(s.income)}
-                        </div>
-                      </div>
+                      )}
+                      {group.items.map((p) => {
+                        const pi = rowIdx++
+                        const s = getStats(p.rent_payments||[], globalYear, p.rent_pcm)
+                        return (
+                          <div key={p.id}
+                            style={{padding:`14px 18px 14px ${isBuilding ? 38 : 18}px`,borderBottom:pi<totalRows-1?`1px solid ${T.border}`:'none',
+                              background:pi%2===0?T.card:T.surface,cursor:'pointer',transition:'background 0.15s',
+                              borderLeft: isBuilding ? `2px solid ${T.gold}33` : 'none',
+                              marginLeft: isBuilding ? 18 : 0,
+                            }}
+                            onClick={()=>openDetail(p)}
+                            onMouseEnter={e=>e.currentTarget.style.background=T.border}
+                            onMouseLeave={e=>e.currentTarget.style.background=pi%2===0?T.card:T.surface}>
+                            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                              {/* Left: name + dots */}
+                              <div style={{flex:1,minWidth:200}}>
+                                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
+                                  <span style={{fontSize:13,fontWeight:600}}>
+                                    {/* When grouped under a building, drop the redundant
+                                        building suffix from each row's display name. */}
+                                    {isBuilding ? (p.name.split(',')[0].trim() || p.name) : p.name}
+                                  </span>
+                                  {(p.arrears||0)>0&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
+                                </div>
+                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>
+                                  {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
+                                </div>
+                                <RentDots payments={p.rent_payments||[]} filterYear={globalYear} onDayTracker={onDayTracker}/>
+                              </div>
+                              {/* Right: stats + badge */}
+                              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
+                                <Badge status={p.status}/>
+                                <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                                  {[
+                                    {v:s.paid,    c:T.green, l:'P'},
+                                    {v:s.missed,  c:T.red,   l:'M'},
+                                    {v:s.late, c:T.amber, l:'L'},
+                                    {v:s.refurb,  c:T.blue,  l:'R'},
+                                  ].map(x=>(
+                                    <span key={x.l} style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:x.v>0?x.c:T.faint}}>
+                                      {x.v} {x.l}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,fontWeight:700,color:T.gold}}>
+                                  {fmt(s.income)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              })()}
             </div>}
           </div>
         )
@@ -3338,7 +3385,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
       {showRentReview && (
         <RentReviewModal
-          properties={activeProperties}
+          properties={properties}
           companies={companies}
           fmt={fmt}
           yieldBasis={yieldBasis}

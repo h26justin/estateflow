@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupKeyForAddress, flatKeyWithinBuilding } from '../addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName } from '../addressUtils'
 
 describe('groupKeyForAddress', () => {
   it('returns null for empty input', () => {
@@ -59,5 +59,27 @@ describe('flatKeyWithinBuilding', () => {
   it('returns empty string for empty input', () => {
     expect(flatKeyWithinBuilding('')).toBe('')
     expect(flatKeyWithinBuilding(null)).toBe('')
+  })
+})
+
+describe('buildingTailFromName', () => {
+  it('returns the part after the first comma', () => {
+    expect(buildingTailFromName('Room 1, Watts Moses House')).toBe('Watts Moses House')
+    expect(buildingTailFromName('Room 43, Watts Moses House')).toBe('Watts Moses House')
+  })
+
+  it('keeps later commas in the tail', () => {
+    expect(buildingTailFromName('Flat 3, Piers View, Park Road')).toBe('Piers View, Park Road')
+  })
+
+  it('returns null for names without a comma', () => {
+    expect(buildingTailFromName('13 Lumley Street')).toBeNull()
+    expect(buildingTailFromName('Standalone')).toBeNull()
+  })
+
+  it('returns null for empty/blank input', () => {
+    expect(buildingTailFromName('')).toBeNull()
+    expect(buildingTailFromName(null)).toBeNull()
+    expect(buildingTailFromName('Foo,   ')).toBeNull()  // comma with whitespace tail
   })
 })

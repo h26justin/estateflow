@@ -46,6 +46,33 @@ export function groupKeyForAddress(address) {
 }
 
 /**
+ * Extract the building "tail" from a property name. If the property is
+ * named "Room 1, Watts Moses House" or "Flat 3, Piers View, Park Road",
+ * the tail is everything after the FIRST comma — i.e. the part that all
+ * units in the same building share.
+ *
+ * Returns null when the name has no comma (i.e. it's a standalone
+ * property, not a flat/room within a larger building).
+ *
+ * Used by the Rent Tracker to cluster rooms/flats under a building
+ * heading. Cheaper and more permissive than groupKeyForAddress because
+ * many users only fill in the property name, not the full address.
+ *
+ * Examples:
+ *   "Room 1, Watts Moses House"          → "Watts Moses House"
+ *   "Room 43, Watts Moses House"         → "Watts Moses House"
+ *   "Flat 3, Piers View, Park Road"      → "Piers View, Park Road"
+ *   "13 Lumley Street"                   → null  (no comma)
+ *   ""                                   → null
+ */
+export function buildingTailFromName(name) {
+  if (!name) return null
+  const i = String(name).indexOf(',')
+  if (i < 0) return null
+  return name.slice(i + 1).trim() || null
+}
+
+/**
  * Extract a sortable "secondary key" within a building. Used to order
  * flats/rooms 1, 2, 3, ..., 10, 11 within their building cluster.
  *
