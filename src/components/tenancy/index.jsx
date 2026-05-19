@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import * as api from '../../lib/api'
 import { fmt } from '../../lib/format'
 import MoneyInput from '../../lib/MoneyInput'
+import NoticeGenerator from '../NoticeGenerator'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
 export function RightToRentTab({ propertyId, userId, showToast, T }) {
@@ -236,11 +237,12 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
 }
 
 // ── NOTICE TRACKER (S21 / S8) ─────────────────────────────────────────────────
-export function NoticeTrackerTab({ propertyId, userId, showToast, T }) {
+export function NoticeTrackerTab({ propertyId, userId, showToast, T, property }) {
   const mono = "'DM Mono',monospace"
   const [notices, setNotices] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showGenerator, setShowGenerator] = useState(false)
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
 
@@ -287,11 +289,29 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal notices</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track Section 21, Section 8 and other notices served on tenants.</div>
         </div>
-        <button onClick={() => { setForm({ notice_type: 's21', status: 'draft' }); setShowForm(true) }}
-          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
-          + Log notice
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={() => setShowGenerator(true)}
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.amber, cursor: 'pointer' }}>
+            ✎ Generate S21/S8
+          </button>
+          <button onClick={() => { setForm({ notice_type: 's21', status: 'draft' }); setShowForm(true) }}
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>
+            + Log notice
+          </button>
+        </div>
       </div>
+
+      {showGenerator && (
+        <NoticeGenerator
+          property={property || { id: propertyId, address: '' }}
+          userId={userId}
+          showToast={showToast}
+          onClose={() => {
+            setShowGenerator(false)
+            // Refresh in case a draft was logged
+            api.fetchNotices(propertyId).then(setNotices).catch(()=>{})
+          }}/>
+      )}
 
       {showForm && (
         <div style={{ background: T.card, border: `1px solid ${T.red}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
