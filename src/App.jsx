@@ -35,6 +35,7 @@ import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
+import CommandPalette from './components/CommandPalette'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -568,6 +569,7 @@ export default function App() {
   const [deleteCoTarget, setDeleteCoTarget] = useState(null)  // company being soft-deleted
   const [showNewMenu, setShowNewMenu]  = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showPalette, setShowPalette]   = useState(false)
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
@@ -1142,6 +1144,78 @@ export default function App() {
     return () => window.removeEventListener('ownproperly:toast', handler)
   }, [showToast])
 
+  // Global keyboard shortcut to open the command palette. Cmd+K on Mac,
+  // Ctrl+K elsewhere. We skip when the user is typing into an input/textarea
+  // or contenteditable to avoid hijacking their typing, EXCEPT when the
+  // modifier is held (Cmd/Ctrl) — those combos should always open the
+  // palette since the user is asking for the shortcut explicitly.
+  useEffect(() => {
+    function onKey(e) {
+      const isPaletteKey = (e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')
+      if (!isPaletteKey) return
+      e.preventDefault()
+      setShowPalette(o => !o)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Commands list for the palette. Rebuilt whenever the underlying data
+  // changes (properties / companies / view); cheap enough to recompute.
+  const paletteCommands = useMemo(() => {
+    const cmds = []
+    // Navigation
+    const navCmds = [
+      { key:'dashboard',  icon:'🏠', label:'Dashboard' },
+      { key:'properties', icon:'🏘', label:'Portfolio' },
+      { key:'rent',       icon:'💰', label:'Rent Tracker' },
+      { key:'deals',      icon:'🎯', label:'Deals' },
+      { key:'insurance',  icon:'🛡', label:'Insurance' },
+      { key:'reports',    icon:'📊', label:'Reports' },
+      { key:'settings',   icon:'⚙',  label:'Settings' },
+      { key:'feedback',   icon:'💬', label:'Send Feedback' },
+    ]
+    for (const n of navCmds) {
+      cmds.push({
+        id: `nav:${n.key}`, icon: n.icon, label: `Go to ${n.label}`,
+        group: 'navigate', keywords: n.label,
+        action: () => { setView(n.key); setSelectedId(null) },
+      })
+    }
+    // Open property by name/address
+    for (const p of properties) {
+      cmds.push({
+        id: `prop:${p.id}`, icon: '🏠', label: p.name || p.address || 'Untitled property',
+        keywords: `${p.address || ''} ${p.company?.name || ''} ${p.company?.abbr || ''}`.trim(),
+        group: 'open',
+        hint: p.company?.abbr,
+        action: () => { setSelectedId(p.id); setDetailTab('overview'); setView('detail') },
+      })
+    }
+    // Open company by name
+    for (const c of companies) {
+      cmds.push({
+        id: `co:${c.id}`, icon: '🏢', label: c.name,
+        keywords: c.abbr,
+        group: 'open',
+        hint: 'Company',
+        action: () => { setActiveCoTab(c.id); setView('properties'); setPortfolioTab('companies') },
+      })
+    }
+    // Quick actions (matches the "+ New" menu)
+    cmds.push(
+      { id:'act:add-prop',   icon:'🏠', label:'Add Property',         group:'create', action:()=>{ setEditProp(null); setShowAddProp(true) } },
+      { id:'act:add-bulk',   icon:'🏘', label:'Add Block of Flats',   group:'create', action:()=>setShowAddBulk(true) },
+      { id:'act:add-co',     icon:'🏢', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
+      { id:'act:import',     icon:'📄', label:'Import Statement',     group:'create', action:()=>setShowImporter(true) },
+      { id:'act:dark',       icon:'🌙', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+        group:'action', keywords: 'theme toggle', action:()=>setDarkMode(!darkMode) },
+      { id:'act:signout',    icon:'↗', label:'Sign Out',              group:'action', action:()=>supabase.auth.signOut() },
+    )
+    return cmds
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties, companies, darkMode])
+
   // Early returns AFTER all hooks
   if (session===undefined) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return (
@@ -1593,6 +1667,7 @@ export default function App() {
                       background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                       padding:'6px',minWidth:180,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
+                        {icon:'⌘', label:'Search & jump…', hint:'⌘K', action:()=>setShowPalette(true)},
                         {icon:'💬',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
                         {icon:'↗', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
                       ].map((item,i,arr)=>(
@@ -1606,7 +1681,8 @@ export default function App() {
                           onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                           onMouseLeave={e=>e.currentTarget.style.background='none'}>
                           <span style={{fontSize:14,width:22,textAlign:'center'}}>{item.icon}</span>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
+                          <span style={{flex:1,fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
+                          {item.hint && <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
                         </button>
                       ))}
                     </div>
@@ -2655,6 +2731,7 @@ export default function App() {
         </>}
       </main>
 
+      <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
       {showAddBulk&&<BulkAddPropertyModal
         companies={companies}
