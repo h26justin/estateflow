@@ -567,6 +567,7 @@ export default function App() {
   const [renameCoSaving, setRenameCoSaving] = useState(false)
   const [deleteCoTarget, setDeleteCoTarget] = useState(null)  // company being soft-deleted
   const [showNewMenu, setShowNewMenu]  = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [editProp,    setEditProp]     = useState(null)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
@@ -1347,15 +1348,19 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
+  // Top-level navigation tabs. Feedback used to live here as a required tab,
+  // but it's not a daily-use page — moved to the "⋯ More" menu in the
+  // top-right so it doesn't clutter the primary navigation. Settings stays
+  // as a tab because its sub-pages (billing, branding, team, notifications,
+  // etc.) are deep and benefit from a dedicated landmark.
   const ALL_NAV=[
-    {key:'dashboard',  label:'Dashboard', icon:'🏠', short:'Home',     required:true},
-    {key:'properties', label:'Portfolio', icon:'🏘', short:'Portfolio',required:true},
-    {key:'rent',       label:'Rent Tracker',   icon:'💰', short:'Rent',  required:false},
-    {key:'deals',      label:'Deals',     icon:'🎯', short:'Deals',    required:false},
-    {key:'insurance',  label:'Insurance', icon:'🛡', short:'Insurance', required:false},
-    {key:'reports',    label:'Reports',   icon:'📊', short:'Reports',  required:false},
-    {key:'feedback',   label:'Feedback',  icon:'💬', short:'Feedback', required:true},
-    {key:'settings',   label:'Settings',  icon:'⚙',  short:'Settings', required:true},
+    {key:'dashboard',  label:'Dashboard',    icon:'🏠', short:'Home',     required:true},
+    {key:'properties', label:'Portfolio',    icon:'🏘', short:'Portfolio',required:true},
+    {key:'rent',       label:'Rent Tracker', icon:'💰', short:'Rent',     required:false},
+    {key:'deals',      label:'Deals',        icon:'🎯', short:'Deals',    required:false},
+    {key:'insurance',  label:'Insurance',    icon:'🛡', short:'Insurance',required:false},
+    {key:'reports',    label:'Reports',      icon:'📊', short:'Reports',  required:false},
+    {key:'settings',   label:'Settings',     icon:'⚙',  short:'Settings', required:true},
   ]
   const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
 
@@ -1563,7 +1568,44 @@ export default function App() {
             )}
             <NotificationCentre/>
             {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>⚙ Admin</button>}
-            {!isMobile&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px'}} onClick={()=>supabase.auth.signOut()} aria-label="Sign out">Sign Out</button>}
+            {/* "⋯ More" menu — houses pages that aren't worth their own tab
+                (Feedback, Sign Out, etc.). Keeps primary nav focused on
+                daily-use pages. */}
+            {!isMobile&&(
+              <div style={{position:'relative'}}>
+                <button className="btn btn-ghost" style={{fontSize:13,padding:'6px 11px',fontWeight:700,letterSpacing:'0.05em'}}
+                  onClick={()=>setShowMoreMenu(m=>!m)}
+                  aria-label="More options" aria-expanded={showMoreMenu}>
+                  ⋯
+                </button>
+                {showMoreMenu&&(
+                  <>
+                    <div style={{position:'fixed',inset:0,zIndex:199}} onClick={()=>setShowMoreMenu(false)}/>
+                    <div role="menu" style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:200,
+                      background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
+                      padding:'6px',minWidth:180,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
+                      {[
+                        {icon:'💬',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
+                        {icon:'↗', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
+                      ].map((item,i,arr)=>(
+                        <button key={item.label} role="menuitem"
+                          onClick={()=>{item.action();setShowMoreMenu(false)}}
+                          style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 14px',
+                            background:'none',border:'none',borderRadius:8,cursor:'pointer',textAlign:'left',
+                            borderTop:item.divider?`1px solid ${T.border}`:'none',
+                            marginTop:item.divider?4:0,paddingTop:item.divider?12:'10px',
+                            transition:'background 0.15s'}}
+                          onMouseEnter={e=>e.currentTarget.style.background=T.bg}
+                          onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                          <span style={{fontSize:14,width:22,textAlign:'center'}}>{item.icon}</span>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             {/* Hamburger - mobile only */}
             {isMobile&&<button onClick={()=>setShowDrawer(true)}
               aria-label="Open menu" style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.text,fontSize:16,display:'flex',flexDirection:'column',gap:4,alignItems:'center',justifyContent:'center',width:36,height:36}}>
@@ -1622,6 +1664,10 @@ export default function App() {
                 </button>
               ))}
               <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px',marginTop:4}}
+                onClick={()=>{setView('feedback');setSelectedId(null);setShowDrawer(false)}}>
+                💬 Send Feedback
+              </button>
+              <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px'}}
                 onClick={()=>supabase.auth.signOut()}>
                 Sign Out
               </button>
