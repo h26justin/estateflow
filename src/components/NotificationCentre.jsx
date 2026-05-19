@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
@@ -26,7 +27,7 @@ function timeAgo(iso) {
 
 export default function NotificationCentre() {
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [open, setOpen]   = useState(false)
   const [items, setItems] = useState([])
   const [unread, setUnread] = useState(0)
