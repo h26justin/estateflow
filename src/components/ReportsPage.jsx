@@ -3,8 +3,20 @@ import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { loadCdnScript } from '../lib/loadCdnScript'
+import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+
+// Compact currency formatter for chart Y-axes — "£12k" reads better than
+// "£12,000" at small sizes.
+function fmtCompact(n) {
+  if (n == null || n === 0) return '£0'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1e6) return `${sign}£${(abs/1e6).toFixed(1)}m`
+  if (abs >= 1e3) return `${sign}£${Math.round(abs/1e3)}k`
+  return `${sign}£${Math.round(abs)}`
+}
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = (n,d=1) => (n||0).toFixed(d)+'%'
@@ -330,6 +342,21 @@ function SectionTitle({ title, T }) {
   return <h2 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:14,marginTop:24}}>{title}</h2>
 }
 
+// Card wrapper for in-app charts — keeps visual rhythm with StatCards
+// and ReportTable.
+function ChartCard({ title, T, children, padding = '16px 18px 20px' }) {
+  return (
+    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding,marginBottom:18}}>
+      {title && (
+        <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>
+          {title}
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
 // ── EXPORT BUTTONS ────────────────────────────────────────────────────────────
 function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, companies, co, cs, T, accent, reportName }) {
   const [exporting, setExporting] = useState(false)
@@ -346,8 +373,19 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
     setExporting(true)
     try {
       const data = buildReportData(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
-      await renderReportPDF({ ...data, reportName: reportName || data.title, company: co?.name || 'All companies', period: range.label, companyColor: co?.color, logoUrl: cs?.logo_url })
-    } catch(e) { console.error('PDF export failed', e) }
+      await renderReportPDF({
+        ...data,
+        reportName: reportName || data.title,
+        company: co?.name || 'All companies',
+        period: range.label,
+        // Use the company's brand colour if set; otherwise fall back to the
+        // report category's accent (gold for tax, green for performance,
+        // etc) — matches the in-app catalogue card colour.
+        companyColor: co?.color,
+        categoryAccent: accent,
+        logoUrl: cs?.logo_url,
+      })
+    } catch(e) { console.error('PDF export failed', e); alert('PDF export failed — ' + (e?.message || 'unknown')) }
     setExporting(false)
   }
   return (
@@ -533,7 +571,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
 }
 
 // ── RENDER PDF ─────────────────────────────────────────────────────────────────
-async function renderReportPDF({ title, kpis, headers, rows, totals, note, reportName, company, period, companyColor, logoUrl }) {
+async function renderReportPDF({ title, kpis, headers, rows, totals, note, reportName, company, period, companyColor, categoryAccent, logoUrl }) {
   await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
   const { jsPDF } = window.jspdf
   const isLandscape = headers.length > 5
@@ -555,7 +593,11 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
   const green    = [46, 204, 138]
   const red      = [224, 85, 85]
   const amber    = [224, 148, 58]
-  const accent   = companyColor ? (companyColor.match(/[0-9a-f]{2}/gi)?.map(h => parseInt(h, 16)) || gold) : gold
+  // Accent priority: company brand colour > category accent > gold default.
+  // Category accent comes from CAT_COLORS via ExportButtons so PDFs match
+  // the in-app catalogue card colour for that report.
+  const hexToRgb = h => (h || '').match(/[0-9a-f]{2}/gi)?.map(x => parseInt(x, 16))
+  const accent   = hexToRgb(companyColor) || hexToRgb(categoryAccent) || gold
 
   // Load images
   async function loadImg(url) {
@@ -579,6 +621,9 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
   // ── PAGE BACKGROUND ──────────────────────────────────────────────────────
   doc.setFillColor(...cream); doc.rect(0, 0, W, H, 'F')
 
+  // Top accent stripe — catches the eye, branded to category/company.
+  doc.setFillColor(...accent); doc.rect(0, 0, W, 3, 'F')
+
   // ── HEADER CARD ──────────────────────────────────────────────────────────
   card(margin, 8, cW, 30)
   // Company logo
@@ -595,7 +640,7 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
   doc.setFontSize(8); doc.setTextColor(...faint); doc.setFont('helvetica', 'normal')
   doc.text(period, W - margin - 6, 18, { align: 'right' })
   doc.text(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - margin - 6, 24, { align: 'right' })
-  // Gold accent bar at bottom of header card
+  // Accent bar at bottom of header card
   doc.setFillColor(...accent); doc.rect(margin, 36.5, cW, 1, 'F')
 
   let y = 44
@@ -620,15 +665,13 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
       rk.forEach(([label, value], i) => {
         const x = margin + i * (kw + gap)
         card(x, y, kw, 18)
-        // Gold left accent
         doc.setFillColor(...accent); doc.rect(x, y + 3, 1.2, 12, 'F')
-        // Label
         doc.setFontSize(6.5); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal')
-        doc.text(label.toUpperCase(), x + 5, y + 6.5)
-        // Value
+        doc.text(String(label).toUpperCase(), x + 5, y + 6.5)
         doc.setFontSize(13); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
-        const vs = String(value).length > 16 ? String(value).slice(0, 14) + '..' : String(value)
-        doc.text(vs, x + 5, y + 14.5)
+        // Wrap long KPI values (property names etc) instead of truncating.
+        const lines = doc.splitTextToSize(String(value || '—'), kw - 7).slice(0, 2)
+        doc.text(lines, x + 5, y + 14)
       })
       y += 24
     }
@@ -651,18 +694,29 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
   })
   y += 9
 
-  // Table rows
+  // Table rows. Wrap long cells (typically property addresses) to up to 2
+  // lines rather than truncating with "..." — looks far more professional
+  // on Greenwich Park, Coatham House, 12 Branstone Park type names.
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
   rows.forEach((row, ri) => {
-    if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
-    // Alternating: white card vs cream bg
-    if (ri % 2 === 0) { doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, 6.5, 'F') }
-    // Subtle bottom border
-    doc.setDrawColor(...border); doc.setLineWidth(0.15); doc.line(margin + 2, y + 5, margin + cW - 2, y + 5)
+    // Measure each cell's wrapped height; row height = max line count × 4.
+    const wraps = row.map((cell, ci) => {
+      const val = String(cell != null ? cell : '')
+      const w = colWid(ci) - 8
+      // jsPDF.splitTextToSize returns an array of lines that fit within `w`
+      return doc.splitTextToSize(val, w).slice(0, 2)
+    })
+    const lineCount = Math.max(1, ...wraps.map(w => w.length))
+    const rowH = Math.max(6.5, lineCount * 4.5)
+
+    if (y + rowH > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
+
+    if (ri % 2 === 0) { doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, rowH, 'F') }
+    doc.setDrawColor(...border); doc.setLineWidth(0.15)
+    doc.line(margin + 2, y + rowH - 1.5, margin + cW - 2, y + rowH - 1.5)
 
     row.forEach((cell, ci) => {
       const val = String(cell != null ? cell : '')
-      const trunc = val.length > 34 ? val.slice(0, 31) + '...' : val
       // Colour logic matching dashboard
       if (ci > 0) {
         if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue') || val.includes('overdue')) doc.setTextColor(...red)
@@ -672,10 +726,11 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
       } else { doc.setTextColor(...dark) }
 
       doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal')
-      if (ci === 0) doc.text(trunc, colX(ci) + 4, y + 3.5)
-      else doc.text(trunc, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
+      const lines = wraps[ci]
+      if (ci === 0) doc.text(lines, colX(ci) + 4, y + 3.5)
+      else doc.text(lines, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
     })
-    y += 6.5
+    y += rowH
   })
 
   // Totals row
@@ -1055,6 +1110,18 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
         {label:'Net profit',value:fmt(totalNet),color:totalNet>=0?T.green:T.red},
         {label:'Net margin',value:totalRent>0?fmtPct((totalNet/totalRent)*100):'—',color:accent},
       ]}/>
+
+      {rows.length > 0 && (
+        <ChartCard title="Net profit by property" T={T}>
+          <BarChart T={T} accent={accent} fmt={fmtCompact}
+            data={rows.map(r => ({
+              label: r.p.name,
+              value: r.net,
+              color: r.net >= 0 ? T.green : T.red,
+            }))}/>
+        </ChartCard>
+      )}
+
       <ReportTable T={T} accent={accent}
         headers={[{label:'Property'},{label:'Annual rent',right:true,width:'120px'},{label:'Expenses',right:true,width:'120px'},{label:'Net profit',right:true,width:'120px'},{label:'Gross yield',right:true,width:'100px'}]}
         rows={rows.map(r=>[
@@ -1241,6 +1308,18 @@ function ReportYieldComparison({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
         {label:'Best performer',value:rows[0]?.p.name||'—',color:accent},
         {label:'Highest gross yield',value:rows[0]?fmtPct(rows[0].grossYield):'—',color:T.green},
       ]}/>
+
+      {rows.length > 0 && (
+        <ChartCard title="Gross yield — ranked" T={T}>
+          <RankedBar T={T} accent={accent} fmt={v => `${v.toFixed(1)}%`}
+            data={rows.map(r => ({
+              label: r.p.name,
+              value: r.grossYield,
+              color: r.grossYield >= 6 ? T.green : r.grossYield >= 4 ? T.amber : T.red,
+            }))}/>
+        </ChartCard>
+      )}
+
       <ReportTable T={T} accent={accent}
         headers={[{label:'#',width:'30px'},{label:'Property'},{label:'Monthly rent',right:true,width:'130px'},{label:'Est. value',right:true,width:'130px'},{label:'Gross yield',right:true,width:'110px'},{label:'Est. net yield',right:true,width:'120px'}]}
         rows={rows.map((r,i)=>[
@@ -1270,6 +1349,40 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
         {label:'Vacant',value:vacant,color:T.red},
         {label:'Monthly void cost',value:fmt(voidCost),color:vacant>0?T.red:T.green},
       ]}/>
+
+      {total > 0 && (
+        <ChartCard title="Portfolio occupancy" T={T} padding="20px">
+          <div style={{display:'flex',gap:24,alignItems:'center',flexWrap:'wrap',justifyContent:'center'}}>
+            <DonutChart T={T} accent={accent}
+              percent={rate}
+              value={`${rate.toFixed(0)}%`}
+              sublabel={`${rented} of ${total}`}
+              label="OCCUPIED"
+              color={rate >= 90 ? T.green : rate >= 70 ? T.amber : T.red}
+              size={200}/>
+            <div style={{display:'flex',flexDirection:'column',gap:12,fontFamily:mono,fontSize:12,minWidth:160}}>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>Rented</span>
+                <span style={{color:T.green,fontWeight:700}}>{rented}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>Vacant</span>
+                <span style={{color:T.red,fontWeight:700}}>{vacant}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>Other</span>
+                <span style={{color:T.text,fontWeight:700}}>{total - rented - vacant}</span>
+              </div>
+              <div style={{height:1,background:T.border,margin:'4px 0'}}/>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>Monthly void cost</span>
+                <span style={{color:vacant > 0 ? T.red : T.green,fontWeight:700}}>{fmt(voidCost)}</span>
+              </div>
+            </div>
+          </div>
+        </ChartCard>
+      )}
+
       <ReportTable T={T} accent={accent}
         headers={[{label:'Property'},{label:'Status',width:'120px'},{label:'Monthly rent',right:true,width:'130px'},{label:'Occupied',width:'100px'}]}
         rows={filtProps.sort((a,b)=>a.status==='vacant'?-1:1).map(p=>[
@@ -1366,6 +1479,12 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
         {label:'Total outgoings',value:fmt(totalExp),color:T.red},
         {label:'Net cash flow',value:fmt(totalRent-totalExp),color:(totalRent-totalExp)>=0?T.green:T.red},
       ]}/>
+
+      <ChartCard title="Net cash flow by month" T={T}>
+        <AreaChart T={T} accent={accent} fmt={fmtCompact}
+          data={mData.map(m => ({ label: m.label, value: m.net }))}/>
+      </ChartCard>
+
       <ReportTable T={T} accent={accent}
         headers={[{label:'Month',width:'80px'},{label:'Rent income',right:true,width:'140px'},{label:'Expenses',right:true,width:'140px'},{label:'Net cash flow',right:true,width:'140px'}]}
         rows={mData.map(m=>[
