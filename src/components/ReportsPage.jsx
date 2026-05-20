@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
+import { loadCdnScript } from '../lib/loadCdnScript'
+
+const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = (n,d=1) => (n||0).toFixed(d)+'%'
@@ -455,13 +458,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
 
 // ── RENDER PDF ─────────────────────────────────────────────────────────────────
 async function renderReportPDF({ title, kpis, headers, rows, totals, note, reportName, company, period, companyColor, logoUrl }) {
-  if (!window.jspdf) {
-    await new Promise((res, rej) => {
-      const s = document.createElement('script')
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-      s.onload = res; s.onerror = rej; document.head.appendChild(s)
-    })
-  }
+  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
   const { jsPDF } = window.jspdf
   const isLandscape = headers.length > 5
   const doc = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })

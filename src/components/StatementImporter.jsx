@@ -4,29 +4,30 @@ import { useTheme } from '../lib/ThemeContext'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 import { safeOverlayClose } from '../lib/modalUtils'
 import MoneyInput from '../lib/MoneyInput'
+import { loadCdnScript } from '../lib/loadCdnScript'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
 
 // ── PDF TEXT EXTRACTION ───────────────────────────────────────────────────────
+// PDF.js v3.11.174 from cdnjs (CSP allow-listed in vercel.json). Loader
+// helper surfaces real errors instead of "undefined" if the CDN is blocked.
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174'
+
 async function extractPDFText(file) {
-  // Load PDF.js from CDN if not already loaded
-  if (!window.pdfjsLib) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement('script')
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-      script.onload = () => {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-        resolve()
-      }
-      script.onerror = reject
-      document.head.appendChild(script)
-    })
+  await loadCdnScript(`${PDFJS_CDN}/pdf.min.js`, 'pdfjsLib')
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`
+
+  let pdf
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  } catch (e) {
+    // PDF.js throws with .message="Invalid PDF structure" or similar for
+    // corrupt/password-protected docs. Surface that, not "undefined".
+    throw new Error(e?.message || 'The file does not appear to be a valid PDF')
   }
 
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise
   let fullText = ''
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
@@ -84,7 +85,11 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
       setItems(matched)
       setStep('preview')
     } catch(e) {
-      showToast('Error reading PDF: ' + e.message, 'error')
+      // Defence in depth: e might be a string, an Event (script onerror),
+      // or any object — guard against `undefined.message`.
+      const msg = e?.message || (typeof e === 'string' ? e : null) || 'Unknown error (check console)'
+      console.error('StatementImporter:extractPDFText', e)
+      showToast('Error reading PDF: ' + msg, 'error')
     }
     setLoading(false)
   }

@@ -1,4 +1,7 @@
 import { supabase } from '../supabase'
+import { loadCdnScript } from '../loadCdnScript'
+
+const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 const uid = async () => (await supabase.auth.getUser()).data.user.id
 
@@ -147,14 +150,7 @@ export async function unarchiveProperty(id) {
  * Returns nothing — opens a download in the browser.
  */
 export async function exportPropertySummaryPDF(property) {
-  if (!window.jspdf) {
-    await new Promise((res, rej) => {
-      const s = document.createElement('script')
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-      s.onload = res; s.onerror = () => rej(new Error('Could not load PDF library'))
-      document.head.appendChild(s)
-    })
-  }
+  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
   const { jsPDF } = window.jspdf
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = 210, margin = 16

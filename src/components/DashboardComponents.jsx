@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { supabase } from '../lib/supabase'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
+import { loadCdnScript } from '../lib/loadCdnScript'
+
+const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -218,16 +221,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
   }
 
   async function exportPDF() {
-    // Load jsPDF dynamically
-    if (!window.jspdf) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script')
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-        script.onload = resolve
-        script.onerror = reject
-        document.head.appendChild(script)
-      })
-    }
+    await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
     const { jsPDF } = window.jspdf
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const W = 210, H = 297
@@ -913,14 +907,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
   async function exportPDF() {
     setExporting(true)
-    if (!window.jspdf) {
-      await new Promise((res, rej) => {
-        const s = document.createElement('script')
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-        s.onload = res; s.onerror = rej
-        document.head.appendChild(s)
-      })
-    }
+    await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
     const { jsPDF } = window.jspdf
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const W = 210
