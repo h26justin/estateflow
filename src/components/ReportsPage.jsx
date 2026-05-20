@@ -36,27 +36,30 @@ function daysUntil(dateStr) {
   return Math.ceil((new Date(dateStr) - new Date()) / (1000*60*60*24))
 }
 
+// Curated to 16 reports — May 2026. Removed 4 redundancies whose data
+// is now folded into the surviving reports:
+//   - "expiring_certs" → top section of Compliance
+//   - "best_worst"     → Yield Comparison already ranks (and best_worst
+//                        crashed at runtime on row colour logic)
+//   - "open_jobs"      → top section of Maintenance Cost Report
+//   - "portfolio_growth" → Equity Report covers same numbers more clearly
 const REPORT_CATALOGUE = [
-  { id:'pnl',          cat:'tax',         icon:'📊', name:'Annual P&L',                  desc:'Income vs expenses, net profit per property and company' },
+  { id:'pnl',          cat:'tax',         icon:'📊', name:'Annual P&L',                  desc:'Collected rent vs expenses, net profit per property — HMRC-ready' },
   { id:'income_sched', cat:'tax',         icon:'📅', name:'Rental income schedule',       desc:'Month-by-month rent received — ideal for SA105' },
   { id:'expense_breakdown', cat:'tax',    icon:'🧾', name:'Expense breakdown',            desc:'All expenses by category, ready for your accountant' },
-  { id:'mortgage_interest', cat:'tax',    icon:'🏦', name:'Mortgage interest summary',    desc:'Total interest paid per property — Section 24 tax relief' },
+  { id:'mortgage_interest', cat:'tax',    icon:'🏦', name:'Mortgage interest summary',    desc:'Total interest paid per property — Section 24 tax credit' },
   { id:'capital_gains', cat:'tax',        icon:'📈', name:'Capital gains summary',        desc:'Purchase cost vs current value, unrealised gain per property' },
   { id:'yield_compare', cat:'performance',icon:'🏆', name:'Yield comparison',             desc:'Gross and net yield ranked across all properties' },
-  { id:'best_worst',    cat:'performance',icon:'🎯', name:'Best & worst performers',      desc:'Properties ranked by profit, yield and return on investment' },
-  { id:'occupancy',     cat:'performance',icon:'🏠', name:'Occupancy rate report',        desc:'Portfolio occupancy %, vacant days, void cost by property' },
-  { id:'rent_collect',  cat:'performance',icon:'💰', name:'Rent collection rate',         desc:'% collected on time, arrears trend month by month' },
-  { id:'portfolio_growth',cat:'performance',icon:'📉',name:'Portfolio growth tracker',    desc:'Total invested vs current value, equity built over time' },
-  { id:'cashflow',      cat:'finance',    icon:'💷', name:'Monthly cash flow',            desc:'Rent in, all costs out, net cash per month' },
-  { id:'equity',        cat:'finance',    icon:'🏗', name:'Equity report',                desc:'Property values, outstanding debt, equity and LTV per property' },
-  { id:'mortgage_port', cat:'finance',    icon:'📋', name:'Mortgage portfolio summary',   desc:'All mortgages, rates, terms, expiry dates and LTV ratios' },
+  { id:'occupancy',     cat:'performance',icon:'🏠', name:'Occupancy rate',               desc:'Portfolio occupancy %, vacant days, void cost by property' },
+  { id:'rent_collect',  cat:'performance',icon:'💰', name:'Rent collection rate',         desc:'% collected on time, late and missed payments by property' },
+  { id:'cashflow',      cat:'finance',    icon:'💷', name:'Monthly cash flow',            desc:'Real monthly rent in, all costs out, net cash month-by-month' },
+  { id:'equity',        cat:'finance',    icon:'🏗', name:'Equity report',                desc:'Property values, debt, equity, LTV and unrealised gain per property' },
+  { id:'mortgage_port', cat:'finance',    icon:'📋', name:'Mortgage portfolio',           desc:'All mortgages, rates, terms, monthly payments and LTV ratios' },
   { id:'arrears',       cat:'finance',    icon:'⚠️', name:'Arrears report',               desc:'Outstanding rent by property, amount and days overdue' },
-  { id:'compliance',    cat:'compliance', icon:'✅', name:'Compliance status',            desc:'All certificates across all properties — RAG status' },
-  { id:'expiring_certs',cat:'compliance', icon:'⏰', name:'Expiring certificates',        desc:'Sorted by soonest expiry, filterable by certificate type' },
+  { id:'compliance',    cat:'compliance', icon:'✅', name:'Compliance status',            desc:'All certificates — expired, expiring soon, valid (RAG)' },
   { id:'tenancy_sched', cat:'compliance', icon:'📝', name:'Tenancy schedule',             desc:'All tenancies, start/end dates, notice periods, renewals' },
-  { id:'maintenance_report',cat:'maintenance',icon:'🔧',name:'Maintenance cost report',   desc:'Spend by property, trade type and contractor' },
-  { id:'open_jobs',     cat:'maintenance',icon:'📌', name:'Open jobs report',             desc:'All outstanding maintenance jobs by priority and age' },
-  { id:'contractor_spend',cat:'maintenance',icon:'👷',name:'Contractor spend report',     desc:'Total paid to each contractor, job counts, average cost' },
+  { id:'maintenance_report',cat:'maintenance',icon:'🔧',name:'Maintenance overview',      desc:'Open jobs, total spend by property and trade' },
+  { id:'contractor_spend',cat:'maintenance',icon:'👷',name:'Contractor spend',            desc:'Total paid to each contractor, job counts, average cost' },
 ]
 
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
@@ -166,6 +169,16 @@ export default function ReportsPage({ properties, companies, companySettings, us
                 {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
+            <select value={year} onChange={e=>setYear(Number(e.target.value))}
+              title="Tax year applied to the Year-End Pack"
+              style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
+              {[2022,2023,2024,2025,2026,2027].map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
+            </select>
+            <YearEndPackButton
+              filtProps={filtProps} filtExp={filtExp} filtRent={filtRent}
+              filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen}
+              range={range} year={year} yearType={yearType} co={co} cs={cs}
+              T={T}/>
           </div>
         </div>
 
@@ -264,19 +277,15 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     mortgage_interest: <ReportMortgageInterest {...props}/>,
     capital_gains: <ReportCapitalGains {...props}/>,
     yield_compare: <ReportYieldComparison {...props}/>,
-    best_worst: <ReportBestWorst {...props}/>,
     occupancy: <ReportOccupancy {...props}/>,
     rent_collect: <ReportRentCollection {...props}/>,
-    portfolio_growth: <ReportPortfolioGrowth {...props}/>,
     cashflow: <ReportCashFlow {...props}/>,
     equity: <ReportEquity {...props}/>,
     mortgage_port: <ReportMortgagePortfolio {...props}/>,
     arrears: <ReportArrears {...props}/>,
     compliance: <ReportCompliance {...props}/>,
-    expiring_certs: <ReportExpiringCerts {...props}/>,
     tenancy_sched: <ReportTenancySchedule {...props}/>,
     maintenance_report: <ReportMaintenance {...props}/>,
-    open_jobs: <ReportOpenJobs {...props}/>,
     contractor_spend: <ReportContractorSpend {...props}/>,
   }
   return map[id] || <div style={{fontFamily:mono,fontSize:12,color:'#999',padding:40,textAlign:'center'}}>Report not found</div>
@@ -352,11 +361,60 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
   )
 }
 
+// ── YEAR-END TAX PACK ─────────────────────────────────────────────────────────
+// One button → one PDF containing the 5 HMRC-relevant reports as
+// sections, each on its own page run. Lands at the top of the
+// catalogue so accountants don't have to download 5 separate files.
+const TAX_PACK_REPORTS = ['pnl','income_sched','expense_breakdown','mortgage_interest','capital_gains','tenancy_sched']
+
+function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, co, cs, T }) {
+  const [busy, setBusy] = useState(false)
+  async function run() {
+    setBusy(true)
+    try {
+      await renderYearEndPackPDF({
+        reports: TAX_PACK_REPORTS.map(id => ({
+          id,
+          name: REPORT_CATALOGUE.find(r => r.id === id)?.name || id,
+          data: buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range),
+        })),
+        company: co?.name || 'All companies',
+        companyColor: co?.color,
+        logoUrl: cs?.logo_url,
+        period: range.label,
+      })
+    } catch (e) {
+      console.error('Year-End Pack export failed', e)
+      alert('Could not generate the pack — ' + (e?.message || 'unknown error'))
+    }
+    setBusy(false)
+  }
+  return (
+    <button onClick={run} disabled={busy}
+      title="Bundle the 5 HMRC tax reports into one PDF"
+      style={{
+        fontFamily:mono, fontSize:11, padding:'8px 14px', borderRadius:8,
+        border:`1px solid ${T.gold}`, background:T.gold,
+        color:'#0B0D14', cursor:busy?'wait':'pointer', fontWeight:700,
+        whiteSpace:'nowrap',
+      }}>
+      {busy ? 'Generating pack…' : '📦 Year-End Tax Pack'}
+    </button>
+  )
+}
+
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
   switch(id) {
     case 'pnl': {
-      const rows = filtProps.map(p => { const rent=isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0; const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0); return {name:p.name,rent,exp,net:rent-exp,yield:p.est_value?((p.rent_pcm||0)*12/p.est_value*100):0}}).sort((a,b)=>b.net-a.net)
+      const hasPaid = filtRent.some(r => r.status === 'paid')
+      const rows = filtProps.map(p => {
+        const rent = hasPaid
+          ? filtRent.filter(r => r.property_id === p.id && r.status === 'paid').reduce((s,r) => s + (r.amount || 0), 0)
+          : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
+        const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
+        return { name:p.name, rent, exp, net:rent-exp, yield:p.est_value?((p.rent_pcm||0)*12/p.est_value*100):0 }
+      }).sort((a,b)=>b.net-a.net)
       const tR=rows.reduce((s,r)=>s+r.rent,0), tE=rows.reduce((s,r)=>s+r.exp,0)
       return { title:'Annual P&L', kpis:[['Total income',fmt(tR)],['Total expenses',fmt(tE)],['Net profit',fmt(tR-tE)],['Net margin',tR>0?fmtPct((tR-tE)/tR*100):'—']], headers:['Property','Annual Rent','Expenses','Net Profit','Gross Yield'], rows:rows.map(r=>[r.name,fmt(r.rent),fmt(r.exp),fmt(r.net),r.yield>0?fmtPct(r.yield):'—']), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE),''] }
     }
@@ -372,9 +430,18 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Expense Breakdown', kpis:[['Total expenses',fmt(total)],['Largest category',cats[0]?cats[0][0]:'—'],['Items',filtExp.length.toString()]], headers:['Category','Amount','% of Total','Items'], rows:cats.map(([cat,amt])=>[cat,fmt(amt),fmtPct(amt/total*100),filtExp.filter(e=>(e.category||'Other')===cat).length.toString()]), totals:['Total',fmt(total),'100%',filtExp.length.toString()] }
     }
     case 'mortgage_interest': {
-      const rows = filtProps.filter(p=>p.mortgage_amount&&p.mortgage_rate).map(p=>({name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,annual:(p.mortgage_amount*(p.mortgage_rate/100)),credit:(p.mortgage_amount*(p.mortgage_rate/100))*0.2}))
+      // For interest-only mortgages: annual_interest = balance × rate.
+      // For repayment mortgages we approximate year-one interest at the
+      // same level (true value declines as principal is paid down — the
+      // first-year approximation is what most accountants want for
+      // Section 24 planning; recommend re-running annually).
+      const rows = filtProps.filter(p=>p.mortgage_amount&&p.mortgage_rate).map(p => {
+        const annual = p.mortgage_amount * (p.mortgage_rate/100)
+        const kind = p.mortgage_type === 'interest_only' ? 'interest-only' : 'repayment'
+        return { name:p.name, loan:p.mortgage_amount, rate:p.mortgage_rate, kind, annual, credit:annual*0.2 }
+      })
       const tI=rows.reduce((s,r)=>s+r.annual,0), tC=rows.reduce((s,r)=>s+r.credit,0)
-      return { title:'Mortgage Interest Summary', note:'Section 24: Mortgage interest receives a 20% tax credit, not a deduction.', kpis:[['Total interest',fmt(tI)],['20% tax credit',fmt(tC)],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Annual Interest','20% Credit'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate),fmt(r.annual),fmt(r.credit)]), totals:['Total','','',fmt(tI),fmt(tC)] }
+      return { title:'Mortgage Interest Summary', note:'Section 24: mortgage interest receives a 20% tax credit, not a deduction. Repayment figures are year-one approximations.', kpis:[['Total interest',fmt(tI)],['20% tax credit',fmt(tC)],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Type','Annual Interest','20% Credit'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate),r.kind,fmt(r.annual),fmt(r.credit)]), totals:['Total','','','',fmt(tI),fmt(tC)] }
     }
     case 'capital_gains': {
       const rows = filtProps.map(p=>{const c=(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0);return{name:p.name,cost:c,val:p.est_value||0,gain:(p.est_value||0)-c}}).sort((a,b)=>b.gain-a.gain)
@@ -386,10 +453,6 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const avg = rows.length?rows.reduce((s,r)=>s+r.gy,0)/rows.length:0
       return { title:'Yield Comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
     }
-    case 'best_worst': {
-      const rows = filtProps.map(p=>{const rent=isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0;const exp=filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0);const net=rent-exp;const cost=(p.purchase_price||0)+(p.refurb_cost||0);return{name:p.name,net,yield:p.est_value&&p.rent_pcm?((p.rent_pcm*12)/p.est_value)*100:0,roi:cost>0?(net/cost)*100:0,status:p.status||'—'}}).sort((a,b)=>b.net-a.net)
-      return { title:'Best & Worst Performers', kpis:[['Top earner',rows[0]?.name||'—'],['Top monthly profit',rows[0]?fmt(rows[0].net/12):'—'],['Worst performer',rows[rows.length-1]?.name||'—']], headers:['Rank','Property','Annual Profit','Gross Yield','ROI','Status'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.net),fmtPct(r.yield),fmtPct(r.roi),r.status]) }
-    }
     case 'occupancy': {
       const rented=filtProps.filter(p=>isPropertyEarningRent(p.status)).length,vacant=filtProps.filter(p=>p.status==='vacant').length,rate=filtProps.length>0?(rented/filtProps.length)*100:0
       return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(rate)],['Rented',rented.toString()],['Vacant',vacant.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,p.status||'—',fmt(p.rent_pcm),isPropertyEarningRent(p.status)?'Yes':'No']) }
@@ -397,17 +460,38 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
     case 'rent_collect': {
       const expected=filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
       const collected=filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
-      const rate=expected>0?(collected/expected)*100:100
-      return { title:'Rent Collection Rate', kpis:[['Collection rate',fmtPct(rate)],['Expected',fmt(expected)],['Collected',fmt(collected)]], headers:['Property','Expected Annual','Status'], rows:filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p=>[p.name,fmt((p.rent_pcm||0)*12),'Rented']) }
-    }
-    case 'portfolio_growth': {
-      const tI=filtProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0),0),tV=filtProps.reduce((s,p)=>s+(p.est_value||0),0),tE=filtProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0)
-      return { title:'Portfolio Growth Tracker', kpis:[['Total invested',fmt(tI)],['Portfolio value',fmt(tV)],['Total equity',fmt(tE)],['Gain',fmt(tV-tI)]], headers:['Property','Invested','Est. Value','Equity','Growth %'], rows:filtProps.map(p=>{const inv=(p.purchase_price||0)+(p.refurb_cost||0);const val=p.est_value||0;return[p.name,fmt(inv),fmt(val),fmt(val-(p.mortgage_amount||0)),inv>0?fmtPct((val-inv)/inv*100):'—']}) }
+      const lateCol=filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
+      const missed=filtRent.filter(r=>r.status==='missed').length
+      const rate=expected>0?((collected+lateCol)/expected)*100:100
+      const rows=filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p=>{
+        const own=filtRent.filter(r=>r.property_id===p.id)
+        return { name:p.name, expected:(p.rent_pcm||0)*12,
+          paid:own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
+          late:own.filter(r=>r.status==='late').length,
+          missed:own.filter(r=>r.status==='missed').length }
+      })
+      return { title:'Rent Collection Rate', kpis:[['Collection rate',fmtPct(rate)],['Expected',fmt(expected)],['Collected on time',fmt(collected)],['Missed payments',missed.toString()]],
+        headers:['Property','Expected','Collected','Late','Missed'],
+        rows:rows.map(r=>[r.name,fmt(r.expected),fmt(r.paid),r.late.toString(),r.missed.toString()]),
+        totals:['Total',fmt(expected),fmt(collected),'',missed.toString()] }
     }
     case 'cashflow': {
-      const rent=filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)*12
-      const exp=filtExp.reduce((s,e)=>s+(e.amount||0),0)
-      return { title:'Monthly Cash Flow', kpis:[['Total income',fmt(rent)],['Total outgoings',fmt(exp)],['Net cash flow',fmt(rent-exp)]], headers:['Month','Rent Income','Expenses','Net Cash Flow'], rows:MONTHS.map(m=>[m,fmt(Math.round(rent/12)),fmt(Math.round(exp/12)),fmt(Math.round((rent-exp)/12))]) }
+      // Use real per-month data — same logic as the in-app component.
+      const hasPaid = filtRent.some(r => r.status === 'paid')
+      const monthRent = MONTHS.map((_, m) =>
+        hasPaid
+          ? filtRent.filter(r => {
+              if (r.status !== 'paid') return false
+              if (r.payment_date) return new Date(r.payment_date).getMonth() === m
+              return r.month === (m + 1)
+            }).reduce((s,r) => s + (r.amount || 0), 0)
+          : filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
+      )
+      const monthExp = MONTHS.map((_, m) =>
+        filtExp.filter(e => e.date && new Date(e.date).getMonth() === m).reduce((s,e)=>s+(e.amount||0),0)
+      )
+      const tR = monthRent.reduce((s,v)=>s+v,0), tE = monthExp.reduce((s,v)=>s+v,0)
+      return { title:'Monthly Cash Flow', kpis:[['Total income',fmt(tR)],['Total outgoings',fmt(tE)],['Net cash flow',fmt(tR-tE)]], headers:['Month','Rent Income','Expenses','Net Cash Flow'], rows:MONTHS.map((m,i)=>[m,fmt(monthRent[i]),fmt(monthExp[i]),fmt(monthRent[i]-monthExp[i])]), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE)] }
     }
     case 'equity': {
       const rows=filtProps.map(p=>({name:p.name,val:p.est_value||0,debt:p.mortgage_amount||0,eq:(p.est_value||0)-(p.mortgage_amount||0),ltv:p.est_value?((p.mortgage_amount||0)/p.est_value)*100:0})).sort((a,b)=>b.eq-a.eq)
@@ -428,10 +512,6 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const expired=rows.filter(r=>r.status==='EXPIRED').length,expiring=rows.filter(r=>r.status==='Expiring').length
       return { title:'Compliance Status', kpis:[['Expired',expired.toString()],['Expiring <60 days',expiring.toString()],['Valid',rows.filter(r=>r.status==='Valid').length.toString()],['Total',rows.length.toString()]], headers:['Property','Certificate','Expiry Date','Days','Status'], rows:rows.map(r=>[r.prop,r.type,r.expiry,r.days!=null?r.days.toString():'—',r.status]) }
     }
-    case 'expiring_certs': {
-      const rows=filtComp.filter(c=>c.expiry_date).map(c=>({prop:c.property?.name||'—',type:c.item_type||c.type||'—',expiry:c.expiry_date,days:daysUntil(c.expiry_date)})).filter(r=>r.days<=90).sort((a,b)=>a.days-b.days)
-      return { title:'Expiring Certificates', kpis:[['Certificates expiring <90 days',rows.length.toString()]], headers:['Property','Certificate','Expiry Date','Days Remaining'], rows:rows.length?rows.map(r=>[r.prop,r.type,r.expiry,r.days<0?Math.abs(r.days)+' overdue':r.days.toString()]):[['None','No certificates expiring within 90 days','','']] }
-    }
     case 'tenancy_sched': {
       const rows=filtTen.map(t=>({prop:t.property?.name||'—',tenant:t.tenant_name||'—',start:t.start_date||'—',end:t.end_date||'Rolling',rent:t.property?.rent_pcm||0,days:t.end_date?daysUntil(t.end_date):null})).sort((a,b)=>(a.days||9999)-(b.days||9999))
       return { title:'Tenancy Schedule', kpis:[['Active tenancies',filtTen.length.toString()],['Expiring <90 days',rows.filter(r=>r.days!=null&&r.days<=90&&r.days>=0).length.toString()]], headers:['Property','Tenant','Start','End','Rent','Days to End'], rows:rows.map(r=>[r.prop,r.tenant,r.start,r.end,fmt(r.rent),r.days!=null?r.days.toString():'—']) }
@@ -441,10 +521,6 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const rows=Object.values(byProp).sort((a,b)=>b.total-a.total)
       const total=rows.reduce((s,r)=>s+r.total,0)
       return { title:'Maintenance Cost Report', kpis:[['Total spend',fmt(total)],['Jobs',filtMaint.length.toString()],['Avg cost',filtMaint.length?fmt(Math.round(total/filtMaint.length)):'—']], headers:['Property','Total Spend','Jobs','Avg per Job'], rows:rows.map(r=>[r.name,fmt(r.total),r.jobs.toString(),fmt(Math.round(r.total/r.jobs))]) }
-    }
-    case 'open_jobs': {
-      const open=filtMaint.filter(m=>m.status==='open'||m.status==='in-progress').sort((a,b)=>{const o={urgent:0,high:1,normal:2};return(o[a.priority]||2)-(o[b.priority]||2)})
-      return { title:'Open Jobs Report', kpis:[['Open jobs',open.length.toString()],['Urgent',open.filter(m=>m.priority==='urgent').length.toString()],['In progress',open.filter(m=>m.status==='in-progress').length.toString()]], headers:['Property','Issue','Priority','Status','Reported'], rows:open.length?open.map(m=>[m.property?.name||'—',m.title||m.description||'—',m.priority||'normal',m.status||'open',m.created_at?new Date(m.created_at).toLocaleDateString('en-GB'):'—']):[['None','No open jobs','','','']] }
     }
     case 'contractor_spend': {
       const byC=filtMaint.filter(m=>m.contractor&&m.cost>0).reduce((a,m)=>{if(!a[m.contractor])a[m.contractor]={name:m.contractor,total:0,jobs:0};a[m.contractor].total+=(m.cost||0);a[m.contractor].jobs++;return a},{})
@@ -651,25 +727,301 @@ function addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, fain
   doc.text(`Page ${cp} of ${pc}`, W - margin, fy + 8, { align: 'right' })
 }
 
+// ── YEAR-END TAX PACK PDF ─────────────────────────────────────────────────────
+// Single document with: cover page · table of contents · one section per
+// report (with header, KPI grid, table, optional totals row, optional
+// note). Reuses the same colour palette and helpers as renderReportPDF
+// for visual consistency. Pages flow automatically when a section runs
+// long — no truncation.
+async function renderYearEndPackPDF({ reports, company, companyColor, logoUrl, period }) {
+  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
+  const { jsPDF } = window.jspdf
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const W = 210, H = 297, margin = 14, cW = W - margin * 2
+
+  // Shared palette (matches the dashboard's print colours).
+  const cream = [244, 243, 239], cardBg = [255, 255, 255], border = [226, 223, 216]
+  const gold = [200, 168, 75], dark = [26, 37, 48], slate = [45, 60, 74]
+  const muted = [107, 118, 145], faint = [160, 165, 178]
+  const green = [46, 204, 138], red = [224, 85, 85], amber = [224, 148, 58]
+  const accent = companyColor
+    ? (companyColor.match(/[0-9a-f]{2}/gi)?.map(h => parseInt(h, 16)) || gold)
+    : gold
+
+  // Logo loaders (same as the single-report renderer).
+  async function loadImg(url) {
+    try {
+      const r = await fetch(url); const b = await r.blob()
+      return await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(b) })
+    } catch { return null }
+  }
+  const coLogo = logoUrl ? await loadImg(logoUrl) : null
+  let opLogo = null; try { opLogo = await loadImg('/logo.svg') } catch {}
+
+  function card(x, y, w, h) {
+    doc.setFillColor(...cardBg); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'F')
+    doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'S')
+  }
+  function fillPage() { doc.setFillColor(...cream); doc.rect(0, 0, W, H, 'F') }
+  function newPage() { doc.addPage(); fillPage(); return 14 }
+
+  // ── COVER PAGE ───────────────────────────────────────────────────────
+  fillPage()
+  // Big gold band at top
+  doc.setFillColor(...accent); doc.rect(0, 0, W, 4, 'F')
+  if (coLogo) { try { doc.addImage(coLogo, 'PNG', margin, 22, 40, 20) } catch {} }
+  doc.setFontSize(32); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
+  doc.text('Year-End Tax Pack', margin, 70)
+  doc.setFontSize(13); doc.setFont('helvetica', 'normal'); doc.setTextColor(...muted)
+  doc.text(company, margin, 80)
+  doc.setFontSize(11); doc.text(period, margin, 88)
+  // Accent line
+  doc.setFillColor(...accent); doc.rect(margin, 95, 50, 0.8, 'F')
+
+  // What's included
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...slate)
+  doc.text('CONTENTS', margin, 110)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
+  reports.forEach((r, i) => {
+    doc.setTextColor(...muted)
+    doc.text(`${i + 1}.`, margin, 120 + i * 8)
+    doc.setTextColor(...dark)
+    doc.text(r.name, margin + 8, 120 + i * 8)
+    doc.setTextColor(...faint)
+    doc.text(String(r.data?.rows?.length || 0) + ' rows', W - margin, 120 + i * 8, { align: 'right' })
+  })
+
+  // Footer note
+  doc.setFontSize(8); doc.setTextColor(...faint); doc.setFont('helvetica', 'italic')
+  doc.text(
+    'Pass this pack to your accountant for self-assessment (SA105). Generated on ' +
+      new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) + '.',
+    margin, H - 30, { maxWidth: cW }
+  )
+  // OwnProperly footer credit (smaller than per-page footer)
+  if (opLogo) { try { doc.addImage(opLogo, 'SVG', margin, H - 18, 14, 7) } catch {} }
+  doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
+  doc.text('Generated by OwnProperly', margin + (opLogo ? 18 : 0), H - 13)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(...faint)
+  doc.text('ownproperly.com · UK Landlord Portfolio Management', margin + (opLogo ? 18 : 0), H - 9.5)
+
+  // ── REPORT SECTIONS ──────────────────────────────────────────────────
+  for (const rep of reports) {
+    const d = rep.data
+    if (!d) continue
+    let y = newPage()
+
+    // Section header card
+    card(margin, 8, cW, 22)
+    doc.setFillColor(...accent); doc.rect(margin, 8, 1.5, 22, 'F')
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
+    doc.text(rep.name, margin + 6, 18)
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...muted)
+    doc.text(`${company} · ${period}`, margin + 6, 25)
+    doc.setFontSize(7); doc.setTextColor(...faint)
+    doc.text(new Date().toLocaleDateString('en-GB'), W - margin - 6, 18, { align: 'right' })
+    y = 36
+
+    // Optional note ribbon
+    if (d.note) {
+      card(margin, y, cW, 10)
+      doc.setFillColor(...accent); doc.rect(margin, y, 1.5, 10, 'F')
+      doc.setFontSize(7.5); doc.setTextColor(...slate); doc.setFont('helvetica', 'italic')
+      doc.text(d.note.length > 130 ? d.note.slice(0, 127) + '...' : d.note, margin + 6, y + 6.5)
+      y += 14
+    }
+
+    // KPIs
+    if (d.kpis?.length) {
+      const perRow = Math.min(d.kpis.length, 4)
+      const gap = 5
+      const cardRows = Math.ceil(d.kpis.length / perRow)
+      for (let row = 0; row < cardRows; row++) {
+        const rk = d.kpis.slice(row * perRow, (row + 1) * perRow)
+        const kw = (cW - (rk.length - 1) * gap) / rk.length
+        rk.forEach(([label, value], i) => {
+          const x = margin + i * (kw + gap)
+          card(x, y, kw, 18)
+          doc.setFillColor(...accent); doc.rect(x, y + 3, 1.2, 12, 'F')
+          doc.setFontSize(6.5); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal')
+          doc.text(String(label).toUpperCase(), x + 5, y + 6.5)
+          doc.setFontSize(13); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
+          // Don't truncate — wrap to two lines if needed.
+          const lines = doc.splitTextToSize(String(value || '—'), kw - 7)
+          doc.text(lines.slice(0, 2), x + 5, y + 14)
+        })
+        y += 24
+      }
+      y += 2
+    }
+
+    // Table — same layout as single-report PDF but wrap (don't truncate)
+    if (d.headers?.length && d.rows?.length) {
+      const colCount = d.headers.length
+      const firstW = Math.min(cW * 0.34, 70)
+      const otherW = (cW - firstW) / Math.max(colCount - 1, 1)
+      const colX = ci => ci === 0 ? margin : margin + firstW + (ci - 1) * otherW
+      const colWid = ci => ci === 0 ? firstW : otherW
+
+      // Header row
+      card(margin, y, cW, 8)
+      doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
+      d.headers.forEach((h, ci) => {
+        if (ci === 0) doc.text(String(h).toUpperCase(), colX(ci) + 4, y + 5.5)
+        else doc.text(String(h).toUpperCase(), colX(ci) + colWid(ci) - 4, y + 5.5, { align: 'right' })
+      })
+      y += 9
+
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
+      for (const row of d.rows) {
+        // Measure: how tall will this row be (allows wrapping for long property names)
+        const lineHeights = row.map((cell, ci) => {
+          const val = String(cell != null ? cell : '')
+          const w = colWid(ci) - 8
+          const lines = doc.splitTextToSize(val, w)
+          return Math.max(1, Math.min(lines.length, 2))
+        })
+        const rowH = Math.max(6.5, Math.max(...lineHeights) * 4.5)
+
+        if (y + rowH > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = newPage() }
+
+        // Subtle alternating background
+        if ((d.rows.indexOf(row)) % 2 === 0) {
+          doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, rowH, 'F')
+        }
+        doc.setDrawColor(...border); doc.setLineWidth(0.15)
+        doc.line(margin + 2, y + rowH - 1.5, margin + cW - 2, y + rowH - 1.5)
+
+        row.forEach((cell, ci) => {
+          const val = String(cell != null ? cell : '')
+          // Colour by intent (same as renderReportPDF)
+          if (ci > 0) {
+            if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue') || val.includes('overdue')) doc.setTextColor(...red)
+            else if (val === 'Valid' || val === 'Yes' || val === 'Rented' || val === 'All clear') doc.setTextColor(...green)
+            else if (val.includes('Expiring')) doc.setTextColor(...amber)
+            else doc.setTextColor(...slate)
+          } else { doc.setTextColor(...dark) }
+          doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal')
+          const w = colWid(ci) - 8
+          const lines = doc.splitTextToSize(val, w).slice(0, 2)
+          if (ci === 0) doc.text(lines, colX(ci) + 4, y + 3.5)
+          else doc.text(lines, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
+        })
+        y += rowH
+      }
+
+      // Totals row
+      if (d.totals?.length) {
+        if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = newPage() }
+        y += 1
+        doc.setFillColor(...accent); doc.rect(margin, y - 2, cW, 0.8, 'F')
+        card(margin, y - 0.5, cW, 8)
+        doc.setFontSize(8.5); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
+        d.totals.forEach((val, ci) => {
+          if (!val) return
+          if (ci === 0) doc.text(String(val), colX(ci) + 4, y + 4.5)
+          else doc.text(String(val), colX(ci) + colWid(ci) - 4, y + 4.5, { align: 'right' })
+        })
+      }
+    } else {
+      doc.setFontSize(10); doc.setTextColor(...muted); doc.setFont('helvetica', 'italic')
+      doc.text('No data for this period.', margin, y + 8)
+    }
+  }
+
+  // Footer on every page (cover excluded — has its own)
+  const pc = doc.internal.getNumberOfPages()
+  for (let p = 2; p <= pc; p++) { doc.setPage(p); addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark) }
+
+  doc.save(`year-end-tax-pack-${company.replace(/[^a-zA-Z0-9]/g,'-').toLowerCase()}-${period.replace(/[^a-zA-Z0-9]/g,'-')}.pdf`)
+}
+
 function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
+  // Default: drive CSV off the same buildReportData() shape used for PDF
+  // — headers row + each data row + an optional totals row. Strips
+  // currency formatting so the CSV opens cleanly in Excel/Sheets.
+  // Report-specific overrides below add columns useful for accountants
+  // that aren't in the on-screen table.
+  const stripCurrency = (s) => typeof s === 'string' ? s.replace(/[£,]/g, '').trim() : s
+
   switch(id) {
-    case 'pnl': return [
-      ['Property','Status','Annual Rent','Expenses','Net Profit','Gross Yield','Est Value'],
-      ...filtProps.map(p=>{
-        const rent = isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0
-        const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
-        return [p.name,p.status,rent,exp,rent-exp,p.est_value?((p.rent_pcm||0)*12/(p.est_value)*100).toFixed(1)+'%':'—',p.est_value||0]
+    case 'pnl': {
+      const hasPaid = filtRent.some(r => r.status === 'paid')
+      return [
+        ['Property','Status','Annual rent (collected)','Expenses','Net profit','Gross yield','Est. value','Mortgage'],
+        ...filtProps.map(p => {
+          const rent = hasPaid
+            ? filtRent.filter(r=>r.property_id===p.id&&r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
+            : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
+          const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
+          return [p.name, p.status||'', rent, exp, rent-exp,
+            p.est_value?((p.rent_pcm||0)*12/p.est_value*100).toFixed(2)+'%':'',
+            p.est_value||0, p.mortgage_amount||0]
+        })
+      ]
+    }
+    case 'income_sched': {
+      // Per-property per-month rent — 12 columns.
+      const months = MONTHS
+      const hasPaid = filtRent.some(r=>r.status==='paid')
+      return [
+        ['Property', ...months, 'Total'],
+        ...filtProps.map(p => {
+          const monthRent = months.map((_, m) => {
+            if (!hasPaid) return p.rent_pcm || 0
+            return filtRent.filter(r => r.property_id === p.id && r.status === 'paid'
+              && (r.payment_date ? new Date(r.payment_date).getMonth() === m : r.month === (m+1))
+            ).reduce((s,r) => s + (r.amount||0), 0)
+          })
+          const tot = monthRent.reduce((s,v)=>s+v,0)
+          return [p.name, ...monthRent, tot]
+        }),
+      ]
+    }
+    case 'compliance': return [
+      ['Property','Certificate type','Expiry date','Status','Days until expiry','Issuer'],
+      ...filtComp.map(c => {
+        const d = daysUntil(c.expiry_date)
+        const status = !c.expiry_date ? 'No date' : d<0 ? 'EXPIRED' : d<60 ? 'Expiring soon' : 'Valid'
+        return [c.property?.name||'', c.item_type||c.type||'', c.expiry_date||'', status, d ?? '', c.issuer||'']
       })
     ]
-    case 'compliance': return [
-      ['Property','Certificate type','Expiry date','Status','Days until expiry'],
-      ...filtComp.map(c=>[c.property?.name||'',c.item_type||c.type||'',c.expiry_date||'',daysUntil(c.expiry_date)<0?'EXPIRED':daysUntil(c.expiry_date)<60?'Expiring soon':'Valid',daysUntil(c.expiry_date)||''])
-    ]
     case 'tenancy_sched': return [
-      ['Property','Tenant name','Start date','End date','Monthly rent','Notice period'],
-      ...filtTen.map(t=>[t.property?.name||'',t.tenant_name||'',t.start_date||'',t.end_date||'',t.property?.rent_pcm||0,t.notice_period||''])
+      ['Property','Tenant','Start date','End date','Monthly rent','Annual rent','Notice period','Days to end'],
+      ...filtTen.map(t => [
+        t.property?.name||'', t.tenant_name||'', t.start_date||'', t.end_date||'Rolling',
+        t.property?.rent_pcm||0, (t.property?.rent_pcm||0)*12,
+        t.notice_period||'', t.end_date ? daysUntil(t.end_date) : ''
+      ])
     ]
-    default: return [['Report',id],['Period',range.label]]
+    case 'mortgage_port': return [
+      ['Property','Lender','Loan amount','Rate %','Type','Term (years)','Monthly payment','Expiry','LTV %'],
+      ...filtProps.filter(p=>p.mortgage_amount>0).map(p => {
+        const r = (p.mortgage_rate||0)/100/12
+        const n = (p.mortgage_term||25)*12
+        const monthly = p.mortgage_type === 'interest_only'
+          ? p.mortgage_amount * r
+          : (r > 0 ? p.mortgage_amount*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1) : 0)
+        return [
+          p.name, p.lender||'', p.mortgage_amount||0, p.mortgage_rate||'',
+          p.mortgage_type === 'interest_only' ? 'Interest-only' : 'Repayment',
+          p.mortgage_term||'', Math.round(monthly), p.mortgage_expiry||'',
+          p.est_value ? ((p.mortgage_amount||0)/p.est_value*100).toFixed(1) : ''
+        ]
+      })
+    ]
+    default: {
+      // Generic path — use buildReportData's headers+rows shape, strip
+      // currency formatting on data cells (objects use .v, strings stay).
+      const data = buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
+      if (!data || !data.headers) return [['Report', id], ['Period', range.label]]
+      const out = [data.headers]
+      for (const row of (data.rows || [])) {
+        out.push(row.map(cell => stripCurrency(typeof cell === 'object' && cell !== null ? cell.v : cell)))
+      }
+      if (data.totals) out.push(data.totals.map(stripCurrency))
+      return out
+    }
   }
 }
 
@@ -677,9 +1029,16 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
 // REPORT COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function ReportPnL({ filtProps, filtExp, range, T, accent, fmt, fmtPct }) {
+function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct }) {
+  // Use actually-collected rent (status='paid') for the period — that's
+  // what HMRC cares about on SA105. Fall back to the expected rent only
+  // when no payment records exist at all (new portfolio, first month).
+  const hasAnyPaymentData = filtRent.some(r => r.status === 'paid')
   const rows = filtProps.map(p => {
-    const rent = isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0
+    const rent = hasAnyPaymentData
+      ? filtRent.filter(r => r.property_id === p.id && r.status === 'paid')
+          .reduce((s,r) => s + (r.amount || 0), 0)
+      : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
     const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
     const yield_ = p.est_value ? ((p.rent_pcm||0)*12/p.est_value)*100 : 0
@@ -787,19 +1146,26 @@ function ReportExpenseBreakdown({ filtExp, T, accent, fmt }) {
   )
 }
 
-function ReportMortgageInterest({ filtProps, T, accent, fmt }) {
-  const rows = filtProps.filter(p=>p.mortgage_amount&&p.mortgage_rate).map(p=>{
-    const monthlyInterest = (p.mortgage_amount||0)*(p.mortgage_rate/100)/12
-    const annualInterest = monthlyInterest * 12
-    const taxCredit = annualInterest * 0.2
-    return { p, annualInterest, taxCredit }
+function ReportMortgageInterest({ filtProps, T, accent, fmt, fmtPct }) {
+  // Year-one interest = balance × rate. For repayment mortgages this is
+  // the high-water mark — true interest declines over the term as
+  // principal is paid down. Accountants want this approximation for
+  // Section 24 planning; tag the type so they can refine.
+  const rows = filtProps.filter(p=>p.mortgage_amount&&p.mortgage_rate).map(p => {
+    const annualInterest = (p.mortgage_amount||0) * (p.mortgage_rate/100)
+    return {
+      p,
+      kind: p.mortgage_type === 'interest_only' ? 'Interest-only' : 'Repayment',
+      annualInterest,
+      taxCredit: annualInterest * 0.2,
+    }
   })
   const totalInterest = rows.reduce((s,r)=>s+r.annualInterest,0)
   const totalCredit = rows.reduce((s,r)=>s+r.taxCredit,0)
   return (
     <>
       <div style={{background:T.amber+'18',border:`1px solid ${T.amber}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.7}}>
-        <strong style={{color:T.amber}}>Section 24 note:</strong> Since April 2020, mortgage interest can no longer be deducted as an expense. Instead, you receive a 20% tax credit on the total finance cost. Pass these figures to your accountant.
+        <strong style={{color:T.amber}}>Section 24 note:</strong> Since April 2020, mortgage interest can no longer be deducted as an expense. You receive a 20% tax credit on the finance cost instead. Repayment figures are year-one approximations — re-run annually for accuracy.
       </div>
       <StatCards T={T} items={[
         {label:'Total mortgage interest',value:fmt(totalInterest),color:T.amber},
@@ -807,11 +1173,12 @@ function ReportMortgageInterest({ filtProps, T, accent, fmt }) {
         {label:'Properties with mortgages',value:rows.length,color:T.text},
       ]}/>
       <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Loan amount',right:true,width:'130px'},{label:'Rate',right:true,width:'80px'},{label:'Est. annual interest',right:true,width:'150px'},{label:'20% tax credit',right:true,width:'130px'}]}
+        headers={[{label:'Property'},{label:'Loan amount',right:true,width:'130px'},{label:'Rate',right:true,width:'80px'},{label:'Type',width:'120px'},{label:'Annual interest',right:true,width:'140px'},{label:'20% tax credit',right:true,width:'130px'}]}
         rows={rows.map(r=>[
           r.p.name,
           {v:fmt(r.p.mortgage_amount),right:true},
           {v:fmtPct(r.p.mortgage_rate),right:true},
+          {v:r.kind,color:r.kind==='Interest-only'?T.amber:T.muted},
           {v:fmt(r.annualInterest),color:T.amber,right:true},
           {v:fmt(r.taxCredit),color:T.green,right:true},
         ])}
@@ -855,12 +1222,16 @@ function ReportCapitalGains({ filtProps, T, accent, fmt }) {
   )
 }
 
-function ReportYieldComparison({ filtProps, T, accent, fmt, fmtPct }) {
+function ReportYieldComparison({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
   const rows = filtProps.map(p => {
     const grossYield = p.est_value&&p.rent_pcm ? ((p.rent_pcm*12)/p.est_value)*100 : 0
-    const estCosts = (p.rent_pcm||0)*0.2 // rough 20% costs
-    const netYield = p.est_value ? (((p.rent_pcm||0)-estCosts)*12/p.est_value)*100 : 0
-    return { p, grossYield, netYield }
+    // Use real expenses for this property over the period — falls back
+    // to a 20% rule of thumb when no expense rows exist.
+    const realCosts = filtExp.filter(e => e.property_id === p.id).reduce((s,e) => s + (e.amount || 0), 0)
+    const annualRent = (p.rent_pcm||0) * 12
+    const costsForYield = realCosts > 0 ? realCosts : annualRent * 0.2
+    const netYield = p.est_value ? ((annualRent - costsForYield) / p.est_value) * 100 : 0
+    return { p, grossYield, netYield, costsActual: realCosts > 0 }
   }).sort((a,b)=>b.grossYield-a.grossYield)
   const avg = rows.length ? rows.reduce((s,r)=>s+r.grossYield,0)/rows.length : 0
   return (
@@ -879,39 +1250,6 @@ function ReportYieldComparison({ filtProps, T, accent, fmt, fmtPct }) {
           {v:fmt(r.p.est_value),right:true},
           {v:r.grossYield>0?fmtPct(r.grossYield):'—',color:r.grossYield>=6?T.green:r.grossYield>=4?T.amber:T.red,bold:true,right:true},
           {v:r.netYield>0?fmtPct(r.netYield):'—',color:T.muted,right:true},
-        ])}
-      />
-    </>
-  )
-}
-
-function ReportBestWorst({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
-  const rows = filtProps.map(p => {
-    const rent = isPropertyEarningRent(p.status)?(p.rent_pcm||0)*12:0
-    const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
-    const net = rent - exp
-    const cost = (p.purchase_price||0)+(p.refurb_cost||0)
-    const roi = cost>0 ? (net/cost)*100 : 0
-    const yield_ = p.est_value&&p.rent_pcm ? ((p.rent_pcm*12)/p.est_value)*100 : 0
-    return { p, rent, exp, net, cost, roi, yield: yield_ }
-  }).sort((a,b)=>b.net-a.net)
-  return (
-    <>
-      <StatCards T={T} items={[
-        {label:'Top earner',value:rows[0]?.p.name||'—',color:T.green},
-        {label:'Top earner monthly profit',value:rows[0]?fmt(rows[0].net/12):'—',color:T.green},
-        {label:'Worst performer',value:rows[rows.length-1]?.p.name||'—',color:T.red},
-        {label:'Worst performer monthly',value:rows.length>0?fmt(rows[rows.length-1].net/12):'—',color:T.red},
-      ]}/>
-      <ReportTable T={T} accent={accent}
-        headers={[{label:'Rank',width:'50px'},{label:'Property'},{label:'Annual profit',right:true,width:'130px'},{label:'Gross yield',right:true,width:'110px'},{label:'ROI',right:true,width:'90px'},{label:'Status',width:'100px'}]}
-        rows={rows.map((r,i)=>[
-          {v:i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`,right:false},
-          r.p.name,
-          {v:fmt(r.net),color:r.net>=0?T.green:T.red,bold:true,right:true},
-          {v:r.yield>0?fmtPct(r.yield):'—',color:r.yield>=6?T.green:r.yield>=4?T.amber:T.red,right:true},
-          {v:r.roi>0?fmtPct(r.roi):'—',color:accent,right:true},
-          {v:r.p.status||'—',color:r.isPropertyEarningRent(p.status)?T.green:T.amber},
         ])}
       />
     </>
@@ -946,51 +1284,45 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
 }
 
 function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
+  // rent_payments.status values: paid | late | missed | void | partial | refurb.
+  // Treat late + partial as "collected with delay" and missed as "overdue".
   const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
   const collected = filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
-  const overdue = filtRent.filter(r=>r.status==='overdue').reduce((s,r)=>s+(r.amount||0),0)
-  const rate = expected>0?(collected/expected)*100:100
+  const lateCollected = filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
+  const missed = filtRent.filter(r=>r.status==='missed').length
+  const rate = expected>0?((collected+lateCollected)/expected)*100:100
+
+  // Per-property breakdown of what landed when.
+  const byProp = filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p => {
+    const own = filtRent.filter(r => r.property_id === p.id)
+    return {
+      p,
+      expected: (p.rent_pcm||0) * 12,
+      paid: own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
+      late: own.filter(r=>r.status==='late').length,
+      missed: own.filter(r=>r.status==='missed').length,
+    }
+  }).sort((a,b) => (b.missed+b.late) - (a.missed+a.late))
+
   return (
     <>
       <StatCards T={T} items={[
         {label:'Collection rate',value:`${rate.toFixed(1)}%`,color:rate>=95?T.green:rate>=85?T.amber:T.red},
         {label:'Expected income',value:fmt(expected),color:T.text},
-        {label:'Collected',value:fmt(collected),color:T.green},
-        {label:'Overdue',value:fmt(overdue),color:overdue>0?T.red:T.green},
+        {label:'Collected on time',value:fmt(collected),color:T.green},
+        {label:'Missed payments',value:missed,color:missed>0?T.red:T.green},
       ]}/>
       <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Expected annual',right:true,width:'150px'},{label:'Status',width:'120px'}]}
-        rows={filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p=>[
-          p.name,
-          {v:fmt((p.rent_pcm||0)*12),right:true},
-          {v:'Rented',color:T.green},
+        headers={[{label:'Property'},{label:'Expected',right:true,width:'120px'},{label:'Collected',right:true,width:'120px'},{label:'Late',right:true,width:'70px'},{label:'Missed',right:true,width:'70px'}]}
+        rows={byProp.map(r=>[
+          r.p.name,
+          {v:fmt(r.expected),right:true},
+          {v:fmt(r.paid),color:T.green,right:true},
+          {v:r.late||'—',color:r.late>0?T.amber:T.muted,right:true},
+          {v:r.missed||'—',color:r.missed>0?T.red:T.muted,right:true,bold:r.missed>0},
         ])}
       />
-      {filtRent.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'20px 0'}}>No payment records found. Add payments in the Financials tab of each property to see detailed collection data.</div>}
-    </>
-  )
-}
-
-function ReportPortfolioGrowth({ filtProps, T, accent, fmt }) {
-  const totalInvested = filtProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0),0)
-  const totalValue = filtProps.reduce((s,p)=>s+(p.est_value||0),0)
-  const totalEquity = filtProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0)
-  const gain = totalValue - totalInvested
-  return (
-    <>
-      <StatCards T={T} items={[
-        {label:'Total invested',value:fmt(totalInvested),color:T.text},
-        {label:'Portfolio value',value:fmt(totalValue),color:accent},
-        {label:'Total equity',value:fmt(totalEquity),color:T.green},
-        {label:'Unrealised gain',value:fmt(gain),color:gain>=0?T.green:T.red},
-      ]}/>
-      <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Invested',right:true,width:'130px'},{label:'Est. value',right:true,width:'130px'},{label:'Equity',right:true,width:'120px'},{label:'Growth',right:true,width:'100px'}]}
-        rows={filtProps.map(p=>{
-          const inv=(p.purchase_price||0)+(p.refurb_cost||0); const val=p.est_value||0
-          return [p.name,{v:fmt(inv),right:true},{v:fmt(val),right:true},{v:fmt(val-(p.mortgage_amount||0)),color:T.green,right:true},{v:inv>0?`${(((val-inv)/inv)*100).toFixed(1)}%`:'—',color:val>=inv?T.green:T.red,right:true}]
-        })}
-      />
+      {filtRent.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'20px 0'}}>No payment records found. Mark rent as paid in the Rent Tracker to populate this report.</div>}
     </>
   )
 }
@@ -999,11 +1331,31 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
   const months = yearType==='tax'
     ? [3,4,5,6,7,8,9,10,11,0,1,2].map(m=>({m,y:m>=3?year:year+1}))
     : [0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({m,y:year}))
+  // Use real per-month data: collected rent from rent_payments, real
+  // expense rows by date. Previously this just multiplied rent_pcm by
+  // every month identically — showed the same figure for Jan as for
+  // Dec, ignoring vacancies and seasonality.
+  const hasPaid = filtRent.some(r => r.status === 'paid')
   const mData = months.map(({m,y}) => {
-    const rent = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
-    const exp = filtExp.filter(e => new Date(e.date).getMonth()===m && new Date(e.date).getFullYear()===y).reduce((s,e)=>s+(e.amount||0),0)
+    const rent = hasPaid
+      ? filtRent.filter(r => {
+          if (r.status !== 'paid') return false
+          // Prefer payment_date when present; fall back to year/month columns.
+          if (r.payment_date) {
+            const d = new Date(r.payment_date)
+            return d.getMonth() === m && d.getFullYear() === y
+          }
+          return r.month === (m + 1) && r.year === y
+        }).reduce((s,r) => s + (r.amount || 0), 0)
+      // No payment records anywhere → assume expected rent (legacy display).
+      : filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
+    const exp = filtExp.filter(e => {
+      if (!e.date) return false
+      const d = new Date(e.date)
+      return d.getMonth() === m && d.getFullYear() === y
+    }).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
-    return { label: MONTHS[m], rent, exp, net }
+    return { label: MONTHS[m], rent, exp, net, m, y }
   })
   const totalRent = mData.reduce((s,m)=>s+m.rent,0)
   const totalExp = mData.reduce((s,m)=>s+m.exp,0)
@@ -1115,28 +1467,54 @@ function ReportArrears({ filtProps, T, accent, fmt }) {
 }
 
 function ReportCompliance({ filtComp, T, accent }) {
-  const today = new Date()
   const rows = filtComp.map(c => {
     const days = daysUntil(c.expiry_date)
     const status = !c.expiry_date ? 'no-date' : days < 0 ? 'expired' : days <= 60 ? 'expiring' : 'valid'
     return { c, days, status }
   }).sort((a,b) => {
-    const order = { expired:-1, expiring:0, valid:1, 'no-date':2 }
-    return (order[a.status]||0)-(order[b.status]||0)
+    const order = { expired:-1, expiring:0, 'no-date':1, valid:2 }
+    if ((order[a.status]||0) !== (order[b.status]||0)) return (order[a.status]||0)-(order[b.status]||0)
+    return (a.days ?? 9999) - (b.days ?? 9999)
   })
-  const expired = rows.filter(r=>r.status==='expired').length
-  const expiring = rows.filter(r=>r.status==='expiring').length
-  const valid = rows.filter(r=>r.status==='valid').length
+  const expired = rows.filter(r=>r.status==='expired')
+  const expiring = rows.filter(r=>r.status==='expiring')
+  const valid = rows.filter(r=>r.status==='valid')
   const statusColor = { expired:T.red, expiring:T.amber, valid:T.green, 'no-date':T.muted }
   const statusLabel = { expired:'EXPIRED', expiring:'Expiring soon', valid:'Valid', 'no-date':'No date set' }
   return (
     <>
       <StatCards T={T} items={[
-        {label:'Expired',value:expired,color:expired>0?T.red:T.green},
-        {label:'Expiring within 60 days',value:expiring,color:expiring>0?T.amber:T.green},
-        {label:'Valid',value:valid,color:T.green},
+        {label:'Expired',value:expired.length,color:expired.length>0?T.red:T.green},
+        {label:'Expiring within 60 days',value:expiring.length,color:expiring.length>0?T.amber:T.green},
+        {label:'Valid',value:valid.length,color:T.green},
         {label:'Total certificates',value:rows.length,color:T.text},
       ]}/>
+
+      {/* "Expiring certificates" — previously a standalone report, now a
+          highlighted block at the top of this one. Covers everything
+          within 90 days. Skipped when nothing's expiring. */}
+      {(expired.length + expiring.length) > 0 && (
+        <div style={{background:T.red+'11',border:`1px solid ${T.red}33`,borderRadius:12,padding:'16px 18px',marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+            <span style={{fontSize:14}}>⏰</span>
+            <h3 style={{fontSize:13,fontWeight:700,color:T.text,margin:0}}>Action needed — {expired.length + expiring.length} certificates need attention</h3>
+          </div>
+          <div style={{display:'grid',gap:6}}>
+            {[...expired, ...expiring].slice(0,8).map((r,i) => (
+              <div key={i} style={{display:'flex',justifyContent:'space-between',gap:8,fontFamily:mono,fontSize:11}}>
+                <span style={{color:T.text}}>{r.c.property?.name||'—'} · {r.c.item_type||r.c.type||'—'}</span>
+                <span style={{color:r.status==='expired'?T.red:T.amber,fontWeight:700,whiteSpace:'nowrap'}}>
+                  {r.status === 'expired' ? `${Math.abs(r.days)} days overdue` : `${r.days} days left`}
+                </span>
+              </div>
+            ))}
+            {(expired.length + expiring.length) > 8 && (
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:4}}>+ {expired.length + expiring.length - 8} more below</div>
+            )}
+          </div>
+        </div>
+      )}
+
       <ReportTable T={T} accent={accent}
         headers={[{label:'Property'},{label:'Certificate type'},{label:'Expiry date',width:'120px'},{label:'Days',right:true,width:'80px'},{label:'Status',width:'130px'}]}
         rows={rows.map(r=>[
@@ -1147,31 +1525,6 @@ function ReportCompliance({ filtComp, T, accent }) {
           {v:statusLabel[r.status],color:statusColor[r.status],bold:r.status==='expired'},
         ])}
       />
-    </>
-  )
-}
-
-function ReportExpiringCerts({ filtComp, T, accent }) {
-  const rows = filtComp
-    .filter(c=>c.expiry_date)
-    .map(c=>({c,days:daysUntil(c.expiry_date)}))
-    .filter(r=>r.days<=90)
-    .sort((a,b)=>a.days-b.days)
-  return (
-    <>
-      <div style={{fontFamily:mono,fontSize:12,color:T.muted,marginBottom:16}}>Showing all certificates expiring within the next 90 days</div>
-      {rows.length===0
-        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:mono,fontSize:13,color:T.green}}>✓ No certificates expiring in the next 90 days</div>
-        : <ReportTable T={T} accent={accent}
-            headers={[{label:'Property'},{label:'Certificate'},{label:'Expiry date',width:'120px'},{label:'Days remaining',right:true,width:'130px'}]}
-            rows={rows.map(r=>[
-              r.c.property?.name||'—',
-              r.c.item_type||r.c.type||'—',
-              r.c.expiry_date,
-              {v:r.days<0?`${Math.abs(r.days)} overdue`:r.days===0?'Today':r.days,color:r.days<0?T.red:r.days<30?T.amber:T.green,bold:r.days<0,right:true},
-            ])}
-          />
-      }
     </>
   )
 }
@@ -1204,20 +1557,46 @@ function ReportTenancySchedule({ filtTen, T, accent, fmt }) {
 }
 
 function ReportMaintenance({ filtMaint, T, accent, fmt }) {
-  const rows = filtMaint.filter(m=>m.cost>0)
-  const total = rows.reduce((s,m)=>s+(m.cost||0),0)
+  const withCost = filtMaint.filter(m=>m.cost>0)
+  const total = withCost.reduce((s,m)=>s+(m.cost||0),0)
   const byProp = filtMaint.reduce((acc,m)=>{
     const k = m.property?.name||'Unknown'
     acc[k]=(acc[k]||0)+(m.cost||0); return acc
   },{})
+
+  // Open / in-progress jobs — previously a separate report, now folded
+  // here. Sorted by priority urgency.
+  const open = filtMaint.filter(m => m.status === 'open' || m.status === 'in-progress')
+  const priorityOrder = { urgent:0, high:1, normal:2 }
+  const openSorted = [...open].sort((a,b) => (priorityOrder[a.priority]||2) - (priorityOrder[b.priority]||2))
+  const urgent = open.filter(m => m.priority === 'urgent').length
+
   return (
     <>
       <StatCards T={T} items={[
         {label:'Total maintenance spend',value:fmt(total),color:T.amber},
-        {label:'Jobs with costs',value:rows.length,color:T.text},
-        {label:'Average job cost',value:rows.length?fmt(Math.round(total/rows.length)):'—',color:T.text},
+        {label:'Jobs with costs',value:withCost.length,color:T.text},
+        {label:'Average job cost',value:withCost.length?fmt(Math.round(total/withCost.length)):'—',color:T.text},
+        {label:'Open jobs',value:open.length,color:open.length>0?T.amber:T.green},
       ]}/>
-      <SectionTitle title="By property" T={T}/>
+
+      {open.length > 0 && (
+        <>
+          <SectionTitle title={`Open jobs (${open.length})${urgent>0?` · ${urgent} urgent`:''}`} T={T}/>
+          <ReportTable T={T} accent={accent}
+            headers={[{label:'Property'},{label:'Issue'},{label:'Priority',width:'90px'},{label:'Status',width:'110px'},{label:'Reported',width:'110px'}]}
+            rows={openSorted.map(m=>[
+              m.property?.name || '—',
+              m.title || m.description || '—',
+              {v: m.priority || 'normal', color: m.priority === 'urgent' ? T.red : m.priority === 'high' ? T.amber : T.muted, bold: m.priority === 'urgent'},
+              {v: m.status || 'open', color: m.status === 'in-progress' ? T.blue : T.amber},
+              {v: m.created_at ? new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—', color: T.muted},
+            ])}
+          />
+        </>
+      )}
+
+      <SectionTitle title="Spend by property" T={T}/>
       <ReportTable T={T} accent={accent}
         headers={[{label:'Property'},{label:'Total spend',right:true,width:'150px'},{label:'Jobs',right:true,width:'80px'}]}
         rows={Object.entries(byProp).sort((a,b)=>b[1]-a[1]).map(([name,amt])=>[
@@ -1226,33 +1605,6 @@ function ReportMaintenance({ filtMaint, T, accent, fmt }) {
           {v:filtMaint.filter(m=>m.property?.name===name).length,right:true},
         ])}
       />
-    </>
-  )
-}
-
-function ReportOpenJobs({ filtMaint, T, accent, fmt }) {
-  const open = filtMaint.filter(m=>m.status==='open'||m.status==='in-progress')
-  const byPriority = { urgent:open.filter(m=>m.priority==='urgent'), high:open.filter(m=>m.priority==='high'), normal:open.filter(m=>!m.priority||m.priority==='normal') }
-  return (
-    <>
-      <StatCards T={T} items={[
-        {label:'Open jobs',value:open.length,color:open.length>0?T.amber:T.green},
-        {label:'Urgent',value:byPriority.urgent.length,color:byPriority.urgent.length>0?T.red:T.green},
-        {label:'In progress',value:filtMaint.filter(m=>m.status==='in-progress').length,color:T.blue},
-      ]}/>
-      {open.length===0
-        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:mono,fontSize:13,color:T.green}}>✓ No open maintenance jobs</div>
-        : <ReportTable T={T} accent={accent}
-            headers={[{label:'Property'},{label:'Issue'},{label:'Priority',width:'90px'},{label:'Status',width:'100px'},{label:'Reported',width:'110px'}]}
-            rows={open.sort((a,b)=>{const o={urgent:0,high:1,normal:2};return (o[a.priority]||2)-(o[b.priority]||2)}).map(m=>[
-              m.property?.name||'—',
-              m.title||m.description||'—',
-              {v:m.priority||'normal',color:m.priority==='urgent'?T.red:m.priority==='high'?T.amber:T.muted},
-              {v:m.status||'open',color:m.status==='in-progress'?T.blue:T.amber},
-              {v:m.created_at?new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—',color:T.muted},
-            ])}
-          />
-      }
     </>
   )
 }
