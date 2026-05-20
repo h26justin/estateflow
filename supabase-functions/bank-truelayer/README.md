@@ -1,5 +1,19 @@
 # bank-truelayer edge function
 
+> ⚠️ **PAUSED — May 2026.** Open Banking integration is on hold pending a
+> partner agreement. GoCardless paused new BAD signups; TrueLayer
+> declined to onboard us at our current size. Code is preserved and
+> fully tested in the codebase but the function is **not deployed** and
+> the in-app Bank Inbox button is hidden. The Connect Bank button is
+> still visible because its modal falls back to a "register interest"
+> form when no creds are set — useful for gauging demand.
+>
+> To resume: secure an AISP partner (Salt Edge, Plaid UK, Bud, etc),
+> port the URL hosts + provider scope params if needed, set the
+> Supabase secrets, deploy the function, then flip `{false &&` to
+> `{true &&` around the Bank Inbox button in App.jsx (search for
+> "Bank Inbox hidden while Open Banking integration is paused").
+
 Live OAuth-based bank-feed integration for OwnProperly via
 [TrueLayer Data API](https://docs.truelayer.com/docs/data-api).
 

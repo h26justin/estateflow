@@ -184,9 +184,9 @@ export default function BankConnectionsModal({ onClose }) {
                 borderRadius: 10, padding: '12px 14px', marginBottom: 16,
                 fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
               }}>
-                <strong>You're connecting via TrueLayer</strong> — an FCA-regulated UK
-                Open Banking provider (AISP). Read-only access. PSD2 consent
-                renews every 90 days. We never see or store your bank login.
+                <strong>Open Banking</strong> — FCA-regulated, read-only access.
+                PSD2 consent renews every 90 days. We never see or store your
+                bank login; we only see transactions you explicitly authorise.
               </div>
 
               {hasActive && (
@@ -207,11 +207,13 @@ export default function BankConnectionsModal({ onClose }) {
                   Add a connection
                 </div>
                 <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12, lineHeight: 1.65 }}>
-                  We'll redirect you to TrueLayer to pick your bank and sign in. It takes about 30 seconds. You stay on your bank's official login screen — we never see your credentials.
+                  We'll redirect you to our Open Banking partner to pick your
+                  bank and sign in. Takes about 30 seconds. You stay on your
+                  bank's official login screen — we never see your credentials.
                 </div>
                 <button onClick={startConnect} disabled={connecting}
                   className="btn btn-gold" style={{ fontSize: 13, padding: '10px 22px', width: '100%' }}>
-                  {connecting ? 'Redirecting to TrueLayer…' : '🏦 Connect a bank account →'}
+                  {connecting ? 'Redirecting…' : '🏦 Connect a bank account →'}
                 </button>
                 <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10, textAlign: 'center' }}>
                   Supported: Barclays · HSBC · Lloyds · NatWest · Santander · Monzo · Starling · Revolut · and 30+ more

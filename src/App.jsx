@@ -3291,14 +3291,23 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.blue}`,background:T.blue+'22',color:T.blue,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
             🏦 {isMobile ? 'Bank' : 'Connect bank'}
-            <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>BETA</span>
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>SOON</span>
           </button>
-          <button onClick={()=>setShowBankInbox(true)}
-            title="Review bank transactions & match to rent"
-            style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
-              border:`1px solid ${T.purple || '#9B7CC8'}`,background:(T.purple || '#9B7CC8')+'22',color:T.purple || '#9B7CC8',whiteSpace:'nowrap'}}>
-            📥 {isMobile ? 'Inbox' : 'Bank inbox'}
-          </button>
+          {/* Bank Inbox hidden while Open Banking integration is paused —
+              we don't yet have an approved AISP partner (GoCardless paused
+              signups, TrueLayer declined). Component + edge function code
+              are preserved; flip this back on once a provider is sorted.
+              The Connect button stays visible because its modal gracefully
+              shows a "register interest" form when no creds are set, which
+              is useful for gauging demand for the feature. */}
+          {false && (
+            <button onClick={()=>setShowBankInbox(true)}
+              title="Review bank transactions & match to rent"
+              style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+                border:`1px solid ${T.purple || '#9B7CC8'}`,background:(T.purple || '#9B7CC8')+'22',color:T.purple || '#9B7CC8',whiteSpace:'nowrap'}}>
+              📥 {isMobile ? 'Inbox' : 'Bank inbox'}
+            </button>
+          )}
           <button onClick={onDayTracker}
             title="Day-by-day view"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
