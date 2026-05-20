@@ -37,6 +37,7 @@ import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, natura
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
+import { showAppToast } from './lib/toast'
 import { MONO } from './lib/styles'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
@@ -44,6 +45,7 @@ import CommandPalette from './components/CommandPalette'
 import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
 import TenantReferenceModal from './components/TenantReferenceModal'
 import BankConnectionsModal from './components/BankConnectionsModal'
+import BankInboxModal from './components/BankInboxModal'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -827,6 +829,30 @@ export default function App() {
             await api.registerTenantProfile(user.id, tenantPropertyId)
             window.history.replaceState({}, '', window.location.pathname)
           } catch(e) { logError('loadData:registerTenantProfile', e) }
+        }
+        // Bank-feed OAuth handoff return. GoCardless redirects to
+        // `/?bank_callback=1&ref=<connection_id>`. We finalise the
+        // connection (fetches accounts + flips status to active) then
+        // immediately trigger a first sync so users see transactions
+        // straight away. Errors swallowed visibly via toast so they
+        // can retry from the bank-connections modal.
+        if (urlParams.get('bank_callback') === '1') {
+          const connId = urlParams.get('ref')
+          window.history.replaceState({}, '', window.location.pathname)
+          if (connId) {
+            try {
+              await api.finalizeBankConnect(connId)
+              try { showAppToast('Bank connected · syncing transactions…') } catch {}
+              api.syncBankTransactions().then(r => {
+                try { showAppToast(`Synced ${r?.inserted || 0} transactions (${r?.matched || 0} auto-matched)`) } catch {}
+              }).catch(e => {
+                try { showAppToast(e.message || 'Sync failed — try again from Bank Connections', 'error') } catch {}
+              })
+            } catch (e) {
+              logError('bankCallback:finalize', e)
+              try { showAppToast(e.message || 'Could not finalise bank connection', 'error') } catch {}
+            }
+          }
         }
         // Check if this user is a tenant (not a landlord)
         // Skip tenant portal if user has their own companies or is platform admin
@@ -2307,7 +2333,7 @@ export default function App() {
             })}
           </div>}
 
-          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis}/>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags} selectedReportId={selectedReportId} onSelectReport={setSelectedReportId}/></div>}
@@ -3104,11 +3130,12 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 }
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
-function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis}) {
+function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
   const [showRentReview, setShowRentReview] = useState(false)
   const [showBankConnect, setShowBankConnect] = useState(false)
+  const [showBankInbox, setShowBankInbox] = useState(false)
   // Empty array = "all companies visible". Toggle pills below the header
   // to focus on a subset; identical UX to the dashboard's dashCoFilter.
   const [coFilter, setCoFilter] = useState([])
@@ -3188,7 +3215,13 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.blue}`,background:T.blue+'22',color:T.blue,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
             🏦 {isMobile ? 'Bank' : 'Connect bank'}
-            <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>EARLY</span>
+            <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>BETA</span>
+          </button>
+          <button onClick={()=>setShowBankInbox(true)}
+            title="Review bank transactions & match to rent"
+            style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+              border:`1px solid ${T.purple || '#9B7CC8'}`,background:(T.purple || '#9B7CC8')+'22',color:T.purple || '#9B7CC8',whiteSpace:'nowrap'}}>
+            📥 {isMobile ? 'Inbox' : 'Bank inbox'}
           </button>
           <button onClick={onDayTracker}
             title="Day-by-day view"
@@ -3200,6 +3233,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       </div>
 
       {showBankConnect && <BankConnectionsModal onClose={()=>setShowBankConnect(false)}/>}
+      {showBankInbox && <BankInboxModal onClose={()=>{setShowBankInbox(false); onRefresh?.()}} properties={properties} onMatched={onRefresh}/>}
 
       {/* Company filter pills (only render if there's more than one
           company to choose from — saves vertical space for solo landlords) */}

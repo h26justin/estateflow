@@ -1,25 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 
-// Open Banking — shell modal.
+// Open Banking — live OAuth flow via GoCardless Bank Account Data.
 //
-// PRE-PARTNERSHIP. We're in the "register interest" stage until we sign
-// with a partner referencing provider (TrueLayer / Plaid / GoCardless
-// Bank Account Data). When that lands, the "Connect a bank" button will
-// kick off an OAuth redirect to the partner; today it just records that
-// the user wants the feature and shows the matching rough timeline.
+// Two modes, decided on mount:
+//   - "live"     — `listBankInstitutions` succeeded → show a bank picker.
+//                  Picking a bank kicks off OAuth, we redirect to the bank.
+//   - "interest" — `listBankInstitutions` returned 503 (creds not deployed)
+//                  → fall back to the original "register interest" form so
+//                  we still capture demand while Justin completes the
+//                  GoCardless onboarding paperwork.
 //
-// Component scoped to Rent Tracker but works elsewhere — just pass
-// onClose. No prop dependencies on anything except useTheme + api.
+// When the user returns from their bank, App.jsx picks up the
+// `?bank_callback=1&ref=<id>` query params and finalises silently.
 
 const STATUS_LABEL = {
   requested:   'Saved · waiting for our Open Banking partner to launch',
-  pending:     'OAuth in progress',
+  pending:     'Authorisation in progress — finish at your bank',
   active:      'Connected · syncing',
-  expired:     'Re-authorise to keep syncing',
+  expired:     'Re-authorise to keep syncing (PSD2 · 90 days)',
   revoked:     'Connection removed',
 }
 const STATUS_COLOR = {
@@ -33,24 +35,62 @@ const STATUS_COLOR = {
 export default function BankConnectionsModal({ onClose }) {
   const { T } = useTheme()
   const mono = MONO
-  const [rows, setRows]       = useState([])
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy]       = useState(false)
-  const [bank, setBank]       = useState('')
+
+  const [rows, setRows]                 = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [mode, setMode]                 = useState('loading') // loading | live | interest
+  const [institutions, setInstitutions] = useState([])
+  const [search, setSearch]             = useState('')
+  const [connectingId, setConnectingId] = useState(null)
+  const [interestBank, setInterestBank] = useState('')
+  const [busy, setBusy]                 = useState(false)
+  const [syncing, setSyncing]           = useState(false)
 
   useEffect(() => {
-    api.fetchBankConnections().then(r => { setRows(r); setLoading(false) })
-      .catch(() => setLoading(false))
+    let cancelled = false
+    api.fetchBankConnections().then(r => { if (!cancelled) { setRows(r); setLoading(false) } })
+      .catch(() => { if (!cancelled) setLoading(false) })
+
+    api.listBankInstitutions().then(res => {
+      if (cancelled) return
+      setInstitutions(res?.institutions || [])
+      setMode('live')
+    }).catch(err => {
+      if (cancelled) return
+      // 503 = creds not provisioned yet → fall back to interest form.
+      console.warn('Bank Feeds live mode unavailable:', err?.message)
+      setMode('interest')
+    })
+    return () => { cancelled = true }
   }, [])
 
-  async function register() {
+  const filteredInstitutions = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return institutions.slice(0, 30)
+    return institutions.filter(i => i.name.toLowerCase().includes(q)).slice(0, 30)
+  }, [institutions, search])
+
+  async function connectInstitution(inst) {
+    setConnectingId(inst.id)
+    try {
+      const { auth_url } = await api.startBankConnect(inst.id, inst.name)
+      // Full-page redirect to the bank's auth page. They'll send the user
+      // back to BANK_REDIRECT_BASE after consent.
+      window.location.assign(auth_url)
+    } catch (e) {
+      setConnectingId(null)
+      showAppToast(e.message || 'Could not start bank connection', 'error')
+    }
+  }
+
+  async function registerInterest() {
     setBusy(true)
     try {
-      const row = await api.registerBankInterest('pending-partner', bank.trim() || null)
+      const row = await api.registerBankInterest('pending-partner', interestBank.trim() || null)
       setRows(prev => [row, ...prev])
-      setBank('')
+      setInterestBank('')
       showAppToast("Interest registered. We'll email you when Open Banking goes live.")
-    } catch(e) {
+    } catch (e) {
       showAppToast(e.message || 'Could not save your request', 'error')
     }
     setBusy(false)
@@ -60,19 +100,34 @@ export default function BankConnectionsModal({ onClose }) {
     try {
       await api.deleteBankConnection(id)
       setRows(prev => prev.filter(r => r.id !== id))
-    } catch(e) { showAppToast(e.message || 'Could not delete', 'error') }
+    } catch (e) { showAppToast(e.message || 'Could not delete', 'error') }
   }
+
+  async function manualSync() {
+    setSyncing(true)
+    try {
+      const res = await api.syncBankTransactions()
+      showAppToast(`Synced ${res?.inserted || 0} transactions (${res?.matched || 0} auto-matched)`)
+      const fresh = await api.fetchBankConnections()
+      setRows(fresh)
+    } catch (e) {
+      showAppToast(e.message || 'Sync failed', 'error')
+    }
+    setSyncing(false)
+  }
+
+  const hasActive = rows.some(r => r.status === 'active')
 
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 620 }}>
+      <div className="modal" style={{ maxWidth: 680 }}>
         <div style={{ padding: '22px 26px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
               Bank Connections
             </h2>
             <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
-              Automatically match incoming rent payments to your tenancies — no statement imports.
+              Connect your bank · we'll match rent payments automatically.
             </p>
           </div>
           <span style={{
@@ -80,47 +135,119 @@ export default function BankConnectionsModal({ onClose }) {
             padding: '4px 9px', borderRadius: 12,
             background: T.amber + '22', color: T.amber, border: `1px solid ${T.amber}44`,
             flexShrink: 0,
-          }}>EARLY ACCESS</span>
+          }}>{mode === 'live' ? 'BETA' : 'EARLY ACCESS'}</span>
         </div>
 
         <div style={{ padding: '14px 26px 22px' }}>
-          {/* Pre-launch note */}
-          <div style={{
-            background: T.amber + '11', border: `1px solid ${T.amber}44`,
-            borderRadius: 10, padding: '12px 14px', marginBottom: 16,
-            fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
-          }}>
-            <strong>Coming soon.</strong> We're finalising a UK Open Banking
-            integration. Once live, connecting your bank means rent
-            payments appear in OwnProperly within hours of hitting your
-            account — no more chasing PDF statements. Register your
-            interest below and we'll prioritise launching for your bank.
-          </div>
 
-          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-              Which bank do you use? (Optional)
+          {mode === 'loading' && (
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: '20px 0' }}>
+              Checking availability…
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input value={bank} onChange={e => setBank(e.target.value)}
-                placeholder="e.g. Barclays, Lloyds, Starling, Monzo…"
-                style={{
-                  flex: 1, fontFamily: mono, fontSize: 13,
-                  background: T.surface, border: `1px solid ${T.border}`, color: T.text,
-                  borderRadius: 8, padding: '10px 12px', outline: 'none',
-                }}/>
-              <button onClick={register} disabled={busy}
-                className="btn btn-gold" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                {busy ? 'Saving…' : 'Register interest'}
-              </button>
-            </div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6 }}>
-              We'll never charge for Open Banking. When it launches you'll keep paying just £2/property.
-            </div>
-          </div>
+          )}
+
+          {mode === 'interest' && (
+            <>
+              <div style={{
+                background: T.amber + '11', border: `1px solid ${T.amber}44`,
+                borderRadius: 10, padding: '12px 14px', marginBottom: 16,
+                fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
+              }}>
+                <strong>Coming soon.</strong> We're finalising a UK Open
+                Banking integration. Once live, connecting your bank means
+                rent payments appear in OwnProperly within hours of hitting
+                your account — no more chasing PDF statements. Register
+                your interest below and we'll prioritise launching for your bank.
+              </div>
+
+              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  Which bank do you use? (Optional)
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input value={interestBank} onChange={e => setInterestBank(e.target.value)}
+                    placeholder="e.g. Barclays, Lloyds, Starling, Monzo…"
+                    style={{
+                      flex: 1, fontFamily: mono, fontSize: 13,
+                      background: T.surface, border: `1px solid ${T.border}`, color: T.text,
+                      borderRadius: 8, padding: '10px 12px', outline: 'none',
+                    }}/>
+                  <button onClick={registerInterest} disabled={busy}
+                    className="btn btn-gold" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                    {busy ? 'Saving…' : 'Register interest'}
+                  </button>
+                </div>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6 }}>
+                  We'll never charge for Open Banking. Stays included at £2/property.
+                </div>
+              </div>
+            </>
+          )}
+
+          {mode === 'live' && (
+            <>
+              <div style={{
+                background: T.green + '11', border: `1px solid ${T.green}44`,
+                borderRadius: 10, padding: '12px 14px', marginBottom: 16,
+                fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
+              }}>
+                <strong>You're connecting via GoCardless</strong> — FCA-regulated UK
+                Open Banking provider. Read-only access. PSD2 consent
+                renews every 90 days. We never see or store your bank login.
+              </div>
+
+              {hasActive && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                  <button onClick={manualSync} disabled={syncing}
+                    className="btn btn-ghost" style={{ fontSize: 11 }}>
+                    {syncing ? 'Syncing…' : '↻ Sync now'}
+                  </button>
+                </div>
+              )}
+
+              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  Connect a bank
+                </div>
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Search your bank…"
+                  style={{
+                    width: '100%', fontFamily: mono, fontSize: 13,
+                    background: T.surface, border: `1px solid ${T.border}`, color: T.text,
+                    borderRadius: 8, padding: '10px 12px', outline: 'none', boxSizing: 'border-box',
+                    marginBottom: 10,
+                  }}/>
+                <div style={{ display: 'grid', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+                  {filteredInstitutions.length === 0 ? (
+                    <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, padding: '8px 0' }}>
+                      No matches.
+                    </div>
+                  ) : filteredInstitutions.map(inst => (
+                    <button key={inst.id} onClick={() => connectInstitution(inst)}
+                      disabled={connectingId === inst.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: T.surface, border: `1px solid ${T.border}`,
+                        borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
+                        textAlign: 'left', color: T.text,
+                      }}>
+                      {inst.logo && (
+                        <img src={inst.logo} alt="" width="20" height="20"
+                          style={{ objectFit: 'contain', borderRadius: 4, flexShrink: 0 }}/>
+                      )}
+                      <span style={{ flex: 1, fontSize: 13 }}>{inst.name}</span>
+                      <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                        {connectingId === inst.id ? 'Redirecting…' : '→'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-            Your requests
+            Your connections
           </div>
           {loading ? (
             <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
@@ -142,6 +269,11 @@ export default function BankConnectionsModal({ onClose }) {
                       background: (STATUS_COLOR[r.status] || T.muted) + '22',
                       color: STATUS_COLOR[r.status] || T.muted,
                     }}>{STATUS_LABEL[r.status] || r.status}</span>
+                    {r.last_synced_at && (
+                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 4 }}>
+                        Last synced {new Date(r.last_synced_at).toLocaleString('en-GB')}
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => remove(r.id)}
                     aria-label="Remove"
