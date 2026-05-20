@@ -7,9 +7,30 @@ done by a dedicated agent. Findings are graded:
 - 🟡 Medium — defense-in-depth or polish
 - 🟢 Minor — future hardening / nice-to-have
 
-**Critical takeaway:** the DB schema audit found that **20 application
-tables have no RLS enabled** plus several other security holes. Read the
-[Database schema + RLS audit](#database-schema--rls-audit) section first.
+> ## ✅ Closeout status (updated 2026-05-20)
+>
+> All **DB schema audit findings except storage** have been verified against
+> the live database and either applied or confirmed already-fixed:
+>
+> | Finding | Status |
+> |---|---|
+> | #1 — 20 tables without RLS | False alarm in 18/20 cases. property_notes was the only real gap → fixed. rent_increases doesn't exist. |
+> | #2 — audit_log INSERT forgery | ✅ Fixed (dropped loose policy) |
+> | #3 — Hard-delete bypassing soft-delete | ✅ Fixed in 4 real cases; 5 were false alarms |
+> | #4 — Missing `deleted_at IS NULL` filters | ✅ Fixed for the 4 soft-delete-aware fetchers |
+> | #5 — Storage policy injection on property-documents | ⚠️ DEFERRED — tightly coupled to tenant maintenance flow |
+> | #7 — SECURITY DEFINER missing `search_path` | ✅ Fixed (13 functions; verified 15/15 now configured) |
+> | #9-12 — Missing perf indexes | ✅ Added 6 partial indexes (rent_payments already had its unique index) |
+> | #25 — feature_flags world-readable | ✅ Restricted to authenticated |
+> | Owner-email PII leak from fuzzy search | ✅ Fixed (return signature changed + UI removed) |
+>
+> See `git log` for the actual SQL migrations applied
+> (`2026-05-20_*.sql` files in `supabase-migrations/`).
+>
+> What's still open:
+> - 🟡 Storage policy fix (#5/#26) — needs careful work, see file 2026-05-20 / Task #26
+> - All 25 accessibility findings — next session candidate
+> - Performance + Dead-code audits still need re-running with tighter prompts
 
 ## Status of each audit
 
