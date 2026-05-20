@@ -642,7 +642,10 @@ export async function upsertCompanySettings(companyId, settings) {
 
 // ── COMPLIANCE ────────────────────────────────────────────
 export async function fetchCompliance(propertyId) {
-  const { data, error } = await supabase.from('compliance_items').select('*').eq('property_id', propertyId).order('expiry_date')
+  const { data, error } = await supabase.from('compliance_items').select('*')
+    .eq('property_id', propertyId)
+    .is('deleted_at', null)
+    .order('expiry_date')
   if (error) throw error
   return data || []
 }
@@ -725,12 +728,22 @@ export async function updateCompliance(id, updates) {
   if (error) throw error
   return data
 }
+// Soft-delete. compliance_items has a deleted_at column; the Trash page
+// expects rows to live for 30 days post-deletion so users can recover.
+// Previously this did a hard .delete() which bypassed that guarantee.
 export async function deleteCompliance(id) {
-  const { error } = await supabase.from('compliance_items').delete().eq('id', id)
+  const { error } = await supabase
+    .from('compliance_items')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
   if (error) throw error
 }
 export async function fetchAllCompliance(userId) {
-  const { data, error } = await supabase.from('compliance_items').select('*, property:properties(name,company_id)').eq('user_id', userId).order('expiry_date')
+  const { data, error } = await supabase.from('compliance_items')
+    .select('*, property:properties(name,company_id)')
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .order('expiry_date')
   if (error) throw error
   return data || []
 }
@@ -746,7 +759,10 @@ export async function upsertTenancyDetails(propertyId, details) {
 
 // ── MAINTENANCE ───────────────────────────────────────────
 export async function fetchMaintenance(propertyId) {
-  const { data, error } = await supabase.from('maintenance_jobs').select('*').eq('property_id', propertyId).order('created_at', {ascending:false})
+  const { data, error } = await supabase.from('maintenance_jobs').select('*')
+    .eq('property_id', propertyId)
+    .is('deleted_at', null)
+    .order('created_at', {ascending:false})
   if (error) throw error
   return data || []
 }
@@ -760,14 +776,21 @@ export async function updateMaintenance(id, updates) {
   if (error) throw error
   return data
 }
+// Soft-delete (see deleteCompliance for context).
 export async function deleteMaintenance(id) {
-  const { error } = await supabase.from('maintenance_jobs').delete().eq('id', id)
+  const { error } = await supabase
+    .from('maintenance_jobs')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
   if (error) throw error
 }
 
 // ── EXPENSES ─────────────────────────────────────────────
 export async function fetchExpenses(propertyId) {
-  const { data, error } = await supabase.from('property_expenses').select('*').eq('property_id', propertyId).order('date', {ascending:false})
+  const { data, error } = await supabase.from('property_expenses').select('*')
+    .eq('property_id', propertyId)
+    .is('deleted_at', null)
+    .order('date', {ascending:false})
   if (error) throw error
   return data || []
 }
@@ -781,8 +804,12 @@ export async function updateExpense(id, updates) {
   if (error) throw error
   return data
 }
+// Soft-delete (see deleteCompliance for context).
 export async function deleteExpense(id) {
-  const { error } = await supabase.from('property_expenses').delete().eq('id', id)
+  const { error } = await supabase
+    .from('property_expenses')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
   if (error) throw error
 }
 
@@ -973,7 +1000,9 @@ export async function hardDeleteDocument(doc) {
 // ── COMPANY DOCUMENTS ─────────────────────────────────────────────────────────
 export async function fetchCompanyDocuments(companyId) {
   const { data, error } = await supabase.from('company_documents')
-    .select('*').eq('company_id', companyId).order('created_at', { ascending: false })
+    .select('*').eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
 }
@@ -993,9 +1022,16 @@ export async function uploadCompanyDocument(companyId, file, userId) {
   return path
 }
 
+// Soft-delete. company_documents has deleted_at + deleted_by columns.
+// We KEEP the storage file in place during the 30-day retention window
+// so a restore from Trash gets the file back intact; the purge cron is
+// responsible for removing the underlying blob when it hard-deletes.
 export async function deleteCompanyDocument(doc) {
-  if (doc.file_path) await supabase.storage.from('property-documents').remove([doc.file_path])
-  const { error } = await supabase.from('company_documents').delete().eq('id', doc.id)
+  const userId = (await supabase.auth.getUser()).data.user.id
+  const { error } = await supabase
+    .from('company_documents')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq('id', doc.id)
   if (error) throw error
 }
 
@@ -1773,7 +1809,9 @@ export async function saveReportSettings(companyId, settings) {
 export async function fetchAllComplianceItems(userId) {
   const { data, error } = await supabase.from('compliance_items')
     .select('*, property:properties(id,name,company_id,company:companies(name,abbr,color))')
-    .eq('user_id', userId).order('expiry_date')
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .order('expiry_date')
   if (error) throw error
   return data || []
 }

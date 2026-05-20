@@ -54,7 +54,6 @@ export default function CompanyModal({ onClose, onSave }) {
               {similarCompanies.map(co => (
                 <div key={co.id} style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:T.text, padding:'6px 10px', background:T.bg, borderRadius:6 }}>
                   <strong>{co.name}</strong>
-                  {co.owner_email && <span style={{ color:T.muted }}> · owner: {co.owner_email}</span>}
                 </div>
               ))}
             </div>
