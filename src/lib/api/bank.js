@@ -1,19 +1,19 @@
-// Open Banking — GoCardless Bank Account Data (BAD) integration.
+// Open Banking — TrueLayer Data API integration.
 //
-// Most of the heavy lifting lives in the `bank-gocardless` edge function so
-// platform credentials never touch the browser. These helpers wrap the
-// function with a typed-ish surface.
+// Migrated from GoCardless Bank Account Data in May 2026 after GoCardless
+// paused new BAD signups. Heavy lifting lives in the `bank-truelayer`
+// edge function so credentials never touch the browser.
 //
-// Until Justin completes the GoCardless onboarding, listInstitutions() and
-// startConnect() return a 503 with a clear error message so the UI can
-// gracefully fall back to the "register interest" form.
+// Until the Supabase secrets are set (TRUELAYER_CLIENT_ID +
+// TRUELAYER_CLIENT_SECRET), the function returns 503 and the UI falls
+// back to "register interest".
 
 import { supabase } from '../supabase'
 
 async function invoke(action, payload = {}) {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
-  const { data, error } = await supabase.functions.invoke('bank-gocardless', {
+  const { data, error } = await supabase.functions.invoke('bank-truelayer', {
     body: { action, ...payload },
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
@@ -71,15 +71,20 @@ export async function listBankInstitutions(country = 'gb') {
   return invoke('list_institutions', { country })
 }
 
-// Creates a requisition + pending connection row, returns { auth_url, connection_id }
-// The caller redirects the browser to auth_url.
-export async function startBankConnect(institutionId, institutionName) {
-  return invoke('start_connect', { institution_id: institutionId, institution_name: institutionName })
+// Pre-creates a pending connection row and returns the TrueLayer auth URL.
+// The caller redirects the browser to auth_url — TrueLayer hosts the
+// bank picker itself, so no institution params from us. Returns:
+//   { auth_url, connection_id }
+export async function startBankConnect() {
+  return invoke('start_connect')
 }
 
-// Finalises a returning OAuth handoff. Call from /bank/callback?ref=<connection_id>.
-export async function finalizeBankConnect(connectionId) {
-  return invoke('finalize', { connection_id: connectionId })
+// Finalises a returning OAuth handoff. Pass through:
+//   - connectionId: from the `state` query param (our row UUID)
+//   - code:         from the `code` query param (TrueLayer auth code)
+//   - error:        optional, from `error` query param if user denied
+export async function finalizeBankConnect(connectionId, code, error = null) {
+  return invoke('finalize', { connection_id: connectionId, code, error })
 }
 
 // Pulls fresh transactions for all active accounts; auto-matches what it can.

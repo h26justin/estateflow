@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
@@ -39,11 +39,9 @@ export default function BankConnectionsModal({ onClose }) {
   const [rows, setRows]                 = useState([])
   const [loading, setLoading]           = useState(true)
   const [mode, setMode]                 = useState('loading') // loading | live | interest
-  const [institutions, setInstitutions] = useState([])
-  const [search, setSearch]             = useState('')
-  const [connectingId, setConnectingId] = useState(null)
   const [interestBank, setInterestBank] = useState('')
   const [busy, setBusy]                 = useState(false)
+  const [connecting, setConnecting]     = useState(false)
   const [syncing, setSyncing]           = useState(false)
 
   useEffect(() => {
@@ -51,34 +49,29 @@ export default function BankConnectionsModal({ onClose }) {
     api.fetchBankConnections().then(r => { if (!cancelled) { setRows(r); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
 
-    api.listBankInstitutions().then(res => {
+    // listBankInstitutions is now a no-op success when creds are set
+    // (TrueLayer hosts its own picker). 503 still means "creds missing"
+    // → fall back to interest form.
+    api.listBankInstitutions().then(() => {
       if (cancelled) return
-      setInstitutions(res?.institutions || [])
       setMode('live')
     }).catch(err => {
       if (cancelled) return
-      // 503 = creds not provisioned yet → fall back to interest form.
       console.warn('Bank Feeds live mode unavailable:', err?.message)
       setMode('interest')
     })
     return () => { cancelled = true }
   }, [])
 
-  const filteredInstitutions = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return institutions.slice(0, 30)
-    return institutions.filter(i => i.name.toLowerCase().includes(q)).slice(0, 30)
-  }, [institutions, search])
-
-  async function connectInstitution(inst) {
-    setConnectingId(inst.id)
+  async function startConnect() {
+    setConnecting(true)
     try {
-      const { auth_url } = await api.startBankConnect(inst.id, inst.name)
-      // Full-page redirect to the bank's auth page. They'll send the user
-      // back to BANK_REDIRECT_BASE after consent.
+      const { auth_url } = await api.startBankConnect()
+      // Full-page redirect to TrueLayer's hosted picker → bank login →
+      // back to BANK_REDIRECT_BASE with ?code= and ?state=.
       window.location.assign(auth_url)
     } catch (e) {
-      setConnectingId(null)
+      setConnecting(false)
       showAppToast(e.message || 'Could not start bank connection', 'error')
     }
   }
@@ -191,8 +184,8 @@ export default function BankConnectionsModal({ onClose }) {
                 borderRadius: 10, padding: '12px 14px', marginBottom: 16,
                 fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
               }}>
-                <strong>You're connecting via GoCardless</strong> — FCA-regulated UK
-                Open Banking provider. Read-only access. PSD2 consent
+                <strong>You're connecting via TrueLayer</strong> — an FCA-regulated UK
+                Open Banking provider (AISP). Read-only access. PSD2 consent
                 renews every 90 days. We never see or store your bank login.
               </div>
 
@@ -205,44 +198,26 @@ export default function BankConnectionsModal({ onClose }) {
                 </div>
               )}
 
-              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                  Connect a bank
+              {/* Single CTA — TrueLayer hosts the bank-picker step. The
+                  user clicks here, gets redirected to TrueLayer's page,
+                  picks their bank, signs in, consents, and comes back to
+                  ?bank_callback=1&code=…&state=… which App.jsx finalises. */}
+              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '16px 18px', marginBottom: 16 }}>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                  Add a connection
                 </div>
-                <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Search your bank…"
-                  style={{
-                    width: '100%', fontFamily: mono, fontSize: 13,
-                    background: T.surface, border: `1px solid ${T.border}`, color: T.text,
-                    borderRadius: 8, padding: '10px 12px', outline: 'none', boxSizing: 'border-box',
-                    marginBottom: 10,
-                  }}/>
-                <div style={{ display: 'grid', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
-                  {filteredInstitutions.length === 0 ? (
-                    <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, padding: '8px 0' }}>
-                      No matches.
-                    </div>
-                  ) : filteredInstitutions.map(inst => (
-                    <button key={inst.id} onClick={() => connectInstitution(inst)}
-                      disabled={connectingId === inst.id}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        background: T.surface, border: `1px solid ${T.border}`,
-                        borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
-                        textAlign: 'left', color: T.text,
-                      }}>
-                      {inst.logo && (
-                        <img src={inst.logo} alt="" width="20" height="20"
-                          style={{ objectFit: 'contain', borderRadius: 4, flexShrink: 0 }}/>
-                      )}
-                      <span style={{ flex: 1, fontSize: 13 }}>{inst.name}</span>
-                      <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
-                        {connectingId === inst.id ? 'Redirecting…' : '→'}
-                      </span>
-                    </button>
-                  ))}
+                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12, lineHeight: 1.65 }}>
+                  We'll redirect you to TrueLayer to pick your bank and sign in. It takes about 30 seconds. You stay on your bank's official login screen — we never see your credentials.
+                </div>
+                <button onClick={startConnect} disabled={connecting}
+                  className="btn btn-gold" style={{ fontSize: 13, padding: '10px 22px', width: '100%' }}>
+                  {connecting ? 'Redirecting to TrueLayer…' : '🏦 Connect a bank account →'}
+                </button>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10, textAlign: 'center' }}>
+                  Supported: Barclays · HSBC · Lloyds · NatWest · Santander · Monzo · Starling · Revolut · and 30+ more
                 </div>
               </div>
+
             </>
           )}
 
