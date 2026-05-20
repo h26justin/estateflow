@@ -2434,6 +2434,74 @@ export default function App() {
                   )
                 })()}
                 {detailTab==='overview'&&<OverviewTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditProperty={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
+
+                {/* Rent-at-a-glance — most landlords arriving from Rent
+                    Tracker care about rent more than property metadata.
+                    Show this year's payment dots + YTD summary + a
+                    "Open full rent tracker" CTA. Stays on Overview so
+                    they don't need to switch tabs.
+
+                    Renders only when there's payment data; for brand-new
+                    properties we skip it so the Overview isn't padded
+                    with empty cards. */}
+                {detailTab==='overview' && (() => {
+                  const payments = selected.rent_payments || []
+                  if (payments.length === 0) return null
+                  const currentYear = new Date().getFullYear()
+                  // Latest year with any data — usually currentYear, falls
+                  // back to whatever's most recent if user hasn't generated
+                  // current-year months yet.
+                  const years = [...new Set(payments.map(p => p.year))].sort()
+                  const focusYear = years.includes(currentYear) ? currentYear : years[years.length - 1]
+                  const ytd = payments.filter(p => p.year === focusYear)
+                  const paid    = ytd.filter(p => p.status === 'paid').length
+                  const missed  = ytd.filter(p => p.status === 'missed').length
+                  const late    = ytd.filter(p => p.status === 'late').length
+                  const collected = ytd.filter(p => p.status === 'paid').reduce((s,p)=>s+(p.amount||(selected.rent_pcm||0)),0)
+                  const arrears = selected.arrears || 0
+
+                  return (
+                    <div className="card" style={{padding:'16px 20px',marginTop:14,borderLeft:`3px solid ${T.green}`}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                            💷 Rent · {focusYear}
+                          </div>
+                          {arrears > 0 && (
+                            <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:10,background:T.red+'22',color:T.red}}>
+                              {fmt(arrears)} in arrears
+                            </span>
+                          )}
+                        </div>
+                        <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>setDetailTab('rent')}>
+                          Full history →
+                        </button>
+                      </div>
+
+                      {/* Year of dots */}
+                      <RentDots payments={payments} filterYear={focusYear}
+                        onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})}
+                        onDayTracker={()=>setView('daytracker')}/>
+
+                      {/* YTD summary — compact 4-stat grid */}
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginTop:14}}>
+                        {[
+                          {l:'Months paid',    v:paid,             c:T.green,  sub:fmt(collected)},
+                          {l:'Months missed',  v:missed,           c:missed>0?T.red:T.muted,    sub:missed>0?fmt(missed*(selected.rent_pcm||0)):''},
+                          {l:'Months late',    v:late,             c:late>0?T.amber:T.muted},
+                          {l:'Monthly rent',   v:fmt(selected.rent_pcm), c:T.gold},
+                        ].map((item,i)=>(
+                          <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
+                            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
+                            <div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:item.c}}>{item.v}</div>
+                            {item.sub&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2}}>{item.sub}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {detailTab==='overview' && (() => {
                   // Insurance summary: find policies covering THIS property.
                   // Includes:
