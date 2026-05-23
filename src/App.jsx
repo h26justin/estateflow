@@ -48,6 +48,7 @@ import TenantReferenceModal from './components/TenantReferenceModal'
 import BankConnectionsModal from './components/BankConnectionsModal'
 import BankInboxModal from './components/BankInboxModal'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
+import BuildingMortgageModal from './components/BuildingMortgageModal'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -62,9 +63,23 @@ import CustomizeDashModal from './components/modals/CustomizeDashModal'
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
 function calcMonthlyMortgage(p) {
+  // Priority 1: user-entered actual monthly payment (any positive number).
+  // Real mortgages have fees, part-and-part splits, product transitions
+  // etc that the textbook formula can't model. When the user knows their
+  // actual direct debit, store it and trust it.
+  if (p.mortgage_monthly_payment && Number(p.mortgage_monthly_payment) > 0) {
+    return Number(p.mortgage_monthly_payment)
+  }
   if (!p.mortgage_rate || !p.mortgage_amount) return 0
-  const r = p.mortgage_rate/12, n=(p.mortgage_term||25)*12
-  return p.mortgage_amount * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1)
+  const amount = Number(p.mortgage_amount), rate = Number(p.mortgage_rate)
+  // Priority 2: honour mortgage_type when set. Interest-only is much
+  // simpler than the repayment annuity formula.
+  if (p.mortgage_type === 'interest_only') {
+    return amount * rate / 12
+  }
+  // Priority 3 (default): repayment annuity. Same as before this rewrite.
+  const r = rate / 12, n = (p.mortgage_term || 25) * 12
+  return amount * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1)
 }
 function calcGrossYield(p, basis='cost') {
   const base = basis==='value'
@@ -406,6 +421,7 @@ export default function App() {
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
   const [showAddBulk, setShowAddBulk]  = useState(false)
+  const [showBuildingMortgage, setShowBuildingMortgage] = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
   const [renameCoTarget, setRenameCoTarget] = useState(null)
   const [renameCo, setRenameCo]        = useState({ name:'', abbr:'' })
@@ -2312,7 +2328,15 @@ export default function App() {
                 onOpenProperty={(id)=>{ setSelectedId(id); setView('detail'); setDetailTab('overview') }}/>
             </>}
             {portfolioTab==='properties'&&<div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8,marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+              {/* 🏦 Building Mortgage — bulk-edit mortgage details across
+                  every unit in a building in one save. Hidden unless the
+                  user can edit properties; modal itself handles the case
+                  where there are no multi-unit buildings yet. */}
+              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}}
+                onClick={()=>setShowBuildingMortgage(true)}
+                disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive}
+                title="Update a mortgage across all units in a building in one go">🏦 Building Mortgage</button>
               <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddBulk(true)} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)">🏘 + Add Block</button>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
@@ -2831,6 +2855,11 @@ export default function App() {
           setShowAddBulk(false)
         }}
         showToast={showToast}
+      />}
+      {showBuildingMortgage && <BuildingMortgageModal
+        properties={activeCoTab ? activeProperties.filter(p => p.company_id === activeCoTab) : activeProperties}
+        setProperties={setProperties}
+        onClose={()=>setShowBuildingMortgage(false)}
       />}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
       {showCustomizeDash && <CustomizeDashModal

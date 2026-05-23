@@ -24,7 +24,7 @@ export const COMPLIANCE_PROMPTS = [
 
 export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const { T } = useTheme()
-  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',
+  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',
     // Compliance dates (form-only — extracted into compliance_items rows
     // by handleSaveProp). When editing an existing property we pre-fill
     // from any compliance_items rows that already exist for the matching
@@ -94,6 +94,11 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       rent_pcm:parseFloat(clean.rent_pcm)||0,
       mortgage_rate:parseFloat(clean.mortgage_rate)/100||0,
       mortgage_term:parseInt(clean.mortgage_term)||25,
+      // New mortgage fields. monthly_payment / fees default to null
+      // (not 0) when blank so the calculator's "is set?" check works.
+      mortgage_type: clean.mortgage_type || 'repayment',
+      mortgage_monthly_payment: clean.mortgage_monthly_payment ? parseFloat(clean.mortgage_monthly_payment) : null,
+      mortgage_fees: clean.mortgage_fees ? parseFloat(clean.mortgage_fees) : 0,
       insurance:parseFloat(clean.insurance)||0,
       arrears:parseFloat(clean.arrears)||0,
       _compliance: compliancePayload,
@@ -128,6 +133,37 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         )}
         <div className="g2"><div><label>Stamp Duty</label><MoneyInput prefix="£" value={form.stamp_duty} onChange={v=>s('stamp_duty',v)}/></div><div><label>Legal Fees</label><MoneyInput prefix="£" value={form.legal_fees} onChange={v=>s('legal_fees',v)}/></div></div>
         <div className="g2"><div><label>Monthly Rent</label><MoneyInput prefix="£" value={form.rent_pcm} onChange={v=>s('rent_pcm',v)}/></div><div><label>Mortgage Rate</label><MoneyInput suffix="%" value={form.mortgage_rate} onChange={v=>s('mortgage_rate',v)}/></div></div>
+
+        {/* Extended mortgage fields — type, actual monthly payment,
+            arrangement fees. All optional. monthly_payment overrides
+            the formula when set, which is the right call for real-
+            world mortgages with fees / part-and-part / product
+            transitions baked into the direct debit. */}
+        <div className="g2">
+          <div>
+            <label>Mortgage Type</label>
+            <select value={form.mortgage_type || 'repayment'} onChange={e=>s('mortgage_type', e.target.value)}>
+              <option value="repayment">Repayment</option>
+              <option value="interest_only">Interest-only</option>
+              <option value="mixed">Mixed (IO + repayment)</option>
+              <option value="bridging">Bridging</option>
+            </select>
+          </div>
+          <div>
+            <label>Monthly Payment (overrides calc)</label>
+            <MoneyInput prefix="£" value={form.mortgage_monthly_payment} onChange={v=>s('mortgage_monthly_payment', v)}/>
+          </div>
+        </div>
+        <div className="g2">
+          <div>
+            <label>Mortgage Term (years)</label>
+            <input type="number" value={form.mortgage_term} onChange={e=>s('mortgage_term', e.target.value)} placeholder="25"/>
+          </div>
+          <div>
+            <label>Setup / Arrangement Fees</label>
+            <MoneyInput prefix="£" value={form.mortgage_fees} onChange={v=>s('mortgage_fees', v)}/>
+          </div>
+        </div>
         <div className="g2"><div><label>Rent Due Day</label><input value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div><div><label>Arrears</label><MoneyInput prefix="£" value={form.arrears} onChange={v=>s('arrears',v)}/></div></div>
         <div><label>Tenancy End</label><input value={form.tenancy_end} onChange={e=>s('tenancy_end',e.target.value)} placeholder="e.g. 31st March 2026"/></div>
 
