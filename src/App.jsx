@@ -46,6 +46,7 @@ import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
 import TenantReferenceModal from './components/TenantReferenceModal'
 import BankConnectionsModal from './components/BankConnectionsModal'
 import BankInboxModal from './components/BankInboxModal'
+import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -427,6 +428,11 @@ export default function App() {
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  // Subscription rows for the user's accessible companies. Loaded after
+  // companies are known. Used by the trial-expired hard gate to decide
+  // whether to lock the app. Empty array = "no subs yet" → only
+  // trial_ends_at + is_free_tier on the company row matter.
+  const [companySubs, setCompanySubs] = useState([])
   // Dashboard widget customization
   const [widgetPrefs, setWidgetPrefs] = useState(null) // null = defaults
   // Dashboard section reordering & show/hide. Stored per-user in localStorage.
@@ -827,6 +833,15 @@ export default function App() {
         // Drop trial-expiring notifications into the bell (deduped daily
         // per company via localStorage). Fire-and-forget; failure is fine.
         api.maybeWarnTrialsExpiring(visibleCos).catch(() => {})
+        // Load subscriptions for the user's companies so the trial-expired
+        // hard gate can decide whether to lock the app. Best-effort —
+        // failure leaves companySubs empty, which the gate's
+        // getOverdueCompanies() treats as "rely on trial_ends_at alone".
+        if (visibleCos.length > 0) {
+          api.fetchSubscriptions(visibleCos.map(c => c.id))
+            .then(setCompanySubs)
+            .catch(() => setCompanySubs([]))
+        }
         // Check for tenant invite link param
         const urlParams = new URLSearchParams(window.location.search)
         const tenantPropertyId = urlParams.get('tenant_property')
@@ -1135,6 +1150,24 @@ export default function App() {
       />
     </Suspense>
   )
+
+  // ── TRIAL EXPIRED HARD GATE ────────────────────────────────────────
+  // Platform admins (Justin) bypass entirely so we never lock ourselves
+  // out. Tenant-only users are already handled above. For everyone else,
+  // if ANY of their accessible companies is past its trial and not on a
+  // paying plan or free tier, show a full-screen blocker requiring
+  // Stripe Checkout per overdue company before the app loads.
+  if (!isPlatformAdmin && !impersonatingUser) {
+    const overdue = getOverdueCompanies({ companies, subs: companySubs })
+    if (overdue.length > 0) {
+      return <TrialExpiredGate
+        companies={overdue}
+        subs={companySubs}
+        user={user}
+        onSignOut={()=>supabase.auth.signOut()}
+      />
+    }
+  }
 
   if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
 
