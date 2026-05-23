@@ -58,8 +58,10 @@ export async function deleteNotification(id) {
 //   - the trial date lives on company rows which clients already read
 //   - we don't need cron-level reliability for a UX notification
 //
-// Returns the number of notifications inserted.
-export async function maybeWarnTrialsExpiring(companies, days = 3) {
+// Returns the number of notifications inserted. Default window widened
+// from 3 → 7 days (was too short — most trials slipped past the window
+// before a user happened to log in within the 3-day band).
+export async function maybeWarnTrialsExpiring(companies, days = 7) {
   if (!Array.isArray(companies) || companies.length === 0) return 0
   const STAMP_PREFIX = 'notif_trial_'
   const now = Date.now()
@@ -92,6 +94,64 @@ export async function maybeWarnTrialsExpiring(companies, days = 3) {
       })
       inserted++
       try { localStorage.setItem(STAMP_PREFIX + co.id, String(now)) } catch (_) {}
+    } catch (_) { /* non-fatal */ }
+  }
+  return inserted
+}
+
+// Walks the user's compliance items and inserts a bell notification for
+// anything that's already expired or expires within `days`. Deduped per
+// compliance item per day via localStorage so re-opening the dashboard
+// doesn't spam.
+//
+// This is the biggest user-value notification we've got: it nudges
+// landlords to renew Gas Safety / EICR / EPC certificates BEFORE they
+// expire — which is the entire reason they're paying for OwnProperly.
+//
+// Returns the number of notifications inserted.
+export async function maybeWarnComplianceExpiring(complianceItems, days = 60) {
+  if (!Array.isArray(complianceItems) || complianceItems.length === 0) return 0
+  const STAMP_PREFIX = 'notif_comp_'
+  const now = Date.now()
+  const dayMs = 86_400_000
+  let inserted = 0
+
+  for (const item of complianceItems) {
+    if (!item?.expiry_date) continue
+    const expiry = new Date(item.expiry_date).getTime()
+    if (Number.isNaN(expiry)) continue
+    const daysLeft = Math.ceil((expiry - now) / dayMs)
+    // Notify on expired (daysLeft < 0) OR expiring within window.
+    if (daysLeft > days) continue
+
+    // Dedup per item per day
+    let lastWarn = 0
+    try {
+      const raw = localStorage.getItem(STAMP_PREFIX + item.id)
+      if (raw) lastWarn = parseInt(raw, 10) || 0
+    } catch (_) {}
+    if (now - lastWarn < dayMs) continue
+
+    const propName = item.property?.name || item.property?.address || 'a property'
+    const certType = item.item_type || item.type || 'Certificate'
+    const isExpired = daysLeft < 0
+    const title = isExpired
+      ? `${certType} expired — ${propName}`
+      : `${certType} expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — ${propName}`
+    const body = isExpired
+      ? `It's been ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} since this certificate expired. Renew now to stay compliant.`
+      : 'Book renewal early to avoid a coverage gap.'
+
+    try {
+      await createNotification({
+        type: isExpired ? 'compliance_expired' : 'compliance_expiring',
+        title,
+        body,
+        link: `#/detail/${item.property_id}/compliance`,
+        metadata: { item_id: item.id, property_id: item.property_id, days_left: daysLeft },
+      })
+      inserted++
+      try { localStorage.setItem(STAMP_PREFIX + item.id, String(now)) } catch (_) {}
     } catch (_) { /* non-fatal */ }
   }
   return inserted

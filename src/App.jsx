@@ -34,6 +34,7 @@ import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
+import { complianceStatusFor, complianceBadge } from './lib/complianceStatus'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
@@ -833,6 +834,15 @@ export default function App() {
         // Drop trial-expiring notifications into the bell (deduped daily
         // per company via localStorage). Fire-and-forget; failure is fine.
         api.maybeWarnTrialsExpiring(visibleCos).catch(() => {})
+        // Same for compliance — fetch all compliance items for this user
+        // and surface expired / soon-to-expire ones in the bell. This was
+        // the biggest gap in the notification surface: zero rows despite
+        // 90 occupied properties having no compliance tracking. Now any
+        // compliance row whose expiry is within 60 days fires one notif
+        // per item per day until renewed.
+        api.fetchAllComplianceItems(user.id)
+          .then(items => api.maybeWarnComplianceExpiring(items))
+          .catch(() => {})
         // Load subscriptions for the user's companies so the trial-expired
         // hard gate can decide whether to lock the app. Best-effort —
         // failure leaves companySubs empty, which the gate's
@@ -1179,15 +1189,55 @@ export default function App() {
 
   async function handleSaveProp(formData){
     try{
+      // Strip the compliance payload from the property write — it gets
+      // persisted separately into compliance_items below.
+      const { _compliance = [], ...propData } = formData
+      let propId
       if(editProp?.id){
-        const updated=await api.updateProperty(editProp.id,formData)
+        const updated=await api.updateProperty(editProp.id, propData)
         setProperties(prev=>prev.map(p=>p.id===editProp.id?{...p,...updated}:p))
+        propId = editProp.id
         showToast('Property updated')
       }else{
-        const created=await api.createProperty({...formData,user_id:user.id})
+        const created=await api.createProperty({...propData,user_id:user.id})
         setProperties(prev=>[...prev,created])
+        propId = created.id
         showToast('Property added')
       }
+
+      // Persist compliance items. Best-effort: if it fails, the property
+      // is already saved — we just lose the compliance dates and the
+      // user can re-enter them from the Compliance tab.
+      if (propId && Array.isArray(_compliance) && _compliance.length > 0) {
+        try {
+          // Load existing items so we update-not-duplicate when the user
+          // edits a property and changes dates. Match on cert_type.
+          const existing = await api.fetchCompliance(propId).catch(() => [])
+          const byType = new Map(existing.map(e => [e.cert_type, e]))
+          for (const item of _compliance) {
+            const match = byType.get(item.cert_type)
+            if (match) {
+              // In-place update via Supabase client — no dedicated update
+              // helper exists yet so use the raw client.
+              await supabase.from('compliance_items')
+                .update({
+                  expiry_date: item.expiry_date || null,
+                  issue_date:  item.issue_date  || null,
+                  reminder_days: item.reminder_days,
+                  cert_name: item.cert_name,
+                })
+                .eq('id', match.id)
+            } else {
+              await api.createCompliance(propId, item)
+            }
+          }
+        } catch (e) {
+          console.error('compliance save failed', e)
+          // Don't surface — property save succeeded which is the
+          // critical path. User can fix from Compliance tab.
+        }
+      }
+
       setShowAddProp(false);setEditProp(null)
     }catch(e){showToast(e.message,'error')}
   }
@@ -3224,6 +3274,24 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             </div>
             {/* Stats */}
             <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} onClick={()=>openDetail(p)}>
+              {/* Compliance status pill — only renders for properties
+                  that have something expired/expiring/missing. Silently
+                  absent for fully-compliant or unoccupied properties so
+                  the row stays clean. */}
+              {(() => {
+                const cs = complianceStatusFor(p)
+                const cfg = complianceBadge(cs, T)
+                if (!cfg) return null
+                return (
+                  <div title="Tap to view compliance"
+                    onClick={(e)=>{e.stopPropagation(); openDetail(p)}}
+                    style={{display:'flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:12,
+                      background:cfg.bg,color:cfg.color,
+                      fontFamily:MONO,fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>
+                    <span>{cfg.icon}</span><span>{cfg.label}</span>
+                  </div>
+                )
+              })()}
               {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
                 <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>

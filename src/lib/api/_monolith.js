@@ -26,9 +26,12 @@ export async function deleteCompany(id) {
 }
 
 export async function fetchProperties() {
+  // compliance_items joined so the portfolio list cards can show an
+  // "Action needed" badge for expired / soon-to-expire certificates
+  // without an extra round-trip per row.
   const { data, error } = await supabase
     .from('properties')
-    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(*)')
+    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(*), compliance_items(id,cert_type,cert_name,expiry_date,deleted_at)')
     .is('deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
@@ -2466,14 +2469,13 @@ export async function sendTenantInviteEmail(session, tenantEmail, propertyId, pr
 }
 
 // ── ONBOARDING EMAIL ──────────────────────────────────────────────────────────
-export async function sendOnboardingEmail(email, name, sequence) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const { data: { session } } = await supabase.auth.getSession()
-  await fetch(`${supabaseUrl}/functions/v1/onboarding-email`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-    body: JSON.stringify({ email, name, sequence })
-  })
+// No-op stub. The /functions/v1/onboarding-email edge function was
+// never deployed, so every call from App.jsx login → 404 + CORS spam
+// in the logs (was firing on every page load). Kept the export so we
+// don't have to rip the call site out; when we want real onboarding
+// emails, build the edge function and replace this body.
+export async function sendOnboardingEmail(_email, _name, _sequence) {
+  return null
 }
 
 // ── PROPERTY HEALTH SCORE ─────────────────────────────────────────────────────

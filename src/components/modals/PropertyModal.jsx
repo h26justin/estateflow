@@ -4,9 +4,42 @@ import MoneyInput from '../../lib/MoneyInput'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
 
+// The four core UK landlord compliance certificates we prompt for at
+// property add/edit time. Anything more granular (PAT, legionella, fire
+// alarm full report, etc) is added later via the Compliance tab on the
+// property page. We pick these four because:
+//   - they're legally required for most BTL properties
+//   - they're the only ones with hard expiry dates landlords typically
+//     have to hand (gas annual, EICR 5yr, EPC 10yr, smoke alarm yearly)
+//   - asking for more in the add-flow risks abandonment
+//
+// Each entry: form field key, DB cert_type, display label, default
+// reminder window (days before expiry to nudge in the bell).
+export const COMPLIANCE_PROMPTS = [
+  { key:'gas_safety_expiry',  cert_type:'gas_safety',  cert_name:'Gas Safety Certificate', label:'Gas Safety expiry',  reminder_days:30 },
+  { key:'eicr_expiry',        cert_type:'eicr',        cert_name:'EICR',                    label:'EICR expiry',         reminder_days:60 },
+  { key:'epc_expiry',         cert_type:'epc',         cert_name:'EPC',                     label:'EPC expiry',          reminder_days:90 },
+  { key:'smoke_alarm_checked',cert_type:'smoke_alarm', cert_name:'Smoke Alarm Check',       label:'Smoke alarm last checked', reminder_days:30, isCheckDate:true },
+]
+
 export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const { T } = useTheme()
-  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'' }
+  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',
+    // Compliance dates (form-only — extracted into compliance_items rows
+    // by handleSaveProp). When editing an existing property we pre-fill
+    // from any compliance_items rows that already exist for the matching
+    // cert_type.
+    gas_safety_expiry:'', eicr_expiry:'', epc_expiry:'', smoke_alarm_checked:'',
+  }
+  // Pre-fill compliance dates from existing items (edit mode).
+  const existingCompliance = prop?.compliance_items || []
+  const compPrefill = {}
+  for (const p of COMPLIANCE_PROMPTS) {
+    const match = existingCompliance.find(c => c.cert_type === p.cert_type && !c.deleted_at)
+    if (match) {
+      compPrefill[p.key] = p.isCheckDate ? (match.issue_date || '') : (match.expiry_date || '')
+    }
+  }
   // Three modes:
   //   1. Edit existing property — prop has an id, spread it over blank, and
   //      scale the mortgage_rate from decimal (0.05 stored) to percent (5.00).
@@ -15,7 +48,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
   //      from a deal is already in percent form so no scaling needed.
   //   3. Add fresh — no prop at all; just blank.
   const initialForm = prop?.id
-    ? { ...blank, ...prop, company_id: prop.company_id || prop.company?.id || '', mortgage_rate: prop.mortgage_rate ? (prop.mortgage_rate*100).toFixed(2) : '' }
+    ? { ...blank, ...prop, ...compPrefill, company_id: prop.company_id || prop.company?.id || '', mortgage_rate: prop.mortgage_rate ? (prop.mortgage_rate*100).toFixed(2) : '' }
     : (prop ? { ...blank, ...prop } : blank)
   const [form, setForm] = useState(initialForm)
   const [snapshot] = useState(initialForm)
@@ -23,9 +56,48 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const s = (k, v) => setForm(f => ({ ...f, [k]: v }))
   function handleSave() {
     if (!form.name || !form.address) return
-    // Strip joined relation fields that aren't real columns on the properties table
-    const { company, compliance_items, tenancy, maintenance_jobs, rent_payments, refurb_phases, refurb_costs, documents, ...clean } = form
-    onSave({ ...clean, purchase_price:parseFloat(clean.purchase_price)||0, refurb_cost:parseFloat(clean.refurb_cost)||0, est_value:parseFloat(clean.est_value)||0, mortgage_amount:parseFloat(clean.mortgage_amount)||0, deposit:parseFloat(clean.deposit)||0, stamp_duty:parseFloat(clean.stamp_duty)||0, legal_fees:parseFloat(clean.legal_fees)||0, rent_pcm:parseFloat(clean.rent_pcm)||0, mortgage_rate:parseFloat(clean.mortgage_rate)/100||0, mortgage_term:parseInt(clean.mortgage_term)||25, insurance:parseFloat(clean.insurance)||0, arrears:parseFloat(clean.arrears)||0 })
+    // Strip joined relation fields that aren't real columns on the
+    // properties table. Also strip the compliance_* keys — they're
+    // form-only state; we surface them as a separate `_compliance`
+    // payload for the save handler to persist into compliance_items.
+    const {
+      company, compliance_items, tenancy, maintenance_jobs, rent_payments,
+      refurb_phases, refurb_costs, documents,
+      gas_safety_expiry, eicr_expiry, epc_expiry, smoke_alarm_checked,
+      ...clean
+    } = form
+
+    // Build the compliance payload — one entry per prompt that has a
+    // non-empty date. handleSaveProp will upsert these into
+    // compliance_items after the property write succeeds.
+    const compliancePayload = COMPLIANCE_PROMPTS
+      .map(p => ({ ...p, value: form[p.key]?.trim() }))
+      .filter(p => !!p.value)
+      .map(p => ({
+        cert_type: p.cert_type,
+        cert_name: p.cert_name,
+        reminder_days: p.reminder_days,
+        // For check-date fields (smoke alarm), the date is issue_date;
+        // for expiry fields it's expiry_date.
+        ...(p.isCheckDate ? { issue_date: p.value } : { expiry_date: p.value }),
+      }))
+
+    onSave({
+      ...clean,
+      purchase_price:parseFloat(clean.purchase_price)||0,
+      refurb_cost:parseFloat(clean.refurb_cost)||0,
+      est_value:parseFloat(clean.est_value)||0,
+      mortgage_amount:parseFloat(clean.mortgage_amount)||0,
+      deposit:parseFloat(clean.deposit)||0,
+      stamp_duty:parseFloat(clean.stamp_duty)||0,
+      legal_fees:parseFloat(clean.legal_fees)||0,
+      rent_pcm:parseFloat(clean.rent_pcm)||0,
+      mortgage_rate:parseFloat(clean.mortgage_rate)/100||0,
+      mortgage_term:parseInt(clean.mortgage_term)||25,
+      insurance:parseFloat(clean.insurance)||0,
+      arrears:parseFloat(clean.arrears)||0,
+      _compliance: compliancePayload,
+    })
   }
   return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
     <div className="modal">
@@ -58,6 +130,44 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         <div className="g2"><div><label>Monthly Rent</label><MoneyInput prefix="£" value={form.rent_pcm} onChange={v=>s('rent_pcm',v)}/></div><div><label>Mortgage Rate</label><MoneyInput suffix="%" value={form.mortgage_rate} onChange={v=>s('mortgage_rate',v)}/></div></div>
         <div className="g2"><div><label>Rent Due Day</label><input value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div><div><label>Arrears</label><MoneyInput prefix="£" value={form.arrears} onChange={v=>s('arrears',v)}/></div></div>
         <div><label>Tenancy End</label><input value={form.tenancy_end} onChange={e=>s('tenancy_end',e.target.value)} placeholder="e.g. 31st March 2026"/></div>
+
+        {/* ── COMPLIANCE PROMPTS ──────────────────────────────────
+            Four optional date fields covering the legally-required
+            UK landlord compliance certificates. Empty = skip; a date
+            creates/updates a compliance_items row on save and surfaces
+            in the bell as expiry approaches. The whole section
+            collapses by default so the form doesn't feel longer for
+            users who don't care about compliance. */}
+        <details style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px' }}>
+          <summary style={{ cursor: 'pointer', fontFamily: "'DM Mono',monospace", fontSize: 11, color: T.text, fontWeight: 700, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>📋 Compliance dates (optional)</span>
+            <span style={{ fontSize: 10, color: T.muted, fontWeight: 400 }}>tap to expand</span>
+          </summary>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>
+            Add what you know now — leave the rest blank. We'll remind you in the bell as expiries approach. You can also upload certificates later on the Compliance tab and we'll auto-fill the dates.
+          </div>
+          <div className="g2">
+            <div>
+              <label>Gas Safety expiry</label>
+              <input type="date" value={form.gas_safety_expiry || ''} onChange={e=>s('gas_safety_expiry', e.target.value)}/>
+            </div>
+            <div>
+              <label>EICR expiry</label>
+              <input type="date" value={form.eicr_expiry || ''} onChange={e=>s('eicr_expiry', e.target.value)}/>
+            </div>
+          </div>
+          <div className="g2" style={{ marginTop: 10 }}>
+            <div>
+              <label>EPC expiry</label>
+              <input type="date" value={form.epc_expiry || ''} onChange={e=>s('epc_expiry', e.target.value)}/>
+            </div>
+            <div>
+              <label>Smoke alarm last checked</label>
+              <input type="date" value={form.smoke_alarm_checked || ''} onChange={e=>s('smoke_alarm_checked', e.target.value)}/>
+            </div>
+          </div>
+        </details>
+
         <div><label>Notes</label><textarea value={form.notes} onChange={e=>s('notes',e.target.value)} rows={3} style={{resize:'vertical'}}/></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
