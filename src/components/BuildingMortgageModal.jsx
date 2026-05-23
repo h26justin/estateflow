@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
@@ -62,6 +62,48 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
   const [type, setType]   = useState(commonOrBlank('mortgage_type') || 'repayment')
   const [fees, setFees]   = useState(commonOrBlank('mortgage_fees')?.toString() || '')
   const [saving, setSaving] = useState(false)
+  // PDF scan state
+  const [scanning, setScanning] = useState(false)
+  const [scanMessage, setScanMessage] = useState(null)
+  const fileInputRef = useRef(null)
+
+  // Drive the file picker. Scans the uploaded PDF/image via Claude
+  // through the extract-document edge function. On success, pre-fills
+  // every form field that came back. User reviews + saves.
+  async function handleScanPdf(file) {
+    if (!file || !building) return
+    setScanning(true)
+    setScanMessage('Uploading + sending to AI…')
+    try {
+      // Attach the document to the first unit in the building (schema
+      // requires a property_id). The doc still appears in that unit's
+      // Documents tab for later reference.
+      const firstUnit = units[0]
+      const { extracted } = await api.uploadAndExtractMortgageDocument(file, firstUnit.id, 'mortgage')
+      if (!extracted || extracted._parse_error) {
+        throw new Error(extracted?._parse_error || 'AI returned no structured data')
+      }
+
+      // Map extracted fields into the form. Be defensive about missing
+      // fields and treat 0/null as "skip" so we don't blank user input.
+      if (extracted.loan_amount)         setTotalLoan(String(extracted.loan_amount))
+      if (extracted.monthly_repayment)   setTotalMonthly(String(extracted.monthly_repayment))
+      if (extracted.interest_rate_percent) setRate(String(extracted.interest_rate_percent))
+      if (extracted.term_years)          setTerm(String(extracted.term_years))
+      if (extracted.repayment_type)      setType(extracted.repayment_type)
+      if (extracted.arrangement_fees)    setFees(String(extracted.arrangement_fees))
+
+      const bits = []
+      if (extracted.lender)             bits.push(`Lender: ${extracted.lender}`)
+      if (extracted.loan_amount)        bits.push(`Loan: £${Number(extracted.loan_amount).toLocaleString('en-GB')}`)
+      if (extracted.repayment_type)     bits.push(`Type: ${extracted.repayment_type}`)
+      setScanMessage('✓ Pre-filled from ' + (bits.join(' · ') || 'document'))
+    } catch (e) {
+      console.error('Mortgage PDF scan failed', e)
+      setScanMessage('⚠ ' + (e?.message || 'Could not scan the document'))
+    }
+    setScanning(false)
+  }
 
   // Re-pre-fill when the user switches building.
   function pickBuilding(key) {
@@ -164,6 +206,43 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                 <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
                   Currently: <strong style={{ color: T.text }}>{fmt(currentTotalLoan)}</strong> total loan,
                   <strong style={{ color: T.text }}> {fmt(currentTotalMonthly)}/mo</strong> across {unitCount} units
+                </div>
+              )}
+
+              {/* PDF scan — drop a Handelsbanken offer / mortgage deed in and
+                  let Claude pre-fill the fields. Total time ~5-10s for a
+                  10-page PDF. The doc gets attached to the first unit's
+                  Documents tab too, so it's findable later. */}
+              <div style={{
+                background: T.blue + '0F', border: `1px dashed ${T.blue}44`,
+                borderRadius: 10, padding: '12px 14px', marginBottom: 14,
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              }}>
+                <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, fontWeight: 700, marginBottom: 2 }}>
+                    📄 Scan a mortgage offer / facility agreement
+                  </div>
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.5 }}>
+                    We'll extract loan amount, rate, term, type, monthly payment and fees, then pre-fill the form for you to verify.
+                  </div>
+                </div>
+                <input ref={fileInputRef} type="file" accept="application/pdf,image/*"
+                  style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleScanPdf(f); e.target.value = '' }}/>
+                <button onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}
+                  className="btn btn-ghost" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                  {scanning ? 'Scanning…' : '📤 Upload PDF'}
+                </button>
+              </div>
+              {scanMessage && (
+                <div style={{
+                  background: scanMessage.startsWith('⚠') ? T.red + '11' : T.green + '11',
+                  border: `1px solid ${scanMessage.startsWith('⚠') ? T.red : T.green}44`,
+                  borderRadius: 8, padding: '8px 12px', marginBottom: 14,
+                  fontFamily: MONO, fontSize: 11,
+                  color: scanMessage.startsWith('⚠') ? T.red : T.green,
+                }}>
+                  {scanMessage}
                 </div>
               )}
 

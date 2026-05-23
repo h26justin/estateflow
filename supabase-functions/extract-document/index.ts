@@ -80,7 +80,11 @@ function buildPrompt(docType: string): string {
       "term_years": "number|null",
       "product_end_date": "DD/MM/YYYY|null",
       "product_type": "fixed|variable|tracker|null",
-      "monthly_repayment": "number|null"
+      "repayment_type": "repayment|interest_only|mixed|bridging|null",
+      "monthly_repayment": "number|null",
+      "arrangement_fees": "number|null",
+      "drawdown_date": "DD/MM/YYYY|null",
+      "is_facility_agreement": "boolean (true if this looks like a multi-property/portfolio loan facility, not a single residential mortgage)|null"
     }`,
   }
   // The DocumentsTab UI uses short category codes ('gas', 'eicr', 'epc',

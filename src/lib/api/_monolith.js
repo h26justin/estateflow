@@ -3016,6 +3016,54 @@ export async function markDocumentForExtraction(documentId) {
   if (error) throw error
 }
 
+// Upload a PDF/image to storage, register it as a property document,
+// trigger extraction, and return the extracted fields synchronously.
+//
+// Used by BuildingMortgageModal's "📄 Scan mortgage PDF" flow so the
+// user can drop in a Handelsbanken-style facility agreement (or any
+// mortgage offer) and have the form pre-fill with lender, loan amount,
+// rate, term, type, fees, monthly payment. Saves them from typing.
+//
+// The doc is associated with `firstPropertyId` because the schema
+// requires a property_id; for building-level mortgages we pick the
+// first unit as the document owner. The PDF stays attached there in
+// the Documents tab, so users can find it later.
+export async function uploadAndExtractMortgageDocument(file, firstPropertyId, category = 'mortgage') {
+  const uid = (await supabase.auth.getUser()).data.user.id
+  if (!file)            throw new Error('No file provided')
+  if (!firstPropertyId) throw new Error('Need at least one property to attach the document to')
+
+  // Storage path: userId/propertyId/timestamp_filename
+  const safeName = (file.name || 'mortgage.pdf').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
+  const path = `${uid}/${firstPropertyId}/${Date.now()}_${safeName}`
+  const { error: upErr } = await supabase.storage.from('property-documents').upload(path, file, {
+    contentType: file.type || 'application/pdf',
+    upsert: false,
+  })
+  if (upErr) throw upErr
+
+  // Create the document row
+  const { data: doc, error: docErr } = await supabase.from('property_documents').insert({
+    property_id: firstPropertyId,
+    user_id: uid,
+    name: file.name || 'Mortgage document',
+    file_path: path,
+    file_type: file.type || 'application/pdf',
+    file_size: file.size || 0,
+    category,
+    extraction_status: 'pending',
+  }).select().single()
+  if (docErr) throw docErr
+
+  // Trigger extraction (synchronous — waits for Claude response)
+  await triggerDocumentOCR(doc.id)
+
+  // Read back the extracted fields
+  const final = await fetchDocumentExtraction(doc.id)
+  if (final?.extraction_status === 'failed') throw new Error(final.extraction_error || 'Extraction failed')
+  return { document: doc, extracted: final?.extracted_fields || null }
+}
+
 // Fetch extraction status + fields for a document
 export async function fetchDocumentExtraction(documentId) {
   const { data, error } = await supabase
