@@ -391,6 +391,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
   const [addingNote, setAddingNote] = useState(false)
   const [extendDays, setExtendDays] = useState(14)
   const [extending, setExtending]   = useState(false)
+  const [endingTrial, setEndingTrial] = useState(false)
   const [trialMsg, setTrialMsg]     = useState('')
   const [showRename, setShowRename] = useState(false)
   const [renameName, setRenameName] = useState(co.name||'')
@@ -445,6 +446,28 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
       } catch(e) { setTrialMsg('Failed to extend trial') }
       setExtending(false)
     })
+  }
+
+  // End trial right now → trial_ends_at = now() + subscription → past_due.
+  // After this the customer sees the "💳 Add payment method" CTA on
+  // BillingPage on their next login. Destructive flag on requireConfirm
+  // because it removes their access path.
+  async function endTrialNow() {
+    requireConfirm(
+      'End trial now',
+      `End the trial for "${co.name}" immediately. They will need to add a payment method via Stripe Checkout to keep access. This cannot be undone (you can re-extend the trial if you change your mind).`,
+      async () => {
+        setEndingTrial(true)
+        try {
+          await api.endTrialNow(co.id)
+          setTrialMsg('Trial ended. Customer must now add payment to continue.')
+        } catch (e) {
+          setTrialMsg('Failed to end trial: ' + (e?.message || 'unknown error'))
+        }
+        setEndingTrial(false)
+      },
+      true,
+    )
   }
 
   async function handleAdminRename() {
@@ -548,18 +571,30 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
           </div>
 
           <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Extend trial</div>
-            <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:8}}>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Trial controls</div>
+            <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10}}>
               <select value={extendDays} onChange={e=>setExtendDays(Number(e.target.value))}
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'7px 10px',flex:1}}>
                 {[7,14,30,60,90].map(d=><option key={d} value={d}>{'+'+d+' days'}</option>)}
               </select>
-              <button onClick={extendTrial} disabled={extending}
+              <button onClick={extendTrial} disabled={extending||endingTrial}
                 style={{fontFamily:mono,fontSize:12,padding:'8px 16px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer',fontWeight:700}}>
                 {extending?'…':'Extend'}
               </button>
             </div>
-            {trialMsg&&<div style={{fontFamily:mono,fontSize:11,color:T.green}}>{trialMsg}</div>}
+            {/* End trial — destructive, lives below Extend so the
+                non-destructive action is the default tap target. */}
+            <button onClick={endTrialNow} disabled={endingTrial||extending}
+              style={{fontFamily:mono,fontSize:11,padding:'8px 12px',borderRadius:8,
+                border:`1px solid ${T.red}44`,background:T.red+'11',color:T.red,
+                cursor:endingTrial?'wait':'pointer',fontWeight:700,width:'100%'}}>
+              {endingTrial?'Ending…':'⏹ End trial now — require payment'}
+            </button>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:6,lineHeight:1.5}}>
+              Sets trial end to today and flips subscription to <em>past due</em>.
+              Customer sees “Add payment method” next time they sign in.
+            </div>
+            {trialMsg&&<div style={{fontFamily:mono,fontSize:11,color:trialMsg.startsWith('Failed')?T.red:T.green,marginTop:10}}>{trialMsg}</div>}
           </div>
         </div>
       </div>

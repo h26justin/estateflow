@@ -1955,6 +1955,32 @@ export async function extendTrial(companyId, days) {
   return newDate
 }
 
+// Force-end a trial right now. Sets companies.trial_ends_at = now() so
+// the trial period is over, and flips any matching subscription row to
+// 'past_due' so the BillingPage shows the "💳 Add payment method" CTA
+// the next time the customer signs in (existing logic at
+// BillingPage.jsx:126 — past_due renders the upgrade prompt). After
+// this, only payment via Stripe Checkout restores access.
+//
+// Returns true on success; throws on the company update so the admin
+// UI can surface a clear error. The subscription update is best-effort
+// (some companies don't have a subscription row yet — that's fine, the
+// trial_ends_at change alone forces re-billing once they sign in).
+export async function endTrialNow(companyId) {
+  const now = new Date()
+  const { error: coErr } = await supabase.from('companies')
+    .update({ trial_ends_at: now.toISOString() }).eq('id', companyId)
+  if (coErr) throw coErr
+  // Mirror on subscriptions if a row exists — best-effort.
+  try {
+    await supabase.from('subscriptions')
+      .update({ status: 'past_due', updated_at: now.toISOString() })
+      .eq('company_id', companyId)
+      .in('status', ['trialing', 'free_tier'])
+  } catch (_) { /* swallow — companies update is the source of truth */ }
+  return now
+}
+
 export async function fetchAnnouncements() {
   const { data } = await supabase.from('admin_announcements')
     .select('*').eq('is_active', true).order('created_at', { ascending: false })
