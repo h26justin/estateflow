@@ -5,6 +5,7 @@ import HelpCenter from './HelpCenter'
 import TrashPage from './TrashPage'
 import BackupsPage from './BackupsPage'
 import CalcExplain from './CalcExplain'
+import CompanyInboxPanel from './CompanyInboxPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -573,6 +574,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     { key: 'branding',      label: '🎨 Branding & Logos' },
     { key: 'tenant',        label: '🏠 Tenant Portal' },
     { key: 'features',      label: '⚙ Features' },
+    { key: 'inbox',         label: '📨 Statement Inbox' },
     { key: 'notifications', label: '🔔 Notifications' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
   ]
@@ -941,6 +943,10 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {settingsTab==='tenant' && (
         <TenantPortalSettings companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} showToast={showToast} T={T}/>
+      )}
+
+      {settingsTab==='inbox' && (
+        <CompanyInboxPanel companies={companies} T={T}/>
       )}
 
       {settingsTab==='milestones' && (

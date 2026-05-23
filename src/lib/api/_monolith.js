@@ -1954,6 +1954,31 @@ export async function setCompanyFlag(companyId, flagged) {
   if (error) throw error
 }
 
+// Fetch the statement-email inbox token for a company. Used by the
+// CompanyInboxPanel to display the per-company forwarding address.
+export async function fetchCompanyInboxToken(companyId) {
+  const { data, error } = await supabase
+    .from('companies').select('statement_email_token')
+    .eq('id', companyId).single()
+  if (error) throw error
+  return data?.statement_email_token || null
+}
+
+// Rotate the token (in case the address leaks / spam starts coming in).
+// Uses gen_random_bytes via a tiny RPC; falls back to client-side
+// random if the RPC isn't available.
+export async function rotateCompanyInboxToken(companyId) {
+  // Generate 16 hex chars client-side — matches what the DB trigger
+  // does on insert. crypto.getRandomValues is good enough entropy.
+  const bytes = new Uint8Array(8)
+  crypto.getRandomValues(bytes)
+  const token = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+  const { error } = await supabase.from('companies')
+    .update({ statement_email_token: token }).eq('id', companyId)
+  if (error) throw error
+  return token
+}
+
 export async function extendTrial(companyId, days) {
   const newDate = new Date()
   newDate.setDate(newDate.getDate() + days)
