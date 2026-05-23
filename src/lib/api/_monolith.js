@@ -1337,6 +1337,11 @@ export async function fetchSubscriptions(companyIds) {
 
 export async function createCheckoutSession(companyId, action = 'checkout') {
   const { data: { session } } = await supabase.auth.getSession()
+  // Send our window.origin so the edge function redirects back to the
+  // SAME hostname the user is on (apex vs www). Browser session is
+  // per-origin, so a cross-host redirect drops the user at the login
+  // screen — that's the bug we just fixed.
+  const returnOrigin = typeof window !== 'undefined' ? window.location.origin : null
   const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout`, {
     method: 'POST',
     headers: {
@@ -1344,7 +1349,7 @@ export async function createCheckoutSession(companyId, action = 'checkout') {
       'Authorization': `Bearer ${session?.access_token}`,
       'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ company_id: companyId, action }),
+    body: JSON.stringify({ company_id: companyId, action, return_origin: returnOrigin }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Billing error')
