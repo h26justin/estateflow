@@ -1163,6 +1163,7 @@ export default function App() {
       return <TrialExpiredGate
         companies={overdue}
         subs={companySubs}
+        properties={properties}
         user={user}
         onSignOut={()=>supabase.auth.signOut()}
       />

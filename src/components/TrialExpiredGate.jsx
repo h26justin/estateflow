@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
-import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 
 // ── TRIAL EXPIRED GATE ─────────────────────────────────────────────────
@@ -44,17 +43,32 @@ export function getOverdueCompanies({ companies = [], subs = [] }) {
     })
 }
 
-export default function TrialExpiredGate({ companies, subs, user, onSignOut }) {
+export default function TrialExpiredGate({ companies, subs, properties = [], user, onSignOut }) {
   const { T } = useTheme()
   const [workingCoId, setWorkingCoId] = useState(null)
+  // Inline error — toasts render under the z:9999 overlay so any failure
+  // would otherwise look like "nothing happens" to the user. The most
+  // common failure is the create-checkout edge function returning 400
+  // because STRIPE_SECRET_KEY / STRIPE_PRICE_ID secrets aren't set.
+  const [error, setError] = useState(null)
+
+  // Derive property count per company from the actual properties list
+  // we already have client-side. Previously we tried co.real_property_count
+  // which is only populated by the admin-only fetchAllCompaniesAdmin.
+  function propsFor(coId) {
+    return properties.filter(p => p.company_id === coId).length
+  }
 
   async function payNow(companyId) {
     setWorkingCoId(companyId)
+    setError(null)
     try {
       const url = await api.createCheckoutSession(companyId, 'checkout')
+      if (!url) throw new Error('Checkout returned no URL')
       window.location.href = url
     } catch (e) {
-      showAppToast('Could not open checkout: ' + (e?.message || 'unknown'), 'error')
+      console.error('TrialExpiredGate:payNow', e)
+      setError(e?.message || 'Unknown error opening Stripe checkout')
       setWorkingCoId(null)
     }
   }
@@ -88,10 +102,27 @@ export default function TrialExpiredGate({ companies, subs, user, onSignOut }) {
           </div>
         </div>
 
+        {/* Inline error (toasts render under our overlay so we can't use those). */}
+        {error && (
+          <div style={{
+            background:T.red+'11', border:`1px solid ${T.red}66`,
+            borderRadius:10, padding:'12px 14px', marginBottom:14,
+            fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.6,
+          }}>
+            <strong>Couldn't open Stripe checkout:</strong><br/>{error}
+            <div style={{ marginTop:8, color:T.muted, fontSize:10 }}>
+              Please email <a href="mailto:hello@ownproperly.com" style={{ color:T.gold }}>hello@ownproperly.com</a> and
+              we'll get your subscription set up directly.
+            </div>
+          </div>
+        )}
+
         {/* Per-company action list */}
         <div style={{ display:'grid', gap:10, marginBottom:18 }}>
           {companies.map(co => {
-            const props = co.real_property_count || co.property_count || 0
+            // Property count derived from the loaded properties list,
+            // not from any field on the company row (those are admin-only).
+            const props = propsFor(co.id)
             const monthly = props * 2
             const isWorking = workingCoId === co.id
             return (
