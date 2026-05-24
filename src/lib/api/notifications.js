@@ -157,6 +157,58 @@ export async function maybeWarnComplianceExpiring(complianceItems, days = 60) {
   return inserted
 }
 
+// Walks the user's properties and inserts a "mortgage product expiring"
+// notification when any has a fixed/tracker product ending within the
+// window. Three-tier reminder: 90/60/30 days. Deduped per property per
+// 7 days via localStorage so users get reminded at each tier but not
+// daily.
+//
+// This is the Lendlord-style remortgage prompt — biggest revenue lever
+// once paired with a broker referral partnership (£200-500/deal).
+//
+// Returns the number of notifications inserted.
+export async function maybeWarnMortgageExpiring(properties) {
+  if (!Array.isArray(properties) || properties.length === 0) return 0
+  const STAMP_PREFIX = 'notif_mortgage_'
+  const TIERS = [90, 60, 30]
+  const WEEK_MS = 7 * 86_400_000
+  const now = Date.now()
+  let inserted = 0
+
+  for (const p of properties) {
+    if (!p?.mortgage_product_end_date || p.deleted_at) continue
+    const ends = new Date(p.mortgage_product_end_date).getTime()
+    if (Number.isNaN(ends)) continue
+    const daysLeft = Math.ceil((ends - now) / 86_400_000)
+    if (daysLeft <= 0) continue   // already expired — separate "reverted to SVR" alert
+    // Find the smallest tier window we're inside
+    const tier = TIERS.find(t => daysLeft <= t)
+    if (!tier) continue
+
+    // Dedup per property per week
+    const key = `${STAMP_PREFIX}${p.id}_${tier}`
+    let lastWarn = 0
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) lastWarn = parseInt(raw, 10) || 0
+    } catch (_) {}
+    if (now - lastWarn < WEEK_MS) continue
+
+    try {
+      await createNotification({
+        type: 'mortgage_expiring',
+        title: `🏦 Mortgage product on ${p.name || 'a property'} ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+        body: `Time to compare remortgage rates — falling onto your lender's SVR usually costs an extra 1-3%/yr. Tap to view details.`,
+        link: `#/detail/${p.id}/financials`,
+        metadata: { property_id: p.id, days_left: daysLeft, tier },
+      })
+      inserted++
+      try { localStorage.setItem(key, String(now)) } catch (_) {}
+    } catch (_) { /* non-fatal */ }
+  }
+  return inserted
+}
+
 // Create a notification for the current user. Used for client-side events
 // (e.g. "backup created", "tenant invited"). Server-side events should write
 // directly with the service role from the edge function.

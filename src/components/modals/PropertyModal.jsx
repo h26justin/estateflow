@@ -24,7 +24,7 @@ export const COMPLIANCE_PROMPTS = [
 
 export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const { T } = useTheme()
-  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',
+  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',mortgage_product_end_date:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',
     // Compliance dates (form-only — extracted into compliance_items rows
     // by handleSaveProp). When editing an existing property we pre-fill
     // from any compliance_items rows that already exist for the matching
@@ -99,6 +99,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       mortgage_type: clean.mortgage_type || 'repayment',
       mortgage_monthly_payment: clean.mortgage_monthly_payment ? parseFloat(clean.mortgage_monthly_payment) : null,
       mortgage_fees: clean.mortgage_fees ? parseFloat(clean.mortgage_fees) : 0,
+      mortgage_product_end_date: clean.mortgage_product_end_date || null,
       insurance:parseFloat(clean.insurance)||0,
       arrears:parseFloat(clean.arrears)||0,
       _compliance: compliancePayload,
@@ -163,6 +164,10 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             <label>Setup / Arrangement Fees</label>
             <MoneyInput prefix="£" value={form.mortgage_fees} onChange={v=>s('mortgage_fees', v)}/>
           </div>
+        </div>
+        <div>
+          <label>Mortgage Product End Date <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(when fixed/tracker rate expires — we'll remind you to remortgage)</span></label>
+          <input type="date" value={form.mortgage_product_end_date || ''} onChange={e=>s('mortgage_product_end_date', e.target.value)}/>
         </div>
         <div className="g2"><div><label>Rent Due Day</label><input value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div><div><label>Arrears</label><MoneyInput prefix="£" value={form.arrears} onChange={v=>s('arrears',v)}/></div></div>
         <div><label>Tenancy End</label><input value={form.tenancy_end} onChange={e=>s('tenancy_end',e.target.value)} placeholder="e.g. 31st March 2026"/></div>

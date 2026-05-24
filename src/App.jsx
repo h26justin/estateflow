@@ -859,6 +859,13 @@ export default function App() {
         api.fetchAllComplianceItems(user.id)
           .then(items => api.maybeWarnComplianceExpiring(items))
           .catch(() => {})
+        // Mortgage product-end warnings: fires at 90 / 60 / 30 days
+        // before each property's fixed/tracker rate expires. Same
+        // dedup pattern as compliance. Lendlord-style "remortgage now"
+        // nudge — biggest revenue lever once paired with a broker
+        // referral partnership (£200-500/deal). Future work: add a
+        // "Compare rates" CTA on the notification.
+        api.maybeWarnMortgageExpiring(visibleProps).catch(() => {})
         // Load subscriptions for the user's companies so the trial-expired
         // hard gate can decide whether to lock the app. Best-effort —
         // failure leaves companySubs empty, which the gate's
