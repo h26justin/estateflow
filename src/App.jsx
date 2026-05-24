@@ -731,7 +731,9 @@ export default function App() {
     if (window.location.hash !== target) {
       window.history.pushState({ view, selectedId, detailTab, portfolioTab, selectedReportId }, '', target)
     }
-  }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user])
+  // user.id only — see the note on the loadData useEffect below for why.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user?.id])
 
   useEffect(()=>{
     if (!user) return
@@ -951,7 +953,14 @@ export default function App() {
       }
     }
     loadData()
-  },[user])
+    // Use user.id (stable across token refreshes), not the user object
+    // (which gets a new reference on every supabase TOKEN_REFRESHED event
+    // that fires on tab focus). Without this, the whole loadData runs
+    // every time the user switches browser tabs back to OwnProperly,
+    // re-mounting all child pages and losing any in-memory tab state
+    // (e.g. which Settings tab the user was on).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[user?.id])
 
   // Expose loadData for refresh after import
   const refreshData = useCallback(async () => {
@@ -978,7 +987,8 @@ export default function App() {
         return stillExists ? prev : null
       })
     } catch(e) {}
-  }, [userAccess, isPlatformAdmin, user])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userAccess, isPlatformAdmin, user?.id])
 
   const filtered = useMemo(()=>{
     const f = properties.filter(p=>{
