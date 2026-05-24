@@ -74,6 +74,28 @@ async function xeroFetch(token: string, tenantId: string, path: string, init: Re
   })
 }
 
+// Parse Xero's ValidationException into a clean one-line summary.
+// Xero responses look like:
+//   { "ErrorNumber":10, "Type":"ValidationException", "Message":"...",
+//     "Elements":[{ ...echo..., "ValidationErrors":[{"Message":"Account code XXX not found"}] }] }
+async function xeroErrorSummary(res: Response): Promise<string> {
+  const text = await res.text()
+  try {
+    const body = JSON.parse(text)
+    const elements = body?.Elements || []
+    const validationMsgs: string[] = []
+    for (const el of elements) {
+      for (const v of (el?.ValidationErrors || [])) {
+        if (v?.Message) validationMsgs.push(v.Message)
+      }
+    }
+    if (validationMsgs.length > 0) return validationMsgs.join('; ')
+    return body?.Message || body?.Detail || text.slice(0, 300)
+  } catch {
+    return text.slice(0, 300)
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -106,13 +128,31 @@ serve(async (req) => {
       throw new Error('Only to_xero direction supported in Phase 1')
     }
 
-    // Find a bank account to post into (first active one). Cache later
-    // on a per-property mapping table; for now use the first.
-    const accountsRes = await xeroFetch(accessToken, conn.tenant_id, 'Accounts?where=Type=="BANK" AND Status=="ACTIVE"')
-    if (!accountsRes.ok) throw new Error('Failed to list Xero bank accounts: ' + await accountsRes.text())
-    const accounts = await accountsRes.json()
-    const bankAccountId = accounts.Accounts?.[0]?.AccountID
-    if (!bankAccountId) throw new Error('No active Xero bank account found — add one in Xero first')
+    // Pull ALL active accounts in one call — we need:
+    //   - A BANK account to post the BankTransaction against
+    //   - A REVENUE/SALES account code for rent LineItems
+    //   - An EXPENSE/OVERHEADS/DIRECTCOSTS code for expense LineItems
+    // Hardcoded codes (200, 404) don't exist in every Xero org — only the
+    // Xero Demo Company comes with those. ExH and other real orgs use a
+    // custom chart of accounts.
+    const accountsRes = await xeroFetch(accessToken, conn.tenant_id, 'Accounts?where=Status=="ACTIVE"')
+    if (!accountsRes.ok) throw new Error('Failed to list Xero accounts: ' + await accountsRes.text())
+    const accountsJson = await accountsRes.json()
+    const allAccounts: any[] = accountsJson.Accounts || []
+
+    const bankAccount = allAccounts.find(a => a.Type === 'BANK')
+    if (!bankAccount?.AccountID) throw new Error('No active Xero bank account found — add one in Xero first')
+    const bankAccountId = bankAccount.AccountID
+
+    // Pick the first matching code. Xero account types per docs:
+    //   REVENUE / SALES / OTHERINCOME → income side (for rent)
+    //   EXPENSE / OVERHEADS / DIRECTCOSTS → expense side (for property costs)
+    const incomeAccount = allAccounts.find(a => ['REVENUE','SALES','OTHERINCOME'].includes(a.Type))
+    const expenseAccount = allAccounts.find(a => ['EXPENSE','OVERHEADS','DIRECTCOSTS'].includes(a.Type))
+    if (!incomeAccount?.Code) throw new Error('No revenue account in Xero — add one (Settings → Chart of Accounts) and retry')
+    if (!expenseAccount?.Code) throw new Error('No expense account in Xero — add one (Settings → Chart of Accounts) and retry')
+    const INCOME_CODE = incomeAccount.Code
+    const EXPENSE_CODE = expenseAccount.Code
 
     // Fetch what's already been synced so we skip those
     const { data: synced } = await admin.from('xero_sync_map')
@@ -155,7 +195,7 @@ serve(async (req) => {
             Description: `Rent ${p.period_start || ''} → ${p.period_end || ''}`.trim(),
             Quantity: 1,
             UnitAmount: Number(p.amount),
-            AccountCode: '200', // Sales/Revenue — user can re-map in Xero
+            AccountCode: INCOME_CODE, // first REVENUE/SALES account in user's chart
           }],
         }],
       }
@@ -163,7 +203,7 @@ serve(async (req) => {
         method: 'POST', body: JSON.stringify(body),
       })
       if (!res.ok) {
-        failed++; errors.push(`rent ${p.id}: ${(await res.text()).slice(0,500)}`); continue
+        failed++; errors.push(`rent ${p.id}: ${await xeroErrorSummary(res)}`); continue
       }
       const data = await res.json()
       const xid = data.BankTransactions?.[0]?.BankTransactionID
@@ -195,7 +235,7 @@ serve(async (req) => {
             Description: e.description || e.category || 'Property expense',
             Quantity: 1,
             UnitAmount: Number(e.amount),
-            AccountCode: '404', // Office Expenses — user re-maps
+            AccountCode: EXPENSE_CODE, // first EXPENSE/OVERHEADS account in user's chart
           }],
         }],
       }
@@ -203,7 +243,7 @@ serve(async (req) => {
         method: 'POST', body: JSON.stringify(body),
       })
       if (!res.ok) {
-        failed++; errors.push(`expense ${e.id}: ${(await res.text()).slice(0,500)}`); continue
+        failed++; errors.push(`expense ${e.id}: ${await xeroErrorSummary(res)}`); continue
       }
       const data = await res.json()
       const xid = data.BankTransactions?.[0]?.BankTransactionID
