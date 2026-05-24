@@ -49,6 +49,7 @@ import BankConnectionsModal from './components/BankConnectionsModal'
 import BankInboxModal from './components/BankInboxModal'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
 import BuildingMortgageModal from './components/BuildingMortgageModal'
+import ReceiptScanModal from './components/ReceiptScanModal'
 import { canUseInvestorFeatures } from './lib/tierGating'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
@@ -423,6 +424,7 @@ export default function App() {
   const [showAddProp, setShowAddProp]  = useState(false)
   const [showAddBulk, setShowAddBulk]  = useState(false)
   const [showBuildingMortgage, setShowBuildingMortgage] = useState(false)
+  const [showReceiptScan, setShowReceiptScan] = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
   const [renameCoTarget, setRenameCoTarget] = useState(null)
   const [renameCo, setRenameCo]        = useState({ name:'', abbr:'' })
@@ -1148,6 +1150,7 @@ export default function App() {
       { id:'act:add-bulk',   icon:'🏘', label:'Add Block of Flats',   group:'create', action:()=>setShowAddBulk(true) },
       { id:'act:add-co',     icon:'🏢', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
       { id:'act:import',     icon:'📄', label:'Import Statement',     group:'create', action:()=>setShowImporter(true) },
+      { id:'act:scan-receipt', icon:'📷', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
       { id:'act:dark',       icon:'🌙', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
         group:'action', keywords: 'theme toggle', action:()=>setDarkMode(!darkMode) },
       { id:'act:signout',    icon:'↗', label:'Sign Out',              group:'action', action:()=>supabase.auth.signOut() },
@@ -1645,6 +1648,7 @@ export default function App() {
                         {icon:'🏘',label:'Add Block of Flats', action:()=>setShowAddBulk(true)},
                         {icon:'🏢',label:'Add Company',     action:()=>setShowAddCo(true)},
                         {icon:'📄',label:'Import Statement',action:()=>setShowImporter(true)},
+                        {icon:'📷',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
                         {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property and go to Expenses tab')}},
                         {icon:'📋',label:'Add Compliance',  action:()=>{setView('properties');showToast('Open a property and go to Compliance tab')}},
                         {icon:'🔧',label:'Log Maintenance', action:()=>{setView('properties');showToast('Open a property and go to Maintenance tab')}},
@@ -1754,6 +1758,7 @@ export default function App() {
                 {icon:'🏘',label:'Add Block of Flats', action:()=>{setShowAddBulk(true);setShowDrawer(false)}},
                 {icon:'🏢',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
                 {icon:'📄',label:'Import Statement',action:()=>{setShowImporter(true);setShowDrawer(false)}},
+                {icon:'📷',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
                 {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property → Expenses tab');setShowDrawer(false)}},
                 {icon:'🔧',label:'Log Maintenance', action:()=>{setView('properties');showToast('Open a property → Maintenance tab');setShowDrawer(false)}},
               ].map(item=>(
@@ -2897,6 +2902,11 @@ export default function App() {
         properties={activeCoTab ? activeProperties.filter(p => p.company_id === activeCoTab) : activeProperties}
         setProperties={setProperties}
         onClose={()=>setShowBuildingMortgage(false)}
+      />}
+      {showReceiptScan && <ReceiptScanModal
+        properties={activeProperties}
+        onClose={()=>setShowReceiptScan(false)}
+        onSaved={()=>{ /* expense saved — no refetch needed at App level */ }}
       />}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
       {showCustomizeDash && <CustomizeDashModal

@@ -71,6 +71,15 @@ function buildPrompt(docType: string): string {
       "building_sum_insured": "number|null",
       "contents_sum_insured": "number|null"
     }`,
+    receipt: `{
+      "merchant_name": "string|null",
+      "amount": "number (the TOTAL of the receipt, GBP, no currency symbol)|null",
+      "date": "DD/MM/YYYY|null",
+      "category": "string (e.g. maintenance, utilities, professional, agent_fees, cleaning, garden, compliance, other)|null",
+      "description": "string (short — what was purchased)|null",
+      "vat_amount": "number|null",
+      "payment_method": "card|cash|bank_transfer|null"
+    }`,
     mortgage_offer: `{
       "lender": "string|null",
       "borrower_names": ["string"],
