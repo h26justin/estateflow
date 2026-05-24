@@ -24,6 +24,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { encryptToken } from './encryption.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -129,13 +130,22 @@ serve(async (req) => {
     if (!state.company_id) {
       return new Response('Missing company_id in state — please retry from Settings → Integrations', { status: 400 })
     }
+    // Persist tokens. If OWNPROPERLY_TOKEN_KEY is configured, store the
+    // encrypted versions and null out the plaintext (so a DB dump alone
+    // can't impersonate the user). If not configured, fall back to the
+    // legacy plaintext columns so the existing code path keeps working.
+    const encAccess  = await encryptToken(tokens.access_token)
+    const encRefresh = await encryptToken(tokens.refresh_token)
     await admin.from('xero_connections').upsert({
       user_id: state.user_id,
       company_id: state.company_id,
       tenant_id: first.tenantId,
       tenant_name: first.tenantName,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      // Prefer encrypted; null out plaintext when we have encrypted versions
+      access_token:           encAccess  ? null : tokens.access_token,
+      refresh_token:          encRefresh ? null : tokens.refresh_token,
+      encrypted_access_token:  encAccess  || null,
+      encrypted_refresh_token: encRefresh || null,
       expires_at: new Date(Date.now() + (tokens.expires_in || 1800) * 1000).toISOString(),
       scopes: (tokens.scope || '').split(' '),
     }, { onConflict: 'user_id,company_id' })

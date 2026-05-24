@@ -3436,3 +3436,55 @@ export async function fetchXeroAccounts(companyId) {
   return data?.accounts || []
 }
 
+// Sync only specific properties (per-property "Sync just this one" button).
+export async function runXeroSyncForProperties(companyId, propertyIds) {
+  if (!companyId) throw new Error('companyId required')
+  if (!Array.isArray(propertyIds) || propertyIds.length === 0) throw new Error('propertyIds required')
+  const { data, error } = await supabase.functions.invoke('xero-sync', {
+    body: { action: 'both', company_id: companyId, property_ids: propertyIds }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
+// Wipe the sync map for this (user, company). After this, the next
+// normal sync re-pushes everything. Used by the "Re-sync everything"
+// button after the user has cleared records on the Xero side.
+export async function resyncAllXero(companyId) {
+  if (!companyId) throw new Error('companyId required')
+  const { data, error } = await supabase.functions.invoke('xero-sync', {
+    body: { action: 'resync_all', company_id: companyId }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data?.cleared || 0
+}
+
+// Toggle the daily reconciliation cron on/off for this (user, company).
+// Row in xero_cron_schedules exists ↔ cron is enabled.
+export async function setXeroCronEnabled(companyId, enabled) {
+  if (!companyId) throw new Error('companyId required')
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+  if (enabled) {
+    const { error } = await supabase.from('xero_cron_schedules')
+      .upsert({ user_id: uid, company_id: companyId }, { onConflict: 'user_id,company_id' })
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from('xero_cron_schedules')
+      .delete().eq('user_id', uid).eq('company_id', companyId)
+    if (error) throw error
+  }
+  return enabled
+}
+
+export async function fetchXeroCronStatus(companyId) {
+  if (!companyId) return null
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) return null
+  const { data } = await supabase.from('xero_cron_schedules')
+    .select('*').eq('user_id', uid).eq('company_id', companyId).maybeSingle()
+  return data
+}
+

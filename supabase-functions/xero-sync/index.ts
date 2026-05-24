@@ -19,6 +19,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { encryptToken, resolveToken } from './encryption.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -38,21 +39,31 @@ function jsonError(status: number, message: string) {
 }
 
 async function refreshIfNeeded(admin: any, conn: any) {
+  // Resolve current access token from encrypted or legacy plaintext column.
+  const currentAccess = await resolveToken({ encrypted: conn.encrypted_access_token, plaintext: conn.access_token })
   const expires = new Date(conn.expires_at)
-  if (expires.getTime() > Date.now() + 60_000) return conn.access_token
+  if (expires.getTime() > Date.now() + 60_000 && currentAccess) return currentAccess
   if (!XERO_CLIENT_ID || !XERO_CLIENT_SECRET) throw new Error('Xero client credentials not configured')
+
+  const currentRefresh = await resolveToken({ encrypted: conn.encrypted_refresh_token, plaintext: conn.refresh_token })
+  if (!currentRefresh) throw new Error('No refresh token on Xero connection — please reconnect')
 
   const basic = btoa(`${XERO_CLIENT_ID}:${XERO_CLIENT_SECRET}`)
   const res = await fetch('https://identity.xero.com/connect/token', {
     method: 'POST',
     headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: conn.refresh_token }),
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: currentRefresh }),
   })
   if (!res.ok) throw new Error('Xero token refresh failed: ' + await res.text())
   const t = await res.json()
+  // Persist refreshed tokens — encrypted if key configured, else plaintext fallback.
+  const encA = await encryptToken(t.access_token)
+  const encR = await encryptToken(t.refresh_token)
   await admin.from('xero_connections').update({
-    access_token: t.access_token,
-    refresh_token: t.refresh_token,
+    access_token:           encA ? null : t.access_token,
+    refresh_token:          encR ? null : t.refresh_token,
+    encrypted_access_token:  encA || null,
+    encrypted_refresh_token: encR || null,
     expires_at: new Date(Date.now() + (t.expires_in || 1800) * 1000).toISOString(),
   }).eq('user_id', conn.user_id).eq('company_id', conn.company_id)
   return t.access_token
@@ -163,12 +174,24 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
-  const authHeader = req.headers.get('Authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (!token) return jsonError(401, 'Missing Authorization')
-  const { data: userData, error: userErr } = await admin.auth.getUser(token)
-  const caller = userData?.user
-  if (userErr || !caller) return jsonError(401, 'Invalid session')
+
+  // Cron path: xero-cron-reconcile invokes us with a shared secret +
+  // explicit user_id header instead of a JWT. Honour that, otherwise
+  // fall through to normal JWT auth.
+  const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
+  const cronSecret = req.headers.get('x-cron-secret') || ''
+  const cronUserId = req.headers.get('x-cron-user-id') || ''
+  let caller: any = null
+  if (CRON_SECRET && cronSecret === CRON_SECRET && cronUserId) {
+    caller = { id: cronUserId }
+  } else {
+    const authHeader = req.headers.get('Authorization') || ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+    if (!token) return jsonError(401, 'Missing Authorization')
+    const { data: userData, error: userErr } = await admin.auth.getUser(token)
+    caller = userData?.user
+    if (userErr || !caller) return jsonError(401, 'Invalid session')
+  }
 
   const body = await req.json().catch(() => ({}))
   const action = body.action || body.direction || 'to_xero'
@@ -183,6 +206,20 @@ serve(async (req) => {
   if (ce || !conn) return jsonError(404, 'No Xero connection for this company. Connect Xero first.')
 
   const accessToken = await refreshIfNeeded(admin, conn)
+
+  // ── action=resync_all → wipe the sync map for this (user, company) ──
+  // After this, the next normal sync will re-push everything. The Xero-side
+  // records aren't touched — typically the user has already deleted them
+  // in Xero before triggering this.
+  if (action === 'resync_all') {
+    const { count, error: delErr } = await admin
+      .from('xero_sync_map').delete({ count: 'exact' })
+      .eq('user_id', caller.id).eq('company_id', companyId)
+    if (delErr) return jsonError(500, 'Failed to clear sync map: ' + delErr.message)
+    return new Response(JSON.stringify({ ok: true, cleared: count || 0 }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   // ── action=list_accounts → return chart of accounts for UI dropdowns ──
   if (action === 'list_accounts') {
@@ -217,10 +254,16 @@ serve(async (req) => {
   const errors: string[] = []
 
   try {
-    // Properties for THIS company only.
-    const { data: props } = await admin.from('properties')
+    // Properties for THIS company only. Optionally narrowed to the
+    // user-specified subset (per-property sync from the UI's
+    // "Sync this property only" button).
+    let propsQuery = admin.from('properties')
       .select('id, name, address')
       .eq('user_id', caller.id).eq('company_id', companyId).is('deleted_at', null)
+    if (Array.isArray(body.property_ids) && body.property_ids.length > 0) {
+      propsQuery = propsQuery.in('id', body.property_ids)
+    }
+    const { data: props } = await propsQuery
     if (!props || props.length === 0) throw new Error('No properties in this company to sync')
     const propMap = new Map(props.map(p => [p.id, p]))
     const propIds = props.map(p => p.id)
@@ -291,19 +334,48 @@ serve(async (req) => {
       .eq('user_id', caller.id).eq('company_id', companyId)
     const syncedSet = new Set((synced || []).map(s => `${s.entity_type}:${s.local_id}`))
 
-    // Optionally pre-fetch tenancy_details for real-contact mode
-    let tenantContactMap: Record<string, string> = {}
+    // Optionally pre-fetch tenancy_details for real-contact mode.
+    // Two levels:
+    //   sync_real_tenant_contacts → use the tenant name
+    //   sync_real_tenant_emails   → also push email + phone into the Xero contact
+    // Returns a richer object per property when emails are enabled so we can
+    // build a full Xero Contact { Name, EmailAddress, Phones } payload.
+    type TenantInfo = { name: string; email?: string; phone?: string }
+    const tenantContactMap: Record<string, TenantInfo> = {}
     if (settings.sync_real_tenant_contacts) {
       const { data: tenancies } = await admin.from('tenancy_details')
-        .select('property_id, tenant_name')
+        .select('property_id, tenant_names, tenant_email, tenant_phone')
         .in('property_id', propIds)
       for (const t of (tenancies || [])) {
-        if (t.tenant_name) tenantContactMap[t.property_id] = t.tenant_name
+        if (!t.tenant_names) continue
+        tenantContactMap[t.property_id] = {
+          name: String(t.tenant_names).split(',')[0]?.trim() || 'Tenant',
+          email: settings.sync_real_tenant_emails && t.tenant_email ? t.tenant_email : undefined,
+          phone: settings.sync_real_tenant_emails && t.tenant_phone ? t.tenant_phone : undefined,
+        }
       }
     }
 
+    // Helper: build a Xero Contact payload for a rent transaction. Honours
+    // both the name toggle and the email/phone toggle. Falls back to the
+    // generic placeholder when toggles are off OR no tenant_details exist.
+    const contactForRent = (propId: string) => {
+      const info = tenantContactMap[propId]
+      const prop = propMap.get(propId)
+      if (!info) return { Name: `${prop?.name || 'Property'} — Tenant` }
+      const out: any = { Name: info.name }
+      if (info.email) out.EmailAddress = info.email
+      if (info.phone) out.Phones = [{ PhoneType: 'MOBILE', PhoneNumber: info.phone }]
+      return out
+    }
+
+    // For cron-driven reconcile_only runs we skip ALL push blocks —
+    // pulling reconciliation/edits back is idempotent and safe to run
+    // unattended; auto-pushing isn't.
+    const pushEnabled = action !== 'reconcile_only'
+
     // ── PUSH: rent_payments → BankTransaction RECEIVE ──
-    if (settings.sync_rent) {
+    if (pushEnabled && settings.sync_rent) {
       const { data: payments } = await admin.from('rent_payments')
         .select('id, property_id, amount, status, period_start, period_end, year, month')
         .in('property_id', propIds).eq('status', 'paid').gt('amount', 0)
@@ -313,7 +385,6 @@ serve(async (req) => {
         const txnDate = p.period_start
           || (p.year && p.month ? `${p.year}-${String(p.month).padStart(2,'0')}-01` : null)
         if (!txnDate) { failed++; errors.push(`rent ${p.id}: missing date — skipping`); continue }
-        const tenantName = tenantContactMap[p.property_id] || `${prop?.name || 'Property'} — Tenant`
         const tracking = trackingForProperty(p.property_id)
         const lineItem: any = {
           Description: `Rent ${p.period_start || ''} → ${p.period_end || ''}`.trim(),
@@ -326,7 +397,7 @@ serve(async (req) => {
           BankTransactions: [{
             Type: 'RECEIVE',
             Date: txnDate,
-            Contact: { Name: tenantName },
+            Contact: contactForRent(p.property_id),
             BankAccount: { AccountID: bankAccountFor(p.property_id) },
             Reference: `Rent — ${prop?.name || 'Property'}`,
             LineItems: [lineItem],
@@ -349,7 +420,7 @@ serve(async (req) => {
     }
 
     // ── PUSH: property_expenses → BankTransaction SPEND ──
-    if (settings.sync_expenses) {
+    if (pushEnabled && settings.sync_expenses) {
       const { data: expenses } = await admin.from('property_expenses')
         .select('id, property_id, amount, date, category, description')
         .in('property_id', propIds).is('deleted_at', null).gt('amount', 0)
@@ -400,7 +471,7 @@ serve(async (req) => {
     // for any month that hasn't been pushed yet (idempotency via the
     // synthetic entity_type 'mortgage_interest' + a local_id of
     // <property_id>:<YYYY-MM>).
-    if (settings.sync_mortgage_interest) {
+    if (pushEnabled && settings.sync_mortgage_interest) {
       const { data: propsWithMortgage } = await admin.from('properties')
         .select('id, name, mortgage_amount, mortgage_rate, mortgage_type, mortgage_product_end_date')
         .eq('user_id', caller.id).eq('company_id', companyId)
@@ -461,6 +532,103 @@ serve(async (req) => {
       }
     }
 
+    // ── PUSH: tenancy deposits → BankTransaction RECEIVE (separate account) ──
+    // Posts one transaction per tenancy that has deposit_amount > 0, using
+    // the deposits_account_code (typically a liability account like 'Customer
+    // Deposits'). Idempotent per tenancy_details.id (entity_type='deposit').
+    if (pushEnabled && settings.sync_deposits_separate) {
+      const depositCode = settings.deposits_account_code
+        || allAccounts.find(a => a.Type === 'CURRLIAB')?.Code
+        || incomeCode
+      const { data: tenancies } = await admin.from('tenancy_details')
+        .select('id, property_id, tenant_names, deposit_amount, deposit_scheme, tenancy_start')
+        .in('property_id', propIds).gt('deposit_amount', 0)
+      for (const t of (tenancies || [])) {
+        if (syncedSet.has(`deposit:${t.id}`)) continue
+        const prop = propMap.get(t.property_id)
+        const tracking = trackingForProperty(t.property_id)
+        const lineItem: any = {
+          Description: `Tenancy deposit${t.deposit_scheme ? ` (${t.deposit_scheme})` : ''}`,
+          Quantity: 1,
+          UnitAmount: Number(t.deposit_amount),
+          AccountCode: depositCode,
+        }
+        if (tracking) lineItem.Tracking = tracking
+        const txnBody = {
+          BankTransactions: [{
+            Type: 'RECEIVE',
+            Date: t.tenancy_start || new Date().toISOString().slice(0,10),
+            Contact: contactForRent(t.property_id),
+            BankAccount: { AccountID: bankAccountFor(t.property_id) },
+            Reference: `Deposit — ${prop?.name || 'Property'}`,
+            LineItems: [lineItem],
+          }],
+        }
+        const r = await xeroFetch(accessToken, conn.tenant_id, 'BankTransactions', {
+          method: 'POST', body: JSON.stringify(txnBody),
+        })
+        if (!r.ok) { failed++; errors.push(`deposit ${t.id}: ${await xeroErrorSummary(r)}`); continue }
+        const data = await r.json()
+        const xid = data.BankTransactions?.[0]?.BankTransactionID
+        if (xid) {
+          await admin.from('xero_sync_map').upsert({
+            user_id: caller.id, company_id: companyId, entity_type: 'deposit', local_id: t.id,
+            xero_id: xid, xero_kind: 'BankTransaction',
+          }, { onConflict: 'user_id,company_id,entity_type,local_id' })
+          created++
+        }
+      }
+    }
+
+    // ── PUSH: refurb_costs → BankTransaction SPEND (separate account) ──
+    // One transaction per refurb_costs row that's marked paid=true. The
+    // refurb_account_code is typically a fixed-asset or capex account.
+    // Capital-vs-revenue split is the user's call — we just post.
+    if (pushEnabled && settings.sync_refurb_separate) {
+      const refurbCode = settings.refurb_account_code
+        || allAccounts.find(a => a.Type === 'FIXED')?.Code
+        || expenseCode
+      const { data: refurbs } = await admin.from('refurb_costs')
+        .select('id, property_id, trade, cost, paid, date, notes')
+        .in('property_id', propIds).eq('paid', true).gt('cost', 0)
+      for (const r of (refurbs || [])) {
+        if (syncedSet.has(`refurb:${r.id}`)) continue
+        const prop = propMap.get(r.property_id)
+        if (!r.date) { failed++; errors.push(`refurb ${r.id}: missing date — skipping`); continue }
+        const tracking = trackingForProperty(r.property_id)
+        const lineItem: any = {
+          Description: `${r.trade || 'Refurb'}${r.notes ? ' — ' + String(r.notes).slice(0, 80) : ''}`,
+          Quantity: 1,
+          UnitAmount: Number(r.cost),
+          AccountCode: refurbCode,
+        }
+        if (tracking) lineItem.Tracking = tracking
+        const txnBody = {
+          BankTransactions: [{
+            Type: 'SPEND',
+            Date: r.date,
+            Contact: { Name: `${prop?.name || 'Property'} — ${r.trade || 'Refurb'}` },
+            BankAccount: { AccountID: bankAccountFor(r.property_id) },
+            Reference: `Refurb — ${prop?.name || 'Property'}`,
+            LineItems: [lineItem],
+          }],
+        }
+        const apiRes = await xeroFetch(accessToken, conn.tenant_id, 'BankTransactions', {
+          method: 'POST', body: JSON.stringify(txnBody),
+        })
+        if (!apiRes.ok) { failed++; errors.push(`refurb ${r.id}: ${await xeroErrorSummary(apiRes)}`); continue }
+        const data = await apiRes.json()
+        const xid = data.BankTransactions?.[0]?.BankTransactionID
+        if (xid) {
+          await admin.from('xero_sync_map').upsert({
+            user_id: caller.id, company_id: companyId, entity_type: 'refurb', local_id: r.id,
+            xero_id: xid, xero_kind: 'BankTransaction',
+          }, { onConflict: 'user_id,company_id,entity_type,local_id' })
+          created++
+        }
+      }
+    }
+
     // ── PULL: reconciliation status from Xero ──
     if (settings.pull_reconciliation) {
       // Pull all synced bank txns for this company in one go. Xero allows
@@ -493,7 +661,10 @@ serve(async (req) => {
           }
           if (list.length < 100) break
           page++
-          if (page > 20) { errors.push('reconciliation pull capped at 20 pages'); break }
+          // Cap raised from 20 → 200 (20,000 txns per company). At our
+          // scale this is years of history. Cap exists only to prevent
+          // an infinite loop if Xero's pagination semantics ever change.
+          if (page > 200) { errors.push('reconciliation pull capped at 200 pages'); break }
         }
         if (reconciledByType.rent_payment.length > 0) {
           const { error: re } = await admin.from('rent_payments').update({
@@ -506,6 +677,63 @@ serve(async (req) => {
             xero_reconciled: true, xero_reconciled_at: new Date().toISOString(),
           }).in('id', reconciledByType.expense)
           if (!ee) updated += reconciledByType.expense.length
+        }
+      }
+    }
+
+    // ── PULL: reverse-sync amount/date edits from Xero ───────────────────
+    // When sync_reverse_changes is on AND a synced record has been edited
+    // in Xero (amount or date), pull the edit back into OwnProperly.
+    // Uses last_xero_fingerprint = sha256(amount|date) to detect changes.
+    // Refurb/deposit/mortgage entity types aren't reverse-synced because
+    // they're derived/synthesised on our side — editing them in Xero
+    // would create a confusing source-of-truth conflict.
+    if (settings.sync_reverse_changes) {
+      const { data: syncedMap } = await admin.from('xero_sync_map')
+        .select('entity_type, local_id, xero_id, last_xero_fingerprint')
+        .eq('user_id', caller.id).eq('company_id', companyId)
+        .in('entity_type', ['rent_payment', 'expense'])
+      const xeroIdToMapRow = new Map<string, any>()
+      for (const m of (syncedMap || [])) xeroIdToMapRow.set(m.xero_id, m)
+      if (xeroIdToMapRow.size > 0) {
+        // We've already pulled all BankTransactions in the reconciliation
+        // block. Doing it again here is fine for now (Xero rate limits
+        // are 60/min per tenant — well within bounds). Future optimisation
+        // would share the fetch across both pull paths.
+        let page = 1
+        while (true) {
+          const r = await xeroFetch(accessToken, conn.tenant_id, `BankTransactions?page=${page}`)
+          if (!r.ok) { errors.push(`reverse-sync fetch failed: ${await xeroErrorSummary(r)}`); break }
+          const j = await r.json()
+          const list = j.BankTransactions || []
+          if (list.length === 0) break
+          for (const t of list) {
+            const map = xeroIdToMapRow.get(t.BankTransactionID)
+            if (!map) continue
+            const xeroAmount = t.LineItems?.[0]?.LineAmount ?? t.SubTotal ?? t.Total ?? 0
+            const xeroDate = (t.Date || '').slice(0, 10)
+            const fingerprint = `${Number(xeroAmount).toFixed(2)}|${xeroDate}`
+            if (fingerprint === map.last_xero_fingerprint) continue
+            // Apply the change to our local record
+            const table = map.entity_type === 'rent_payment' ? 'rent_payments' : 'property_expenses'
+            const dateCol = map.entity_type === 'rent_payment' ? 'period_start' : 'date'
+            const patch: any = { amount: Number(xeroAmount) }
+            if (xeroDate) patch[dateCol] = xeroDate
+            const { error: upErr } = await admin.from(table).update(patch).eq('id', map.local_id)
+            if (upErr) {
+              errors.push(`reverse-sync ${map.entity_type} ${map.local_id}: ${upErr.message}`)
+              continue
+            }
+            await admin.from('xero_sync_map').update({
+              last_xero_fingerprint: fingerprint,
+              last_xero_synced_at: new Date().toISOString(),
+            }).eq('user_id', caller.id).eq('company_id', companyId)
+              .eq('entity_type', map.entity_type).eq('local_id', map.local_id)
+            updated++
+          }
+          if (list.length < 100) break
+          page++
+          if (page > 200) break
         }
       }
     }
