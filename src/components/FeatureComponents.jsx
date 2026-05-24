@@ -6,6 +6,7 @@ import TrashPage from './TrashPage'
 import BackupsPage from './BackupsPage'
 import CalcExplain from './CalcExplain'
 import CompanyInboxPanel from './CompanyInboxPanel'
+import InspectionsPanel from './InspectionsPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -141,6 +142,11 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
           })}
         </div>
       }
+      {/* Property inspections — scheduled mid-tenancy / check-in / check-out
+          with photo evidence. Lives in the Compliance tab because that's
+          where landlords already think about compliance + risk in one place. */}
+      <InspectionsPanel propertyId={propertyId} canEdit={canEdit} user={user}/>
+
       <div style={{marginTop:20}}>
         <NotesTimeline propertyId={propertyId} isAdmin={isAdmin} user={user} showToast={showToast} category="compliance"/>
       </div>

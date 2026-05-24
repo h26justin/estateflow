@@ -446,6 +446,78 @@ export async function upsertRentPayment(propertyId, year, month, status, amount,
   if (error) throw error
   return data
 }
+// ── PROPERTY INSPECTIONS ──────────────────────────────────────────────────
+// Mid-tenancy / check-in / check-out inspections with photo evidence.
+// See migration 2026-05-24_property_inspections.sql for the table shape.
+
+export async function fetchInspections(propertyId) {
+  const { data, error } = await supabase
+    .from('property_inspections')
+    .select('*')
+    .eq('property_id', propertyId)
+    .is('deleted_at', null)
+    .order('scheduled_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAllInspections(userId) {
+  const { data, error } = await supabase
+    .from('property_inspections')
+    .select('*, property:properties(id,name,address,company_id)')
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .order('scheduled_date', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function createInspection(propertyId, inspection) {
+  const { data, error } = await supabase
+    .from('property_inspections')
+    .insert({ ...inspection, property_id: propertyId, user_id: await uid() })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateInspection(id, updates) {
+  const { data, error } = await supabase
+    .from('property_inspections')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function softDeleteInspection(id, deletedBy) {
+  const { error } = await supabase
+    .from('property_inspections')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: deletedBy })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// Upload an inspection photo. Returns a URL the inspection row can
+// reference in its photos jsonb array.
+export async function uploadInspectionPhoto(propertyId, file, caption = '') {
+  const userId = await uid()
+  const safeName = (file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60)
+  const path = `inspections/${userId}/${propertyId}/${Date.now()}_${safeName}`
+  const { error: upErr } = await supabase.storage.from('property-documents')
+    .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
+  if (upErr) throw upErr
+  // Public-ish signed URL (1 year — these are inspection photos, not sensitive PII)
+  const { data: urlData } = await supabase.storage.from('property-documents')
+    .createSignedUrl(path, 60 * 60 * 24 * 365)
+  return {
+    url: urlData?.signedUrl || null,
+    path,
+    caption,
+    taken_at: new Date().toISOString(),
+  }
+}
+
 // ── USER COMPANY ACCESS ────────────────────────────────────────────────────
 export async function fetchUserAccessByEmail(email) {
   if (!email) return []
