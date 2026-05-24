@@ -233,8 +233,13 @@ serve(async (req) => {
                 matched_at: new Date().toISOString(),
                 match_confidence: 0.8,
               }).eq('provider_transaction_id', tx.transaction_id).eq('user_id', caller.id)
+              // Schema: rent_payments has `amount` + `status` (no paid_amount/paid_at).
+              // We update amount to what the bank actually received and flip status.
+              // Notes capture the matched bank counterparty for audit.
               await admin.from('rent_payments').update({
-                status: 'paid', paid_amount: amount, paid_at: tx.date,
+                status: 'paid',
+                amount,
+                notes: `Auto-matched from bank ${tx.date} · ${(tx.merchant_name || tx.name || '').slice(0, 100)}`,
               }).eq('id', candidate.id)
               matched++
             }

@@ -103,7 +103,8 @@ export function mapExpenseCategoryToHmrc(internal) {
 
 // Build the HMRC-shape periodic submission body from raw payments+expenses.
 //
-// payments: [{ paid_amount, period_start, period_end, payment_date, status }]
+// payments: [{ amount, period_start, period_end, status }]
+//            (status='paid' rows count as recognised income for the period)
 // expenses: [{ amount, date, category }]
 // mortgageInterest: { totalForPeriod }  — sum of interest accrued in period
 //                                          (optional; user may track separately)
@@ -119,14 +120,16 @@ export function mapExpenseCategoryToHmrc(internal) {
 export function buildQuarterlySummary({ payments = [], expenses = [], mortgageInterest = 0, periodFrom, periodTo } = {}) {
   const inRange = (d) => d && d >= periodFrom && d <= periodTo
 
-  // Income — sum of paid_amount on payments whose payment_date OR period
-  // overlap the quarter. Cash basis = use payment_date when present.
+  // Income — sum of `amount` on payments where status='paid' and the
+  // rental period_start falls inside the quarter. We use period_start as
+  // the cash-basis recognition date because the schema doesn't track a
+  // separate payment_date (rows are flipped status='paid' when received).
   let periodAmount = 0
   for (const p of payments) {
-    const paid = Number(p?.paid_amount || 0)
+    if (p?.status !== 'paid') continue
+    const paid = Number(p?.amount || 0)
     if (paid <= 0) continue
-    const recogDate = p?.payment_date || p?.period_start
-    if (!inRange(recogDate)) continue
+    if (!inRange(p?.period_start)) continue
     periodAmount += paid
   }
 

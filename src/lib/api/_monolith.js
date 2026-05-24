@@ -3245,9 +3245,11 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   if (propIds.length === 0) return { payments: [], expenses: [] }
 
   const [paymentsRes, expensesRes] = await Promise.all([
-    supabase.from('rent_payments').select('id, property_id, paid_amount, period_start, period_end, payment_date, status')
+    supabase.from('rent_payments').select('id, property_id, amount, period_start, period_end, status')
       .in('property_id', propIds)
-      .or(`and(payment_date.gte.${periodFrom},payment_date.lte.${periodTo}),and(period_start.gte.${periodFrom},period_start.lte.${periodTo})`),
+      .eq('status', 'paid')
+      .gte('period_start', periodFrom)
+      .lte('period_start', periodTo),
     supabase.from('property_expenses').select('id, property_id, amount, date, category, description')
       .in('property_id', propIds)
       .is('deleted_at', null)

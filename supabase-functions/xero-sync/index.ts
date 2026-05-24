@@ -10,7 +10,7 @@
 // Approach:
 //   1. Load user's xero_connections row + refresh token if near expiry
 //   2. For TO_XERO:
-//      a. Find unsynced rent_payments (paid_amount > 0, no row in xero_sync_map)
+//      a. Find unsynced rent_payments (status='paid', no row in xero_sync_map)
 //      b. Find unsynced property_expenses (amount > 0, no row in xero_sync_map)
 //      c. For each, POST BankTransaction to Xero, store the returned
 //         BankTransactionID in xero_sync_map
@@ -130,13 +130,16 @@ serve(async (req) => {
     }
 
     // RENT PAYMENTS → Xero RECEIVE
+    // Schema: only paid rows have an amount we want to push.
     const { data: payments } = await admin.from('rent_payments')
-      .select('id, property_id, paid_amount, payment_date, period_start, period_end')
-      .in('property_id', propIds).gt('paid_amount', 0)
+      .select('id, property_id, amount, status, period_start, period_end')
+      .in('property_id', propIds)
+      .eq('status', 'paid')
+      .gt('amount', 0)
     for (const p of (payments || [])) {
       if (syncedSet.has(`rent_payment:${p.id}`)) continue
       const prop = propMap.get(p.property_id)
-      const txnDate = p.payment_date || p.period_start
+      const txnDate = p.period_start
       if (!txnDate) { failed++; continue }
       const body = {
         BankTransactions: [{
@@ -147,7 +150,7 @@ serve(async (req) => {
           LineItems: [{
             Description: `Rent ${p.period_start || ''} → ${p.period_end || ''}`.trim(),
             Quantity: 1,
-            UnitAmount: Number(p.paid_amount),
+            UnitAmount: Number(p.amount),
             AccountCode: '200', // Sales/Revenue — user can re-map in Xero
           }],
         }],
