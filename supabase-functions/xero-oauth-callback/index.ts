@@ -31,7 +31,16 @@ const XERO_CLIENT_ID     = Deno.env.get('XERO_CLIENT_ID') || ''
 const XERO_CLIENT_SECRET = Deno.env.get('XERO_CLIENT_SECRET') || ''
 const XERO_REDIRECT_URI  = Deno.env.get('XERO_REDIRECT_URI') || `${SUPABASE_URL}/functions/v1/xero-oauth-callback`
 
+// OpenID Connect base scopes (openid + profile + email) are mandatory for
+// modern Xero OAuth 2.0 flows — without them Xero rejects the authorize
+// request with `invalid_scope`. offline_access gets us a refresh token so
+// we can stay connected past the 30-min access token expiry. The
+// accounting.* scopes are the minimum needed to push bank transactions +
+// look up tracking categories on the customer's behalf.
 const SCOPES = [
+  'openid',
+  'profile',
+  'email',
   'offline_access',
   'accounting.transactions',
   'accounting.contacts',
