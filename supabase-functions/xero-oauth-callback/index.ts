@@ -134,9 +134,23 @@ serve(async (req) => {
     // encrypted versions and null out the plaintext (so a DB dump alone
     // can't impersonate the user). If not configured, fall back to the
     // legacy plaintext columns so the existing code path keeps working.
-    const encAccess  = await encryptToken(tokens.access_token)
-    const encRefresh = await encryptToken(tokens.refresh_token)
-    await admin.from('xero_connections').upsert({
+    let encAccess: string | null = null
+    let encRefresh: string | null = null
+    try {
+      encAccess  = await encryptToken(tokens.access_token)
+      encRefresh = await encryptToken(tokens.refresh_token)
+    } catch (e) {
+      // Bad OWNPROPERLY_TOKEN_KEY (wrong length etc) — surface clearly
+      // instead of silently failing and leaving the user wondering why
+      // the connection vanished.
+      const returnTo2 = state.return_to || '/'
+      return new Response(
+        `<h1>Xero connection failed</h1><p>Token encryption failed: ${(e as Error).message}</p><p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p><p><a href="${returnTo2}">Back to OwnProperly</a></p>`,
+        { status: 500, headers: { 'Content-Type': 'text/html' } }
+      )
+    }
+
+    const { error: upsertErr } = await admin.from('xero_connections').upsert({
       user_id: state.user_id,
       company_id: state.company_id,
       tenant_id: first.tenantId,
@@ -149,6 +163,14 @@ serve(async (req) => {
       expires_at: new Date(Date.now() + (tokens.expires_in || 1800) * 1000).toISOString(),
       scopes: (tokens.scope || '').split(' '),
     }, { onConflict: 'user_id,company_id' })
+
+    if (upsertErr) {
+      const returnTo3 = state.return_to || '/'
+      return new Response(
+        `<h1>Xero connection failed</h1><p>Could not save the Xero connection to the database.</p><pre style="background:#f4f4f4;padding:10px;border-radius:6px;font-family:monospace;font-size:12px">${upsertErr.message}\n\nCode: ${upsertErr.code}\nDetails: ${upsertErr.details || '(none)'}\nHint: ${upsertErr.hint || '(none)'}</pre><p><a href="${returnTo3}">Back to OwnProperly</a></p>`,
+        { status: 500, headers: { 'Content-Type': 'text/html' } }
+      )
+    }
 
     // Seed default settings row so the user can immediately edit toggles.
     await admin.from('xero_sync_settings').insert({
