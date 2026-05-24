@@ -175,15 +175,21 @@ serve(async (req) => {
     // "<Property name> — Tenant" or "<Property name> — Supplier" so the
     // user can later merge/rename in Xero's Contacts list.
     const { data: payments } = await admin.from('rent_payments')
-      .select('id, property_id, amount, status, period_start, period_end')
+      .select('id, property_id, amount, status, period_start, period_end, year, month')
       .in('property_id', propIds)
       .eq('status', 'paid')
       .gt('amount', 0)
     for (const p of (payments || [])) {
       if (syncedSet.has(`rent_payment:${p.id}`)) continue
       const prop = propMap.get(p.property_id)
+      // Prefer the new period_start column; fall back to year+month (1st of
+      // the month) for legacy rows that pre-date the period_start migration.
+      // Without this, ~5 of Justin's Apr-2026 paid rows would fail silently.
       const txnDate = p.period_start
-      if (!txnDate) { failed++; continue }
+        || (p.year && p.month
+              ? `${p.year}-${String(p.month).padStart(2,'0')}-01`
+              : null)
+      if (!txnDate) { failed++; errors.push(`rent ${p.id}: no period_start, year, or month — skipping`); continue }
       const body = {
         BankTransactions: [{
           Type: 'RECEIVE',
@@ -223,7 +229,7 @@ serve(async (req) => {
     for (const e of (expenses || [])) {
       if (syncedSet.has(`expense:${e.id}`)) continue
       const prop = propMap.get(e.property_id)
-      if (!e.date) { failed++; continue }
+      if (!e.date) { failed++; errors.push(`expense ${e.id}: no date — skipping`); continue }
       const body = {
         BankTransactions: [{
           Type: 'SPEND',
