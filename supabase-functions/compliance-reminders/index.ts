@@ -82,7 +82,11 @@ serve(async (req) => {
     // Fetch all active (non-deleted) compliance items with expiry dates
     const { data: items, error } = await admin
       .from('compliance_items')
-      .select('id, cert_type, cert_name, item_type, expiry_date, reminder_days, user_id, property_id, property:properties(id, name, address, deleted_at), last_reminder_sent_at')
+      // NB: the column is `cert_type` — there was an older `item_type` reference
+      // that's been removed (the column doesn't exist in this schema). The
+      // `|| i.item_type` fallbacks elsewhere in this file are belt-and-braces
+      // for forward compatibility if the column ever gets re-added.
+      .select('id, cert_type, cert_name, expiry_date, reminder_days, user_id, property_id, property:properties(id, name, address, deleted_at), last_reminder_sent_at')
       .is('deleted_at', null)
       .not('expiry_date', 'is', null)
 
