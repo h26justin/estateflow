@@ -888,35 +888,12 @@ export default function App() {
             window.history.replaceState({}, '', window.location.pathname)
           } catch(e) { logError('loadData:registerTenantProfile', e) }
         }
-        // Bank-feed OAuth handoff return. TrueLayer redirects to
-        // `/?bank_callback=1&state=<connection_id>&code=<auth_code>`
-        // (or `&error=...` if the user denied at the bank). We finalise
-        // the connection (exchanges code for tokens + fetches accounts)
-        // then immediately trigger a first sync so transactions appear
-        // straight away. Errors surface via toast so the user can retry
-        // from the bank-connections modal.
+        // Plaid Link runs in-page (no redirect handoff) — the OAuth
+        // exchange happens inside BankConnectionsModal via onSuccess.
+        // We still clean up any legacy `?bank_callback=1` URL params
+        // from the old TrueLayer redirect flow so bookmarks don't break.
         if (urlParams.get('bank_callback') === '1') {
-          // `state` is our pre-created bank_connections.id, echoed back
-          // by TrueLayer. We keep `ref` as a fallback for any old
-          // GoCardless-shaped callbacks already in flight.
-          const connId = urlParams.get('state') || urlParams.get('ref')
-          const code   = urlParams.get('code')
-          const oauthError = urlParams.get('error')
           window.history.replaceState({}, '', window.location.pathname)
-          if (connId) {
-            try {
-              await api.finalizeBankConnect(connId, code, oauthError)
-              try { showAppToast('Bank connected · syncing transactions…') } catch {}
-              api.syncBankTransactions().then(r => {
-                try { showAppToast(`Synced ${r?.inserted || 0} transactions (${r?.matched || 0} auto-matched)`) } catch {}
-              }).catch(e => {
-                try { showAppToast(e.message || 'Sync failed — try again from Bank Connections', 'error') } catch {}
-              })
-            } catch (e) {
-              logError('bankCallback:finalize', e)
-              try { showAppToast(e.message || 'Could not finalise bank connection', 'error') } catch {}
-            }
-          }
         }
         // Check if this user is a tenant (not a landlord)
         // Skip tenant portal if user has their own companies or is platform admin

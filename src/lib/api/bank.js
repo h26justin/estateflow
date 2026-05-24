@@ -1,24 +1,34 @@
-// Open Banking — TrueLayer Data API integration.
+// Open Banking — Plaid UK Data API integration.
 //
-// Migrated from GoCardless Bank Account Data in May 2026 after GoCardless
-// paused new BAD signups. Heavy lifting lives in the `bank-truelayer`
-// edge function so credentials never touch the browser.
+// Switched from TrueLayer in May 2026. TrueLayer rejected our application
+// over portfolio docs; Plaid offers Sandbox same-day signup and a cleaner
+// hosted-widget UX. The bank-truelayer edge function stays in the repo
+// as deprecated reference until any TrueLayer pilot accounts are migrated.
 //
-// Until the Supabase secrets are set (TRUELAYER_CLIENT_ID +
-// TRUELAYER_CLIENT_SECRET), the function returns 503 and the UI falls
-// back to "register interest".
+// Plaid flow differs from TrueLayer's redirect approach:
+//   1. createPlaidLinkToken() → backend returns a short-lived link_token
+//   2. Browser lazy-loads Plaid Link.js, opens the widget with that token
+//   3. User picks bank + signs in inside the widget
+//   4. Widget hands back a public_token via JS callback
+//   5. exchangePlaidPublicToken(public_token) → backend swaps for an
+//      access_token and writes bank_connections + bank_accounts rows
+//
+// Until the Supabase secrets are set (PLAID_CLIENT_ID + PLAID_SECRET +
+// PLAID_ENV), the bank-plaid function returns 503 and the UI falls back
+// to "register interest".
 
 import { supabase } from '../supabase'
+
+const FUNCTION = 'bank-plaid'
 
 async function invoke(action, payload = {}) {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
-  const { data, error } = await supabase.functions.invoke('bank-truelayer', {
+  const { data, error } = await supabase.functions.invoke(FUNCTION, {
     body: { action, ...payload },
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   if (error) {
-    // FunctionsHttpError has the body in `context`
     let msg = error.message || 'Bank feed request failed'
     try {
       const ctxBody = await error.context?.json?.()
@@ -64,27 +74,40 @@ export async function registerBankInterest(provider = 'pending-partner', institu
   return data
 }
 
-// ── GoCardless flow ─────────────────────────────────────────────────────
+// ── Plaid flow ─────────────────────────────────────────────────────────
 
-// Returns { institutions: [{ id, name, logo, bic, transaction_total_days }] }
-export async function listBankInstitutions(country = 'gb') {
-  return invoke('list_institutions', { country })
+// No-op success when creds are set; 503 when not. UI uses this to decide
+// whether to show "live" mode (Plaid Link widget) or "interest" mode.
+export async function listBankInstitutions(_country = 'gb') {
+  return invoke('list_institutions')
 }
 
-// Pre-creates a pending connection row and returns the TrueLayer auth URL.
-// The caller redirects the browser to auth_url — TrueLayer hosts the
-// bank picker itself, so no institution params from us. Returns:
-//   { auth_url, connection_id }
+// New: replaces startBankConnect for Plaid Link flow. Returns a link_token
+// that the frontend feeds to Plaid Link.js.
+export async function createPlaidLinkToken() {
+  return invoke('create_link_token')
+}
+
+// Exchange the public_token returned by Plaid Link for a stored access_token.
+// Returns { connection_id, accounts }.
+export async function exchangePlaidPublicToken(publicToken, institutionId = null, institutionName = null) {
+  return invoke('exchange_public_token', {
+    public_token: publicToken,
+    institution_id: institutionId,
+    institution_name: institutionName,
+  })
+}
+
+// LEGACY shim — kept so callers that still reference startBankConnect
+// degrade gracefully (will throw a clear error). Once BankConnectionsModal
+// is on Plaid, remove this.
 export async function startBankConnect() {
-  return invoke('start_connect')
+  throw new Error('startBankConnect() is deprecated — switch to createPlaidLinkToken() + Plaid Link widget.')
 }
 
-// Finalises a returning OAuth handoff. Pass through:
-//   - connectionId: from the `state` query param (our row UUID)
-//   - code:         from the `code` query param (TrueLayer auth code)
-//   - error:        optional, from `error` query param if user denied
-export async function finalizeBankConnect(connectionId, code, error = null) {
-  return invoke('finalize', { connection_id: connectionId, code, error })
+// LEGACY shim — same reason.
+export async function finalizeBankConnect() {
+  throw new Error('finalizeBankConnect() is deprecated — Plaid Link returns public_token directly to the browser; use exchangePlaidPublicToken().')
 }
 
 // Pulls fresh transactions for all active accounts; auto-matches what it can.

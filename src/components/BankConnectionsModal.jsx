@@ -3,19 +3,18 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { openPlaidLink } from '../lib/plaidLink'
 
-// Open Banking — live OAuth flow via GoCardless Bank Account Data.
+// Open Banking — live integration via Plaid UK.
 //
 // Two modes, decided on mount:
-//   - "live"     — `listBankInstitutions` succeeded → show a bank picker.
-//                  Picking a bank kicks off OAuth, we redirect to the bank.
-//   - "interest" — `listBankInstitutions` returned 503 (creds not deployed)
-//                  → fall back to the original "register interest" form so
-//                  we still capture demand while Justin completes the
-//                  GoCardless onboarding paperwork.
-//
-// When the user returns from their bank, App.jsx picks up the
-// `?bank_callback=1&ref=<id>` query params and finalises silently.
+//   - "live"     — `listBankInstitutions` succeeded → show a "Connect"
+//                  button that opens the Plaid Link widget (in-page,
+//                  no redirect). User picks their bank inside the widget.
+//   - "interest" — `listBankInstitutions` returned 503 (PLAID_CLIENT_ID
+//                  + PLAID_SECRET not yet set on the edge function) →
+//                  fall back to the "register interest" form so we still
+//                  capture demand while Justin completes Plaid signup.
 
 const STATUS_LABEL = {
   requested:   'Saved · waiting for our Open Banking partner to launch',
@@ -66,10 +65,36 @@ export default function BankConnectionsModal({ onClose }) {
   async function startConnect() {
     setConnecting(true)
     try {
-      const { auth_url } = await api.startBankConnect()
-      // Full-page redirect to TrueLayer's hosted picker → bank login →
-      // back to BANK_REDIRECT_BASE with ?code= and ?state=.
-      window.location.assign(auth_url)
+      // 1. Ask backend for a short-lived link_token
+      const { link_token } = await api.createPlaidLinkToken()
+      if (!link_token) throw new Error('No link_token returned')
+
+      // 2. Open Plaid Link widget in-page (lazy-loads Plaid Link.js)
+      await openPlaidLink({
+        linkToken: link_token,
+        onSuccess: async ({ publicToken, metadata }) => {
+          try {
+            await api.exchangePlaidPublicToken(
+              publicToken,
+              metadata?.institution?.institution_id || null,
+              metadata?.institution?.name || null
+            )
+            showAppToast('Bank connected ✓ — syncing transactions now')
+            const fresh = await api.fetchBankConnections()
+            setRows(fresh)
+            // Kick off an immediate sync so the user sees data right away
+            api.syncBankTransactions().catch(() => {})
+          } catch (e) {
+            showAppToast(e.message || 'Connection exchange failed', 'error')
+          } finally {
+            setConnecting(false)
+          }
+        },
+        onExit: ({ err }) => {
+          setConnecting(false)
+          if (err) showAppToast(err.display_message || err.error_message || 'Bank connection cancelled', 'error')
+        },
+      })
     } catch (e) {
       setConnecting(false)
       showAppToast(e.message || 'Could not start bank connection', 'error')
