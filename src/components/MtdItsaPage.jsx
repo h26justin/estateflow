@@ -43,6 +43,22 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
   useEffect(() => { load() /* eslint-disable-next-line */ }, [taxYear])
 
+  // OAuth return-handler: after the user finishes the gov.uk dance, HMRC
+  // bounces them back to /?hmrc_connected=1. Show a toast + scrub the
+  // URL so a refresh doesn't re-fire it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('hmrc_connected') === '1') {
+      showAppToast('HMRC connected — you can now file real submissions')
+      params.delete('hmrc_connected')
+      const q = params.toString()
+      window.history.replaceState({}, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash)
+      // Re-fetch so the "Connected ✓" badge appears immediately.
+      load()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function load() {
     setLoading(true)
     try {
@@ -360,11 +376,91 @@ function SettingsPanel({ T, settings, onSaved }) {
           <label htmlFor="cashbasis" style={{ marginBottom: 0, cursor: 'pointer' }}>Cash basis (recommended for most landlords)</label>
         </div>
       </div>
-      <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+      <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button onClick={save} className="btn btn-gold" style={{ fontSize: 12 }} disabled={saving}>
           {saving ? 'Saving…' : '💾 Save settings'}
         </button>
       </div>
+
+      {/* ── HMRC OAuth connection ── */}
+      <HmrcOAuthBlock T={T} settings={settings} onChanged={onSaved}/>
+    </div>
+  )
+}
+
+// ── HMRC OAUTH BLOCK ───────────────────────────────────────────────
+// Sits inside the SettingsPanel. Shows whether the user has authorised
+// us to submit on their behalf via the gov.uk OAuth flow. Without this,
+// mtd-submit falls back to the local mock path (SANDBOX-xxxxx) even
+// when sandbox_mode is off.
+function HmrcOAuthBlock({ T, settings, onChanged }) {
+  const [busy, setBusy] = useState(false)
+  const connected = !!settings?.hmrc_access_token
+  const expiresAt = settings?.hmrc_token_expires_at ? new Date(settings.hmrc_token_expires_at) : null
+  const expired = expiresAt && expiresAt.getTime() < Date.now()
+
+  async function connect() {
+    setBusy(true)
+    try {
+      await api.startHmrcOAuth()
+      // ↑ redirects away — won't return
+    } catch (e) {
+      showAppToast(e.message, 'error')
+      setBusy(false)
+    }
+  }
+  async function disconnect() {
+    if (!confirm('Disconnect HMRC? Future submissions will fall back to the local mock until you reconnect.')) return
+    setBusy(true)
+    try {
+      await api.disconnectHmrc()
+      showAppToast('HMRC disconnected')
+      onChanged?.(null)
+    } catch (e) {
+      showAppToast(e.message, 'error')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px dashed ${T.border}` }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+        HMRC gov.uk connection
+      </div>
+      {connected && !expired ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: T.green+'22', color: T.green }}>
+              ✓ Connected
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+              Token expires {expiresAt.toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
+            </span>
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.5, marginBottom: 12 }}>
+            We can now file quarterly submissions on your behalf. Tokens refresh automatically before they expire.
+          </div>
+          <button onClick={disconnect} disabled={busy} className="btn btn-ghost" style={{ fontSize: 11 }}>
+            {busy ? 'Working…' : 'Disconnect'}
+          </button>
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (expired ? T.amber : T.border), color: (expired ? T.amber : T.muted) }}>
+              {expired ? 'Token expired' : 'Not connected'}
+            </span>
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.5, marginBottom: 12 }}>
+            {expired
+              ? 'Your HMRC session has expired (PSD2 / consent lifetime). Reconnect to keep filing.'
+              : 'Connect your gov.uk account so we can file MTD ITSA submissions on your behalf. We use HMRC\'s OAuth — your gov.uk credentials never touch our servers.'}
+          </div>
+          <button onClick={connect} disabled={busy} className="btn btn-gold" style={{ fontSize: 12 }}>
+            {busy ? 'Redirecting…' : (expired ? '🔄 Reconnect HMRC' : '🔌 Connect HMRC')}
+          </button>
+        </>
+      )}
     </div>
   )
 }
@@ -447,6 +543,9 @@ function formatDate(s) {
 
 // Returns a list of human-readable reasons why we can't submit yet.
 // Empty list = ready to submit. Each string is rendered as a bullet.
+// Note: sandbox mode is a *valid* state — we don't block submission on
+// missing OAuth when sandbox is ticked, because the edge function returns
+// a mock response by design.
 function getReadinessIssues(settings) {
   const issues = []
   if (!settings?.nino || !String(settings.nino).trim()) {
@@ -454,6 +553,10 @@ function getReadinessIssues(settings) {
   }
   if (!settings?.mtd_business_id || !String(settings.mtd_business_id).trim()) {
     issues.push('Save your HMRC Property Business ID')
+  }
+  // Real submissions need a live OAuth token. Sandbox mode is exempt.
+  if (!settings?.sandbox_mode && !settings?.hmrc_access_token) {
+    issues.push('Connect HMRC via gov.uk OAuth (in HMRC Settings)')
   }
   return issues
 }

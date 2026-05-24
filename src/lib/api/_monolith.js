@@ -3271,6 +3271,35 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   return { payments: paymentsRes.data || [], expenses: expensesRes.data || [] }
 }
 
+// Start the HMRC gov.uk OAuth flow. Returns nothing — performs a
+// full-page redirect to HMRC's authorize endpoint. After the user
+// consents, HMRC redirects back to our hmrc-oauth-callback edge
+// function which stores tokens + bounces user back here with
+// ?hmrc_connected=1.
+export async function startHmrcOAuth() {
+  const { data, error } = await supabase.functions.invoke('hmrc-oauth-callback', {
+    body: { action: 'start', return_to: window.location.href }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  if (!data?.authorize_url) throw new Error('HMRC OAuth not configured — Justin needs to set HMRC_CLIENT_ID and add the redirect URI to the HMRC dev hub app.')
+  window.location.href = data.authorize_url
+}
+
+// Clear the stored HMRC access + refresh tokens (next submission falls
+// back to the local mock path). Keeps NINO / business ID / cash basis
+// settings intact.
+export async function disconnectHmrc() {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+  const { error } = await supabase.from('mtd_settings').update({
+    hmrc_access_token: null,
+    hmrc_refresh_token: null,
+    hmrc_token_expires_at: null,
+  }).eq('user_id', uid)
+  if (error) throw error
+}
+
 // Submit (or re-submit) a quarterly summary to HMRC via the mtd-submit
 // edge function. In sandbox mode the edge function returns a mock
 // reference instead of calling HMRC — letting us ship the full flow
