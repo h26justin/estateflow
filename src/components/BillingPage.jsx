@@ -3,6 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
+import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
@@ -91,7 +92,9 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
             const sub = subs.find(s => s.company_id === co.id)
             const status = co.is_free_tier ? 'free_tier' : (sub?.status || 'trialing')
             const propCount = sub?.property_count || 0
-            const monthly = propCount * 2
+            const tierKey  = sub?.tier || 'starter'
+            const monthly  = calcMonthlyPrice(propCount, tierKey)
+            const tierMeta = TIERS[tierKey] || TIERS.starter
             const periodEnd = sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null
             const trialEnd = co.trial_ends_at ? new Date(co.trial_ends_at) : null
             const trialDaysLeft = trialEnd ? Math.max(0, Math.ceil((trialEnd - new Date()) / (1000*60*60*24))) : 0
@@ -109,8 +112,16 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                   <div style={{ textAlign: 'right' }}>
                     {status !== 'free_tier' && (
                       <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', marginBottom: 2 }}>
+                          <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: tierMeta.color + '22', color: tierMeta.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {tierMeta.label}
+                          </span>
+                        </div>
                         <div style={{ fontSize: 24, fontWeight: 700, color: T.gold, letterSpacing: '-0.02em' }}>{fmt(monthly)}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
-                        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{propCount} {propCount===1?'property':'properties'} × £2</div>
+                        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                          {propCount} {propCount===1?'property':'properties'} × £{tierMeta.pricePerProp}
+                          {propCount * tierMeta.pricePerProp < 10 && <span> · £10 floor</span>}
+                        </div>
                       </>
                     )}
                     {status === 'free_tier' && <div style={{ fontFamily: mono, fontSize: 13, color: T.gold, fontWeight: 700 }}>Free tier ✓</div>}
