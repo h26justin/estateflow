@@ -27,6 +27,7 @@ import LoginPage from './components/LoginPage'
 import OnboardingWizard from './components/OnboardingWizard'
 import BillingPage from './components/BillingPage'
 import PrivacyPolicy from './components/PrivacyPolicy'
+import TermsOfService from './components/TermsOfService'
 import OnboardingTour from './components/OnboardingTour'
 import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
@@ -446,7 +447,15 @@ export default function App() {
   const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [isTenant, setIsTenant] = useState(false)
-  const [showPrivacy, setShowPrivacy] = useState(false)
+  // /privacy and /terms render their own static pages, even when the
+  // user isn't logged in. Detect from the URL on mount so HMRC reviewers
+  // and Google can link to stable URLs.
+  const [showPrivacy, setShowPrivacy] = useState(() =>
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/privacy')
+  )
+  const [showTerms, setShowTerms] = useState(() =>
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/terms')
+  )
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   // Subscription rows for the user's accessible companies. Loaded after
@@ -1143,6 +1152,22 @@ export default function App() {
   }, [properties, companies, darkMode])
 
   // Early returns AFTER all hooks
+  // Privacy & Terms render at /privacy and /terms even when unauthenticated.
+  // HMRC requires the URLs to be publicly reachable for production approval.
+  // These checks sit BEFORE the auth gate.
+  if (showPrivacy) return <PrivacyPolicy onBack={() => {
+    setShowPrivacy(false)
+    if (window.location.pathname.startsWith('/privacy')) {
+      window.history.replaceState({}, '', '/')
+    }
+  }}/>
+  if (showTerms) return <TermsOfService onBack={() => {
+    setShowTerms(false)
+    if (window.location.pathname.startsWith('/terms')) {
+      window.history.replaceState({}, '', '/')
+    }
+  }}/>
+
   if (authLoading) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
   if (!session) return (
     <>
@@ -1161,7 +1186,6 @@ export default function App() {
       )}
     </>
   )
-  if (showPrivacy) return <PrivacyPolicy onBack={()=>setShowPrivacy(false)}/>
   if (isTenant) return (
     <Suspense fallback={<PageLoadingSpinner T={T}/>}>
       <TenantPortal user={user}
