@@ -123,15 +123,28 @@ serve(async (req) => {
     const first = Array.isArray(tenants) ? tenants[0] : null
     if (!first) return new Response('No Xero tenant authorised', { status: 400 })
 
+    // Multi-company: state.company_id is the OwnProperly company this
+    // Xero org should be linked to. Required since the PK is now
+    // (user_id, company_id) — without it the upsert can't target a row.
+    if (!state.company_id) {
+      return new Response('Missing company_id in state — please retry from Settings → Integrations', { status: 400 })
+    }
     await admin.from('xero_connections').upsert({
       user_id: state.user_id,
+      company_id: state.company_id,
       tenant_id: first.tenantId,
       tenant_name: first.tenantName,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: new Date(Date.now() + (tokens.expires_in || 1800) * 1000).toISOString(),
       scopes: (tokens.scope || '').split(' '),
-    }, { onConflict: 'user_id' })
+    }, { onConflict: 'user_id,company_id' })
+
+    // Seed default settings row so the user can immediately edit toggles.
+    await admin.from('xero_sync_settings').insert({
+      user_id: state.user_id,
+      company_id: state.company_id,
+    }).select().maybeSingle().then(() => {}).catch(() => {}) // ignore conflict
 
     // Redirect back into the app
     const returnTo = state.return_to || '/'
@@ -154,8 +167,13 @@ serve(async (req) => {
       return jsonError(503, 'Xero not configured. Set XERO_CLIENT_ID supabase secret.')
     }
 
+    // company_id is required — Xero connections are now per-company
+    if (!body.company_id) {
+      return jsonError(400, 'company_id required — pick which OwnProperly company to link this Xero org to')
+    }
     const state = encodeState({
       user_id: caller.id,
+      company_id: body.company_id,
       return_to: body.return_to || '',
       nonce: crypto.randomUUID(),
     })

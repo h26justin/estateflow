@@ -3319,25 +3319,43 @@ export async function submitMtdQuarter(submissionId) {
 }
 
 // ── XERO INTEGRATION ─────────────────────────────────────────────────────────
+//
+// Phase 2 (24 May 2026): multi-company. xero_connections is now keyed by
+// (user_id, company_id) so a user with multiple OwnProperly companies can
+// link a SEPARATE Xero org per company. Most helpers take companyId.
 
-export async function fetchXeroConnection() {
+// Returns ALL of the user's Xero connections (one per company).
+export async function fetchXeroConnections() {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) return []
+  const { data, error } = await supabase
+    .from('xero_connections')
+    .select('user_id, company_id, tenant_id, tenant_name, expires_at, scopes, last_sync_at, last_sync_status, last_sync_error, created_at')
+    .eq('user_id', uid)
+  if (error) throw error
+  return data || []
+}
+
+// Convenience: fetch the connection for a specific company (or null).
+export async function fetchXeroConnection(companyId) {
+  if (!companyId) return null
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) return null
   const { data, error } = await supabase
     .from('xero_connections')
-    .select('tenant_id, tenant_name, expires_at, scopes, last_sync_at, last_sync_status, last_sync_error, created_at')
-    .eq('user_id', uid).maybeSingle()
+    .select('user_id, company_id, tenant_id, tenant_name, expires_at, scopes, last_sync_at, last_sync_status, last_sync_error, created_at')
+    .eq('user_id', uid).eq('company_id', companyId).maybeSingle()
   if (error) throw error
   return data
 }
 
-// Start the Xero OAuth flow. Edge function returns an authorize URL with
-// the right state param; we redirect the user there. After consent Xero
-// posts back to xero-oauth-callback which writes the connection row and
-// redirects the user back into the app.
-export async function startXeroOAuth() {
+// Start the Xero OAuth flow for a SPECIFIC company. The companyId is
+// encoded in the state token so the callback knows which company to
+// associate the new tokens with.
+export async function startXeroOAuth(companyId) {
+  if (!companyId) throw new Error('companyId required — Xero connections are per-company')
   const { data, error } = await supabase.functions.invoke('xero-oauth-callback', {
-    body: { action: 'start', return_to: window.location.href }
+    body: { action: 'start', company_id: companyId, return_to: window.location.href }
   })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
@@ -3345,29 +3363,76 @@ export async function startXeroOAuth() {
   window.location.href = data.authorize_url
 }
 
-export async function disconnectXero() {
+export async function disconnectXero(companyId) {
+  if (!companyId) throw new Error('companyId required')
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) throw new Error('Not signed in')
-  const { error } = await supabase.from('xero_connections').delete().eq('user_id', uid)
+  const { error } = await supabase
+    .from('xero_connections').delete()
+    .eq('user_id', uid).eq('company_id', companyId)
   if (error) throw error
 }
 
-export async function runXeroSync(direction = 'to_xero') {
-  const { data, error } = await supabase.functions.invoke('xero-sync', { body: { direction } })
+export async function runXeroSync(companyId, direction = 'to_xero') {
+  if (!companyId) throw new Error('companyId required')
+  const { data, error } = await supabase.functions.invoke('xero-sync', {
+    body: { direction, company_id: companyId }
+  })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
   return data
 }
 
-export async function fetchXeroSyncLog(limit = 20) {
+export async function fetchXeroSyncLog(companyId, limit = 20) {
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) return []
-  const { data, error } = await supabase
-    .from('xero_sync_log').select('*')
-    .eq('user_id', uid)
-    .order('started_at', { ascending: false })
-    .limit(limit)
+  let q = supabase.from('xero_sync_log').select('*').eq('user_id', uid)
+  if (companyId) q = q.eq('company_id', companyId)
+  const { data, error } = await q
+    .order('started_at', { ascending: false }).limit(limit)
   if (error) throw error
   return data || []
+}
+
+// ── Per-(user,company) Xero sync settings ──────────────────────────────
+
+export async function fetchXeroSyncSettings(companyId) {
+  if (!companyId) return null
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) return null
+  const { data, error } = await supabase
+    .from('xero_sync_settings').select('*')
+    .eq('user_id', uid).eq('company_id', companyId).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function saveXeroSyncSettings(companyId, patch) {
+  if (!companyId) throw new Error('companyId required')
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+  const safe = { ...patch }
+  // Server-managed fields the client shouldn't write
+  delete safe.user_id; delete safe.company_id
+  delete safe.created_at; delete safe.updated_at
+  const { data, error } = await supabase
+    .from('xero_sync_settings')
+    .upsert({ user_id: uid, company_id: companyId, ...safe }, { onConflict: 'user_id,company_id' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+// Live-fetch the user's chart of accounts + bank accounts from Xero so
+// the UI can render <select> dropdowns for the user to pick which
+// account codes to use. Calls xero-sync with action='list_accounts'.
+export async function fetchXeroAccounts(companyId) {
+  if (!companyId) throw new Error('companyId required')
+  const { data, error } = await supabase.functions.invoke('xero-sync', {
+    body: { action: 'list_accounts', company_id: companyId }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data?.accounts || []
 }
 

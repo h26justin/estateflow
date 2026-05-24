@@ -397,7 +397,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType}) {
+export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = []}) {
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -913,7 +913,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {settingsTab==='integrations' && (
-        <IntegrationsPanel T={T} mono={mono}/>
+        <IntegrationsPanel T={T} mono={mono} companies={companies} properties={properties}/>
       )}
 
       {settingsTab==='navbar' && (
