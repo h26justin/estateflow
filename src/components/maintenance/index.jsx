@@ -139,7 +139,26 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
             <span style={{fontSize:13,fontWeight:600}}>{job.title}</span>
             <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:pCol,textTransform:'uppercase'}}>{job.priority}</span>
             <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:st?.c||T.muted,background:st?.c+'22',padding:'1px 8px',borderRadius:20}}>{st?.l}</span>
+            {job.reported_by_tenant && (
+              <span title="Submitted by tenant via portal"
+                style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:700,color:T.blue,background:T.blue+'22',padding:'1px 8px',borderRadius:20,letterSpacing:'0.05em'}}>
+                👤 TENANT
+              </span>
+            )}
           </div>
+          {Array.isArray(job.photos) && job.photos.length > 0 && (
+            <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
+              {job.photos.slice(0,4).map((p,i) => (
+                <span key={i} title={p.name || ''}
+                  style={{fontFamily:"'DM Mono',monospace",fontSize:9,padding:'2px 6px',borderRadius:4,background:T.bg,border:`1px solid ${T.border}`,color:T.muted}}>
+                  📷 {p.name?.slice(0,18) || `photo ${i+1}`}
+                </span>
+              ))}
+              {job.photos.length > 4 && (
+                <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted}}>+ {job.photos.length - 4} more</span>
+              )}
+            </div>
+          )}
           {job.description&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:3}}>{job.description}</div>}
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
             {job.contractor&&`Contractor: ${job.contractor}`}
