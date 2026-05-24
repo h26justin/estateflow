@@ -31,21 +31,29 @@ const XERO_CLIENT_ID     = Deno.env.get('XERO_CLIENT_ID') || ''
 const XERO_CLIENT_SECRET = Deno.env.get('XERO_CLIENT_SECRET') || ''
 const XERO_REDIRECT_URI  = Deno.env.get('XERO_REDIRECT_URI') || `${SUPABASE_URL}/functions/v1/xero-oauth-callback`
 
-// OpenID Connect base scopes (openid + profile + email) are mandatory for
-// modern Xero OAuth 2.0 flows — without them Xero rejects the authorize
-// request with `invalid_scope`. offline_access gets us a refresh token so
-// we can stay connected past the 30-min access token expiry. The
-// accounting.* scopes are the minimum needed to push bank transactions +
-// look up tracking categories on the customer's behalf.
+// Granular Xero scopes (post-2-Mar-2026 scope model). Apps created after
+// that cutoff CANNOT request the old broad scopes (`accounting.transactions`,
+// `accounting.settings`, etc.) — Xero rejects with `invalid_scope`.
+//
+// Minimum scopes for our push-bank-transactions-on-user's-behalf use case:
+//   - openid / profile / email      → OpenID Connect identity claims (mandatory)
+//   - offline_access                → refresh tokens
+//   - accounting.banktransactions   → CREATE/READ bank transactions (rent + expenses)
+//   - accounting.contacts           → CREATE/READ contacts (tenants, suppliers we attach to txns)
+//   - accounting.settings.read      → READ chart of accounts + tracking categories
+//                                      (so we can pick which bank account + which P&L code)
+//
+// We deliberately don't request reports / payroll / files / invoices etc. —
+// minimum-permission principle. If we add report viewing later, add the
+// specific granular scope (e.g. `accounting.reports.profitandloss.read`).
 const SCOPES = [
   'openid',
   'profile',
   'email',
   'offline_access',
-  'accounting.transactions',
+  'accounting.banktransactions',
   'accounting.contacts',
-  'accounting.settings',
-  'accounting.reports.read',
+  'accounting.settings.read',
 ].join(' ')
 
 const corsHeaders = {
