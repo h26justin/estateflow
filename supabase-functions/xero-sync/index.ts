@@ -131,6 +131,9 @@ serve(async (req) => {
 
     // RENT PAYMENTS → Xero RECEIVE
     // Schema: only paid rows have an amount we want to push.
+    // Xero requires a Contact on every BankTransaction. We use a generic
+    // "<Property name> — Tenant" or "<Property name> — Supplier" so the
+    // user can later merge/rename in Xero's Contacts list.
     const { data: payments } = await admin.from('rent_payments')
       .select('id, property_id, amount, status, period_start, period_end')
       .in('property_id', propIds)
@@ -145,6 +148,7 @@ serve(async (req) => {
         BankTransactions: [{
           Type: 'RECEIVE',
           Date: txnDate,
+          Contact: { Name: `${prop?.name || 'Property'} — Tenant` },
           BankAccount: { AccountID: bankAccountId },
           Reference: `Rent — ${prop?.name || 'Property'}`,
           LineItems: [{
@@ -159,7 +163,7 @@ serve(async (req) => {
         method: 'POST', body: JSON.stringify(body),
       })
       if (!res.ok) {
-        failed++; errors.push(`rent ${p.id}: ${(await res.text()).slice(0,120)}`); continue
+        failed++; errors.push(`rent ${p.id}: ${(await res.text()).slice(0,500)}`); continue
       }
       const data = await res.json()
       const xid = data.BankTransactions?.[0]?.BankTransactionID
@@ -184,6 +188,7 @@ serve(async (req) => {
         BankTransactions: [{
           Type: 'SPEND',
           Date: e.date,
+          Contact: { Name: `${prop?.name || 'Property'} — Supplier` },
           BankAccount: { AccountID: bankAccountId },
           Reference: `${e.category || 'Expense'} — ${prop?.name || 'Property'}`,
           LineItems: [{
@@ -198,7 +203,7 @@ serve(async (req) => {
         method: 'POST', body: JSON.stringify(body),
       })
       if (!res.ok) {
-        failed++; errors.push(`expense ${e.id}: ${(await res.text()).slice(0,120)}`); continue
+        failed++; errors.push(`expense ${e.id}: ${(await res.text()).slice(0,500)}`); continue
       }
       const data = await res.json()
       const xid = data.BankTransactions?.[0]?.BankTransactionID
