@@ -35,7 +35,13 @@ function timeAgo(iso) {
   return `${Math.floor(sec / 86400)} days ago`
 }
 
-export default function PortfolioInsightsWidget() {
+// Props:
+//   companyId   — UUID or null. When set, insights are scoped to that
+//                 single company. Filter pill changes upstream cause an
+//                 automatic re-fetch (via useEffect dependency).
+//   companyName — display only, used in the header so the user knows
+//                 which company the insights describe.
+export default function PortfolioInsightsWidget({ companyId = null, companyName = null }) {
   const { T, darkMode } = useTheme()
   const [row, setRow]         = useState(null)
   const [loading, setLoading] = useState(true)
@@ -44,20 +50,20 @@ export default function PortfolioInsightsWidget() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await api.fetchLatestPortfolioInsights()
+      const r = await api.fetchLatestPortfolioInsights(companyId)
       setRow(r)
     } catch(e) { /* non-fatal — show empty state */ }
     setLoading(false)
-  }, [])
+  }, [companyId])
 
   useEffect(() => { load() }, [load])
 
   async function regenerate() {
     setBusy(true)
     try {
-      const r = await api.regeneratePortfolioInsights()
+      const r = await api.regeneratePortfolioInsights(companyId)
       setRow(r)
-      showAppToast('Insights refreshed')
+      showAppToast(companyName ? `Insights refreshed for ${companyName}` : 'Insights refreshed')
     } catch(e) {
       showAppToast(e.message || 'Could not refresh insights', 'error')
     }
@@ -74,13 +80,20 @@ export default function PortfolioInsightsWidget() {
     <div style={{ marginTop: 28, marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span aria-hidden="true">✨</span> Portfolio Insights
             <span style={{
               fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
               padding: '2px 7px', borderRadius: 10,
               background: T.gold + '22', color: T.gold, border: `1px solid ${T.gold}44`,
             }}>AI</span>
+            {companyName && (
+              <span style={{
+                fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                padding: '2px 8px', borderRadius: 10,
+                background: T.muted + '22', color: T.muted,
+              }}>· {companyName}</span>
+            )}
           </h2>
           {row?.generated_at && (
             <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
