@@ -1,13 +1,25 @@
 // Runs daily via pg_cron. Finds compliance items expiring within their reminder_days
 // window and emails the property owner.
-// Deploy: paste into Supabase Edge Functions dashboard as 'compliance-reminders'
+//
+// Email provider: Gmail API via Google Workspace service account with
+// Domain-Wide Delegation. See ./gmail.ts for the helper. Justin: set
+// GOOGLE_SA_KEY (full JSON contents) and GMAIL_SENDER (e.g.
+// noreply@ownproperly.com) as Supabase secrets.
+//
+// Migrated from Resend on 2026-05-24 to consolidate on the Google
+// Workspace we're already paying for. RESEND_API_KEY env var no longer
+// needed but kept in code as a fallback path during the transition.
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { sendGmail } from './gmail.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
+const GMAIL_SENDER = Deno.env.get('GMAIL_SENDER') || 'noreply@ownproperly.com'
+// Useful for testing without spamming real users
+const EMAIL_TEST_MODE = Deno.env.get('EMAIL_TEST_MODE') === '1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -160,15 +172,7 @@ serve(async (req) => {
         ? `⚠ ${certTypeLabel(userItems[0].cert_type || userItems[0].item_type)} expiring soon`
         : `⚠ ${userItems.length} compliance certificates need attention`
 
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: 'OwnProperly <hello@ownproperly.com>',
-            to: [profile.email],
-            subject,
-            html: `
+      const html = `
               <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 640px; margin: 0 auto; padding: 32px 24px; color: #1A2530;">
                 <div style="text-align:center;margin-bottom:24px">
                   <img src="https://www.ownproperly.com/logo.svg" alt="OwnProperly" style="height:36px"/>
@@ -200,12 +204,39 @@ serve(async (req) => {
                   Manage preferences in <a href="https://www.ownproperly.com/#/settings/notifications" style="color:#C8A84B">Settings → Notifications</a>
                 </p>
               </div>
-            `,
-          }),
-        })
-        if (!res.ok) {
-          const err = await res.text()
-          throw new Error(`Email send failed (${res.status}): ${err.slice(0, 200)}`)
+            `
+
+      try {
+        // In test mode: log the recipient + skip the actual send. Used during
+        // staging / dry-runs so we don't email real users while testing.
+        if (EMAIL_TEST_MODE) {
+          console.log(`[EMAIL_TEST_MODE] Would send "${subject}" to ${profile.email}`)
+        } else if (Deno.env.get('GOOGLE_SA_KEY')) {
+          // Primary path — Gmail API via Workspace service account
+          await sendGmail({
+            from: `OwnProperly <${GMAIL_SENDER}>`,
+            to: profile.email,
+            subject,
+            html,
+          })
+        } else if (RESEND_API_KEY) {
+          // Fallback — Resend, kept available until Gmail is fully verified
+          const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: `OwnProperly <${GMAIL_SENDER}>`,
+              to: [profile.email],
+              subject,
+              html,
+            }),
+          })
+          if (!res.ok) {
+            const err = await res.text()
+            throw new Error(`Resend send failed (${res.status}): ${err.slice(0, 200)}`)
+          }
+        } else {
+          throw new Error('No email provider configured — set GOOGLE_SA_KEY (preferred) or RESEND_API_KEY')
         }
 
         // Mirror into the in-app notification centre. One row per certificate
