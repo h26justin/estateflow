@@ -28,6 +28,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import BillingPage from './components/BillingPage'
 import PrivacyPolicy from './components/PrivacyPolicy'
 import TermsOfService from './components/TermsOfService'
+import SecurityPage from './components/SecurityPage'
 import OnboardingTour from './components/OnboardingTour'
 import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
@@ -455,6 +456,9 @@ export default function App() {
   )
   const [showTerms, setShowTerms] = useState(() =>
     typeof window !== 'undefined' && window.location.pathname.startsWith('/terms')
+  )
+  const [showSecurity, setShowSecurity] = useState(() =>
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/security')
   )
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
@@ -1164,6 +1168,12 @@ export default function App() {
   if (showTerms) return <TermsOfService onBack={() => {
     setShowTerms(false)
     if (window.location.pathname.startsWith('/terms')) {
+      window.history.replaceState({}, '', '/')
+    }
+  }}/>
+  if (showSecurity) return <SecurityPage onBack={() => {
+    setShowSecurity(false)
+    if (window.location.pathname.startsWith('/security')) {
       window.history.replaceState({}, '', '/')
     }
   }}/>

@@ -47,6 +47,47 @@ function jsonError(status: number, message: string) {
   })
 }
 
+// Map HMRC's standardised error codes to plain-English guidance. Full list:
+// https://developer.service.hmrc.gov.uk/api-documentation/docs/reference-guide
+function mapHmrcError(body: any, status: number): string {
+  // Multi-error response (validation failure on multiple fields)
+  if (Array.isArray(body?.errors) && body.errors.length > 0) {
+    const codes = body.errors.map((e: any) => `${e.code}${e.path ? ` (${e.path})` : ''}`).join(', ')
+    return `HMRC validation failed: ${codes}. ${body.errors[0]?.message || ''}`
+  }
+  const code = body?.code || ''
+  const message = body?.message || ''
+  const KNOWN: Record<string, string> = {
+    INVALID_REQUEST: 'HMRC rejected the request as invalid. Re-build the draft and try again.',
+    INVALID_NINO: 'Your National Insurance Number is invalid for HMRC. Check Settings and re-save.',
+    INVALID_BUSINESS_ID: 'Your HMRC property business ID is invalid or doesn\'t belong to this NINO.',
+    INVALID_TAX_YEAR: 'The tax year on this submission is rejected by HMRC.',
+    INVALID_DATE_RANGE: 'The submission period dates are outside the allowed range for this tax year.',
+    INVALID_PAYLOAD: 'HMRC rejected the submission shape. This is usually a software bug — please contact us.',
+    BUSINESS_VALIDATION_FAILURE: 'HMRC business rules rejected this submission. See response for details.',
+    DUPLICATE_SUBMISSION: 'You\'ve already filed this quarter. Use "Manage submission" on the HMRC website to amend.',
+    RULE_TAX_YEAR_NOT_SUPPORTED: 'This tax year isn\'t yet supported by HMRC\'s MTD API.',
+    RULE_TAX_YEAR_NOT_ENDED: 'You cannot file a submission for a tax year that hasn\'t ended yet.',
+    RULE_PERIOD_OVERLAP: 'This period overlaps a previous submission.',
+    CLIENT_OR_AGENT_NOT_AUTHORISED: 'HMRC says we\'re not authorised to file on this taxpayer\'s behalf. Reconnect HMRC in Settings.',
+    INVALID_BEARER_TOKEN: 'Your HMRC session has expired. Reconnect from Settings → HMRC.',
+    INVALID_CREDENTIALS: 'Our HMRC credentials are invalid. This is a server issue — please contact us.',
+    MATCHING_RESOURCE_NOT_FOUND: 'HMRC can\'t find a matching business for this NINO. Check the Business ID.',
+    TOO_MANY_REQUESTS: 'HMRC is rate-limiting us. Please try again in a few minutes.',
+    SERVER_ERROR: 'HMRC is having an internal problem. Try again shortly.',
+    SERVICE_UNAVAILABLE: 'HMRC is undergoing maintenance. Try again shortly.',
+    MISSING_FRAUD_PREVENTION_HEADERS: 'Browser fingerprint data was missing. Refresh the page and try again — if it persists, your browser may be blocking required APIs.',
+    INVALID_FRAUD_PREVENTION_HEADERS: 'HMRC rejected some of the device fingerprint headers. This is usually transient — try again.',
+  }
+  if (KNOWN[code]) return KNOWN[code]
+  if (status === 401) return 'HMRC authorisation failed. Reconnect from Settings → HMRC.'
+  if (status === 403) return 'HMRC denied access to this resource. Check your NINO + business ID.'
+  if (status === 404) return 'HMRC couldn\'t find the requested resource. Check your Business ID.'
+  if (status === 429) return 'HMRC is rate-limiting us. Wait a moment and retry.'
+  if (status >= 500) return 'HMRC is having a problem on their end. Try again shortly.'
+  return `HMRC error (${status})${code ? ' ' + code : ''}: ${message || 'Unknown'}`
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -61,7 +102,8 @@ serve(async (req) => {
   if (userErr || !caller) return jsonError(401, 'Invalid or expired session')
 
   try {
-    const { submission_id } = await req.json()
+    const reqBody = await req.json()
+    const { submission_id, fraud_headers = {} } = reqBody
     if (!submission_id) throw new Error('submission_id required')
 
     // Fetch submission + ownership check
@@ -146,15 +188,39 @@ serve(async (req) => {
                        : settings.property_business_type === 'fhl-property' ? 'uk' : 'uk'
     const url = `${HMRC_BASE_URL}/individuals/business/property/${businessType}/${encodeURIComponent(settings.nino)}/${encodeURIComponent(settings.mtd_business_id)}/period/${sub.tax_year}`
 
+    // ── Fraud Prevention Headers (mandatory per HMRC spec) ──
+    // Spec: https://developer.service.hmrc.gov.uk/guides/fraud-prevention/
+    //
+    // The Gov-Client-* headers come from the browser via the request body
+    // (we don't trust them — but they're sent by us, and HMRC's anti-fraud
+    // posture is "honest values from a compliant vendor"). The Gov-Vendor-*
+    // headers describe THIS server's place in the chain.
+
+    // Server-side vendor headers
+    const forwardedFor = req.headers.get('x-forwarded-for') || ''
+    const vendorPublicIp = forwardedFor.split(',')[0]?.trim() || ''
+    const vendorHeaders: Record<string, string> = {
+      'Gov-Vendor-Version': 'OwnProperly=1.0.0',
+      'Gov-Vendor-License-IDs': '', // populated if we ever ship a desktop client
+      'Gov-Vendor-Public-IP': vendorPublicIp,
+      'Gov-Vendor-Forwarded': `by=${vendorPublicIp}&for=${(fraud_headers['Gov-Client-Public-IP'] || '')}`,
+      'Gov-Vendor-Product-Name': 'OwnProperly',
+    }
+
+    // Combine client + vendor + the always-on auth headers. Empty / falsy
+    // entries are dropped — HMRC complains about literal empty values.
+    const allFraudHeaders: Record<string, string> = {}
+    for (const [k, v] of Object.entries({ ...fraud_headers, ...vendorHeaders })) {
+      if (typeof v === 'string' && v.length > 0) allFraudHeaders[k] = v
+    }
+
     const hmrcRes = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/vnd.hmrc.6.0+json',
         'Content-Type': 'application/json',
-        // Fraud-prevention headers (Gov-Client-*) MUST be added before
-        // production. HMRC rejects submissions missing them.
-        // See: https://developer.service.hmrc.gov.uk/guides/fraud-prevention/
+        ...allFraudHeaders,
       },
       body: JSON.stringify(payload),
     })
@@ -162,11 +228,16 @@ serve(async (req) => {
     const respBody = await hmrcRes.json().catch(() => ({}))
 
     if (!hmrcRes.ok) {
+      // Map HMRC-specific error codes to friendlier guidance per
+      // https://developer.service.hmrc.gov.uk/api-documentation/docs/reference-guide
+      // HMRC returns: { code: 'CLIENT_OR_AGENT_NOT_AUTHORISED', message: '...' }
+      // or { errors: [{ code, message, path }, ...] } for multi-field validation
+      const friendly = mapHmrcError(respBody, hmrcRes.status)
       await admin.from('mtd_submissions').update({
         status: 'rejected',
-        hmrc_response: { status: hmrcRes.status, body: respBody },
+        hmrc_response: { status: hmrcRes.status, body: respBody, friendly },
       }).eq('id', submission_id)
-      return jsonError(hmrcRes.status, 'HMRC rejected submission: ' + (respBody?.message || JSON.stringify(respBody).slice(0, 200)))
+      return jsonError(hmrcRes.status, friendly)
     }
 
     await admin.from('mtd_submissions').update({

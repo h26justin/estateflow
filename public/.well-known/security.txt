@@ -1,0 +1,22 @@
+# OwnProperly Security Disclosure
+# RFC 9116 — https://www.rfc-editor.org/rfc/rfc9116
+# Updated 24 May 2026
+
+Contact: mailto:security@ownproperly.com
+Contact: mailto:hello@ownproperly.com
+Expires: 2027-05-24T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://ownproperly.com/.well-known/security.txt
+Policy: https://ownproperly.com/security
+
+# We aim to acknowledge security reports within 1 business day and
+# resolve material issues within 30 days. Coordinated disclosure
+# preferred.
+#
+# We commit to:
+#   - Investigate all reports made in good faith
+#   - Not pursue legal action against good-faith researchers
+#   - Credit researchers (with permission) once an issue is resolved
+#   - Notify affected customers within 72 hours of confirmed breach
+#   - Notify the UK ICO within 72 hours of any reportable personal-data
+#     breach as required by UK GDPR Art. 33

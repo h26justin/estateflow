@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { loadCdnScript } from '../loadCdnScript'
+import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -3302,11 +3303,15 @@ export async function disconnectHmrc() {
 
 // Submit (or re-submit) a quarterly summary to HMRC via the mtd-submit
 // edge function. In sandbox mode the edge function returns a mock
-// reference instead of calling HMRC — letting us ship the full flow
-// while live HMRC credentials are pending.
+// reference; otherwise we collect Gov-Client-* fraud prevention headers
+// (mandatory per HMRC's Fraud Prevention Spec — submissions without
+// them are increasingly rejected in sandbox and always rejected in
+// production) and pass them along so the edge function can forward
+// them to HMRC.
 export async function submitMtdQuarter(submissionId) {
+  const fraudHeaders = await collectClientFraudHeaders()
   const { data, error } = await supabase.functions.invoke('mtd-submit', {
-    body: { submission_id: submissionId }
+    body: { submission_id: submissionId, fraud_headers: fraudHeaders }
   })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
