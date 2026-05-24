@@ -7,6 +7,7 @@ import BackupsPage from './BackupsPage'
 import CalcExplain from './CalcExplain'
 import CompanyInboxPanel from './CompanyInboxPanel'
 import InspectionsPanel from './InspectionsPanel'
+import IntegrationsPanel from './IntegrationsPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -584,6 +585,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     { key: 'inbox',         label: '📨 Statement Inbox' },
     { key: 'notifications', label: '🔔 Notifications' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
+    { key: 'integrations',  label: '🔌 Integrations' },
   ]
   const preferencesTabs = [
     { key: 'display',       label: '🖥 Display' },
@@ -905,6 +907,10 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {settingsTab==='billing' && (
         <BillingPage companies={companies} user={user} isPlatformAdmin={isPlatformAdmin}/>
+      )}
+
+      {settingsTab==='integrations' && (
+        <IntegrationsPanel T={T} mono={mono}/>
       )}
 
       {settingsTab==='navbar' && (

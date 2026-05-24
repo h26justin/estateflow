@@ -3271,3 +3271,56 @@ export async function submitMtdQuarter(submissionId) {
   return data
 }
 
+// ── XERO INTEGRATION ─────────────────────────────────────────────────────────
+
+export async function fetchXeroConnection() {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) return null
+  const { data, error } = await supabase
+    .from('xero_connections')
+    .select('tenant_id, tenant_name, expires_at, scopes, last_sync_at, last_sync_status, last_sync_error, created_at')
+    .eq('user_id', uid).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+// Start the Xero OAuth flow. Edge function returns an authorize URL with
+// the right state param; we redirect the user there. After consent Xero
+// posts back to xero-oauth-callback which writes the connection row and
+// redirects the user back into the app.
+export async function startXeroOAuth() {
+  const { data, error } = await supabase.functions.invoke('xero-oauth-callback', {
+    body: { action: 'start', return_to: window.location.href }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  if (!data?.authorize_url) throw new Error('Xero auth not configured — Justin needs to set XERO_CLIENT_ID')
+  window.location.href = data.authorize_url
+}
+
+export async function disconnectXero() {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+  const { error } = await supabase.from('xero_connections').delete().eq('user_id', uid)
+  if (error) throw error
+}
+
+export async function runXeroSync(direction = 'to_xero') {
+  const { data, error } = await supabase.functions.invoke('xero-sync', { body: { direction } })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
+export async function fetchXeroSyncLog(limit = 20) {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) return []
+  const { data, error } = await supabase
+    .from('xero_sync_log').select('*')
+    .eq('user_id', uid)
+    .order('started_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
