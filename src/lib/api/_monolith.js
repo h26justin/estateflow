@@ -3180,10 +3180,21 @@ export async function fetchDocumentExtraction(documentId) {
 export async function fetchMtdSettings() {
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) return null
+  // Explicit column list — never pull the OAuth tokens back to the client.
+  // Token presence is exposed as the boolean `hmrc_oauth_connected` so the
+  // UI can show whether the user has done the gov.uk handshake without
+  // sending the actual token over the wire.
   const { data, error } = await supabase
-    .from('mtd_settings').select('*').eq('user_id', uid).maybeSingle()
+    .from('mtd_settings')
+    .select('user_id, nino, mtd_business_id, sandbox_mode, cash_basis, property_business_type, hmrc_token_expires_at, created_at, updated_at')
+    .eq('user_id', uid).maybeSingle()
   if (error) throw error
-  return data
+  if (!data) return null
+  return {
+    ...data,
+    // Synthetic flag for UI gating — true if a non-expired access token exists.
+    hmrc_access_token: !!(data.hmrc_token_expires_at && new Date(data.hmrc_token_expires_at) > new Date()),
+  }
 }
 
 export async function saveMtdSettings(patch) {

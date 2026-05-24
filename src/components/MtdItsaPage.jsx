@@ -164,8 +164,13 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
       )}
 
       {settings?.sandbox_mode && settings?.nino && (
-        <div style={{ background: T.blue+'12', border: `1px solid ${T.blue}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.blue }}>
-          🧪 Sandbox mode — submissions are mocked. Live HMRC credentials pending.
+        <div style={{ background: T.blue+'12', border: `1px solid ${T.blue}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.blue, lineHeight: 1.5 }}>
+          🧪 <strong>Sandbox mode is ON.</strong> Submissions return a mock <code>SANDBOX-…</code> reference — nothing actually reaches HMRC. Untick "Sandbox mode" in Settings once you've also done the HMRC gov.uk OAuth flow (coming soon).
+        </div>
+      )}
+      {!settings?.sandbox_mode && settings?.nino && !settings?.hmrc_access_token && (
+        <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.amber, lineHeight: 1.5 }}>
+          ⚠ <strong>Sandbox mode off, but HMRC OAuth not connected yet.</strong> Submissions still fall back to mock until you sign in to HMRC via gov.uk to authorise OwnProperly to file on your behalf. Coming in the next release.
         </div>
       )}
 
@@ -195,6 +200,10 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
       {/* Quarter cards */}
       {quarters.map(q => {
+        // Pre-flight: what (if anything) is missing before we can file this
+        // quarter? Used to gate the Submit button + show inline guidance
+        // so users never get to "click Submit" and then hit a server error.
+        const issues = getReadinessIssues(settings)
         const sub = submissions.find(s => s.quarter_number === q.quarter)
         const status = quarterStatusLabel(q, sub)
         const toneColor = { green: T.green, blue: T.blue, amber: T.amber, red: T.red, muted: T.muted }[status.tone] || T.muted
@@ -232,20 +241,49 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
             {sub?.hmrc_reference && (
               <div style={{ fontFamily: MONO, fontSize: 10, color: T.green, marginBottom: 12 }}>
                 ✓ HMRC ref: {sub.hmrc_reference}
+                {sub.hmrc_reference.startsWith('SANDBOX-') && (
+                  <span style={{ color: T.muted, marginLeft: 6 }}>
+                    (mock — not yet sent to HMRC; needs gov.uk OAuth)
+                  </span>
+                )}
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Inline pre-flight gate. Only shows for quarters that have a
+                draft ready (otherwise the user hasn't tried to file yet so
+                the warning would be premature). */}
+            {cached && !isLocked && issues.length > 0 && (
+              <div style={{ background: T.amber+'14', border:`1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontFamily: MONO, fontSize: 11, color: T.amber, lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  ⚠ Can't submit yet — finish setup first:
+                </div>
+                <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>
+                  {issues.map((i, idx) => <li key={idx}>{i}</li>)}
+                </ul>
+                <button onClick={() => setShowSettings(true)}
+                  style={{ background: 'none', border: `1px solid ${T.amber}66`, borderRadius: 6, padding: '4px 10px', fontFamily: MONO, fontSize: 10, color: T.amber, cursor: 'pointer', fontWeight: 700, marginTop: 2 }}>
+                  ⚙ Open settings
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {!isLocked && (
                 <button onClick={() => previewQ(q)} className="btn btn-ghost" style={{ fontSize: 11 }}
                   disabled={!!busy}>
                   {busy === `preview-${q.quarter}` ? 'Calculating…' : (cached ? '🔄 Refresh preview' : '👀 Build draft')}
                 </button>
               )}
-              {cached && !isLocked && settings?.nino && (
-                <button onClick={() => submitToHmrc(sub)} className="btn btn-gold" style={{ fontSize: 11 }}
-                  disabled={!!busy || !sub?.id}>
-                  {busy === `submit-${q.quarter}` ? 'Submitting…' : (settings?.sandbox_mode ? '🧪 Submit (sandbox)' : '📤 Submit to HMRC')}
+              {cached && !isLocked && (
+                <button
+                  onClick={() => submitToHmrc(sub)}
+                  className="btn btn-gold"
+                  style={{ fontSize: 11, opacity: issues.length > 0 ? 0.4 : 1, cursor: issues.length > 0 ? 'not-allowed' : 'pointer' }}
+                  disabled={!!busy || !sub?.id || issues.length > 0}
+                  title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode ? 'Submits a mock response (not sent to HMRC)' : 'Submits to HMRC')}>
+                  {busy === `submit-${q.quarter}`
+                    ? 'Submitting…'
+                    : (settings?.sandbox_mode ? '🧪 Submit (sandbox)' : '📤 Submit to HMRC')}
                 </button>
               )}
             </div>
@@ -405,4 +443,17 @@ function prettifyHmrcKey(k) {
 
 function formatDate(s) {
   return new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// Returns a list of human-readable reasons why we can't submit yet.
+// Empty list = ready to submit. Each string is rendered as a bullet.
+function getReadinessIssues(settings) {
+  const issues = []
+  if (!settings?.nino || !String(settings.nino).trim()) {
+    issues.push('Save your National Insurance Number')
+  }
+  if (!settings?.mtd_business_id || !String(settings.mtd_business_id).trim()) {
+    issues.push('Save your HMRC Property Business ID')
+  }
+  return issues
 }
