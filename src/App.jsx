@@ -535,6 +535,9 @@ export default function App() {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
   })
   const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
+  // 'individual' | 'limited_company' | 'mixed' | null. Drives feature visibility —
+  // limited_company users don't see MTD ITSA (they file Corp Tax, not Self Assessment).
+  const [accountType, setAccountType] = useState(null)
   const [yieldBasis, setYieldBasis]      = useState('cost') // 'cost' = purchase+refurb, 'value' = current value
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginMode, setLoginMode] = useState('login')
@@ -804,10 +807,11 @@ export default function App() {
         await loadUserTheme(user.id, user.email)
         // Load nav preferences
         try {
-          const { data: prof } = await supabase.from('user_profiles').select('nav_items, yield_basis').eq('user_id', user.id).single()
+          const { data: prof } = await supabase.from('user_profiles').select('nav_items, yield_basis, account_type').eq('user_id', user.id).single()
           if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
           else setUserNavPrefs(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
           if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
+          setAccountType(prof?.account_type || null)
         } catch(e) { logError('loadData:nav_prefs', e) }
         // Load platform announcements
         try {
@@ -1430,7 +1434,12 @@ export default function App() {
     {key:'mtd',        label:'MTD Tax',      icon:'🏛️', short:'MTD',      required:false},
     {key:'settings',   label:'Settings',     icon:'⚙',  short:'Settings', required:true},
   ]
-  const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
+  // MTD ITSA only applies to individuals/sole-traders. Limited-company landlords
+  // file Corporation Tax, not Self Assessment — hide the page from their nav so
+  // their UI isn't cluttered with an irrelevant feature.
+  const navItems = ALL_NAV
+    .filter(n => n.required || userNavPrefs.includes(n.key))
+    .filter(n => n.key !== 'mtd' || accountType !== 'limited_company')
 
   function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
     const mono = MONO
@@ -2473,9 +2482,9 @@ export default function App() {
 
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
-          {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
+          {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags} selectedReportId={selectedReportId} onSelectReport={setSelectedReportId}/></div>}
-          {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties}/></div>}
+          {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
           {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}

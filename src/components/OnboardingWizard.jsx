@@ -44,12 +44,12 @@ const CSS = `
   .ob-step-dot.done{background:#2D3C4A;}
 `
 
-// Progress indicator: shows where we are in the 3-stage flow
+// Progress indicator: shows where we are in the 4-stage flow
 function ProgressDots({ current }) {
-  // current: 0 = choose, 1 = create/join, 2 = first_property/done
+  // current: 0 = choose, 1 = create/join, 2 = tax_setup, 3 = first_property/done
   return (
     <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 20 }}>
-      {[0, 1, 2].map(i => (
+      {[0, 1, 2, 3].map(i => (
         <div key={i} className={`ob-step-dot ${i === current ? 'active' : i < current ? 'done' : ''}`}/>
       ))}
     </div>
@@ -85,7 +85,8 @@ export default function OnboardingWizard({ user, onComplete }) {
 
   const progress = step === 'choose' ? 0
     : step === 'create' || step === 'join' ? 1
-    : 2  // first_property | done
+    : step === 'tax_setup' ? 2
+    : 3  // first_property | done
 
   function handleNameChange(val) {
     setCompanyName(val)
@@ -120,7 +121,7 @@ export default function OnboardingWizard({ user, onComplete }) {
       } catch (e) {}
       setSuccessCo(companyName.trim())
       setCreatedCompanyId(company)
-      setStep('first_property')
+      setStep('tax_setup')
     } catch (e) {
       setError(e.message)
     }
@@ -134,10 +135,23 @@ export default function OnboardingWizard({ user, onComplete }) {
     try {
       const result = await api.redeemCompanyInvite(code)
       setSuccessCo(result?.company_name || 'your company')
-      // Joiners go straight to dashboard — the company already has data they'll see.
-      setStep('done')
+      setStep('tax_setup')
     } catch (e) {
       setError(e.message || 'Could not redeem that invite code')
+    }
+    setSaving(false)
+  }
+
+  async function handlePickAccountType(type) {
+    setSaving(true); setError('')
+    try {
+      // Persist the choice. Drives MTD nav visibility in App.jsx.
+      await api.upsertUserProfile(user.id, user.email, { account_type: type })
+      // Creators continue to the first-property step; joiners skip it
+      // (the company they joined already has properties).
+      setStep(createdCompanyId ? 'first_property' : 'done')
+    } catch (e) {
+      setError(e.message || 'Could not save your selection')
     }
     setSaving(false)
   }
@@ -330,6 +344,51 @@ export default function OnboardingWizard({ user, onComplete }) {
                 ← Back
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ── STEP: TAX SETUP ── */}
+        {/* One quick question that decides which features appear in the user's
+            nav. Individuals / sole-traders get MTD ITSA (mandate hits 6 Apr
+            2026). Limited-company landlords file Corp Tax, not Self
+            Assessment, so we hide the MTD page from their nav entirely. */}
+        {step === 'tax_setup' && (
+          <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
+            <div style={{ fontSize: 24, marginBottom: 6 }}>🏛️</div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
+              How do you hold your properties?
+            </h2>
+            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 24, lineHeight: 1.6 }}>
+              We'll tailor your nav so you only see the tax features you actually need. You can change this any time in Settings.
+            </p>
+
+            {[
+              { key: 'individual',      icon: '👤', title: 'As an individual (sole-trader)',
+                desc: 'You file Self Assessment in your own name. MTD ITSA quarterly filing applies from 6 April 2026 if your rental income tops £50k.' },
+              { key: 'limited_company', icon: '🏢', title: 'Via a limited company (SPV)',
+                desc: 'Property sits in a company — you file Corporation Tax (CT600) annually. MTD ITSA doesn\'t apply to companies, so we\'ll hide it.' },
+              { key: 'mixed',           icon: '🔀', title: 'A mix of both',
+                desc: 'Some personal, some in a company. We\'ll show every tax feature so you can pick what\'s relevant.' },
+            ].map(opt => (
+              <button key={opt.key} className="ob-choice" onClick={() => handlePickAccountType(opt.key)} disabled={saving}
+                style={{ marginBottom: 10 }}>
+                <span className="ob-choice-icon">{opt.icon}</span>
+                <div className="ob-choice-title">{opt.title}</div>
+                <div className="ob-choice-desc">{opt.desc}</div>
+              </button>
+            ))}
+
+            {error && (
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginTop: 12 }}>
+                {error}
+              </div>
+            )}
+
+            <button onClick={() => setStep(createdCompanyId ? 'first_property' : 'done')}
+              disabled={saving}
+              style={{ background: 'none', border: 'none', fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, cursor: 'pointer', marginTop: 14, padding: 6 }}>
+              Skip for now — I'll set this up later
+            </button>
           </div>
         )}
 

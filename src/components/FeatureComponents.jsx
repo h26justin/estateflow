@@ -397,7 +397,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis}) {
+export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType}) {
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -669,6 +669,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 {profileSaving ? 'Saving…' : 'Save Profile'}
               </button>
             </div>
+
+            <AccountTypePanel T={T} mono={mono} user={user} accountType={accountType} setAccountType={setAccountType}/>
+
             <div style={sectionStyle}>
               <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>App Tour</div>
               <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:12}}>Replay the getting started tour at any time.</div>
@@ -4257,6 +4260,65 @@ function ReferralPanel({ user, T, showToast }) {
               </span>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── ACCOUNT TYPE PANEL ──────────────────────────────────────────────
+// Lets the user say whether they file taxes as a sole-trader (individual),
+// via a limited company (SPV), or both. Used to hide MTD ITSA from the
+// nav for limited-company users (they file Corp Tax instead).
+function AccountTypePanel({ T, mono, user, accountType, setAccountType }) {
+  const [saving, setSaving] = useState(false)
+  const options = [
+    { key: 'individual',      label: '👤 Sole-trader / individual',  desc: 'You file Self Assessment as a person. MTD ITSA applies from Apr 2026.' },
+    { key: 'limited_company', label: '🏢 Limited company (SPV)',     desc: 'Property held in a company — you file Corporation Tax annually. MTD ITSA does NOT apply.' },
+    { key: 'mixed',           label: '🔀 Both',                       desc: 'Some properties personal, some in a company. We\'ll show everything.' },
+  ]
+  async function pick(key) {
+    setSaving(true)
+    try {
+      await api.upsertUserProfile(user.id, user.email, { account_type: key })
+      setAccountType(key)
+      showAppToast('Saved')
+    } catch (e) {
+      showAppToast('Save failed: ' + e.message, 'error')
+    }
+    setSaving(false)
+  }
+  return (
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
+      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+        Tax setup
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.5 }}>
+        How do you hold your properties? Drives which features appear in your nav.
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {options.map(o => {
+          const active = accountType === o.key
+          return (
+            <button key={o.key} onClick={() => pick(o.key)} disabled={saving}
+              style={{
+                textAlign: 'left', padding: '12px 14px',
+                background: active ? T.gold + '14' : T.bg,
+                border: `1px solid ${active ? T.gold + '88' : T.border}`,
+                borderRadius: 10, cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: active ? T.gold : T.text, marginBottom: 3 }}>
+                {o.label} {active && <span style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginLeft: 4 }}>✓ selected</span>}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.45 }}>{o.desc}</div>
+            </button>
+          )
+        })}
+      </div>
+      {!accountType && (
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+          Not picked yet — by default we show everything.
         </div>
       )}
     </div>

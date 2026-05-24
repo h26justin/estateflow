@@ -28,7 +28,7 @@ import {
 // landlords. Charging extra for it would push customers to dedicated
 // MTD tools (Hammock, Untied, etc).
 
-export default function MtdItsaPage({ properties = [] }) {
+export default function MtdItsaPage({ properties = [], accountType = null }) {
   const { T } = useTheme()
   const [settings, setSettings] = useState(null)
   const [taxYear, setTaxYear] = useState(currentTaxYear())
@@ -138,8 +138,20 @@ export default function MtdItsaPage({ properties = [] }) {
         </p>
       </div>
 
+      {/* Limited-company warning — they shouldn't be on this page */}
+      {accountType === 'limited_company' && (
+        <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: T.amber, marginBottom: 4 }}>
+            ⚠ MTD ITSA doesn't apply to limited companies
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.5 }}>
+            You've told us you operate via a limited company. Your tax return is Corporation Tax (CT600) filed annually with HMRC — not the quarterly MTD ITSA regime this page is for. If you also hold properties personally, switch your account type to "Both" in <strong>Settings → Tax setup</strong>.
+          </div>
+        </div>
+      )}
+
       {/* HMRC connection banner */}
-      {!settings?.nino && (
+      {!settings?.nino && accountType !== 'limited_company' && (
         <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: T.amber, marginBottom: 4 }}>⚠ Set up your HMRC details</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 10, lineHeight: 1.5 }}>
