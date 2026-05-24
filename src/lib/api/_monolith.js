@@ -3172,3 +3172,102 @@ export async function fetchDocumentExtraction(documentId) {
   return data
 }
 
+// ── MTD ITSA (Making Tax Digital — Income Tax Self Assessment) ────────────────
+// HMRC mandate hits 6 Apr 2026 for landlords > £50k income, 6 Apr 2027 > £30k.
+// We provide per-user HMRC settings (NINO + business ID + OAuth tokens) and
+// per-quarter submission rows with the aggregated income/expenses snapshot.
+
+export async function fetchMtdSettings() {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) return null
+  const { data, error } = await supabase
+    .from('mtd_settings').select('*').eq('user_id', uid).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function saveMtdSettings(patch) {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+  // Never let the client write OAuth tokens directly — those land via the
+  // mtd-submit edge function during the HMRC OAuth callback.
+  const safe = { ...patch }
+  delete safe.hmrc_access_token
+  delete safe.hmrc_refresh_token
+  delete safe.hmrc_token_expires_at
+  const { data, error } = await supabase
+    .from('mtd_settings')
+    .upsert({ user_id: uid, ...safe }, { onConflict: 'user_id' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchMtdSubmissions(taxYear) {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) return []
+  let q = supabase.from('mtd_submissions').select('*').eq('user_id', uid)
+  if (taxYear) q = q.eq('tax_year', taxYear)
+  const { data, error } = await q.order('quarter_number', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function upsertMtdSubmission({ tax_year, quarter_number, period_from, period_to, deadline, summary_json, status = 'draft' }) {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+  const { data, error } = await supabase
+    .from('mtd_submissions')
+    .upsert({
+      user_id: uid, tax_year, quarter_number, period_from, period_to, deadline,
+      summary_json, status,
+    }, { onConflict: 'user_id,tax_year,quarter_number' })
+    .select().single()
+  if (error) throw error
+  return data
+}
+
+// Aggregate the user's rent + expenses for a given period across ALL their
+// properties. Returns the raw rows so the caller can run buildQuarterlySummary
+// from src/lib/mtdItsa.js client-side (keeps tax logic in one place).
+export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds = null }) {
+  const uid = (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+
+  // Default: all user's non-deleted properties
+  let propIds = propertyIds
+  if (!propIds) {
+    const { data: props, error: pe } = await supabase
+      .from('properties').select('id').eq('user_id', uid).is('deleted_at', null)
+    if (pe) throw pe
+    propIds = (props || []).map(p => p.id)
+  }
+  if (propIds.length === 0) return { payments: [], expenses: [] }
+
+  const [paymentsRes, expensesRes] = await Promise.all([
+    supabase.from('rent_payments').select('id, property_id, paid_amount, period_start, period_end, payment_date, status')
+      .in('property_id', propIds)
+      .or(`and(payment_date.gte.${periodFrom},payment_date.lte.${periodTo}),and(period_start.gte.${periodFrom},period_start.lte.${periodTo})`),
+    supabase.from('property_expenses').select('id, property_id, amount, date, category, description')
+      .in('property_id', propIds)
+      .is('deleted_at', null)
+      .gte('date', periodFrom).lte('date', periodTo),
+  ])
+  if (paymentsRes.error) throw paymentsRes.error
+  if (expensesRes.error) throw expensesRes.error
+  return { payments: paymentsRes.data || [], expenses: expensesRes.data || [] }
+}
+
+// Submit (or re-submit) a quarterly summary to HMRC via the mtd-submit
+// edge function. In sandbox mode the edge function returns a mock
+// reference instead of calling HMRC — letting us ship the full flow
+// while live HMRC credentials are pending.
+export async function submitMtdQuarter(submissionId) {
+  const { data, error } = await supabase.functions.invoke('mtd-submit', {
+    body: { submission_id: submissionId }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+

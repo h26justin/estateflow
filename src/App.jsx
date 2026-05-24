@@ -18,6 +18,7 @@ const DealsPage       = lazy(() => import('./components/DealsPage'))
 const DayTrackerPage  = lazy(() => import('./components/DayTrackerPage'))
 const PropertyMap     = lazy(() => import('./components/PropertyMap'))
 const InsurancePage   = lazy(() => import('./components/InsurancePage'))
+const MtdItsaPage     = lazy(() => import('./components/MtdItsaPage'))
 import { StatementImporter } from './components/StatementImporter'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
@@ -1114,6 +1115,7 @@ export default function App() {
       { key:'deals',      icon:'🎯', label:'Deals' },
       { key:'insurance',  icon:'🛡', label:'Insurance' },
       { key:'reports',    icon:'📊', label:'Reports' },
+      { key:'mtd',        icon:'🏛️', label:'MTD Tax' },
       { key:'settings',   icon:'⚙',  label:'Settings' },
       { key:'feedback',   icon:'💬', label:'Send Feedback' },
     ]
@@ -1448,6 +1450,7 @@ export default function App() {
     {key:'deals',      label:'Deals',        icon:'🎯', short:'Deals',    required:false},
     {key:'insurance',  label:'Insurance',    icon:'🛡', short:'Insurance',required:false},
     {key:'reports',    label:'Reports',      icon:'📊', short:'Reports',  required:false},
+    {key:'mtd',        label:'MTD Tax',      icon:'🏛️', short:'MTD',      required:false},
     {key:'settings',   label:'Settings',     icon:'⚙',  short:'Settings', required:true},
   ]
   const navItems = ALL_NAV.filter(n => n.required || userNavPrefs.includes(n.key))
@@ -2495,6 +2498,7 @@ export default function App() {
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags} selectedReportId={selectedReportId} onSelectReport={setSelectedReportId}/></div>}
+          {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties}/></div>}
           {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}

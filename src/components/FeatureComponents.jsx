@@ -547,10 +547,11 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     {key:'rent',        label:'Rent Tracker', icon:'💷'},
     {key:'deals',       label:'Deals',        icon:'🎯'},
     {key:'reports',     label:'Reports',      icon:'📊'},
+    {key:'mtd',         label:'MTD Tax',      icon:'🏛️'},
     {key:'contractors', label:'Contractors',  icon:'🔧'},
   ]
 
-  const ALL_DEFAULT_NAV = ['dashboard','properties','companies','rent','deals','reports','contractors','settings']
+  const ALL_DEFAULT_NAV = ['dashboard','properties','companies','rent','deals','reports','mtd','contractors','settings']
   async function saveNavPref(key, enabled) {
     const current = (userNavPrefs||[]).length > 0 ? userNavPrefs : ALL_DEFAULT_NAV
     const next = enabled
