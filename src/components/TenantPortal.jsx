@@ -482,9 +482,11 @@ function TenantMaintenance({ property, user, brandColor }) {
     setUploading(false)
   }
 
+  const [submitErr, setSubmitErr] = useState('')
   async function submit() {
     if (!title.trim()) return
     setSubmitting(true)
+    setSubmitErr('')
     try {
       const job = await api.submitMaintenanceRequest(property.id, user.id, title, desc, priority)
       if (photos.length > 0) await api.attachPhotosToJob(job.id, photos)
@@ -492,7 +494,13 @@ function TenantMaintenance({ property, user, brandColor }) {
       setTitle(''); setDesc(''); setPriority('normal'); setPhotos([])
       setShowForm(false); setSuccess(true)
       setTimeout(()=>setSuccess(false),4000)
-    } catch(e) {}
+    } catch(e) {
+      // Don't silently swallow. A tenant who thinks they've reported a
+      // broken boiler and never gets a response will assume the landlord
+      // is ignoring them. Surface the error inline so they can retry.
+      console.error('Maintenance request submit failed', e)
+      setSubmitErr(e?.message || 'Could not send your request. Please check your connection and try again.')
+    }
     setSubmitting(false)
   }
 
@@ -566,10 +574,16 @@ function TenantMaintenance({ property, user, brandColor }) {
             <button onClick={submit} disabled={submitting||!title.trim()} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px 22px',borderRadius:8,border:'none',background:submitting||!title.trim()?'#ccc':brandColor,color:'white',cursor:'pointer'}}>
               {submitting?'Submitting…':'Submit request'}
             </button>
-            <button onClick={()=>{setShowForm(false);setPhotos([])}} style={{fontFamily:mono,fontSize:12,padding:'10px 16px',borderRadius:8,border:'1px solid #e0e0e0',background:'transparent',color:'#999',cursor:'pointer'}}>
+            <button onClick={()=>{setShowForm(false);setPhotos([]);setSubmitErr('')}} style={{fontFamily:mono,fontSize:12,padding:'10px 16px',borderRadius:8,border:'1px solid #e0e0e0',background:'transparent',color:'#999',cursor:'pointer'}}>
               Cancel
             </button>
           </div>
+          {submitErr && (
+            <div role="alert" aria-live="assertive"
+              style={{marginTop:12,fontFamily:mono,fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'10px 14px'}}>
+              {submitErr}
+            </div>
+          )}
         </Card>
       )}
 

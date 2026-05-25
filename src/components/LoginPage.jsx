@@ -130,9 +130,11 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
       <div style={{ background:WHITE, border: mode==='signup' ? '1.5px solid #C8A84B66' : `1.5px solid ${BORDER}`, borderRadius:20, padding:'32px 28px', boxShadow: mode==='signup' ? '0 4px 32px rgba(200,168,75,0.15)' : '0 4px 32px rgba(45,60,74,0.12)', transition:'border-color 0.3s, box-shadow 0.3s' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background: mode==='signup' ? '#C8A84B' : '#2ECC8A', flexShrink:0 }}/>
-          <h2 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE }}>
+          {/* h1 — primary page heading. Previously h2 with no h1, which
+              fails WCAG 1.3.1 / SC 2.4.1 (no top-level landmark). */}
+          <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0 }}>
             {mode==='login' ? 'Sign in to your account' : 'Create your free account'}
-          </h2>
+          </h1>
         </div>
         <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:24 }}>
           {mode==='login' ? 'Welcome back.' : 'Start your 14-day free trial — no card needed.'}
@@ -143,44 +145,55 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
             <>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 <div>
-                  <label className="lp-label">First Name</label>
-                  <input className="lp-input" type="text" value={firstName} required
+                  <label className="lp-label" htmlFor="lp-firstname">First Name</label>
+                  <input id="lp-firstname" className="lp-input" type="text" value={firstName} required
+                    aria-required="true" autoComplete="given-name"
                     autoFocus onChange={e=>setFirstName(e.target.value)} placeholder="Jane"/>
                 </div>
                 <div>
-                  <label className="lp-label">Last Name</label>
-                  <input className="lp-input" type="text" value={lastName} required
+                  <label className="lp-label" htmlFor="lp-lastname">Last Name</label>
+                  <input id="lp-lastname" className="lp-input" type="text" value={lastName} required
+                    aria-required="true" autoComplete="family-name"
                     onChange={e=>setLastName(e.target.value)} placeholder="Smith"/>
                 </div>
               </div>
               <div>
-                <label className="lp-label">Phone <span style={{textTransform:'none',letterSpacing:0,fontSize:10,opacity:0.7}}>(optional)</span></label>
-                <input className="lp-input" type="tel" value={phone}
+                <label className="lp-label" htmlFor="lp-phone">Phone <span style={{textTransform:'none',letterSpacing:0,fontSize:10,opacity:0.7}}>(optional)</span></label>
+                <input id="lp-phone" className="lp-input" type="tel" value={phone}
+                  autoComplete="tel" inputMode="tel"
                   onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 900000"/>
               </div>
             </>
           )}
           <div>
-            <label className="lp-label">Email Address</label>
-            <input className="lp-input" type="email" value={email} required
+            <label className="lp-label" htmlFor="lp-email">Email Address</label>
+            <input id="lp-email" className="lp-input" type="email" value={email} required
+              aria-required="true" autoComplete="email" inputMode="email"
               autoFocus={mode!=='signup'} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/>
           </div>
           <div>
-            <label className="lp-label">Password {mode==='signup'&&<span style={{textTransform:'none',letterSpacing:0}}>(min. 8 characters)</span>}</label>
+            <label className="lp-label" htmlFor="lp-password">Password {mode==='signup'&&<span style={{textTransform:'none',letterSpacing:0}}>(min. 8 characters)</span>}</label>
             <div style={{ position:'relative' }}>
-              <input className="lp-input" type={showPw?'text':'password'} value={password}
-                required minLength={8} onChange={e=>setPassword(e.target.value)}
+              <input id="lp-password" className="lp-input" type={showPw?'text':'password'} value={password}
+                required minLength={8} aria-required="true"
+                autoComplete={mode==='login' ? 'current-password' : 'new-password'}
+                onChange={e=>setPassword(e.target.value)}
                 placeholder="••••••••" style={{ paddingRight:52 }}/>
-              <button type="button" onClick={()=>setShowPw(s=>!s)} style={{
-                position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
-                background:'none', border:'none', cursor:'pointer',
-                fontFamily:"'DM Mono',monospace", fontSize:10, color:MUTED
-              }}>{showPw?'HIDE':'SHOW'}</button>
+              <button type="button" onClick={()=>setShowPw(s=>!s)}
+                aria-label={showPw ? 'Hide password' : 'Show password'}
+                aria-pressed={showPw}
+                style={{
+                  position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                  background:'none', border:'none', cursor:'pointer',
+                  fontFamily:"'DM Mono',monospace", fontSize:10, color:MUTED
+                }}>{showPw?'HIDE':'SHOW'}</button>
             </div>
           </div>
 
-          {error&&<div style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-          {success&&<div style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#16A34A', background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
+          {/* aria-live so screen readers announce auth errors / success
+              messages as they appear; without this they were silent. */}
+          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+          {success&&<div role="status" aria-live="polite" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#16A34A', background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
 
           <button type="submit" className="lp-btn" disabled={loading}
             style={{ marginTop:4, background: loading ? '#A3A8AC' : mode==='signup' ? '#C8A84B' : '#2D3C4A', color: mode==='signup' && !loading ? '#1A2530' : 'white' }}>

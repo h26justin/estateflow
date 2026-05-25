@@ -40,8 +40,9 @@ function isPropertyOverdue(prop) {
   const payments = prop.rent_payments || []
   const now = new Date()
   for (const p of payments) {
-    if (p.status === 'missed' || p.status === 'late') {
-      // A row marked missed/late is overdue regardless of date
+    if (p.status === 'overdue' || p.status === 'missed' || p.status === 'late') {
+      // A row marked overdue/late is overdue regardless of date.
+      // 'missed' kept for backward-compat with pre-2026-05-25 rows.
       return true
     }
   }
@@ -61,19 +62,20 @@ function isPropertyOverdue(prop) {
 
 const STATUS_COLOR = {
   paid:    '#2ECC8A',
-  missed:  '#E05555',
+  overdue: '#E05555',
+  missed:  '#E05555',  // legacy alias for pre-2026-05-25 rows
   late:    '#E0943A',
   refurb:  '#4B8FE0',
   void:    '#888EA8',
   future:  'transparent',
 }
 
-const STATUS_LABEL = { paid:'Paid', missed:'Missed', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
+const STATUS_LABEL = { paid:'Paid', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
 
 // Statuses the user can manually set via click. We deliberately omit 'future'
 // (clicking a future day doesn't make sense) and 'refurb' (set elsewhere via
 // the property's refurb tab so accidental clicks don't change refurb state).
-const SETTABLE_STATUSES = ['paid', 'late', 'missed', 'void']
+const SETTABLE_STATUSES = ['paid', 'late', 'overdue', 'void']
 
 export default function DayTrackerPage({ companies, properties, setProperties, showToast, onBack }) {
   const { T } = useTheme()

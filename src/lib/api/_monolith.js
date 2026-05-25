@@ -1018,7 +1018,65 @@ export async function fetchDocuments(propertyId) {
   return data || []
 }
 
+// File upload validation — applied to every Storage write so the bucket
+// can't be used as free file hosting / malware drop / runaway-bill source.
+//
+// Limits:
+//   * Per-file size: 25 MB (covers a typical Gas Safety PDF, tenancy
+//     agreement, large scanned mortgage offer). Images get a tighter
+//     cap because the receipt-scan flow always re-encodes them anyway.
+//   * MIME type allow-list: documents (pdf, docx, doc, xlsx, xls, csv,
+//     txt), images (jpeg, png, webp, heic, heif), email exports (eml,
+//     msg). Everything else is rejected at the client before any byte
+//     hits Storage.
+//
+// The extension is taken from the filename for the storage path, but
+// the MIME check is what gates the upload — extension alone is
+// trivially spoofed.
+const MAX_FILE_BYTES   = 25 * 1024 * 1024     // 25 MB
+const MAX_IMAGE_BYTES  = 10 * 1024 * 1024     // 10 MB for raw images
+const ALLOWED_MIME = new Set([
+  // documents
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+  'text/plain',
+  // images
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+  // emails (statement importer)
+  'message/rfc822', 'application/vnd.ms-outlook',
+])
+function validateUpload(file) {
+  if (!file) throw new Error('No file selected.')
+  if (file.size === 0) throw new Error('That file is empty (0 bytes).')
+  const isImage = (file.type || '').startsWith('image/')
+  const cap = isImage ? MAX_IMAGE_BYTES : MAX_FILE_BYTES
+  if (file.size > cap) {
+    const mb = (cap / 1024 / 1024).toFixed(0)
+    throw new Error(`File is too large. Maximum size for ${isImage ? 'images' : 'documents'} is ${mb} MB.`)
+  }
+  // Browsers occasionally leave file.type empty (e.g. some Safari paths
+  // for .heic, or files dropped from Finder with no extension). Allow that
+  // ONLY if the extension is in our allow-list, since extension is at
+  // least a weak signal. Otherwise hard-reject.
+  const type = (file.type || '').toLowerCase()
+  if (type && !ALLOWED_MIME.has(type)) {
+    throw new Error(`That file type (${type}) isn't allowed. Use PDF, Word, Excel, CSV, or images.`)
+  }
+  if (!type) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    const okExts = ['pdf','doc','docx','xls','xlsx','csv','txt','jpg','jpeg','png','webp','heic','heif','eml','msg']
+    if (!okExts.includes(ext)) {
+      throw new Error('That file type isn\'t allowed. Use PDF, Word, Excel, CSV, or images.')
+    }
+  }
+}
+
 export async function uploadDocument(propertyId, propertyName, file, userId) {
+  validateUpload(file)
   const ext = file.name.split('.').pop()
   // Path layout: {user_id}/properties/{propertyId}/{ts}.{ext}
   // Top-level folder = user id, so the storage RLS policy (which checks
@@ -1080,6 +1138,7 @@ export async function fetchCompanyDocuments(companyId) {
 }
 
 export async function uploadCompanyDocument(companyId, file, userId) {
+  validateUpload(file)
   const ext = file.name.split('.').pop()
   // {user_id}/company_documents/{companyId}/{ts}.{ext} — see uploadDocument for layout rationale
   const path = `${userId}/company_documents/${companyId}/${Date.now()}.${ext}`
@@ -1790,6 +1849,7 @@ export async function fetchDealDocuments(dealId) {
 }
 
 export async function uploadDealDocument(dealId, file, userId) {
+  validateUpload(file)
   const ext = file.name.split('.').pop()
   // {user_id}/deals/{dealId}/{ts}.{ext} — see uploadDocument for layout rationale
   const path = `${userId}/deals/${dealId}/${Date.now()}.${ext}`
@@ -2608,8 +2668,9 @@ export function calcPropertyHealthScore(property, compliance=[], tenancy=null, m
     else if (daysLeft < 90) { score -= 3; issues.push({ type:'info', text:`${c.title || c.item_type} expires in ${Math.round(daysLeft)} days` }) }
   })
 
-  // Rent arrears (max -25 points)
-  const overduePayments = rentPayments.filter(p => p.status === 'overdue')
+  // Rent arrears (max -25 points). 'missed' is the legacy value for
+  // pre-2026-05-25 rows; we accept either until the DB is fully migrated.
+  const overduePayments = rentPayments.filter(p => p.status === 'overdue' || p.status === 'missed')
   if (overduePayments.length > 0) {
     score -= Math.min(25, overduePayments.length * 10)
     issues.push({ type:'error', text:`${overduePayments.length} overdue rent payment${overduePayments.length>1?'s':''}` })

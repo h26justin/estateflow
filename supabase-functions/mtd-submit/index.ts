@@ -27,6 +27,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { encryptToken, resolveToken } from './encryption.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -123,7 +124,18 @@ serve(async (req) => {
     if (!settings?.nino) throw new Error('Missing NINO in HMRC settings')
     if (!settings?.mtd_business_id) throw new Error('Missing HMRC property business ID')
 
-    const goSandbox = settings.sandbox_mode || !HMRC_CLIENT_ID || !HMRC_CLIENT_SECRET || !settings.hmrc_access_token
+    // Resolve the access + refresh tokens — prefer the encrypted column,
+    // fall back to the legacy plaintext column for pre-encryption rows.
+    const accessTokenStored = await resolveToken({
+      encrypted: settings.encrypted_hmrc_access_token,
+      plaintext: settings.hmrc_access_token,
+    })
+    const refreshTokenStored = await resolveToken({
+      encrypted: settings.encrypted_hmrc_refresh_token,
+      plaintext: settings.hmrc_refresh_token,
+    })
+
+    const goSandbox = settings.sandbox_mode || !HMRC_CLIENT_ID || !HMRC_CLIENT_SECRET || !accessTokenStored
 
     if (goSandbox) {
       // Mock HMRC response — succeeds locally so the user can rehearse the
@@ -144,16 +156,18 @@ serve(async (req) => {
     }
 
     // ── LIVE HMRC PATH ──
-    // Token refresh (if expired)
-    let accessToken = settings.hmrc_access_token
+    // Token refresh (if expired). On refresh, re-encrypt the new tokens
+    // and null out the plaintext columns. If encryption isn't configured
+    // (no OWNPROPERLY_TOKEN_KEY), fall back to writing plaintext.
+    let accessToken = accessTokenStored
     const expires = settings.hmrc_token_expires_at ? new Date(settings.hmrc_token_expires_at) : null
-    if (expires && expires.getTime() <= Date.now() + 60_000 && settings.hmrc_refresh_token) {
+    if (expires && expires.getTime() <= Date.now() + 60_000 && refreshTokenStored) {
       const refreshRes = await fetch(`${HMRC_BASE_URL}/oauth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
-          refresh_token: settings.hmrc_refresh_token,
+          refresh_token: refreshTokenStored,
           client_id: HMRC_CLIENT_ID,
           client_secret: HMRC_CLIENT_SECRET,
         }),
@@ -161,10 +175,15 @@ serve(async (req) => {
       if (!refreshRes.ok) throw new Error('HMRC token refresh failed: ' + await refreshRes.text())
       const tokenData = await refreshRes.json()
       accessToken = tokenData.access_token
+      const newRefresh = tokenData.refresh_token || refreshTokenStored
       const newExpiry = new Date(Date.now() + (tokenData.expires_in || 14400) * 1000).toISOString()
+      const encA = await encryptToken(accessToken)
+      const encR = await encryptToken(newRefresh)
       await admin.from('mtd_settings').update({
-        hmrc_access_token: accessToken,
-        hmrc_refresh_token: tokenData.refresh_token || settings.hmrc_refresh_token,
+        hmrc_access_token:           encA ? null : accessToken,
+        hmrc_refresh_token:          encR ? null : newRefresh,
+        encrypted_hmrc_access_token:  encA || null,
+        encrypted_hmrc_refresh_token: encR || null,
         hmrc_token_expires_at: newExpiry,
       }).eq('user_id', caller.id)
     }

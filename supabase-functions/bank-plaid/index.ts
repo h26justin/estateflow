@@ -30,6 +30,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { encryptToken, decryptToken } from './encryption.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -124,6 +125,20 @@ serve(async (req) => {
         : null
       const resolvedInstName = institution_name || inst?.institution?.name || 'Bank'
 
+      // Encrypt the Plaid access_token before writing to partner_data.
+      // When OWNPROPERLY_TOKEN_KEY is configured we store ciphertext under
+      // `access_token_enc` and leave `access_token` null. The sync path
+      // (below) prefers the encrypted column, falling back to plaintext
+      // for legacy connections written before encryption shipped.
+      let encAccess: string | null = null
+      try { encAccess = await encryptToken(accessToken) }
+      catch (e) {
+        return new Response(JSON.stringify({
+          error: 'Token encryption failed: ' + (e as Error).message +
+                 ' — check the OWNPROPERLY_TOKEN_KEY supabase secret (must be 64 hex chars).',
+        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+
       // Write the connection row
       const { data: conn, error: cErr } = await admin.from('bank_connections').insert({
         user_id: caller.id,
@@ -134,7 +149,9 @@ serve(async (req) => {
         partner_data: {
           provider: 'plaid',
           item_id: itemId,
-          access_token: accessToken,
+          // Plaintext column kept nullable for the legacy path; null when encrypted.
+          access_token:     encAccess ? null : accessToken,
+          access_token_enc: encAccess || null,
           institution_id: institution_id || accountsRes.item?.institution_id || null,
           institution_name: resolvedInstName,
         },
@@ -169,7 +186,14 @@ serve(async (req) => {
       let inserted = 0, matched = 0
       for (const c of (conns || [])) {
         const pd = c.partner_data as any
-        if (!pd?.access_token) continue
+        // Resolve the access token: prefer encrypted column, fall back to
+        // legacy plaintext for connections created before encryption shipped.
+        let accessToken: string | null = null
+        if (pd?.access_token_enc) {
+          accessToken = await decryptToken(pd.access_token_enc)
+        }
+        if (!accessToken) accessToken = pd?.access_token || null
+        if (!accessToken) continue
 
         // /transactions/sync — Plaid's recommended endpoint; uses cursor
         // so each call returns only what's new since last sync.
@@ -178,7 +202,7 @@ serve(async (req) => {
         const newTxns: any[] = []
         while (hasMore) {
           const result = await plaidPost('/transactions/sync', {
-            access_token: pd.access_token,
+            access_token: accessToken,
             cursor,
             count: 500,
           })

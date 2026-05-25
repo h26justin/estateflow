@@ -58,7 +58,11 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
 
   // ── Step 2: Shared fields ─────────────────────────────────────────────
   const [propType, setPropType] = useState('')
-  const [defaultStatus, setDefaultStatus] = useState('vacant')
+  // Default to 'rented' — bulk-add is almost always used for an existing
+  // block where most units are tenanted. Starting at 'vacant' made the
+  // dashboard show alarming vacancy figures until the user manually fixed
+  // each row. The user can flip individual units in the table on step 3.
+  const [defaultStatus, setDefaultStatus] = useState('rented')
   const [pricingMode, setPricingMode] = useState('total')  // 'total' | 'per_unit'
   const [totalPurchase, setTotalPurchase] = useState('')
   const [totalMortgage, setTotalMortgage] = useState('')

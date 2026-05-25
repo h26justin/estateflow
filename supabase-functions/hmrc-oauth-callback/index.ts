@@ -34,6 +34,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { encryptToken } from './encryption.ts'
 
 const SUPABASE_URL        = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -144,12 +145,35 @@ serve(async (req) => {
     //   { access_token, refresh_token, expires_in, scope, token_type }
     const expiresAt = new Date(Date.now() + (tokens.expires_in || 14400) * 1000).toISOString()
 
+    // Encrypt tokens at rest when OWNPROPERLY_TOKEN_KEY is configured.
+    // Returns null when the key is absent → caller falls back to plaintext
+    // columns so existing deployments without the secret keep working.
+    let encAccess: string | null = null
+    let encRefresh: string | null = null
+    try {
+      encAccess  = await encryptToken(tokens.access_token)
+      encRefresh = await encryptToken(tokens.refresh_token)
+    } catch (e) {
+      // Bad OWNPROPERLY_TOKEN_KEY (wrong length etc) — surface clearly
+      // instead of silently saving plaintext and giving the user a false
+      // sense of security.
+      return htmlPage('HMRC token encryption failed',
+        `<p class="err">${(e as Error).message}</p>
+         <p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p>`,
+        returnTo)
+    }
+
     // Persist tokens on the user's mtd_settings row. Upsert so this also
     // works if the user hasn't yet saved any other settings.
     const { error: upErr } = await admin.from('mtd_settings').upsert({
       user_id: state.user_id,
-      hmrc_access_token: tokens.access_token,
-      hmrc_refresh_token: tokens.refresh_token,
+      // When we have ciphertext, NULL the plaintext column so a DB dump
+      // alone can't impersonate the user. When we don't have a key, fall
+      // back to plaintext so the legacy path keeps working.
+      hmrc_access_token:           encAccess  ? null : tokens.access_token,
+      hmrc_refresh_token:          encRefresh ? null : tokens.refresh_token,
+      encrypted_hmrc_access_token:  encAccess  || null,
+      encrypted_hmrc_refresh_token: encRefresh || null,
       hmrc_token_expires_at: expiresAt,
     }, { onConflict: 'user_id' })
 

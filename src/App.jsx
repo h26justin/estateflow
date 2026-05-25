@@ -98,11 +98,17 @@ function calcMonthlyProfit(p) {
 
 // Permission helper — check if current user can perform action on a company
 // permissionsMap: { [companyId]: { edit_properties: true, view_financial: false, ... } }
-// Returns true if permission granted; treats missing company as allowed (backwards compat)
+// Fail-CLOSED: if we have no permission record for the company, deny the action.
+// The map is loaded together with the user's companies; once it's loaded but
+// missing a company entry that means the user is not a collaborator on it.
+// (The OWNER of a company gets an implicit allow via `permissionsMap.__owner`
+// — see loader. For platform admins, callers should bypass canDo entirely.)
 function canDo(permissionsMap, companyId, permissionKey) {
-  if (!companyId) return true  // no company context
-  const perms = permissionsMap?.[companyId]
-  if (!perms) return true  // no permission data loaded yet → don't block
+  if (!companyId) return true  // no company context = global / personal action
+  if (!permissionsMap) return false  // not loaded yet → deny by default
+  if (permissionsMap.__owner?.[companyId]) return true  // owner can do anything
+  const perms = permissionsMap[companyId]
+  if (!perms) return false  // collaborator row missing → no access
   return perms[permissionKey] === true
 }
 
@@ -184,7 +190,7 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 function getStatusColor(status) {
   if (status==='paid')    return '#2ECC8A'
-  if (status==='missed')  return '#E05555'
+  if (status==='overdue' || status==='missed')  return '#E05555'  // 'missed' kept for backward-compat (pre-2026-05-25 rows)
   if (status==='late') return '#E0943A'
   if (status==='refurb')  return '#4B8FE0'
   return '#888EA8' // void - visible in both themes
@@ -213,7 +219,7 @@ function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
     return 'void'
   }
 
-  const COLOR = { paid:'#2ECC8A', missed:'#E05555', late:'#E0943A', refurb:'#4B8FE0', void:'#888EA8', future:'transparent' }
+  const COLOR = { paid:'#2ECC8A', overdue:'#E05555', missed:'#E05555', late:'#E0943A', refurb:'#4B8FE0', void:'#888EA8', future:'transparent' }
   const monthName = new Date(year, month-1).toLocaleString('en-GB', {month:'long', year:'numeric'})
   const cells = []
   for (let i = 0; i < firstDow; i++) cells.push(null)
@@ -221,7 +227,7 @@ function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
   const statuses = Array.from({length:days},(_,i)=>getDayStatus(i+1))
   const paidDays = statuses.filter(s=>s==='paid').length
   const voidDays = statuses.filter(s=>s==='void').length
-  const missedDays = statuses.filter(s=>s==='missed').length
+  const missedDays = statuses.filter(s=>s==='overdue'||s==='missed').length
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
@@ -786,7 +792,13 @@ export default function App() {
             api.fetchMyActiveFlags().catch(()=>new Set()),
             api.fetchWidgetPrefs().catch(()=>null),
           ])
-          setPermissionsMap(permMap)
+          // Stamp an __owner map onto permissionsMap so canDo() can grant
+          // implicit allow to the company owner without having to look up
+          // ownership in every check site. (Owners typically don't have a
+          // user_company_access row at all.)
+          const ownerMap = {}
+          for (const id of ownedIds) ownerMap[id] = true
+          setPermissionsMap({ ...(permMap || {}), __owner: ownerMap })
           setActiveFlags(flags)
           setWidgetPrefs(widgets)
         } catch(e) { logError('loadData:permissions+flags', e) }
@@ -1471,9 +1483,11 @@ export default function App() {
   const ALL_NAV=[
     {key:'dashboard',  label:'Dashboard',    icon:'🏠', short:'Home',     required:true},
     {key:'properties', label:'Portfolio',    icon:'🏘', short:'Portfolio',required:true},
+    {key:'companies',  label:'Companies',    icon:'🏢', short:'Cos',      required:false},
     {key:'rent',       label:'Rent Tracker', icon:'💰', short:'Rent',     required:false},
     {key:'deals',      label:'Deals',        icon:'🎯', short:'Deals',    required:false},
     {key:'insurance',  label:'Insurance',    icon:'🛡', short:'Insurance',required:false},
+    {key:'contractors',label:'Contractors',  icon:'🔧', short:'Trades',   required:false},
     {key:'reports',    label:'Reports',      icon:'📊', short:'Reports',  required:false},
     {key:'mtd',        label:'MTD Tax',      icon:'🏛️', short:'MTD',      required:false},
     {key:'settings',   label:'Settings',     icon:'⚙',  short:'Settings', required:true},
@@ -1682,9 +1696,23 @@ export default function App() {
                         {icon:'🏢',label:'Add Company',     action:()=>setShowAddCo(true)},
                         {icon:'📄',label:'Import Statement',action:()=>setShowImporter(true)},
                         {icon:'📷',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
-                        {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property and go to Expenses tab')}},
-                        {icon:'📋',label:'Add Compliance',  action:()=>{setView('properties');showToast('Open a property and go to Compliance tab')}},
-                        {icon:'🔧',label:'Log Maintenance', action:()=>{setView('properties');showToast('Open a property and go to Maintenance tab')}},
+                        // For these three "drill into a property" actions:
+                        // if the user has exactly one property, just open it on
+                        // the right tab. If they have many, take them to the
+                        // portfolio so they can pick. (Was previously a toast
+                        // instruction with no action — looked broken.)
+                        {icon:'💰',label:'Log Expense',     action:()=>{
+                          if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
+                          else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log against' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
+                        }},
+                        {icon:'📋',label:'Add Compliance',  action:()=>{
+                          if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('compliance'); setView('detail') }
+                          else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to add a certificate to' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
+                        }},
+                        {icon:'🔧',label:'Log Maintenance', action:()=>{
+                          if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('maintenance'); setView('detail') }
+                          else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
+                        }},
                       ].map((item,i,arr)=>(
                         <button key={item.label} onClick={()=>{item.action();setShowNewMenu(false)}}
                           style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 14px',
@@ -1702,6 +1730,41 @@ export default function App() {
                 )}
               </div>
             )}
+            {/* Trial countdown pill — always visible while any company is
+                still on trial. Was previously buried in Billing settings
+                until ≤7 days remained, so users got surprised by the
+                hard gate. Click to jump to Billing. */}
+            {(() => {
+              const trialing = companies
+                .filter(c => !c.is_free_tier && c.trial_ends_at)
+                .map(c => ({ c, days: Math.ceil((new Date(c.trial_ends_at) - Date.now()) / 86400000) }))
+                .filter(x => x.days >= 0)
+                .sort((a, b) => a.days - b.days)
+              if (trialing.length === 0) return null
+              const soonest = trialing[0]
+              const tone = soonest.days <= 3 ? T.red : soonest.days <= 7 ? T.amber : T.gold
+              return (
+                <button
+                  onClick={() => {
+                    setView('settings')
+                    window.dispatchEvent(new CustomEvent(
+                      'ownproperly:set-settings-tab',
+                      { detail: { tab: 'billing' } }
+                    ))
+                  }}
+                  title={trialing.length > 1
+                    ? `${trialing.length} companies on trial — soonest ends in ${soonest.days} day${soonest.days===1?'':'s'} (${soonest.c.name})`
+                    : `Trial ends in ${soonest.days} day${soonest.days===1?'':'s'} (${soonest.c.name})`}
+                  style={{
+                    fontFamily:MONO, fontSize:11, fontWeight:700,
+                    padding:'5px 12px', borderRadius:20, cursor:'pointer',
+                    border:`1px solid ${tone}`, background:tone+'22', color:tone,
+                    whiteSpace:'nowrap',
+                  }}>
+                  {isMobile ? `${soonest.days}d` : `Trial: ${soonest.days} day${soonest.days===1?'':'s'} left`}
+                </button>
+              )
+            })()}
             <NotificationCentre/>
             {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>⚙ Admin</button>}
             {/* "⋯ More" menu — houses pages that aren't worth their own tab
@@ -1792,8 +1855,16 @@ export default function App() {
                 {icon:'🏢',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
                 {icon:'📄',label:'Import Statement',action:()=>{setShowImporter(true);setShowDrawer(false)}},
                 {icon:'📷',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
-                {icon:'💰',label:'Log Expense',     action:()=>{setView('properties');showToast('Open a property → Expenses tab');setShowDrawer(false)}},
-                {icon:'🔧',label:'Log Maintenance', action:()=>{setView('properties');showToast('Open a property → Maintenance tab');setShowDrawer(false)}},
+                {icon:'💰',label:'Log Expense',     action:()=>{
+                  if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
+                  else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log against' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
+                  setShowDrawer(false)
+                }},
+                {icon:'🔧',label:'Log Maintenance', action:()=>{
+                  if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('maintenance'); setView('detail') }
+                  else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
+                  setShowDrawer(false)
+                }},
               ].map(item=>(
                 <button key={item.label} onClick={item.action}
                   style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
@@ -1833,6 +1904,24 @@ export default function App() {
         {loading?<Spinner/>:<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
+            {/* First-run zero-state. Brand new accounts land here with no
+                properties and no companies — instead of seeing a wall of £0
+                KPIs, give them a friendly hero CTA pointing at the next
+                step. Once they have at least one property/company, the
+                regular header takes over. */}
+            {activeProperties.length === 0 && companies.length === 0 && (
+              <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
+                <div style={{fontSize:isMobile?28:36,marginBottom:10}} aria-hidden="true">🏠</div>
+                <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to OwnProperly</h1>
+                <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
+                  You're on a 14-day free trial. The fastest way to see what the app does is to add your first company and one property — takes about 2 minutes.
+                </p>
+                <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+                  <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>1. Add a Company</button>
+                  <button className="btn btn-ghost" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={companies.length===0} title={companies.length===0 ? 'Add a company first' : ''}>2. Add a Property</button>
+                </div>
+              </div>
+            )}
             <div style={{marginBottom:isMobile?14:20,minWidth:0}}>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:isMobile?10:16}}>
                 <div style={{flex:'1 1 100%',minWidth:0}}>
@@ -1954,7 +2043,16 @@ export default function App() {
                             Get Claude-generated weekly observations about under-rented units, expiring certs, high LTVs and refinance opportunities. Available on the £5/property Investor tier.
                           </p>
                           <button className="btn btn-gold" style={{ fontSize: 12 }}
-                            onClick={() => { setView('billing') }}>
+                            onClick={() => {
+                              // 'billing' is a Settings sub-tab, not a top-level
+                              // view. Route to Settings and dispatch the tab-
+                              // change event the SettingsPage listens for.
+                              setView('settings')
+                              window.dispatchEvent(new CustomEvent(
+                                'ownproperly:set-settings-tab',
+                                { detail: { tab: 'billing' } }
+                              ))
+                            }}>
                             Upgrade to Investor →
                           </button>
                         </div>
@@ -2477,7 +2575,15 @@ export default function App() {
               ))}
             </div>
             {companies.filter(c=>c.id===activeCoTab).map(c=>{
-              const cs=companyStats.find(x=>x.id===c.id)
+              // companyStats is derived from dashCos which is filtered by
+              // dashCoFilter, so a company can be in `companies` (and the
+              // tab row) but absent from companyStats. Default to zeros
+              // rather than crashing on cs.count. (CompaniesPanel applies
+              // the same fallback — see line ~1512.)
+              const cs=companyStats.find(x=>x.id===c.id) || {
+                id:c.id, count:0, rented:0, vacant:0, monthlyRent:0,
+                invested:0, estVal:0, arrears:0,
+              }
               const cProps=activeProperties.filter(p=>p.company_id===c.id)
               return <div key={c.id}>
                 <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
@@ -2647,7 +2753,7 @@ export default function App() {
                   const focusYear = years.includes(currentYear) ? currentYear : years[years.length - 1]
                   const ytd = payments.filter(p => p.year === focusYear)
                   const paid    = ytd.filter(p => p.status === 'paid').length
-                  const missed  = ytd.filter(p => p.status === 'missed').length
+                  const missed  = ytd.filter(p => p.status === 'overdue' || p.status === 'missed').length
                   const late    = ytd.filter(p => p.status === 'late').length
                   const collected = ytd.filter(p => p.status === 'paid').reduce((s,p)=>s+(p.amount||(selected.rent_pcm||0)),0)
                   const arrears = selected.arrears || 0
@@ -2959,8 +3065,16 @@ export default function App() {
         defaultWidgetEnabled={WIDGET_DEFAULT_ENABLED}
         onSaveWidgets={async (newPrefs) => {
           setWidgetPrefs(newPrefs)
-          await api.saveWidgetPrefs(newPrefs).catch(()=>{})
-          showToast('Dashboard saved')
+          // Don't pretend it's saved if the API call failed — the user
+          // would see "Dashboard saved" and then their changes vanish on
+          // next refresh with no clue why.
+          try {
+            await api.saveWidgetPrefs(newPrefs)
+            showToast('Dashboard saved')
+          } catch (e) {
+            logError('saveWidgetPrefs', e)
+            showToast('Dashboard not saved — ' + (e.message || 'try again'), 'error')
+          }
         }}
         onClose={() => setShowCustomizeDash(false)}
         T={T}
@@ -3022,11 +3136,29 @@ export default function App() {
           showToast(`${deleteCoTarget.name} deleted — restore from Trash within 30 days`)
         }}/>}
 
-      {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:MONO,fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
+      {/* Toast: role=alert + aria-live=assertive for errors (so screen readers
+          interrupt and announce), role=status + aria-live=polite for success
+          notices (so they're announced without interrupting the user). */}
+      {toast&&<div
+        role={toast.type==='error'?'alert':'status'}
+        aria-live={toast.type==='error'?'assertive':'polite'}
+        aria-atomic="true"
+        style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:MONO,fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
 
       {/* Mobile bottom nav - consistent icons, + More opens drawer */}
       <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
-        {navItems.filter(n=>n.key!=='companies'&&n.key!=='contractors').slice(0,5).map(n=>{
+        {/* Mobile bottom-nav: 4 user-pref items + Settings + More drawer,
+            ALWAYS guaranteeing Dashboard first and Settings as the 5th slot
+            (Settings is `required:true` so it's always in navItems already —
+            we just ensure it's not trimmed off by the 5-cap if the user has
+            many other items enabled). The "More" button below provides
+            access to anything that didn't fit. */}
+        {(() => {
+          const dash = navItems.find(n => n.key === 'dashboard')
+          const settingsItem = navItems.find(n => n.key === 'settings')
+          const middle = navItems.filter(n => n.key !== 'dashboard' && n.key !== 'settings').slice(0, 3)
+          return [dash, ...middle, settingsItem].filter(Boolean)
+        })().map(n=>{
           const key = n.key
           const active = view===key||(view==='detail'&&key==='properties')
           return (
@@ -3442,7 +3574,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   function getStats(payments, year, rentPcm) {
     const filtered = year ? payments.filter(p=>p.year===year) : payments
     const paid    = filtered.filter(p=>p.status==='paid').length
-    const missed  = filtered.filter(p=>p.status==='missed').length
+    const missed  = filtered.filter(p=>p.status==='overdue'||p.status==='missed').length
     const late = filtered.filter(p=>p.status==='late').length
     const refurb  = filtered.filter(p=>p.status==='refurb').length
     const voidM   = filtered.filter(p=>p.status==='void').length
@@ -3751,7 +3883,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
   // Stats for selected year
   const paid    = filtered.filter(p=>p.status==='paid').length
-  const missed  = filtered.filter(p=>p.status==='missed').length
+  const missed  = filtered.filter(p=>p.status==='overdue'||p.status==='missed').length
   const late = filtered.filter(p=>p.status==='late').length
   const refurb  = filtered.filter(p=>p.status==='refurb').length
   const voidM   = filtered.filter(p=>p.status==='void').length

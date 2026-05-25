@@ -473,13 +473,16 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       // same level (true value declines as principal is paid down — the
       // first-year approximation is what most accountants want for
       // Section 24 planning; recommend re-running annually).
+      // mortgage_rate is stored as a DECIMAL (e.g. 0.05 for 5%) per
+      // PropertyModal which divides user input by 100 before saving.
+      // Do NOT divide by 100 again here.
       const rows = filtProps.filter(p=>p.mortgage_amount&&p.mortgage_rate).map(p => {
-        const annual = p.mortgage_amount * (p.mortgage_rate/100)
+        const annual = p.mortgage_amount * p.mortgage_rate
         const kind = p.mortgage_type === 'interest_only' ? 'interest-only' : 'repayment'
         return { name:p.name, loan:p.mortgage_amount, rate:p.mortgage_rate, kind, annual, credit:annual*0.2 }
       })
       const tI=rows.reduce((s,r)=>s+r.annual,0), tC=rows.reduce((s,r)=>s+r.credit,0)
-      return { title:'Mortgage Interest Summary', note:'Section 24: mortgage interest receives a 20% tax credit, not a deduction. Repayment figures are year-one approximations.', kpis:[['Total interest',fmt(tI)],['20% tax credit',fmt(tC)],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Type','Annual Interest','20% Credit'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate),r.kind,fmt(r.annual),fmt(r.credit)]), totals:['Total','','','',fmt(tI),fmt(tC)] }
+      return { title:'Mortgage Interest Summary', note:'Section 24: mortgage interest receives a 20% tax credit, not a deduction. Repayment figures are year-one approximations.', kpis:[['Total interest',fmt(tI)],['20% tax credit',fmt(tC)],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Type','Annual Interest','20% Credit'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate*100),r.kind,fmt(r.annual),fmt(r.credit)]), totals:['Total','','','',fmt(tI),fmt(tC)] }
     }
     case 'capital_gains': {
       const rows = filtProps.map(p=>{const c=(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0);return{name:p.name,cost:c,val:p.est_value||0,gain:(p.est_value||0)-c}}).sort((a,b)=>b.gain-a.gain)
@@ -499,14 +502,14 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const expected=filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
       const collected=filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
       const lateCol=filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
-      const missed=filtRent.filter(r=>r.status==='missed').length
+      const missed=filtRent.filter(r=>r.status==='overdue'||r.status==='missed').length
       const rate=expected>0?((collected+lateCol)/expected)*100:100
       const rows=filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p=>{
         const own=filtRent.filter(r=>r.property_id===p.id)
         return { name:p.name, expected:(p.rent_pcm||0)*12,
           paid:own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
           late:own.filter(r=>r.status==='late').length,
-          missed:own.filter(r=>r.status==='missed').length }
+          missed:own.filter(r=>r.status==='overdue'||r.status==='missed').length }
       })
       return { title:'Rent Collection Rate', kpis:[['Collection rate',fmtPct(rate)],['Expected',fmt(expected)],['Collected on time',fmt(collected)],['Missed payments',missed.toString()]],
         headers:['Property','Expected','Collected','Late','Missed'],
@@ -537,8 +540,16 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Equity Report', kpis:[['Portfolio value',fmt(t.v)],['Total debt',fmt(t.d)],['Total equity',fmt(t.e)],['Portfolio LTV',t.v>0?fmtPct(t.d/t.v*100):'—']], headers:['Property','Est. Value','Mortgage','Equity','LTV'], rows:rows.map(r=>[r.name,fmt(r.val),fmt(r.debt),fmt(r.eq),r.ltv>0?fmtPct(r.ltv):'—']), totals:['Total',fmt(t.v),fmt(t.d),fmt(t.e),''] }
     }
     case 'mortgage_port': {
-      const rows=filtProps.filter(p=>p.mortgage_amount>0).map(p=>{const m=p.mortgage_rate&&p.mortgage_amount?Math.round(p.mortgage_amount*(p.mortgage_rate/100/12)*Math.pow(1+p.mortgage_rate/100/12,(p.mortgage_term||25)*12)/(Math.pow(1+p.mortgage_rate/100/12,(p.mortgage_term||25)*12)-1)):0;return{name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,term:p.mortgage_term,monthly:m,ltv:p.est_value?((p.mortgage_amount||0)/p.est_value)*100:0}})
-      return { title:'Mortgage Portfolio Summary', kpis:[['Total debt',fmt(rows.reduce((s,r)=>s+r.loan,0))],['Monthly repayments',fmt(rows.reduce((s,r)=>s+r.monthly,0))],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Term','Monthly','LTV'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate||0),r.term?r.term+'y':'—',fmt(r.monthly),r.ltv>0?fmtPct(r.ltv):'—']) }
+      // mortgage_rate stored as decimal (0.05). monthly = P × r/12 × (1+r/12)^n / ((1+r/12)^n - 1)
+      const rows=filtProps.filter(p=>p.mortgage_amount>0).map(p=>{
+        const r12 = (p.mortgage_rate||0)/12
+        const n = (p.mortgage_term||25)*12
+        const m = p.mortgage_rate&&p.mortgage_amount
+          ? Math.round(p.mortgage_amount * r12 * Math.pow(1+r12,n) / (Math.pow(1+r12,n) - 1))
+          : 0
+        return {name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,term:p.mortgage_term,monthly:m,ltv:p.est_value?((p.mortgage_amount||0)/p.est_value)*100:0}
+      })
+      return { title:'Mortgage Portfolio Summary', kpis:[['Total debt',fmt(rows.reduce((s,r)=>s+r.loan,0))],['Monthly repayments',fmt(rows.reduce((s,r)=>s+r.monthly,0))],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Term','Monthly','LTV'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct((r.rate||0)*100),r.term?r.term+'y':'—',fmt(r.monthly),r.ltv>0?fmtPct(r.ltv):'—']) }
     }
     case 'arrears': {
       const rows=filtProps.filter(p=>(p.arrears||0)>0).map(p=>({name:p.name,arrears:p.arrears||0,rent:p.rent_pcm||0})).sort((a,b)=>b.arrears-a.arrears)
@@ -1052,13 +1063,15 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     case 'mortgage_port': return [
       ['Property','Lender','Loan amount','Rate %','Type','Term (years)','Monthly payment','Expiry','LTV %'],
       ...filtProps.filter(p=>p.mortgage_amount>0).map(p => {
-        const r = (p.mortgage_rate||0)/100/12
+        // mortgage_rate stored as decimal (0.05) → monthly rate = rate/12.
+        const r = (p.mortgage_rate||0)/12
         const n = (p.mortgage_term||25)*12
         const monthly = p.mortgage_type === 'interest_only'
           ? p.mortgage_amount * r
           : (r > 0 ? p.mortgage_amount*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1) : 0)
         return [
-          p.name, p.lender||'', p.mortgage_amount||0, p.mortgage_rate||'',
+          p.name, p.lender||'', p.mortgage_amount||0,
+          p.mortgage_rate ? +(p.mortgage_rate*100).toFixed(3) : '',
           p.mortgage_type === 'interest_only' ? 'Interest-only' : 'Repayment',
           p.mortgage_term||'', Math.round(monthly), p.mortgage_expiry||'',
           p.est_value ? ((p.mortgage_amount||0)/p.est_value*100).toFixed(1) : ''
@@ -1218,8 +1231,9 @@ function ReportMortgageInterest({ filtProps, T, accent, fmt, fmtPct }) {
   // the high-water mark — true interest declines over the term as
   // principal is paid down. Accountants want this approximation for
   // Section 24 planning; tag the type so they can refine.
+  // mortgage_rate is stored as decimal (0.05 for 5%) — see PropertyModal.
   const rows = filtProps.filter(p=>p.mortgage_amount&&p.mortgage_rate).map(p => {
-    const annualInterest = (p.mortgage_amount||0) * (p.mortgage_rate/100)
+    const annualInterest = (p.mortgage_amount||0) * (p.mortgage_rate||0)
     return {
       p,
       kind: p.mortgage_type === 'interest_only' ? 'Interest-only' : 'Repayment',
@@ -1244,7 +1258,7 @@ function ReportMortgageInterest({ filtProps, T, accent, fmt, fmtPct }) {
         rows={rows.map(r=>[
           r.p.name,
           {v:fmt(r.p.mortgage_amount),right:true},
-          {v:fmtPct(r.p.mortgage_rate),right:true},
+          {v:fmtPct((r.p.mortgage_rate||0)*100),right:true},
           {v:r.kind,color:r.kind==='Interest-only'?T.amber:T.muted},
           {v:fmt(r.annualInterest),color:T.amber,right:true},
           {v:fmt(r.taxCredit),color:T.green,right:true},
@@ -1397,12 +1411,13 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
 }
 
 function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
-  // rent_payments.status values: paid | late | missed | void | partial | refurb.
-  // Treat late + partial as "collected with delay" and missed as "overdue".
+  // rent_payments.status values: paid | late | overdue | void | partial | refurb.
+  // Legacy 'missed' rows (pre-2026-05-25) still treated as overdue. Treat
+  // late + partial as "collected with delay".
   const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
   const collected = filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
   const lateCollected = filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
-  const missed = filtRent.filter(r=>r.status==='missed').length
+  const missed = filtRent.filter(r=>r.status==='overdue'||r.status==='missed').length
   const rate = expected>0?((collected+lateCollected)/expected)*100:100
 
   // Per-property breakdown of what landed when.
@@ -1413,7 +1428,7 @@ function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
       expected: (p.rent_pcm||0) * 12,
       paid: own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
       late: own.filter(r=>r.status==='late').length,
-      missed: own.filter(r=>r.status==='missed').length,
+      missed: own.filter(r=>r.status==='overdue'||r.status==='missed').length,
     }
   }).sort((a,b) => (b.missed+b.late) - (a.missed+a.late))
 
@@ -1530,11 +1545,19 @@ function ReportEquity({ filtProps, T, accent, fmt, fmtPct }) {
 }
 
 function ReportMortgagePortfolio({ filtProps, T, accent, fmt, fmtPct }) {
-  const rows = filtProps.filter(p=>p.mortgage_amount>0).map(p => ({
-    p,
-    monthly: p.mortgage_rate&&p.mortgage_amount ? Math.round(p.mortgage_amount*(p.mortgage_rate/100/12)*Math.pow(1+p.mortgage_rate/100/12,p.mortgage_term*12||300)/(Math.pow(1+p.mortgage_rate/100/12,p.mortgage_term*12||300)-1)) : 0,
-    ltv: p.est_value ? ((p.mortgage_amount||0)/p.est_value)*100 : 0,
-  }))
+  // mortgage_rate stored as decimal (0.05) — monthly rate = rate / 12.
+  const rows = filtProps.filter(p=>p.mortgage_amount>0).map(p => {
+    const r12 = (p.mortgage_rate||0)/12
+    const n = (p.mortgage_term||25)*12
+    const monthly = p.mortgage_rate&&p.mortgage_amount
+      ? Math.round(p.mortgage_amount * r12 * Math.pow(1+r12,n) / (Math.pow(1+r12,n) - 1))
+      : 0
+    return {
+      p,
+      monthly,
+      ltv: p.est_value ? ((p.mortgage_amount||0)/p.est_value)*100 : 0,
+    }
+  })
   const totalDebt = rows.reduce((s,r)=>s+r.p.mortgage_amount,0)
   const totalMonthly = rows.reduce((s,r)=>s+r.monthly,0)
   return (
@@ -1549,7 +1572,7 @@ function ReportMortgagePortfolio({ filtProps, T, accent, fmt, fmtPct }) {
         rows={rows.map(r=>[
           r.p.name,
           {v:fmt(r.p.mortgage_amount),right:true},
-          {v:fmtPct(r.p.mortgage_rate||0),right:true},
+          {v:fmtPct((r.p.mortgage_rate||0)*100),right:true},
           {v:r.p.mortgage_term?`${r.p.mortgage_term}y`:'—',right:true},
           {v:fmt(r.monthly),color:T.amber,right:true},
           {v:r.ltv>0?fmtPct(r.ltv):'—',color:r.ltv<75?T.green:r.ltv<85?T.amber:T.red,right:true},

@@ -3,6 +3,8 @@ import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
+import { showAppToast } from '../../lib/toast'
+import FocusTrap from '../../lib/FocusTrap'
 
 // The four core UK landlord compliance certificates we prompt for at
 // property add/edit time. Anything more granular (PAT, legionella, fire
@@ -55,7 +57,13 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const isDirty = isFormDirty(snapshot, form)
   const s = (k, v) => setForm(f => ({ ...f, [k]: v }))
   function handleSave() {
-    if (!form.name || !form.address) return
+    // Don't silently no-op — the user clicks Save and the button looks
+    // broken. Surface what's missing via the global toast so they can fix it.
+    if (!form.name || !form.address) {
+      const missing = !form.name && !form.address ? 'Name and Address' : (!form.name ? 'Name' : 'Address')
+      showAppToast(`${missing} required — please fill it in before saving`, 'error')
+      return
+    }
     // Strip joined relation fields that aren't real columns on the
     // properties table. Also strip the compliance_* keys — they're
     // form-only state; we surface them as a separate `_compliance`
@@ -106,9 +114,10 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     })
   }
   return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-    <div className="modal">
+    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="property-modal-title">
       <div style={{padding:'24px 28px 0'}}>
-        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit Property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>
+        <h2 id="property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit Property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>
         <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>{prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}</p>
       </div>
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
@@ -170,7 +179,12 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           <input type="date" value={form.mortgage_product_end_date || ''} onChange={e=>s('mortgage_product_end_date', e.target.value)}/>
         </div>
         <div className="g2"><div><label>Rent Due Day</label><input value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div><div><label>Arrears</label><MoneyInput prefix="£" value={form.arrears} onChange={v=>s('arrears',v)}/></div></div>
-        <div><label>Tenancy End</label><input value={form.tenancy_end} onChange={e=>s('tenancy_end',e.target.value)} placeholder="e.g. 31st March 2026"/></div>
+        <div>
+          <label>Tenancy End <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(when the current AST expires)</span></label>
+          {/* Switched from free-text to type=date so renewal-alerts logic
+              can parse it and we don't get inconsistent date strings. */}
+          <input type="date" value={form.tenancy_end || ''} onChange={e=>s('tenancy_end',e.target.value)}/>
+        </div>
 
         {/* ── COMPLIANCE PROMPTS ──────────────────────────────────
             Four optional date fields covering the legally-required
@@ -216,5 +230,6 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         </div>
       </div>
     </div>
+    </FocusTrap>
   </div>
 }

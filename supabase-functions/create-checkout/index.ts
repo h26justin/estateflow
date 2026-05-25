@@ -67,6 +67,29 @@ Deno.serve(async (req) => {
     const { data: company } = await supabase.from('companies').select('*').eq('id', company_id).single()
     const { data: sub } = await supabase.from('subscriptions').select('*').eq('company_id', company_id).single()
 
+    // SECURITY: verify the caller actually has the right to manage billing
+    // for THIS company. Without this check an authenticated attacker can:
+    //   * call action='portal' with any company_id → receive a billing-
+    //     portal URL pointing at the victim's Stripe customer, then cancel
+    //     or modify the victim's subscription.
+    //   * call action='checkout' with another tenant's company_id →
+    //     overwrite their stripe_customer_id with the attacker's metadata,
+    //     diverting future invoice events to the attacker's row.
+    //
+    // Allowed: company owner, OR a row in user_company_access with
+    // is_owner / is_admin (mirrors the in-app "Billing" panel gating).
+    if (!company) return err('Company not found', 404)
+    let allowed = company.owner_id === user.id
+    if (!allowed) {
+      const { data: access } = await supabase
+        .from('user_company_access')
+        .select('is_owner, is_admin')
+        .eq('user_id', user.id).eq('company_id', company_id)
+        .maybeSingle()
+      allowed = !!(access?.is_owner || access?.is_admin)
+    }
+    if (!allowed) return err('You do not have permission to manage billing for this company', 403)
+
     if (action === 'portal') {
       if (!sub?.stripe_customer_id) return err('No subscription found')
       const portalRes = await stripe('POST', '/billing_portal/sessions', {

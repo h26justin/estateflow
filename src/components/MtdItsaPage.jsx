@@ -181,12 +181,12 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
       {settings?.sandbox_mode && settings?.nino && (
         <div style={{ background: T.blue+'12', border: `1px solid ${T.blue}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.blue, lineHeight: 1.5 }}>
-          🧪 <strong>Sandbox mode is ON.</strong> Submissions return a mock <code>SANDBOX-…</code> reference — nothing actually reaches HMRC. Untick "Sandbox mode" in Settings once you've also done the HMRC gov.uk OAuth flow (coming soon).
+          ℹ <strong>Practice mode is on.</strong> Submissions return a mock <code>SANDBOX-…</code> reference — nothing reaches HMRC yet. When you're ready to file for real, untick "Sandbox mode" in Settings and then "Connect HMRC" below to sign in via gov.uk.
         </div>
       )}
       {!settings?.sandbox_mode && settings?.nino && !settings?.hmrc_access_token && (
         <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.amber, lineHeight: 1.5 }}>
-          ⚠ <strong>Sandbox mode off, but HMRC OAuth not connected yet.</strong> Submissions still fall back to mock until you sign in to HMRC via gov.uk to authorise OwnProperly to file on your behalf. Coming in the next release.
+          ⚠ <strong>Sandbox mode is off, but HMRC isn't connected yet.</strong> Click "Connect HMRC" below to sign in via gov.uk — until then submissions still return a mock reference.
         </div>
       )}
 

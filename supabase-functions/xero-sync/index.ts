@@ -479,7 +479,10 @@ serve(async (req) => {
         .gt('mortgage_amount', 0)
         .gt('mortgage_rate', 0)
       for (const p of (propsWithMortgage || [])) {
-        const monthlyInterest = (Number(p.mortgage_amount) * (Number(p.mortgage_rate) / 100)) / 12
+        // properties.mortgage_rate is stored as a DECIMAL (e.g. 0.05 = 5%)
+        // by PropertyModal which divides user input by 100 at save time.
+        // Do NOT divide by 100 again here — that would post 100× too small.
+        const monthlyInterest = (Number(p.mortgage_amount) * Number(p.mortgage_rate)) / 12
         if (monthlyInterest <= 0) continue
         // Post for the current month if not already posted
         const now = new Date()

@@ -99,23 +99,32 @@ Deno.serve(async (req) => {
   try {
     const companyId = await resolveCompanyId(obj)
 
+    // Helper: any DB write inside this handler MUST return its { error }
+    // to the catch below — Stripe will retry on 500 but accept 200 as
+    // permanent success, so a silently-swallowed write means billing
+    // state diverges from payment reality with no recovery path.
+    const must = async (label: string, p: any) => {
+      const { error } = await p
+      if (error) throw new Error(`${label}: ${error.message} (code=${error.code || '?'})`)
+    }
+
     switch (event.type) {
       case 'checkout.session.completed': {
         if (!companyId) { console.warn('checkout.session.completed: no company_id'); break }
-        await supabase.from('subscriptions').upsert({
+        await must('checkout.session.completed upsert', supabase.from('subscriptions').upsert({
           company_id: companyId,
           stripe_customer_id: obj.customer,
           stripe_subscription_id: obj.subscription,
           status: 'active',
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'company_id' })
+        }, { onConflict: 'company_id' }))
         break
       }
 
       case 'customer.subscription.updated':
       case 'customer.subscription.created': {
         if (!companyId) { console.warn(`${event.type}: no company_id`); break }
-        await supabase.from('subscriptions').upsert({
+        await must(`${event.type} upsert`, supabase.from('subscriptions').upsert({
           company_id: companyId,
           stripe_customer_id: obj.customer,
           stripe_subscription_id: obj.id,
@@ -126,37 +135,37 @@ Deno.serve(async (req) => {
           current_period_end:   toIso(obj.current_period_end),
           cancel_at_period_end: obj.cancel_at_period_end ?? false,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'company_id' })
+        }, { onConflict: 'company_id' }))
         break
       }
 
       case 'customer.subscription.deleted': {
         if (!companyId) { console.warn('customer.subscription.deleted: no company_id'); break }
-        await supabase.from('subscriptions').update({
+        await must('subscription.deleted update', supabase.from('subscriptions').update({
           status: 'canceled',
           stripe_subscription_id: null,
           updated_at: new Date().toISOString(),
-        }).eq('company_id', companyId)
+        }).eq('company_id', companyId))
         break
       }
 
       case 'invoice.payment_succeeded': {
         const subId = obj.subscription
         if (!subId) break
-        await supabase.from('subscriptions').update({
+        await must('invoice.payment_succeeded update', supabase.from('subscriptions').update({
           status: 'active',
           updated_at: new Date().toISOString(),
-        }).eq('stripe_subscription_id', subId)
+        }).eq('stripe_subscription_id', subId))
         break
       }
 
       case 'invoice.payment_failed': {
         const subId = obj.subscription
         if (!subId) break
-        await supabase.from('subscriptions').update({
+        await must('invoice.payment_failed update', supabase.from('subscriptions').update({
           status: 'past_due',
           updated_at: new Date().toISOString(),
-        }).eq('stripe_subscription_id', subId)
+        }).eq('stripe_subscription_id', subId))
         break
       }
 

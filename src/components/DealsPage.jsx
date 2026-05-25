@@ -1418,7 +1418,15 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           </div>
           {(form.ownership_type||'personal')==='personal' ? (() => {
             const taxRate = num('section24_rate') || 40
-            const annualInterest = monthlyRepayment * 12
+            // Section 24 relief applies to INTEREST only, not principal.
+            // For interest-only mortgages the monthly payment IS the interest.
+            // For repayment mortgages we approximate year-one interest as
+            // loanAmount × rate (true value declines as principal pays down,
+            // but year-one is what accountants want for tax planning — matches
+            // ReportMortgageInterest's approach).
+            const annualInterest = isInterestOnly
+              ? monthlyRepayment * 12
+              : loanAmount * (num('mortgage_rate') / 100)
             const s24Credit = annualInterest * 0.20
             const taxableIncome = effectiveRent * 12 - (agentFee + maintenanceFee + num('insurance_monthly') + num('service_charge_monthly') + num('ground_rent_monthly') + hmoExtras) * 12
             const taxOwed = Math.max(0, taxableIncome * (taxRate/100) - s24Credit)
