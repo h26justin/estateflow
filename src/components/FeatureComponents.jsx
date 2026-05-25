@@ -4091,17 +4091,39 @@ function AuditLogPanel({ user, companies, T }) {
   }
 
   const ACTION_LABELS = {
-    'property.created':   { label: 'Property added',       color: '#2ECC8A' },
-    'property.deleted':   { label: 'Property deleted',     color: '#E05555' },
-    'property.restored':  { label: 'Property restored',    color: '#4B8FE0' },
-    'property.updated':   { label: 'Property updated',     color: '#C8A84B' },
-    'rent.paid':          { label: 'Rent marked paid',     color: '#2ECC8A' },
-    'compliance.added':   { label: 'Certificate added',    color: '#2ECC8A' },
-    'compliance.expired': { label: 'Certificate expired',  color: '#E05555' },
-    'deal.created':       { label: 'Deal created',         color: '#C8A84B' },
-    'deal.deleted':       { label: 'Deal deleted',         color: '#E05555' },
-    'user.login':         { label: 'Signed in',            color: '#4B8FE0' },
-    'company.created':    { label: 'Company created',      color: '#2ECC8A' },
+    'property.created':            { label: 'Property added',       color: '#2ECC8A' },
+    'property.deleted':            { label: 'Property deleted',     color: '#E05555' },
+    'property.restored':           { label: 'Property restored',    color: '#4B8FE0' },
+    'property.updated':            { label: 'Property updated',     color: '#C8A84B' },
+    'rent.paid':                   { label: 'Rent marked paid',     color: '#2ECC8A' },
+    'rent.updated':                { label: 'Rent updated',         color: '#C8A84B' },
+    'compliance.added':            { label: 'Certificate added',    color: '#2ECC8A' },
+    'compliance.expired':          { label: 'Certificate expired',  color: '#E05555' },
+    'compliance.deleted':          { label: 'Certificate deleted',  color: '#E05555' },
+    'expense.created':             { label: 'Expense added',        color: '#2ECC8A' },
+    'expense.deleted':             { label: 'Expense deleted',      color: '#E05555' },
+    'deal.created':                { label: 'Deal created',         color: '#C8A84B' },
+    'deal.deleted':                { label: 'Deal deleted',         color: '#E05555' },
+    'deal.updated':                { label: 'Deal updated',         color: '#C8A84B' },
+    'tenancy.created':             { label: 'Tenancy added',        color: '#2ECC8A' },
+    'tenancy.updated':             { label: 'Tenancy updated',      color: '#C8A84B' },
+    'user.login':                  { label: 'Signed in',            color: '#4B8FE0' },
+    'user.logout':                 { label: 'Signed out',           color: '#888EA8' },
+    'company.created':             { label: 'Company created',      color: '#2ECC8A' },
+    'company.updated':             { label: 'Company updated',      color: '#C8A84B' },
+    'company.deleted':             { label: 'Company deleted',      color: '#E05555' },
+    'user_company_access.created': { label: 'Access granted',       color: '#2ECC8A' },
+    'user_company_access.deleted': { label: 'Access revoked',       color: '#E05555' },
+    'user_company_access.updated': { label: 'Access updated',       color: '#C8A84B' },
+    'invite.created':              { label: 'Invite sent',          color: '#4B8FE0' },
+    'invite.redeemed':             { label: 'Invite redeemed',      color: '#2ECC8A' },
+    'subscription.created':        { label: 'Subscription started', color: '#2ECC8A' },
+    'subscription.updated':        { label: 'Subscription changed', color: '#C8A84B' },
+    'subscription.canceled':       { label: 'Subscription cancelled', color: '#E05555' },
+    'document.uploaded':           { label: 'Document uploaded',    color: '#4B8FE0' },
+    'document.deleted':            { label: 'Document deleted',     color: '#E05555' },
+    'maintenance.created':         { label: 'Maintenance job',      color: '#C8A84B' },
+    'inspection.created':          { label: 'Inspection scheduled', color: '#4B8FE0' },
   }
 
   function exportAuditCSV() {
@@ -4155,19 +4177,26 @@ function AuditLogPanel({ user, companies, T }) {
           logs.map(log => {
             const cfg = ACTION_LABELS[log.action] || { label: log.action, color: T.muted }
             return (
-              <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '140px 160px 1fr 1fr', gap: 8, padding: '11px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
+              <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '85px minmax(150px, 200px) minmax(0, 1.5fr) minmax(0, 2fr)', gap: 12, padding: '11px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
                 <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
                   {new Date(log.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   <br/>
                   {new Date(log.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div>
-                  <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.color + '22', color: cfg.color }}>
+                <div style={{ minWidth: 0 }}>
+                  {/* inline-block + max-width so long labels truncate inside their column
+                      instead of overlapping into the entity column */}
+                  <span style={{ display: 'inline-block', maxWidth: '100%', fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.color + '22', color: cfg.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', boxSizing: 'border-box' }}
+                    title={log.action}>
                     {cfg.label}
                   </span>
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{log.entity_name || log.entity_type || '—'}</div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: mono, fontSize: 11, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
+                  title={log.entity_name || log.entity_type || ''}>
+                  {log.entity_name || log.entity_type || '—'}
+                </div>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
+                  title={log.metadata && Object.keys(log.metadata).length > 0 ? JSON.stringify(log.metadata) : ''}>
                   {log.metadata && Object.keys(log.metadata).length > 0 ? JSON.stringify(log.metadata) : '—'}
                 </div>
               </div>

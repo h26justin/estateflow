@@ -1433,13 +1433,16 @@ export async function createCheckoutSession(companyId, action = 'checkout') {
 }
 
 export async function fetchAllCompaniesAdmin() {
-  // Platform admin only — fetches all companies with owner emails
-  const { data, error } = await supabase
-    .from('companies')
-    .select('*, subscriptions(*)')
-    .order('name')
-  if (error) throw error
-  return data || []
+  // Platform admin only — fetches all companies with owner emails + subs.
+  // Two queries instead of embedded join — see fetchAdminAllCompanies for why.
+  const [{ data: cos, error: ce }, { data: subs }] = await Promise.all([
+    supabase.from('companies').select('*').order('name'),
+    supabase.from('subscriptions').select('*'),
+  ])
+  if (ce) throw ce
+  const subsByCo = {}
+  for (const s of (subs || [])) (subsByCo[s.company_id] ||= []).push(s)
+  return (cos || []).map(c => ({ ...c, subscriptions: subsByCo[c.id] || [] }))
 }
 
 export async function setCompanyFreeTier(companyId, isFreeTier, grantedBy) {
@@ -1568,29 +1571,34 @@ export async function setUserCompanyAdmin(userId, companyId, isAdmin) {
 }
 
 // ── ADMIN: FULL COMPANY LIST WITH SUBS ───────────────────────────────────────
+// Fetches all companies + their subscription status as a flat list for the
+// admin dashboard. Previously used a PostgREST embedded join (`subscriptions(...)`)
+// but that occasionally returned an empty `subscriptions` array even when
+// the row clearly exists in the DB — turned out to be PostgREST schema
+// cache flakiness on this particular relationship. Switched to two
+// independent queries + a client-side merge: bulletproof.
 export async function fetchAdminAllCompanies() {
-  const { data, error } = await supabase
-    .from('companies')
-    .select(`
-      *,
-      subscriptions ( status, property_count, current_period_end, stripe_subscription_id )
-    `)
-    .order('created_at', { ascending: false })
-  if (error) throw error
+  const [{ data: cos, error: ce }, { data: subs }, { data: propCounts }] = await Promise.all([
+    supabase.from('companies').select('*').order('created_at', { ascending: false }),
+    supabase.from('subscriptions').select('company_id, status, property_count, current_period_end, stripe_subscription_id, tier'),
+    supabase.from('properties').select('company_id'),
+  ])
+  if (ce) throw ce
 
-  // Get real property counts directly from properties table
-  const { data: propCounts } = await supabase
-    .from('properties')
-    .select('company_id')
+  // Group subscriptions by company_id (most companies have at most 1; defensive in case of dupes)
+  const subsByCo = {}
+  for (const s of (subs || [])) {
+    (subsByCo[s.company_id] ||= []).push(s)
+  }
+
+  // Count properties per company
   const countMap = {}
-  if (propCounts) {
-    propCounts.forEach(p => {
-      countMap[p.company_id] = (countMap[p.company_id] || 0) + 1
-    })
+  for (const p of (propCounts || [])) {
+    countMap[p.company_id] = (countMap[p.company_id] || 0) + 1
   }
 
   // Attach owner emails from user_profiles
-  const ownerIds = [...new Set((data || []).map(c => c.owner_id).filter(Boolean))]
+  const ownerIds = [...new Set((cos || []).map(c => c.owner_id).filter(Boolean))]
   let profileMap = {}
   if (ownerIds.length > 0) {
     const { data: profiles } = await supabase
@@ -1600,11 +1608,12 @@ export async function fetchAdminAllCompanies() {
     if (profiles) profiles.forEach(p => { profileMap[p.user_id] = p.email })
   }
 
-  return (data || []).map(c => ({
+  return (cos || []).map(c => ({
     ...c,
+    subscriptions: subsByCo[c.id] || [],
     owner_email: profileMap[c.owner_id] || null,
-    real_property_count: countMap[c.id] || 0,           // actual props on platform
-    paid_property_count: c.subscriptions?.[0]?.property_count || 0, // Stripe billed count
+    real_property_count: countMap[c.id] || 0,
+    paid_property_count: subsByCo[c.id]?.[0]?.property_count || 0,
   }))
 }
 
