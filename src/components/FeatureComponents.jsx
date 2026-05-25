@@ -8,6 +8,7 @@ import CalcExplain from './CalcExplain'
 import CompanyInboxPanel from './CompanyInboxPanel'
 import InspectionsPanel from './InspectionsPanel'
 import IntegrationsPanel from './IntegrationsPanel'
+import TwoFactorPanel from './TwoFactorPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -719,6 +720,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               <button className="btn btn-ghost" onClick={sendResetEmail} style={{fontSize:11}}>Send Reset Email Instead</button>
             </div>
           </div>
+          <TwoFactorPanel T={T}/>
           <SecurityDataPanel user={user} T={T} showToast={showToast}/>
         </>
       )}

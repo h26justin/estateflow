@@ -151,7 +151,19 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             transitions baked into the direct debit. */}
         <div className="g2">
           <div>
-            <label>Mortgage Type</label>
+            <label>
+              Mortgage Type
+              <span style={{ color: T.muted, fontWeight: 400, fontSize: 10, display: 'block', marginTop: 2 }}>
+                {(() => {
+                  const t = form.mortgage_type || 'repayment'
+                  if (t === 'repayment')      return 'Each payment covers interest + a bit of capital. Balance reduces over the term.'
+                  if (t === 'interest_only')  return 'Each payment covers interest only. Full balance is owed at the end of the term.'
+                  if (t === 'mixed')          return 'Part interest-only + part repayment. We treat this like repayment for calculations.'
+                  if (t === 'bridging')       return 'Short-term loan, usually interest-only. Use the Monthly Payment override below.'
+                  return ''
+                })()}
+              </span>
+            </label>
             <select value={form.mortgage_type || 'repayment'} onChange={e=>s('mortgage_type', e.target.value)}>
               <option value="repayment">Repayment</option>
               <option value="interest_only">Interest-only</option>
@@ -160,7 +172,13 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             </select>
           </div>
           <div>
-            <label>Monthly Payment (overrides calc)</label>
+            <label>
+              Monthly Payment
+              <span style={{ color: T.muted, fontWeight: 400, fontSize: 10, display: 'block', marginTop: 2 }}>
+                Optional. Leave blank to calculate from rate + term. Fill in if your direct
+                debit includes fees or you have a fixed deal that doesn't match the formula.
+              </span>
+            </label>
             <MoneyInput prefix="£" value={form.mortgage_monthly_payment} onChange={v=>s('mortgage_monthly_payment', v)}/>
           </div>
         </div>

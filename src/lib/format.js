@@ -4,6 +4,14 @@
 // formatting rules are consistent everywhere (and easy to change in one
 // place if we ever localise to a different currency).
 
+// NaN sentinel: a sum that ended up NaN (e.g. arithmetic on undefined) is a
+// real bug. Previously we coerced NaN → 0 with `n || 0`, which silently
+// rendered "£0" and made data corruption invisible. Now we surface it as
+// "—" so it stands out for the user (and gets reported as a bug). Null/
+// undefined are still treated as legitimate zero values.
+const NAN_DISPLAY = '—'
+const isRealNumber = (n) => typeof n === 'number' && Number.isFinite(n)
+
 /**
  * Format a number as GBP currency with thousand separators and no decimals.
  * Examples:
@@ -11,26 +19,47 @@
  *   fmt(2500000)    → "£2,500,000"
  *   fmt(null)       → "£0"
  *   fmt(undefined)  → "£0"
+ *   fmt(NaN)        → "—"   (NEW: catches arithmetic bugs)
  */
-export const fmt = (n) =>
-  new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    maximumFractionDigits: 0,
-  }).format(n || 0)
+export const fmt = (n) => {
+  if (n == null) return new Intl.NumberFormat('en-GB', {
+    style: 'currency', currency: 'GBP', maximumFractionDigits: 0,
+  }).format(0)
+  if (!isRealNumber(Number(n))) return NAN_DISPLAY
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency', currency: 'GBP', maximumFractionDigits: 0,
+  }).format(Number(n))
+}
 
 /**
  * Format a number as GBP currency with two decimal places.
  * Use for cases where pence matter (statement importers, individual
  * transaction amounts, exact reconciliation).
  */
-export const fmtMoney2dp = (n) =>
-  new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n || 0)
+export const fmtMoney2dp = (n) => {
+  if (n == null) return new Intl.NumberFormat('en-GB', {
+    style: 'currency', currency: 'GBP', minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(0)
+  if (!isRealNumber(Number(n))) return NAN_DISPLAY
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency', currency: 'GBP', minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(Number(n))
+}
+
+// Sum money values to pennies safely — rounds each addend to 2dp before
+// summing to avoid float drift on long lists. Use this anywhere a total is
+// shown to the user or sent to HMRC.
+//   sumMoney([0.1, 0.2]) → 0.30  (vs. 0.1+0.2 = 0.30000000000000004)
+export function sumMoney(values) {
+  let pennies = 0
+  for (const v of values) {
+    if (v == null) continue
+    const n = Number(v)
+    if (!Number.isFinite(n)) continue
+    pennies += Math.round(n * 100)
+  }
+  return pennies / 100
+}
 
 /**
  * Format a number as a percentage with N decimal places (default 1).

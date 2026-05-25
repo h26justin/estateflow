@@ -3316,15 +3316,25 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) throw new Error('Not signed in')
 
-  // Default: all user's non-deleted properties
+  // Default: all user's non-deleted properties. We also need mortgage_amount
+  // + mortgage_rate so we can compute the period's mortgage interest accrual
+  // (residential financial cost — gets 20% basic-rate relief under S24).
   let propIds = propertyIds
+  let mortgageProps = []
   if (!propIds) {
     const { data: props, error: pe } = await supabase
-      .from('properties').select('id').eq('user_id', uid).is('deleted_at', null)
+      .from('properties').select('id, mortgage_amount, mortgage_rate')
+      .eq('user_id', uid).is('deleted_at', null)
     if (pe) throw pe
     propIds = (props || []).map(p => p.id)
+    mortgageProps = (props || []).filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)
+  } else {
+    const { data: props } = await supabase
+      .from('properties').select('id, mortgage_amount, mortgage_rate')
+      .in('id', propIds).is('deleted_at', null)
+    mortgageProps = (props || []).filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)
   }
-  if (propIds.length === 0) return { payments: [], expenses: [] }
+  if (propIds.length === 0) return { payments: [], expenses: [], mortgageInterest: 0 }
 
   const [paymentsRes, expensesRes] = await Promise.all([
     supabase.from('rent_payments').select('id, property_id, amount, period_start, period_end, status')
@@ -3339,7 +3349,19 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   ])
   if (paymentsRes.error) throw paymentsRes.error
   if (expensesRes.error) throw expensesRes.error
-  return { payments: paymentsRes.data || [], expenses: expensesRes.data || [] }
+
+  // Mortgage interest accrued over the period =
+  //   sum(balance × annual_rate) × (period_days / 365)
+  // mortgage_rate is stored as DECIMAL (0.05 for 5%). Year-one approximation
+  // (true interest declines as principal is paid down on repayment mortgages).
+  const from = new Date(periodFrom)
+  const to   = new Date(periodTo)
+  const periodDays = Math.max(0, Math.round((to - from) / 86400000) + 1)
+  const annualInterest = mortgageProps.reduce((s, p) =>
+    s + (Number(p.mortgage_amount) * Number(p.mortgage_rate)), 0)
+  const mortgageInterest = Math.round((annualInterest * periodDays / 365) * 100) / 100
+
+  return { payments: paymentsRes.data || [], expenses: expensesRes.data || [], mortgageInterest }
 }
 
 // Start the HMRC gov.uk OAuth flow. Returns nothing — performs a

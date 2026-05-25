@@ -5,6 +5,32 @@ import { SignedPhoto } from '../lib/SignedPhoto'
 
 const mono = "'DM Mono',monospace"
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
+
+// Tenant portal colour tokens. The previous hard-coded values were:
+//   '#999' on white     → 2.85:1  (fails WCAG AA 4.5:1)
+//   '#bbb' on white     → 1.85:1  (fails — barely visible)
+//   '#ccc' on white     → 1.61:1  (fails badly)
+// These are public-facing for tenants (highest legal risk surface).
+// Replaced with higher-contrast neutrals tuned against #FFFFFF:
+//   MUTED  #595E7A → 5.6:1 (AA pass)
+//   FAINT  #6A6764 → 5.0:1 (AA pass)
+//   GHOST  #8A8784 → 3.7:1 (AA Large only — only use for >= 18pt or
+//                            decoration like calendar dot empty cells)
+const TENANT_MUTED = '#595E7A'
+const TENANT_FAINT = '#6A6764'
+const TENANT_GHOST = '#8A8784'
+
+// Build a bank-reference string from the tenant's property. Guards against
+// edge cases that previously produced 'RENT-' (empty address + empty name)
+// or '-FOO' (no prefix). Tenants pay with this exact reference, so an
+// empty or malformed value means the landlord can't auto-match.
+function buildBankReference(bankDetails, property) {
+  const prefix = (bankDetails?.bank_reference_prefix || 'RENT').trim() || 'RENT'
+  const source = String(property?.address || property?.name || '').trim()
+  const word = source.split(/\s+/).filter(Boolean)[0]
+  const suffix = word ? word.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) : 'UNIT'
+  return `${prefix}-${suffix}`
+}
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 const STATUS_COLORS = {
@@ -64,7 +90,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   }
 
   if (loading) return (
-    <div style={{minHeight:'100vh',background:'#F4F3EF',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,color:'#999'}}>
+    <div style={{minHeight:'100vh',background:'#F4F3EF',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>
       Loading your portal…
     </div>
   )
@@ -74,7 +100,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
       <div style={{background:'white',borderRadius:16,padding:'40px 32px',maxWidth:400,textAlign:'center',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
         <div style={{fontSize:40,marginBottom:16}}>🏠</div>
         <h2 style={{fontSize:18,fontWeight:700,color:'#2D3C4A',marginBottom:8}}>Not set up yet</h2>
-        <p style={{fontFamily:mono,fontSize:12,color:'#999',lineHeight:1.8,marginBottom:24}}>
+        <p style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,lineHeight:1.8,marginBottom:24}}>
           {error||"Your landlord hasn't linked your account to a property yet."}
         </p>
         <button onClick={onSignOut} style={{fontFamily:mono,fontSize:12,padding:'10px 20px',borderRadius:8,border:'1px solid #ddd',background:'transparent',color:'#666',cursor:'pointer'}}>Sign out</button>
@@ -178,10 +204,10 @@ function Card({ children, style={} }) {
   return <div style={{background:'white',borderRadius:14,padding:'20px 22px',...style}}>{children}</div>
 }
 function SectionLabel({ children }) {
-  return <div style={{fontFamily:mono,fontSize:9,color:'#999',textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:12}}>{children}</div>
+  return <div style={{fontFamily:mono,fontSize:9,color:TENANT_MUTED,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:12}}>{children}</div>
 }
 function StatusPill({ status, cfg }) {
-  const sc = cfg[status] || { bg:'#eee', color:'#999', label: status }
+  const sc = cfg[status] || { bg:'#eee', color:TENANT_MUTED, label: status }
   return <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 10px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
 }
 
@@ -208,7 +234,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
   return (
     <div>
       <h1 style={{fontSize:24,fontWeight:700,color:'#2D3C4A',marginBottom:4,letterSpacing:'-0.02em'}}>Welcome home</h1>
-      <p style={{fontFamily:mono,fontSize:12,color:'#999',marginBottom:24}}>{property?.address||property?.name}</p>
+      <p style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,marginBottom:24}}>{property?.address||property?.name}</p>
 
       {/* Alert banners */}
       {arrears > 0 && (
@@ -232,12 +258,12 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
         <Card style={{borderLeft:`3px solid ${brandColor}`}}>
           <SectionLabel>Monthly rent</SectionLabel>
           <div style={{fontSize:28,fontWeight:700,color:'#2D3C4A'}}>{fmt(property?.rent_pcm)}</div>
-          <div style={{fontFamily:mono,fontSize:11,color:'#999',marginTop:4}}>per calendar month</div>
+          <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginTop:4}}>per calendar month</div>
         </Card>
         <Card style={{borderLeft:`3px solid ${arrears>0?'#E05555':'#2ECC8A'}`}}>
           <SectionLabel>Current balance</SectionLabel>
           <div style={{fontSize:28,fontWeight:700,color:arrears>0?'#E05555':'#2ECC8A'}}>{arrears>0?`-${fmt(arrears)}`:'All clear'}</div>
-          <div style={{fontFamily:mono,fontSize:11,color:'#999',marginTop:4}}>{arrears>0?'Arrears outstanding':'No arrears'}</div>
+          <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginTop:4}}>{arrears>0?'Arrears outstanding':'No arrears'}</div>
         </Card>
       </div>
 
@@ -254,7 +280,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
             ['Deposit scheme',tenancy.deposit_scheme||'—'],
           ].map(([l,v])=>(
             <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f4f4f4'}}>
-              <span style={{fontFamily:mono,fontSize:11,color:'#999'}}>{l}</span>
+              <span style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED}}>{l}</span>
               <span style={{fontFamily:mono,fontSize:11,color:'#2D3C4A',fontWeight:600}}>{v}</span>
             </div>
           ))}
@@ -269,14 +295,14 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
             ['Bank name',      bankDetails.bank_name||'—'],
             ['Sort code',      bankDetails.bank_sort_code||'—'],
             ['Account number', bankDetails.bank_account_no||'—'],
-            ['Reference',      `${bankDetails.bank_reference_prefix||'RENT'}-${(property?.address||property?.name||'').split(' ')[0]?.toUpperCase()}`],
+            ['Reference',      buildBankReference(bankDetails, property)],
           ].map(([l,v])=>(
             <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f4f4f4'}}>
-              <span style={{fontFamily:mono,fontSize:11,color:'#999'}}>{l}</span>
+              <span style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED}}>{l}</span>
               <span style={{fontFamily:mono,fontSize:12,color:'#2D3C4A',fontWeight:700}}>{v}</span>
             </div>
           ))}
-          <div style={{fontFamily:mono,fontSize:10,color:'#999',marginTop:10,lineHeight:1.6}}>
+          <div style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,marginTop:10,lineHeight:1.6}}>
             Please always use your reference when making payment so we can allocate it correctly.
           </div>
         </Card>
@@ -330,8 +356,8 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
     paid:    { bg:'#2ECC8A22', color:'#2ECC8A', label:'✓' },
     overdue: { bg:'#E0555522', color:'#E05555', label:'!' },
     pending: { bg:'#C8A84B22', color:'#C8A84B', label:'~' },
-    future:  { bg:'#f4f4f4',   color:'#ccc',    label:'' },
-    unknown: { bg:'#f4f4f4',   color:'#bbb',    label:'?' },
+    future:  { bg:'#f4f4f4',   color:TENANT_GHOST,    label:'' },
+    unknown: { bg:'#f4f4f4',   color:TENANT_FAINT,    label:'?' },
   }
 
   return (
@@ -368,18 +394,18 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
             const sc = statusConfig[m.status]||statusConfig.unknown
             return (
               <div key={i} style={{textAlign:'center'}}>
-                <div style={{fontFamily:mono,fontSize:10,color:'#bbb',marginBottom:6}}>{m.label}</div>
+                <div style={{fontFamily:mono,fontSize:10,color:TENANT_FAINT,marginBottom:6}}>{m.label}</div>
                 <div style={{width:'100%',aspectRatio:'1',borderRadius:8,background:sc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:16,color:sc.color,fontWeight:700,border:`1px solid ${sc.color}33`}}>
                   {sc.label}
                 </div>
-                {!m.isFuture&&m.status!=='unknown'&&<div style={{fontFamily:mono,fontSize:9,color:'#bbb',marginTop:4}}>{fmt(m.amount)}</div>}
+                {!m.isFuture&&m.status!=='unknown'&&<div style={{fontFamily:mono,fontSize:9,color:TENANT_FAINT,marginTop:4}}>{fmt(m.amount)}</div>}
               </div>
             )
           })}
         </div>
         <div style={{display:'flex',gap:16,marginTop:16,flexWrap:'wrap'}}>
           {[['paid','✓','#2ECC8A'],['overdue','!','#E05555'],['pending','~','#C8A84B'],['unknown','?','#bbb']].map(([k,s,c])=>(
-            <div key={k} style={{display:'flex',alignItems:'center',gap:6,fontFamily:mono,fontSize:10,color:'#999'}}>
+            <div key={k} style={{display:'flex',alignItems:'center',gap:6,fontFamily:mono,fontSize:10,color:TENANT_MUTED}}>
               <div style={{width:18,height:18,borderRadius:4,background:statusConfig[k]?.bg,display:'flex',alignItems:'center',justifyContent:'center',color:c,fontWeight:700,fontSize:11}}>{s}</div>
               {k.charAt(0).toUpperCase()+k.slice(1)}
             </div>
@@ -396,16 +422,16 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
               ['Bank',           bankDetails.bank_name||'—'],
               ['Sort code',      bankDetails.bank_sort_code||'—'],
               ['Account number', bankDetails.bank_account_no||'—'],
-              ['Reference',      `${bankDetails.bank_reference_prefix||'RENT'}-${(property?.address||property?.name||'').split(' ')[0]?.toUpperCase()}`],
+              ['Reference',      buildBankReference(bankDetails, property)],
               ['Amount',         fmt(property?.rent_pcm)],
             ].map(([l,v])=>(
               <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid #f4f4f4'}}>
-                <span style={{fontFamily:mono,fontSize:11,color:'#999'}}>{l}</span>
+                <span style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED}}>{l}</span>
                 <span style={{fontFamily:mono,fontSize:12,color:'#2D3C4A',fontWeight:700}}>{v}</span>
               </div>
             ))}
           </div>
-          <div style={{fontFamily:mono,fontSize:10,color:'#999',marginTop:10,padding:'10px 12px',background:'#f8f8f8',borderRadius:8}}>
+          <div style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,marginTop:10,padding:'10px 12px',background:'#f8f8f8',borderRadius:8}}>
             ⚠ Always use your reference exactly as shown so we can match your payment.
           </div>
         </Card>
@@ -414,11 +440,11 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
       {/* Full payment history */}
       <Card>
         <SectionLabel>Full payment history</SectionLabel>
-        {loading ? <div style={{fontFamily:mono,fontSize:12,color:'#999',padding:24,textAlign:'center'}}>Loading…</div>
-        : payments.length===0 ? <div style={{fontFamily:mono,fontSize:12,color:'#999',textAlign:'center',padding:24}}>No payment records yet.</div>
+        {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,padding:24,textAlign:'center'}}>Loading…</div>
+        : payments.length===0 ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:24}}>No payment records yet.</div>
         : <div>
             <div style={{display:'grid',gridTemplateColumns:'110px 1fr 110px 90px',gap:8,padding:'8px 0',borderBottom:'1px solid #f0f0f0'}}>
-              {['Date','Period','Amount','Status'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:'#bbb',textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+              {['Date','Period','Amount','Status'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:TENANT_FAINT,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
             {payments.map(p=>{
               const sc = STATUS_COLORS[p.status]||STATUS_COLORS.pending
@@ -449,6 +475,19 @@ function TenantMaintenance({ property, user, brandColor }) {
   const [photos, setPhotos]       = useState([])
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  // Revoke any blob: URLs we created for preview so we don't leak memory
+  // when the tenant submits / cancels the form. We also revoke them on
+  // unmount in case the tenant navigates away mid-flow.
+  useEffect(() => {
+    return () => {
+      for (const p of photos) {
+        if (p?.url?.startsWith('blob:')) {
+          try { URL.revokeObjectURL(p.url) } catch (_) {}
+        }
+      }
+    }
+  }, [photos])
   const [success, setSuccess]     = useState(false)
 
   useEffect(()=>{
@@ -526,17 +565,17 @@ function TenantMaintenance({ property, user, brandColor }) {
           <div style={{fontFamily:mono,fontSize:10,color:brandColor,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Report a repair</div>
 
           <div style={{marginBottom:12}}>
-            <label style={{fontFamily:mono,fontSize:10,color:'#999',display:'block',marginBottom:6}}>What needs fixing? *</label>
+            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:6}}>What needs fixing? *</label>
             <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Boiler not working, Leak under sink" style={inp}/>
           </div>
 
           <div style={{marginBottom:12}}>
-            <label style={{fontFamily:mono,fontSize:10,color:'#999',display:'block',marginBottom:6}}>Details (optional)</label>
+            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:6}}>Details (optional)</label>
             <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe the issue, when it started, how bad it is…" style={{...inp,resize:'vertical'}}/>
           </div>
 
           <div style={{marginBottom:14}}>
-            <label style={{fontFamily:mono,fontSize:10,color:'#999',display:'block',marginBottom:8}}>How urgent is this?</label>
+            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:8}}>How urgent is this?</label>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
               {[['normal','Normal','#4B8FE0'],['high','High priority','#E0943A'],['urgent','Urgent — safety risk','#E05555']].map(([k,l,c])=>(
                 <button key={k} onClick={()=>setPriority(k)} style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',
@@ -550,7 +589,7 @@ function TenantMaintenance({ property, user, brandColor }) {
 
           {/* Photo upload */}
           <div style={{marginBottom:16}}>
-            <label style={{fontFamily:mono,fontSize:10,color:'#999',display:'block',marginBottom:8}}>Add photos (optional, up to 5)</label>
+            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:8}}>Add photos (optional, up to 5)</label>
             <label style={{display:'inline-block',cursor:'pointer'}}>
               <span style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:'1px solid #e0e0e0',background:'#f8f8f8',color:'#666'}}>
                 {uploading?'Uploading…':'📷 Add photos'}
@@ -574,7 +613,7 @@ function TenantMaintenance({ property, user, brandColor }) {
             <button onClick={submit} disabled={submitting||!title.trim()} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px 22px',borderRadius:8,border:'none',background:submitting||!title.trim()?'#ccc':brandColor,color:'white',cursor:'pointer'}}>
               {submitting?'Submitting…':'Submit request'}
             </button>
-            <button onClick={()=>{setShowForm(false);setPhotos([]);setSubmitErr('')}} style={{fontFamily:mono,fontSize:12,padding:'10px 16px',borderRadius:8,border:'1px solid #e0e0e0',background:'transparent',color:'#999',cursor:'pointer'}}>
+            <button onClick={()=>{setShowForm(false);setPhotos([]);setSubmitErr('')}} style={{fontFamily:mono,fontSize:12,padding:'10px 16px',borderRadius:8,border:'1px solid #e0e0e0',background:'transparent',color:TENANT_MUTED,cursor:'pointer'}}>
               Cancel
             </button>
           </div>
@@ -587,10 +626,10 @@ function TenantMaintenance({ property, user, brandColor }) {
         </Card>
       )}
 
-      {loading ? <div style={{fontFamily:mono,fontSize:12,color:'#999',textAlign:'center',padding:40}}>Loading…</div>
+      {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
       : jobs.length===0 ? <Card style={{textAlign:'center',padding:40}}>
           <div style={{fontSize:32,marginBottom:12}}>🔧</div>
-          <div style={{fontFamily:mono,fontSize:12,color:'#999'}}>No repair requests yet. Report any issues above.</div>
+          <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No repair requests yet. Report any issues above.</div>
         </Card>
       : <div style={{display:'grid',gap:12}}>
           {jobs.map(job=>{
@@ -602,7 +641,7 @@ function TenantMaintenance({ property, user, brandColor }) {
                   <div style={{fontSize:14,fontWeight:700,color:'#2D3C4A',flex:1}}>{job.title||'Repair request'}</div>
                   <StatusPill status={job.status} cfg={JOB_STATUS}/>
                 </div>
-                {job.description && <div style={{fontFamily:mono,fontSize:11,color:'#999',marginBottom:10,lineHeight:1.6}}>{job.description}</div>}
+                {job.description && <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginBottom:10,lineHeight:1.6}}>{job.description}</div>}
                 {jobPhotos.length>0 && (
                   <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
                     {jobPhotos.map((p,i)=>(
@@ -611,7 +650,7 @@ function TenantMaintenance({ property, user, brandColor }) {
                     ))}
                   </div>
                 )}
-                <div style={{display:'flex',gap:16,fontFamily:mono,fontSize:10,color:'#bbb',flexWrap:'wrap'}}>
+                <div style={{display:'flex',gap:16,fontFamily:mono,fontSize:10,color:TENANT_FAINT,flexWrap:'wrap'}}>
                   <span>Reported {new Date(job.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
                   {job.priority&&job.priority!=='normal'&&<span style={{color:job.priority==='urgent'?'#E05555':'#E0943A'}}>⚑ {job.priority}</span>}
                 </div>
@@ -638,11 +677,11 @@ function TenantDocuments({ property, user, brandColor }) {
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:700,color:'#2D3C4A',marginBottom:8}}>Documents</h2>
-      <p style={{fontFamily:mono,fontSize:11,color:'#999',marginBottom:20}}>Documents shared by your landlord — download anytime.</p>
-      {loading ? <div style={{fontFamily:mono,fontSize:12,color:'#999',textAlign:'center',padding:40}}>Loading…</div>
+      <p style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginBottom:20}}>Documents shared by your landlord — download anytime.</p>
+      {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
       : docs.length===0 ? <Card style={{textAlign:'center',padding:40}}>
           <div style={{fontSize:32,marginBottom:12}}>📄</div>
-          <div style={{fontFamily:mono,fontSize:12,color:'#999'}}>No documents shared yet. Your landlord can share certificates, agreements and more.</div>
+          <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No documents shared yet. Your landlord can share certificates, agreements and more.</div>
         </Card>
       : <div style={{display:'grid',gap:10}}>
           {docs.map(doc=>(
@@ -650,7 +689,7 @@ function TenantDocuments({ property, user, brandColor }) {
               <span style={{fontSize:24,flexShrink:0}}>{getIcon(doc.name)}</span>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:600,color:'#2D3C4A',marginBottom:3}}>{doc.name}</div>
-                <div style={{fontFamily:mono,fontSize:10,color:'#bbb'}}>
+                <div style={{fontFamily:mono,fontSize:10,color:TENANT_FAINT}}>
                   {doc.size?`${(doc.size/1024).toFixed(0)}KB · `:''}Added {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                 </div>
               </div>
@@ -695,17 +734,17 @@ function TenantMessages({ property, user, contactInfo, brandColor }) {
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:700,color:'#2D3C4A',marginBottom:4}}>Messages</h2>
-      <p style={{fontFamily:mono,fontSize:11,color:'#999',marginBottom:20}}>
+      <p style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginBottom:20}}>
         {contactInfo ? `Message your ${contactInfo.label}` : 'Message your landlord — they\'ll reply as soon as possible.'}
       </p>
 
       <Card>
         <div style={{height:450,overflowY:'auto',marginBottom:0,padding:'4px'}}>
-          {loading && <div style={{fontFamily:mono,fontSize:12,color:'#999',textAlign:'center',padding:40}}>Loading…</div>}
+          {loading && <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>}
           {!loading && messages.length===0 && (
             <div style={{textAlign:'center',padding:48}}>
               <div style={{fontSize:32,marginBottom:12}}>✉</div>
-              <div style={{fontFamily:mono,fontSize:12,color:'#999'}}>No messages yet.<br/>Send a message below.</div>
+              <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No messages yet.<br/>Send a message below.</div>
             </div>
           )}
           {messages.map(m=>{
@@ -713,7 +752,7 @@ function TenantMessages({ property, user, contactInfo, brandColor }) {
             return (
               <div key={m.id} style={{display:'flex',justifyContent:isMe?'flex-end':'flex-start',marginBottom:14}}>
                 <div style={{maxWidth:'72%'}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:'#bbb',marginBottom:4,textAlign:isMe?'right':'left'}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:TENANT_FAINT,marginBottom:4,textAlign:isMe?'right':'left'}}>
                     {isMe?'You':'Landlord'} · {new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(m.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
                   </div>
                   <div style={{background:isMe?brandColor+'22':'#f4f4f4',borderRadius:isMe?'14px 14px 4px 14px':'14px 14px 14px 4px',padding:'10px 14px',fontFamily:mono,fontSize:12,color:'#2D3C4A',lineHeight:1.7}}>
@@ -753,7 +792,7 @@ function TenantProfile({ property, user, company }) {
         <SectionLabel>Account</SectionLabel>
         {[['Email address',user.email],['Property',property?.address||property?.name||'—'],['Managed by',company?.name||'—']].map(([l,v])=>(
           <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f4f4f4'}}>
-            <span style={{fontFamily:mono,fontSize:11,color:'#999'}}>{l}</span>
+            <span style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED}}>{l}</span>
             <span style={{fontFamily:mono,fontSize:11,color:'#2D3C4A',fontWeight:600}}>{v}</span>
           </div>
         ))}
@@ -770,7 +809,7 @@ function TenantProfile({ property, user, company }) {
             ['Deposit scheme', tenancy.deposit_scheme||'—'],
           ].map(([l,v])=>(
             <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f4f4f4'}}>
-              <span style={{fontFamily:mono,fontSize:11,color:'#999'}}>{l}</span>
+              <span style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED}}>{l}</span>
               <span style={{fontFamily:mono,fontSize:11,color:'#2D3C4A',fontWeight:600}}>{v}</span>
             </div>
           ))}

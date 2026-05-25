@@ -78,9 +78,12 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
     setBusy(`preview-${q.quarter}`)
     setPreviewQuarter(q)
     try {
-      const { payments, expenses } = await api.fetchMtdRawForPeriod({ periodFrom: q.from, periodTo: q.to })
-      const summary = buildQuarterlySummary({ payments, expenses, periodFrom: q.from, periodTo: q.to })
-      setPreviewData({ summary, payments, expenses })
+      const { payments, expenses, mortgageInterest } = await api.fetchMtdRawForPeriod({ periodFrom: q.from, periodTo: q.to })
+      // Pass mortgageInterest so it lands in residentialFinancialCost on the
+      // HMRC summary — without it, landlords lose their 20% S24 basic-rate
+      // tax credit on every quarterly filing.
+      const summary = buildQuarterlySummary({ payments, expenses, mortgageInterest, periodFrom: q.from, periodTo: q.to })
+      setPreviewData({ summary, payments, expenses, mortgageInterest })
     } catch (e) {
       showAppToast('Preview failed: ' + e.message, 'error')
       setPreviewQuarter(null)

@@ -184,8 +184,14 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
   const netProfit = annualRent - totalExpenses
   const totalMortgage = filteredProps.reduce((s,p)=>s+(p.mortgage_amount||0),0)
   const totalEquity = filteredProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0)
-  const avgYield = filteredProps.length > 0
-    ? filteredProps.reduce((s,p)=>{ const v=p.est_value||1; return s+((p.rent_pcm||0)*12/v)*100 },0)/filteredProps.length
+  // Only include properties that have a real est_value in the average.
+  // The previous `v = est_value || 1` fallback was a divide-by-1 disaster
+  // for any property with missing valuation — it produced yields like
+  // "1,440,000%" (rent × 12 / 1) which then dragged the portfolio average
+  // up to nonsense. Exclude rather than mask.
+  const yieldable = filteredProps.filter(p => Number(p.est_value) > 0 && Number(p.rent_pcm) > 0)
+  const avgYield = yieldable.length > 0
+    ? yieldable.reduce((s,p)=>s+((p.rent_pcm*12)/p.est_value)*100, 0) / yieldable.length
     : 0
 
   // Per-property P&L
