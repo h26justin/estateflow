@@ -3,6 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import FocusTrap from '../lib/FocusTrap'
 
 // Tenant referencing modal.
 //
@@ -101,10 +102,11 @@ export default function TenantReferenceModal({ property, onClose }) {
 
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 620 }}>
+      <FocusTrap onEscape={onClose}>
+      <div className="modal" style={{ maxWidth: 620 }} role="dialog" aria-modal="true" aria-labelledby="tenant-reference-modal-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
+            <h2 id="tenant-reference-modal-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
               Tenant Referencing
             </h2>
             <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
@@ -237,6 +239,7 @@ export default function TenantReferenceModal({ property, onClose }) {
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

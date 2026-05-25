@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
+import FocusTrap from '../../lib/FocusTrap'
 
 export default function PaymentModal({ payment, onClose, onSave }) {
   const { T } = useTheme()
@@ -19,10 +20,11 @@ export default function PaymentModal({ payment, onClose, onSave }) {
 
   return (
     <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal" style={{maxWidth:380}}>
+      <FocusTrap onEscape={onClose}>
+      <div className="modal" style={{maxWidth:380}} role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
         <div style={{padding:'24px 28px'}}>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
-          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{payment.month_label}</h2>
+          <h2 id="payment-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{payment.month_label}</h2>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,marginBottom:24}}>
             Current status: <span style={{color:payment.status==='paid'?T.green:(payment.status==='overdue'||payment.status==='missed')?T.red:payment.status==='late'?T.amber:T.faint,fontWeight:700}}>{payment.status==='missed'?'overdue':payment.status}</span>
           </div>
@@ -67,6 +69,7 @@ export default function PaymentModal({ payment, onClose, onSave }) {
           <button className="btn btn-ghost" style={{width:'100%',fontSize:12}} onClick={onClose}>Cancel</button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import FocusTrap from '../lib/FocusTrap'
 
 // ── RECEIPT SCAN MODAL ───────────────────────────────────────────────
 // Mobile-first expense capture. User taps "Scan receipt" → device
@@ -105,9 +106,10 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
 
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget && stage !== 'scanning') onClose() }}>
-      <div className="modal" style={{ maxWidth: 480 }}>
+      <FocusTrap onEscape={() => { if (stage !== 'scanning') onClose() }}>
+      <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="receipt-scan-modal-title">
         <div style={{ padding: '22px 24px 0' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 4 }}>
+          <h2 id="receipt-scan-modal-title" style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             📷 Scan Receipt
           </h2>
           <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
@@ -213,6 +215,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
           )}
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

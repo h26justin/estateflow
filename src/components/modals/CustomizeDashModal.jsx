@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MONO } from '../../lib/styles'
+import FocusTrap from '../../lib/FocusTrap'
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────
 // Combined dashboard customization modal. Two tabs: Sections (top-level
@@ -90,10 +91,11 @@ export default function CustomizeDashModal({
 
   return (
     <div className="overlay" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:14,maxWidth:680,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
+      <FocusTrap onEscape={onClose}>
+      <div role="dialog" aria-modal="true" aria-labelledby="customize-dash-modal-title" style={{background:T.surface,borderRadius:14,maxWidth:680,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
-            <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>⚙ Customize Dashboard</h2>
+            <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>⚙ Customize Dashboard</h2>
             <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Drag to reorder, toggle to show/hide. {enabledCount} {tab === 'sections' ? 'sections' : 'cards'} on.</div>
           </div>
           <button onClick={onClose} style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
@@ -181,6 +183,7 @@ export default function CustomizeDashModal({
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

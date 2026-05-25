@@ -16,6 +16,7 @@ import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { safeOverlayClose, isFormDirty } from '../lib/modalUtils'
 import MoneyInput from '../lib/MoneyInput'
+import FocusTrap from '../lib/FocusTrap'
 
 const mono = "'DM Mono',monospace"
 
@@ -226,9 +227,10 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
   // ── Render ───────────────────────────────────────────────────────────
   return (
     <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-      <div className="modal" style={{ maxWidth: step === 3 ? 920 : 640 }}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{ maxWidth: step === 3 ? 920 : 640 }} role="dialog" aria-modal="true" aria-labelledby="bulk-add-property-modal-title">
         <div style={{ padding: '24px 28px 0' }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
+          <h2 id="bulk-add-property-modal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
             🏢 Add a block of flats
           </h2>
           <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 14 }}>
@@ -319,6 +321,7 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

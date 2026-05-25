@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
+import FocusTrap from '../../lib/FocusTrap'
 
 export default function DeleteConfirmModal({ propName, onClose, onConfirm }) {
   const { T } = useTheme()
@@ -17,10 +18,11 @@ export default function DeleteConfirmModal({ propName, onClose, onConfirm }) {
 
   return (
     <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal" style={{maxWidth:420}}>
+      <FocusTrap onEscape={onClose}>
+      <div className="modal" style={{maxWidth:420}} role="dialog" aria-modal="true" aria-labelledby="delete-confirm-modal-title">
         <div style={{padding:'28px 28px'}}>
           <div style={{fontSize:32,marginBottom:12,textAlign:'center'}}>⚠️</div>
-          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text,textAlign:'center'}}>Delete Property?</h2>
+          <h2 id="delete-confirm-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text,textAlign:'center'}}>Delete Property?</h2>
           <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:6,textAlign:'center'}}>You are about to permanently delete:</p>
           <p style={{fontFamily:"'DM Mono',monospace",color:T.red,fontSize:13,fontWeight:700,marginBottom:20,textAlign:'center'}}>{propName}</p>
           <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:16,textAlign:'center'}}>This will delete all associated rent history, refurb data and notes. This cannot be undone.<br/><br/>Enter your password to confirm.</p>
@@ -40,6 +42,7 @@ export default function DeleteConfirmModal({ propName, onClose, onConfirm }) {
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

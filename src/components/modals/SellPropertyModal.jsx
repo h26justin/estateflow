@@ -3,6 +3,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import { fmt } from '../../lib/format'
+import FocusTrap from '../../lib/FocusTrap'
 
 export default function SellPropertyModal({ property, onClose, onConfirm, busy }) {
   const { T } = useTheme()
@@ -25,9 +26,10 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
 
   return (
     <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-      <div className="modal" style={{maxWidth:460}}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{maxWidth:460}} role="dialog" aria-modal="true" aria-labelledby="sell-property-modal-title">
         <div style={{padding:'28px 28px'}}>
-          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as Sold</h2>
+          <h2 id="sell-property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as Sold</h2>
           <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:20}}>{property?.name}</p>
           <div style={{marginBottom:14}}>
             <label>Sale Price</label>
@@ -71,6 +73,7 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

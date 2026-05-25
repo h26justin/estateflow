@@ -3,6 +3,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import { supabase } from '../../lib/supabase'
 import * as api from '../../lib/api'
+import FocusTrap from '../../lib/FocusTrap'
 
 export default function AccessModal({ companies, userId, onClose, showToast }) {
   const { T } = useTheme()
@@ -87,9 +88,10 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
 
   return (
     <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose)}>
-      <div className="modal" style={{maxWidth:580}}>
+      <FocusTrap onEscape={() => safeOverlayClose(newEmail.trim().length > 0, onClose)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{maxWidth:580}} role="dialog" aria-modal="true" aria-labelledby="access-modal-title">
         <div style={{padding:'24px 28px 0'}}>
-          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>⚙ Company Access Control</h2>
+          <h2 id="access-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>⚙ Company Access Control</h2>
           <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Control which users can see which companies. Admins (like you) always see everything.</p>
         </div>
         <div style={{padding:'0 28px 28px'}}>
@@ -141,6 +143,7 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
           <button className="btn btn-ghost" style={{width:'100%',marginTop:8,fontSize:12}} onClick={onClose}>Close</button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

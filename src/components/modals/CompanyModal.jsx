@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
 import * as api from '../../lib/api'
+import FocusTrap from '../../lib/FocusTrap'
 
 export default function CompanyModal({ onClose, onSave }) {
   const { T } = useTheme()
@@ -33,9 +34,10 @@ export default function CompanyModal({ onClose, onSave }) {
   }, [form.name])
 
   return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-    <div className="modal" style={{maxWidth:480}}>
+    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+    <div className="modal" style={{maxWidth:480}} role="dialog" aria-modal="true" aria-labelledby="company-modal-title">
       <div style={{padding:'24px 28px 0'}}>
-        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add Company</h2>
+        <h2 id="company-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add Company</h2>
         <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>Create a new company to group properties under.</p>
       </div>
       <div style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
@@ -73,5 +75,6 @@ export default function CompanyModal({ onClose, onSave }) {
         </div>
       </div>
     </div>
+    </FocusTrap>
   </div>
 }

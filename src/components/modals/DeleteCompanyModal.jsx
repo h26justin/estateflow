@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import * as api from '../../lib/api'
+import FocusTrap from '../../lib/FocusTrap'
 
 function PreviewRow({ label, value, T, mono }) {
   const dim = !value
@@ -52,10 +53,11 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
 
   return (
     <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-      <div className="modal" style={{ maxWidth: 480 }}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="delete-company-modal-title">
         <div style={{ padding: '24px 28px 0' }}>
           <div style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>🗑️</div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 6, color: T.text }}>
+          <h2 id="delete-company-modal-title" style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 6, color: T.text }}>
             Delete {company.name}?
           </h2>
           <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: 'center', marginBottom: 22, lineHeight: 1.5 }}>
@@ -108,6 +110,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }
