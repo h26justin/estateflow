@@ -33,7 +33,75 @@ const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
 const SUPABASE_URL           = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY       = Deno.env.get('SERVICE_ROLE_KEY')!
 
+// Meta Conversions API (server-side attribution). Lets us tell Meta that
+// a user just bought, with their hashed email/IP/UA, so iOS 17+ ad
+// attribution still works even when client-side Pixel calls are blocked.
+// Both env vars must be set for server-side events to fire — otherwise
+// the integration is silently inactive (no errors, no spurious events).
+const META_PIXEL_ID      = Deno.env.get('META_PIXEL_ID') || ''
+const META_CAPI_TOKEN    = Deno.env.get('META_CAPI_TOKEN') || ''  // long-lived access token
+const META_TEST_EVENT_CODE = Deno.env.get('META_TEST_EVENT_CODE') || ''  // optional — for Meta Events Manager test mode
+
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+// SHA-256 hex helper for Meta CAPI user_data fields (Meta requires PII to
+// be hashed before transmission for compliance with their data-handling rules).
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input.trim().toLowerCase())
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Fire a server-side Meta Pixel event. No-op if META_PIXEL_ID +
+// META_CAPI_TOKEN aren't set — that's the default state until Justin
+// has a Pixel ID + access token from Meta Events Manager.
+async function fireMetaCapi(opts: {
+  eventName: string                 // 'Purchase' | 'StartTrial' | 'CompleteRegistration'
+  eventId: string                   // For dedupe with the client-side Pixel
+  userEmail?: string
+  value?: number
+  currency?: string
+}): Promise<void> {
+  if (!META_PIXEL_ID || !META_CAPI_TOKEN) return  // not configured yet — silent no-op
+
+  const userData: Record<string, string> = {}
+  if (opts.userEmail) {
+    userData.em = await sha256Hex(opts.userEmail)
+  }
+
+  const body: any = {
+    data: [{
+      event_name: opts.eventName,
+      event_time: Math.floor(Date.now() / 1000),
+      event_id: opts.eventId,              // dedupe key vs client Pixel
+      action_source: 'website',
+      event_source_url: 'https://www.ownproperly.com/',
+      user_data: userData,
+      custom_data: {
+        currency: opts.currency || 'GBP',
+        value: typeof opts.value === 'number' ? opts.value : undefined,
+      },
+    }],
+  }
+  if (META_TEST_EVENT_CODE) body.test_event_code = META_TEST_EVENT_CODE
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/v18.0/${META_PIXEL_ID}/events?access_token=${META_CAPI_TOKEN}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      console.warn('[meta-capi] non-200:', res.status, t.slice(0, 200))
+    }
+  } catch (e) {
+    // Never let an attribution failure break the Stripe webhook —
+    // Stripe retries the whole webhook on 500, which would then
+    // double-fire DB writes.
+    console.warn('[meta-capi] failed:', (e as Error).message)
+  }
+}
 
 // ── Helper: resolve which company row this event belongs to ──────────
 // Tries every signal Stripe might give us, in order of reliability.
@@ -118,6 +186,16 @@ Deno.serve(async (req) => {
           status: 'active',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'company_id' }))
+
+        // Meta Conversions API — fire Purchase event with hashed email.
+        // amount_total is in pence on Stripe (e.g. 200 = £2.00).
+        await fireMetaCapi({
+          eventName: 'Purchase',
+          eventId: `stripe-${obj.id}`,         // dedupe with the client Pixel's purchase event
+          userEmail: obj.customer_details?.email || obj.customer_email,
+          value: typeof obj.amount_total === 'number' ? obj.amount_total / 100 : undefined,
+          currency: (obj.currency || 'gbp').toUpperCase(),
+        })
         break
       }
 

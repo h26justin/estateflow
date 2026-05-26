@@ -229,8 +229,82 @@
       <div class="callout" style="margin-top:24px">
         <strong>Important:</strong> This is a simplified one-property calculator. Real tax returns include personal allowance interactions, multiple properties, capital gains, and other income sources. Use it as a directional indicator and consult an accountant for filing decisions.
       </div>
+
+      <!-- Email-capture: lets the visitor save a copy of their numbers and
+           starts an opt-in nurture sequence. Honeypot field traps trivial
+           bots; rate-limited server-side by IP. -->
+      <form id="op-email-capture" style="margin-top:24px;background:#FAFAF8;border:1px solid #E2DFD8;border-radius:14px;padding:20px 22px" onsubmit="return submitEmailCapture(event)">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Email me a copy</div>
+        <p style="font-family:'DM Mono',monospace;font-size:12px;color:#6B7691;line-height:1.7;margin-bottom:12px">
+          Save your Section 24 numbers + get our weekly UK landlord tax & compliance brief. Unsubscribe anytime — we don't share your email.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input type="email" name="email" required placeholder="you@example.com" autocomplete="email" inputmode="email"
+                 style="flex:1 1 240px;font-family:'DM Mono',monospace;font-size:14px;padding:11px 14px;border:1.5px solid #E2DFD8;background:#fff;border-radius:8px;outline:none;color:#1A2530"/>
+          <!-- Honeypot — must stay empty. Hidden visually + with aria-hidden. -->
+          <input type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true"
+                 style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0"/>
+          <button type="submit" id="op-email-btn"
+                  style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;padding:11px 22px;border-radius:8px;border:none;background:#C8A84B;color:#1A2530;cursor:pointer;white-space:nowrap">
+            Send me a copy
+          </button>
+        </div>
+        <div id="op-email-msg" role="status" aria-live="polite" style="font-family:'DM Mono',monospace;font-size:12px;color:#1A9E65;margin-top:10px;min-height:18px"></div>
+      </form>
     </div>
   </div>
+
+  <script>
+    // Submit handler for the email-capture form. POSTs to the lead-capture
+    // edge function with the current calculator state attached so the
+    // confirmation email can reference their numbers later if we want.
+    function submitEmailCapture(ev) {
+      ev.preventDefault();
+      var form = ev.target;
+      var btn  = document.getElementById('op-email-btn');
+      var msg  = document.getElementById('op-email-msg');
+      var email = (form.email.value || '').trim();
+      var honeypot = (form.company.value || '').trim();
+
+      if (!email) return false;
+      btn.disabled = true; btn.textContent = 'Sending…';
+      msg.style.color = '#6B7691';
+      msg.textContent = '';
+
+      var payload = {
+        rent:  Number(document.getElementById('rent').value)  || 0,
+        mort:  Number(document.getElementById('mort').value)  || 0,
+        other: Number(document.getElementById('other').value) || 0,
+        band:  Number((document.querySelector('input[name=band]:checked') || {}).value) || 0,
+        net:   document.getElementById('r-net').textContent,
+        extra: document.getElementById('r-extra').textContent,
+      };
+
+      fetch('https://hqrhqbkqxzllmzhcofrh.supabase.co/functions/v1/lead-capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, source: 'section-24-calc', honeypot: honeypot, payload: payload }),
+      })
+        .then(function(r) { return r.json().then(function(b){ return { ok: r.ok, body: b }; }); })
+        .then(function(res) {
+          btn.disabled = false; btn.textContent = 'Send me a copy';
+          if (res.ok) {
+            msg.style.color = '#1A9E65';
+            msg.textContent = '✓ Sent — check your inbox in a couple of minutes.';
+            form.email.value = '';
+          } else {
+            msg.style.color = '#CC3333';
+            msg.textContent = (res.body && res.body.error) || 'Could not send — please try again.';
+          }
+        })
+        .catch(function() {
+          btn.disabled = false; btn.textContent = 'Send me a copy';
+          msg.style.color = '#CC3333';
+          msg.textContent = 'Network error — please try again.';
+        });
+      return false;
+    }
+  </script>
 
   <script>
     // Live recompute on every input change. All math runs client-side

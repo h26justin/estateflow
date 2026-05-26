@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>BTL Stress Test: How Lenders Calculate Affordability (with examples) — OwnProperly</title>
+  <meta name="description" content="UK buy-to-let stress test explained: ICR ratio, 145% / 125%, 5.5% stress rate, worked examples for borrowing limits and Top Slicing strategies."/>
+  <link rel="canonical" href="https://www.ownproperly.com/blog/btl-stress-test-calculator-explained/"/>
+  <meta property="og:type" content="article"/>
+  <meta property="og:url" content="https://www.ownproperly.com/blog/btl-stress-test-calculator-explained/"/>
+  <meta property="og:title" content="BTL Stress Test: How Lenders Calculate Affordability (with examples) — OwnProperly"/>
+  <meta property="og:description" content="UK buy-to-let stress test explained: ICR ratio, 145% / 125%, 5.5% stress rate, worked examples for borrowing limits and Top Slicing strategies."/>
+  <meta property="og:site_name" content="OwnProperly"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:title" content="BTL Stress Test: How Lenders Calculate Affordability (with examples) — OwnProperly"/>
+  <meta name="twitter:description" content="UK buy-to-let stress test explained: ICR ratio, 145% / 125%, 5.5% stress rate, worked examples for borrowing limits and Top Slicing strategies."/>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml"/>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"BTL Stress Test: How Lenders Calculate Affordability (with examples)","description":"How UK BTL lenders calculate affordability using the Interest Coverage Ratio (ICR), stress rates and Top Slicing — with worked examples.","author":{"@type":"Organization","name":"OwnProperly"},"publisher":{"@type":"Organization","name":"OwnProperly","logo":{"@type":"ImageObject","url":"https://www.ownproperly.com/logo.svg"}},"datePublished":"2026-05-25","dateModified":"2026-05-25","mainEntityOfPage":"https://www.ownproperly.com/blog/btl-stress-test-calculator-explained/"}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is a BTL stress test?","acceptedAnswer":{"@type":"Answer","text":"A buy-to-let stress test is the affordability calculation lenders apply to confirm rental income would cover mortgage interest at a hypothetical higher rate (the 'stress rate'). The test uses an Interest Coverage Ratio (ICR) — typically 125% for basic-rate taxpayers and 145% for higher-rate, applied at a stress rate of around 5.5% or pay rate plus 2%."}},{"@type":"Question","name":"What ICR do BTL lenders require?","acceptedAnswer":{"@type":"Answer","text":"Most UK BTL lenders require a minimum ICR of 125% for basic-rate taxpayers and 145% for higher-rate/additional-rate taxpayers. Some lenders apply 145% across the board for individual borrowers. Limited company BTL is often stressed at 125% because Ltd Cos aren't affected by Section 24."}},{"@type":"Question","name":"What stress rate do BTL lenders use?","acceptedAnswer":{"@type":"Answer","text":"Typically 5.5% or pay rate plus 2%, whichever is higher. For 5-year fixed rates, lenders often use the lower of the pay rate or 5.5% (since rate certainty over 5 years reduces affordability risk). Some lenders use 7%+ for short-term fixes."}},{"@type":"Question","name":"What is Top Slicing in BTL mortgages?","acceptedAnswer":{"@type":"Answer","text":"Top Slicing allows surplus personal income to 'top up' rental income to meet the ICR. If the property's rent would only support £100k borrowing at the ICR but you want £150k, your surplus personal earnings can be used to bridge the gap. Not all lenders offer Top Slicing — those that do typically require strong personal affordability."}},{"@type":"Question","name":"Why did BTL stress tests get stricter in 2017?","acceptedAnswer":{"@type":"Answer","text":"In 2017 the PRA introduced new underwriting standards (PRA Supervisory Statement SS13/16) requiring lenders to apply tougher affordability tests for buy-to-let, factoring in Section 24 tax impact. This led to the 145% ICR standard for higher-rate taxpayers and stress rates of at least 5.5%."}},{"@type":"Question","name":"Can I increase my max BTL borrowing?","acceptedAnswer":{"@type":"Answer","text":"You can boost borrowing capacity by: increasing rent (refurbishment to add bedrooms, HMO conversion); choosing a 5-year fix (lenders typically apply gentler stress to 5-year deals); using a limited company SPV (often stressed at 125%); using Top Slicing with personal income; or paying a larger deposit (lower LTV often unlocks better rates and ratios)."}}]}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Georgia,serif;background:#F4F3EF;color:#2D3C4A;line-height:1.7}
+    a{color:#C8A84B;text-decoration:none}
+    a:hover{text-decoration:underline}
+    nav{background:rgba(244,243,239,0.97);border-bottom:1px solid #E2DFD8;padding:0 24px;position:sticky;top:0;z-index:100}
+    .nav-inner{max-width:820px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px}
+    .nav-logo{font-family:'DM Mono',monospace;font-weight:700;font-size:15px;color:#2D3C4A}
+    .nav-cta{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none}
+    .nav-cta:hover{background:#B8942A;text-decoration:none}
+    .nav-links{display:flex;gap:24px;align-items:center}
+    .nav-links a{font-family:'DM Mono',monospace;font-size:12px;color:#6B7691}
+    .nav-links a:hover{color:#2D3C4A;text-decoration:none}
+    main{max-width:820px;margin:0 auto;padding:48px 24px 80px}
+    .breadcrumb{font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;margin-bottom:28px}
+    .breadcrumb a{color:#6B7691}
+    h1{font-size:38px;font-weight:600;line-height:1.15;letter-spacing:-0.02em;margin-bottom:16px;color:#1A2530}
+    .meta{font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;margin-bottom:32px;display:flex;gap:16px;flex-wrap:wrap}
+    .meta span{display:flex;align-items:center;gap:4px}
+    h2{font-size:24px;font-weight:600;margin:40px 0 14px;color:#1A2530;letter-spacing:-0.01em}
+    h3{font-size:18px;font-weight:600;margin:28px 0 10px;color:#2D3C4A}
+    p{margin-bottom:16px;font-size:16px;color:#3A4A5A;line-height:1.8}
+    ul,ol{margin:0 0 16px 24px;color:#3A4A5A}
+    li{margin-bottom:8px;line-height:1.7;font-size:16px}
+    .callout{background:#fff;border:1px solid #E2DFD8;border-left:4px solid #C8A84B;border-radius:0 10px 10px 0;padding:18px 22px;margin:28px 0}
+    .callout p{margin:0;font-size:15px}
+    .tip{background:#F0FBF5;border:1px solid #2ECC8A33;border-left:4px solid #2ECC8A;border-radius:0 10px 10px 0;padding:18px 22px;margin:28px 0}
+    .tip p{margin:0;font-size:15px}
+    .warning{background:#FFF8F0;border:1px solid #E0943A33;border-left:4px solid #E0943A;border-radius:0 10px 10px 0;padding:18px 22px;margin:28px 0}
+    .warning p{margin:0;font-size:15px}
+    .checklist{background:#fff;border:1px solid #E2DFD8;border-radius:12px;padding:20px 24px;margin:24px 0}
+    .checklist li{list-style:none;margin-left:-8px;padding:6px 0;border-bottom:1px solid #F0EDE8;display:flex;align-items:flex-start;gap:10px}
+    .checklist li:last-child{border-bottom:none}
+    .checklist li::before{content:"✓";color:#2ECC8A;font-weight:700;flex-shrink:0;margin-top:2px}
+    .cta-box{background:#2D3C4A;border-radius:14px;padding:36px 32px;margin:48px 0;text-align:center;color:#fff}
+    .cta-box h3{color:#fff;margin:0 0 12px}
+    .cta-box p{color:#B0BEC5;margin:0 0 24px;font-size:15px}
+    .cta-box a{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;padding:13px 28px;border-radius:10px;text-decoration:none;display:inline-block}
+    .cta-box a:hover{background:#B8942A;text-decoration:none}
+    table{width:100%;border-collapse:collapse;margin:24px 0;font-size:14px}
+    th{background:#2D3C4A;color:#fff;padding:10px 14px;text-align:left;font-family:'DM Mono',monospace;font-size:12px}
+    td{padding:10px 14px;border-bottom:1px solid #E2DFD8;vertical-align:top}
+    tr:nth-child(even){background:#F8F7F3}
+    code{background:#E8E6E0;padding:2px 7px;border-radius:4px;font-family:'DM Mono',monospace;font-size:13px}
+    footer{background:#1A2530;padding:32px 24px;text-align:center}
+    .footer-inner{max-width:820px;margin:0 auto}
+    footer p{font-family:'DM Mono',monospace;font-size:11px;color:#6B7899;margin-bottom:8px}
+    footer a{color:#7A8899}
+    @media(max-width:640px){h1{font-size:26px}h2{font-size:20px}main{padding:32px 16px 60px}}
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">OwnProperly</a>
+    <div class="nav-links">
+      <a href="/blog/">Blog</a>
+      <a href="/#features">Features</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/" class="nav-cta">Start free trial</a>
+    </div>
+  </div>
+</nav>
+<main>
+
+  <div class="breadcrumb"><a href="/">OwnProperly</a> / <a href="/blog/">Blog</a> / Finance</div>
+  <h1>BTL Stress Test: How Lenders Calculate Affordability (with examples)</h1>
+  <div class="meta">
+    <span>📅 Updated May 2026</span>
+    <span>⏱ 11 min read</span>
+    <span>🏷 Finance</span>
+  </div>
+
+  <p>You've found the property, run the numbers, agreed a sensible offer — then the lender's stress test cuts your borrowing by £40,000. What just happened? Since 2017 UK BTL lenders have applied tougher affordability calculations that bear little resemblance to a simple "rent vs mortgage" check. This guide walks through exactly how the BTL stress test works in 2026, with worked examples for different tax bands and rent levels.</p>
+
+  <div class="callout"><p><strong>Quick summary:</strong> BTL stress tests use an Interest Coverage Ratio (ICR) of 125% (basic-rate) or 145% (higher-rate/Ltd Co) applied at a stress rate around 5.5% or pay rate plus 2%. So for a £1,000/month rent with a 145%/5.5% stress test, max borrowing is about £150,000. Top Slicing lets you supplement with personal income for additional borrowing.</p></div>
+
+  <h2>What is a BTL stress test?</h2>
+  <p>A BTL stress test is the lender's affordability check confirming that rental income would still cover mortgage interest if rates rose significantly. It uses two numbers:</p>
+  <ul>
+    <li><strong>Interest Coverage Ratio (ICR):</strong> the minimum ratio of rent to stressed interest the lender requires</li>
+    <li><strong>Stress rate:</strong> the hypothetical interest rate used in the calculation</li>
+  </ul>
+
+  <p>The formula is:</p>
+  <p><code>Max borrowing = (Annual rent × 12) ÷ (ICR × Stress rate)</code></p>
+
+  <p>Or in plain English: lenders work out how much rent you need to cover interest at the stress rate by the ICR margin, then back out the maximum loan that fits.</p>
+
+  <h2>Why did the rules change in 2017?</h2>
+  <p>Before 2017, BTL stress tests were often as light as 125% at 5%. After several years of low interest rates and rising house prices, the Prudential Regulation Authority (PRA) became concerned that landlords were over-leveraged. The PRA's Supervisory Statement SS13/16 (effective January 2017) required lenders to:</p>
+  <ul>
+    <li>Use stress rates of at least <strong>5.5%</strong> for variable / 2-year fixes</li>
+    <li>Apply tougher ICR for higher-rate taxpayers (commonly 145%) because of Section 24's tax impact</li>
+    <li>Consider applicant's other portfolio properties (the "portfolio landlord" rules — different treatment for landlords with 4+ properties)</li>
+    <li>Look at applicant's overall financial position, not just the subject property</li>
+  </ul>
+
+  <p>The result: BTL borrowing capacity dropped by typically 15–30% for higher-rate taxpayers compared to pre-2017 levels.</p>
+
+  <h2>Typical ICR requirements in 2026</h2>
+
+  <table>
+    <tr><th>Borrower type</th><th>Typical ICR</th></tr>
+    <tr><td>Basic-rate taxpayer (individual)</td><td>125%</td></tr>
+    <tr><td>Higher-rate or additional-rate taxpayer (individual)</td><td>145%</td></tr>
+    <tr><td>Limited company SPV</td><td>125% (most lenders)</td></tr>
+    <tr><td>HMO / multi-unit freehold</td><td>145%+ (some lenders 150–170%)</td></tr>
+    <tr><td>Holiday let</td><td>145%+ (often higher because of seasonality risk)</td></tr>
+    <tr><td>Expat landlord</td><td>145%+ typically</td></tr>
+  </table>
+
+  <p>The ICR for a Ltd Co is often 125% because Corporation Tax doesn't have the Section 24 problem — full deductibility of interest restores the historical maths. This is part of why Ltd Co BTL has grown so much since 2017.</p>
+
+  <h2>Typical stress rates in 2026</h2>
+
+  <table>
+    <tr><th>Product</th><th>Typical stress rate</th></tr>
+    <tr><td>2-year fixed BTL</td><td>5.5% (PRA floor), or pay rate + 2% if higher</td></tr>
+    <tr><td>5-year fixed BTL</td><td>Pay rate, or sometimes pay rate + 1%</td></tr>
+    <tr><td>Variable / tracker BTL</td><td>5.5% or pay rate + 2%</td></tr>
+    <tr><td>Specialist (HMO, commercial)</td><td>Often higher — 6–7%</td></tr>
+  </table>
+
+  <p>The 5-year fix gets gentler treatment because the borrower has rate certainty for longer — so PRA rules allow the stress test to use the actual pay rate rather than a punitive theoretical figure. This is why many landlords now choose 5-year fixes specifically to maximise borrowing.</p>
+
+  <h2>Worked Example 1 — Basic-rate landlord, 2-year fix</h2>
+
+  <div class="callout"><p><strong>Scenario:</strong> Basic-rate taxpayer (combined income under £50,270), buying a £200,000 property with monthly rent of £950. 2-year fix BTL at 5.0% pay rate. ICR 125%, stress rate 5.5%.</p></div>
+
+  <p><strong>Step 1: Annual rent.</strong> £950 × 12 = £11,400</p>
+  <p><strong>Step 2: Stress test.</strong> Max borrowing = £11,400 ÷ (125% × 5.5%) = £11,400 ÷ 0.06875 = <strong>£165,818</strong></p>
+  <p><strong>Step 3: LTV cap.</strong> Most lenders cap BTL at 75% LTV — so on a £200k property, max loan is £150k regardless of stress test. Stress test passes comfortably.</p>
+  <p><strong>Result:</strong> Borrower can take up to £150k (LTV-capped), pay rate 5.0%, monthly interest ~£625. Comfortable margin.</p>
+
+  <h2>Worked Example 2 — Higher-rate landlord, 2-year fix</h2>
+
+  <div class="callout"><p><strong>Scenario:</strong> Higher-rate taxpayer, same property at £200,000 and £950 rent. 2-year fix at 5.0% pay rate. ICR 145%, stress rate 5.5%.</p></div>
+
+  <p><strong>Step 1: Annual rent.</strong> £11,400</p>
+  <p><strong>Step 2: Stress test.</strong> Max borrowing = £11,400 ÷ (145% × 5.5%) = £11,400 ÷ 0.07975 = <strong>£142,947</strong></p>
+  <p><strong>Step 3: LTV cap.</strong> Stress-test maximum (£142,947) is below the 75% LTV cap (£150k) — so stress test is the binding constraint. Lender offers up to £142,947.</p>
+  <p><strong>Result:</strong> Borrower can take ~£143k. Needs to put down at least £57k cash deposit. Note: ~£7k less borrowing capacity than a basic-rate borrower on the same property.</p>
+
+  <h2>Worked Example 3 — Higher-rate landlord, 5-year fix</h2>
+
+  <div class="callout"><p><strong>Scenario:</strong> Same higher-rate taxpayer, same property, but now a 5-year fix at 4.8% pay rate. ICR 145%, stress rate equals pay rate (4.8%) under PRA relaxed treatment.</p></div>
+
+  <p><strong>Step 1: Annual rent.</strong> £11,400</p>
+  <p><strong>Step 2: Stress test.</strong> Max borrowing = £11,400 ÷ (145% × 4.8%) = £11,400 ÷ 0.0696 = <strong>£163,793</strong></p>
+  <p><strong>Step 3: LTV cap.</strong> 75% LTV cap on £200k = £150k. Now the LTV cap binds; full 75% available.</p>
+  <p><strong>Result:</strong> Choosing the 5-year fix has unlocked an extra ~£20k of borrowing capacity for the same borrower. This is why many higher-rate landlords now default to 5-year fixes — not just for rate certainty but for capacity.</p>
+
+  <h2>Worked Example 4 — Limited company SPV</h2>
+
+  <div class="callout"><p><strong>Scenario:</strong> Higher-rate taxpayer's SPV buying the same £200k property. £950 rent. Ltd Co BTL at 5.5% pay rate. ICR 125%, stress rate 5.5%.</p></div>
+
+  <p><strong>Step 1: Annual rent.</strong> £11,400</p>
+  <p><strong>Step 2: Stress test.</strong> Max borrowing = £11,400 ÷ (125% × 5.5%) = <strong>£165,818</strong></p>
+  <p><strong>Step 3: LTV cap.</strong> 75% LTV = £150k. LTV binds.</p>
+  <p><strong>Result:</strong> Full 75% LTV available. Ltd Co structure unlocks borrowing the higher-rate individual couldn't access on a 2-year fix. Trade-off: Ltd Co BTL rates are typically 0.5–1.5% higher than personal BTL.</p>
+
+  <h2>How Top Slicing works</h2>
+  <p>Top Slicing allows surplus personal income to "top up" rental income for ICR purposes. Available from several specialist BTL lenders (Vida, Paragon, Keystone among others, depending on year).</p>
+  <p>Example: Higher-rate borrower wants £170k on a £200k property at £950 rent. Standard stress test gives £143k. The £27k gap requires extra income to support hypothetical interest:</p>
+  <ul>
+    <li>Extra borrowing: £27,000</li>
+    <li>Annual interest at 5.5% stress: £1,485</li>
+    <li>Required ICR coverage at 145%: £2,153 of personal income surplus needed annually</li>
+  </ul>
+  <p>If the borrower has £30,000+ of surplus disposable income after mortgages, living costs and committed expenditure, Top Slicing lenders may grant the larger loan. The lender will look closely at total personal affordability — not just the surplus number.</p>
+
+  <div class="tip"><p><strong>✓ OwnProperly tip:</strong> Top Slicing is most useful when buying in higher-rent areas where the property's value has outgrown its yield. Don't rely on Top Slicing as a default strategy — it limits your lender choice and often comes with rate premiums.</p></div>
+
+  <h2>Strategies to maximise BTL borrowing</h2>
+
+  <h3>1. Choose a 5-year fix</h3>
+  <p>The single biggest lever for higher-rate borrowers. Stress at pay rate rather than 5.5% can add 15–25% borrowing capacity.</p>
+
+  <h3>2. Use a limited company SPV</h3>
+  <p>Often stressed at 125% rather than 145%. Combined with full mortgage interest deductibility, this unlocks materially more borrowing for higher-rate individuals. See our <a href="/blog/limited-company-vs-personal-buy-to-let/">Ltd vs personal BTL comparison</a>.</p>
+
+  <h3>3. Refurbish to add rent</h3>
+  <p>HMO conversion or a loft extension to add a bedroom can push rent up 30–50%. Higher rent = higher stress-test ceiling. Watch CGT/capital treatment of refurb costs and check planning/Article 4 requirements first.</p>
+
+  <h3>4. Bigger deposit</h3>
+  <p>Lower LTV often gets you better rates and sometimes gentler ICRs. The trade-off is capital efficiency — a 65% LTV may be unnecessary if 75% gets you the same monthly cost.</p>
+
+  <h3>5. Top Slicing</h3>
+  <p>Useful but lender-specific — and only with strong personal affordability.</p>
+
+  <h3>6. Joint borrower applications</h3>
+  <p>Adding a second name (typically spouse) can help with portfolio landlord criteria and overall affordability — though the property still needs to pass the rental stress test on its own.</p>
+
+  <h2>Portfolio landlord rules</h2>
+  <p>If you own 4 or more mortgaged BTL properties, you're classified as a "portfolio landlord" under PRA rules. Lenders must:</p>
+  <ul>
+    <li>Underwrite the new property in the context of your whole portfolio</li>
+    <li>Look at your overall ICR across all properties</li>
+    <li>Stress-test the entire portfolio together — not just the new property</li>
+    <li>Require detailed portfolio schedules (rents, mortgages, expiry dates, leases)</li>
+  </ul>
+
+  <p>If existing properties in your portfolio have low rental margins, this can drag down your borrowing on a new purchase even if the new property is highly profitable. Many landlords with 4+ properties find specialist lenders (Paragon, Vida, Aldermore, Together, Precise) easier to deal with than mainstream lenders.</p>
+
+  <h2>Stress test calculator workflow</h2>
+
+  <ol class="checklist" style="list-style:none">
+    <li>Estimate realistic monthly rent — use comparable lettings, not Rightmove asking rents</li>
+    <li>Identify your tax band (basic / higher) — this drives ICR</li>
+    <li>Pick the product type (2-year fix vs 5-year fix vs tracker) — this drives stress rate</li>
+    <li>Calculate Max Borrowing = Annual rent ÷ (ICR × Stress rate)</li>
+    <li>Compare to LTV cap (75% typical) and take the lower</li>
+    <li>Sense-check: pay rate × loan ÷ 12 = monthly interest. Is it under 70% of rent?</li>
+    <li>If stress-test is binding and you need more — consider 5-year fix, Ltd Co, refurbishment or larger deposit</li>
+  </ol>
+
+  <p>For a full deal-by-deal analysis tool, see our <a href="/blog/btl-deal-calculator/">BTL deal calculator guide</a>.</p>
+
+  <h2>Common stress test mistakes</h2>
+
+  <h3>Using Rightmove asking rents</h3>
+  <p>Asking rents and achieved rents are different. Get a comparable lettings appraisal from 2–3 local agents and use the conservative figure.</p>
+
+  <h3>Forgetting the tax band on joint applications</h3>
+  <p>If you and your spouse have different tax bands, the lender often uses the higher one. Worth checking before assuming a 125% ICR applies.</p>
+
+  <h3>Assuming an HMO mortgage uses standard ICR</h3>
+  <p>HMOs are typically stressed at 145%+ and sometimes 170%, even for Ltd Co. The room-by-room income gets cross-checked against achievable rents in the area.</p>
+
+  <h3>Not factoring in product fees</h3>
+  <p>Many BTL deals have arrangement fees of 2–3% added to the loan. This increases the loan size and can push past the stress test ceiling. Make sure your broker calculates with fees added.</p>
+
+  <div class="cta-box">
+    <h3>See real borrowing capacity per property</h3>
+    <p>OwnProperly's BTL deal calculator runs stress tests at 125%, 145%, multiple rate scenarios and LTVs — so you can see exactly what lenders will offer before you make an offer.</p>
+    <a href="/">Start free trial — no card needed</a>
+  </div>
+
+  <h2>How OwnProperly Helps</h2>
+  <p>OwnProperly's deal analysis tool models BTL stress tests for each prospective purchase — applying your tax band, the right ICR, product type and stress rate to show exact max borrowing. For existing portfolios, the dashboard tracks every mortgage's pay rate, expiry and ICR position so you can plan refinances before rates roll off.</p>
+  <p>Related reading: <a href="/blog/btl-deal-calculator/">How to analyse a BTL deal</a>, <a href="/blog/section-24-mortgage-interest-explained/">Section 24 explained</a>, <a href="/blog/limited-company-vs-personal-buy-to-let/">Ltd Co vs personal BTL</a>.</p>
+
+  <p style="margin-top:32px"><a href="/blog/">← Back to all guides</a></p>
+
+</main>
+<footer>
+  <div class="footer-inner">
+    <p>© 2026 OwnProperly · <a href="/">Home</a> · <a href="/blog/">Blog</a> · <a href="mailto:hello@ownproperly.com">hello@ownproperly.com</a></p>
+    <p>Property portfolio management software for UK landlords · From £2/property/month</p>
+  </div>
+</footer>
+</body>
+</html>

@@ -484,6 +484,41 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
+      {/* "Book an onboarding call" section. Embeds a Cal.com inline
+          link (no script load — keeps Core Web Vitals clean). Once
+          you have a Cal account, replace the URL placeholder.
+          Conversion lift on similar landing pages is typically 5-12%
+          when offered alongside (not instead of) the self-serve CTA. */}
+      <section style={{ background: WHITE, padding: '72px 24px', borderTop: `1px solid ${BORDER}` }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Prefer a real conversation?</div>
+          <h2 style={{ fontSize: 32, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 16 }}>Book a 15-minute onboarding call</h2>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px' }}>
+            Stuck on whether OwnProperly fits your portfolio? Book a call with Justin (founder).
+            We'll go through your setup live and answer any questions about MTD ITSA, Section 24,
+            multi-company billing or compliance tracking. No pitch, no follow-up unless you ask.
+          </p>
+          <a
+            href="https://cal.com/ownproperly/onboarding"
+            target="_blank"
+            rel="noopener"
+            style={{
+              display: 'inline-block', fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 700,
+              padding: '14px 28px', borderRadius: 10, border: `1px solid ${SLATE}`,
+              background: SLATE, color: WHITE, textDecoration: 'none',
+            }}
+            data-cal-link="ownproperly/onboarding"
+            data-cal-namespace=""
+            data-cal-config='{"layout":"month_view"}'
+          >
+            📅 Book onboarding call →
+          </a>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 16 }}>
+            Free · 15 min · Zoom or Google Meet
+          </p>
+        </div>
+      </section>
+
       {/* FAQ section — mirrors the FAQPage JSON-LD in index.html. Google
           requires the visible content to match the structured data, and
           AI search (ChatGPT, Perplexity, Claude, Gemini) lifts these
