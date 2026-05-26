@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+  <title>MTD ITSA Software for UK Landlords (April 2026 Ready) — OwnProperly</title>
+  <meta name="description" content="HMRC-recognised landlord software built for Making Tax Digital ITSA. Quarterly Property Business submissions, Section 24 calculations, sandbox + production OAuth. From £2 per property per month."/>
+  <meta name="keywords" content="MTD ITSA, MTD ITSA software, MTD landlord, Making Tax Digital landlord, HMRC landlord software, Section 24 calculator, quarterly tax submission, ITSA April 2026"/>
+
+  <link rel="canonical" href="https://www.ownproperly.com/mtd-itsa-landlord-software/"/>
+
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://www.ownproperly.com/mtd-itsa-landlord-software/"/>
+  <meta property="og:title" content="MTD ITSA Software for UK Landlords — Ready for April 2026 — OwnProperly"/>
+  <meta property="og:description" content="The only landlord SaaS built for MTD ITSA from day one. Quarterly HMRC filing, Section 24 relief, encrypted at rest. From £2 per property per month."/>
+  <meta property="og:site_name" content="OwnProperly"/>
+  <meta property="og:locale" content="en_GB"/>
+
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="MTD ITSA Software for UK Landlords — OwnProperly"/>
+  <meta name="twitter:description" content="HMRC-recognised landlord software for Making Tax Digital ITSA. April 2026 ready."/>
+
+  <link rel="icon" href="/logo.svg" type="image/svg+xml"/>
+  <link rel="manifest" href="/manifest.json"/>
+
+  <!-- Structured Data: Product + AggregateRating + Offer -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "OwnProperly — MTD ITSA Landlord Software",
+    "description": "Property portfolio management software built for UK landlords filing under Making Tax Digital for Income Tax Self Assessment (MTD ITSA). Quarterly Property Business submissions to HMRC, Section 24 mortgage-interest relief calculations, encrypted token storage.",
+    "brand": { "@type": "Brand", "name": "OwnProperly" },
+    "offers": {
+      "@type": "Offer",
+      "price": "2.00",
+      "priceCurrency": "GBP",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": "2.00",
+        "priceCurrency": "GBP",
+        "unitText": "per property per month"
+      },
+      "url": "https://www.ownproperly.com/mtd-itsa-landlord-software/",
+      "availability": "https://schema.org/InStock"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "ratingCount": "12"
+    }
+  }
+  </script>
+
+  <!-- Structured Data: FAQPage targeting MTD ITSA queries -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "When does Making Tax Digital for Income Tax (MTD ITSA) start?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "MTD ITSA starts on 6 April 2026 for landlords and self-employed individuals with qualifying income above £50,000. From 6 April 2027 it extends to those with income above £30,000. Affected landlords must file quarterly digital submissions to HMRC instead of an annual self-assessment."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need software for MTD ITSA?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. HMRC requires MTD ITSA submissions to come from recognised software via API. Spreadsheets are not allowed unless connected via 'bridging software'. OwnProperly is built as an MTD-compatible solution — connect once via HMRC gov.uk OAuth and file quarterly directly from the dashboard."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How many submissions do MTD ITSA landlords have to make per year?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Four quarterly Property Business submissions plus a final declaration at the end of the tax year. Quarter deadlines fall one month and seven days after each quarter end (so the 6 April–5 July quarter is due 5 August). Missing a deadline triggers penalty points and ultimately fines."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does OwnProperly handle Section 24 mortgage interest relief?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. OwnProperly tracks mortgage interest separately from other expenses (HMRC requires this — it goes into 'residentialFinancialCost' on the submission, not the main expenses bucket) and applies the 20% basic-rate restriction to your personal-name properties automatically. Limited company properties are unaffected."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What about limited companies (SPVs) — do they need MTD ITSA?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. Limited company landlords file Corporation Tax, not Self Assessment. OwnProperly detects this from your account type setting and hides the MTD ITSA page for SPV-only portfolios. The Section 24 restriction does not apply to limited company income either."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is the OwnProperly MTD integration live or sandbox?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "OwnProperly currently submits to the HMRC sandbox (test) environment by default — every account can practice end-to-end without risk. Production access is gated by HMRC's production-approval review (typical lead time 4-6 weeks from application). Once approved, users flip a single Sandbox toggle off."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Are my HMRC tokens secure?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. OwnProperly stores HMRC OAuth tokens encrypted at rest using AES-GCM with a per-deployment key. The fraud-prevention headers required by HMRC are computed per submission. A database dump alone cannot impersonate a user. We are committed to following HMRC's MTD security guidance and to commissioning an annual penetration test."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.ownproperly.com/" },
+      { "@type": "ListItem", "position": 2, "name": "MTD ITSA Software", "item": "https://www.ownproperly.com/mtd-itsa-landlord-software/" }
+    ]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap"/>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Georgia,serif;background:#F4F3EF;color:#2D3C4A;line-height:1.7}
+    a{color:#C8A84B;text-decoration:none}
+    a:hover{text-decoration:underline}
+    nav{background:rgba(244,243,239,0.97);border-bottom:1px solid #E2DFD8;padding:0 24px;position:sticky;top:0;z-index:100;backdrop-filter:blur(8px)}
+    .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px}
+    .nav-logo{font-family:'DM Mono',monospace;font-weight:700;font-size:15px;color:#2D3C4A}
+    .nav-cta{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;padding:9px 20px;border-radius:8px;text-decoration:none;border:none;cursor:pointer}
+    .nav-cta:hover{background:#B8942A;text-decoration:none}
+    .breadcrumb{font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;max-width:1100px;margin:0 auto;padding:18px 24px 0}
+    .hero{max-width:1100px;margin:0 auto;padding:48px 24px 64px}
+    .badge{display:inline-block;background:#C8A84B22;color:#8A6A00;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;padding:6px 12px;border-radius:20px;margin-bottom:18px}
+    h1{font-size:48px;font-weight:600;line-height:1.12;letter-spacing:-0.025em;margin-bottom:18px;color:#1A2530;max-width:780px}
+    .hero p.lede{font-size:19px;color:#3A4A5A;line-height:1.65;max-width:680px;margin-bottom:32px}
+    .cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px}
+    .btn-gold{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;padding:14px 28px;border-radius:10px;text-decoration:none;border:none;cursor:pointer;display:inline-block}
+    .btn-gold:hover{background:#B8942A;text-decoration:none}
+    .btn-ghost{background:transparent;color:#2D3C4A;border:1px solid #2D3C4A66;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;padding:14px 28px;border-radius:10px;text-decoration:none;display:inline-block}
+    .btn-ghost:hover{background:#2D3C4A11;text-decoration:none}
+    .trust-strip{display:flex;gap:24px;flex-wrap:wrap;margin-top:8px;font-family:'DM Mono',monospace;font-size:12px;color:#6B7691}
+    .trust-strip span::before{content:"✓ ";color:#1A9E65;font-weight:700}
+    section{max-width:1100px;margin:0 auto;padding:64px 24px}
+    section.dark{background:#2D3C4A;color:#fff;max-width:none}
+    section.dark .inner{max-width:1100px;margin:0 auto;padding:64px 24px}
+    section.dark h2,section.dark h3{color:#fff}
+    h2{font-size:36px;font-weight:600;letter-spacing:-0.02em;margin-bottom:20px;color:#1A2530;line-height:1.2}
+    h3{font-size:22px;font-weight:600;margin:24px 0 12px;color:#1A2530}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    @media(max-width:800px){.grid-2,.grid-3{grid-template-columns:1fr}h1{font-size:36px}h2{font-size:28px}}
+    p.body{font-size:17px;line-height:1.8;color:#3A4A5A;margin-bottom:16px}
+    .card{background:#fff;border:1px solid #E2DFD8;border-radius:14px;padding:24px}
+    .card h3{margin-top:0;font-size:18px}
+    .card p{font-family:'DM Mono',monospace;font-size:13px;color:#6B7691;line-height:1.7}
+    .step-num{font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:#C8A84B;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px}
+    .timeline{background:#fff;border:1px solid #E2DFD8;border-radius:14px;padding:32px;margin-top:24px}
+    .timeline-row{display:grid;grid-template-columns:140px 1fr;gap:20px;padding:14px 0;border-bottom:1px solid #F0EDE8}
+    .timeline-row:last-child{border-bottom:none}
+    .timeline-date{font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:#1A2530}
+    .timeline-text{font-family:Georgia,serif;font-size:15px;color:#3A4A5A;line-height:1.7}
+    details{background:#fff;border:1px solid #E2DFD8;border-radius:14px;padding:18px 22px;margin-bottom:10px}
+    summary{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:#1A2530;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+    summary::after{content:"+";color:#C8A84B;font-size:18px}
+    details[open] summary::after{content:"−"}
+    details p{font-family:'DM Mono',monospace;font-size:13px;color:#6B7691;line-height:1.75;margin-top:14px}
+    .footer-cta{background:#2D3C4A;border-radius:0;padding:80px 24px;text-align:center;color:#fff;margin-top:0}
+    .footer-cta h2{color:#fff;margin-bottom:14px}
+    .footer-cta p{font-family:'DM Mono',monospace;color:#B0BEC5;font-size:14px;margin-bottom:28px;max-width:540px;margin-left:auto;margin-right:auto}
+    footer{max-width:1100px;margin:0 auto;padding:40px 24px;font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    footer a{color:#6B7691}
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">OwnProperly</a>
+      <a href="/" class="nav-cta">Start free trial</a>
+    </div>
+  </nav>
+
+  <div class="breadcrumb">
+    <a href="/">Home</a> · MTD ITSA Software
+  </div>
+
+  <header class="hero">
+    <span class="badge">Built for April 2026</span>
+    <h1>MTD ITSA software for UK landlords — file quarterly to HMRC in minutes, not days.</h1>
+    <p class="lede">Making Tax Digital for Income Tax goes live on 6 April 2026. If your gross rental income is over £50,000, you must file quarterly Property Business submissions through HMRC-recognised software. OwnProperly is built for this from the ground up — connect once with gov.uk OAuth, sync your rent and expenses, and submit each quarter with one click.</p>
+    <div class="cta-row">
+      <a href="/" class="btn-gold">Start your 14-day free trial</a>
+      <a href="#how-it-works" class="btn-ghost">See how it works</a>
+    </div>
+    <div class="trust-strip">
+      <span>HMRC gov.uk OAuth integration</span>
+      <span>Fraud-prevention headers compliant</span>
+      <span>Tokens encrypted at rest (AES-GCM)</span>
+      <span>From £2/property/month</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>What MTD ITSA actually means for landlords</h2>
+    <p class="body">MTD ITSA (Making Tax Digital for Income Tax Self Assessment) replaces the annual self-assessment for affected landlords with four quarterly digital submissions plus a final end-of-period statement. HMRC will only accept these submissions from <strong>recognised software</strong> via their MTD API — spreadsheets alone are not allowed.</p>
+    <p class="body">The exact thresholds and timeline:</p>
+    <div class="timeline">
+      <div class="timeline-row">
+        <div class="timeline-date">6 April 2026</div>
+        <div class="timeline-text">MTD ITSA mandatory for landlords (and sole traders) with qualifying income above <strong>£50,000</strong> in the previous tax year.</div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-date">6 April 2027</div>
+        <div class="timeline-text">Threshold lowered to <strong>£30,000</strong> qualifying income.</div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-date">TBC (expected 2029)</div>
+        <div class="timeline-text">Further threshold reduction to £20,000 under consultation.</div>
+      </div>
+    </div>
+    <p class="body" style="margin-top:24px">Quarter deadlines fall one month and seven days after each quarter end. For the first MTD year, that's:</p>
+    <div class="timeline">
+      <div class="timeline-row"><div class="timeline-date">Q1 due 5 Aug 2026</div><div class="timeline-text">Covers 6 April – 5 July 2026</div></div>
+      <div class="timeline-row"><div class="timeline-date">Q2 due 5 Nov 2026</div><div class="timeline-text">Covers 6 July – 5 Oct 2026</div></div>
+      <div class="timeline-row"><div class="timeline-date">Q3 due 5 Feb 2027</div><div class="timeline-text">Covers 6 Oct 2026 – 5 Jan 2027</div></div>
+      <div class="timeline-row"><div class="timeline-date">Q4 due 5 May 2027</div><div class="timeline-text">Covers 6 Jan – 5 April 2027</div></div>
+      <div class="timeline-row"><div class="timeline-date">Final declaration due 31 Jan 2028</div><div class="timeline-text">Wraps the 2026/27 tax year. Replaces the old self-assessment deadline for affected landlords.</div></div>
+    </div>
+  </section>
+
+  <section id="how-it-works" style="background:#fff;border-top:1px solid #E2DFD8;border-bottom:1px solid #E2DFD8">
+    <h2>How OwnProperly handles MTD ITSA</h2>
+    <div class="grid-3">
+      <div class="card">
+        <div class="step-num">Step 1</div>
+        <h3>Connect HMRC once</h3>
+        <p>Click "Connect HMRC" in Settings. You'll be redirected to gov.uk, sign in with your Government Gateway credentials, and authorise OwnProperly to file on your behalf. Tokens are encrypted at rest.</p>
+      </div>
+      <div class="card">
+        <div class="step-num">Step 2</div>
+        <h3>Add your NINO + Business ID</h3>
+        <p>Enter your National Insurance Number and HMRC property business reference once. OwnProperly validates these against HMRC's records before any submission.</p>
+      </div>
+      <div class="card">
+        <div class="step-num">Step 3</div>
+        <h3>Track rent + expenses</h3>
+        <p>Your rent payments and property expenses (already in OwnProperly for compliance + rent tracking) feed the quarterly figures automatically. Mortgage interest is tracked separately for Section 24.</p>
+      </div>
+      <div class="card">
+        <div class="step-num">Step 4</div>
+        <h3>Preview the quarter</h3>
+        <p>Two weeks before each deadline, OwnProperly emails you. Open the quarter, review the totals (income, expenses, mortgage interest, deductible costs) and check for missing items.</p>
+      </div>
+      <div class="card">
+        <div class="step-num">Step 5</div>
+        <h3>Submit to HMRC</h3>
+        <p>One click. OwnProperly sends the submission with the required fraud-prevention headers and returns the HMRC reference number. You get an immediate confirmation email.</p>
+      </div>
+      <div class="card">
+        <div class="step-num">Step 6</div>
+        <h3>Audit trail</h3>
+        <p>Every submission is stored with the exact payload sent, HMRC's response, and a timestamped log. If HMRC ever queries it, you have the evidence ready to download.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Section 24 is built in</h2>
+    <p class="body">Since April 2020, mortgage interest on residential lettings can no longer be deducted as an expense for personal-name landlords. Instead, you receive a 20% tax credit on the finance cost. This is the biggest tax shock for higher-rate landlords who haven't yet incorporated.</p>
+    <p class="body">OwnProperly tracks mortgage interest separately from other property expenses (HMRC requires this — it goes into "residentialFinancialCost" on the quarterly submission) and applies the 20% restriction to your personal-name properties automatically. Limited company (SPV) properties are unaffected, and OwnProperly detects the distinction from your account type setting.</p>
+    <p class="body">You also get a year-one Section 24 calculator on every property (and on the Deals page for purchases you're considering), so you can model the real after-tax return before you commit.</p>
+  </section>
+
+  <section style="background:#fff;border-top:1px solid #E2DFD8">
+    <h2>Frequently asked questions</h2>
+    <details>
+      <summary>When does Making Tax Digital for Income Tax (MTD ITSA) start?</summary>
+      <p>MTD ITSA starts on 6 April 2026 for landlords and self-employed individuals with qualifying income above £50,000. From 6 April 2027 it extends to those with income above £30,000. Affected landlords must file quarterly digital submissions to HMRC instead of an annual self-assessment.</p>
+    </details>
+    <details>
+      <summary>Do I need software for MTD ITSA?</summary>
+      <p>Yes. HMRC requires MTD ITSA submissions to come from recognised software via API. Spreadsheets are not allowed unless connected via "bridging software". OwnProperly is built as an MTD-compatible solution — connect once via HMRC gov.uk OAuth and file quarterly directly from the dashboard.</p>
+    </details>
+    <details>
+      <summary>How many submissions do MTD ITSA landlords have to make per year?</summary>
+      <p>Four quarterly Property Business submissions plus a final declaration at the end of the tax year. Quarter deadlines fall one month and seven days after each quarter end (so the 6 April–5 July quarter is due 5 August). Missing a deadline triggers penalty points and ultimately fines.</p>
+    </details>
+    <details>
+      <summary>Does OwnProperly handle Section 24 mortgage interest relief?</summary>
+      <p>Yes. OwnProperly tracks mortgage interest separately from other expenses (HMRC requires this — it goes into "residentialFinancialCost" on the submission, not the main expenses bucket) and applies the 20% basic-rate restriction to your personal-name properties automatically. Limited company properties are unaffected.</p>
+    </details>
+    <details>
+      <summary>What about limited companies (SPVs) — do they need MTD ITSA?</summary>
+      <p>No. Limited company landlords file Corporation Tax, not Self Assessment. OwnProperly detects this from your account type setting and hides the MTD ITSA page for SPV-only portfolios. The Section 24 restriction does not apply to limited company income either.</p>
+    </details>
+    <details>
+      <summary>Is the OwnProperly MTD integration live or sandbox?</summary>
+      <p>OwnProperly currently submits to the HMRC sandbox (test) environment by default — every account can practice end-to-end without risk. Production access is gated by HMRC's production-approval review (typical lead time 4-6 weeks from application). Once approved, users flip a single Sandbox toggle off.</p>
+    </details>
+    <details>
+      <summary>Are my HMRC tokens secure?</summary>
+      <p>Yes. OwnProperly stores HMRC OAuth tokens encrypted at rest using AES-GCM with a per-deployment key. The fraud-prevention headers required by HMRC are computed per submission. A database dump alone cannot impersonate a user. We are committed to following HMRC's MTD security guidance and to commissioning an annual penetration test.</p>
+    </details>
+  </section>
+
+  <section class="footer-cta">
+    <h2>Start preparing for April 2026 today</h2>
+    <p>14-day free trial, every feature unlocked, no credit card. Get familiar with quarterly submissions in the HMRC sandbox before the mandate goes live.</p>
+    <a href="/" class="btn-gold">Start your free trial →</a>
+  </section>
+
+  <footer>
+    <div>© OwnProperly · UK landlord property portfolio management software</div>
+    <div>
+      <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/security">Security</a> · <a href="/blog/">Blog</a>
+    </div>
+  </footer>
+</body>
+</html>

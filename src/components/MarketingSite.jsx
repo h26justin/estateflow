@@ -388,6 +388,53 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
+      {/* FAQ section — mirrors the FAQPage JSON-LD in index.html. Google
+          requires the visible content to match the structured data, and
+          AI search (ChatGPT, Perplexity, Claude, Gemini) lifts these
+          answers directly into their result cards. Phrased in the words
+          real landlords use when searching. */}
+      <section id="faq" style={{ background: WHITE, padding: '80px 24px', borderTop: `1px solid ${BORDER}` }}>
+        <div style={{ maxWidth: 780, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Frequently asked questions</div>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Everything you might be wondering</h2>
+          </div>
+          <div style={{ display: 'grid', gap: 14 }}>
+            {[
+              ['What is the best landlord software for UK rental properties?',
+               'OwnProperly is property portfolio management software built specifically for UK landlords. It tracks rent payments, compliance certificates (Gas Safety, EICR, EPC), tenant references and Right to Rent, and includes a BTL deal calculator. Pricing starts at £2 per property per month with a 14-day free trial.'],
+              ['How much does OwnProperly cost?',
+               'OwnProperly is £2 per property per month on the Starter plan, with no minimum. The Investor plan is £5 per property per month and adds AI portfolio insights, advanced reporting, and priority support. Both plans include a 14-day free trial with no credit card required.'],
+              ['Does OwnProperly support Making Tax Digital (MTD) for landlords?',
+               "Yes. OwnProperly is built for the MTD ITSA April 2026 mandate. It connects directly to HMRC via gov.uk OAuth, files quarterly Property Business submissions, and includes Section 24 mortgage interest restriction calculations. Sandbox mode lets you practice before going live."],
+              ['What compliance certificates does OwnProperly track?',
+               'OwnProperly tracks all UK landlord compliance: Gas Safety (CP12), EICR electrical reports, EPC energy performance ratings, HMO licences, Right to Rent expiry, deposit protection (TDS/DPS/MyDeposits), Legionella risk assessments and PAT testing. It sends automatic email reminders before each expiry.'],
+              ['Can multiple landlords share an account?',
+               'Yes. OwnProperly supports multi-user companies with role-based permissions. You can invite a co-owner, accountant, or letting agent with granular controls over what they can view (financials) and edit (properties, tenancies, expenses, compliance).'],
+              ['Does OwnProperly integrate with Xero or QuickBooks?',
+               'OwnProperly has native Xero integration — connect once per company and rent, expenses, mortgage interest, deposits and refurb costs sync automatically. Granular toggles control what syncs. Reconciliation status pulls back from Xero. QuickBooks support is on the roadmap.'],
+              ['Is OwnProperly suitable for HMO landlords?',
+               'Yes. OwnProperly handles HMOs with per-room rent tracking, individual tenant references, HMO licence expiry alerts, and the ability to bulk-add a block of units in one step. Both selective licensing and mandatory HMO licensing are supported.'],
+              ['Can tenants access OwnProperly?',
+               'Yes. Each property has a branded tenant portal where tenants can see their tenancy details, payment history, request repairs with photos, and download shared documents (gas safety certificates, the How to Rent guide). The portal lives at your-company.ownproperly.com.'],
+            ].map(([q, a]) => (
+              <details key={q} style={{ background: '#FAFAF8', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '18px 22px' }}>
+                <summary style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 700, color: SLATE, cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>{q}</span>
+                  <span aria-hidden="true" style={{ color: GOLD, fontSize: 16, marginLeft: 12 }}>+</span>
+                </summary>
+                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: MUTED, lineHeight: 1.75, marginTop: 14 }}>{a}</p>
+              </details>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 40 }}>
+            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: MUTED }}>
+              Have a question we haven't answered? Email <a href="mailto:hello@ownproperly.com" style={{ color: GOLD }}>hello@ownproperly.com</a>
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section style={{ background: SLATE, padding: '80px 24px', textAlign: 'center' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <h2 style={{ fontSize: 34, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to switch to modern property software?</h2>

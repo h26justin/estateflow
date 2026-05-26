@@ -96,9 +96,129 @@
       "contactPoint": {
         "@type": "ContactPoint",
         "email": "hello@ownproperly.com",
-        "contactType": "customer support"
+        "contactType": "customer support",
+        "areaServed": "GB",
+        "availableLanguage": "en"
       },
       "sameAs": []
+    }
+    </script>
+
+    <!-- Structured Data: WebSite + SiteSearchAction
+         Gives Google permission to render a sitelinks search box for the
+         brand-name SERP, and lets LLMs understand the site has a search
+         interface they can describe to users. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "url": "https://www.ownproperly.com",
+      "name": "OwnProperly",
+      "description": "Property portfolio management software for UK landlords",
+      "publisher": { "@type": "Organization", "name": "OwnProperly" },
+      "inLanguage": "en-GB",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.ownproperly.com/blog/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- Structured Data: FAQPage
+         High-value for both Google rich-results AND AI search answer
+         boxes (ChatGPT, Perplexity, Gemini, Claude.ai). The questions
+         here are the actual questions UK landlords ask — phrased in
+         their words — so when someone asks an LLM "what's the best
+         landlord software for UK rentals" or "how do I track HMO
+         compliance" we surface as a cited answer. Keep answers SHORT
+         (under 60 words each) and self-contained. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the best landlord software for UK rental properties?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "OwnProperly is property portfolio management software built specifically for UK landlords. It tracks rent payments, compliance certificates (Gas Safety, EICR, EPC), tenant references and Right to Rent, and includes a BTL deal calculator. Pricing starts at £2 per property per month with a 14-day free trial."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How much does OwnProperly cost?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "OwnProperly is £2 per property per month on the Starter plan, with no minimum. The Investor plan is £5 per property per month and adds AI portfolio insights, advanced reporting, and priority support. Both plans include a 14-day free trial with no credit card required."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does OwnProperly support Making Tax Digital (MTD) for landlords?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. OwnProperly is built for the MTD ITSA April 2026 mandate. It connects directly to HMRC via gov.uk OAuth, files quarterly Property Business submissions, and includes Section 24 mortgage interest restriction calculations. Sandbox mode lets you practice before going live."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What compliance certificates does OwnProperly track?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "OwnProperly tracks all UK landlord compliance: Gas Safety (CP12), EICR electrical reports, EPC energy performance ratings, HMO licences, Right to Rent expiry, deposit protection (TDS/DPS/MyDeposits), Legionella risk assessments and PAT testing. It sends automatic email reminders before each expiry."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can multiple landlords share an account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. OwnProperly supports multi-user companies with role-based permissions. You can invite a co-owner, accountant, or letting agent with granular controls over what they can view (financials) and edit (properties, tenancies, expenses, compliance)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does OwnProperly integrate with Xero or QuickBooks?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "OwnProperly has native Xero integration — connect once per company and rent, expenses, mortgage interest, deposits and refurb costs sync automatically. Granular toggles control what syncs. Reconciliation status pulls back from Xero. QuickBooks support is on the roadmap."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is OwnProperly suitable for HMO landlords?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. OwnProperly handles HMOs with per-room rent tracking, individual tenant references, HMO licence expiry alerts, and the ability to bulk-add a block of units in one step. Both selective licensing and mandatory HMO licensing are supported."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can tenants access OwnProperly?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Each property has a branded tenant portal where tenants can see their tenancy details, payment history, request repairs with photos, and download shared documents (gas safety certificates, the How to Rent guide). The portal lives at your-company.ownproperly.com."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Structured Data: BreadcrumbList for the landing page -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://www.ownproperly.com/"
+        }
+      ]
     }
     </script>
 
