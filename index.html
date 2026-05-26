@@ -225,10 +225,176 @@
     <style>
       html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; margin: 0; padding: 0; background: #F4F3EF; }
       * { box-sizing: border-box; }
+
+      /* Cookie consent banner (rendered by /src/main.jsx). Styles kept
+         inline so the banner can show during the React-hydration window
+         before our component tree is ready. */
+      #op-cookie-banner {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483647;
+        background: #1A2530; color: #fff; padding: 18px 22px;
+        font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.6;
+        box-shadow: 0 -8px 24px rgba(0,0,0,0.25);
+        display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      }
+      #op-cookie-banner p { flex: 1 1 320px; margin: 0; color: #D0D8E0; }
+      #op-cookie-banner a { color: #C8A84B; text-decoration: underline; }
+      #op-cookie-banner .op-cookie-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      #op-cookie-banner button {
+        font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700;
+        padding: 10px 18px; border-radius: 8px; cursor: pointer; border: none;
+      }
+      #op-cookie-banner .op-cookie-accept { background: #C8A84B; color: #1A2530; }
+      #op-cookie-banner .op-cookie-reject { background: transparent; color: #B0BEC5; border: 1px solid #B0BEC5; }
+      @media (max-width: 600px) { #op-cookie-banner { padding: 14px 16px; } #op-cookie-banner p { font-size: 12px; flex-basis: 100%; } }
     </style>
+
+    <!-- ────────────────────────────────────────────────────────────────
+         Analytics — gated by cookie consent (GDPR / PECR compliance).
+         We use a "consent mode v2" pattern: GA4 + Meta Pixel are loaded
+         but set to denied-by-default. Plausible loads unconditionally
+         because it's cookieless and exempted under PECR (no banner needed
+         for it specifically — banner is for the other two).
+
+         To go live: replace the three placeholder IDs below.
+           GA4_MEASUREMENT_ID = G-XXXXXXXXXX        (from Google Analytics)
+           META_PIXEL_ID      = 0000000000000000    (from Meta Events Manager)
+           GTM_CONTAINER_ID   = GTM-XXXXXXX         (optional — only if using GTM)
+    ──────────────────────────────────────────────────────────────── -->
+
+    <!-- Plausible Analytics — cookieless, privacy-friendly, no banner needed.
+         Loads on every page. Aggregate visit data only — no PII. -->
+    <script defer data-domain="ownproperly.com"
+            src="https://plausible.io/js/script.outbound-links.js"></script>
+
+    <!-- Google consent mode v2 — default-deny everything until the user
+         accepts. The cookie banner below flips these to 'granted' on
+         accept and persists the choice in localStorage. -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        'ad_storage': 'denied',
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied',
+        'analytics_storage': 'denied',
+        'functionality_storage': 'granted',
+        'security_storage': 'granted',
+        'wait_for_update': 500,
+      });
+      // Honour any prior consent from localStorage so returning visitors
+      // don't see the banner again.
+      try {
+        var prior = JSON.parse(localStorage.getItem('op_cookie_consent') || 'null');
+        if (prior && prior.v === 1 && prior.choice === 'accept') {
+          gtag('consent', 'update', {
+            'ad_storage': 'granted', 'ad_user_data': 'granted',
+            'ad_personalization': 'granted', 'analytics_storage': 'granted',
+          });
+        }
+      } catch (e) {}
+    </script>
+
+    <!-- Google Analytics 4 — PLACEHOLDER. Replace G-XXXXXXXXXX with your
+         GA4 measurement ID after you create the property at
+         analytics.google.com. Until then this is a no-op (404 on the JS
+         load is harmless — page still renders). -->
+    <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX', { 'anonymize_ip': true });
+    </script> -->
+
+    <!-- Meta Pixel — PLACEHOLDER. Replace 0000000000000000 with your Pixel ID
+         from Meta Events Manager after you create one. Uncomment to enable. -->
+    <!-- <script>
+      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+      n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+      document,'script','https://connect.facebook.net/en_US/fbevents.js');
+      fbq('consent', 'revoke');
+      fbq('init', '0000000000000000');
+      fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none" alt=""
+      src="https://www.facebook.com/tr?id=0000000000000000&ev=PageView&noscript=1"/></noscript> -->
+
+    <!-- Google Tag Manager — OPTIONAL. Use this INSTEAD of the standalone
+         GA4 + Meta scripts above if you prefer GTM. Replace GTM-XXXXXXX
+         with your container ID. -->
+    <!-- <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-XXXXXXX');</script> -->
   </head>
   <body>
+    <!-- GTM noscript fallback (matches the GTM placeholder above) -->
+    <!-- <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX"
+      height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript> -->
+
     <div id="root"></div>
+
+    <!-- Cookie consent banner — rendered inline (not via React) so it
+         appears immediately on first paint and works even if JS bundle
+         fails to load. Gated by localStorage so returning visitors aren't
+         re-prompted. ICO/PECR-compliant: explicit reject is just as easy
+         as accept; analytics/ads do not fire until accept. -->
+    <script>
+    (function() {
+      try {
+        var prior = JSON.parse(localStorage.getItem('op_cookie_consent') || 'null');
+        if (prior && prior.v === 1) return; // already decided
+      } catch (e) {}
+
+      function persist(choice) {
+        try { localStorage.setItem('op_cookie_consent', JSON.stringify({ v:1, choice: choice, at: Date.now() })); } catch (e) {}
+        var b = document.getElementById('op-cookie-banner');
+        if (b) b.remove();
+      }
+
+      function accept() {
+        persist('accept');
+        if (typeof gtag === 'function') {
+          gtag('consent', 'update', {
+            'ad_storage': 'granted', 'ad_user_data': 'granted',
+            'ad_personalization': 'granted', 'analytics_storage': 'granted',
+          });
+        }
+        if (typeof fbq === 'function') { fbq('consent', 'grant'); }
+      }
+
+      function reject() {
+        persist('reject');
+        // gtag default is already 'denied' — nothing else to do.
+      }
+
+      function render() {
+        var banner = document.createElement('div');
+        banner.id = 'op-cookie-banner';
+        banner.setAttribute('role', 'dialog');
+        banner.setAttribute('aria-label', 'Cookie consent');
+        banner.innerHTML =
+          '<p>We use cookies to understand how visitors use OwnProperly and to measure our advertising. ' +
+          'Analytics and ads use cookies; essential cookies (sign-in session) always work. ' +
+          '<a href="/privacy" target="_blank" rel="noopener">Read our privacy policy</a>.</p>' +
+          '<div class="op-cookie-actions">' +
+          '  <button class="op-cookie-reject" type="button">Reject non-essential</button>' +
+          '  <button class="op-cookie-accept" type="button">Accept all</button>' +
+          '</div>';
+        document.body.appendChild(banner);
+        banner.querySelector('.op-cookie-accept').addEventListener('click', accept);
+        banner.querySelector('.op-cookie-reject').addEventListener('click', reject);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', render);
+      } else {
+        render();
+      }
+    })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
     <script>
     if ('serviceWorker' in navigator) {

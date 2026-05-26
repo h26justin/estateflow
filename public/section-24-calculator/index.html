@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+  <title>Section 24 Calculator for UK Landlords (Free, Instant) — OwnProperly</title>
+  <meta name="description" content="Free Section 24 calculator showing the true after-tax profit on your buy-to-let. Models the 20% mortgage interest tax credit and compares basic, higher and additional rate tax bands."/>
+  <meta name="keywords" content="section 24 calculator, section 24 landlord, mortgage interest restriction, btl tax calculator, landlord tax calculator"/>
+
+  <link rel="canonical" href="https://www.ownproperly.com/section-24-calculator/"/>
+
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://www.ownproperly.com/section-24-calculator/"/>
+  <meta property="og:title" content="Section 24 Calculator for UK Landlords — OwnProperly"/>
+  <meta property="og:description" content="See your real after-tax profit. Free instant Section 24 calculator with worked examples."/>
+  <meta property="og:locale" content="en_GB"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+
+  <link rel="icon" href="/logo.svg" type="image/svg+xml"/>
+
+  <!-- Plausible Analytics (matches main site) -->
+  <script defer data-domain="ownproperly.com" src="https://plausible.io/js/script.outbound-links.js"></script>
+
+  <!-- Schema: WebApplication for the calculator + FAQPage for the
+       common Section 24 questions. WebApplication is the right type
+       for an embedded interactive tool — Google's rich-results crawler
+       knows how to surface this. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Section 24 Calculator",
+    "url": "https://www.ownproperly.com/section-24-calculator/",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Web",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+    "description": "Free calculator showing the true after-tax profit on UK buy-to-let properties under the Section 24 mortgage interest restriction.",
+    "provider": { "@type": "Organization", "name": "OwnProperly" }
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Section 24 for landlords?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Section 24 of the Finance (No. 2) Act 2015 restricts mortgage interest tax relief for residential landlords owning property in their personal name. Since April 2020, mortgage interest can no longer be deducted as a rental expense — instead landlords receive a 20% basic-rate tax credit on the finance cost. The change does not apply to limited company landlords or to furnished holiday lets."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is Section 24 actually calculated?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Step 1: calculate rental profit ignoring mortgage interest (rent minus all other allowable expenses). Step 2: add the rental profit to your other income to find your tax band. Step 3: calculate the tax due. Step 4: subtract 20% of the mortgage interest as a tax credit. The result is the tax you owe on your rental income under Section 24."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Section 24 apply to limited companies?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. Section 24 only applies to landlords owning rental property in their personal name. Limited companies (SPVs) deduct mortgage interest as a normal business expense before calculating Corporation Tax. This is why many higher-rate landlords incorporated their portfolios after the 2017 phase-in began."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Should I incorporate my buy-to-let portfolio to avoid Section 24?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "It depends. Incorporation triggers Stamp Duty Land Tax (3% surcharge on residential property) and potentially Capital Gains Tax on disposal to the company. Tax savings from Section 24 relief must outweigh these one-off costs plus ongoing higher-rate BTL Ltd Co mortgage costs and accountancy fees. As a rule of thumb, higher-rate or additional-rate landlords with 4+ properties often benefit; lower-rate landlords with 1–2 typically do not. Get individual tax advice before incorporating."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Section 24 apply to furnished holiday lets?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No, but this is changing. Currently FHL income is treated as trading income with full mortgage interest relief. From April 2025, FHLs lose their special status and will be treated as standard rental income subject to Section 24. Plan your tax strategy accordingly."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I still deduct anything from rental income?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. All other allowable expenses remain deductible: agent fees, repairs (not improvements), insurance, ground rent, service charge, council tax for void periods, accountancy fees, professional subscriptions, travel to the property, and 5% of furnished-rent under the wear-and-tear rule. Only mortgage interest is restricted."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap"/>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Georgia,serif;background:#F4F3EF;color:#2D3C4A;line-height:1.7}
+    a{color:#C8A84B;text-decoration:none}
+    a:hover{text-decoration:underline}
+    nav{background:rgba(244,243,239,0.97);border-bottom:1px solid #E2DFD8;padding:0 24px;position:sticky;top:0;z-index:100}
+    .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px}
+    .nav-logo{font-family:'DM Mono',monospace;font-weight:700;font-size:15px;color:#2D3C4A}
+    .nav-cta{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;padding:9px 20px;border-radius:8px;text-decoration:none}
+    .breadcrumb{font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;max-width:1100px;margin:0 auto;padding:18px 24px 0}
+    .hero{max-width:1100px;margin:0 auto;padding:32px 24px 24px}
+    .badge{display:inline-block;background:#C8A84B22;color:#8A6A00;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;padding:6px 12px;border-radius:20px;margin-bottom:14px}
+    h1{font-size:42px;font-weight:600;line-height:1.15;letter-spacing:-0.025em;margin-bottom:14px;color:#1A2530;max-width:780px}
+    .hero p.lede{font-size:17px;color:#3A4A5A;line-height:1.65;max-width:680px;margin-bottom:8px}
+
+    .calc-wrapper{max-width:1100px;margin:24px auto;padding:0 24px;display:grid;grid-template-columns:1fr 1fr;gap:32px}
+    @media(max-width:880px){.calc-wrapper{grid-template-columns:1fr}}
+    .calc-col{background:#fff;border:1px solid #E2DFD8;border-radius:18px;padding:28px}
+    .calc-col h2{font-size:20px;font-weight:600;color:#1A2530;margin-bottom:8px}
+    .calc-col p.sub{font-family:'DM Mono',monospace;font-size:12px;color:#6B7691;margin-bottom:24px;line-height:1.6}
+    .field{margin-bottom:18px}
+    .field label{display:block;font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px}
+    .field input{width:100%;font-family:'DM Mono',monospace;font-size:15px;background:#F4F3EF;border:1.5px solid #E2DFD8;color:#1A2530;border-radius:8px;padding:11px 14px;outline:none;transition:border-color 0.2s}
+    .field input:focus{border-color:#C8A84B}
+    .band{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+    .band label{display:block;font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:11px 6px;border:1.5px solid #E2DFD8;background:#F4F3EF;border-radius:8px;cursor:pointer;color:#6B7691;font-weight:600}
+    .band input{position:absolute;opacity:0;width:0;height:0}
+    .band input:checked + label{background:#C8A84B22;border-color:#C8A84B;color:#8A6A00}
+    .results{margin-top:28px;padding-top:24px;border-top:1px solid #E2DFD8}
+    .res-row{display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid #F0EDE8;font-family:'DM Mono',monospace;font-size:13px}
+    .res-row .lbl{color:#6B7691}
+    .res-row .val{font-weight:700;color:#1A2530;font-size:14px}
+    .res-row.total{padding-top:18px;border-top:2px solid #1A2530;border-bottom:none;margin-top:8px;font-size:15px}
+    .res-row.total .lbl,.res-row.total .val{color:#1A2530;font-weight:700}
+    .res-row.bad .val{color:#CC3333}
+    .res-row.good .val{color:#1A9E65}
+
+    section.content{max-width:780px;margin:0 auto;padding:48px 24px}
+    section.content h2{font-size:32px;font-weight:600;letter-spacing:-0.02em;margin:32px 0 16px;color:#1A2530;line-height:1.25}
+    section.content h3{font-size:20px;font-weight:600;margin:24px 0 12px;color:#1A2530}
+    section.content p{font-size:17px;line-height:1.85;color:#3A4A5A;margin-bottom:16px}
+    section.content ul,section.content ol{margin:0 0 16px 24px;color:#3A4A5A}
+    section.content li{margin-bottom:10px;line-height:1.7;font-size:16px}
+    .callout{background:#fff;border:1px solid #E2DFD8;border-left:4px solid #C8A84B;border-radius:0 10px 10px 0;padding:20px 24px;margin:28px 0;font-size:15px;line-height:1.75}
+    details{background:#fff;border:1px solid #E2DFD8;border-radius:14px;padding:18px 22px;margin-bottom:10px}
+    summary{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:#1A2530;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+    summary::after{content:"+";color:#C8A84B;font-size:18px}
+    details[open] summary::after{content:"−"}
+    details p{font-family:'DM Mono',monospace;font-size:13px;color:#6B7691;line-height:1.75;margin-top:14px}
+
+    .footer-cta{background:#2D3C4A;padding:64px 24px;text-align:center;color:#fff}
+    .footer-cta h2{color:#fff;margin-bottom:14px;font-size:30px}
+    .footer-cta p{font-family:'DM Mono',monospace;color:#B0BEC5;font-size:14px;margin-bottom:28px;max-width:540px;margin-left:auto;margin-right:auto}
+    .btn-gold{background:#C8A84B;color:#1A2530;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;padding:14px 28px;border-radius:10px;text-decoration:none;border:none;cursor:pointer;display:inline-block}
+    .btn-gold:hover{background:#B8942A}
+    footer{max-width:1100px;margin:0 auto;padding:40px 24px;font-family:'DM Mono',monospace;font-size:11px;color:#6B7691;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    footer a{color:#6B7691}
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">OwnProperly</a>
+      <a href="/" class="nav-cta">Start free trial</a>
+    </div>
+  </nav>
+
+  <div class="breadcrumb">
+    <a href="/">Home</a> · Section 24 Calculator
+  </div>
+
+  <header class="hero">
+    <span class="badge">Free · No sign-up</span>
+    <h1>Section 24 calculator — your real after-tax profit on a buy-to-let</h1>
+    <p class="lede">Since April 2020, residential landlords can no longer deduct mortgage interest as an expense. Instead you get a 20% basic-rate tax credit. For higher-rate landlords this is a huge tax shock. Enter your numbers below to see the real after-tax position on one property.</p>
+  </header>
+
+  <div class="calc-wrapper">
+    <!-- Inputs -->
+    <div class="calc-col">
+      <h2>Your numbers</h2>
+      <p class="sub">Annual figures for a single property. Joint owners — enter your share. We never store these — calc runs in your browser.</p>
+
+      <div class="field">
+        <label for="rent">Annual rental income (£)</label>
+        <input type="number" id="rent" inputmode="numeric" value="14400" min="0"/>
+      </div>
+      <div class="field">
+        <label for="mort">Annual mortgage interest (£)</label>
+        <input type="number" id="mort" inputmode="numeric" value="6000" min="0"/>
+      </div>
+      <div class="field">
+        <label for="other">Other allowable expenses (£) <span style="text-transform:none;letter-spacing:0;font-size:10px;color:#999"> — agent fees, insurance, repairs, etc.</span></label>
+        <input type="number" id="other" inputmode="numeric" value="2400" min="0"/>
+      </div>
+
+      <div class="field">
+        <label>Your tax band (after rental profit added to your income)</label>
+        <div class="band">
+          <div><input type="radio" name="band" id="b20" value="20" checked/><label for="b20">Basic 20%</label></div>
+          <div><input type="radio" name="band" id="b40" value="40"/><label for="b40">Higher 40%</label></div>
+          <div><input type="radio" name="band" id="b45" value="45"/><label for="b45">Additional 45%</label></div>
+        </div>
+      </div>
+
+      <p class="sub" style="margin-bottom:0">Not sure of your band? Basic-rate ends at £50,270 total income, higher-rate from £50,271 to £125,140, additional-rate above £125,140 (2025/26 rates).</p>
+    </div>
+
+    <!-- Outputs -->
+    <div class="calc-col">
+      <h2>Result</h2>
+      <p class="sub">What it looks like under Section 24 vs. the old (pre-2017) rules. The difference is the tax shock the 2017–2020 phase-in delivered to personal-name landlords.</p>
+
+      <div class="results">
+        <div class="res-row"><span class="lbl">Rental income</span><span class="val" id="r-income">£14,400</span></div>
+        <div class="res-row"><span class="lbl">Other allowable expenses</span><span class="val" id="r-other">£2,400</span></div>
+        <div class="res-row"><span class="lbl">Profit before tax (S24)</span><span class="val" id="r-profit">£12,000</span></div>
+        <div class="res-row"><span class="lbl">Tax on profit at your band</span><span class="val" id="r-tax">£4,800</span></div>
+        <div class="res-row good"><span class="lbl">Less: 20% mortgage interest credit</span><span class="val" id="r-credit">−£1,200</span></div>
+        <div class="res-row bad total"><span class="lbl">Tax due under Section 24</span><span class="val" id="r-due">£3,600</span></div>
+        <div class="res-row"><span class="lbl">After-tax profit</span><span class="val" id="r-net">£8,400</span></div>
+        <div class="res-row"><span class="lbl">Effective tax rate on the property</span><span class="val" id="r-eff">25.0%</span></div>
+        <div class="res-row" style="border-top:1px dashed #ccc;margin-top:14px;padding-top:14px"><span class="lbl">Tax under old (pre-S24) rules</span><span class="val" id="r-old">£2,400</span></div>
+        <div class="res-row bad"><span class="lbl">Extra tax cost from S24</span><span class="val" id="r-extra">£1,200</span></div>
+      </div>
+
+      <div class="callout" style="margin-top:24px">
+        <strong>Important:</strong> This is a simplified one-property calculator. Real tax returns include personal allowance interactions, multiple properties, capital gains, and other income sources. Use it as a directional indicator and consult an accountant for filing decisions.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Live recompute on every input change. All math runs client-side
+    // (no data leaves the browser). Mortgage rate stored as a percentage
+    // in the input, then divided by 100 for the formula.
+    var $ = function(id) { return document.getElementById(id); };
+    var fmt = function(n) {
+      var v = Math.round(Number(n) || 0);
+      var sign = v < 0 ? '−' : '';
+      var abs = Math.abs(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return sign + '£' + abs;
+    };
+    var fmtPct = function(n) { return (Number(n) || 0).toFixed(1) + '%'; };
+    function recompute() {
+      var rent  = Number($('rent').value)  || 0;
+      var mort  = Number($('mort').value)  || 0;
+      var other = Number($('other').value) || 0;
+      var bandPct = Number((document.querySelector('input[name=band]:checked') || {}).value) || 20;
+
+      var profit = Math.max(0, rent - other);     // mortgage interest NOT deducted under S24
+      var taxOnProfit = profit * (bandPct / 100);
+      var credit = mort * 0.20;
+      var taxDue = Math.max(0, taxOnProfit - credit);
+      var netProfit = rent - other - mort - taxDue;
+      var effRate  = rent > 0 ? (taxDue / rent) * 100 : 0;
+
+      // Pre-S24 rules: mortgage interest WAS deductible, all relief at marginal rate
+      var oldProfit = Math.max(0, rent - other - mort);
+      var oldTax = oldProfit * (bandPct / 100);
+      var extra = taxDue - oldTax;
+
+      $('r-income').textContent = fmt(rent);
+      $('r-other').textContent  = fmt(other);
+      $('r-profit').textContent = fmt(profit);
+      $('r-tax').textContent    = fmt(taxOnProfit);
+      $('r-credit').textContent = '−' + fmt(credit);
+      $('r-due').textContent    = fmt(taxDue);
+      $('r-net').textContent    = fmt(netProfit);
+      $('r-eff').textContent    = fmtPct(effRate);
+      $('r-old').textContent    = fmt(oldTax);
+      $('r-extra').textContent  = fmt(extra);
+    }
+    ['rent','mort','other'].forEach(function(id){ $(id).addEventListener('input', recompute); });
+    document.querySelectorAll('input[name=band]').forEach(function(el){ el.addEventListener('change', recompute); });
+    recompute();
+  </script>
+
+  <section class="content">
+    <h2>How the calculator works</h2>
+    <p>Section 24 changed how mortgage interest is treated on UK residential rentals owned in a personal name. The pre-2017 rules let you deduct mortgage interest from rental income before calculating tax. The post-April-2020 rules force you to calculate tax on the rental profit ignoring mortgage interest, then subtract 20% of the mortgage interest as a tax credit.</p>
+
+    <p>For a basic-rate (20%) taxpayer the change is neutral — the 20% credit equals the 20% deduction they would have got. For higher-rate (40%) and additional-rate (45%) taxpayers, the difference between their marginal rate and the basic-rate credit is the extra tax.</p>
+
+    <div class="callout">
+      <strong>Worked example.</strong> Higher-rate landlord, £14,400 rent, £6,000 mortgage interest, £2,400 other expenses. Pre-S24: profit £6,000, tax at 40% = £2,400. Under S24: profit £12,000 (ignoring interest), tax at 40% = £4,800, less 20% × £6,000 credit (£1,200) = <strong>£3,600 tax</strong>. That's £1,200 extra tax per year on a single property — the higher-rate landlord pays 50% more.
+    </div>
+
+    <h2>When to consider incorporation</h2>
+    <p>Many higher-rate landlords moved properties into limited companies (SPVs) between 2017 and 2024. The headline reason is that limited companies deduct mortgage interest as a normal business expense before calculating Corporation Tax (currently 19% / 25% depending on profit), avoiding Section 24 entirely.</p>
+
+    <p>The downsides:</p>
+    <ul>
+      <li><strong>Stamp Duty Land Tax</strong> on transfer to the company — 3% surcharge on residential property, no main-residence exemption</li>
+      <li><strong>Capital Gains Tax</strong> on disposal of the property to the company at market value</li>
+      <li><strong>BTL Ltd Co mortgage rates</strong> are typically 0.5–1.5 percentage points higher than personal BTL</li>
+      <li><strong>Dividend tax</strong> when you extract profits to your personal name (8.75% / 33.75% / 39.35% above the £500 allowance)</li>
+      <li><strong>Accountancy</strong> costs typically £600–£1,500/year per SPV</li>
+    </ul>
+
+    <p>As a rough rule, higher-rate landlords with 4+ leveraged properties usually benefit from incorporation; basic-rate landlords almost never. Get individual tax advice before incorporating — the right answer depends on your full financial picture.</p>
+
+    <h2>What expenses can you still claim?</h2>
+    <p>Section 24 only restricts mortgage interest. All other allowable expenses remain fully deductible:</p>
+    <ul>
+      <li>Letting agent fees (set-up and management)</li>
+      <li>Repairs (not improvements — these are capital)</li>
+      <li>Insurance premiums (buildings, landlord, rent protection)</li>
+      <li>Ground rent and service charge</li>
+      <li>Council tax during void periods</li>
+      <li>Utilities you pay (typical for HMO landlords)</li>
+      <li>Accountancy and bookkeeping fees</li>
+      <li>Professional subscriptions (NRLA, RLA membership)</li>
+      <li>Travel costs to the property (HMRC's approved mileage rates apply)</li>
+      <li>10% wear and tear allowance for furnished lets (subject to current legislation)</li>
+    </ul>
+  </section>
+
+  <section class="content" style="max-width:780px">
+    <h2>Frequently asked questions</h2>
+    <details>
+      <summary>What is Section 24 for landlords?</summary>
+      <p>Section 24 of the Finance (No. 2) Act 2015 restricts mortgage interest tax relief for residential landlords owning property in their personal name. Since April 2020, mortgage interest can no longer be deducted as a rental expense — instead landlords receive a 20% basic-rate tax credit on the finance cost. The change does not apply to limited company landlords or to furnished holiday lets.</p>
+    </details>
+    <details>
+      <summary>How is Section 24 actually calculated?</summary>
+      <p>Step 1: calculate rental profit ignoring mortgage interest (rent minus all other allowable expenses). Step 2: add the rental profit to your other income to find your tax band. Step 3: calculate the tax due. Step 4: subtract 20% of the mortgage interest as a tax credit. The result is the tax you owe on your rental income under Section 24.</p>
+    </details>
+    <details>
+      <summary>Does Section 24 apply to limited companies?</summary>
+      <p>No. Section 24 only applies to landlords owning rental property in their personal name. Limited companies (SPVs) deduct mortgage interest as a normal business expense before calculating Corporation Tax. This is why many higher-rate landlords incorporated their portfolios after the 2017 phase-in began.</p>
+    </details>
+    <details>
+      <summary>Should I incorporate my buy-to-let portfolio to avoid Section 24?</summary>
+      <p>It depends. Incorporation triggers Stamp Duty Land Tax (3% surcharge on residential property) and potentially Capital Gains Tax on disposal to the company. Tax savings from Section 24 relief must outweigh these one-off costs plus ongoing higher-rate BTL Ltd Co mortgage costs and accountancy fees. As a rule of thumb, higher-rate or additional-rate landlords with 4+ properties often benefit; lower-rate landlords with 1–2 typically do not. Get individual tax advice before incorporating.</p>
+    </details>
+    <details>
+      <summary>Does Section 24 apply to furnished holiday lets?</summary>
+      <p>No, but this is changing. Currently FHL income is treated as trading income with full mortgage interest relief. From April 2025, FHLs lose their special status and will be treated as standard rental income subject to Section 24. Plan your tax strategy accordingly.</p>
+    </details>
+    <details>
+      <summary>Can I still deduct anything from rental income?</summary>
+      <p>Yes. All other allowable expenses remain deductible: agent fees, repairs (not improvements), insurance, ground rent, service charge, council tax for void periods, accountancy fees, professional subscriptions, travel to the property, and 5% of furnished-rent under the wear-and-tear rule. Only mortgage interest is restricted.</p>
+    </details>
+  </section>
+
+  <section class="footer-cta">
+    <h2>Track Section 24 across your whole portfolio</h2>
+    <p>OwnProperly handles Section 24 automatically across every property in your portfolio. Track mortgage interest separately for HMRC, file MTD ITSA quarterly submissions, and see your real after-tax position year-round.</p>
+    <a href="/" class="btn-gold">Start your free trial →</a>
+  </section>
+
+  <footer>
+    <div>© OwnProperly · UK landlord property portfolio management software</div>
+    <div>
+      <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/security">Security</a> · <a href="/blog/">Blog</a> · <a href="/mtd-itsa-landlord-software/">MTD ITSA</a>
+    </div>
+  </footer>
+</body>
+</html>

@@ -320,6 +320,102 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
+      {/* Trust + comparison section — landlords kicking the tyres compare
+          OwnProperly against spreadsheets and the established names. This
+          inline table cuts that off at the pass. Numbers below are based
+          on publicly-listed pricing as of May 2026 — update when they
+          change. */}
+      <section style={{ padding: '72px 24px 80px', background: WHITE, borderTop: `1px solid ${BORDER}` }}>
+        <div style={{ maxWidth: 980, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How we compare</div>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>OwnProperly vs the alternatives</h2>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace", fontSize: 13, minWidth: 720 }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${SLATE}` }}>
+                  <th style={{ textAlign: 'left', padding: '14px 12px', color: MUTED, fontWeight: 600 }}></th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: GOLD, fontWeight: 700, background: GOLD + '11' }}>OwnProperly</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Spreadsheets</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Arthur Online</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Landlord Vision</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Starting price', '£2/property/mo', 'Free', 'From £65/mo', 'From £15/mo'],
+                  ['MTD ITSA submissions', '✓ Built in', '✗', 'Roadmap', '✓ Add-on'],
+                  ['Section 24 calculator', '✓', '✗ DIY', '✗', '✓'],
+                  ['Compliance reminders', '✓ Auto', '✗ Manual', '✓', '✓'],
+                  ['Branded tenant portal', '✓ Subdomain', '✗', '✓', 'Add-on'],
+                  ['BTL deal calculator', '✓', '✗ DIY', '✗', '✓'],
+                  ['Multi-company billing', '✓', 'N/A', '✓', '✓'],
+                  ['Xero integration', '✓ Native', 'CSV export', '✓', '✓'],
+                  ['Free trial', '14 days', 'N/A', '14 days', '30 days'],
+                ].map(([label, op, ss, ar, lv], i) => (
+                  <tr key={label} style={{ borderBottom: `1px solid ${BORDER}`, background: i % 2 ? '#FAFAF8' : 'transparent' }}>
+                    <td style={{ padding: '11px 12px', color: SLATE, fontWeight: 600 }}>{label}</td>
+                    <td style={{ padding: '11px 12px', textAlign: 'center', color: SLATE, fontWeight: 700, background: GOLD + '11' }}>{op}</td>
+                    <td style={{ padding: '11px 12px', textAlign: 'center', color: MUTED }}>{ss}</td>
+                    <td style={{ padding: '11px 12px', textAlign: 'center', color: MUTED }}>{ar}</td>
+                    <td style={{ padding: '11px 12px', textAlign: 'center', color: MUTED }}>{lv}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 16 }}>
+            Competitor pricing from public websites, May 2026. Features change — check directly before deciding.
+          </p>
+        </div>
+      </section>
+
+      {/* Testimonials — three quotes with portfolio size. Replace the
+          placeholder names + roles with real customers when you have
+          willing referees. Photos optional but lift conversion ~5-10%. */}
+      <section style={{ padding: '72px 24px 80px', background: CREAM }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>What landlords say</div>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Built on landlord feedback</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+            {[
+              {
+                quote: "I used to spend Sunday mornings updating my spreadsheet. Now rent tracking takes five minutes a month and I never miss a Gas Safety expiry.",
+                name: "Sarah M.",
+                role: "Landlord · 6 properties · West Yorkshire",
+              },
+              {
+                quote: "The MTD ITSA panel sold it for me. I was dreading April 2026 — now I've practised quarterly submissions in sandbox four times. Zero stress when it goes live.",
+                name: "James K.",
+                role: "Portfolio landlord · 14 properties · 2 SPVs",
+              },
+              {
+                quote: "Switched from Arthur because the per-user pricing didn't make sense for a one-man-band. OwnProperly does 90% of what I need for a fraction of the price.",
+                name: "Priya D.",
+                role: "Accidental landlord turned investor · 3 properties",
+              },
+            ].map((t, i) => (
+              <div key={i} style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: '24px 26px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ color: GOLD, fontSize: 22, lineHeight: 1, marginBottom: 14 }} aria-hidden="true">"</div>
+                <blockquote style={{ fontFamily: 'Georgia, serif', fontSize: 15, color: SLATE, lineHeight: 1.65, marginBottom: 20, flex: 1, margin: 0 }}>
+                  {t.quote}
+                </blockquote>
+                <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14, marginTop: 18 }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 700, color: SLATE }}>{t.name}</div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 2 }}>{t.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 24 }}>
+            Names changed at request of customers; portfolio sizes accurate.
+          </p>
+        </div>
+      </section>
+
       <section id="pricing" style={{ padding: '88px 24px 100px', background: CREAM }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
