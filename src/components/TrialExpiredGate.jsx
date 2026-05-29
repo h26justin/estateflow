@@ -5,30 +5,48 @@ import * as api from '../lib/api'
 
 // ── TRIAL EXPIRED GATE ─────────────────────────────────────────────────
 // Full-screen blocker that appears the moment a user signs in and any
-// company they own/access has an expired trial AND is not on free tier
-// AND has no active paid subscription. They can't dismiss it — they
-// either pay (Stripe Checkout) or sign out.
+// company THEY OWN has an expired trial AND is not on free tier AND
+// has no active paid subscription. They can't dismiss it — they either
+// pay (Stripe Checkout) or sign out.
 //
-// Why per-company rather than per-user: a user can be invited to many
+// IMPORTANT — owner vs collaborator semantics:
+//   * The gate ONLY considers companies the user OWNS (companies.owner_id
+//     matches the user's auth.uid).
+//   * Collaborators inherit access from the owner — if the owner is
+//     paying, the collaborator gets in. If the owner's trial has expired
+//     and they haven't paid, that's the OWNER's problem to fix; we don't
+//     show the gate to the collaborator (they can't pay for someone
+//     else's company anyway — the create-checkout edge function rejects
+//     anyone who isn't the owner or an explicit billing admin).
+//   * Expired collaborator companies still appear in the user's view —
+//     they're just read-only (the owner's subscription decides what's
+//     possible). That keeps the collaborator productive on their other
+//     companies while reminding them to nudge the owner about billing.
+//
+// Why per-owned-company rather than per-user: an owner can own many
 // companies. A single company being overdue shouldn't lock out their
 // access to other companies — but it shouldn't be hidden either. So
-// the gate lists ALL overdue companies and requires each to be paid.
-// When the last overdue company is paid (or admin grants free tier),
-// the gate disappears automatically on next data reload.
+// the gate lists ALL overdue OWNED companies and requires each to be
+// paid. When the last overdue company is paid (or admin grants free
+// tier), the gate disappears automatically on next data reload.
 //
 // Platform admins (Justin) bypass this gate entirely. Tenant-only
 // users (no companies) also bypass.
 //
-// Decision tree per company:
+// Decision tree per OWNED company:
 //   1. is_free_tier=true                      → no gate (admin granted)
 //   2. subscription.status='active'           → no gate (paying)
 //   3. trial_ends_at > now                    → no gate (still in trial)
 //   4. trial_ends_at <= now AND not paid/free → GATED  (the overdue case)
 
-export function getOverdueCompanies({ companies = [], subs = [] }) {
+export function getOverdueCompanies({ companies = [], subs = [], userId = null }) {
   const now = Date.now()
   const subByCo = new Map(subs.map(s => [s.company_id, s]))
   return companies
+    // Only consider companies the user OWNS. Collaborators can't pay
+    // for someone else's company, so showing them a gate would just
+    // lock them out of their other (paid) companies for no benefit.
+    .filter(c => !userId || c.owner_id === userId)
     .filter(c => !c.is_free_tier)
     .filter(c => {
       const sub = subByCo.get(c.id)

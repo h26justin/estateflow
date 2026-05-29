@@ -1234,7 +1234,12 @@ export default function App() {
   // paying plan or free tier, show a full-screen blocker requiring
   // Stripe Checkout per overdue company before the app loads.
   if (!isPlatformAdmin && !impersonatingUser) {
-    const overdue = getOverdueCompanies({ companies, subs: companySubs })
+    // Pass user.id so the gate only considers OWNED companies — we never
+    // gate a user on someone else's billing state (they can't pay for it
+    // anyway, and gating would just lock them out of their other paid
+    // companies). Collaborator companies that are expired drop out of
+    // the user's view naturally, owner gets nudged via their own gate.
+    const overdue = getOverdueCompanies({ companies, subs: companySubs, userId: user?.id })
     if (overdue.length > 0) {
       return <TrialExpiredGate
         companies={overdue}
