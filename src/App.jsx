@@ -876,10 +876,55 @@ export default function App() {
             visibleProps = props.filter(p => targetCompanyIds.has(p.company_id))
           } catch(e) { console.error('Impersonation filter failed', e) }
         }
+        // ─── Suspended-company access control ────────────────────────────
+        // If a company the user has access to (as collaborator) is
+        // suspended (owner stopped paying, trial expired, no free-tier
+        // grant), hide it from the collaborator's view. This is the
+        // "if Justin stops paying, Alex loses access to ExH too" rule.
+        //
+        // Owners always see their own companies regardless of state —
+        // they need to see them in order to pay (the gate shows pay
+        // buttons). Platform admins / devs also bypass.
+        //
+        // We need subscriptions to make this decision. Fetch them
+        // synchronously here so the filter is applied before the UI
+        // sees `companies`. (The later best-effort fetch below stays
+        // as a safety net for race-condition-free re-renders.)
+        let initialSubs = []
+        if (visibleCos.length > 0) {
+          try {
+            initialSubs = await api.fetchSubscriptions(visibleCos.map(c => c.id))
+          } catch (e) { initialSubs = [] }
+        }
+        if (!devActive) {
+          const subByCo = new Map(initialSubs.map(s => [s.company_id, s]))
+          const isCompanyLive = (c) => {
+            // Owner always sees the company (so they can pay if needed).
+            if (c.owner_id === user.id) return true
+            // Free tier — always live (admin granted).
+            if (c.is_free_tier) return true
+            const sub = subByCo.get(c.id)
+            // Paid OR in stripe-side trial OR grace-period past_due → live.
+            if (sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due')) return true
+            // Otherwise live only while in-app trial hasn't expired yet.
+            const trialEnd = c.trial_ends_at ? new Date(c.trial_ends_at).getTime() : 0
+            return trialEnd > Date.now()
+          }
+          visibleCos = visibleCos.filter(isCompanyLive)
+          // Also drop any properties whose company we just hid — so the
+          // dashboard / reports / etc. don't surface data the user can
+          // no longer access.
+          const liveIds = new Set(visibleCos.map(c => c.id))
+          visibleProps = visibleProps.filter(p => liveIds.has(p.company_id))
+        }
         setCompanies(visibleCos)
+        setCompanySubs(initialSubs)
         setProperties(visibleProps)
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
-        // Show onboarding for brand new users with no companies
+        // Show onboarding for brand new users with no companies. (For
+        // collaborators whose host stopped paying, this will fire — they
+        // need to know why their access vanished. A dedicated banner
+        // would be nicer but is out of scope for this fix.)
         if (visibleCos.length === 0) setShowOnboarding(true)
         try { api.sendOnboardingEmail(user.email, '', 'welcome').catch(()=>{}) } catch(e) {}
         // Drop trial-expiring notifications into the bell (deduped daily
@@ -901,15 +946,8 @@ export default function App() {
         // referral partnership (£200-500/deal). Future work: add a
         // "Compare rates" CTA on the notification.
         api.maybeWarnMortgageExpiring(visibleProps).catch(() => {})
-        // Load subscriptions for the user's companies so the trial-expired
-        // hard gate can decide whether to lock the app. Best-effort —
-        // failure leaves companySubs empty, which the gate's
-        // getOverdueCompanies() treats as "rely on trial_ends_at alone".
-        if (visibleCos.length > 0) {
-          api.fetchSubscriptions(visibleCos.map(c => c.id))
-            .then(setCompanySubs)
-            .catch(() => setCompanySubs([]))
-        }
+        // (Subscriptions already loaded above as part of the suspended-
+        // company access filter. No need to re-fetch here.)
         // Check for tenant invite link param
         const urlParams = new URLSearchParams(window.location.search)
         const tenantPropertyId = urlParams.get('tenant_property')
