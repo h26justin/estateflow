@@ -51,6 +51,7 @@ import TenantReferenceModal from './components/TenantReferenceModal'
 import BankConnectionsModal from './components/BankConnectionsModal'
 import BankInboxModal from './components/BankInboxModal'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
+import SuspendedAccessBanner from './components/SuspendedAccessBanner'
 import BuildingMortgageModal from './components/BuildingMortgageModal'
 import ReceiptScanModal from './components/ReceiptScanModal'
 import { canUseInvestorFeatures } from './lib/tierGating'
@@ -473,6 +474,10 @@ export default function App() {
   // whether to lock the app. Empty array = "no subs yet" → only
   // trial_ends_at + is_free_tier on the company row matter.
   const [companySubs, setCompanySubs] = useState([])
+  // Collaborator companies that were filtered out due to suspended billing
+  // (owner stopped paying or trial expired). Surfaced via the
+  // SuspendedAccessBanner when the user has no other accessible companies.
+  const [suspendedAccess, setSuspendedAccess] = useState([])
   // Dashboard widget customization
   const [widgetPrefs, setWidgetPrefs] = useState(null) // null = defaults
   // Dashboard section reordering & show/hide. Stored per-user in localStorage.
@@ -896,6 +901,10 @@ export default function App() {
             initialSubs = await api.fetchSubscriptions(visibleCos.map(c => c.id))
           } catch (e) { initialSubs = [] }
         }
+        // Track companies we hide due to suspension so we can show the
+        // collaborator a clear banner ("your account owner hasn't paid")
+        // instead of the onboarding wizard, which would be misleading.
+        let suspendedCollabCos = []
         if (!devActive) {
           const subByCo = new Map(initialSubs.map(s => [s.company_id, s]))
           const isCompanyLive = (c) => {
@@ -910,7 +919,22 @@ export default function App() {
             const trialEnd = c.trial_ends_at ? new Date(c.trial_ends_at).getTime() : 0
             return trialEnd > Date.now()
           }
+          suspendedCollabCos = visibleCos.filter(c => c.owner_id !== user.id && !isCompanyLive(c))
           visibleCos = visibleCos.filter(isCompanyLive)
+          // Enrich suspended companies with the account owner's email so
+          // the banner can show who to contact. Best-effort — if RLS
+          // blocks the user_profiles read, the banner falls back to a
+          // generic "your account owner" label.
+          if (suspendedCollabCos.length > 0) {
+            try {
+              const ownerIds = [...new Set(suspendedCollabCos.map(c => c.owner_id).filter(Boolean))]
+              const { data: profiles } = await supabase
+                .from('user_profiles').select('user_id, email').in('user_id', ownerIds)
+              const emailById = {}
+              for (const p of (profiles || [])) emailById[p.user_id] = p.email
+              suspendedCollabCos = suspendedCollabCos.map(c => ({ ...c, owner_email: emailById[c.owner_id] || null }))
+            } catch (e) { /* fall back to generic label */ }
+          }
           // Also drop any properties whose company we just hid — so the
           // dashboard / reports / etc. don't surface data the user can
           // no longer access.
@@ -920,12 +944,15 @@ export default function App() {
         setCompanies(visibleCos)
         setCompanySubs(initialSubs)
         setProperties(visibleProps)
+        setSuspendedAccess(suspendedCollabCos)
         if(visibleCos.length>0) setActiveCoTab(visibleCos[0].id)
-        // Show onboarding for brand new users with no companies. (For
-        // collaborators whose host stopped paying, this will fire — they
-        // need to know why their access vanished. A dedicated banner
-        // would be nicer but is out of scope for this fix.)
-        if (visibleCos.length === 0) setShowOnboarding(true)
+        // Onboarding fires ONLY for genuinely new users (no companies anywhere).
+        // Collaborators whose only access just got suspended see the
+        // SuspendedAccessBanner instead — much clearer than asking them
+        // to create a company they don't want.
+        if (visibleCos.length === 0 && suspendedCollabCos.length === 0) {
+          setShowOnboarding(true)
+        }
         try { api.sendOnboardingEmail(user.email, '', 'welcome').catch(()=>{}) } catch(e) {}
         // Drop trial-expiring notifications into the bell (deduped daily
         // per company via localStorage). Fire-and-forget; failure is fine.
@@ -1287,6 +1314,19 @@ export default function App() {
         onSignOut={()=>supabase.auth.signOut()}
       />
     }
+  }
+
+  // Collaborator whose only access just got suspended (account owner
+  // stopped paying or trial expired with no Stripe sub). Show a clear
+  // banner instead of dropping them on the onboarding wizard, which
+  // would invite them to create a company they don't actually want.
+  if (companies.length === 0 && suspendedAccess.length > 0 && !isPlatformAdmin) {
+    return <SuspendedAccessBanner
+      suspended={suspendedAccess}
+      user={user}
+      T={T}
+      onSignOut={()=>supabase.auth.signOut()}
+    />
   }
 
   if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
