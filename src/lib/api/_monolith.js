@@ -504,7 +504,7 @@ export async function softDeleteInspection(id, deletedBy) {
 export async function uploadInspectionPhoto(propertyId, file, caption = '') {
   const userId = await uid()
   const safeName = (file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60)
-  const path = `inspections/${userId}/${propertyId}/${Date.now()}_${safeName}`
+  const path = `${userId}/inspections/${propertyId}/${Date.now()}_${safeName}`
   const { error: upErr } = await supabase.storage.from('property-documents')
     .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
   if (upErr) throw upErr

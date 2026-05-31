@@ -97,17 +97,29 @@ serve(async (req) => {
     }
 
     // ── 3. Save attachments ──
+    // Accept PDFs AND images — the UI (CompanyInboxPanel) tells users we take
+    // "PDF and image attachments", and many agents send scanned/photographed
+    // statements. Claude reads both (PDF as a document block, images as image
+    // blocks — see extractDocumentInline).
     const attachments = (payload.Attachments || []) as any[]
-    const pdfs = attachments.filter(a =>
-      a.ContentType === 'application/pdf' || (a.Name || '').toLowerCase().endsWith('.pdf')
-    )
+    const pdfs = attachments.filter(a => {
+      const ct = (a.ContentType || '').toLowerCase()
+      const nm = (a.Name || '').toLowerCase()
+      return ct === 'application/pdf'
+        || ct.startsWith('image/')
+        || /\.(pdf|jpe?g|png|webp|heic|heif|gif)$/.test(nm)
+    })
     if (pdfs.length === 0) {
-      console.log('Email had no PDF attachments — ignoring')
-      return new Response(JSON.stringify({ ok: true, ignored: 'no_pdfs', sender: payload.From }))
+      console.log('Email had no PDF/image attachments — ignoring')
+      return new Response(JSON.stringify({ ok: true, ignored: 'no_attachments', sender: payload.From }))
     }
 
-    // We need a property_id for the doc — schema requires it. Use the
-    // first non-deleted property of the company.
+    // We need a property_id for the doc — schema requires it. Use the first
+    // non-deleted property of the company purely as a CONTAINER anchor: a
+    // single statement often spans many properties, and the real per-line
+    // property mapping happens later in the StatementImporter when the user
+    // reviews the extracted items. So this anchor is not a claim about which
+    // property the money belongs to.
     const { data: firstProp } = await admin
       .from('properties')
       .select('id')
@@ -195,11 +207,16 @@ async function extractDocumentInline(documentId: string, storagePath: string, mi
 
   const buf = await fileData.arrayBuffer()
   const bytes = new Uint8Array(buf)
+  // Chunked base64 to avoid a stack overflow on large multi-page statements
+  // (apply() with a huge arg list blows the call stack).
   let binary = ''
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.byteLength; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)))
+  }
   const base64 = btoa(binary)
 
-  const prompt = `Extract ALL rental statement information from this PDF. Return ONLY a valid JSON object. Use null for missing fields. Use UK date format DD/MM/YYYY for dates.
+  const prompt = `Extract ALL rental statement information from this document. Return ONLY a valid JSON object. Use null for missing fields. Use UK date format DD/MM/YYYY for dates.
 
 Return JSON matching this shape:
 {
@@ -226,37 +243,18 @@ Return JSON matching this shape:
   }
 }`
 
-  const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 4000,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: mimeType, data: base64 } },
-          { type: 'text', text: prompt },
-        ],
-      }],
-    }),
-  })
-
-  if (!anthropicRes.ok) {
-    const errText = await anthropicRes.text()
-    throw new Error(`Anthropic ${anthropicRes.status}: ${errText.slice(0, 300)}`)
-  }
-  const data = await anthropicRes.json()
-  const textResponse = data.content?.[0]?.text || ''
-  let extracted: any = null
-  try {
-    extracted = JSON.parse(textResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-  } catch (e: any) {
-    extracted = { _raw_response: textResponse, _parse_error: e.message }
+  // Sonnet 4.5 first pass, Opus 4.7 fallback if the first pass fails to parse
+  // or returns no line items — mirrors the extract-document edge function so
+  // statements get the same OCR quality as manually-uploaded docs. Images are
+  // sent as image blocks; PDFs as document blocks.
+  let extracted = await callStatementModel('claude-sonnet-4-5', base64, mimeType, prompt)
+  if (extracted._parse_error || !Array.isArray(extracted.items) || extracted.items.length === 0) {
+    try {
+      const fallback = await callStatementModel('claude-opus-4-7', base64, mimeType, prompt)
+      if (!fallback._parse_error) extracted = fallback
+    } catch (e: any) {
+      console.warn('Opus fallback failed for', documentId, e?.message)
+    }
   }
 
   await admin.from('property_documents').update({
@@ -265,4 +263,42 @@ Return JSON matching this shape:
     extracted_at: new Date().toISOString(),
     extraction_error: null,
   }).eq('id', documentId)
+}
+
+// Call Claude for statement extraction. Returns parsed JSON, or a salvageable
+// { _parse_error, _raw_response } envelope so the caller can decide to retry.
+async function callStatementModel(model: string, base64: string, mimeType: string, prompt: string) {
+  const isImage = (mimeType || '').toLowerCase().startsWith('image/')
+  const contentBlock = isImage
+    ? { type: 'image',    source: { type: 'base64', media_type: mimeType, data: base64 } }
+    : { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 4000,
+      messages: [{
+        role: 'user',
+        content: [contentBlock, { type: 'text', text: prompt }],
+      }],
+    }),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text()
+    throw new Error(`Anthropic ${model} ${res.status}: ${errText.slice(0, 300)}`)
+  }
+  const data = await res.json()
+  const textResponse = data.content?.[0]?.text || ''
+  try {
+    return JSON.parse(textResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
+  } catch (e: any) {
+    return { _raw_response: textResponse, _parse_error: e.message }
+  }
 }

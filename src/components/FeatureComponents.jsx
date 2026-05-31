@@ -1878,7 +1878,7 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
     for (const file of Array.from(files)) {
       try {
         const {data:{user:u}} = await supabase.auth.getUser()
-        const filePath = `companies/${u.id}/${companyId}/${Date.now()}-${file.name}`
+        const filePath = `${u.id}/company_documents/${companyId}/${Date.now()}-${file.name}`
 
         const {error:uploadErr} = await supabase.storage
           .from('property-documents')

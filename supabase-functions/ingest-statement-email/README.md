@@ -118,4 +118,5 @@ Cheaper than building your own MX server or running an SES forwarder.
 ## When to revisit
 
 - If statement volume exceeds 50k/mo, evaluate **Cloudflare Email Workers** (free but no attachments in payload — would need an extra fetch)
-- If parse accuracy drops on weird agent formats, swap `claude-haiku-4-5` → `claude-opus-4-7` in `extractDocumentInline` (5× cost, much better OCR on hand-scanned statements)
+- Extraction runs `claude-sonnet-4-5` first and auto-falls back to `claude-opus-4-7` when the first pass fails to parse or returns zero line items (see `extractDocumentInline` / `callStatementModel`). No manual model swap needed.
+- See `SETUP_RUNBOOK.md` for the DNS + Postmark + Supabase go-live wiring.
