@@ -511,11 +511,11 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             {/* Date range */}
             <div style={{ display:'flex', gap:8, marginBottom:8 }}>
               {[['start','From'],['end','To']].map(([k,label]) => (
-                <label key={k} style={{ flex:1, fontFamily:mono, fontSize:9, color:T.muted }}>
+                <label key={k} style={{ flex:1, minWidth:0, fontFamily:mono, fontSize:9, color:T.muted }}>
                   {label}
                   <input type="date" value={form[k]} disabled={savingPayment}
                     onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
-                    style={{ width:'100%', marginTop:3, fontFamily:mono, fontSize:11, padding:'5px 6px', borderRadius:6,
+                    style={{ width:'100%', minWidth:0, marginTop:3, fontFamily:mono, fontSize:11, padding:'5px 6px', borderRadius:6,
                       border:`1px solid ${T.border}`, background:T.surface, color:T.text, boxSizing:'border-box' }}/>
                 </label>
               ))}
