@@ -435,17 +435,66 @@ export async function deleteRefurbCost(id) {
   if (error) throw error
 }
 
+// Derive {year, month, month_label} from a YYYY-MM-DD period_start string.
+function periodToMonthParts(periodStart) {
+  const y = parseInt(periodStart.slice(0, 4), 10)
+  const m = parseInt(periodStart.slice(5, 7), 10)
+  return { year: y, month: m, month_label: new Date(y, m - 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) }
+}
+
+// Legacy month-keyed upsert. The (property,year,month) unique constraint was
+// dropped (a month can now hold multiple dated segments), so we can't use
+// ON CONFLICT anymore — do a manual find-or-insert keyed on the whole month.
+// Used by the App.jsx month strip toggle for properties that still only have
+// one full-month row. For day-level ranges use createRentSegment instead.
 export async function upsertRentPayment(propertyId, year, month, status, amount, notes, periodStart, periodEnd) {
   const monthLabel = new Date(year, month - 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
   const payload = { property_id: propertyId, user_id: await uid(), year, month, month_label: monthLabel, status, amount, notes }
   if (periodStart) payload.period_start = periodStart
   if (periodEnd)   payload.period_end   = periodEnd
-  const { data, error } = await supabase
-    .from('rent_payments')
-    .upsert(payload, { onConflict: 'property_id,year,month' })
-    .select().single()
+  const { data: existing } = await supabase
+    .from('rent_payments').select('id')
+    .eq('property_id', propertyId).eq('year', year).eq('month', month)
+    .order('period_start', { ascending: true, nullsFirst: true })
+    .limit(1).maybeSingle()
+  const q = existing
+    ? supabase.from('rent_payments').update(payload).eq('id', existing.id)
+    : supabase.from('rent_payments').insert(payload)
+  const { data, error } = await q.select().single()
   if (error) throw error
   return data
+}
+
+// ── RENT SEGMENTS ─────────────────────────────────────────────────────────
+// A "segment" is one dated rent row: period_start..period_end with a status and
+// the amount actually logged for it. Multiple per month are allowed (tenant
+// changeover mid-month, partial payment + balance, etc.). year/month/month_label
+// are derived from period_start so existing month-based reporting still works.
+
+export async function createRentSegment(propertyId, periodStart, periodEnd, status, amount, notes = '') {
+  const { year, month, month_label } = periodToMonthParts(periodStart)
+  const { data, error } = await supabase.from('rent_payments').insert({
+    property_id: propertyId, user_id: await uid(),
+    year, month, month_label, status, amount, notes,
+    period_start: periodStart, period_end: periodEnd,
+  }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateRentSegment(id, fields) {
+  const payload = { ...fields }
+  // Keep the derived month columns in sync when the start date moves.
+  if (payload.period_start) Object.assign(payload, periodToMonthParts(payload.period_start))
+  const { data, error } = await supabase
+    .from('rent_payments').update(payload).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteRentSegment(id) {
+  const { error } = await supabase.from('rent_payments').delete().eq('id', id)
+  if (error) throw error
 }
 // ── PROPERTY INSPECTIONS ──────────────────────────────────────────────────
 // Mid-tenancy / check-in / check-out inspections with photo evidence.

@@ -197,6 +197,18 @@ function getStatusColor(status) {
   return '#888EA8' // void - visible in both themes
 }
 
+// A month can now hold several dated rent segments (tenant changeover, partial
+// payment + balance). For the year-strip dot and per-month stat counts we
+// collapse a month's segments to one "dominant" status. Problems surface first
+// (overdue/late), otherwise paid > refurb > void > future.
+const MONTH_STATUS_PRIORITY = ['overdue','missed','late','paid','refurb','void','future']
+function monthDominantStatus(segs) {
+  for (const s of MONTH_STATUS_PRIORITY) {
+    if (segs.some(p => p.status === s)) return s
+  }
+  return segs[0]?.status || 'void'
+}
+
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
 function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
   const { T } = useTheme()
@@ -210,12 +222,12 @@ function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
     const now = new Date()
     const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
     if (dateStr > todayStr) return 'future'
+    // Dated segments win over legacy whole-month rows (two passes).
     for (const p of allPayments) {
-      if (p.period_start && p.period_end) {
-        if (dateStr >= p.period_start && dateStr <= p.period_end) return p.status
-      } else if (p.year === year && p.month === month) {
-        return p.status
-      }
+      if (p.period_start && p.period_end && dateStr >= p.period_start && dateStr <= p.period_end) return p.status
+    }
+    for (const p of allPayments) {
+      if (!p.period_start && p.year === year && p.month === month) return p.status
     }
     return 'void'
   }
@@ -284,8 +296,17 @@ function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
 const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
   if (!payments?.length) return null
   const [popover, setPopover] = useState(null)
-  const sorted=[...payments].sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
-  const filtered = filterYear ? sorted.filter(m=>m.year===filterYear) : sorted
+  const scoped = filterYear ? payments.filter(m=>m.year===filterYear) : payments
+  // Collapse multiple segments per month into one representative dot.
+  const byMonth = new Map()
+  for (const p of scoped) {
+    const key = `${p.year}-${p.month}`
+    if (!byMonth.has(key)) byMonth.set(key, [])
+    byMonth.get(key).push(p)
+  }
+  const filtered = [...byMonth.values()]
+    .map(segs => ({ ...segs[0], status: monthDominantStatus(segs) }))
+    .sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -1546,7 +1567,7 @@ export default function App() {
 
   async function handleUpdatePayment(payment, newStatus){
     try{
-      await api.upsertRentPayment(payment.property_id, payment.year, payment.month, newStatus, payment.amount, payment.notes)
+      await api.updateRentSegment(payment.id, { status: newStatus })
       setProperties(prev=>prev.map(p=>{
         if(p.id!==payment.property_id) return p
         return {...p, rent_payments: p.rent_payments.map(rp=>
@@ -3656,13 +3677,27 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   // Per-property year stats
   function getStats(payments, year, rentPcm) {
     const filtered = year ? payments.filter(p=>p.year===year) : payments
-    const paid    = filtered.filter(p=>p.status==='paid').length
-    const missed  = filtered.filter(p=>p.status==='overdue'||p.status==='missed').length
-    const late = filtered.filter(p=>p.status==='late').length
-    const refurb  = filtered.filter(p=>p.status==='refurb').length
-    const voidM   = filtered.filter(p=>p.status==='void').length
-    const lateIncome = late * (rentPcm||0)
-    const income  = paid * (rentPcm||0)
+    // Income = actual paid amounts (supports partial payments). Legacy paid
+    // rows store amount = monthly rent, so this matches the old count×rent total.
+    const income = filtered
+      .filter(p=>p.status==='paid')
+      .reduce((sum,p)=> sum + (Number(p.amount) || (rentPcm||0)), 0)
+    // Status counts are per-month (a month's dominant status) so a month split
+    // across several segments still counts once.
+    const byMonth = {}
+    for (const p of filtered) {
+      const key = `${p.year}-${p.month}`
+      ;(byMonth[key] ||= []).push(p)
+    }
+    let paid=0, missed=0, late=0, refurb=0, voidM=0
+    for (const key in byMonth) {
+      const dom = monthDominantStatus(byMonth[key])
+      if (dom==='paid') paid++
+      else if (dom==='overdue'||dom==='missed') missed++
+      else if (dom==='late') late++
+      else if (dom==='refurb') refurb++
+      else if (dom==='void') voidM++
+    }
     return {paid, missed, late, refurb, voidM, income}
   }
 

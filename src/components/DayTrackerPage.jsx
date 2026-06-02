@@ -14,24 +14,29 @@ function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate()
 }
 
+// Does a payment row's dated period cover this day? (false for legacy rows
+// that have no period_start/period_end.)
+function segmentCoversDay(p, dateStr) {
+  return !!(p.period_start && p.period_end && dateStr >= p.period_start && dateStr <= p.period_end)
+}
+
+// Find the payment row that applies to a given day, or null. Dated segments
+// win over legacy whole-month rows (two passes) so a single day can never be
+// claimed by an old full-month row when a precise range also exists.
+function getSegmentForDay(day, year, month, payments) {
+  const dateStr = toKey(year, month, day)
+  for (const p of payments) if (segmentCoversDay(p, dateStr)) return p
+  for (const p of payments) if (!p.period_start && p.year === year && p.month === month) return p
+  return null
+}
+
 function getDayStatus(day, year, month, payments) {
   const dateStr = toKey(year, month, day)
   const now = new Date()
   const today = toKey(now.getFullYear(), now.getMonth()+1, now.getDate())
   if (dateStr > today) return 'future'
-
-  // Check payments that have period dates
-  for (const p of payments) {
-    if (p.period_start && p.period_end) {
-      if (dateStr >= p.period_start && dateStr <= p.period_end) {
-        return p.status
-      }
-    } else if (p.year === year && p.month === month) {
-      // No day-level data — treat whole month as that status
-      return p.status
-    }
-  }
-  return 'void'
+  const seg = getSegmentForDay(day, year, month, payments)
+  return seg ? seg.status : 'void'  // uncovered past days are gaps → void
 }
 
 // Returns true if a property has at least one period that is past, not future,
@@ -85,8 +90,10 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
   const [hoverDay, setHoverDay] = useState(null) // { propId, day }
 
   // Click popover for marking paid/missed/void. Position: anchored to the cell.
-  // Shape: { propId, propName, year, month, x, y, currentStatus } | null
+  // Shape: { propId, propName, segmentId, x, y } | null  (form holds the fields)
   const [editPopover, setEditPopover] = useState(null)
+  // Form for the popover's segment editor: { start, end, amount, status }
+  const [form, setForm] = useState({ start:'', end:'', amount:'', status:'paid' })
   const [savingPayment, setSavingPayment] = useState(false)
 
   // Overdue filter: 'all' | 'overdue-only' | 'overdue-highlighted'
@@ -135,44 +142,60 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
     const todayStr = toKey(now.getFullYear(), now.getMonth()+1, now.getDate())
     if (dateStr > todayStr) return  // don't allow editing future days
     const rect = e.currentTarget.getBoundingClientRect()
-    const currentStatus = getDayStatus(day, year, month, prop.rent_payments || [])
+    const seg = getSegmentForDay(day, year, month, prop.rent_payments || [])
+    if (seg) {
+      // Editing an existing row. A legacy whole-month row (no period dates)
+      // becomes a proper dated segment spanning the month on first save.
+      setForm({
+        start:  seg.period_start || toKey(year, month, 1),
+        end:    seg.period_end   || toKey(year, month, daysInMonth(year, month)),
+        amount: seg.amount ?? (prop?.rent_pcm || 0),
+        status: SETTABLE_STATUSES.includes(seg.status) ? seg.status : 'paid',
+      })
+    } else {
+      // New segment in an uncovered (void) gap — default to a single day.
+      setForm({ start: dateStr, end: dateStr, amount: prop?.rent_pcm || 0, status: 'paid' })
+    }
     setEditPopover({
       propId: prop.id,
       propName: prop.name || prop.address,
-      year, month, day,
-      currentStatus,
+      segmentId: seg ? seg.id : null,
       // Anchor the popover just below the clicked cell
       x: rect.left + rect.width / 2,
       y: rect.bottom + 6,
     })
   }
 
-  // Apply a status to the WHOLE month for this property. Clicking a single
-  // day still affects the whole month because the data model is monthly
-  // (rent_payments has a unique constraint on property_id+year+month).
-  async function applyStatus(newStatus) {
+  // Save the segment described by `form`: create a new dated row, or update the
+  // existing one. A range can be any start→end (e.g. tenant in on the 18th), and
+  // the amount is whatever was actually paid (supports partial payments).
+  async function saveSegment() {
     if (!editPopover || savingPayment) return
+    if (!form.start || !form.end || form.end < form.start) {
+      if (showToast) showToast('End date must be on or after start date', 'error')
+      return
+    }
     setSavingPayment(true)
     try {
-      const prop = properties.find(p => p.id === editPopover.propId)
-      const amount = prop?.rent_pcm || 0
-      const periodStart = toKey(editPopover.year, editPopover.month, 1)
-      const periodEnd   = toKey(editPopover.year, editPopover.month, daysInMonth(editPopover.year, editPopover.month))
-      const saved = await api.upsertRentPayment(
-        editPopover.propId, editPopover.year, editPopover.month,
-        newStatus, amount, '', periodStart, periodEnd
-      )
-      // Update local state so the dot recolours immediately, no fetch required
+      const amount = Number(form.amount) || 0
+      let saved
+      if (editPopover.segmentId) {
+        saved = await api.updateRentSegment(editPopover.segmentId, {
+          period_start: form.start, period_end: form.end, status: form.status, amount,
+        })
+      } else {
+        saved = await api.createRentSegment(editPopover.propId, form.start, form.end, form.status, amount)
+      }
       setProperties(prev => prev.map(p => {
         if (p.id !== editPopover.propId) return p
         const existing = p.rent_payments || []
-        const idx = existing.findIndex(rp => rp.year === editPopover.year && rp.month === editPopover.month)
+        const idx = existing.findIndex(rp => rp.id === saved.id)
         const updated = idx >= 0
           ? existing.map((rp, i) => i === idx ? saved : rp)
           : [...existing, saved]
         return { ...p, rent_payments: updated }
       }))
-      if (showToast) showToast(`${editPopover.propName}: ${monthLabel(editPopover.year, editPopover.month)} marked ${STATUS_LABEL[newStatus]}`)
+      if (showToast) showToast(`${editPopover.propName}: ${form.start} → ${form.end} marked ${STATUS_LABEL[form.status]}`)
       setEditPopover(null)
     } catch(e) {
       if (showToast) showToast(e.message || 'Update failed', 'error')
@@ -180,14 +203,29 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
     setSavingPayment(false)
   }
 
-  function monthLabel(y, m) {
-    return new Date(y, m - 1).toLocaleString('en-GB', { month: 'short', year: 'numeric' })
+  // Delete the segment being edited (clears that range back to a void gap).
+  async function deleteSegment() {
+    if (!editPopover?.segmentId || savingPayment) return
+    setSavingPayment(true)
+    try {
+      await api.deleteRentSegment(editPopover.segmentId)
+      setProperties(prev => prev.map(p => {
+        if (p.id !== editPopover.propId) return p
+        return { ...p, rent_payments: (p.rent_payments || []).filter(rp => rp.id !== editPopover.segmentId) }
+      }))
+      if (showToast) showToast(`${editPopover.propName}: range removed`)
+      setEditPopover(null)
+    } catch(e) {
+      if (showToast) showToast(e.message || 'Delete failed', 'error')
+    }
+    setSavingPayment(false)
   }
 
   // ── CSV export ────────────────────────────────────────────────────────
   // Builds a CSV of the last 12 months of rent payments across all visible
-  // properties. Format: one row per (property × month), columns include
-  // company, property, period, status, amount, notes.
+  // properties. One row per dated segment (a month may have several); months
+  // with no row at all are emitted as a single 'void' placeholder so gaps stay
+  // visible. Columns: company, property, period, status, amount, notes.
   function exportCsv() {
     setExporting(true)
     try {
@@ -207,16 +245,21 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
         for (const p of props) {
           const payments = p.rent_payments || []
           for (const { y, m } of months) {
-            const match = payments.find(rp => rp.year === y && rp.month === m)
-            const status = match ? match.status : (isPropertyEarningRent(p.status) ? 'void' : '')
-            const amount = match ? (match.amount || '') : ''
-            const ps = match?.period_start || ''
-            const pe = match?.period_end || ''
-            const notes = match?.notes || ''
-            rows.push([
-              co.name || '', p.name || '', p.address || '',
-              y, m, ps, pe, status, amount, notes,
-            ])
+            const matches = payments
+              .filter(rp => rp.year === y && rp.month === m)
+              .sort((a, b) => (a.period_start || '').localeCompare(b.period_start || ''))
+            if (matches.length === 0) {
+              const status = isPropertyEarningRent(p.status) ? 'void' : ''
+              rows.push([co.name || '', p.name || '', p.address || '', y, m, '', '', status, '', ''])
+              continue
+            }
+            for (const match of matches) {
+              rows.push([
+                co.name || '', p.name || '', p.address || '',
+                y, m, match.period_start || '', match.period_end || '',
+                match.status, match.amount || '', match.notes || '',
+              ])
+            }
           }
         }
       }
@@ -452,29 +495,53 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
           <div
             style={{
               position:'fixed',
-              left: clamp(editPopover.x - 110, 8, window.innerWidth - 228),
-              top:  clamp(editPopover.y, 8, window.innerHeight - 180),
-              width: 220, zIndex:1501,
+              left: clamp(editPopover.x - 120, 8, window.innerWidth - 248),
+              top:  clamp(editPopover.y, 8, window.innerHeight - 320),
+              width: 240, zIndex:1501,
               background:T.card, border:`1px solid ${T.border}`, borderRadius:10,
               padding:'12px 14px', boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
             }}>
-            <div style={{ fontFamily:mono, fontSize:11, fontWeight:700, color:T.text, marginBottom:4, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            <div style={{ fontFamily:mono, fontSize:11, fontWeight:700, color:T.text, marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
               {editPopover.propName}
             </div>
             <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:10 }}>
-              {monthLabel(editPopover.year, editPopover.month)} · currently <span style={{ color: STATUS_COLOR[editPopover.currentStatus], fontWeight:700 }}>{STATUS_LABEL[editPopover.currentStatus]}</span>
+              {editPopover.segmentId ? 'Edit rent period' : 'New rent period'}
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:8 }}>
+
+            {/* Date range */}
+            <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+              {[['start','From'],['end','To']].map(([k,label]) => (
+                <label key={k} style={{ flex:1, fontFamily:mono, fontSize:9, color:T.muted }}>
+                  {label}
+                  <input type="date" value={form[k]} disabled={savingPayment}
+                    onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
+                    style={{ width:'100%', marginTop:3, fontFamily:mono, fontSize:11, padding:'5px 6px', borderRadius:6,
+                      border:`1px solid ${T.border}`, background:T.surface, color:T.text, boxSizing:'border-box' }}/>
+                </label>
+              ))}
+            </div>
+
+            {/* Amount paid */}
+            <label style={{ display:'block', fontFamily:mono, fontSize:9, color:T.muted, marginBottom:8 }}>
+              Amount paid (£)
+              <input type="number" min="0" step="0.01" value={form.amount} disabled={savingPayment}
+                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                style={{ width:'100%', marginTop:3, fontFamily:mono, fontSize:11, padding:'5px 6px', borderRadius:6,
+                  border:`1px solid ${T.border}`, background:T.surface, color:T.text, boxSizing:'border-box' }}/>
+            </label>
+
+            {/* Status */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:10 }}>
               {SETTABLE_STATUSES.map(s => {
-                const isCurrent = s === editPopover.currentStatus
+                const isSel = s === form.status
                 return (
-                  <button key={s} onClick={() => applyStatus(s)} disabled={savingPayment || isCurrent}
+                  <button key={s} onClick={() => setForm(f => ({ ...f, status: s }))} disabled={savingPayment}
                     style={{
                       fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 0', borderRadius:6,
-                      border:`1px solid ${isCurrent ? STATUS_COLOR[s] : T.border}`,
-                      background: isCurrent ? STATUS_COLOR[s] + '22' : 'transparent',
+                      border:`1px solid ${isSel ? STATUS_COLOR[s] : T.border}`,
+                      background: isSel ? STATUS_COLOR[s] + '22' : 'transparent',
                       color: STATUS_COLOR[s],
-                      cursor: (savingPayment || isCurrent) ? 'not-allowed' : 'pointer',
+                      cursor: savingPayment ? 'not-allowed' : 'pointer',
                       opacity: savingPayment ? 0.6 : 1,
                     }}>
                     {STATUS_LABEL[s]}
@@ -482,8 +549,22 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                 )
               })}
             </div>
-            <div style={{ fontFamily:mono, fontSize:9, color:T.muted, fontStyle:'italic', textAlign:'center', marginTop:4 }}>
-              Affects the whole month
+
+            {/* Actions */}
+            <div style={{ display:'flex', gap:6 }}>
+              <button onClick={saveSegment} disabled={savingPayment}
+                style={{ flex:1, fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 0', borderRadius:6,
+                  border:'none', background:T.gold, color:'#1A2530', cursor: savingPayment?'not-allowed':'pointer', opacity: savingPayment?0.6:1 }}>
+                {savingPayment ? 'Saving…' : 'Save'}
+              </button>
+              {editPopover.segmentId && (
+                <button onClick={deleteSegment} disabled={savingPayment} title="Remove this period"
+                  style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 10px', borderRadius:6,
+                    border:`1px solid ${STATUS_COLOR.overdue}`, background:'transparent', color:STATUS_COLOR.overdue,
+                    cursor: savingPayment?'not-allowed':'pointer', opacity: savingPayment?0.6:1 }}>
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         </>

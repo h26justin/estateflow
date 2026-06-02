@@ -126,9 +126,13 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
             const periodStart = periodParts ? toIso(periodParts[1], periodParts[2], periodParts[3]) : null
             const periodEnd   = periodParts ? toIso(periodParts[4], periodParts[5], periodParts[6]) : null
 
-            // Check if payment record exists
+            // Check if a payment record exists for this month. A month can now
+            // hold several dated segments, so take the first rather than .single()
+            // (which throws on multiple rows).
             const {data: existing} = await supabase.from('rent_payments')
-              .select('id').eq('property_id', item.propertyId).eq('year', year).eq('month', month).single()
+              .select('id').eq('property_id', item.propertyId).eq('year', year).eq('month', month)
+              .order('period_start', { ascending: true, nullsFirst: true })
+              .limit(1).maybeSingle()
 
             if (existing) {
               await supabase.from('rent_payments').update({
