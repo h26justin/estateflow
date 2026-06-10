@@ -516,9 +516,9 @@ const GUIDES = [
       "This sets the default \u2014 you can always override the period when running an individual report.",
       "Most landlords use the UK tax year for personal holdings and calendar year for limited company accounts.",
     ]},
-  { id: 58, cat: 'reports', title: 'Overview of all 20+ reports', tags: ['report','list','overview','available'],
+  { id: 58, cat: 'reports', title: 'Overview of all 16 reports', tags: ['report','list','overview','available'],
     steps: [
-      "OwnProperly includes over 20 built-in reports covering: Income (P&L, rent schedule, income by property), Tax (capital gains summary, Section 24 impact), Performance (occupancy rate, yield ranking, ROI tracker), Compliance (certificate status, expiry forecast), Portfolio (equity tracker, LTV summary, portfolio valuation), and Maintenance (cost report by property and trade).",
+      "OwnProperly includes 16 built-in reports covering: Tax & Accounting (annual P&L, rental income schedule, expense breakdown, mortgage interest summary, capital gains summary), Portfolio Performance (yield comparison, occupancy rate, rent collection rate), Cash Flow & Finance (monthly cash flow, equity report, mortgage portfolio, arrears), Compliance & Legal (compliance status, tenancy schedule), and Maintenance (maintenance overview, contractor spend).",
       "All reports can be filtered by company, date range, and property status.",
       "Reports update in real time as you add data \u2014 no manual recalculation needed.",
       "Navigate to Reports and browse the full list organised by category.",

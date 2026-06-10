@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
+import { useConfirm } from '../lib/ConfirmContext'
 
 // ── INTEGRATIONS SETTINGS PANEL — Phase 2 ────────────────────────────
 // Settings → Portfolio Setup → Integrations.
@@ -67,6 +68,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
 
 // ── PER-COMPANY XERO CARD ──────────────────────────────────────────────
 function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }) {
+  const confirmDialog = useConfirm()
   const [showSettings, setShowSettings] = useState(false)
   const [busy, setBusy] = useState(null)
 
@@ -76,7 +78,11 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
     catch (e) { showAppToast(e.message, 'error'); setBusy(null) }
   }
   async function disconnect() {
-    if (!confirm(`Disconnect ${company.name} from Xero? Future syncs stop. Already-synced records stay in Xero.`)) return
+    if (!await confirmDialog({
+      title: `Disconnect ${company.name} from Xero?`,
+      body: 'Future syncs stop. Already-synced records stay in Xero.',
+      confirmLabel: 'Disconnect', destructive: true,
+    })) return
     setBusy('disconnect')
     try {
       await api.disconnectXero(company.id)
@@ -170,6 +176,7 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
 
 // ── PER-CONNECTION SETTINGS PANEL ──────────────────────────────────────
 function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
+  const confirmDialog = useConfirm()
   const [settings, setSettings] = useState(null)
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -398,7 +405,11 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
             <strong>Re-sync everything</strong> wipes the sync map so the next sync re-pushes every record. Use this if you've manually deleted transactions from Xero and want to re-create them. Doesn't touch the Xero side directly.
           </div>
           <button onClick={async () => {
-            if (!confirm(`Wipe the sync map for ${company.name}? Next sync will re-push every record. Make sure you've cleared the corresponding records in Xero first or you'll get duplicates.`)) return
+            if (!await confirmDialog({
+              title: `Wipe the sync map for ${company.name}?`,
+              body: "Next sync will re-push every record. Make sure you've cleared the corresponding records in Xero first or you'll get duplicates.",
+              confirmLabel: 'Wipe sync map', destructive: true,
+            })) return
             try {
               const n = await api.resyncAllXero(company.id)
               showAppToast(`Cleared ${n} sync map entries. Click Sync now to re-push.`)

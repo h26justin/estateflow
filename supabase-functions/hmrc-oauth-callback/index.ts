@@ -14,8 +14,9 @@
 //                                       tokens, persist them, redirect
 //                                       the user back into the app.
 //
-// State token format: base64(JSON({ user_id, return_to, nonce })). Light
-// signing — HMAC would be stronger; deferred until we go production.
+// State token is HMAC-SHA256 signed (see ./oauth-state.ts) and carries a
+// one-time nonce persisted in oauth_nonces at start and burned at callback.
+// return_to is validated against the app-origin allow-list.
 //
 // Env vars (set on Supabase already by Justin earlier today):
 //   HMRC_CLIENT_ID
@@ -35,6 +36,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken } from './encryption.ts'
+import { signState, verifyState, safeReturnTo, escapeHtml } from './oauth-state.ts'
 
 const SUPABASE_URL        = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -58,22 +60,15 @@ function jsonError(status: number, message: string) {
   })
 }
 
-function encodeState(payload: Record<string, unknown>): string {
-  return btoa(JSON.stringify(payload))
-}
-
-function decodeState(s: string): Record<string, any> {
-  try { return JSON.parse(atob(s)) } catch { return {} }
-}
-
 // Friendly HTML for callback failures so the user sees something useful
-// instead of raw JSON if they hit the GET endpoint directly.
+// instead of raw JSON if they hit the GET endpoint directly. Callers must
+// escapeHtml() any dynamic values interpolated into `body`.
 function htmlPage(title: string, body: string, returnTo: string) {
-  return new Response(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+  return new Response(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>body{font-family:-apple-system,sans-serif;max-width:520px;margin:60px auto;padding:0 20px;color:#1a1f2e;line-height:1.5}
 h1{color:#1a1f2e;letter-spacing:-0.02em}.err{background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:14px 16px;color:#991B1B;font-family:Menlo,monospace;font-size:13px}
 a.btn{display:inline-block;margin-top:18px;padding:10px 18px;background:#C8A84B;color:white;border-radius:8px;text-decoration:none;font-weight:600}</style></head>
-<body><h1>${title}</h1>${body}<a class="btn" href="${returnTo}">← Back to OwnProperly</a></body></html>`, {
+<body><h1>${escapeHtml(title)}</h1>${body}<a class="btn" href="${escapeHtml(safeReturnTo(returnTo, APP_RETURN_BASE))}">← Back to OwnProperly</a></body></html>`, {
     status: 400,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })
@@ -87,8 +82,8 @@ serve(async (req) => {
 
   // ── HMRC redirected user back with ?code=&state= ──
   if (req.method === 'GET' && (url.searchParams.has('code') || url.searchParams.has('error'))) {
-    const state = decodeState(url.searchParams.get('state') || '')
-    const returnTo = state.return_to || APP_RETURN_BASE
+    const state = await verifyState(url.searchParams.get('state') || '')
+    const returnTo = safeReturnTo(state?.return_to, APP_RETURN_BASE)
     const oauthError = url.searchParams.get('error')
 
     if (oauthError) {
@@ -96,15 +91,29 @@ serve(async (req) => {
       const desc = url.searchParams.get('error_description') || ''
       return htmlPage(
         'HMRC connection cancelled',
-        `<p>HMRC returned: <span class="err">${oauthError}${desc ? ' — ' + desc : ''}</span></p>
+        `<p>HMRC returned: <span class="err">${escapeHtml(oauthError)}${desc ? ' — ' + escapeHtml(desc) : ''}</span></p>
          <p>You can try again from <strong>Settings → MTD Tax</strong>.</p>`,
         returnTo,
       )
     }
 
-    if (!state.user_id) {
+    if (!state || !state.user_id || !state.nonce) {
       return htmlPage('Invalid OAuth state',
-        `<p class="err">The state parameter from HMRC didn't include a user id. This usually means the link was forged or tampered with.</p>`,
+        `<p class="err">The state parameter from HMRC failed verification. This usually means the link was forged or tampered with — please retry from Settings → MTD Tax.</p>`,
+        APP_RETURN_BASE)
+    }
+
+    // Burn the one-time nonce — a state that wasn't minted by our "start"
+    // step (or that has already been used) doesn't get to write tokens.
+    const { data: burned } = await admin.from('oauth_nonces')
+      .delete()
+      .eq('nonce', state.nonce)
+      .eq('user_id', state.user_id)
+      .gt('expires_at', new Date().toISOString())
+      .select('nonce')
+    if (!burned || burned.length === 0) {
+      return htmlPage('Invalid OAuth state',
+        `<p class="err">This sign-in link has expired or was already used — please retry from Settings → MTD Tax.</p>`,
         APP_RETURN_BASE)
     }
 
@@ -133,9 +142,9 @@ serve(async (req) => {
 
     if (!tokenRes.ok) {
       const txt = await tokenRes.text()
+      console.error('HMRC token exchange failed:', tokenRes.status, txt.slice(0, 500))
       return htmlPage('HMRC token exchange failed',
-        `<p>HMRC rejected our token exchange request.</p>
-         <p class="err">${tokenRes.status}: ${txt.slice(0, 400)}</p>
+        `<p>HMRC rejected our token exchange request (status ${tokenRes.status}).</p>
          <p>Common causes: redirect URI mismatch in HMRC dev hub, or wrong env (sandbox vs production).</p>`,
         returnTo)
     }
@@ -158,7 +167,7 @@ serve(async (req) => {
       // instead of silently saving plaintext and giving the user a false
       // sense of security.
       return htmlPage('HMRC token encryption failed',
-        `<p class="err">${(e as Error).message}</p>
+        `<p class="err">${escapeHtml((e as Error).message)}</p>
          <p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p>`,
         returnTo)
     }
@@ -178,8 +187,9 @@ serve(async (req) => {
     }, { onConflict: 'user_id' })
 
     if (upErr) {
+      console.error('mtd_settings upsert failed:', upErr.message, upErr.code, upErr.details, upErr.hint)
       return htmlPage('Could not save HMRC tokens',
-        `<p class="err">${upErr.message}</p>`,
+        `<p class="err">Could not save the connection — please retry from Settings → MTD Tax. If it keeps failing, contact support.</p>`,
         returnTo)
     }
 
@@ -208,10 +218,24 @@ serve(async (req) => {
       return jsonError(503, 'HMRC OAuth not configured — set HMRC_CLIENT_ID supabase secret.')
     }
 
-    const state = encodeState({
+    // Mint and persist a one-time nonce so the callback can prove this
+    // state was issued by us to this user (burned on first use).
+    const nonce = crypto.randomUUID()
+    const { error: nonceErr } = await admin.from('oauth_nonces').insert({
+      nonce, user_id: caller.id, provider: 'hmrc',
+    })
+    if (nonceErr) {
+      console.error('oauth_nonces insert failed:', nonceErr.message)
+      return jsonError(500, 'Could not start HMRC OAuth — please try again')
+    }
+    // Opportunistic cleanup of expired nonces (cheap, fire-and-forget)
+    admin.from('oauth_nonces').delete().lt('expires_at', new Date().toISOString()).then(() => {}, () => {})
+
+    const state = await signState({
       user_id: caller.id,
-      return_to: body.return_to || APP_RETURN_BASE,
-      nonce: crypto.randomUUID(),
+      return_to: safeReturnTo(body.return_to, APP_RETURN_BASE),
+      nonce,
+      exp: Date.now() + 15 * 60_000,
     })
 
     // HMRC's authorize URL lives on test-www / www tax.service.hmrc.gov.uk,

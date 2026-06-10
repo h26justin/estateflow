@@ -16,41 +16,48 @@ export async function checkIsTenant(userId) {
 }
 
 export async function inviteTenant(propertyId, email, invitedBy) {
-  // Storing the property id in the signup URL — landlords share this
-  // link with prospective tenants. Once they sign up + confirm, the
-  // dashboard reads `tenant_property` from the URL and calls
-  // registerTenantProfile to link them to the property.
+  // Landlords generate a single-use, expiring invite token (DB-issued,
+  // tenant_invites table) and share the resulting link. When the invited
+  // tenant signs up + confirms, the dashboard reads `tenant_invite` from
+  // the URL and calls registerTenantProfile, which redeems the token via
+  // a SECURITY DEFINER RPC — the only path that can create the link.
+  const { data, error } = await supabase.from('tenant_invites')
+    .insert({ property_id: propertyId, email: email || null, invited_by: invitedBy || null })
+    .select('token').single()
+  if (error) throw error
   const baseUrl = window.location.origin
-  const signupUrl = `${baseUrl}?tenant_property=${propertyId}`
+  const signupUrl = `${baseUrl}?tenant_invite=${data.token}`
   return { signupUrl, email }
 }
 
-export async function registerTenantProfile(userId, propertyId) {
-  const { data, error } = await supabase.from('tenant_profiles')
-    .upsert({ user_id: userId, property_id: propertyId }, { onConflict: 'user_id,property_id' })
-    .select().single()
+export async function registerTenantProfile(userId, propertyId, inviteToken) {
+  // Registration is bound to a landlord-issued invite token; the raw
+  // property-uuid links (`?tenant_property=`) are no longer honoured —
+  // the DB blocks direct tenant_profiles inserts.
+  if (!inviteToken) {
+    throw new Error('A valid invite link is required. Please ask your landlord to send a new tenant invite.')
+  }
+  const { data, error } = await supabase.rpc('redeem_tenant_invite', { p_token: inviteToken })
   if (error) throw error
   return data
 }
 
 export async function fetchTenantProperty(userId) {
-  const { data, error } = await supabase.from('tenant_profiles')
-    .select(`
-      *,
-      property:properties(
-        *,
-        company:companies(*, contact_mode, agent_name, agent_phone, agent_email)
-      )
-    `)
-    .eq('user_id', userId)
-    .single()
+  // Tenants deliberately have no row-level SELECT on properties/companies
+  // (full rows would leak landlord financials). The portal payload comes
+  // from a curated SECURITY DEFINER RPC instead: profile + property basics
+  // + company contact/branding + bank details + tenant feature flags.
+  const { data, error } = await supabase.rpc('get_tenant_portal_context')
   if (error) throw error
+  if (!data) throw new Error('No tenancy is linked to this account yet')
   return data
 }
 
 export async function fetchTenantRentPayments(propertyId, userId) {
   const { data, error } = await supabase.from('rent_payments')
-    .select('*').eq('property_id', propertyId).order('payment_date', { ascending: false })
+    .select('*').eq('property_id', propertyId)
+    .order('period_start', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
 }

@@ -55,11 +55,30 @@ function isPropertyOverdue(prop) {
   // no payment row — these are properties still earning rent that may have
   // fallen through the cracks. Look back up to 3 months.
   if (isPropertyEarningRent(prop.status)) {
+    // Months before tracking plausibly began (pre-tenancy, newly added
+    // property) shouldn't flag. Use the earliest recorded payment row,
+    // falling back to the property's creation date when no rows exist.
+    let earliest = null
+    for (const p of payments) {
+      const k = p.period_start || (p.year && p.month ? toKey(p.year, p.month, 1) : null)
+      if (k && (!earliest || k < earliest)) earliest = k
+    }
+    if (!earliest && prop.created_at) earliest = String(prop.created_at).slice(0, 10)
     for (let backMonths = 1; backMonths <= 3; backMonths++) {
       const d = new Date(now.getFullYear(), now.getMonth() - backMonths, 1)
       const y = d.getFullYear(), m = d.getMonth() + 1
-      const has = payments.some(p => p.year === y && p.month === m && p.status === 'paid')
-      if (!has) return true
+      const monthStart = toKey(y, m, 1)
+      const monthEnd = toKey(y, m, daysInMonth(y, m))
+      if (earliest && earliest > monthEnd) continue
+      // A month is accounted for when any row is keyed to it (paid, void,
+      // refurb — explicit overdue/late rows already returned above) or a
+      // dated segment overlaps it (cross-month segments carry the key of
+      // the month their period starts in).
+      const covered = payments.some(p =>
+        (p.year === y && p.month === m) ||
+        (p.period_start && p.period_end && p.period_start <= monthEnd && p.period_end >= monthStart)
+      )
+      if (!covered) return true
     }
   }
   return false
@@ -264,9 +283,12 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
         }
       }
 
-      // CSV escaping: wrap in quotes if contains comma/quote/newline; double up internal quotes
+      // CSV escaping: wrap in quotes if contains comma/quote/newline; double up internal quotes.
+      // Cells starting with = + - @ or tab execute as formulas in Excel/Sheets —
+      // prefix a quote unless the value is a plain number.
       const csv = rows.map(row => row.map(cell => {
-        const s = cell == null ? '' : String(cell)
+        let s = cell == null ? '' : String(cell)
+        if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s
         if (s.includes(',') || s.includes('"') || s.includes('\n')) {
           return '"' + s.replace(/"/g, '""') + '"'
         }

@@ -37,17 +37,19 @@ export function parseTaxYear(s) {
   return { startYear, endYear: startYear + 1 }
 }
 
-// Returns the 4 quarter ranges for a given tax year, with HMRC-style
-// deadlines (1 month + 5 days after each quarter end).
+// Returns the 4 quarter ranges for a given tax year. HMRC's quarterly
+// update deadline is the 7th of the month following the quarter end
+// (7 Aug / 7 Nov / 7 Feb / 7 May — same convention as VAT's "1 month
+// and 7 days").
 export function quartersForTaxYear(taxYear) {
   const py = parseTaxYear(taxYear)
   if (!py) return []
   const sy = py.startYear
   return [
-    { quarter: 1, from: `${sy}-04-06`,     to: `${sy}-07-05`,     deadline: `${sy}-08-05` },
-    { quarter: 2, from: `${sy}-07-06`,     to: `${sy}-10-05`,     deadline: `${sy}-11-05` },
-    { quarter: 3, from: `${sy}-10-06`,     to: `${sy+1}-01-05`,   deadline: `${sy+1}-02-05` },
-    { quarter: 4, from: `${sy+1}-01-06`,   to: `${sy+1}-04-05`,   deadline: `${sy+1}-05-05` },
+    { quarter: 1, from: `${sy}-04-06`,     to: `${sy}-07-05`,     deadline: `${sy}-08-07` },
+    { quarter: 2, from: `${sy}-07-06`,     to: `${sy}-10-05`,     deadline: `${sy}-11-07` },
+    { quarter: 3, from: `${sy}-10-06`,     to: `${sy+1}-01-05`,   deadline: `${sy+1}-02-07` },
+    { quarter: 4, from: `${sy+1}-01-06`,   to: `${sy+1}-04-05`,   deadline: `${sy+1}-05-07` },
   ]
 }
 
@@ -103,8 +105,10 @@ export function mapExpenseCategoryToHmrc(internal) {
 
 // Build the HMRC-shape periodic submission body from raw payments+expenses.
 //
-// payments: [{ amount, period_start, period_end, status }]
-//            (status='paid' rows count as recognised income for the period)
+// payments: [{ amount, period_start, period_end, status, year?, month? }]
+//            (status='paid' rows count as recognised income for the period;
+//             legacy rows with NULL period_start fall back to year/month,
+//             treated as the 1st of that month)
 // expenses: [{ amount, date, category }]
 // mortgageInterest: { totalForPeriod }  — sum of interest accrued in period
 //                                          (optional; user may track separately)
@@ -124,12 +128,17 @@ export function buildQuarterlySummary({ payments = [], expenses = [], mortgageIn
   // rental period_start falls inside the quarter. We use period_start as
   // the cash-basis recognition date because the schema doesn't track a
   // separate payment_date (rows are flipped status='paid' when received).
+  // Legacy rows have NULL period_start but always carry year/month — fall
+  // back to the first of that month so they aren't silently excluded.
+  const pad2 = (n) => String(n).padStart(2, '0')
+  const recognitionDate = (p) =>
+    p?.period_start || (p?.year && p?.month ? `${p.year}-${pad2(p.month)}-01` : null)
   let periodAmount = 0
   for (const p of payments) {
     if (p?.status !== 'paid') continue
     const paid = Number(p?.amount || 0)
     if (paid <= 0) continue
-    if (!inRange(p?.period_start)) continue
+    if (!inRange(recognitionDate(p))) continue
     periodAmount += paid
   }
 

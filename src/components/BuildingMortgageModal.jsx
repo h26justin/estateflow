@@ -4,6 +4,8 @@ import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
+import FocusTrap from '../lib/FocusTrap'
+import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
 
 // ── BUILDING MORTGAGE EDITOR ─────────────────────────────────────────
 // Lets a user attach (or edit) ONE mortgage that covers ALL the units
@@ -122,6 +124,12 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
     setFees(f0 ? f0.toString() : '')
   }
 
+  // Dirty check — protects the form (incl. AI-scanned prefills) from a
+  // stray backdrop click or Escape wiping minutes of data entry.
+  const formNow = { totalLoan, totalMonthly, rate, term, type, fees }
+  const [snapshot] = useState(formNow)
+  const isDirty = isFormDirty(snapshot, formNow)
+
   // Per-unit numbers derived from totals — shown to the user as a
   // preview so they can sanity-check the split before saving.
   const perUnitLoan    = unitCount > 0 ? (parseFloat(totalLoan)    || 0) / unitCount : 0
@@ -165,10 +173,11 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
   }).format(n || 0)
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 680 }}>
+    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="building-mortgage-title">
         <div style={{ padding: '22px 26px 0' }}>
-          <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
+          <h2 id="building-mortgage-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
             🏦 Building Mortgage
           </h2>
           <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginTop: 4, lineHeight: 1.6 }}>
@@ -316,6 +325,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
           )}
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

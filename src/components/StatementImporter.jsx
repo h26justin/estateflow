@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/ThemeContext'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 import { safeOverlayClose } from '../lib/modalUtils'
+import FocusTrap from '../lib/FocusTrap'
 import MoneyInput from '../lib/MoneyInput'
 import { loadCdnScript } from '../lib/loadCdnScript'
 
@@ -21,7 +22,9 @@ async function extractPDFText(file) {
   let pdf
   try {
     const arrayBuffer = await file.arrayBuffer()
-    pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    // isEvalSupported:false — CSP no longer allows eval; force pdf.js onto its
+    // interpreter path instead of relying on its runtime feature-test.
+    pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise
   } catch (e) {
     // PDF.js throws with .message="Invalid PDF structure" or similar for
     // corrupt/password-protected docs. Surface that, not "undefined".
@@ -126,13 +129,32 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
             const periodStart = periodParts ? toIso(periodParts[1], periodParts[2], periodParts[3]) : null
             const periodEnd   = periodParts ? toIso(periodParts[4], periodParts[5], periodParts[6]) : null
 
-            // Check if a payment record exists for this month. A month can now
-            // hold several dated segments, so take the first rather than .single()
-            // (which throws on multiple rows).
-            const {data: existing} = await supabase.from('rent_payments')
-              .select('id').eq('property_id', item.propertyId).eq('year', year).eq('month', month)
+            // A month can hold several dated segments (tenant changeover,
+            // partial payments), so never blindly update the first row —
+            // only update a row whose period actually intersects the
+            // statement's period, or the legacy whole-month (NULL period)
+            // row. Anything else gets a new segment inserted.
+            const {data: monthRows} = await supabase.from('rent_payments')
+              .select('id, period_start, period_end')
+              .eq('property_id', item.propertyId).eq('year', year).eq('month', month)
               .order('period_start', { ascending: true, nullsFirst: true })
-              .limit(1).maybeSingle()
+            const rows = monthRows || []
+            let existing = null
+            if (periodStart && periodEnd) {
+              existing = rows.find(r => r.period_start && r.period_end && r.period_start <= periodEnd && r.period_end >= periodStart)
+                || rows.find(r => !r.period_start)
+            } else if (rows.length === 1) {
+              existing = rows[0]
+            } else {
+              // Several segments and no statement period — only the legacy
+              // whole-month row is safe to overwrite.
+              existing = rows.find(r => !r.period_start)
+            }
+
+            // Default to whole-month period bounds when the statement
+            // doesn't carry explicit dates.
+            const monthStart = `${year}-${String(month).padStart(2,'0')}-01`
+            const monthEnd   = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year, month, 0).getDate()).padStart(2,'0')}`
 
             if (existing) {
               await supabase.from('rent_payments').update({
@@ -144,8 +166,8 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
               await supabase.from('rent_payments').insert({
                 property_id: item.propertyId, user_id: user.id,
                 month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount,
-                ...(periodStart && { period_start: periodStart }),
-                ...(periodEnd   && { period_end:   periodEnd }),
+                period_start: periodStart || monthStart,
+                period_end:   periodEnd   || monthEnd,
               })
             }
             results.rent++
@@ -197,13 +219,14 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
 
   return (
     <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose)}>
-      <div className="modal" style={{maxWidth:720,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
+      <FocusTrap onEscape={() => safeOverlayClose(step !== 'upload' && step !== 'done', onClose)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{maxWidth:720,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}} role="dialog" aria-modal="true" aria-labelledby="statement-importer-title">
 
         {/* Header */}
         <div style={{padding:'20px 24px',borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div>
-              <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>📄 Import Statement</h2>
+              <h2 id="statement-importer-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>📄 Import Statement</h2>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
                 {step==='upload'&&'Upload a PNE or RMS rental statement PDF'}
                 {step==='preview'&&`${format} Statement · ${parsed?.date} · ${items.length} items found`}
@@ -211,7 +234,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                 {step==='done'&&'Import complete'}
               </div>
             </div>
-            <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
+            <button onClick={onClose} aria-label="Close" style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
           </div>
 
           {/* Step indicator */}
@@ -462,6 +485,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
           </div>
         )}
       </div>
+      </FocusTrap>
     </div>
   )
 }

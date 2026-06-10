@@ -140,6 +140,15 @@ async function resolveCompanyId(obj: any): Promise<string | null> {
   return null
 }
 
+// Tier comes from the metadata create-checkout stamps on the session and
+// on subscription_data (so it propagates to subscription.* events). Only
+// known values are persisted — anything else is ignored so a forged or
+// missing value can't corrupt the subscriptions row.
+function resolveTier(obj: any): string | null {
+  const t = obj.metadata?.tier || obj.subscription_data?.metadata?.tier || null
+  return t === 'starter' || t === 'investor' ? t : null
+}
+
 // Null-safe Unix-seconds-to-ISO conversion. Stripe sometimes leaves
 // period_start/end null on freshly-created subscriptions that haven't
 // been billed yet — guarding so the upsert doesn't 500 on Invalid Date.
@@ -164,6 +173,30 @@ Deno.serve(async (req) => {
   const event = JSON.parse(body)
   const obj   = event.data.object
 
+  // Idempotency: Stripe retries delivery, so record each event_id once and
+  // skip reprocessing on a duplicate. If the stripe_events table doesn't
+  // exist yet (migration not applied), log a warning and proceed without
+  // dedupe — the webhook must never 500 on this.
+  try {
+    const { data: claimed, error: evErr } = await supabase
+      .from('stripe_events')
+      .upsert(
+        { event_id: event.id, type: event.type },
+        { onConflict: 'event_id', ignoreDuplicates: true },
+      )
+      .select('event_id')
+    if (evErr) {
+      console.warn('stripe_events dedupe unavailable (continuing without):', evErr.message)
+    } else if (!claimed || claimed.length === 0) {
+      console.log('Duplicate Stripe event skipped:', event.id, event.type)
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+  } catch (e) {
+    console.warn('stripe_events dedupe failed (continuing without):', (e as Error).message)
+  }
+
   try {
     const companyId = await resolveCompanyId(obj)
 
@@ -179,11 +212,13 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         if (!companyId) { console.warn('checkout.session.completed: no company_id'); break }
+        const sessionTier = resolveTier(obj)
         await must('checkout.session.completed upsert', supabase.from('subscriptions').upsert({
           company_id: companyId,
           stripe_customer_id: obj.customer,
           stripe_subscription_id: obj.subscription,
           status: 'active',
+          ...(sessionTier ? { tier: sessionTier } : {}),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'company_id' }))
 
@@ -202,12 +237,14 @@ Deno.serve(async (req) => {
       case 'customer.subscription.updated':
       case 'customer.subscription.created': {
         if (!companyId) { console.warn(`${event.type}: no company_id`); break }
+        const subTier = resolveTier(obj)
         await must(`${event.type} upsert`, supabase.from('subscriptions').upsert({
           company_id: companyId,
           stripe_customer_id: obj.customer,
           stripe_subscription_id: obj.id,
           stripe_price_id: obj.items?.data?.[0]?.price?.id || null,
           status: obj.status,
+          ...(subTier ? { tier: subTier } : {}),
           property_count: obj.items?.data?.[0]?.quantity || 0,
           current_period_start: toIso(obj.current_period_start),
           current_period_end:   toIso(obj.current_period_end),
@@ -254,6 +291,9 @@ Deno.serve(async (req) => {
     // Surface the real error message so we can debug from Stripe's
     // webhook UI (it shows the response body inline).
     console.error('Webhook handler error:', e)
+    // Release the idempotency claim so Stripe's retry isn't skipped as a
+    // duplicate — we're about to 500 and want the event reprocessed.
+    try { await supabase.from('stripe_events').delete().eq('event_id', event.id) } catch { /* best-effort */ }
     return new Response(JSON.stringify({ error: e.message, event: event.type }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -273,6 +313,13 @@ async function verifyStripeSignature(payload: string, header: string, secret: st
   }, {})
   const timestamp = parts['t']
   const signature = parts['v1']
+  if (!timestamp || !signature) throw new Error('Malformed signature header')
+  // Replay protection — Stripe's reference implementation rejects events
+  // whose signed timestamp is outside a 5-minute tolerance window.
+  const skewSeconds = Math.abs(Date.now() / 1000 - Number(timestamp))
+  if (!Number.isFinite(skewSeconds) || skewSeconds > 300) {
+    throw new Error('Timestamp outside tolerance')
+  }
   const signed    = `${timestamp}.${payload}`
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(secret),
@@ -280,5 +327,12 @@ async function verifyStripeSignature(payload: string, header: string, secret: st
   )
   const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signed))
   const expected = Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, '0')).join('')
-  if (expected !== signature) throw new Error('Invalid signature')
+  if (!timingSafeEqual(expected, signature)) throw new Error('Invalid signature')
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
 }

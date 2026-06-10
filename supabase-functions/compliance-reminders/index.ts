@@ -17,6 +17,7 @@ import { sendGmail } from './gmail.ts'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
 const GMAIL_SENDER = Deno.env.get('GMAIL_SENDER') || 'noreply@ownproperly.com'
 // Useful for testing without spamming real users
 const EMAIL_TEST_MODE = Deno.env.get('EMAIL_TEST_MODE') === '1'
@@ -75,6 +76,13 @@ function renewalBookingUrl(type: string, postcode?: string | null): { label: str
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  // CRON-only function — no JWT auth. Gate with shared secret (mirrors
+  // trial-emails). Fails closed when CRON_SECRET isn't configured.
+  const cronSecret = req.headers.get('x-cron-secret') || ''
+  if (!CRON_SECRET || cronSecret !== CRON_SECRET) {
+    return new Response('Forbidden', { status: 403 })
+  }
 
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
@@ -286,9 +294,9 @@ serve(async (req) => {
           metadata: { items_count: userItems.length, item_ids: ids },
         })
 
-        results.push({ user_id: userId, email: profile.email, items: userItems.length, status: 'sent' })
+        results.push({ user_id: userId, items: userItems.length, status: 'sent' })
       } catch (e) {
-        results.push({ user_id: userId, email: profile.email, status: 'error', error: (e as Error).message })
+        results.push({ user_id: userId, status: 'error', error: (e as Error).message })
       }
     }
 

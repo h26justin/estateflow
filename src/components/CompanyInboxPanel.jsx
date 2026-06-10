@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
@@ -22,6 +23,7 @@ const INBOX_DOMAIN = 'inbox.ownproperly.com'
 
 export default function CompanyInboxPanel({ companies, T }) {
   const theme = T || useTheme().T
+  const confirmDialog = useConfirm()
   const [tokens, setTokens]   = useState({})   // companyId → token
   const [loading, setLoading] = useState(true)
   const [busyCo, setBusyCo]   = useState(null) // companyId being rotated
@@ -46,7 +48,12 @@ export default function CompanyInboxPanel({ companies, T }) {
   }
 
   async function rotate(coId) {
-    if (!confirm('Rotate the inbox address for this company? The old address will stop working immediately — any agent using it will need the new one.')) return
+    if (!await confirmDialog({
+      title: 'Rotate inbox address?',
+      body: 'The old address will stop working immediately — any agent using it will need the new one.',
+      confirmLabel: 'Rotate',
+      destructive: true,
+    })) return
     setBusyCo(coId)
     try {
       const newToken = await api.rotateCompanyInboxToken(coId)

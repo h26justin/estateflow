@@ -4,7 +4,14 @@ import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
-const uid = async () => (await supabase.auth.getUser()).data.user.id
+// getSession() reads the cached session locally (no network); getUser() makes
+// an HTTP round-trip to /auth/v1/user on EVERY call, which added ~100ms to
+// every write. RLS revalidates the JWT server-side anyway.
+const uid = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.user?.id) return session.user.id
+  return (await supabase.auth.getUser()).data.user.id
+}
 
 export async function fetchCompanies() {
   const { data, error } = await supabase.from('companies').select('*').is('deleted_at', null).order('name')
@@ -32,7 +39,7 @@ export async function fetchProperties() {
   // without an extra round-trip per row.
   const { data, error } = await supabase
     .from('properties')
-    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(*), compliance_items(id,cert_type,cert_name,expiry_date,deleted_at)')
+    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,expiry_date,deleted_at)')
     .is('deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
@@ -442,6 +449,19 @@ function periodToMonthParts(periodStart) {
   return { year: y, month: m, month_label: new Date(y, m - 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) }
 }
 
+// Whole-month period bounds for a (year, month) pair — first and last day as
+// YYYY-MM-DD. Every rent_payments writer stamps these when the caller doesn't
+// supply explicit dates, so period_start is never NULL on new rows (MTD and
+// other period-filtered readers rely on it).
+function monthPeriodBounds(year, month) {
+  const mm = String(month).padStart(2, '0')
+  const lastDay = new Date(year, month, 0).getDate()
+  return {
+    period_start: `${year}-${mm}-01`,
+    period_end: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+  }
+}
+
 // Legacy month-keyed upsert. The (property,year,month) unique constraint was
 // dropped (a month can now hold multiple dated segments), so we can't use
 // ON CONFLICT anymore — do a manual find-or-insert keyed on the whole month.
@@ -453,10 +473,17 @@ export async function upsertRentPayment(propertyId, year, month, status, amount,
   if (periodStart) payload.period_start = periodStart
   if (periodEnd)   payload.period_end   = periodEnd
   const { data: existing } = await supabase
-    .from('rent_payments').select('id')
+    .from('rent_payments').select('id, period_start, period_end')
     .eq('property_id', propertyId).eq('year', year).eq('month', month)
     .order('period_start', { ascending: true, nullsFirst: true })
     .limit(1).maybeSingle()
+  // Stamp whole-month period dates when the caller didn't supply any and the
+  // row doesn't already have them — never overwrite an existing dated segment.
+  if (!periodStart && !existing?.period_start) {
+    const bounds = monthPeriodBounds(year, month)
+    payload.period_start = bounds.period_start
+    payload.period_end = periodEnd || existing?.period_end || bounds.period_end
+  }
   const q = existing
     ? supabase.from('rent_payments').update(payload).eq('id', existing.id)
     : supabase.from('rent_payments').insert(payload)
@@ -489,6 +516,15 @@ export async function updateRentSegment(id, fields) {
   const { data, error } = await supabase
     .from('rent_payments').update(payload).eq('id', id).select().single()
   if (error) throw error
+  // Legacy whole-month rows (NULL period dates) get stamped on touch so they
+  // become visible to period-filtered readers (MTD quarters etc). Best-effort
+  // — the primary update already succeeded.
+  if (!data.period_start && data.year && data.month) {
+    const bounds = monthPeriodBounds(data.year, data.month)
+    const { data: stamped } = await supabase
+      .from('rent_payments').update(bounds).eq('id', id).select().single()
+    if (stamped) return stamped
+  }
   return data
 }
 
@@ -557,9 +593,10 @@ export async function uploadInspectionPhoto(propertyId, file, caption = '') {
   const { error: upErr } = await supabase.storage.from('property-documents')
     .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
   if (upErr) throw upErr
-  // Public-ish signed URL (1 year — these are inspection photos, not sensitive PII)
+  // Short-lived signed URL for the immediate upload preview only; rendering
+  // goes through SignedPhoto(path), which signs fresh URLs on demand.
   const { data: urlData } = await supabase.storage.from('property-documents')
-    .createSignedUrl(path, 60 * 60 * 24 * 365)
+    .createSignedUrl(path, 60 * 60)
   return {
     url: urlData?.signedUrl || null,
     path,
@@ -964,7 +1001,8 @@ export async function ensureFutureRentMonths(properties, monthsAhead = 6) {
           month_label: tm.label,
           year: tm.year,
           month: tm.month,
-          status: 'void'
+          status: 'void',
+          ...monthPeriodBounds(tm.year, tm.month),
         })
       }
     }
@@ -1031,7 +1069,9 @@ export async function updateUserPassword(currentPassword, newPassword, email) {
 }
 
 export async function sendPasswordReset(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email)
+  // redirectTo lands the recovery link on the app origin, where AuthContext's
+  // PASSWORD_RECOVERY handler shows the set-new-password screen.
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
   if (error) throw error
 }
 
@@ -1519,7 +1559,7 @@ export async function fetchSubscriptions(companyIds) {
   return data || []
 }
 
-export async function createCheckoutSession(companyId, action = 'checkout') {
+export async function createCheckoutSession(companyId, action = 'checkout', tier = 'starter') {
   const { data: { session } } = await supabase.auth.getSession()
   // Send our window.origin so the edge function redirects back to the
   // SAME hostname the user is on (apex vs www). Browser session is
@@ -1533,10 +1573,16 @@ export async function createCheckoutSession(companyId, action = 'checkout') {
       'Authorization': `Bearer ${session?.access_token}`,
       'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ company_id: companyId, action, return_origin: returnOrigin }),
+    body: JSON.stringify({ company_id: companyId, action, tier, return_origin: returnOrigin }),
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Billing error')
+  if (!res.ok) {
+    const e = new Error(data.error || 'Billing error')
+    // Machine-readable error id (e.g. 'investor_unavailable') — lets the UI
+    // branch on the failure kind without regex-matching the human message.
+    e.code = data.code
+    throw e
+  }
   return data.url
 }
 
@@ -2030,7 +2076,9 @@ export async function fetchAllTenancies(userId) {
 export async function fetchAllRentPayments(userId) {
   const { data, error } = await supabase.from('rent_payments')
     .select('*, property:properties(id,name,company_id,rent_pcm,company:companies(name,abbr,color))')
-    .eq('user_id', userId).order('payment_date', { ascending: false })
+    .eq('user_id', userId)
+    .order('period_start', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
 }
@@ -2291,9 +2339,11 @@ export async function attachPhotosToJob(jobId, photos) {
 
 export async function fetchTenantPaymentTracker(propertyId) {
   // Get last 12 months of rent payments
-  const { data } = await supabase.from('rent_payments')
+  const { data, error } = await supabase.from('rent_payments')
     .select('*').eq('property_id', propertyId)
-    .order('payment_date', { ascending: false })
+    .order('period_start', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
   return data || []
 }
 
@@ -2732,8 +2782,8 @@ export function calcPropertyHealthScore(property, compliance=[], tenancy=null, m
   else if (openJobs.length) { score -= Math.min(10, openJobs.length * 3); issues.push({ type:'warning', text:`${openJobs.length} open repair job${openJobs.length>1?'s':''}` }) }
 
   // Tenancy (max -15 points)
-  if (tenancy?.tenancy_end_date) {
-    const end = new Date(tenancy.tenancy_end_date)
+  if (tenancy?.tenancy_end) {
+    const end = new Date(tenancy.tenancy_end)
     const daysToEnd = (end - today) / (1000*60*60*24)
     if (daysToEnd < 0) { score -= 15; issues.push({ type:'error', text:'Tenancy has ended' }) }
     else if (daysToEnd < 30) { score -= 10; issues.push({ type:'warning', text:`Tenancy ends in ${Math.round(daysToEnd)} days` }) }
@@ -3385,12 +3435,15 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   }
   if (propIds.length === 0) return { payments: [], expenses: [], mortgageInterest: 0 }
 
+  // Legacy rows carry only year/month (period_start IS NULL) — a plain
+  // gte/lte on period_start silently excludes them, understating MTD income.
+  // Fetch NULL-period rows too, synthesise whole-month period dates from
+  // year/month, then re-filter to the requested window client-side.
   const [paymentsRes, expensesRes] = await Promise.all([
-    supabase.from('rent_payments').select('id, property_id, amount, period_start, period_end, status')
+    supabase.from('rent_payments').select('id, property_id, amount, period_start, period_end, status, year, month')
       .in('property_id', propIds)
       .eq('status', 'paid')
-      .gte('period_start', periodFrom)
-      .lte('period_start', periodTo),
+      .or(`and(period_start.gte.${periodFrom},period_start.lte.${periodTo}),period_start.is.null`),
     supabase.from('property_expenses').select('id, property_id, amount, date, category, description')
       .in('property_id', propIds)
       .is('deleted_at', null)
@@ -3398,6 +3451,19 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   ])
   if (paymentsRes.error) throw paymentsRes.error
   if (expensesRes.error) throw expensesRes.error
+
+  const pad2 = (n) => String(n).padStart(2, '0')
+  const payments = (paymentsRes.data || [])
+    .map(p => {
+      if (p.period_start || !p.year || !p.month) return p
+      const lastDay = new Date(p.year, p.month, 0).getDate()
+      return {
+        ...p,
+        period_start: `${p.year}-${pad2(p.month)}-01`,
+        period_end: p.period_end || `${p.year}-${pad2(p.month)}-${pad2(lastDay)}`,
+      }
+    })
+    .filter(p => p.period_start && p.period_start >= periodFrom && p.period_start <= periodTo)
 
   // Mortgage interest accrued over the period =
   //   sum(balance × annual_rate) × (period_days / 365)
@@ -3410,7 +3476,7 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
     s + (Number(p.mortgage_amount) * Number(p.mortgage_rate)), 0)
   const mortgageInterest = Math.round((annualInterest * periodDays / 365) * 100) / 100
 
-  return { payments: paymentsRes.data || [], expenses: expensesRes.data || [], mortgageInterest }
+  return { payments, expenses: expensesRes.data || [], mortgageInterest }
 }
 
 // Start the HMRC gov.uk OAuth flow. Returns nothing — performs a

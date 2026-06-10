@@ -33,6 +33,7 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
   const [error,    setError]    = useState('')
   const [success,  setSuccess]  = useState('')
   const [showPw,   setShowPw]   = useState(false)
+  const [resetBusy, setResetBusy] = useState(false)
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') || '')
 
   useEffect(() => {
@@ -123,7 +124,7 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
 
       {/* Logo panel — gold tint for signup, neutral for login */}
       <div style={{ background: mode==='signup' ? '#C8A84B22' : '#F4F3EF', border: mode==='signup' ? '1.5px solid #C8A84B44' : '1.5px solid transparent', borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center', transition:'background 0.3s' }}>
-        <img src="/logo.svg" alt="OwnProperly" style={{ width: 280, height:'auto', display:'block', margin:'0 auto' }}/>
+        <img src="/logo.svg" alt="OwnProperly" style={{ width: 'min(280px, 100%)', height:'auto', display:'block', margin:'0 auto' }}/>
         {mode==='signup' && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:'#8A6A00', marginTop:10, fontWeight:600, letterSpacing:'0.05em' }}>✨ 14-day free trial — no card needed</div>}
       </div>
 
@@ -203,12 +204,14 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
 
         {mode==='login'&&(
           <div style={{ textAlign:'right', marginTop:10 }}>
-            <button className="lp-link" style={{ fontSize:11 }} onClick={async()=>{
+            <button className="lp-link" style={{ fontSize:11, opacity: resetBusy ? 0.6 : 1 }} disabled={resetBusy} onClick={async()=>{
               if(!email){setError('Enter your email first');return}
-              setError('')
-              await supabase.auth.resetPasswordForEmail(email)
-              setSuccess('Password reset email sent — check your inbox.')
-            }}>Forgot password?</button>
+              setError(''); setSuccess(''); setResetBusy(true)
+              const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+              setResetBusy(false)
+              if (resetErr) setError("Couldn't send the reset email — try again in a minute.")
+              else setSuccess('Password reset email sent — check your inbox.')
+            }}>{resetBusy ? 'Sending…' : 'Forgot password?'}</button>
           </div>
         )}
 
@@ -239,5 +242,138 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
     <div style={{ padding:24, fontFamily:"'Helvetica Neue',Arial,sans-serif", width:'100%', maxWidth:480 }}>
       {inner}
     </div>
+  )
+}
+
+// Shared full-page shell for the post-login gate screens below (MFA
+// challenge, set-new-password). Same visual language as the login page.
+function GateShell({ children }) {
+  return (
+    <div style={{ minHeight:'100vh', background:BG, display:'flex', alignItems:'center', justifyContent:'center', padding:24, fontFamily:"'Helvetica Neue',Arial,sans-serif" }}>
+      <div style={{ width:'100%', maxWidth: 420 }}>
+        <style>{CSS}</style>
+        <div style={{ background:'#F4F3EF', border:'1.5px solid transparent', borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center' }}>
+          <img src="/logo.svg" alt="OwnProperly" style={{ width: 'min(280px, 100%)', height:'auto', display:'block', margin:'0 auto' }}/>
+        </div>
+        <div style={{ background:WHITE, border:`1.5px solid ${BORDER}`, borderRadius:20, padding:'32px 28px', boxShadow:'0 4px 32px rgba(45,60,74,0.12)' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// MFA step-up — shown by AuthContext when the user has a verified TOTP
+// factor but the current session is still AAL1 (password only). The app
+// does not render until verify() succeeds, so a stolen password alone no
+// longer grants access.
+export function MfaChallengeScreen({ onVerified, onSignOut }) {
+  const [code, setCode]   = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy]   = useState(false)
+
+  async function submit(e) {
+    e.preventDefault()
+    if (code.length !== 6 || busy) return
+    setBusy(true); setError('')
+    try {
+      const { data: factorData, error: fErr } = await supabase.auth.mfa.listFactors()
+      if (fErr) throw fErr
+      const factor = (factorData?.totp || []).find(f => f.status === 'verified')
+      if (!factor) throw new Error('No verified authenticator found on this account.')
+      const { data: challenge, error: cErr } = await supabase.auth.mfa.challenge({ factorId: factor.id })
+      if (cErr) throw cErr
+      const { error: vErr } = await supabase.auth.mfa.verify({
+        factorId: factor.id, challengeId: challenge.id, code: code.trim(),
+      })
+      if (vErr) throw vErr
+      onVerified?.()
+    } catch (err) {
+      logError('mfaChallenge:verify', err)
+      setError(err?.message || 'Verification failed — try again.')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <GateShell>
+      <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
+        Two-factor authentication
+      </h1>
+      <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:24 }}>
+        Enter the 6-digit code from your authenticator app to finish signing in.
+      </p>
+      <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div>
+          <label className="lp-label" htmlFor="lp-mfa-code">Authentication code</label>
+          <input id="lp-mfa-code" className="lp-input" type="text" inputMode="numeric"
+            autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code}
+            autoFocus aria-required="true" placeholder="000000"
+            onChange={e=>setCode(e.target.value.replace(/\D/g, ''))}
+            style={{ textAlign:'center', fontSize:18, letterSpacing:'0.2em' }}/>
+        </div>
+        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        <button type="submit" className="lp-btn" disabled={busy || code.length !== 6} style={{ marginTop:4 }}>
+          {busy ? 'Verifying…' : 'Verify'}
+        </button>
+      </form>
+      <div style={{ textAlign:'center', marginTop:20, paddingTop:16, borderTop:`1px solid ${BORDER}` }}>
+        <button className="lp-link" onClick={onSignOut}>Sign out and use a different account</button>
+      </div>
+    </GateShell>
+  )
+}
+
+// Password-recovery completion — shown by AuthContext when Supabase fires
+// the PASSWORD_RECOVERY event (user clicked a reset-password email link).
+// Without this the reset flow never actually changed the password.
+export function SetNewPasswordScreen({ onDone }) {
+  const [password,  setPassword]  = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy]   = useState(false)
+
+  async function submit(e) {
+    e.preventDefault()
+    if (busy) return
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
+    if (password !== confirmPw) { setError('Passwords do not match.'); return }
+    setBusy(true); setError('')
+    const { error: err } = await supabase.auth.updateUser({ password })
+    setBusy(false)
+    if (err) { setError(err.message || 'Could not update your password — try again.'); return }
+    onDone?.()
+  }
+
+  return (
+    <GateShell>
+      <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
+        Set a new password
+      </h1>
+      <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:24 }}>
+        You followed a password-reset link. Choose a new password to finish.
+      </p>
+      <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div>
+          <label className="lp-label" htmlFor="lp-new-password">New password (min. 8 characters)</label>
+          <input id="lp-new-password" className="lp-input" type="password" value={password}
+            required minLength={8} aria-required="true" autoComplete="new-password" autoFocus
+            onChange={e=>setPassword(e.target.value)} placeholder="••••••••"/>
+        </div>
+        <div>
+          <label className="lp-label" htmlFor="lp-confirm-password">Confirm new password</label>
+          <input id="lp-confirm-password" className="lp-input" type="password" value={confirmPw}
+            required minLength={8} aria-required="true" autoComplete="new-password"
+            onChange={e=>setConfirmPw(e.target.value)} placeholder="••••••••"/>
+        </div>
+        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        <button type="submit" className="lp-btn" disabled={busy} style={{ marginTop:4 }}>
+          {busy ? 'Saving…' : 'Save new password'}
+        </button>
+      </form>
+      <div style={{ textAlign:'center', marginTop:20, paddingTop:16, borderTop:`1px solid ${BORDER}` }}>
+        <button className="lp-link" onClick={()=>onDone?.()}>Skip — keep my current password</button>
+      </div>
+    </GateShell>
   )
 }

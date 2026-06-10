@@ -3,6 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import FocusTrap from '../lib/FocusTrap'
 
 // Bank Inbox — review and match incoming transactions to rent payments.
 //
@@ -107,10 +108,11 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
 
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 760 }}>
+      <FocusTrap onEscape={onClose}>
+      <div className="modal" style={{ maxWidth: 760 }} role="dialog" aria-modal="true" aria-labelledby="bank-inbox-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
+            <h2 id="bank-inbox-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
               Bank Inbox
             </h2>
             <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
@@ -248,6 +250,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

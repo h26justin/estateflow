@@ -41,14 +41,15 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   async function loadJobs() {
     setLoading(true)
     try { setJobs(await api.fetchMaintenance(propertyId)) }
-    catch(e) { }
+    catch(e) { showToast(e.message || 'Failed to load maintenance jobs', 'error') }
     setLoading(false)
   }
 
   async function handleSave() {
     if (!form.title) return
     try {
-      const data = {...form, quoted_cost:parseFloat(form.quoted_cost)||null, actual_cost:parseFloat(form.actual_cost)||null}
+      // Postgres date columns reject '' — empty date inputs must be null.
+      const data = {...form, quoted_cost:parseFloat(form.quoted_cost)||null, actual_cost:parseFloat(form.actual_cost)||null, date_raised:form.date_raised||null, date_resolved:form.date_resolved||null}
       if (editJob) {
         const updated = await api.updateMaintenance(editJob.id, data)
         setJobs(prev=>prev.map(j=>j.id===editJob.id?updated:j))

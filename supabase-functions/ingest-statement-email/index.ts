@@ -21,10 +21,11 @@
 //
 // Required env vars (set in Supabase Dashboard → Edge Functions →
 // Secrets):
-//   - POSTMARK_INBOUND_TOKEN  (HMAC secret for verifying webhook auth;
-//                              optional but recommended — falls back to
-//                              accepting all POSTs if not set, suitable
-//                              for testing)
+//   - POSTMARK_INBOUND_TOKEN  (shared secret for verifying webhook auth.
+//                              REQUIRED — the function rejects every POST
+//                              with 401 until it is set. Configure the same
+//                              value as the Basic-auth password on the
+//                              Postmark inbound webhook URL.)
 //
 // IMPORTANT — verify_jwt MUST be false when deploying. Postmark won't
 // send a JWT; the signature check below replaces that auth.
@@ -40,19 +41,31 @@ const INBOX_DOMAIN          = (Deno.env.get('INBOX_DOMAIN') || 'inbox.ownproperl
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-// Postmark sends Basic Auth on the webhook if you configure it. We
-// accept either:
-//   - Basic Auth where the password matches POSTMARK_INBOUND_TOKEN, OR
-//   - No auth at all (acceptable because the URL itself is secret and
-//     not discoverable). Set the env var to lock down further.
+// Postmark sends Basic Auth on the webhook when configured. The shared
+// secret is mandatory — without it we fail CLOSED (401 on every POST)
+// rather than trusting URL secrecy, which doesn't hold (the project ref
+// ships in the SPA bundle).
+if (!POSTMARK_TOKEN) {
+  console.error('POSTMARK_INBOUND_TOKEN is not set — rejecting all inbound email until it is configured')
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a)
+  const eb = new TextEncoder().encode(b)
+  if (ea.length !== eb.length) return false
+  let diff = 0
+  for (let i = 0; i < ea.length; i++) diff |= ea[i] ^ eb[i]
+  return diff === 0
+}
+
 function isAuthorised(req: Request): boolean {
-  if (!POSTMARK_TOKEN) return true
+  if (!POSTMARK_TOKEN) return false
   const auth = req.headers.get('authorization') || ''
   if (!auth.toLowerCase().startsWith('basic ')) return false
   try {
     const decoded = atob(auth.slice(6))
-    const [, pass] = decoded.split(':')
-    return pass === POSTMARK_TOKEN
+    const pass = decoded.slice(decoded.indexOf(':') + 1)
+    return timingSafeEqual(pass, POSTMARK_TOKEN)
   } catch { return false }
 }
 

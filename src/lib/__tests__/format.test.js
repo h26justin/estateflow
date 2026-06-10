@@ -7,10 +7,13 @@ describe('fmt — GBP currency with no decimals', () => {
     expect(fmt(2_500_000)).toBe('£2,500,000')
   })
 
-  it('treats null/undefined/NaN as zero', () => {
+  it('treats null/undefined as zero', () => {
     expect(fmt(null)).toBe('£0')
     expect(fmt(undefined)).toBe('£0')
-    expect(fmt(NaN)).toBe('£0')
+  })
+
+  it('surfaces NaN as the — sentinel (arithmetic-bug guard)', () => {
+    expect(fmt(NaN)).toBe('—')
   })
 
   it('rounds pence (no decimals shown)', () => {

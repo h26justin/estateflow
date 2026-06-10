@@ -74,7 +74,16 @@ export default function NotificationCentre() {
     }
     if (n.link) {
       if (n.link.startsWith('#')) window.location.hash = n.link.slice(1)
-      else window.location.href = n.link
+      else {
+        // notification links can be server-generated; never follow
+        // javascript:/data: or other non-http schemes
+        let safe = false
+        try {
+          const proto = new URL(String(n.link), window.location.origin).protocol
+          safe = proto === 'http:' || proto === 'https:'
+        } catch (e) { safe = false }
+        if (safe) window.location.href = n.link
+      }
     }
     setOpen(false)
   }
@@ -134,7 +143,10 @@ export default function NotificationCentre() {
           <div role="dialog" aria-label="Notifications" style={{
             position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 200,
             background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12,
-            width: 360, maxHeight: 480,
+            // min() keeps the right-anchored panel on-screen on 360px phones —
+            // a fixed 360px width would push its left edge past the viewport
+            // and get clipped by the global overflow-x:hidden.
+            width: 'min(360px, calc(100vw - 24px))', maxHeight: 480,
             display: 'flex', flexDirection: 'column',
             boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           }}>

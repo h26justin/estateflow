@@ -22,6 +22,8 @@
 // in this file is stored or used for anything other than the headers
 // we send to HMRC at submission time.
 
+import { supabase } from './supabase'
+
 const DEVICE_ID_KEY = 'ownproperly_hmrc_device_id'
 const PUBLIC_IP_CACHE_KEY = 'ownproperly_hmrc_public_ip'
 const PUBLIC_IP_TTL_MS = 30 * 60 * 1000 // 30 min — well under PSD2/HMRC freshness window
@@ -143,11 +145,20 @@ export async function collectClientFraudHeaders() {
   const deviceId = getDeviceId()
   const ipInfo = await getPublicIp()
 
+  // Gov-Client-User-IDs must carry the identifier the user signs into OUR
+  // system with (spec: "key=value" with the vendor's product as key), not a
+  // device/OS string. getSession() is a local read — no network round-trip.
+  let userId = ''
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    userId = session?.user?.id || ''
+  } catch { /* not signed in — header sent empty and dropped server-side */ }
+
   return {
     // Required for WEB_APP_VIA_SERVER connection method
     'Gov-Client-Connection-Method': 'WEB_APP_VIA_SERVER',
     'Gov-Client-Device-ID': deviceId,
-    'Gov-Client-User-IDs': `os=${encodeURIComponent(navigator.userAgent.split(' ').pop() || 'web')}`,
+    'Gov-Client-User-IDs': userId ? `ownproperly=${encodeURIComponent(userId)}` : '',
     'Gov-Client-Timezone': getTimezoneHeader(),
     'Gov-Client-Screens': getScreensHeader(),
     'Gov-Client-Window-Size': getWindowSizeHeader(),

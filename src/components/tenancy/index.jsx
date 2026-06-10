@@ -489,7 +489,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
 }
 
 // ── TENANCY RENEWAL ALERT ─────────────────────────────────────────────────────
-export function TenancyRenewalAlert({ propertyId, showToast, T }) {
+export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
   const mono = "'DM Mono',monospace"
   const [tenancy, setTenancy]   = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -502,10 +502,10 @@ export function TenancyRenewalAlert({ propertyId, showToast, T }) {
       .catch(() => {})
   }, [propertyId])
 
-  if (!tenancy?.tenancy_end_date) return null
+  if (!tenancy?.tenancy_end) return null
 
   const today = new Date()
-  const endDate = new Date(tenancy.tenancy_end_date)
+  const endDate = new Date(tenancy.tenancy_end)
   const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
 
   if (daysLeft > 90 || daysLeft < -30) return null
@@ -517,11 +517,10 @@ export function TenancyRenewalAlert({ propertyId, showToast, T }) {
     if (!form.new_end_date) { showToast('Enter new end date', 'error'); return }
     setSaving(true)
     try {
-      await api.updateTenancyDetails(propertyId, {
-        tenancy_end_date: form.new_end_date,
-        ...(form.new_rent ? { rent_pcm: parseFloat(form.new_rent) } : {})
-      })
-      setTenancy(p => ({ ...p, tenancy_end_date: form.new_end_date }))
+      await api.updateTenancyDetails(propertyId, { tenancy_end: form.new_end_date })
+      // Rent lives on the property, not tenancy_details.
+      if (form.new_rent) await api.updateProperty(propertyId, { rent_pcm: parseFloat(form.new_rent) })
+      setTenancy(p => ({ ...p, tenancy_end: form.new_end_date }))
       setShowForm(false)
       showToast('Tenancy renewed ✓')
     } catch(e) { showToast(e.message, 'error') }
@@ -536,12 +535,12 @@ export function TenancyRenewalAlert({ propertyId, showToast, T }) {
             {urgency === 'expired' ? '⚑ Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
           </div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888' }}>
-            End date: {new Date(tenancy.tenancy_end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-            {tenancy.rent_pcm ? ` · Current rent: ${fmt(tenancy.rent_pcm)}/mo` : ''}
+            End date: {new Date(tenancy.tenancy_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {rentPcm ? ` · Current rent: ${fmt(rentPcm)}/mo` : ''}
           </div>
         </div>
         {!showForm && (
-          <button onClick={() => { setForm({ new_end_date: '', new_rent: tenancy.rent_pcm || '' }); setShowForm(true) }}
+          <button onClick={() => { setForm({ new_end_date: '', new_rent: rentPcm || '' }); setShowForm(true) }}
             style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
             Renew tenancy
           </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
@@ -682,6 +683,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
 // USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, setCompanies, adminUser, fmt, onDelete, T }) {
+  const confirmDialog = useConfirm()
   const [view, setView] = useState('by-company')
   const [search, setSearch] = useState('')
   const [expandedCompanies, setExpandedCompanies] = useState(new Set())
@@ -779,7 +781,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   const orphanUsers = useMemo(() => users.filter(u => getUserCompanies(u).all.length === 0), [users, companies, accessRows])
 
   async function sendReset(email) {
-    await supabase.auth.resetPasswordForEmail(email)
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
     setResetConfirm(null)
     showAppToast(`Password reset email sent to ${email}`)
   }
@@ -844,7 +846,11 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       const cos = getUserCompanies(u).all.map(c=>c.name).join(', ')
       return [userName(u), u.email, u.profile?.phone||'', cos, u.created_at?new Date(u.created_at).toLocaleDateString('en-GB'):'']
     })]
-    const csv = rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const csvSafe = v => {
+      const s = String(v == null ? '' : v)
+      return /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s) ? "'" + s : s
+    }
+    const csv = rows.map(r=>r.map(v=>`"${csvSafe(v).replace(/"/g,'""')}"`).join(',')).join('\n')
     const a = document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
     a.download='ownproperly-users.csv'; a.click()
   }
@@ -969,9 +975,18 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                       <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Company actions</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         <button onClick={()=>setAddUserTarget(co)} style={btnSm(T.blue, T.blue+'11', T.blue+'44')}>+ Add user access</button>
-                        <button onClick={()=>{const nm=prompt('New company name:',co.name);if(nm&&nm.trim()){const ab=prompt('New abbreviation:',co.abbr||'');doRenameCompany(co,nm.trim(),ab?.trim()||'')}}} style={btnSm()}>✎ Rename</button>
+                        <button onClick={async ()=>{
+                          const nm = await confirmDialog({ title:'Rename company', prompt:true, defaultValue:co.name, confirmLabel:'Next' })
+                          if(!nm||!nm.trim()) return
+                          const ab = await confirmDialog({ title:'New abbreviation', prompt:true, defaultValue:co.abbr||'', confirmLabel:'Rename' })
+                          if(ab===null) return
+                          doRenameCompany(co,nm.trim(),ab.trim())
+                        }} style={btnSm()}>✎ Rename</button>
                         <button onClick={()=>setTransferTarget(co)} style={btnSm()}>↗ Transfer ownership</button>
-                        <button onClick={()=>{const d=prompt('Extend trial by how many days?','30');if(d&&!isNaN(+d))doExtendTrial(co,+d)}} style={btnSm()}>⏱ Extend trial</button>
+                        <button onClick={async ()=>{
+                          const d = await confirmDialog({ title:'Extend trial by how many days?', prompt:true, defaultValue:'30', confirmLabel:'Extend' })
+                          if(d&&!isNaN(+d)) doExtendTrial(co,+d)
+                        }} style={btnSm()}>⏱ Extend trial</button>
                         <button onClick={()=>doToggleFreeTier(co)} style={btnSm(co.is_free_tier?T.gold:T.muted, co.is_free_tier?T.gold+'11':'transparent')}>
                           {co.is_free_tier ? '✓ Free tier' : 'Grant free tier'}
                         </button>
@@ -1069,8 +1084,13 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
                   </div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    <button onClick={()=>{
-                      if(!confirm(`Impersonate ${u.email}? You'll see their data (read-only). Logged to audit trail.`)) return
+                    <button onClick={async ()=>{
+                      if(!await confirmDialog({
+                        title: `Impersonate ${u.email}?`,
+                        body: "You'll see their data (read-only). Logged to audit trail.",
+                        confirmLabel: 'Impersonate',
+                        destructive: true,
+                      })) return
                       sessionStorage.setItem('ownproperly_impersonate', JSON.stringify({id:u.id,email:u.email,name:userName(u)}))
                       supabase.from('audit_log').insert({
                         user_id: currentUser?.id,

@@ -10,7 +10,11 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const mono = "'DM Mono',monospace"
   const [subs, setSubs]         = useState([])
   const [loading, setLoading]   = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [working, setWorking]   = useState(null)
+  // Set when the Investor price isn't configured server-side — hides the
+  // upgrade button instead of letting users hit the same error repeatedly.
+  const [investorUnavailable, setInvestorUnavailable] = useState(false)
   // Platform admin state
   const [allCompanies, setAllCompanies] = useState([])
   const [adminTab, setAdminTab] = useState(() => isPlatformAdmin ? 'admin' : 'billing')
@@ -19,6 +23,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
 
   async function loadData() {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await api.fetchSubscriptions(companies.map(c => c.id))
       setSubs(data)
@@ -26,17 +31,27 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
         const all = await api.fetchAllCompaniesAdmin()
         setAllCompanies(all)
       }
-    } catch(e) {}
+    } catch(e) {
+      setLoadError(e.message || 'Failed to load billing data')
+    }
     setLoading(false)
   }
 
-  async function handleCheckout(companyId, action = 'checkout') {
+  async function handleCheckout(companyId, action = 'checkout', tier) {
     setWorking(companyId)
     try {
-      const url = await api.createCheckoutSession(companyId, action)
+      const url = await api.createCheckoutSession(companyId, action, tier)
       window.location.href = url
     } catch(e) {
-      showAppToast('Billing error: ' + e.message, 'error')
+      // Prefer the machine-readable code from create-checkout; the regex is a
+      // fallback that matches the actual server message ("isn't available …")
+      // for deploys that predate the code field.
+      if (tier === 'investor' && (e.code === 'investor_unavailable' || /isn['’]t available|not configured|unavailable|no price/i.test(e.message || ''))) {
+        setInvestorUnavailable(true)
+        showAppToast('The Investor plan isn\'t available yet — contact support to upgrade.', 'error')
+      } else {
+        showAppToast('Billing error: ' + e.message, 'error')
+      }
     }
     setWorking(null)
   }
@@ -63,6 +78,14 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>Loading billing…</div>
+
+  // A failed load must never masquerade as "no subscription / free trial".
+  if (loadError) return (
+    <div style={{ padding: 40, textAlign: 'center' }}>
+      <div style={{ fontFamily: mono, fontSize: 12, color: T.red, marginBottom: 14 }}>⚠ Couldn't load billing data — {loadError}</div>
+      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={loadData}>Retry</button>
+    </div>
+  )
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -117,10 +140,9 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                             {tierMeta.label}
                           </span>
                         </div>
-                        <div style={{ fontSize: 24, fontWeight: 700, color: T.gold, letterSpacing: '-0.02em' }}>{fmt(monthly)}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: T.gold, letterSpacing: '-0.02em' }}><span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>from </span>{fmt(monthly)}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
                         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
-                          {propCount} {propCount===1?'property':'properties'} × £{tierMeta.pricePerProp}
-                          {propCount * tierMeta.pricePerProp < 10 && <span> · £10 floor</span>}
+                          {propCount} {propCount===1?'property':'properties'} × £{tierMeta.pricePerProp}/mo · £10/mo minimum applies
                         </div>
                       </>
                     )}
@@ -157,6 +179,13 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                       {working===co.id ? 'Redirecting…' : 'Manage subscription'}
                     </button>
                   )}
+                  {(status === 'active' || status === 'trialing') && tierKey !== 'investor' && !investorUnavailable && (
+                    <button className="btn btn-ghost" style={{ fontSize: 12, color: TIERS.investor.color, borderColor: TIERS.investor.color }}
+                      onClick={() => handleCheckout(co.id, 'subscribe', 'investor')}
+                      disabled={!!working}>
+                      {working===co.id ? 'Redirecting…' : `★ Upgrade to Investor — £${TIERS.investor.pricePerProp}/property`}
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -189,10 +218,12 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
-                  <div onClick={() => toggleFreeTier(co.id, co.is_free_tier)}
-                    style={{ width: 40, height: 22, borderRadius: 11, background: co.is_free_tier ? T.gold : T.border, cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                  <button role="switch" aria-checked={!!co.is_free_tier}
+                    aria-label={`Free tier for ${co.name}`}
+                    onClick={() => toggleFreeTier(co.id, co.is_free_tier)}
+                    style={{ width: 40, height: 22, borderRadius: 11, border: 'none', padding: 0, background: co.is_free_tier ? T.gold : T.border, cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
                     <div style={{ position: 'absolute', top: 3, left: co.is_free_tier ? 21 : 3, width: 16, height: 16, borderRadius: 8, background: 'white', transition: 'left 0.2s' }}/>
-                  </div>
+                  </button>
                 </div>
               </div>
             </div>

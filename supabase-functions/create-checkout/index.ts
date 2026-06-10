@@ -29,6 +29,9 @@ const STRIPE_SECRET_KEY  = Deno.env.get('STRIPE_SECRET_KEY')!
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SERVICE_ROLE_KEY')!
 const STRIPE_PRICE_ID    = Deno.env.get('STRIPE_PRICE_ID')!
+// Per-tier pricing. Starter = STRIPE_PRICE_ID (legacy name kept so existing
+// deploys keep working); Investor = STRIPE_PRICE_ID_INVESTOR.
+const STRIPE_PRICE_ID_INVESTOR = Deno.env.get('STRIPE_PRICE_ID_INVESTOR') || ''
 
 // Safe-list of origins we'll honour for return_url. Anything else
 // falls back to APEX_URL — defence against open-redirect via the
@@ -55,9 +58,23 @@ Deno.serve(async (req) => {
     if (!user) return err('Unauthorized', 401)
 
     const body = await req.json().catch(() => ({}))
-    const { company_id, action, return_origin } = body
+    const { company_id, action, return_origin, tier: rawTier } = body
 
     if (!company_id) return err('company_id required')
+
+    // Tier is server-validated — the webhook persists it from session
+    // metadata, so it must never be a free-text passthrough.
+    if (rawTier != null && rawTier !== 'starter' && rawTier !== 'investor') {
+      return err('Invalid tier — must be "starter" or "investor"')
+    }
+    const tier = rawTier === 'investor' ? 'investor' : 'starter'
+    let priceId = STRIPE_PRICE_ID
+    if (tier === 'investor') {
+      if (!STRIPE_PRICE_ID_INVESTOR) {
+        return err('The Investor plan isn\'t available for self-serve checkout yet — please contact support to upgrade.', 400, 'investor_unavailable')
+      }
+      priceId = STRIPE_PRICE_ID_INVESTOR
+    }
 
     // Resolve the redirect base — honour client's origin if it's in
     // the safe-list, else apex. This means localhost devs return to
@@ -122,14 +139,14 @@ Deno.serve(async (req) => {
     const session = await stripe('POST', '/checkout/sessions', {
       customer: customerId,
       mode: 'subscription',
-      line_items: [{ price: STRIPE_PRICE_ID, quantity: Math.max(1, propertyCount) }],
+      line_items: [{ price: priceId, quantity: Math.max(1, propertyCount) }],
       // Metadata at THREE levels:
       //   - session.metadata        → read by checkout.session.completed
       //   - subscription_data       → propagates to subscription.created
       //   - customer.metadata       → set when we created the customer above
       // This way any one of the webhook events can identify the company.
-      metadata: { company_id, owner_id: user.id },
-      subscription_data: { metadata: { company_id, owner_id: user.id } },
+      metadata: { company_id, owner_id: user.id, tier },
+      subscription_data: { metadata: { company_id, owner_id: user.id, tier } },
       success_url: `${baseUrl}?billing=success`,
       cancel_url: `${baseUrl}?billing=cancelled`,
       allow_promotion_codes: true,
@@ -168,6 +185,8 @@ function corsHeaders() {
 function ok(data: object) {
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', ...corsHeaders() } })
 }
-function err(msg: string, status = 400) {
-  return new Response(JSON.stringify({ error: msg }), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders() } })
+// `code` is an optional machine-readable error identifier — clients switch on
+// it instead of regex-matching the human message (which is free to change).
+function err(msg: string, status = 400, code?: string) {
+  return new Response(JSON.stringify({ error: msg, ...(code ? { code } : {}) }), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders() } })
 }

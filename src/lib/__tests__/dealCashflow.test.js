@@ -74,6 +74,17 @@ describe('dealCashflow — mortgage purchase', () => {
     // Deposit 50k + mortgage fee 1500 = 51500
     expect(r.cashOut).toBe(51_500)
   })
+
+  it('computes the fee on the defaulted 75% loan when deposit_percent is blank', () => {
+    const r = dealCashflow(deal({
+      purchase_type: 'mortgage',
+      purchase_price: 200_000,
+      deposit_percent: null, // unset — defaults to 25%
+      mortgage_fee_percent: 1, // 1% of 150k loan = 1500, NOT 1% of 200k
+    }))
+    // Defaulted deposit 50k + fee on the 75% loan 1500 = 51500
+    expect(r.cashOut).toBe(51_500)
+  })
 })
 
 describe('dealCashflow — bridge purchase', () => {
@@ -103,6 +114,18 @@ describe('dealCashflow — committed (exchanged) deals', () => {
     // Pre-exchange cashOut = 50k deposit + 7.5k costs = 57.5k
     // After exchange, subtract 50k deposit already paid → 7.5k remaining
     expect(r.cashOut).toBe(7500)
+    expect(r.group).toBe('committed')
+  })
+
+  it('cash deals subtract the standard 10% exchange deposit already paid', () => {
+    const r = dealCashflow(deal({
+      status: 'exchanged',
+      purchase_type: 'cash',
+      purchase_price: 100_000,
+      stamp_duty: 3000,
+    }))
+    // Full cash out 103k minus 10% exchange deposit (10k) already paid
+    expect(r.cashOut).toBe(93_000)
     expect(r.group).toBe('committed')
   })
 })

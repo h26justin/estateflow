@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
+import FocusTrap from '../lib/FocusTrap'
 
 const mono = "'DM Mono',monospace"
 
@@ -75,11 +76,13 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:900,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:620,maxHeight:'92vh',overflowY:'auto',padding:'28px',border:`1px solid ${T.border}`}}>
+      <FocusTrap onEscape={onClose}>
+      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:620,maxHeight:'92vh',overflowY:'auto',padding:'28px',border:`1px solid ${T.border}`}}
+        role="dialog" aria-modal="true" aria-labelledby="role-permissions-title">
 
         {/* Header */}
         <div style={{marginBottom:18}}>
-          <h3 style={{fontSize:18,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Manage role & permissions</h3>
+          <h3 id="role-permissions-title" style={{fontSize:18,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Manage role & permissions</h3>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
             <strong>{name}</strong> on <strong style={{color:company?.color||T.gold}}>{company?.name}</strong>
           </div>
@@ -180,6 +183,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
           </button>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

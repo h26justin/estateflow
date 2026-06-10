@@ -98,7 +98,7 @@ const FEATURE_CATS = [
     icon: '📊',
     color: '#E05555',
     features: [
-      { icon: '📄', title: '20 built-in reports', desc: 'P&L, tax summaries, arrears, compliance status, occupancy, rent roll, expenses and more — all exportable to CSV.' },
+      { icon: '📄', title: '16 built-in reports', desc: 'P&L, tax summaries, arrears, compliance status, occupancy, rent roll, expenses and more — all exportable to CSV.' },
       { icon: '🔒', title: 'GDPR audit log', desc: 'Every action in the platform is logged — who did what and when. Full data export for any tenant or company on request.' },
       { icon: '📁', title: 'Document storage', desc: 'Upload leases, certificates and correspondence per property. Share documents directly with tenants via the portal.' },
       { icon: '🔔', title: 'Smart alert engine', desc: 'Configurable alerts for arrears, expiring leases, compliance deadlines and vacant properties. Weekly digest or instant.' },
@@ -156,7 +156,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             Property software that<br/>doesn't feel like 2010
           </h1>
           <p className="hero-sub" style={{ fontSize: 19, color: '#B0BEC5', lineHeight: 1.75, marginBottom: 40, fontFamily: "'DM Mono',monospace", fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
-            Run your entire UK rental portfolio from one dashboard. Rent, compliance, tenant portal, deals and AI tools — every feature, every plan, £2 per property a month.
+            Run your entire UK rental portfolio from one dashboard. Rent, compliance, tenant portal, reports and more from £2 per property a month (£10/mo minimum) — AI insights and the deals pipeline on the £5 Investor plan.
           </p>
           <div className="mkt-hero-btns" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
@@ -168,7 +168,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
 
       <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '28px 24px' }}>
         <div className="stats-grid" style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, textAlign: 'center' }}>
-          {[['£2/mo','per property, no tiers'],['0','per-user fees'],['6 modules','all included'],['14 days','free, no card']].map(([val,lab]) => (
+          {[['From £2/mo','per property · £10/mo min'],['0','per-user fees'],['2 plans','Starter & Investor'],['14 days','free, no card']].map(([val,lab]) => (
             <div key={val}>
               <div style={{ fontSize: 22, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', fontFamily: "'DM Mono',monospace" }}>{val}</div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{lab}</div>
@@ -196,8 +196,8 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               },
               {
                 icon: '🎯',
-                title: 'Every feature, every plan',
-                desc: "No Pro tier. No add-on for tenants. No charge per user. £2 a property gets you all six modules, AI tools, tenant portal — the lot. Add or remove properties anytime.",
+                title: 'Honest, simple pricing',
+                desc: "No add-on for tenants. No charge per user. Starter is £2 a property for the full landlord toolkit; Investor is £5 a property and adds AI insights and the deals pipeline. £10/month minimum on both. Add or remove properties anytime.",
                 tag: 'Honest'
               },
               {
@@ -297,10 +297,10 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ padding: '72px 24px', background: `linear-gradient(135deg, ${DARK} 0%, #1E3040 100%)` }}>
         <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI included · not a £20/mo add-on</div>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI tools · on the Investor plan</div>
             <h2 style={{ fontSize: 32, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16, lineHeight: 1.25 }}>Listings written for you in 10 seconds</h2>
             <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: '#9AAAB8', lineHeight: 1.8, marginBottom: 24 }}>
-              Generate Rightmove and Zoopla descriptions in your choice of tone — professional, warm or luxury. Plus AI that reads your uploaded gas certs, EICRs and tenancy agreements and fills in the data for you. All in the base £2/property price.
+              Generate Rightmove and Zoopla descriptions in your choice of tone — professional, warm or luxury. Plus AI that reads your uploaded gas certs, EICRs and tenancy agreements and fills in the data for you. All included in the £5/property Investor plan.
             </p>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 13, padding: '12px 24px' }}>Try it free</button>
           </div>
@@ -344,7 +344,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               </thead>
               <tbody>
                 {[
-                  ['Starting price', '£2/property/mo', 'Free', 'From £65/mo', 'From £15/mo'],
+                  ['Starting price', 'From £2/property/mo (£10/mo min)', 'Free', 'From £65/mo', 'From £15/mo'],
                   ['MTD ITSA submissions', '✓ Built in', '✗', 'Roadmap', '✓ Add-on'],
                   ['Section 24 calculator', '✓', '✗ DIY', '✗', '✓'],
                   ['Compliance reminders', '✓ Auto', '✗ Manual', '✓', '✓'],
@@ -371,78 +371,33 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      {/* Testimonials — three quotes with portfolio size. Replace the
-          placeholder names + roles with real customers when you have
-          willing referees. Photos optional but lift conversion ~5-10%. */}
-      <section style={{ padding: '72px 24px 80px', background: CREAM }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>What landlords say</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Built on landlord feedback</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-            {[
-              {
-                quote: "I used to spend Sunday mornings updating my spreadsheet. Now rent tracking takes five minutes a month and I never miss a Gas Safety expiry.",
-                name: "Sarah M.",
-                role: "Landlord · 6 properties · West Yorkshire",
-              },
-              {
-                quote: "The MTD ITSA panel sold it for me. I was dreading April 2026 — now I've practised quarterly submissions in sandbox four times. Zero stress when it goes live.",
-                name: "James K.",
-                role: "Portfolio landlord · 14 properties · 2 SPVs",
-              },
-              {
-                quote: "Switched from Arthur because the per-user pricing didn't make sense for a one-man-band. OwnProperly does 90% of what I need for a fraction of the price.",
-                name: "Priya D.",
-                role: "Accidental landlord turned investor · 3 properties",
-              },
-            ].map((t, i) => (
-              <div key={i} style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 16, padding: '24px 26px', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ color: GOLD, fontSize: 22, lineHeight: 1, marginBottom: 14 }} aria-hidden="true">"</div>
-                <blockquote style={{ fontFamily: 'Georgia, serif', fontSize: 15, color: SLATE, lineHeight: 1.65, marginBottom: 20, flex: 1, margin: 0 }}>
-                  {t.quote}
-                </blockquote>
-                <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14, marginTop: 18 }}>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 700, color: SLATE }}>{t.name}</div>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 2 }}>{t.role}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 24 }}>
-            Names changed at request of customers; portfolio sizes accurate.
-          </p>
-        </div>
-      </section>
-
       <section id="pricing" style={{ padding: '88px 24px 100px', background: CREAM }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Honest pricing</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>£2 a property. That's the whole pricing page.</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>No tiers, no feature gates, no per-user fees, no minimums. Every feature for every landlord — whether you have one rental or a hundred.</p>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Simple per-property pricing.</h2>
+            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>Two plans: Starter at £2 a property and Investor at £5 a property, each with a £10/month minimum. No per-user fees, unlimited team members — whether you have one rental or a hundred.</p>
           </div>
 
           <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
             <div style={{ background: SLATE, borderRadius: 20, padding: '36px 32px', color: WHITE }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Everything included</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Starter plan</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
                 <span style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-0.03em', color: WHITE }}>£2</span>
                 <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: '#B0BEC5' }}>/property/month</span>
               </div>
               <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#B0BEC5', marginBottom: 28, lineHeight: 1.7 }}>
-                Billed monthly. Add or remove properties anytime — you only pay for what you have.
+                Billed monthly with a £10/month minimum. Add or remove properties anytime — you only pay for what you have.
               </p>
-              <div style={{ display: 'grid', gap: 11, marginBottom: 32 }}>
+              <div style={{ display: 'grid', gap: 11, marginBottom: 24 }}>
                 {[
-                  'All 6 modules — no feature tiers',
+                  'Rent, compliance, maintenance & lettings',
                   'Unlimited team members',
                   'Tenant portal with branded subdomain',
-                  'AI listing writer included',
+                  'MTD ITSA submissions built in',
                   'Document storage & sharing',
                   'Email alerts & weekly digest',
-                  '20 built-in reports with CSV export',
+                  '16 built-in reports with CSV export',
                   '14-day free trial — no card needed',
                 ].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -451,19 +406,25 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   </div>
                 ))}
               </div>
+              <div style={{ background: '#ffffff0D', border: `1px solid ${GOLD}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 24 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 4 }}>Investor plan · £5/property/month</div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#B0BEC5', lineHeight: 1.6 }}>
+                  Everything in Starter, plus AI portfolio insights, the AI listing writer and the deals pipeline. Same £10/month minimum.
+                </div>
+              </div>
               <button onClick={onSignUp} className="mkt-btn-white" style={{ width: '100%', fontSize: 13 }}>Start free trial</button>
             </div>
 
             <div>
               <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px', marginBottom: 16 }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Example costs</div>
-                {[['5 properties','£10/mo'],['10 properties','£20/mo'],['25 properties','£50/mo'],['50 properties','£100/mo'],['100 properties','£200/mo']].map(([props,cost]) => (
+                {[['1 property','£10/mo (minimum)'],['5 properties','£10/mo'],['10 properties','£20/mo'],['25 properties','£50/mo'],['50 properties','£100/mo'],['100 properties','£200/mo']].map(([props,cost]) => (
                   <div key={props} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${BORDER}` }}>
                     <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED }}>{props}</span>
                     <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 700, color: SLATE }}>{cost}</span>
                   </div>
                 ))}
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, marginTop: 10 }}>Prices exclude VAT where applicable.</div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, marginTop: 10 }}>Starter plan shown — Investor is £5/property. A £10/month minimum applies to both. Prices exclude VAT where applicable.</div>
               </div>
               <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px' }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Common questions</div>
@@ -533,9 +494,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <div style={{ display: 'grid', gap: 14 }}>
             {[
               ['What is the best landlord software for UK rental properties?',
-               'OwnProperly is property portfolio management software built specifically for UK landlords. It tracks rent payments, compliance certificates (Gas Safety, EICR, EPC), tenant references and Right to Rent, and includes a BTL deal calculator. Pricing starts at £2 per property per month with a 14-day free trial.'],
+               'OwnProperly is property portfolio management software built specifically for UK landlords. It tracks rent payments, compliance certificates (Gas Safety, EICR, EPC), tenant references and Right to Rent, and includes a BTL deal calculator. Pricing starts at £2 per property per month (£10/month minimum) with a 14-day free trial.'],
               ['How much does OwnProperly cost?',
-               'OwnProperly is £2 per property per month on the Starter plan, with no minimum. The Investor plan is £5 per property per month and adds AI portfolio insights, advanced reporting, and priority support. Both plans include a 14-day free trial with no credit card required.'],
+               'OwnProperly is £2 per property per month on the Starter plan. The Investor plan is £5 per property per month and adds AI portfolio insights, the AI listing writer and the deals pipeline. Both plans have a £10/month minimum and include a 14-day free trial with no credit card required.'],
               ['Does OwnProperly support Making Tax Digital (MTD) for landlords?',
                "Yes. OwnProperly is built for the MTD ITSA April 2026 mandate. It connects directly to HMRC via gov.uk OAuth, files quarterly Property Business submissions, and includes Section 24 mortgage interest restriction calculations. Sandbox mode lets you practice before going live."],
               ['What compliance certificates does OwnProperly track?',
@@ -570,13 +531,13 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <h2 style={{ fontSize: 34, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to switch to modern property software?</h2>
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: '#B0BEC5', marginBottom: 32, lineHeight: 1.75 }}>
-            14 days free. Every feature unlocked. No credit card. If it doesn't beat what you're using now, walk away.
+            14 days free. No credit card. If it doesn't beat what you're using now, walk away.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={onSignIn} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff33', fontSize: 14, padding: '16px 36px' }}>Sign in</button>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#5A6A7A', marginTop: 20 }}>14-day free trial · £2/property/month after · Cancel anytime</p>
+          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#5A6A7A', marginTop: 20 }}>14-day free trial · From £2/property/month after (£10/mo minimum) · Cancel anytime</p>
         </div>
       </section>
 

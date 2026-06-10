@@ -54,8 +54,27 @@ serve(async (req) => {
   // a special header that xero-sync recognises.)
   const { data: schedules } = await admin.from('xero_cron_schedules').select('user_id, company_id')
 
-  const results: any[] = []
+  // Also pick up connections flagged by xero-webhook (pending_sync_at) —
+  // that's what makes the webhook toggle actually do something. xero-sync
+  // clears the flag after a successful run.
+  const { data: pending } = await admin.from('xero_connections')
+    .select('user_id, company_id')
+    .not('pending_sync_at', 'is', null)
+
+  const seen = new Set<string>()
+  const targets: { user_id: string; company_id: string; scheduled: boolean }[] = []
   for (const s of (schedules || [])) {
+    seen.add(`${s.user_id}:${s.company_id}`)
+    targets.push({ user_id: s.user_id, company_id: s.company_id, scheduled: true })
+  }
+  for (const p of (pending || [])) {
+    if (seen.has(`${p.user_id}:${p.company_id}`)) continue
+    seen.add(`${p.user_id}:${p.company_id}`)
+    targets.push({ user_id: p.user_id, company_id: p.company_id, scheduled: false })
+  }
+
+  const results: any[] = []
+  for (const s of targets) {
     try {
       // Use service-role to call xero-sync. We pass a sentinel
       // x-cron-secret header that xero-sync checks; the function then
@@ -78,10 +97,12 @@ serve(async (req) => {
       const body = await r.text()
       results.push({ user_id: s.user_id, company_id: s.company_id, status, ok: r.ok })
 
-      await admin.from('xero_cron_schedules').update({
-        last_run_at: new Date().toISOString(),
-        last_run_status: r.ok ? 'ok' : 'error',
-      }).eq('user_id', s.user_id).eq('company_id', s.company_id)
+      if (s.scheduled) {
+        await admin.from('xero_cron_schedules').update({
+          last_run_at: new Date().toISOString(),
+          last_run_status: r.ok ? 'ok' : 'error',
+        }).eq('user_id', s.user_id).eq('company_id', s.company_id)
+      }
     } catch (e) {
       results.push({ user_id: s.user_id, company_id: s.company_id, error: (e as Error).message })
     }
