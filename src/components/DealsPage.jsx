@@ -161,6 +161,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [selectedDeal, setSelectedDeal] = useState(null)
   const [dealTab, setDealTab] = useState('calculator')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [saving, setSaving]   = useState(false)
   const [compareIds, setCompareIds] = useState([])
   const [showCompare, setShowCompare] = useState(false)
@@ -176,10 +177,13 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 
   async function loadDeals() {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await api.fetchDeals(user.id)
       setDeals(data)
-    } catch(e) {}
+    } catch(e) {
+      setLoadError(e.message || 'Failed to load deals')
+    }
     setLoading(false)
   }
 
@@ -204,7 +208,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       const updated = await api.updateDeal(selectedDeal.id, { [field]: value })
       setSelectedDeal(updated)
       setDeals(prev => prev.map(d => d.id === updated.id ? updated : d))
-    } catch(e) {}
+    } catch(e) { showToast(e.message || 'Failed to save', 'error') }
   }
 
   async function saveDeal(fields, opts = {}) {
@@ -385,6 +389,12 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 
       {loading
         ? <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading deals…</div>
+        : loadError
+          ? <div className="card" style={{padding:48,textAlign:'center'}}>
+              <div style={{fontSize:36,marginBottom:12}}>⚠</div>
+              <div style={{fontFamily:mono,fontSize:12,color:T.red,marginBottom:16}}>Couldn't load deals — {loadError}</div>
+              <button className="btn btn-ghost" onClick={loadDeals}>Retry</button>
+            </div>
         : filtered.length === 0
           ? <div className="card" style={{padding:48,textAlign:'center'}}>
               <div style={{fontSize:36,marginBottom:12}}>🎯</div>
@@ -1497,7 +1507,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
     try {
       const data = await api.fetchDealMilestones(deal.id)
       setMilestones(data)
-    } catch(e) {}
+    } catch(e) { showToast(e.message || 'Failed to load tracker', 'error') }
     setLoading(false)
   }
 
@@ -1506,21 +1516,21 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
     try {
       await api.updateMilestone(m.id, updated)
       setMilestones(prev => prev.map(x => x.id === m.id ? { ...x, ...updated } : x))
-    } catch(e) {}
+    } catch(e) { showToast(e.message || 'Failed to update milestone', 'error') }
   }
 
   async function toggleEnabled(m) {
     try {
       await api.updateMilestone(m.id, { is_enabled: !m.is_enabled })
       setMilestones(prev => prev.map(x => x.id === m.id ? { ...x, is_enabled: !m.is_enabled } : x))
-    } catch(e) {}
+    } catch(e) { showToast(e.message || 'Failed to update milestone', 'error') }
   }
 
   async function setDate(m, date) {
     try {
       await api.updateMilestone(m.id, { completed_date: date })
       setMilestones(prev => prev.map(x => x.id === m.id ? { ...x, completed_date: date } : x))
-    } catch(e) {}
+    } catch(e) { showToast(e.message || 'Failed to update milestone', 'error') }
   }
 
   const stages = [...new Set(milestones.filter(m=>m.is_enabled).map(m=>m.stage))]
@@ -1676,7 +1686,7 @@ function ContactsTab({ dealId, userId, showToast }) {
       await api.deleteAddressBookEntry(id)
       setAddressBook(prev=>prev.filter(e=>e.id!==id))
       showToast('Removed from address book')
-    } catch(e) {}
+    } catch(e) { showToast(e.message || 'Failed to remove', 'error') }
   }
 
   const filteredBook = addressBook.filter(e =>

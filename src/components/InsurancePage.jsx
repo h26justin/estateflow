@@ -20,6 +20,8 @@ import * as api from '../lib/api'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
+import FocusTrap from '../lib/FocusTrap'
+import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
 
 const mono = "'DM Mono',monospace"
 
@@ -309,9 +311,10 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           policy to manage, or add a new one. */}
       {propertyPicker && (
         <div className="overlay" onClick={() => setPropertyPicker(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+          <FocusTrap onEscape={() => setPropertyPicker(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }} role="dialog" aria-modal="true" aria-labelledby="insurance-picker-title">
             <div style={{ padding: '22px 26px 0' }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
+              <h2 id="insurance-picker-title" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
                 Manage insurance
               </h2>
               <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 16 }}>
@@ -371,6 +374,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
               </div>
             </div>
           </div>
+          </FocusTrap>
         </div>
       )}
     </div>
@@ -834,6 +838,13 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   const initialIds = policy._propertyIds || (policy.properties || []).map(p => p.id)
   const [propertyIds, setPropertyIds] = useState(initialIds)
 
+  // Dirty check — ~10 fields plus the multi-property selection must not be
+  // wiped by a stray backdrop click or Escape.
+  const [snapshot] = useState(form)
+  const isDirty = isFormDirty(snapshot, form)
+    || [...propertyIds].sort().join(',') !== [...initialIds].sort().join(',')
+  const overlayClose = safeOverlayClose(isDirty, onClose)
+
   const s = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   // Properties available for linking — must belong to the selected company
@@ -864,10 +875,11 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '8px 12px', width: '100%', outline: 'none' }
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
+    <div className="overlay" onClick={overlayClose}>
+      <FocusTrap onEscape={() => overlayClose({ target: null, currentTarget: null })}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }} role="dialog" aria-modal="true" aria-labelledby="policy-modal-title">
         <div style={{ padding: '24px 28px 0' }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
+          <h2 id="policy-modal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
             {isRenewal ? 'Renew Policy' : isNew ? 'Add Insurance Policy' : 'Edit Insurance Policy'}
           </h2>
           <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 20 }}>
@@ -1011,6 +1023,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

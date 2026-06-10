@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { fmt, fmtMoney2dp } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import FocusTrap from '../lib/FocusTrap'
 import {
   currentTaxYear, parseTaxYear, quartersForTaxYear,
   buildQuarterlySummary, quarterStatusLabel,
@@ -397,6 +399,7 @@ function SettingsPanel({ T, settings, onSaved }) {
 // mtd-submit falls back to the local mock path (SANDBOX-xxxxx) even
 // when sandbox_mode is off.
 function HmrcOAuthBlock({ T, settings, onChanged }) {
+  const confirmDialog = useConfirm()
   const [busy, setBusy] = useState(false)
   const connected = !!settings?.hmrc_access_token
   const expiresAt = settings?.hmrc_token_expires_at ? new Date(settings.hmrc_token_expires_at) : null
@@ -413,7 +416,11 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
     }
   }
   async function disconnect() {
-    if (!confirm('Disconnect HMRC? Future submissions will fall back to the local mock until you reconnect.')) return
+    if (!await confirmDialog({
+      title: 'Disconnect HMRC?',
+      body: 'Future submissions will fall back to the local mock until you reconnect.',
+      confirmLabel: 'Disconnect', destructive: true,
+    })) return
     setBusy(true)
     try {
       await api.disconnectHmrc()
@@ -474,9 +481,10 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
   const { summary, payments, expenses } = data
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 640 }}>
+      <FocusTrap onEscape={onClose}>
+      <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="mtd-preview-title">
         <div style={{ padding: '22px 26px 0' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 4 }}>
+          <h2 id="mtd-preview-title" style={{ fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             Quarter {q.quarter} preview
           </h2>
           <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
@@ -520,6 +528,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

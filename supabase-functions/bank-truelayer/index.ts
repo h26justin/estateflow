@@ -23,6 +23,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { encryptToken, resolveToken } from './encryption.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -105,17 +106,27 @@ async function ensureFreshToken(admin: any, conn: any): Promise<string> {
   const pd = (conn.partner_data || {}) as any
   const expiresAt = pd.expires_at ? new Date(pd.expires_at).getTime() : 0
   const now = Date.now()
-  if (pd.access_token && expiresAt - now > 120_000) {
-    return pd.access_token
+  // Tokens are stored encrypted under *_enc when OWNPROPERLY_TOKEN_KEY is
+  // set; resolveToken falls back to the legacy plaintext keys for rows
+  // written before encryption shipped.
+  const storedAccess = await resolveToken({ encrypted: pd.access_token_enc, plaintext: pd.access_token })
+  if (storedAccess && expiresAt - now > 120_000) {
+    return storedAccess
   }
-  if (!pd.refresh_token) {
+  const storedRefresh = await resolveToken({ encrypted: pd.refresh_token_enc, plaintext: pd.refresh_token })
+  if (!storedRefresh) {
     throw new Error('Connection is missing a refresh token — please reconnect this bank')
   }
-  const fresh = await refreshToken(pd.refresh_token)
+  const fresh = await refreshToken(storedRefresh)
+  const newRefresh = fresh.refresh_token || storedRefresh
+  const encAccess  = await encryptToken(fresh.access_token)
+  const encRefresh = await encryptToken(newRefresh)
   const newPd = {
     ...pd,
-    access_token: fresh.access_token,
-    refresh_token: fresh.refresh_token || pd.refresh_token,
+    access_token:      encAccess ? null : fresh.access_token,
+    refresh_token:     encRefresh ? null : newRefresh,
+    access_token_enc:  encAccess || null,
+    refresh_token_enc: encRefresh || null,
     expires_at: new Date(Date.now() + fresh.expires_in * 1000).toISOString(),
   }
   await admin.from('bank_connections')
@@ -229,10 +240,16 @@ async function finalize(supabaseUser: any, body: any) {
     throw new Error('No accounts authorised at the bank — try again')
   }
 
-  // Persist tokens + accounts
+  // Persist tokens + accounts. Tokens are encrypted at rest (mirrors
+  // bank-plaid): ciphertext under *_enc, plaintext nulled when the
+  // OWNPROPERLY_TOKEN_KEY secret is configured.
+  const encAccess  = await encryptToken(tokens.access_token)
+  const encRefresh = await encryptToken(tokens.refresh_token)
   const partnerData = {
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
+    access_token:      encAccess ? null : tokens.access_token,
+    refresh_token:     encRefresh ? null : tokens.refresh_token,
+    access_token_enc:  encAccess || null,
+    refresh_token_enc: encRefresh || null,
     expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
     scope: tokens.scope,
   }

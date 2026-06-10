@@ -211,15 +211,23 @@ serve(async (req) => {
           hasMore = result.has_more
         }
 
-        // Persist cursor for next sync
-        await admin.from('bank_connections').update({
-          partner_data: { ...pd, cursor, last_synced_at: new Date().toISOString() },
-        }).eq('id', c.id)
-
-        // Map Plaid account_id → our bank_accounts.id
+        // Map Plaid account_id → our bank_accounts row (company_id scopes
+        // the rent auto-match below to that company's properties).
         const { data: accs } = await admin.from('bank_accounts')
-          .select('id, provider_account_id').eq('connection_id', c.id)
+          .select('id, provider_account_id, company_id').eq('connection_id', c.id)
         const accountMap = new Map((accs || []).map(a => [a.provider_account_id, a.id]))
+        const accountCompany = new Map((accs || []).map(a => [a.provider_account_id, a.company_id]))
+
+        // Cache of company_id → property ids, resolved on first use.
+        const companyProps = new Map<string, string[]>()
+        const propertyIdsForCompany = async (companyId: string): Promise<string[]> => {
+          if (!companyProps.has(companyId)) {
+            const { data: props } = await admin.from('properties')
+              .select('id').eq('company_id', companyId)
+            companyProps.set(companyId, (props || []).map((p: any) => p.id))
+          }
+          return companyProps.get(companyId)!
+        }
 
         for (const tx of newTxns) {
           const accountId = accountMap.get(tx.account_id)
@@ -237,38 +245,90 @@ serve(async (req) => {
           }, { onConflict: 'account_id,provider_transaction_id' })
           if (!txErr) inserted++
 
-          // Auto-match rent: positive incoming amount matching a void/pending
-          // rent_payment within ±£5 in the last 35 days. Light heuristic;
-          // user can fix mismatches via the UI.
+          // Auto-match rent: positive incoming amount matching a void/overdue/
+          // partial rent_payment within ±£5 in the last 35 days, scoped to the
+          // properties of the company the bank account belongs to (when set).
           if (amount > 0) {
-            const { data: candidate } = await admin
+            const cutoff = new Date(Date.now() - 35*24*60*60*1000).toISOString().slice(0,10)
+            // Rows written before period stamping shipped have NULL
+            // period_start — fall back to (year, month) covering the window.
+            const nowD = new Date()
+            const curY = nowD.getUTCFullYear(), curM = nowD.getUTCMonth() + 1
+            const prevD = new Date(Date.UTC(curY, curM - 2, 1))
+            const prevY = prevD.getUTCFullYear(), prevM = prevD.getUTCMonth() + 1
+
+            let query = admin
               .from('rent_payments')
-              .select('id, amount, property_id')
+              .select('id, amount, property_id, period_start, year, month')
               .eq('user_id', caller.id)
               .in('status', ['void','overdue','partial'])
-              .gte('period_start', new Date(Date.now() - 35*24*60*60*1000).toISOString().slice(0,10))
+              .is('deleted_at', null)
+              .or(`period_start.gte.${cutoff},and(period_start.is.null,year.eq.${curY},month.eq.${curM}),and(period_start.is.null,year.eq.${prevY},month.eq.${prevM})`)
               .gte('amount', amount - 5)
               .lte('amount', amount + 5)
-              .limit(1)
-              .maybeSingle()
+              .order('year', { ascending: false })
+              .order('month', { ascending: false })
+              .order('id', { ascending: true })
+              .limit(10)
+
+            const companyId = accountCompany.get(tx.account_id)
+            let scopeOk = true
+            if (companyId) {
+              const propIds = await propertyIdsForCompany(companyId)
+              if (propIds.length === 0) scopeOk = false
+              else query = query.in('property_id', propIds)
+            }
+
+            const { data: candidates } = scopeOk ? await query : { data: [] }
+            // Deterministic pick: closest amount, ties resolved by the
+            // ordered query (latest period first, then id).
+            let candidate: any = null
+            for (const cand of (candidates || [])) {
+              if (!candidate || Math.abs(Number(cand.amount) - amount) < Math.abs(Number(candidate.amount) - amount)) {
+                candidate = cand
+              }
+            }
             if (candidate?.id) {
-              await admin.from('bank_transactions').update({
-                matched_rent_payment_id: candidate.id,
-                matched_at: new Date().toISOString(),
-                match_confidence: 0.8,
-              }).eq('provider_transaction_id', tx.transaction_id).eq('user_id', caller.id)
-              // Schema: rent_payments has `amount` + `status` (no paid_amount/paid_at).
-              // We update amount to what the bank actually received and flip status.
-              // Notes capture the matched bank counterparty for audit.
-              await admin.from('rent_payments').update({
-                status: 'paid',
-                amount,
-                notes: `Auto-matched from bank ${tx.date} · ${(tx.merchant_name || tx.name || '').slice(0, 100)}`,
-              }).eq('id', candidate.id)
-              matched++
+              const diff = Math.abs(Number(candidate.amount) - amount)
+              if (diff <= 0.5) {
+                // Close enough to call paid. Never overwrite the recorded
+                // rent amount — notes capture the bank figure for audit.
+                await admin.from('bank_transactions').update({
+                  matched_rent_payment_id: candidate.id,
+                  matched_at: new Date().toISOString(),
+                  match_confidence: 0.8,
+                }).eq('provider_transaction_id', tx.transaction_id).eq('user_id', caller.id)
+                await admin.from('rent_payments').update({
+                  status: 'paid',
+                  notes: `Auto-matched from bank ${tx.date} · £${amount.toFixed(2)} received · ${(tx.merchant_name || tx.name || '').slice(0, 100)}`,
+                }).eq('id', candidate.id)
+                matched++
+              } else {
+                // Amount differs — don't touch the payment; flag for review.
+                await admin.from('notifications').insert({
+                  user_id: caller.id,
+                  type: 'rent',
+                  title: 'Bank payment needs review',
+                  body: `Received £${amount.toFixed(2)} on ${tx.date} — close to an expected rent of £${Number(candidate.amount).toFixed(2)} but not an exact match. Review and match it manually.`,
+                  metadata: {
+                    rent_payment_id: candidate.id,
+                    property_id: candidate.property_id,
+                    provider_transaction_id: tx.transaction_id,
+                    bank_amount: amount,
+                  },
+                })
+              }
             }
           }
         }
+
+        // Persist cursor for next sync — only AFTER the batch has been
+        // processed. If anything above throws, the cursor stays put and
+        // Plaid re-delivers the same transactions next sync (the upsert
+        // on provider_transaction_id makes reprocessing safe).
+        await admin.from('bank_connections').update({
+          partner_data: { ...pd, cursor, last_synced_at: new Date().toISOString() },
+        }).eq('id', c.id)
       }
       return jsonResp(200, { inserted, matched })
     }

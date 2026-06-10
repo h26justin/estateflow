@@ -175,14 +175,38 @@ serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
+  const body = await req.json().catch(() => ({}))
+  const action = body.action || body.direction || 'to_xero'
+  const companyId: string | undefined = body.company_id
+
+  if (!companyId) return jsonError(400, 'company_id required')
+
   // Cron path: xero-cron-reconcile invokes us with a shared secret +
-  // explicit user_id header instead of a JWT. Honour that, otherwise
-  // fall through to normal JWT auth.
+  // explicit user_id header instead of a JWT. The header alone is not
+  // enough to act as an arbitrary user: cron callers may only run the
+  // non-push reconcile path, and only for (user, company) pairs the
+  // server itself queued — an opt-in xero_cron_schedules row or a
+  // webhook-flagged pending sync. Otherwise fall through to JWT auth.
   const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
   const cronSecret = req.headers.get('x-cron-secret') || ''
   const cronUserId = req.headers.get('x-cron-user-id') || ''
   let caller: any = null
   if (CRON_SECRET && cronSecret === CRON_SECRET && cronUserId) {
+    if (action !== 'reconcile_only') return jsonError(403, 'Cron callers may only run reconcile_only')
+    const { data: sched } = await admin.from('xero_cron_schedules')
+      .select('user_id')
+      .eq('user_id', cronUserId).eq('company_id', companyId)
+      .maybeSingle()
+    let bound = !!sched
+    if (!bound) {
+      const { data: pendingConn } = await admin.from('xero_connections')
+        .select('user_id')
+        .eq('user_id', cronUserId).eq('company_id', companyId)
+        .not('pending_sync_at', 'is', null)
+        .maybeSingle()
+      bound = !!pendingConn
+    }
+    if (!bound) return jsonError(403, 'No scheduled or pending sync for this user/company')
     caller = { id: cronUserId }
   } else {
     const authHeader = req.headers.get('Authorization') || ''
@@ -192,12 +216,6 @@ serve(async (req) => {
     caller = userData?.user
     if (userErr || !caller) return jsonError(401, 'Invalid session')
   }
-
-  const body = await req.json().catch(() => ({}))
-  const action = body.action || body.direction || 'to_xero'
-  const companyId: string | undefined = body.company_id
-
-  if (!companyId) return jsonError(400, 'company_id required')
 
   // Load the connection for this (user, company)
   const { data: conn, error: ce } = await admin
@@ -243,6 +261,24 @@ serve(async (req) => {
     await admin.from('xero_sync_settings').insert({ user_id: caller.id, company_id: companyId })
     settings = (await admin.from('xero_sync_settings').select('*')
       .eq('user_id', caller.id).eq('company_id', companyId).single()).data
+  }
+
+  // Concurrency guard — one sync per (user, company) at a time. Two
+  // overlapping runs would both read the same sync map snapshot and
+  // double-post BankTransactions (Xero's POST isn't idempotent). Lock
+  // has a TTL so a crashed run can't wedge the connection. If the lock
+  // RPC isn't installed yet (migration pending) we proceed unguarded
+  // rather than blocking live syncs.
+  const { data: gotLock, error: lockErr } = await admin
+    .rpc('acquire_xero_sync_lock', { p_user_id: caller.id, p_company_id: companyId, p_ttl_seconds: 600 })
+  if (lockErr) {
+    console.warn('acquire_xero_sync_lock unavailable — proceeding without lock:', lockErr.message)
+  } else if (gotLock !== true) {
+    return jsonError(409, 'A Xero sync is already running for this company — try again in a minute')
+  }
+  const releaseLock = async () => {
+    if (lockErr) return
+    await admin.rpc('release_xero_sync_lock', { p_user_id: caller.id, p_company_id: companyId })
   }
 
   // Open log row
@@ -753,7 +789,10 @@ serve(async (req) => {
       last_sync_at: new Date().toISOString(),
       last_sync_status: failed > 0 ? 'partial' : 'ok',
       last_sync_error: errors.length ? errors[0] : null,
+      pending_sync_at: null,  // webhook-queued work has now been pulled
     }).eq('user_id', caller.id).eq('company_id', companyId)
+
+    await releaseLock()
 
     return new Response(JSON.stringify({
       ok: true, created, updated, failed,
@@ -771,6 +810,7 @@ serve(async (req) => {
       last_sync_status: 'error',
       last_sync_error: msg.slice(0, 500),
     }).eq('user_id', caller.id).eq('company_id', companyId)
+    await releaseLock()
     return jsonError(500, msg)
   }
 })

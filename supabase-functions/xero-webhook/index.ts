@@ -18,10 +18,10 @@
 //   - If signature matches, respond 200 immediately (process async)
 //
 // We don't run the full sync inline — webhooks have a strict 5-second
-// SLA. Instead we enqueue a "needs sync" flag on the connection and
-// the next user-triggered sync (or daily cron) picks it up. For
-// production we'd add a background worker via pg_cron; for now the
-// flag is enough.
+// SLA. Instead we set pending_sync_at on the connection; the daily
+// xero-cron-reconcile picks up flagged connections and runs the pull,
+// and any user-triggered sync clears the flag too. For production we'd
+// add a faster background worker via pg_cron; for now the flag is enough.
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
@@ -82,11 +82,12 @@ serve(async (req) => {
   let payload: any = {}
   try { payload = JSON.parse(rawBody) } catch {}
 
-  // Mark this connection as "needs sync" so the next user sync (or cron)
-  // pulls the changes. We don't run the sync inline — Xero requires a
-  // <5s response and a full sync can take much longer.
+  // Mark this connection as "needs sync" so xero-cron-reconcile (or the
+  // next user sync) pulls the changes. We don't run the sync inline —
+  // Xero requires a <5s response and a full sync can take much longer.
   await admin.from('xero_connections').update({
     last_sync_error: null,  // clear any old error since something is happening
+    pending_sync_at: new Date().toISOString(),
   }).eq('user_id', matched.user_id).eq('company_id', matched.company_id)
 
   // Optionally: insert an audit row into xero_sync_log so the UI can show

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
+import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
@@ -35,6 +37,7 @@ const STATUS_COLOR = {
 
 export default function TenantReferenceModal({ property, onClose }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const mono = MONO
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -84,7 +87,11 @@ export default function TenantReferenceModal({ property, onClose }) {
   }
 
   async function remove(id) {
-    if (!confirm('Delete this reference request?')) return
+    if (!await confirmDialog({
+      title: 'Delete this reference request?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    })) return
     try {
       await api.deleteTenantReference(id)
       setHistory(prev => prev.filter(r => r.id !== id))
@@ -217,7 +224,7 @@ export default function TenantReferenceModal({ property, onClose }) {
                     <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 }}>
                       {r.tenant_email || '—'}
                       {r.employer_name && ` · ${r.employer_name}`}
-                      {r.monthly_income && ` · £${Number(r.monthly_income).toLocaleString()}/mo`}
+                      {r.monthly_income && ` · ${fmt(r.monthly_income)}/mo`}
                     </div>
                     <span style={{
                       fontFamily: mono, fontSize: 10, fontWeight: 700,

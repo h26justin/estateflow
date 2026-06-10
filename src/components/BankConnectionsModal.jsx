@@ -4,6 +4,7 @@ import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { openPlaidLink } from '../lib/plaidLink'
+import FocusTrap from '../lib/FocusTrap'
 
 // Open Banking — live integration via Plaid UK.
 //
@@ -138,10 +139,11 @@ export default function BankConnectionsModal({ onClose }) {
 
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 680 }}>
+      <FocusTrap onEscape={onClose}>
+      <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="bank-connections-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
+            <h2 id="bank-connections-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
               Bank Connections
             </h2>
             <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
@@ -196,7 +198,7 @@ export default function BankConnectionsModal({ onClose }) {
                   </button>
                 </div>
                 <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6 }}>
-                  We'll never charge for Open Banking. Stays included at £2/property.
+                  We'll never charge extra for Open Banking — it's included in your plan.
                 </div>
               </div>
             </>
@@ -290,6 +292,7 @@ export default function BankConnectionsModal({ onClose }) {
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

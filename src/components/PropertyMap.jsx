@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
+import { fmt } from '../lib/format'
 import { FLAT_PREFIX_RE, groupKeyForAddress } from '../lib/addressUtils'
 
 /**
@@ -500,7 +501,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
             </div>
             <div style={{ padding: '12px 16px', display: 'grid', gap: 6 }}>
               <Row label="Status" value={popupProp.status || '—'} valueColor={STATUS_COLOR[popupProp.status] || T.text}/>
-              {popupProp.rent_pcm > 0 && <Row label="Monthly Rent" value={`£${popupProp.rent_pcm.toLocaleString()}`}/>}
+              {popupProp.rent_pcm > 0 && <Row label="Monthly Rent" value={fmt(popupProp.rent_pcm)}/>}
               {popupProp.geocode_pinned && (
                 <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, marginTop: 4 }}>
                   📌 Pin manually placed.{' '}
@@ -563,7 +564,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                 </div>
                 {totalRent > 0 && (
                   <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8 }}>
-                    Total rent: <span style={{ color: T.text, fontWeight: 600 }}>£{totalRent.toLocaleString()}/mo</span>
+                    Total rent: <span style={{ color: T.text, fontWeight: 600 }}>{fmt(totalRent)}/mo</span>
                   </div>
                 )}
               </div>
@@ -575,7 +576,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[p.status] || '#888EA8', flexShrink: 0 }}/>
                     <span style={{ flex: 1, fontFamily: mono, fontSize: 12, color: T.text }}>{p.name}</span>
-                    {p.rent_pcm > 0 && <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>£{p.rent_pcm.toLocaleString()}</span>}
+                    {p.rent_pcm > 0 && <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{fmt(p.rent_pcm)}</span>}
                     <span style={{ fontFamily: mono, fontSize: 14, color: T.faint, marginLeft: 4 }}>›</span>
                   </button>
                 ))}

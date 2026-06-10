@@ -24,9 +24,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
+import { useConfirm } from '../lib/ConfirmContext'
 
 export default function TwoFactorPanel({ T }) {
   const mono = "'DM Mono',monospace"
+  const confirmDialog = useConfirm()
 
   const [loading, setLoading]       = useState(true)
   const [factors, setFactors]       = useState([])      // verified TOTP factors
@@ -118,7 +120,11 @@ export default function TwoFactorPanel({ T }) {
   }
 
   async function disable(factorId) {
-    if (!confirm('Disable two-factor authentication? Your account will be protected by password only.')) return
+    if (!await confirmDialog({
+      title: 'Disable two-factor authentication?',
+      body: 'Your account will be protected by password only.',
+      confirmLabel: 'Disable 2FA', destructive: true,
+    })) return
     setBusy(`unenroll-${factorId}`)
     try {
       const { error } = await supabase.auth.mfa.unenroll({ factorId })

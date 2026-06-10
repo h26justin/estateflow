@@ -133,7 +133,7 @@ export async function exportUserData(userId) {
     supabase.from('property_expenses').select('*').eq('user_id', userId).then(r=>r.data||[]),
     supabase.from('tenancy_details').select('*').eq('user_id', userId).then(r=>r.data||[]).catch(()=>[]),
     supabase.from('rent_payments').select('*').eq('user_id', userId).then(r=>r.data||[]).catch(()=>[]),
-    supabase.from('property_documents').select('id,name,created_at,url').eq('user_id', userId).then(r=>r.data||[]).catch(()=>[]),
+    supabase.from('property_documents').select('id,name,file_url,file_path,file_type,file_size,category,created_at').eq('user_id', userId).then(r=>{ if (r.error) throw r.error; return r.data||[] }),
   ])
   return {
     exported_at: new Date().toISOString(),
@@ -147,6 +147,6 @@ export async function exportUserData(userId) {
     expenses,
     tenancies,
     rent_payments: rentPayments,
-    documents: documents.map(d=>({ id:d.id, name:d.name, created_at:d.created_at, url:d.url })),
+    documents: documents.map(d=>({ id:d.id, name:d.name, created_at:d.created_at, file_url:d.file_url, file_path:d.file_path, file_type:d.file_type, file_size:d.file_size, category:d.category })),
   }
 }

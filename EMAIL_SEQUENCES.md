@@ -153,7 +153,7 @@ Your free trial ends in 3 days. No pressure — but a heads-up so it doesn't sur
 
 Quick recap on pricing:
 
-- **£2/property/month** — every feature, no minimums, no per-user fees
+- **£2/property/month on Starter** (£5 on Investor, which adds AI insights + deals pipeline) — £10/month minimum, no per-user fees
 - You're billed monthly, only for what you have
 - Add/remove properties anytime, billed pro-rata
 

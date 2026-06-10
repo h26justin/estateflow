@@ -218,7 +218,11 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
         p.yield.toFixed(2)+'%', p.est_value||0, p.mortgage_amount||0
       ])
     ]
-    const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')
+    const csvSafe = v => {
+      const s = String(v == null ? '' : v)
+      return /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s) ? "'" + s : s
+    }
+    const csv = rows.map(r=>r.map(v=>`"${csvSafe(v).replace(/"/g,'""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], {type:'text/csv'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -810,7 +814,7 @@ export function PortfolioChart({properties, companies}) {
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
         {[
           {l:'Total Properties', v:properties.length, c:T.gold},
-          {l:'Monthly Rent Roll', v:`£${(properties.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)).toLocaleString()}`, c:T.green},
+          {l:'Monthly Rent Roll', v:fmt(properties.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)), c:T.green},
           {l:'Est. Portfolio Value', v:`£${(properties.reduce((s,p)=>s+(p.est_value||0),0)/1000000).toFixed(1)}m`, c:T.gold},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px',textAlign:'center'}}>

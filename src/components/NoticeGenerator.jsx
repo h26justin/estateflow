@@ -3,6 +3,8 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
+import FocusTrap from '../lib/FocusTrap'
+import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
 
 // ── S21 / S8 NOTICE GENERATOR ───────────────────────────────────────────
 //
@@ -83,6 +85,13 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
     grounds_details:  '',
   })
 
+  // Dirty check — a stray backdrop click or Escape must not silently wipe
+  // the checklist answers or a half-completed legal form.
+  const [initialForm] = useState(form)
+  const isDirty = step !== 'disclaimer' && (Object.keys(checklist).length > 0 || isFormDirty(initialForm, form))
+  const overlayClose = safeOverlayClose(isDirty, onClose)
+  const escapeClose  = () => overlayClose({ target: null, currentTarget: null })
+
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
   function toggleGround(id) {
     setForm(f => ({
@@ -134,11 +143,12 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
   // ─── DISCLAIMER STEP ─────────────────────────────────────────────────
   if (step === 'disclaimer') {
     return (
-      <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="modal" style={{ maxWidth: 580 }}>
+      <div className="overlay" onClick={overlayClose}>
+        <FocusTrap onEscape={escapeClose}>
+        <div className="modal" style={{ maxWidth: 580 }} role="dialog" aria-modal="true" aria-labelledby="notice-disclaimer-title">
           <div style={{ padding: '24px 28px 0' }}>
             <div style={{ fontSize: 28, marginBottom: 12 }} aria-hidden="true">⚠️</div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8, color: T.text }}>
+            <h2 id="notice-disclaimer-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8, color: T.text }}>
               Important — read before continuing
             </h2>
           </div>
@@ -184,6 +194,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
             </div>
           </div>
         </div>
+        </FocusTrap>
       </div>
     )
   }
@@ -195,10 +206,11 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
     const hasNotApplicable = items.some(it => checklist[it.id] === 'na')
 
     return (
-      <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="modal" style={{ maxWidth: 640 }}>
+      <div className="overlay" onClick={overlayClose}>
+        <FocusTrap onEscape={escapeClose}>
+        <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="notice-checklist-title">
           <div style={{ padding: '22px 26px 0' }}>
-            <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6, color: T.text }}>
+            <h2 id="notice-checklist-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6, color: T.text }}>
               Pre-flight checklist
             </h2>
             <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
@@ -294,6 +306,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
             </div>
           </div>
         </div>
+        </FocusTrap>
       </div>
     )
   }
@@ -307,10 +320,11 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 640 }}>
+    <div className="overlay" onClick={overlayClose}>
+      <FocusTrap onEscape={escapeClose}>
+      <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="notice-form-title">
         <div style={{ padding: '20px 26px 0' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
+          <h2 id="notice-form-title" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
             Generate possession notice
           </h2>
           <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4, marginBottom: 0 }}>
@@ -425,6 +439,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
           </div>
         </div>
       </div>
+      </FocusTrap>
     </div>
   )
 }

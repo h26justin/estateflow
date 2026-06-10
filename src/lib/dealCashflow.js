@@ -92,7 +92,11 @@ export function dealCashflow(deal) {
   const auction     = num(deal.auction_fees)
   const broker      = num(deal.broker_fee)
   const otherCosts  = num(deal.other_costs)
-  const mortgageFee = price * (1 - num(deal.deposit_percent) / 100)
+  // Deposit defaults to 25% when not entered — the SAME default must feed the
+  // mortgage-fee LTV, otherwise a blank deposit_percent computes the fee on
+  // 100% of the purchase price instead of the 75% loan.
+  const depositPct  = num(deal.deposit_percent) || 25
+  const mortgageFee = price * (1 - depositPct / 100)
                     * (num(deal.mortgage_fee_percent) / 100)
   const totalAcq    = price + stamp + legal + survey + auction + broker + otherCosts
                     + (deal.purchase_type !== 'cash' ? mortgageFee : 0)
@@ -102,7 +106,6 @@ export function dealCashflow(deal) {
 
   // True cash out of pocket — depends on financing
   const purchaseType = deal.purchase_type || 'mortgage'
-  const depositPct   = num(deal.deposit_percent) || 25
   const depositAmt   = price * depositPct / 100
 
   let cashOut
@@ -124,8 +127,10 @@ export function dealCashflow(deal) {
   // (deposit assumed already paid). We model 90% of purchase + remaining
   // costs as still-due. This is rough but matches typical UK exchange terms.
   if (group === 'committed') {
-    // Subtract the deposit-already-paid portion from cashOut
-    const exchangeDeposit = purchaseType === 'cash' ? 0 : depositAmt
+    // Subtract the deposit-already-paid portion from cashOut. Financed deals
+    // pay their mortgage/bridge deposit at exchange; cash deals pay the
+    // standard UK 10% exchange deposit (there's no separate field for it).
+    const exchangeDeposit = purchaseType === 'cash' ? price * 0.10 : depositAmt
     cashOut = Math.max(0, cashOut - exchangeDeposit)
   }
   // For deals already completed, purchase is fully paid — only refurb remains

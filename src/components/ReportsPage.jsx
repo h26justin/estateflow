@@ -3,6 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { loadCdnScript } from '../lib/loadCdnScript'
+import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
@@ -42,6 +43,13 @@ function inRange(dateStr, range) {
   if (!dateStr) return false
   const d = new Date(dateStr)
   return d >= range.start && d <= range.end
+}
+// Effective date of a rent payment row: prefer the dated period, fall back
+// to the year/month columns (legacy rows have no period_start).
+function rentPaymentDate(r) {
+  if (r.period_start) return r.period_start
+  if (r.year && r.month) return `${r.year}-${String(r.month).padStart(2,'0')}-01`
+  return null
 }
 function daysUntil(dateStr) {
   if (!dateStr) return null
@@ -103,23 +111,30 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [expenses, setExpenses]       = useState([])
   const [loading, setLoading]         = useState(false)
   const [dataLoaded, setDataLoaded]   = useState(false)
+  const [loadErrors, setLoadErrors]   = useState([])
 
   // Load all data once on mount
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
     setLoading(true)
-    try {
-      const [c, m, t, r, e] = await Promise.all([
-        api.fetchAllComplianceItems(user.id),
-        api.fetchAllMaintenanceJobs(user.id),
-        api.fetchAllTenancies(user.id),
-        api.fetchAllRentPayments(user.id),
-        api.fetchAllExpenses(user.id),
-      ])
-      setCompliance(c); setMaintenance(m); setTenancies(t); setRentPayments(r); setExpenses(e)
-      setDataLoaded(true)
-    } catch(e) {}
+    // Each dataset is fetched independently so one failure doesn't blank
+    // every report — failures are surfaced instead of swallowed.
+    const sources = [
+      { label: 'compliance',    fetch: () => api.fetchAllComplianceItems(user.id), set: setCompliance },
+      { label: 'maintenance',   fetch: () => api.fetchAllMaintenanceJobs(user.id), set: setMaintenance },
+      { label: 'tenancies',     fetch: () => api.fetchAllTenancies(user.id),       set: setTenancies },
+      { label: 'rent payments', fetch: () => api.fetchAllRentPayments(user.id),    set: setRentPayments },
+      { label: 'expenses',      fetch: () => api.fetchAllExpenses(user.id),        set: setExpenses },
+    ]
+    const results = await Promise.allSettled(sources.map(s => s.fetch()))
+    const failed = []
+    results.forEach((res, i) => {
+      if (res.status === 'fulfilled') sources[i].set(res.value || [])
+      else { console.error(`Reports: failed to load ${sources[i].label}`, res.reason); failed.push(sources[i].label) }
+    })
+    setLoadErrors(failed)
+    setDataLoaded(true)
     setLoading(false)
   }
 
@@ -143,7 +158,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   // Filtered by company
   const filtProps = useMemo(() => sortByCompanyName(selectedCompany === 'all' ? properties : properties.filter(p => p.company_id === selectedCompany)), [properties, selectedCompany])
   const filtExp   = useMemo(() => expenses.filter(e => (selectedCompany==='all'||e.property?.company_id===selectedCompany) && inRange(e.date, range)), [expenses, selectedCompany, range])
-  const filtRent  = useMemo(() => rentPayments.filter(r => (selectedCompany==='all'||r.property?.company_id===selectedCompany) && inRange(r.payment_date||r.month, range)), [rentPayments, selectedCompany, range])
+  const filtRent  = useMemo(() => rentPayments.filter(r => (selectedCompany==='all'||r.property?.company_id===selectedCompany) && inRange(rentPaymentDate(r), range)), [rentPayments, selectedCompany, range])
   const filtComp  = useMemo(() => compliance.filter(c => selectedCompany==='all'||c.property?.company_id===selectedCompany), [compliance, selectedCompany])
   const filtMaint = useMemo(() => maintenance.filter(m => selectedCompany==='all'||m.property?.company_id===selectedCompany), [maintenance, selectedCompany])
   const filtTen   = useMemo(() => tenancies.filter(t => selectedCompany==='all'||t.property?.company_id===selectedCompany), [tenancies, selectedCompany])
@@ -163,11 +178,24 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const co = companies.find(c => c.id === selectedCompany)
   const cs = companySettings?.[selectedCompany] || {}
 
+  // Shown in both views when one or more datasets failed to load, so a
+  // partial failure never masquerades as "no data".
+  const errorBanner = loadErrors.length > 0 && (
+    <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',background:T.red+'18',border:`1px solid ${T.red}44`,borderRadius:10,padding:'10px 16px',marginBottom:16}}>
+      <span style={{fontFamily:mono,fontSize:11,color:T.red,flex:1}}>⚠ Couldn't load: {loadErrors.join(', ')} — figures shown may be incomplete.</span>
+      <button onClick={loadAll} disabled={loading}
+        style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'5px 14px',borderRadius:8,border:`1px solid ${T.red}`,background:'transparent',color:T.red,cursor:loading?'wait':'pointer'}}>
+        {loading ? 'Retrying…' : 'Retry'}
+      </button>
+    </div>
+  )
+
   // ── CATALOGUE VIEW ──────────────────────────────────────────────────────────
   if (view === 'catalogue') {
     const cats = catFilter === 'all' ? Object.keys(CAT_LABELS) : [catFilter]
     return (
       <div className="fade">
+        {errorBanner}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:24}}>
           <div>
             <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Reports & Analytics</h1>
@@ -273,6 +301,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
         )}
       </div>
 
+      {errorBanner}
       {loading && <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading report data…</div>}
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}/>}
     </div>
@@ -358,12 +387,21 @@ function ChartCard({ title, T, children, padding = '16px 18px 20px' }) {
 }
 
 // ── EXPORT BUTTONS ────────────────────────────────────────────────────────────
+// Neutralise CSV formula injection: a cell starting with = + - @ or a tab
+// executes as a formula in Excel/Sheets. Prefix a quote unless the value is
+// a plain number (negative amounts must stay numeric).
+function csvSafe(v) {
+  const s = String(v == null ? '' : v)
+  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) return "'" + s
+  return s
+}
+
 function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, companies, co, cs, T, accent, reportName }) {
   const [exporting, setExporting] = useState(false)
   function exportCSV() {
     const rows = buildCSVRows(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
     if (!rows) return
-    const csv = rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const csv = rows.map(r=>r.map(v=>`"${csvSafe(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
     const blob = new Blob([csv],{type:'text/csv'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href=url; a.download=`${reportId}-${range.label}.csv`; a.click()
@@ -385,7 +423,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
         categoryAccent: accent,
         logoUrl: cs?.logo_url,
       })
-    } catch(e) { console.error('PDF export failed', e); alert('PDF export failed — ' + (e?.message || 'unknown')) }
+    } catch(e) { console.error('PDF export failed', e); showAppToast('PDF export failed — ' + (e?.message || 'unknown'), 'error') }
     setExporting(false)
   }
   return (
@@ -423,7 +461,7 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
       })
     } catch (e) {
       console.error('Year-End Pack export failed', e)
-      alert('Could not generate the pack — ' + (e?.message || 'unknown error'))
+      showAppToast('Could not generate the pack — ' + (e?.message || 'unknown error'), 'error')
     }
     setBusy(false)
   }
@@ -521,11 +559,8 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const hasPaid = filtRent.some(r => r.status === 'paid')
       const monthRent = MONTHS.map((_, m) =>
         hasPaid
-          ? filtRent.filter(r => {
-              if (r.status !== 'paid') return false
-              if (r.payment_date) return new Date(r.payment_date).getMonth() === m
-              return r.month === (m + 1)
-            }).reduce((s,r) => s + (r.amount || 0), 0)
+          ? filtRent.filter(r => r.status === 'paid' && r.month === (m + 1))
+            .reduce((s,r) => s + (r.amount || 0), 0)
           : filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
       )
       const monthExp = MONTHS.map((_, m) =>
@@ -1036,7 +1071,7 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
           const monthRent = months.map((_, m) => {
             if (!hasPaid) return p.rent_pcm || 0
             return filtRent.filter(r => r.property_id === p.id && r.status === 'paid'
-              && (r.payment_date ? new Date(r.payment_date).getMonth() === m : r.month === (m+1))
+              && r.month === (m+1)
             ).reduce((s,r) => s + (r.amount||0), 0)
           })
           const tot = monthRent.reduce((s,v)=>s+v,0)
@@ -1162,7 +1197,7 @@ function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, a
     : [0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({m,y:year}))
   const propRent = filtProps.map(p => {
     const monthData = months.map(({m,y}) => {
-      const paid = filtRent.filter(r => r.property_id===p.id && new Date(r.payment_date||r.month).getMonth()===m && new Date(r.payment_date||r.month).getFullYear()===y)
+      const paid = filtRent.filter(r => r.property_id===p.id && r.month === (m+1) && r.year === y)
         .reduce((s,r)=>s+(r.amount||0),0)
       return paid || (p.rent_pcm||0)
     })
@@ -1468,11 +1503,8 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
     const rent = hasPaid
       ? filtRent.filter(r => {
           if (r.status !== 'paid') return false
-          // Prefer payment_date when present; fall back to year/month columns.
-          if (r.payment_date) {
-            const d = new Date(r.payment_date)
-            return d.getMonth() === m && d.getFullYear() === y
-          }
+          // year/month columns are kept in sync with period_start by every
+          // writer, so they're the reliable month bucket.
           return r.month === (m + 1) && r.year === y
         }).reduce((s,r) => s + (r.amount || 0), 0)
       // No payment records anywhere → assume expected rent (legacy display).

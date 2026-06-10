@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import BillingPage from './BillingPage'
-import HelpCenter from './HelpCenter'
+// HelpCenter is ~800 lines of static guide content only seen on the Settings
+// "Help" tab — lazy-load it so it stays out of the main bundle.
+const HelpCenter = lazy(() => import('./HelpCenter'))
 import TrashPage from './TrashPage'
 import BackupsPage from './BackupsPage'
 import CalcExplain from './CalcExplain'
@@ -64,7 +66,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
   async function loadItems() {
     setLoading(true)
     try { setItems(await api.fetchCompliance(propertyId)) }
-    catch(e) { }
+    catch(e) { showToast(e.message || 'Failed to load compliance certificates', 'error') }
     setLoading(false)
   }
 
@@ -175,7 +177,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
       const d = await api.fetchTenancyDetails(propertyId)
       setDetails(d)
       setForm(d||{})
-    } catch(e) { }
+    } catch(e) { showToast(e.message || 'Failed to load tenancy details', 'error') }
     setLoading(false)
   }
 
@@ -294,7 +296,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
   async function loadExpenses() {
     setLoading(true)
     try { setExpenses(await api.fetchExpenses(propertyId)) }
-    catch(e) { }
+    catch(e) { showToast(e.message || 'Failed to load expenses', 'error') }
     setLoading(false)
   }
 
@@ -460,7 +462,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       }
       const mc = await api.fetchMilestoneDefaults(user?.id)
       setMilestoneConfig(mc || {})
-    } catch(e) {}
+    } catch(e) { showToast(e.message || 'Failed to load profile', 'error') }
     setProfileLoading(false)
   }
 
@@ -991,7 +993,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {/* ── HELP & GUIDES TAB ── */}
       {settingsTab==='help' && (
-        <HelpCenter/>
+        <Suspense fallback={null}>
+          <HelpCenter/>
+        </Suspense>
       )}
 
       {/* ── REPORTING TAB ── */}
@@ -3779,11 +3783,16 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
     setSavingNotify(false)
   }
 
-  function generateInviteLink() {
+  async function generateInviteLink() {
     if (!inviteProperty) { showToast('Select a property first','error'); return }
-    const link = `${window.location.origin}?tenant_property=${inviteProperty}`
-    setInviteLink(link)
-    showToast('Invite link generated')
+    try {
+      // Invites are DB-issued single-use tokens (tenant_invites) — raw
+      // `?tenant_property=<uuid>` links are no longer honoured.
+      const { data: { session } } = await supabase.auth.getSession()
+      const { signupUrl } = await api.inviteTenant(inviteProperty, null, session?.user?.id ?? null)
+      setInviteLink(signupUrl)
+      showToast('Invite link generated')
+    } catch(e) { showToast(e.message,'error') }
   }
 
   const inp = { fontFamily:mono, fontSize:12, background:T.surface, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%' }
@@ -4128,6 +4137,15 @@ function AuditLogPanel({ user, companies, T }) {
     'inspection.created':          { label: 'Inspection scheduled', color: '#4B8FE0' },
   }
 
+  // Neutralise CSV formula injection: a cell starting with = + - @ or a tab
+  // executes as a formula in Excel/Sheets. Prefix a quote unless the value is
+  // purely numeric.
+  function csvSafe(v) {
+    const s = String(v == null ? '' : v)
+    if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) return "'" + s
+    return s
+  }
+
   function exportAuditCSV() {
     const rows = [
       ['Date', 'Action', 'Entity', 'Details'],
@@ -4138,7 +4156,7 @@ function AuditLogPanel({ user, companies, T }) {
         JSON.stringify(l.metadata || {}),
       ])
     ]
-    const csv = rows.map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const csv = rows.map(r => r.map(v => `"${csvSafe(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
     a.download = 'ownproperly-audit-log.csv'; a.click()
   }

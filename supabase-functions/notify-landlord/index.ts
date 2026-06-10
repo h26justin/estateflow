@@ -39,10 +39,10 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
-  // Auth — must be a valid tenant user. We don't lock down to "registered
-  // tenant of this property" because that's a lot of policy for low
-  // abuse risk; the worst case is a logged-in user spamming notifications
-  // to a random landlord, which we can rate-limit later if needed.
+  // Auth — must be a valid user AND a registered tenant of the property
+  // (checked against tenant_profiles below, after the body is parsed).
+  // Without that check any logged-in user could push arbitrary
+  // notifications into any landlord's bell via this service-role insert.
   const authHeader = req.headers.get('Authorization') || ''
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -57,8 +57,20 @@ serve(async (req) => {
   if (!property_id || !title || !type) {
     return json({ error: 'property_id, type, title required' }, 400)
   }
+  if (type !== 'maintenance' && type !== 'message') {
+    return json({ error: 'type must be maintenance or message' }, 400)
+  }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  // Caller must be a registered tenant of this property.
+  const { data: tenantLink } = await admin
+    .from('tenant_profiles')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .eq('property_id', property_id)
+    .maybeSingle()
+  if (!tenantLink) return json({ error: 'Not a registered tenant of this property' }, 403)
 
   // Find the landlord (property owner). Property.user_id is the owner.
   const { data: prop } = await admin
@@ -70,22 +82,24 @@ serve(async (req) => {
   if (!prop) return json({ error: 'Property not found' }, 404)
 
   const propLabel = prop.name || prop.address || 'a property'
-  const priorityTag = priority === 'urgent' ? '🔴 URGENT · ' : priority === 'high' ? '⚠️ HIGH · ' : ''
+  const safeTitle = String(title).slice(0, 120)
+  const safePriority = ['low', 'normal', 'high', 'urgent'].includes(priority) ? priority : 'normal'
+  const priorityTag = safePriority === 'urgent' ? '🔴 URGENT · ' : safePriority === 'high' ? '⚠️ HIGH · ' : ''
 
   const notif = type === 'maintenance'
     ? {
         user_id: prop.user_id,
         type: 'maintenance_ticket',
-        title: `${priorityTag}🔧 Repair reported: ${title}`,
-        body: `${propLabel} — ${message ? message.slice(0, 140) : 'Tenant has submitted a repair request.'}`,
+        title: `${priorityTag}🔧 Repair reported: ${safeTitle}`,
+        body: `${propLabel} — ${message ? String(message).slice(0, 140) : 'Tenant has submitted a repair request.'}`,
         link: `#/detail/${property_id}/maintenance`,
-        metadata: { property_id, priority: priority || 'normal', photos_count: (photos || []).length, sender_user_id: user.id },
+        metadata: { property_id, priority: safePriority, photos_count: (photos || []).length, sender_user_id: user.id },
       }
     : {
         user_id: prop.user_id,
         type: 'tenant_message',
         title: `💬 New message: ${propLabel}`,
-        body: message ? message.slice(0, 200) : title,
+        body: message ? String(message).slice(0, 200) : safeTitle,
         link: `#/detail/${property_id}/messages`,
         metadata: { property_id, sender_user_id: user.id },
       }
@@ -93,7 +107,7 @@ serve(async (req) => {
   const { error: insErr } = await admin.from('notifications').insert(notif)
   if (insErr) {
     console.error('notification insert failed', insErr)
-    return json({ error: insErr.message }, 500)
+    return json({ error: 'Could not deliver notification' }, 500)
   }
 
   return json({ ok: true, notified_user: prop.user_id })

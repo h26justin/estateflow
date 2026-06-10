@@ -320,11 +320,13 @@ export default function OnboardingWizard({ user, onComplete }) {
               <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 10 }}>Brand Colour</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {COLOURS.map(col => (
-                  <div key={col} onClick={() => setCompanyColor(col)} style={{
-                    width: 32, height: 32, borderRadius: 8, background: col, cursor: 'pointer',
-                    border: `3px solid ${companyColor === col ? SLATE : 'transparent'}`,
-                    transition: 'border 0.15s', boxSizing: 'border-box'
-                  }}/>
+                  <button key={col} type="button" onClick={() => setCompanyColor(col)}
+                    aria-label={`Brand colour ${col}`} aria-pressed={companyColor === col}
+                    style={{
+                      width: 32, height: 32, borderRadius: 8, background: col, cursor: 'pointer',
+                      border: `3px solid ${companyColor === col ? SLATE : 'transparent'}`,
+                      transition: 'border 0.15s', boxSizing: 'border-box', padding: 0
+                    }}/>
                 ))}
               </div>
             </div>

@@ -108,9 +108,13 @@ serve(async (req) => {
   if (req.method !== 'POST')    return new Response('Method not allowed', { status: 405, headers: corsHeaders })
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
-  const ip    = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  // X-Forwarded-For: the LEFTMOST entries are client-supplied and trivially
+  // spoofable; the platform's own proxy appends the real connecting IP as
+  // the RIGHTMOST hop, so key the rate limit on that.
+  const xff = req.headers.get('x-forwarded-for') || ''
+  const ip  = xff.split(',').pop()?.trim() || 'unknown'
 
-  // Naive IP rate limit: max 10 captures per hour from one IP.
+  // Per-IP rate limit: max 10 captures per hour from one IP.
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   const { count: recentCount } = await admin
     .from('marketing_leads')
@@ -137,9 +141,39 @@ serve(async (req) => {
   }
   if (!isValidEmail(email)) return jsonErr(400, 'Invalid email')
 
+  // Per-email send cap: confirm a given address at most once per 24h.
+  // Tracked under payload._email_meta on the lead row (one row per email).
+  const { data: existing } = await admin
+    .from('marketing_leads')
+    .select('id, payload')
+    .eq('email', email)
+    .maybeSingle()
+  const prevMeta = (existing?.payload as any)?._email_meta || {}
+  const lastSentAt = prevMeta.last_sent_at ? new Date(prevMeta.last_sent_at).getTime() : 0
+  let shouldSend = Date.now() - lastSentAt > 24 * 60 * 60 * 1000
+
+  // Global cap: if more than 50 new leads landed in the last hour someone
+  // is hammering the endpoint — keep saving leads, stop sending email
+  // (the send is the abuse primitive: Resend fees + domain reputation).
+  if (shouldSend) {
+    const { count: globalCount } = await admin
+      .from('marketing_leads')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', oneHourAgo)
+    if ((globalCount || 0) >= 50) {
+      console.warn('[lead-capture] global hourly cap hit — suppressing confirmation email for', email)
+      shouldSend = false
+    }
+  }
+
+  const emailMeta = shouldSend
+    ? { last_sent_at: new Date().toISOString(), sent_count: (prevMeta.sent_count || 0) + 1 }
+    : prevMeta
+
   // Insert the lead (upsert on email — re-submissions update payload).
   const { error: insErr } = await admin.from('marketing_leads').upsert({
-    email, source, payload, ip,
+    email, source, ip,
+    payload: { ...(payload || {}), _email_meta: emailMeta },
   }, { onConflict: 'email' })
   if (insErr) {
     console.error('[lead-capture] insert failed:', insErr)
@@ -147,7 +181,9 @@ serve(async (req) => {
   }
 
   // Confirmation email (fire-and-forget — don't block the response on it).
-  sendConfirmation(email, source).catch(e => console.warn('[lead-capture] confirm send fail:', e))
+  if (shouldSend) {
+    sendConfirmation(email, source).catch(e => console.warn('[lead-capture] confirm send fail:', e))
+  }
 
   return jsonOk({ ok: true })
 

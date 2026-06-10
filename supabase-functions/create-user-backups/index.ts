@@ -26,7 +26,7 @@ async function backupOneUser(admin: any, userId: string, userEmail: string, trig
     admin.from('right_to_rent').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
     admin.from('deposit_protection').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
     admin.from('legal_notices').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
-    admin.from('property_documents').select('id,name,created_at,url').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
+    admin.from('property_documents').select('id,name,file_url,file_path,file_type,file_size,category,created_at').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
   ])
 
   const counts = {

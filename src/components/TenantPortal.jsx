@@ -39,6 +39,20 @@ const STATUS_COLORS = {
   pending: { bg:'#C8A84B22', color:'#C8A84B', label:'Pending' },
   void:    { bg:'#88888822', color:'#888',    label:'Void' },
 }
+// When a month holds several rent segments, the worst one wins the square.
+const STATUS_PRIORITY = { overdue: 4, pending: 3, paid: 2, void: 1 }
+
+// rent_payments rows key months on integer year/month columns (a month can
+// hold several dated segments). Sum the rows' amounts for a status, falling
+// back to one month's rent per distinct month only when no row carries an
+// amount — never per segment, which would overcount split months.
+function sumForStatus(payments, status, rentPcm) {
+  const rows = (payments || []).filter(p => p.status === status)
+  const amount = rows.reduce((s, p) => s + (p.amount || 0), 0)
+  if (amount > 0) return amount
+  const months = new Set(rows.map(p => `${p.year}-${p.month}`)).size
+  return months * (rentPcm || 0)
+}
 const JOB_STATUS = {
   open:          { bg:'#E0943A22', color:'#E0943A', label:'Open' },
   'in-progress': { bg:'#4B8FE022', color:'#4B8FE0', label:'In progress' },
@@ -67,22 +81,16 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   async function loadAll() {
     setLoading(true)
     try {
-      // Load tenant's property profile
+      // Load tenant's property profile. Bank details and feature flags ride
+      // along in the same curated RPC payload — tenants have no direct read
+      // access to company_settings.
       const data = await api.fetchTenantProperty(user.id)
       setProfile(data)
 
       const co = data?.property?.company
       setCompany(co)
-
-      // Load bank details and company settings (features)
-      if (co?.id) {
-        const [bank, settings] = await Promise.all([
-          api.fetchCompanyBankDetails(co.id),
-          api.fetchCompanySettings(co.id).catch(() => ({}))
-        ])
-        setBankDetails(bank)
-        setFeatures(settings || {})
-      }
+      setBankDetails(data?.bank_details || {})
+      setFeatures(data?.features || {})
     } catch(e) {
       setError('Unable to load your tenancy. Please contact your landlord.')
     }
@@ -224,12 +232,11 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
     }).catch(()=>{})
     // Calculate arrears from rent_payments
     api.fetchTenantPaymentTracker(property.id).then(payments => {
-      const overdue = payments.filter(p=>p.status==='overdue').reduce((s,p)=>s+(p.amount||0),0)
-      setArrears(overdue)
+      setArrears(sumForStatus(payments, 'overdue', property?.rent_pcm))
     }).catch(()=>{})
   }, [property.id])
 
-  const endDays = tenancy?.end_date ? Math.ceil((new Date(tenancy.end_date)-new Date())/(1000*60*60*24)) : null
+  const endDays = tenancy?.tenancy_end ? Math.ceil((new Date(tenancy.tenancy_end)-new Date())/(1000*60*60*24)) : null
 
   return (
     <div>
@@ -272,9 +279,9 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
         <Card style={{marginBottom:16}}>
           <SectionLabel>Your tenancy</SectionLabel>
           {[
-            ['Tenant name',   tenancy.tenant_name||'—'],
-            ['Start date',    tenancy.start_date?new Date(tenancy.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
-            ['End date',      tenancy.end_date?new Date(tenancy.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'Rolling'],
+            ['Tenant name',   tenancy.tenant_names||'—'],
+            ['Start date',    tenancy.tenancy_start?new Date(tenancy.tenancy_start).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
+            ['End date',      tenancy.tenancy_end?new Date(tenancy.tenancy_end).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'Rolling'],
             ['Notice period', tenancy.notice_period||'—'],
             ['Deposit held',  tenancy.deposit_amount?fmt(tenancy.deposit_amount):'—'],
             ['Deposit scheme',tenancy.deposit_scheme||'—'],
@@ -334,22 +341,24 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
     api.fetchTenantPaymentTracker(property.id).then(d=>{setPayments(d);setLoading(false)}).catch(()=>setLoading(false))
   },[property.id])
 
-  const paid    = payments.filter(p=>p.status==='paid')
-  const overdue = payments.filter(p=>p.status==='overdue')
-  const totalPaid   = paid.reduce((s,p)=>s+(p.amount||property?.rent_pcm||0),0)
-  const totalArrears = overdue.reduce((s,p)=>s+(p.amount||property?.rent_pcm||0),0)
+  const totalPaid    = sumForStatus(payments, 'paid', property?.rent_pcm)
+  const totalArrears = sumForStatus(payments, 'overdue', property?.rent_pcm)
 
-  // Build monthly tracker — last 12 months
+  // Build monthly tracker — last 12 months. rent_payments months are integer
+  // year/month columns; a month can hold several dated segments, so take the
+  // worst status and sum the segment amounts.
   const now = new Date()
   const monthTracker = Array.from({length:12},(_,i)=>{
     const d = new Date(now.getFullYear(), now.getMonth()-11+i, 1)
-    const monthStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-    const match = payments.find(p=>{
-      const pm = (p.month||p.payment_date||'').substring(0,7)
-      return pm === monthStr
-    })
+    const y = d.getFullYear(), mo = d.getMonth()+1
+    const matches = payments.filter(p => Number(p.year) === y && Number(p.month) === mo)
+    let status = null
+    for (const p of matches) {
+      if (status === null || (STATUS_PRIORITY[p.status]||0) > (STATUS_PRIORITY[status]||0)) status = p.status
+    }
+    const summed = matches.reduce((s,p)=>s+(p.amount||0),0)
     const isFuture = d > now
-    return { label: MONTHS[d.getMonth()], year: d.getFullYear(), status: isFuture ? 'future' : match?.status || 'unknown', amount: match?.amount || property?.rent_pcm || 0, isFuture }
+    return { label: MONTHS[d.getMonth()], year: y, status: isFuture ? 'future' : status || 'unknown', amount: summed || property?.rent_pcm || 0, isFuture }
   })
 
   const statusConfig = {
@@ -450,8 +459,8 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
               const sc = STATUS_COLORS[p.status]||STATUS_COLORS.pending
               return (
                 <div key={p.id} style={{display:'grid',gridTemplateColumns:'110px 1fr 110px 90px',gap:8,padding:'10px 0',borderBottom:'1px solid #f8f8f8',alignItems:'center'}}>
-                  <div style={{fontFamily:mono,fontSize:11,color:'#888'}}>{p.payment_date?new Date(p.payment_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:'#2D3C4A'}}>{p.month?new Date(p.month+'-01').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'—'}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:'#888'}}>{p.period_start?new Date(p.period_start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:'#2D3C4A'}}>{p.month_label||(p.year&&p.month?`${MONTHS[Number(p.month)-1]} ${p.year}`:'—')}</div>
                   <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:'#2D3C4A'}}>{fmt(p.amount||property?.rent_pcm)}</div>
                   <div><span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span></div>
                 </div>
@@ -667,10 +676,22 @@ function TenantMaintenance({ property, user, brandColor }) {
 function TenantDocuments({ property, user, brandColor }) {
   const [docs, setDocs]     = useState([])
   const [loading, setLoading] = useState(true)
+  const [openingId, setOpeningId] = useState(null)
 
   useEffect(()=>{
     api.fetchTenantDocuments(property.id).then(d=>{setDocs(d);setLoading(false)}).catch(()=>setLoading(false))
   },[property.id])
+
+  // Bucket is private — fetch a short-lived signed URL on demand rather than
+  // relying on a stored public URL.
+  async function openDoc(doc) {
+    setOpeningId(doc.id)
+    try {
+      const url = doc.file_path ? await api.getDocumentSignedUrl(doc.file_path) : (doc.file_url || doc.url)
+      if (url) window.open(url, '_blank', 'noopener')
+    } catch(e) {}
+    setOpeningId(null)
+  }
 
   const getIcon = name => ({ pdf:'📄', jpg:'🖼', jpeg:'🖼', png:'🖼', doc:'📝', docx:'📝' })[(name||'').split('.').pop()?.toLowerCase()] || '📎'
 
@@ -693,10 +714,10 @@ function TenantDocuments({ property, user, brandColor }) {
                   {doc.size?`${(doc.size/1024).toFixed(0)}KB · `:''}Added {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                 </div>
               </div>
-              <a href={doc.url} target="_blank" rel="noreferrer"
-                style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'7px 16px',borderRadius:8,background:brandColor+'22',color:brandColor,textDecoration:'none',flexShrink:0}}>
-                Download
-              </a>
+              <button onClick={()=>openDoc(doc)} disabled={openingId===doc.id}
+                style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'7px 16px',borderRadius:8,border:'none',background:brandColor+'22',color:brandColor,cursor:'pointer',flexShrink:0}}>
+                {openingId===doc.id?'Opening…':'Download'}
+              </button>
             </Card>
           ))}
         </div>
@@ -801,9 +822,9 @@ function TenantProfile({ property, user, company }) {
         <Card style={{marginBottom:16}}>
           <SectionLabel>Tenancy details</SectionLabel>
           {[
-            ['Tenant name',    tenancy.tenant_name||'—'],
-            ['Start date',     tenancy.start_date?new Date(tenancy.start_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
-            ['End date',       tenancy.end_date?new Date(tenancy.end_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'Rolling'],
+            ['Tenant name',    tenancy.tenant_names||'—'],
+            ['Start date',     tenancy.tenancy_start?new Date(tenancy.tenancy_start).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'—'],
+            ['End date',       tenancy.tenancy_end?new Date(tenancy.tenancy_end).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'Rolling'],
             ['Notice period',  tenancy.notice_period||'—'],
             ['Deposit amount', tenancy.deposit_amount?fmt(tenancy.deposit_amount):'—'],
             ['Deposit scheme', tenancy.deposit_scheme||'—'],

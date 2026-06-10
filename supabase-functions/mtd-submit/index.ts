@@ -124,6 +124,15 @@ serve(async (req) => {
     if (!settings?.nino) throw new Error('Missing NINO in HMRC settings')
     if (!settings?.mtd_business_id) throw new Error('Missing HMRC property business ID')
 
+    // Foreign property uses a different HMRC endpoint AND payload shape
+    // (foreignProperty, not ukProperty). Until that's implemented, refuse
+    // loudly rather than posting an invalid UK-shaped body to the foreign
+    // endpoint. FHL is fine: the FHL regime is abolished from 2025-26, so
+    // FHL income files as ordinary UK property under API v6.0.
+    if (settings.property_business_type === 'foreign-property') {
+      throw new Error('Foreign property submissions aren\'t supported yet — OwnProperly currently files UK property businesses only. Please file this business via HMRC\'s own service or contact support.')
+    }
+
     // Resolve the access + refresh tokens — prefer the encrypted column,
     // fall back to the legacy plaintext column for pre-encryption rows.
     const accessTokenStored = await resolveToken({
@@ -202,10 +211,10 @@ serve(async (req) => {
       },
     }
 
-    // POST to HMRC — endpoint shape per the Property Business API v6.0
-    const businessType = settings.property_business_type === 'foreign-property' ? 'foreign'
-                       : settings.property_business_type === 'fhl-property' ? 'uk' : 'uk'
-    const url = `${HMRC_BASE_URL}/individuals/business/property/${businessType}/${encodeURIComponent(settings.nino)}/${encodeURIComponent(settings.mtd_business_id)}/period/${sub.tax_year}`
+    // POST to HMRC — endpoint shape per the Property Business API v6.0.
+    // Always the UK endpoint: foreign-property is rejected above, and
+    // fhl-property correctly files as UK property (FHL regime abolished).
+    const url = `${HMRC_BASE_URL}/individuals/business/property/uk/${encodeURIComponent(settings.nino)}/${encodeURIComponent(settings.mtd_business_id)}/period/${sub.tax_year}`
 
     // ── Fraud Prevention Headers (mandatory per HMRC spec) ──
     // Spec: https://developer.service.hmrc.gov.uk/guides/fraud-prevention/

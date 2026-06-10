@@ -80,8 +80,8 @@ const STEPS = [
   },
   {
     icon: '📊',
-    title: '20 reports & analytics',
-    desc: "The Reports section has 20 built-in reports — P&L per property, tax summaries, arrears, compliance status, occupancy rate, rent roll, yield rankings and more. Every report exports to CSV for your accountant.",
+    title: '16 reports & analytics',
+    desc: "The Reports section has 16 built-in reports — P&L per property, tax summaries, arrears, compliance status, occupancy rate, rent roll, yield rankings and more. Every report exports to CSV for your accountant.",
     tip: "The dashboard shows your total portfolio value, monthly income, equity and arrears at a glance — with filters by company.",
     tag: 'Reports',
   },
@@ -218,12 +218,14 @@ export default function OnboardingTour({ user, onComplete }) {
         {/* Step dots */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 5, paddingBottom: 2 }}>
           {STEPS.map((_, i) => (
-            <div key={i} onClick={() => setStep(i)} style={{
-              width: i === step ? 18 : 6, height: 6,
-              borderRadius: 3, cursor: 'pointer',
-              background: i === step ? GOLD : i < step ? GOLD + '55' : '#D8D4CE',
-              transition: 'all 0.25s',
-            }}/>
+            <button key={i} type="button" onClick={() => setStep(i)}
+              aria-label={`Go to step ${i + 1} of ${STEPS.length}`} aria-current={i === step ? 'step' : undefined}
+              style={{
+                width: i === step ? 18 : 6, height: 6,
+                borderRadius: 3, cursor: 'pointer', border: 'none', padding: 0,
+                background: i === step ? GOLD : i < step ? GOLD + '55' : '#D8D4CE',
+                transition: 'all 0.25s',
+              }}/>
           ))}
         </div>
 

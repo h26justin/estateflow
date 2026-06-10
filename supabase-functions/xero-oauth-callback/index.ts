@@ -13,8 +13,9 @@
 //   XERO_CLIENT_SECRET
 //   XERO_REDIRECT_URI   (e.g. https://<ref>.supabase.co/functions/v1/xero-oauth-callback)
 //
-// State token is signed-ish: { user_id, return_to, nonce } base64-encoded.
-// HMAC signing would be stronger — TODO when we ship live.
+// State token is HMAC-SHA256 signed (see ./oauth-state.ts) and carries a
+// one-time nonce persisted in oauth_nonces at start and burned at callback.
+// return_to is validated against the app-origin allow-list.
 //
 // Justin: register app at https://developer.xero.com/myapps with the
 // above redirect URI, then set the three secrets via:
@@ -25,6 +26,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken } from './encryption.ts'
+import { signState, verifyState, safeReturnTo, escapeHtml } from './oauth-state.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -69,14 +71,6 @@ function jsonError(status: number, message: string) {
   })
 }
 
-function encodeState(payload: Record<string, unknown>): string {
-  return btoa(JSON.stringify(payload))
-}
-
-function decodeState(s: string): Record<string, any> {
-  try { return JSON.parse(atob(s)) } catch { return {} }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -86,8 +80,20 @@ serve(async (req) => {
   // ── Callback from Xero (GET ?code=...&state=...) ──
   if (req.method === 'GET' && url.searchParams.has('code')) {
     const code = url.searchParams.get('code')!
-    const state = decodeState(url.searchParams.get('state') || '')
-    if (!state.user_id) return new Response('Invalid state', { status: 400 })
+    const state = await verifyState(url.searchParams.get('state') || '')
+    if (!state || !state.user_id || !state.nonce) return new Response('Invalid state', { status: 400 })
+
+    // Burn the one-time nonce — a state that wasn't minted by our "start"
+    // step (or that has already been used) doesn't get to write tokens.
+    const { data: burned } = await admin.from('oauth_nonces')
+      .delete()
+      .eq('nonce', state.nonce)
+      .eq('user_id', state.user_id)
+      .gt('expires_at', new Date().toISOString())
+      .select('nonce')
+    if (!burned || burned.length === 0) return new Response('Invalid state', { status: 400 })
+
+    const returnTo = safeReturnTo(state.return_to)
 
     if (!XERO_CLIENT_ID || !XERO_CLIENT_SECRET) {
       return new Response('Xero not configured. Justin needs to set XERO_CLIENT_ID + XERO_CLIENT_SECRET.', { status: 500 })
@@ -109,7 +115,8 @@ serve(async (req) => {
     })
     if (!tokenRes.ok) {
       const t = await tokenRes.text()
-      return new Response('Xero token exchange failed: ' + t, { status: 500 })
+      console.error('Xero token exchange failed:', tokenRes.status, t.slice(0, 500))
+      return new Response('Xero token exchange failed — please retry from Settings → Integrations', { status: 500 })
     }
     const tokens = await tokenRes.json()
 
@@ -143,9 +150,8 @@ serve(async (req) => {
       // Bad OWNPROPERLY_TOKEN_KEY (wrong length etc) — surface clearly
       // instead of silently failing and leaving the user wondering why
       // the connection vanished.
-      const returnTo2 = state.return_to || '/'
       return new Response(
-        `<h1>Xero connection failed</h1><p>Token encryption failed: ${(e as Error).message}</p><p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p><p><a href="${returnTo2}">Back to OwnProperly</a></p>`,
+        `<h1>Xero connection failed</h1><p>Token encryption failed: ${escapeHtml((e as Error).message)}</p><p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p><p><a href="${escapeHtml(returnTo)}">Back to OwnProperly</a></p>`,
         { status: 500, headers: { 'Content-Type': 'text/html' } }
       )
     }
@@ -165,9 +171,9 @@ serve(async (req) => {
     }, { onConflict: 'user_id,company_id' })
 
     if (upsertErr) {
-      const returnTo3 = state.return_to || '/'
+      console.error('xero_connections upsert failed:', upsertErr.message, upsertErr.code, upsertErr.details, upsertErr.hint)
       return new Response(
-        `<h1>Xero connection failed</h1><p>Could not save the Xero connection to the database.</p><pre style="background:#f4f4f4;padding:10px;border-radius:6px;font-family:monospace;font-size:12px">${upsertErr.message}\n\nCode: ${upsertErr.code}\nDetails: ${upsertErr.details || '(none)'}\nHint: ${upsertErr.hint || '(none)'}</pre><p><a href="${returnTo3}">Back to OwnProperly</a></p>`,
+        `<h1>Xero connection failed</h1><p>Could not save the Xero connection to the database. Please retry from Settings → Integrations — if it keeps failing, contact support.</p><p><a href="${escapeHtml(returnTo)}">Back to OwnProperly</a></p>`,
         { status: 500, headers: { 'Content-Type': 'text/html' } }
       )
     }
@@ -179,7 +185,6 @@ serve(async (req) => {
     }).select().maybeSingle().then(() => {}).catch(() => {}) // ignore conflict
 
     // Redirect back into the app
-    const returnTo = state.return_to || '/'
     return new Response(null, { status: 302, headers: { Location: returnTo } })
   }
 
@@ -203,11 +208,25 @@ serve(async (req) => {
     if (!body.company_id) {
       return jsonError(400, 'company_id required — pick which OwnProperly company to link this Xero org to')
     }
-    const state = encodeState({
+    // Mint and persist a one-time nonce so the callback can prove this
+    // state was issued by us to this user (burned on first use).
+    const nonce = crypto.randomUUID()
+    const { error: nonceErr } = await admin.from('oauth_nonces').insert({
+      nonce, user_id: caller.id, provider: 'xero',
+    })
+    if (nonceErr) {
+      console.error('oauth_nonces insert failed:', nonceErr.message)
+      return jsonError(500, 'Could not start Xero OAuth — please try again')
+    }
+    // Opportunistic cleanup of expired nonces (cheap, fire-and-forget)
+    admin.from('oauth_nonces').delete().lt('expires_at', new Date().toISOString()).then(() => {}, () => {})
+
+    const state = await signState({
       user_id: caller.id,
       company_id: body.company_id,
-      return_to: body.return_to || '',
-      nonce: crypto.randomUUID(),
+      return_to: safeReturnTo(body.return_to),
+      nonce,
+      exp: Date.now() + 15 * 60_000,
     })
 
     const authorizeUrl = `https://login.xero.com/identity/connect/authorize?` + new URLSearchParams({

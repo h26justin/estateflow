@@ -2,9 +2,32 @@
 import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
-import { ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab, DocumentsTab, CompanyDocumentsTab } from './components/FeatureComponents'
-import { MaintenanceTab } from './components/maintenance'
-import { RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert } from './components/tenancy'
+// FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
+// maintenance tab modules (which pull in NoticeGenerator) only render on
+// the property-detail / settings / companies views — lazy-load them so
+// they drop out of the entry chunk. Logged-out marketing visitors and the
+// first dashboard paint no longer pay for them. lazyNamed() adapts a
+// named export to React.lazy's default-export contract; repeated imports
+// of the same module share one chunk/fetch.
+const lazyNamed = (loader, name) => lazy(() => loader().then(m => ({ default: m[name] })))
+const featureModule = () => import('./components/FeatureComponents')
+const ComplianceTab       = lazyNamed(featureModule, 'ComplianceTab')
+const TenancyTab          = lazyNamed(featureModule, 'TenancyTab')
+const ExpensesTab         = lazyNamed(featureModule, 'ExpensesTab')
+const SettingsPage        = lazyNamed(featureModule, 'SettingsPage')
+const NotesTimeline       = lazyNamed(featureModule, 'NotesTimeline')
+const OverviewTab         = lazyNamed(featureModule, 'OverviewTab')
+const FinancialsTab       = lazyNamed(featureModule, 'FinancialsTab')
+const DocumentsTab        = lazyNamed(featureModule, 'DocumentsTab')
+const CompanyDocumentsTab = lazyNamed(featureModule, 'CompanyDocumentsTab')
+const maintenanceModule = () => import('./components/maintenance')
+const MaintenanceTab = lazyNamed(maintenanceModule, 'MaintenanceTab')
+const tenancyModule = () => import('./components/tenancy')
+const RightToRentTab       = lazyNamed(tenancyModule, 'RightToRentTab')
+const DepositProtectionTab = lazyNamed(tenancyModule, 'DepositProtectionTab')
+const NoticeTrackerTab     = lazyNamed(tenancyModule, 'NoticeTrackerTab')
+const RentHistoryTab       = lazyNamed(tenancyModule, 'RentHistoryTab')
+const TenancyRenewalAlert  = lazyNamed(tenancyModule, 'TenancyRenewalAlert')
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
 // Heavy / rarely-on-first-paint pages — code-split via React.lazy so they
@@ -19,20 +42,20 @@ const DayTrackerPage  = lazy(() => import('./components/DayTrackerPage'))
 const PropertyMap     = lazy(() => import('./components/PropertyMap'))
 const InsurancePage   = lazy(() => import('./components/InsurancePage'))
 const MtdItsaPage     = lazy(() => import('./components/MtdItsaPage'))
-import { StatementImporter } from './components/StatementImporter'
+const StatementImporter = lazyNamed(() => import('./components/StatementImporter'), 'StatementImporter')
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
 import LoginPage from './components/LoginPage'
-import OnboardingWizard from './components/OnboardingWizard'
+const OnboardingWizard = lazy(() => import('./components/OnboardingWizard'))
 import BillingPage from './components/BillingPage'
 import PrivacyPolicy from './components/PrivacyPolicy'
 import TermsOfService from './components/TermsOfService'
 import SecurityPage from './components/SecurityPage'
-import OnboardingTour from './components/OnboardingTour'
+const OnboardingTour = lazy(() => import('./components/OnboardingTour'))
 import CalcExplain from './components/CalcExplain'
 import ActionMenu from './components/ActionMenu'
-import BulkAddPropertyModal from './components/BulkAddPropertyModal'
+const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModal'))
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
@@ -53,7 +76,7 @@ import BankInboxModal from './components/BankInboxModal'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
 import SuspendedAccessBanner from './components/SuspendedAccessBanner'
 import BuildingMortgageModal from './components/BuildingMortgageModal'
-import ReceiptScanModal from './components/ReceiptScanModal'
+const ReceiptScanModal = lazy(() => import('./components/ReceiptScanModal'))
 import { canUseInvestorFeatures } from './lib/tierGating'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
@@ -67,6 +90,15 @@ import CustomizeDashModal from './components/modals/CustomizeDashModal'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
+
+// Allow only http(s) destinations into href/location sinks. Relative URLs
+// resolve against the app origin and pass; javascript:/data:/etc. are blocked.
+function isSafeUrl(url) {
+  try {
+    const proto = new URL(String(url), window.location.origin).protocol
+    return proto === 'http:' || proto === 'https:'
+  } catch (e) { return false }
+}
 
 function calcMonthlyMortgage(p) {
   // Priority 1: user-entered actual monthly payment (any positive number).
@@ -136,8 +168,8 @@ const Badge = memo(({status}) => {
   </span>
 })
 
-const HealthBadge = memo(({property}) => {
-  const h = api.calcPropertyHealthScore(property, property.compliance_items||[], property.tenancy||null, property.maintenance_jobs||[], property.rent_payments||[])
+const HealthBadge = memo(({property, tenancy=null}) => {
+  const h = api.calcPropertyHealthScore(property, property.compliance_items||[], tenancy||property.tenancy||null, property.maintenance_jobs||[], property.rent_payments||[])
   return (
     <span title={`Health: ${h.score}/100${h.issues.length ? ' · ' + h.issues[0].text : ''}`}
       style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:20,
@@ -207,6 +239,36 @@ function monthDominantStatus(segs) {
     if (segs.some(p => p.status === s)) return s
   }
   return segs[0]?.status || 'void'
+}
+
+// Month-level stats for a set of rent segments (optionally scoped to a year).
+// Counts collapse a month's segments to its dominant status so a month split
+// across several segments (tenant changeover, partial payment + balance)
+// counts once. Income sums the actual paid amounts; the rent_pcm fallback for
+// legacy amount-less paid rows applies once per month, never per segment.
+// Shared by the Rent Tracker overview, the property Rent tab and the
+// Overview "Rent at a glance" card so all three agree.
+function getMonthlyRentStats(payments, year, rentPcm) {
+  const scoped = year ? payments.filter(p => p.year === year) : payments
+  const byMonth = {}
+  for (const p of scoped) {
+    const key = `${p.year}-${p.month}`
+    ;(byMonth[key] ||= []).push(p)
+  }
+  let paid = 0, missed = 0, late = 0, refurb = 0, voidM = 0, income = 0
+  for (const key in byMonth) {
+    const segs = byMonth[key]
+    const dom = monthDominantStatus(segs)
+    if (dom === 'paid') paid++
+    else if (dom === 'overdue' || dom === 'missed') missed++
+    else if (dom === 'late') late++
+    else if (dom === 'refurb') refurb++
+    else if (dom === 'void') voidM++
+    const paidSegs = segs.filter(p => p.status === 'paid')
+    const monthIncome = paidSegs.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    income += monthIncome > 0 ? monthIncome : (paidSegs.length ? (rentPcm || 0) : 0)
+  }
+  return { paid, missed, late, refurb, voidM, income }
 }
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
@@ -437,6 +499,14 @@ export default function App() {
   const [companies,        setCompanies]        = useState([])
   const [companySettings,  setCompanySettings]   = useState({})  // companyId -> settings
   const [loading,     setLoading]      = useState(true)
+  // Set when the initial portfolio load fails — drives a dedicated error
+  // screen with a Retry button instead of the misleading new-account
+  // welcome zero-state. loadNonce re-runs loadData on Retry.
+  const [loadError,   setLoadError]    = useState(null)
+  const [loadNonce,   setLoadNonce]    = useState(0)
+  // property_id -> tenancy_details row, for HealthBadge's tenancy deduction.
+  // Loaded best-effort after boot; empty map degrades to "no deduction".
+  const [tenanciesByProp, setTenanciesByProp] = useState({})
   const [view,        setView]         = useState('dashboard')
   const [selectedId,  setSelectedId]   = useState(null)
   const [detailTab,   setDetailTab]    = useState('overview')
@@ -599,6 +669,7 @@ export default function App() {
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${T.bg}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
   input,select,textarea{font-family:${MONO};background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
   input:focus,select:focus,textarea:focus{border-color:${T.gold};}
+  :focus-visible{outline:2px solid ${T.gold};outline-offset:2px;}
   select option{background:${T.surface};}
   label{font-family:${MONO};font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
   .btn{font-family:${MONO};font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
@@ -760,6 +831,14 @@ export default function App() {
       // back returns to the catalogue (the bare /reports URL).
       target = `#/reports/${selectedReportId}`
     }
+    // SettingsPage owns its sub-tab URL segment (#/settings/<tab>): it pushes
+    // the hash itself on tab change, and — being lazy-loaded — reads its
+    // INITIAL tab from the hash at mount. If the hash already carries a
+    // settings sub-tab, leave it alone. Pushing the bare '#/settings' here
+    // would race the Suspense fallback on a cold chunk load and clobber the
+    // sub-tab (e.g. the upgrade CTA's '#/settings/billing') before
+    // SettingsPage mounts, landing the user on the Account tab instead.
+    if (view === 'settings' && /^#\/settings(\/|$)/.test(window.location.hash)) return
     if (window.location.hash !== target) {
       window.history.pushState({ view, selectedId, detailTab, portfolioTab, selectedReportId }, '', target)
     }
@@ -771,12 +850,19 @@ export default function App() {
     if (!user) return
     async function loadData() {
       setLoading(true)
+      setLoadError(null)
       try {
-        const [cos, props, accessById, accessByEmail] = await Promise.all([
+        // One user_profiles read serves the developer flag AND nav/yield/
+        // account prefs (previously three separate selects of the same row).
+        const [cos, props, accessById, accessByEmail, prof] = await Promise.all([
           api.fetchCompanies(),
           api.fetchProperties(),
           api.fetchUserAccess(user.id),
-          api.fetchUserAccessByEmail(user.email)
+          api.fetchUserAccessByEmail(user.email),
+          supabase.from('user_profiles')
+            .select('is_developer, platform_admin, nav_items, yield_basis, account_type')
+            .eq('user_id', user.id).single()
+            .then(r => r.data).catch(() => null),
         ])
         // Load deals separately and non-blocking — if it fails, the
         // dashboard widget falls back to "no data". Deals are not critical
@@ -801,23 +887,35 @@ export default function App() {
         setIsAdmin(isAdminUser)
         setUserAccess(accessIds)
 
-        // Check developer status EARLY — developers see everything (site owner / devs only)
-        let isPlatformAdminFlag = false
-        try {
-          const { data: profileData } = await supabase.from('user_profiles').select('is_developer, platform_admin').eq('user_id', user.id).single()
-          // Accept either is_developer (new) or platform_admin (legacy) for backwards compat
-          isPlatformAdminFlag = profileData?.is_developer === true || profileData?.platform_admin === true
-          setIsPlatformAdmin(isPlatformAdminFlag)
-        } catch(e) { setIsPlatformAdmin(false) }
+        // Developer status comes from the profile row fetched above —
+        // developers see everything (site owner / devs only). Accept either
+        // is_developer (new) or platform_admin (legacy) for backwards compat.
+        const isPlatformAdminFlag = prof?.is_developer === true || prof?.platform_admin === true
+        setIsPlatformAdmin(isPlatformAdminFlag)
+        // Nav / yield / account prefs from the same row.
+        if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
+        else setUserNavPrefs(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
+        if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
+        setAccountType(prof?.account_type || null)
 
-        // Load permissions map and active feature flags in parallel
+        // Everything below is independent — one parallel batch instead of a
+        // serial waterfall: permissions/flags/widgets, theme, announcements,
+        // onboarding status, tenant detection and the user's own companies.
         const devActiveEarly = isPlatformAdminFlag && !devModeDisabled
-        try {
-          const [permMap, flags, widgets] = await Promise.all([
+        const [permBatch, , anns, onboarded, prefetchedTenantRows, myCompanies] = await Promise.all([
+          Promise.all([
             api.fetchMyPermissionsMap(devActiveEarly),
             api.fetchMyActiveFlags().catch(()=>new Set()),
             api.fetchWidgetPrefs().catch(()=>null),
-          ])
+          ]).catch(e => { logError('loadData:permissions+flags', e); return null }),
+          loadUserTheme(user.id, user.email).catch(()=>{}),
+          api.fetchAnnouncements().catch(e => { logError('loadData:announcements', e); return [] }),
+          api.fetchOnboardingStatus(user.id).catch(()=>true),
+          api.checkIsTenant(user.id).catch(e => { logError('loadData:tenantDetection', e); return [] }),
+          api.fetchMyCompanies().catch(()=>[]),
+        ])
+        if (permBatch) {
+          const [permMap, flags, widgets] = permBatch
           // Stamp an __owner map onto permissionsMap so canDo() can grant
           // implicit allow to the company owner without having to look up
           // ownership in every check site. (Owners typically don't have a
@@ -827,7 +925,9 @@ export default function App() {
           setPermissionsMap({ ...(permMap || {}), __owner: ownerMap })
           setActiveFlags(flags)
           setWidgetPrefs(widgets)
-        } catch(e) { logError('loadData:permissions+flags', e) }
+        }
+        setAnnouncements(anns)
+        if (!onboarded) setShowTour(true)
         // Load dashboard section preferences from localStorage (per-user keyed)
         try {
           const raw = localStorage.getItem(`ownproperly_section_prefs_${user.id}`)
@@ -856,24 +956,8 @@ export default function App() {
             localStorage.removeItem('pending_invite_token')
           }
         } catch(e) { /* non-fatal */ }
-        // Load user's saved theme preference from Supabase
-        await loadUserTheme(user.id, user.email)
-        // Load nav preferences
-        try {
-          const { data: prof } = await supabase.from('user_profiles').select('nav_items, yield_basis, account_type').eq('user_id', user.id).single()
-          if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
-          else setUserNavPrefs(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
-          if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
-          setAccountType(prof?.account_type || null)
-        } catch(e) { logError('loadData:nav_prefs', e) }
-        // Load platform announcements
-        try {
-          const anns = await api.fetchAnnouncements()
-          setAnnouncements(anns)
-        } catch(e) { logError('loadData:announcements', e) }
-        // Check if new user needs onboarding tour
-        const onboarded = await api.fetchOnboardingStatus(user.id)
-        if (!onboarded) setShowTour(true)
+        // (Theme, nav prefs, announcements and onboarding status are loaded
+        // in the parallel batch above.)
         // Build the set of company IDs this user has access to
         // = owned + shared-access rows
         const accessibleCompanyIds = new Set([...ownedIds, ...accessIds])
@@ -917,10 +1001,17 @@ export default function App() {
         // sees `companies`. (The later best-effort fetch below stays
         // as a safety net for race-condition-free re-renders.)
         let initialSubs = []
+        let settingsRows = null
         if (visibleCos.length > 0) {
-          try {
-            initialSubs = await api.fetchSubscriptions(visibleCos.map(c => c.id))
-          } catch (e) { initialSubs = [] }
+          const coIds = visibleCos.map(c => c.id)
+          // Subscriptions (needed for the suspension filter below) and
+          // company settings (one .in() query instead of a request per
+          // company) are independent — fetch together.
+          ;[initialSubs, settingsRows] = await Promise.all([
+            api.fetchSubscriptions(coIds).catch(() => []),
+            supabase.from('company_settings').select('*').in('company_id', coIds)
+              .then(r => r.data).catch(() => null),
+          ])
         }
         // Track companies we hide due to suspension so we can show the
         // collaborator a clear banner ("your account owner hasn't paid")
@@ -996,14 +1087,23 @@ export default function App() {
         api.maybeWarnMortgageExpiring(visibleProps).catch(() => {})
         // (Subscriptions already loaded above as part of the suspended-
         // company access filter. No need to re-fetch here.)
-        // Check for tenant invite link param
+        // Check for tenant invite link param. Registration is bound to a
+        // landlord-issued single-use token (redeemed via SECURITY DEFINER
+        // RPC); legacy raw `?tenant_property=<uuid>` links are no longer
+        // honoured — the DB blocks the old direct insert.
         const urlParams = new URLSearchParams(window.location.search)
-        const tenantPropertyId = urlParams.get('tenant_property')
-        if (tenantPropertyId) {
+        const tenantInviteToken = urlParams.get('tenant_invite')
+        let tenantRows = prefetchedTenantRows
+        if (tenantInviteToken) {
           try {
-            await api.registerTenantProfile(user.id, tenantPropertyId)
+            await api.registerTenantProfile(user.id, null, tenantInviteToken)
             window.history.replaceState({}, '', window.location.pathname)
+            // Re-check: the redemption may have just created this user's
+            // first tenant_profiles row.
+            tenantRows = await api.checkIsTenant(user.id)
           } catch(e) { logError('loadData:registerTenantProfile', e) }
+        } else if (urlParams.get('tenant_property')) {
+          window.history.replaceState({}, '', window.location.pathname)
         }
         // Plaid Link runs in-page (no redirect handoff) — the OAuth
         // exchange happens inside BankConnectionsModal via onSuccess.
@@ -1012,14 +1112,11 @@ export default function App() {
         if (urlParams.get('bank_callback') === '1') {
           window.history.replaceState({}, '', window.location.pathname)
         }
-        // Check if this user is a tenant (not a landlord)
-        // Skip tenant portal if user has their own companies or is platform admin
-        try {
-          const tenantProfiles = await api.checkIsTenant(user.id)
-          const myCompanies = await api.fetchMyCompanies().catch(()=>[])
-          const isLandlord = myCompanies.length > 0 || devActive
-          if (tenantProfiles.length > 0 && !isLandlord) { setIsTenant(true); return }
-        } catch(e) { logError('loadData:tenantDetection', e) }
+        // Check if this user is a tenant (not a landlord) — rows prefetched
+        // in the parallel batch above (re-fetched after invite redemption).
+        // Skip tenant portal if user has their own companies or is platform admin.
+        const isLandlord = myCompanies.length > 0 || devActive
+        if (tenantRows.length > 0 && !isLandlord) { setIsTenant(true); return }
         // Auto-generate future rent months silently in background
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
@@ -1029,20 +1126,31 @@ export default function App() {
             })
           }
         }).catch(()=>{})
-        // Load company settings
+        // Company settings — fetched in bulk alongside subscriptions above.
         const settingsMap = {}
-        const settingsResults = await Promise.all(visibleCos.map(c=>api.fetchCompanySettings(c.id)))
-        visibleCos.forEach((c,i)=>{
-          settingsMap[c.id] = settingsResults[i] || {
+        const settingsById = new Map((settingsRows || []).map(s => [s.company_id, s]))
+        visibleCos.forEach(c => {
+          settingsMap[c.id] = settingsById.get(c.id) || {
             feature_compliance:true, feature_tenancy:true,
             feature_maintenance:true, feature_documents:true,
             feature_expenses:true, feature_reports:true
           }
         })
         setCompanySettings(settingsMap)
+        // Tenancy rows for HealthBadge's tenancy-end deduction — best-effort,
+        // non-blocking (an empty map just means no deduction is applied).
+        api.fetchAllTenancies(user.id).then(rows => {
+          const byProp = {}
+          for (const t of (rows || [])) if (t.property_id) byProp[t.property_id] = t
+          setTenanciesByProp(byProp)
+        }).catch(() => {})
       } catch(e) {
-        // Data load failed — DO NOT fall back to showing everything. Show an error state.
-        console.error('Data load failed:', e)
+        // Data load failed — DO NOT fall back to showing everything, and do
+        // NOT let the dashboard render the new-account welcome zero-state
+        // for a paying customer with a transient network error. The render
+        // path shows a dedicated error screen with a Retry button.
+        logError('loadData', e)
+        setLoadError(e?.message || 'Something went wrong loading your portfolio')
         setCompanies([])
         setProperties([])
         setIsAdmin(false)
@@ -1057,8 +1165,9 @@ export default function App() {
     // every time the user switches browser tabs back to OwnProperly,
     // re-mounting all child pages and losing any in-memory tab state
     // (e.g. which Settings tab the user was on).
+    // loadNonce re-runs the load when the user hits Retry on the error screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[user?.id])
+  },[user?.id, loadNonce])
 
   // Expose loadData for refresh after import
   const refreshData = useCallback(async () => {
@@ -1084,7 +1193,12 @@ export default function App() {
         const stillExists = cos.some(c => c.id === prev)
         return stillExists ? prev : null
       })
-    } catch(e) {}
+    } catch(e) {
+      // Refresh failed — keep the data we already have on screen, but don't
+      // swallow it silently: log it and tell the user.
+      logError('refreshData', e)
+      showToast('Refresh failed — showing last loaded data', 'error')
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userAccess, isPlatformAdmin, user?.id])
 
@@ -1350,7 +1464,7 @@ export default function App() {
     />
   }
 
-  if (showOnboarding) return <OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/>
+  if (showOnboarding) return <Suspense fallback={<PageLoadingSpinner T={T}/>}><OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/></Suspense>
 
 
   const selected = properties.find(p=>p.id===selectedId)
@@ -1490,7 +1604,7 @@ export default function App() {
           .replace(/^-+|-+$/g,'')
           .slice(0,30)
         if (sub && co.id) await api.saveCompanySubdomain(co.id, sub)
-      } catch(e) {}
+      } catch(e) { logError('handleSaveCo:saveCompanySubdomain', e) }
       setCompanies(prev=>[...prev,co]);setActiveCoTab(co.id)
       showToast('Company added');setShowAddCo(false)
     }catch(e){showToast(e.message,'error')}
@@ -1567,11 +1681,15 @@ export default function App() {
 
   async function handleUpdatePayment(payment, newStatus){
     try{
-      await api.updateRentSegment(payment.id, { status: newStatus })
+      // updateRentSegment stamps period_start/period_end onto legacy
+      // whole-month rows on touch — merge the returned row into local state
+      // so period-filtered readers (day tracker, MTD) see the stamped dates
+      // without a refetch.
+      const updated = await api.updateRentSegment(payment.id, { status: newStatus })
       setProperties(prev=>prev.map(p=>{
         if(p.id!==payment.property_id) return p
         return {...p, rent_payments: p.rent_payments.map(rp=>
-          rp.id===payment.id ? {...rp, status:newStatus} : rp
+          rp.id===payment.id ? {...rp, ...(updated||{}), status:newStatus} : rp
         )}
       }))
       setEditingPayment(null)
@@ -1850,6 +1968,11 @@ export default function App() {
               return (
                 <button
                   onClick={() => {
+                    // Hash first, then view — the lazy SettingsPage reads its
+                    // initial tab from the URL at mount (the event below only
+                    // reaches an already-mounted page). Same pattern as the
+                    // dashboard upgrade CTA.
+                    window.history.pushState({ view: 'settings', settingsTab: 'billing' }, '', '#/settings/billing')
                     setView('settings')
                     window.dispatchEvent(new CustomEvent(
                       'ownproperly:set-settings-tab',
@@ -1934,7 +2057,7 @@ export default function App() {
               <div style={{display:'flex',alignItems:'center'}}>
                 <img src="/logo.svg" alt="OwnProperly" style={{height:32,width:'auto'}}/>
               </div>
-              <button onClick={()=>setShowDrawer(false)}
+              <button onClick={()=>setShowDrawer(false)} aria-label="Close menu"
                 style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px'}}>✕</button>
             </div>
             {/* Nav items */}
@@ -1997,7 +2120,7 @@ export default function App() {
         return (
           <div key={a.id} style={{background:col+'18',borderBottom:`1px solid ${col}33`,padding:'10px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
             <span style={{fontFamily:MONO,fontSize:12,color:col}}>
-              {a.message}{a.link_url&&a.link_text&&<a href={a.link_url} target="_blank" rel="noreferrer" style={{color:col,marginLeft:12,fontWeight:700}}>{a.link_text} →</a>}
+              {a.message}{a.link_url&&a.link_text&&isSafeUrl(a.link_url)&&<a href={a.link_url} target="_blank" rel="noreferrer" style={{color:col,marginLeft:12,fontWeight:700}}>{a.link_text} →</a>}
             </span>
             <button onClick={()=>{const n=[...dismissedAnns,a.id];setDismissedAnns(n);localStorage.setItem('dismissed_anns',JSON.stringify(n))}}
               style={{background:'none',border:'none',color:col,cursor:'pointer',fontFamily:MONO,fontSize:11,flexShrink:0}}>Dismiss ✕</button>
@@ -2008,12 +2131,25 @@ export default function App() {
         {loading?<Spinner/>:<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
+            {/* Load failure — a transient Supabase/network error must never
+                look like a wiped account. Show a clear error + Retry instead
+                of the new-account welcome hero. */}
+            {loadError && (
+              <div className="card" role="alert" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px solid ${T.red}66`}}>
+                <div style={{fontSize:isMobile?28:36,marginBottom:10}} aria-hidden="true">⚠️</div>
+                <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>We couldn't load your portfolio</h1>
+                <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
+                  Your data is safe — this is usually a temporary connection problem. ({loadError})
+                </p>
+                <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
+              </div>
+            )}
             {/* First-run zero-state. Brand new accounts land here with no
                 properties and no companies — instead of seeing a wall of £0
                 KPIs, give them a friendly hero CTA pointing at the next
                 step. Once they have at least one property/company, the
                 regular header takes over. */}
-            {activeProperties.length === 0 && companies.length === 0 && (
+            {!loadError && activeProperties.length === 0 && companies.length === 0 && (
               <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
                 <div style={{fontSize:isMobile?28:36,marginBottom:10}} aria-hidden="true">🏠</div>
                 <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to OwnProperly</h1>
@@ -2149,8 +2285,12 @@ export default function App() {
                           <button className="btn btn-gold" style={{ fontSize: 12 }}
                             onClick={() => {
                               // 'billing' is a Settings sub-tab, not a top-level
-                              // view. Route to Settings and dispatch the tab-
-                              // change event the SettingsPage listens for.
+                              // view. Set the hash BEFORE switching views —
+                              // SettingsPage reads its initial tab from the URL
+                              // at mount, whereas the tab-change event would
+                              // fire before its listener exists. The event is
+                              // still dispatched for an already-mounted page.
+                              window.history.pushState({ view: 'settings', settingsTab: 'billing' }, '', '#/settings/billing')
                               setView('settings')
                               window.dispatchEvent(new CustomEvent(
                                 'ownproperly:set-settings-tab',
@@ -2722,7 +2862,7 @@ export default function App() {
                             </div>
                             <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
                             <Badge status={p.status}/>
-                            <HealthBadge property={p}/>
+                            <HealthBadge property={p} tenancy={tenanciesByProp[p.id]||null}/>
                           </div>
                         )})}
                       </div>
@@ -2855,11 +2995,9 @@ export default function App() {
                   // current-year months yet.
                   const years = [...new Set(payments.map(p => p.year))].sort()
                   const focusYear = years.includes(currentYear) ? currentYear : years[years.length - 1]
-                  const ytd = payments.filter(p => p.year === focusYear)
-                  const paid    = ytd.filter(p => p.status === 'paid').length
-                  const missed  = ytd.filter(p => p.status === 'overdue' || p.status === 'missed').length
-                  const late    = ytd.filter(p => p.status === 'late').length
-                  const collected = ytd.filter(p => p.status === 'paid').reduce((s,p)=>s+(p.amount||(selected.rent_pcm||0)),0)
+                  // Month-collapsed stats — same maths as the Rent Tracker
+                  // page so the two screens agree for the same year.
+                  const { paid, missed, late, income: collected } = getMonthlyRentStats(payments, focusYear, selected.rent_pcm)
                   const arrears = selected.arrears || 0
 
                   return (
@@ -2998,7 +3136,7 @@ export default function App() {
                   ))}
                 </div>}
                 {detailTab==='contractors'&&<ContractorsPage propertyFilter={selected.id} showToast={showToast} user={user} compact={true}/>}
-                {(detailTab==='overview'||detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                {(detailTab==='overview'||detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_compliance') || devModeActive}/>}
                 {(detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&(()=>{
                   // The four legacy values map to themselves as sub-tabs; "tenancy" => "details".
@@ -3133,7 +3271,7 @@ export default function App() {
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
       {showReferencing && selected && <TenantReferenceModal property={selected} onClose={()=>setShowReferencing(false)}/>}
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
-      {showAddBulk&&<BulkAddPropertyModal
+      {showAddBulk&&<Suspense fallback={null}><BulkAddPropertyModal
         companies={companies}
         onClose={()=>setShowAddBulk(false)}
         onSaved={(created)=>{
@@ -3141,17 +3279,17 @@ export default function App() {
           setShowAddBulk(false)
         }}
         showToast={showToast}
-      />}
+      /></Suspense>}
       {showBuildingMortgage && <BuildingMortgageModal
         properties={activeCoTab ? activeProperties.filter(p => p.company_id === activeCoTab) : activeProperties}
         setProperties={setProperties}
         onClose={()=>setShowBuildingMortgage(false)}
       />}
-      {showReceiptScan && <ReceiptScanModal
+      {showReceiptScan && <Suspense fallback={null}><ReceiptScanModal
         properties={activeProperties}
         onClose={()=>setShowReceiptScan(false)}
         onSaved={()=>{ /* expense saved — no refetch needed at App level */ }}
-      />}
+      /></Suspense>}
       {showAddCo&&<CompanyModal onClose={()=>setShowAddCo(false)} onSave={handleSaveCo}/>}
       {showCustomizeDash && <CustomizeDashModal
         initialTab={customizeDashTab}
@@ -3223,7 +3361,7 @@ export default function App() {
       )}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
       {/* Access modal now lives inside Settings page */}
-      {showImporter&&<StatementImporter properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/>}
+      {showImporter&&<Suspense fallback={null}><StatementImporter properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/></Suspense>}
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
       {showSellModal&&<SellPropertyModal
         property={properties.find(p=>p.id===showSellModal)}
@@ -3293,7 +3431,9 @@ export default function App() {
 
       {/* ── ONBOARDING TOUR ── */}
       {showTour && (
-        <OnboardingTour user={user} onComplete={()=>setShowTour(false)}/>
+        <Suspense fallback={null}>
+          <OnboardingTour user={user} onComplete={()=>setShowTour(false)}/>
+        </Suspense>
       )}
     </div>
   )
@@ -3674,32 +3814,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
     setExpandedCompanies(prev=>({...prev,[id]:!prev[id]}))
   }
 
-  // Per-property year stats
-  function getStats(payments, year, rentPcm) {
-    const filtered = year ? payments.filter(p=>p.year===year) : payments
-    // Income = actual paid amounts (supports partial payments). Legacy paid
-    // rows store amount = monthly rent, so this matches the old count×rent total.
-    const income = filtered
-      .filter(p=>p.status==='paid')
-      .reduce((sum,p)=> sum + (Number(p.amount) || (rentPcm||0)), 0)
-    // Status counts are per-month (a month's dominant status) so a month split
-    // across several segments still counts once.
-    const byMonth = {}
-    for (const p of filtered) {
-      const key = `${p.year}-${p.month}`
-      ;(byMonth[key] ||= []).push(p)
-    }
-    let paid=0, missed=0, late=0, refurb=0, voidM=0
-    for (const key in byMonth) {
-      const dom = monthDominantStatus(byMonth[key])
-      if (dom==='paid') paid++
-      else if (dom==='overdue'||dom==='missed') missed++
-      else if (dom==='late') late++
-      else if (dom==='refurb') refurb++
-      else if (dom==='void') voidM++
-    }
-    return {paid, missed, late, refurb, voidM, income}
-  }
+  // Per-property year stats — shared month-collapsing helper
+  const getStats = getMonthlyRentStats
 
   // Company totals for selected year
   function getCompanyTotals(companyProps, year) {
@@ -3997,15 +4113,10 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
   const years = [...new Set(payments.map(p=>p.year))].sort()
   const [filterYear, setFilterYear] = useState(years[years.length-1] || null)
 
-  const filtered = filterYear ? payments.filter(p=>p.year===filterYear) : payments
-
-  // Stats for selected year
-  const paid    = filtered.filter(p=>p.status==='paid').length
-  const missed  = filtered.filter(p=>p.status==='overdue'||p.status==='missed').length
-  const late = filtered.filter(p=>p.status==='late').length
-  const refurb  = filtered.filter(p=>p.status==='refurb').length
-  const voidM   = filtered.filter(p=>p.status==='void').length
-  const totalIncome = paid * (selected.rent_pcm||0)
+  // Stats for selected year — month-collapsed via the shared helper so
+  // multi-segment months (changeovers, partial payments) count once and
+  // income reflects the amounts actually logged.
+  const { paid, missed, late, refurb, voidM, income: totalIncome } = getMonthlyRentStats(payments, filterYear, selected.rent_pcm)
   const lateIncome = late * (selected.rent_pcm||0)
 
   return (

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { SignedPhoto } from '../lib/SignedPhoto'
 
 // ── INSPECTIONS PANEL ────────────────────────────────────────────────
 // Embedded on a property's Compliance tab. Lists scheduled +
@@ -28,6 +30,7 @@ const CONDITIONS = [
 
 export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [items, setItems]       = useState([])
   const [loading, setLoading]   = useState(true)
   const [adding, setAdding]     = useState(false)
@@ -93,7 +96,11 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
   }
 
   async function softDelete(it) {
-    if (!confirm('Delete this inspection record?')) return
+    if (!await confirmDialog({
+      title: 'Delete this inspection record?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    })) return
     try {
       await api.softDeleteInspection(it.id, user?.id)
       setItems(prev => prev.filter(x => x.id !== it.id))
@@ -179,7 +186,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 6, marginTop: 8 }}>
                     {form.photos.map((p, i) => (
                       <div key={i} style={{ position: 'relative' }}>
-                        <img src={p.url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 6, border: `1px solid ${T.border}` }}/>
+                        <SignedPhoto path={p.path} url={p.url} wrapAnchor={false} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 6, border: `1px solid ${T.border}` }}/>
                         <button onClick={() => removePhoto(i)} title="Remove"
                           style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: 10, width: 18, height: 18, fontSize: 11, lineHeight: 1, cursor: 'pointer', padding: 0 }}>×</button>
                       </div>
@@ -262,9 +269,7 @@ function InspectionRow({ item, T, canEdit, onEdit, onDelete }) {
           {item.photos?.length > 0 && (
             <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
               {item.photos.slice(0, 6).map((p, i) => (
-                <a key={i} href={p.url} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
-                  <img src={p.url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4, border: `1px solid ${T.border}`, cursor: 'pointer' }}/>
-                </a>
+                <SignedPhoto key={i} path={p.path} url={p.url} style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4, border: `1px solid ${T.border}`, cursor: 'pointer' }}/>
               ))}
             </div>
           )}
