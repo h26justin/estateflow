@@ -1,7 +1,7 @@
 -- ===========================================================================
 -- Security hardening 10 — advisor follow-up after the 2026-06-10 pass
 -- ===========================================================================
--- NOT YET APPLIED TO PRODUCTION (pending approval). Two hygiene items the
+-- APPLIED TO PRODUCTION 2026-06-10 (user-approved). Two hygiene items the
 -- security advisor flagged after the main pass landed:
 --
 -- 1) audit_trigger_fn was recreated in security_06 (RAISE WARNING handler)
@@ -26,6 +26,19 @@ REVOKE EXECUTE ON FUNCTION public.enforce_document_path_ownership() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.tenant_messages_readonly_guard() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.regenerate_statement_email_token(uuid) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.is_tenant_of_property(uuid) FROM anon;
+
+-- The trigger-guard functions also carry the DEFAULT PUBLIC EXECUTE grant,
+-- which anon inherits — a direct anon revoke alone does not remove it.
+-- Trigger firing does not check EXECUTE at runtime, so revoking is safe.
+REVOKE ALL ON FUNCTION public.enforce_company_billing_guard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.enforce_subscription_billing_guard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.enforce_document_path_ownership() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.tenant_messages_readonly_guard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.stamp_rent_payment_period() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.audit_trigger_fn() FROM PUBLIC;
+-- stamp_rent_payment_period also had DIRECT anon/authenticated grants from
+-- Supabase default privileges (not just PUBLIC), so revoke those explicitly.
+REVOKE EXECUTE ON FUNCTION public.stamp_rent_payment_period() FROM anon, authenticated;
 
 NOTIFY pgrst, 'reload schema';
 
