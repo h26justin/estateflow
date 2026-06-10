@@ -247,11 +247,11 @@ DROP POLICY IF EXISTS rent_payments_tenant_select ON public.rent_payments;
 CREATE POLICY rent_payments_tenant_select ON public.rent_payments
   FOR SELECT USING (public.is_tenant_of_property(property_id));
 
+-- NB: tenancy_details has no deleted_at column in production (rows are
+-- hard-deleted), so no soft-delete clause here.
 DROP POLICY IF EXISTS tenancy_details_tenant_select ON public.tenancy_details;
 CREATE POLICY tenancy_details_tenant_select ON public.tenancy_details
-  FOR SELECT USING (
-    deleted_at IS NULL AND public.is_tenant_of_property(property_id)
-  );
+  FOR SELECT USING (public.is_tenant_of_property(property_id));
 
 DROP POLICY IF EXISTS property_documents_tenant_select ON public.property_documents;
 CREATE POLICY property_documents_tenant_select ON public.property_documents

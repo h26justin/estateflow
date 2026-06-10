@@ -34,21 +34,22 @@ REVOKE EXECUTE ON FUNCTION public.user_is_admin() FROM authenticated, anon;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. redeem_company_invite — harden search_path + reject soft-deleted companies
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION redeem_company_invite(p_code text)
-RETURNS TABLE(
-  company_id uuid,
-  is_admin   bool,
-  company_name text
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
+-- NB: production runs a NEWER role-aware version of redeem_company_invite
+-- (returns role text, not is_admin bool; user_company_access.user_id is text).
+-- This block keeps that live body and adds only the two hardening deltas:
+-- search_path gains pg_temp, and soft-deleted companies are rejected.
+CREATE OR REPLACE FUNCTION public.redeem_company_invite(p_code text)
+ RETURNS TABLE(company_id uuid, role text, company_name text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path = public, pg_temp
+AS $function$
 DECLARE
   v_invite   company_invites%ROWTYPE;
   v_user_id  uuid;
   v_email    text;
   v_co_name  text;
+  v_role     text;
   v_deleted  timestamptz;
 BEGIN
   v_user_id := auth.uid();
@@ -83,12 +84,31 @@ BEGIN
     RAISE EXCEPTION 'company_unavailable';
   END IF;
 
+  v_role := COALESCE(v_invite.role, CASE WHEN v_invite.is_admin THEN 'admin' ELSE 'editor' END);
+  IF v_role NOT IN ('admin','editor','viewer') THEN
+    v_role := 'editor';
+  END IF;
+
   SELECT email INTO v_email FROM auth.users WHERE id = v_user_id;
 
-  INSERT INTO user_company_access (user_id, company_id, email, is_admin, is_owner)
-  VALUES (v_user_id, v_invite.company_id, v_email, v_invite.is_admin, false)
+  INSERT INTO user_company_access (user_id, company_id, email, role, is_admin, is_owner)
+  VALUES (
+    v_user_id::text,
+    v_invite.company_id,
+    v_email,
+    v_role,
+    v_role = 'admin',
+    false
+  )
   ON CONFLICT (user_id, company_id) DO UPDATE
-    SET is_admin = EXCLUDED.is_admin OR user_company_access.is_admin,
+    SET role     = CASE
+                     WHEN user_company_access.role = 'admin' THEN 'admin'
+                     WHEN EXCLUDED.role = 'admin' THEN 'admin'
+                     WHEN user_company_access.role = 'editor' THEN 'editor'
+                     WHEN EXCLUDED.role = 'editor' THEN 'editor'
+                     ELSE EXCLUDED.role
+                   END,
+        is_admin = (user_company_access.is_admin OR EXCLUDED.is_admin),
         email    = COALESCE(user_company_access.email, EXCLUDED.email);
 
   UPDATE company_invites
@@ -97,12 +117,12 @@ BEGIN
 
   SELECT name INTO v_co_name FROM companies WHERE id = v_invite.company_id;
 
-  RETURN QUERY SELECT v_invite.company_id, v_invite.is_admin, v_co_name;
+  RETURN QUERY SELECT v_invite.company_id, v_role, v_co_name;
 END;
-$$;
+$function$;
 
-REVOKE ALL ON FUNCTION redeem_company_invite(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION redeem_company_invite(text) TO authenticated;
+REVOKE ALL ON FUNCTION public.redeem_company_invite(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.redeem_company_invite(text) TO authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. audit_trigger_fn — surface logging failures instead of swallowing them
