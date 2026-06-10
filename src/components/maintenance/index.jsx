@@ -13,6 +13,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
 import { NotesTimeline } from '../FeatureComponents'
 import MoneyInput from '../../lib/MoneyInput'
+import TriageButton from './TriageButton'
 
 // Local copy of formatDate (used by JobCard for raised/resolved dates).
 // Matches the implementation in FeatureComponents.jsx so behaviour is identical.
@@ -22,7 +23,7 @@ function formatDate(d) {
 }
 
 // ── MAINTENANCE TAB ───────────────────────────────────────────────────────────
-export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEdit = true}) {
+export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEdit = true, activeFlags = new Set()}) {
   const { T } = useTheme()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -66,6 +67,10 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   async function handleDelete(id) {
     try { await api.deleteMaintenance(id); setJobs(prev=>prev.filter(j=>j.id!==id)); showToast('Job removed') }
     catch(e) { showToast(e.message,'error') }
+  }
+
+  function handleTriaged(jobId, triage, at) {
+    setJobs(prev=>prev.map(j=>j.id===jobId?{...j, ai_triage:triage, ai_severity:triage?.severity ?? j.ai_severity, ai_triaged_at:at}:j))
   }
 
   const openJobs     = jobs.filter(j=>j.status!=='complete')
@@ -113,11 +118,11 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
        : <div>
           {openJobs.length>0&&<div style={{marginBottom:16}}>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Open Jobs</div>
-            {openJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit}/>)}
+            {openJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit} activeFlags={activeFlags} showToast={showToast} onTriaged={handleTriaged}/>)}
           </div>}
           {completedJobs.length>0&&<div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Completed</div>
-            {completedJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit}/>)}
+            {completedJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit} activeFlags={activeFlags} showToast={showToast} onTriaged={handleTriaged}/>)}
           </div>}
         </div>
       }
@@ -128,7 +133,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   )
 }
 
-function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = true}) {
+function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = true, activeFlags = new Set(), showToast, onTriaged}) {
   const { T } = useTheme()
   const pCol = PRIORITIES.find(p=>p.v===job.priority)?.c || T.muted
   const st   = STATUSES.find(s=>s.v===job.status)
@@ -159,6 +164,15 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
                 <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted}}>+ {job.photos.length - 4} more</span>
               )}
             </div>
+          )}
+          {activeFlags.has('ai_maintenance_triage') && (
+            <TriageButton
+              job={job}
+              canTriage={canEdit}
+              showToast={showToast}
+              onTriaged={(triage, at) => onTriaged?.(job.id, triage, at)}
+              onApplyPriority={(p) => onEdit({ ...job, priority: p })}
+            />
           )}
           {job.description&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:3}}>{job.description}</div>}
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>

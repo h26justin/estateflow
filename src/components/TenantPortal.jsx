@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
+const TenantRentCollectionConsent = lazy(() => import('./RentCollectionPanel').then(m => ({ default: m.TenantRentCollectionConsent })))
 
 const mono = "'DM Mono',monospace"
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -197,7 +198,12 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
       {/* Content */}
       <div style={{maxWidth:860,margin:'0 auto',padding:'28px 24px'}}>
         {tab==='home'        && <TenantHome property={property} company={company} user={user} contactInfo={contactInfo} brandColor={brandColor} bankDetails={bankDetails}/>}
-        {tab==='rent'        && <TenantRent property={property} user={user} bankDetails={bankDetails} brandColor={brandColor}/>}
+        {tab==='rent'        && <>
+          <TenantRent property={property} user={user} bankDetails={bankDetails} brandColor={brandColor}/>
+          {features?.rent_collection && (
+            <Suspense fallback={null}><TenantRentCollectionConsent propertyId={property.id}/></Suspense>
+          )}
+        </>}
         {tab==='maintenance' && <TenantMaintenance property={property} user={user} brandColor={brandColor}/>}
         {tab==='documents'   && <TenantDocuments property={property} user={user} brandColor={brandColor}/>}
         {tab==='messages'    && <TenantMessages property={property} user={user} contactInfo={contactInfo} brandColor={brandColor}/>}

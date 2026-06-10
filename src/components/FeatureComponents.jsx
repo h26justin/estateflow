@@ -4,6 +4,7 @@ import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
 const HelpCenter = lazy(() => import('./HelpCenter'))
+const BookkeepingRules = lazy(() => import('./BookkeepingRules'))
 import TrashPage from './TrashPage'
 import BackupsPage from './BackupsPage'
 import CalcExplain from './CalcExplain'
@@ -17,6 +18,7 @@ import { supabase } from '../lib/supabase'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import MoneyInput from '../lib/MoneyInput'
+import { canUseInvestorFeatures } from '../lib/tierGating'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -399,8 +401,29 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
   )
 }
 
+// Wraps BookkeepingRules with a company selector for the Settings sub-tab,
+// since Settings has no global "active company" the way the detail view does.
+function BookkeepingTabBody({ companies, properties = [], T, mono }) {
+  const [coId, setCoId] = useState(companies[0]?.id || '')
+  const coProps = coId ? properties.filter(p => p.company_id === coId) : properties
+  return (
+    <div style={{display:'grid',gap:16}}>
+      {companies.length > 1 && (
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Company</span>
+          <select value={coId} onChange={e=>setCoId(e.target.value)}
+            style={{fontFamily:mono,fontSize:12,padding:'6px 10px',borderRadius:8,background:T.bg,color:T.text,border:`1px solid ${T.border}`}}>
+            {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+      <BookkeepingRules companyId={coId} properties={coProps}/>
+    </div>
+  )
+}
+
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = []}) {
+export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = [], activeFlags = new Set(), companySubs = []}) {
   const { T } = useTheme()
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -589,6 +612,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     { key: 'notifications', label: '🔔 Notifications' },
     { key: 'milestones',    label: '📍 Deal Milestones' },
     { key: 'integrations',  label: '🔌 Integrations' },
+    ...(activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin })
+      ? [{ key: 'bookkeeping', label: '🧮 AI Bookkeeping' }] : []),
   ]
   const preferencesTabs = [
     { key: 'display',       label: '🖥 Display' },
@@ -918,6 +943,12 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {settingsTab==='integrations' && (
         <IntegrationsPanel T={T} mono={mono} companies={companies} properties={properties}/>
+      )}
+
+      {settingsTab==='bookkeeping' && activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin }) && (
+        <Suspense fallback={null}>
+          <BookkeepingTabBody companies={companies} properties={properties} T={T} mono={mono}/>
+        </Suspense>
       )}
 
       {settingsTab==='navbar' && (
