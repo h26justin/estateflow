@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { AIListingWriter, ListingYieldCalculator } from './AITools'
 import LettingsPipeline from './LettingsPipeline'
+const LettingsAssistantPanel = lazy(() => import('./LettingsAssistantPanel'))
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TIME_BUCKET_LABEL } from '../lib/dealCashflow'
@@ -152,7 +153,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   )
 }
 
-export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set() }) {
+export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set(), canUseInvestor = false }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const [view, setView]       = useState('list')
@@ -338,7 +339,14 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       {dealView==='pipeline' && <DealPipeline deals={filtered} companies={companies} onOpen={openDeal} onNew={createNewDeal} T={T}/>}
 
       {/* ── LETTINGS VIEW ── */}
-      {dealView==='lettings' && <LettingsPipeline user={user} companies={companies} properties={properties} showToast={showToast} triggerNew={triggerNewLetting} onNewHandled={()=>setTriggerNewLetting(false)}/>}
+      {dealView==='lettings' && <>
+        <LettingsPipeline user={user} companies={companies} properties={properties} showToast={showToast} triggerNew={triggerNewLetting} onNewHandled={()=>setTriggerNewLetting(false)}/>
+        {activeFlags.has('ai_lettings') && canUseInvestor && (
+          <Suspense fallback={null}>
+            <LettingsAssistantPanel properties={properties} companies={companies}/>
+          </Suspense>
+        )}
+      </>}
 
       {/* ── TOOLS VIEW ── */}
       {dealView==='tools' && (
