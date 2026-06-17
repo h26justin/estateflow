@@ -153,7 +153,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   )
 }
 
-export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set(), canUseInvestor = false }) {
+export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set(), canUseInvestor = false, convertRefreshKey = 0 }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const [view, setView]       = useState('list')
@@ -171,6 +171,16 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [triggerNewLetting, setTriggerNewLetting] = useState(false)
 
   useEffect(() => { loadDeals() }, [])
+  // App bumps convertRefreshKey after a completed deal has been converted to
+  // a property and soft-deleted. Reload the list (the deal is now gone) and
+  // drop back to the list view so the user isn't left staring at a deal that
+  // no longer exists. Skip the initial 0 so this doesn't double-load on mount.
+  useEffect(() => {
+    if (!convertRefreshKey) return
+    loadDeals()
+    setSelectedDeal(null)
+    setView('list')
+  }, [convertRefreshKey])
   // Push deals up to parent (App.jsx) whenever they change so the
   // dashboard cashflow widget can read fresh data without re-fetching.
   // Optional callback — DealsPage works fine without it.

@@ -546,6 +546,12 @@ export default function App() {
   const [showPalette, setShowPalette]   = useState(false)
   const [showReferencing, setShowReferencing] = useState(false)
   const [editProp,    setEditProp]     = useState(null)
+  // When a property is being created by converting a completed deal, this
+  // holds that deal's id. On a successful save we soft-delete the deal so it
+  // drops off the Deals page (it now lives in the portfolio as a property).
+  // Bumping convertRefreshKey tells DealsPage to reload + return to its list.
+  const [convertSourceDealId, setConvertSourceDealId] = useState(null)
+  const [convertRefreshKey,   setConvertRefreshKey]   = useState(0)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
@@ -1495,7 +1501,25 @@ export default function App() {
         const created=await api.createProperty({...propData,user_id:user.id})
         setProperties(prev=>[...prev,created])
         propId = created.id
-        showToast('Property added')
+        // If this property was created by converting a completed deal,
+        // retire that deal now — it's become a portfolio property, so it
+        // shouldn't linger on the Deals page. Soft-delete sends it to Trash
+        // (restorable for 30 days), matching the manual delete users were
+        // doing by hand. Best-effort: the property is already saved, so a
+        // failed deal-delete shouldn't block the success path.
+        if (convertSourceDealId) {
+          try {
+            await api.deleteDeal(convertSourceDealId, user.id)
+            setConvertRefreshKey(k => k + 1) // tell DealsPage to refresh its list
+            showToast('Property added — deal moved to Trash')
+          } catch (e) {
+            console.error('failed to retire converted deal', e)
+            showToast('Property added — but the deal could not be removed, delete it manually', 'error')
+          }
+          setConvertSourceDealId(null)
+        } else {
+          showToast('Property added')
+        }
       }
 
       // Persist compliance items. Best-effort: if it fails, the property
@@ -2680,6 +2704,7 @@ export default function App() {
             <DealsPage user={user} companies={companies} properties={properties} showToast={showToast} activeFlags={activeFlags}
               canUseInvestor={canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin })}
               onDealsChange={setDashboardDeals}
+              convertRefreshKey={convertRefreshKey}
               onConvertToProperty={(deal)=>{
                 // Map deal fields to property fields so the user doesn't
                 // have to retype everything. Fields without a clean 1:1
@@ -2732,6 +2757,9 @@ export default function App() {
                   // Skipped to avoid clobbering — left as a TODO.
                 }
                 setEditProp(prefill)
+                // Remember which deal this came from. Once the property is
+                // saved we soft-delete this deal so it leaves the Deals page.
+                setConvertSourceDealId(deal.id)
                 setShowAddProp(true)
                 showToast('Deal data pre-filled — review and save')
               }}/>
@@ -3305,7 +3333,7 @@ export default function App() {
 
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
       {showReferencing && selected && <TenantReferenceModal property={selected} onClose={()=>setShowReferencing(false)}/>}
-      {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null)}} onSave={handleSaveProp}/>}
+      {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null);setConvertSourceDealId(null)}} onSave={handleSaveProp}/>}
       {showAddBulk&&<Suspense fallback={null}><BulkAddPropertyModal
         companies={companies}
         onClose={()=>setShowAddBulk(false)}
