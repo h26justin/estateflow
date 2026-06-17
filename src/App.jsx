@@ -2705,6 +2705,9 @@ export default function App() {
                   ? num(deal.stamp_duty_override)
                   : num(deal.stamp_duty)
                 const prefill = {
+                  // UI hint — lets PropertyModal start with the mortgage block
+                  // hidden for cash deals. Stripped before save (no column).
+                  is_cash:     isCash,
                   // Identity
                   name:        deal.name || deal.address || '',
                   address:     deal.address || '',
