@@ -2285,13 +2285,18 @@ export async function sendAdminEmail(session, to, subject, message) {
 }
 
 // ── SUBDOMAIN / COMPANY LOOKUP ────────────────────────────────────────────────
+// Public, anon-callable branding lookup for the branded tenant login at
+// <sub>.ownproperly.com. Goes through the get_company_branding_by_subdomain
+// SECURITY DEFINER RPC — a logged-out visitor has no row-level SELECT on
+// `companies`, and the RPC returns only public-safe branding fields
+// ({ id, name, abbr, color, logo_url, tenant_portal_enabled }). Returns null
+// when the subdomain is unknown or the lookup fails.
 export async function fetchCompanyBySubdomain(subdomain) {
-  const { data, error } = await supabase
-    .from('companies')
-    .select('*, company_settings:company_settings(*)')
-    .eq('subdomain', subdomain.toLowerCase())
-    .single()
-  if (error) return null
+  if (!subdomain) return null
+  const { data, error } = await supabase.rpc('get_company_branding_by_subdomain', {
+    p_subdomain: String(subdomain).toLowerCase(),
+  })
+  if (error || !data) return null
   return data
 }
 

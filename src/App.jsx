@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
+import { getSubdomain } from './lib/subdomain'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -665,6 +666,20 @@ export default function App() {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
   })
   const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
+  // Tenant-portal branding for the current subdomain (<sub>.ownproperly.com).
+  // Looked up once on mount via a public RPC so a logged-OUT visitor sees the
+  // company's branded login instead of the generic marketing site. null = no
+  // subdomain / unknown company → fall back to marketing.
+  const [portalBranding, setPortalBranding] = useState(null)
+  useEffect(() => {
+    const sub = getSubdomain()
+    if (!sub) return
+    let cancelled = false
+    api.fetchCompanyBySubdomain(sub)
+      .then(b => { if (!cancelled && b && b.tenant_portal_enabled !== false) setPortalBranding(b) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
   // 'individual' | 'limited_company' | 'mixed' | null. Drives feature visibility —
   // limited_company users don't see MTD ITSA (they file Corp Tax, not Self Assessment).
   const [accountType, setAccountType] = useState(null)
@@ -1416,6 +1431,11 @@ export default function App() {
   }}/>
 
   if (authLoading) return <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center'}}><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><div style={{width:32,height:32,border:`3px solid ${T.border}`,borderTopColor:T.gold,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/></div>
+  // On a company tenant subdomain, a logged-out visitor gets the company's
+  // branded tenant login, never the OwnProperly marketing site.
+  if (!session && portalBranding) return (
+    <LoginPage branding={portalBranding} />
+  )
   if (!session) return (
     <>
       <Suspense fallback={<PageLoadingSpinner T={T}/>}>
