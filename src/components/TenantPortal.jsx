@@ -60,14 +60,6 @@ const JOB_STATUS = {
   complete:      { bg:'#2ECC8A22', color:'#2ECC8A', label:'Complete' },
 }
 
-// Detect subdomain from hostname
-function getSubdomain() {
-  const host = window.location.hostname
-  const parts = host.split('.')
-  if (parts.length >= 3 && parts[0] !== 'www') return parts[0]
-  return null
-}
-
 export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   const [tab, setTab]         = useState('home')
   const [profile, setProfile] = useState(null)
