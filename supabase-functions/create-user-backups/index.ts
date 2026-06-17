@@ -5,12 +5,29 @@
 //
 // POST payload (optional): { user_id: "uuid" } to back up one user only.
 // With no payload: backs up every user.
+//
+// Auth (two accepted paths, mirroring trial-emails / xero-cron-reconcile):
+//   • Cron / service: `x-cron-secret: <CRON_SECRET>` header (preferred — survives
+//     service-role key rotation), or a raw service-role key in the Authorization
+//     bearer (legacy fallback).
+//   • User-initiated manual backup: the signed-in user's JWT in the Authorization
+//     bearer; the caller may only target their own user_id (platform admins aside).
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
+
+// Browser-callable (the Settings → Backups "Create backup now" button), so it
+// needs CORS — without it the preflight has no Access-Control-Allow-Origin and
+// the fetch rejects with "Failed to fetch" before any backup runs.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
 
 async function backupOneUser(admin: any, userId: string, userEmail: string, triggerSource: string) {
   // Pull all user data
@@ -91,11 +108,13 @@ async function backupOneUser(admin: any, userId: string, userEmail: string, trig
 function jsonError(status: number, message: string) {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
@@ -110,15 +129,19 @@ serve(async (req) => {
       } catch (_) {}
     }
 
-    // Auth: the cron path passes the service-role key in the Authorization
-    // header (set by pg_cron). User-initiated manual backups pass the
-    // signed-in user's JWT. We must verify *which* of those is happening and
-    // gate access accordingly — without this, any logged-in user could POST
-    // `{ user_id: "<victim>" }` and trigger an admin-level dump of another
-    // user's data.
+    // Auth: the cron path authenticates with a shared CRON_SECRET (preferred —
+    // mirrors trial-emails / xero-cron-reconcile and survives service-role key
+    // rotation) or, as a legacy fallback, a raw service-role key in the bearer.
+    // User-initiated manual backups pass the signed-in user's JWT. We must
+    // verify *which* of those is happening and gate access accordingly —
+    // without this, any logged-in user could POST `{ user_id: "<victim>" }` and
+    // trigger an admin-level dump of another user's data.
     const authHeader = req.headers.get('Authorization') || ''
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-    const isServiceCall = !!token && token === SERVICE_ROLE_KEY
+    const cronSecret = req.headers.get('x-cron-secret') || ''
+    const isServiceCall =
+      (!!CRON_SECRET && cronSecret === CRON_SECRET) ||
+      (!!token && token === SERVICE_ROLE_KEY)
 
     if (!isServiceCall) {
       if (!token) return jsonError(401, 'Missing Authorization header')
@@ -151,7 +174,10 @@ serve(async (req) => {
     }
 
     if (profiles.length === 0) {
-      return new Response(JSON.stringify({ error: 'No users found' }), { status: 404 })
+      return new Response(JSON.stringify({ error: 'No users found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const results = []
@@ -169,9 +195,12 @@ serve(async (req) => {
     try { await admin.rpc('prune_old_backups') } catch (_) {}
 
     return new Response(JSON.stringify({ processed: results.length, results }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500 })
+    return new Response(JSON.stringify({ error: (e as Error).message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 })
