@@ -44,6 +44,27 @@ function inRange(dateStr, range) {
   const d = new Date(dateStr)
   return d >= range.start && d <= range.end
 }
+// Monthly-grid reports cap out here so a very wide (or not-yet-set) custom
+// range can't render hundreds of columns.
+const MAX_GRID_MONTHS = 36
+// Ordered {m,y} month buckets a monthly report should show. Tax year runs
+// Apr→Mar, calendar Jan→Dec, and custom spans every calendar month the range
+// touches (start→end inclusive) so a custom window of any length lines up.
+function periodMonths(year, yearType, range) {
+  if (yearType === 'tax') return [3,4,5,6,7,8,9,10,11,0,1,2].map(m=>({m,y:m>=3?year:year+1}))
+  if (yearType === 'calendar') return [0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({m,y:year}))
+  const out = []
+  const d   = new Date(range.start.getFullYear(), range.start.getMonth(), 1)
+  const end = new Date(range.end.getFullYear(),   range.end.getMonth(),   1)
+  // +1 past the cap so callers can detect "too wide" and show a notice.
+  while (d <= end && out.length <= MAX_GRID_MONTHS) { out.push({ m:d.getMonth(), y:d.getFullYear() }); d.setMonth(d.getMonth()+1) }
+  return out.length ? out : [{ m: range.start.getMonth(), y: range.start.getFullYear() }]
+}
+// Month column label: include a 2-digit year for custom ranges (which can
+// cross year boundaries); tax/calendar keep the bare month name as before.
+function monthLabel(m, y, yearType) {
+  return yearType === 'custom' ? `${MONTHS[m]} ${String(y).slice(2)}` : MONTHS[m]
+}
 // Effective date of a rent payment row: prefer the dated period, fall back
 // to the year/month columns (legacy rows have no period_start).
 function rentPaymentDate(r) {
@@ -102,6 +123,9 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [selectedCompany, setSelectedCompany] = useState('all')
   const [yearType, setYearType] = useState('tax')
   const [year, setYear]         = useState(new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1)
+  // Custom reporting period (ISO yyyy-mm-dd). Only used when yearType==='custom'.
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd]     = useState('')
 
   // All data
   const [compliance, setCompliance]   = useState([])
@@ -138,22 +162,65 @@ export default function ReportsPage({ properties, companies, companySettings, us
     setLoading(false)
   }
 
-  // Load year_type from company settings when company changes
+  // Internal yearType is 'tax' | 'calendar' | 'custom'. The settings table
+  // stores the longer vocabulary ('tax_year' | 'calendar_year' | 'custom'),
+  // and some legacy rows hold the short form — normalise both on the way in.
+  function normType(t) {
+    if (t === 'tax_year' || t === 'tax') return 'tax'
+    if (t === 'calendar_year' || t === 'calendar') return 'calendar'
+    if (t === 'custom') return 'custom'
+    return 'tax'
+  }
+  const STORE_TYPE = { tax: 'tax_year', calendar: 'calendar_year', custom: 'custom' }
+
+  // Load the saved reporting period from company settings when company changes.
   useEffect(() => {
     if (selectedCompany !== 'all') {
       const cs = companySettings?.[selectedCompany]
-      if (cs?.year_type) setYearType(cs.year_type)
+      if (cs?.year_type) {
+        setYearType(normType(cs.year_type))
+        setCustomStart(cs.custom_period_start || '')
+        setCustomEnd(cs.custom_period_end || '')
+      }
     }
   }, [selectedCompany, companySettings])
 
-  async function saveYearType(type) {
-    setYearType(type)
-    if (selectedCompany !== 'all') {
-      await api.saveCompanyYearType(selectedCompany, type).catch(()=>{})
+  // Persist the current selection back to the company (no-op for "all").
+  async function persistPeriod(internalType, start, end) {
+    if (selectedCompany === 'all') return
+    if (internalType === 'custom') {
+      const base = companySettings?.[selectedCompany] || {}
+      await api.upsertCompanySettings(selectedCompany, {
+        ...base, year_type: 'custom',
+        custom_period_start: start || null,
+        custom_period_end: end || null,
+      }).catch(()=>{})
+    } else {
+      await api.saveCompanyYearType(selectedCompany, STORE_TYPE[internalType]).catch(()=>{})
     }
   }
 
-  const range = useMemo(() => getYearRange(year, yearType), [year, yearType])
+  function saveYearType(type) {
+    setYearType(type)
+    persistPeriod(type, customStart, customEnd)
+  }
+
+  function saveCustomDates(start, end) {
+    setCustomStart(start); setCustomEnd(end); setYearType('custom')
+    persistPeriod('custom', start, end)
+  }
+
+  const range = useMemo(() => {
+    if (yearType === 'custom') {
+      // Missing bounds open out to a wide window so a half-set range still
+      // renders rather than blanking every report.
+      const s = customStart || '2000-01-01'
+      const e = customEnd   || '2100-12-31'
+      const fmtD = iso => new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      return { start: new Date(s), end: new Date(e), label: `${fmtD(s)} — ${fmtD(e)}` }
+    }
+    return getYearRange(year, yearType)
+  }, [year, yearType, customStart, customEnd])
 
   // Filtered by company
   const filtProps = useMemo(() => sortByCompanyName(selectedCompany === 'all' ? properties : properties.filter(p => p.company_id === selectedCompany)), [properties, selectedCompany])
@@ -281,14 +348,34 @@ export default function ReportsPage({ properties, companies, companySettings, us
           )}
           {/* Year type toggle */}
           <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
-            {[['tax','Tax year'],['calendar','Calendar']].map(([k,l])=>(
+            {[['tax','Tax year'],['calendar','Calendar'],['custom','Custom']].map(([k,l])=>(
               <button key={k} onClick={()=>saveYearType(k)} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
             ))}
           </div>
-          <select value={year} onChange={e=>setYear(Number(e.target.value))}
-            style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
-            {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
-          </select>
+          {yearType==='custom' ? (
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <input type="date" value={customStart} max={customEnd||undefined}
+                onChange={e=>{
+                  const s=e.target.value
+                  if(customEnd && s && s>customEnd) return
+                  saveCustomDates(s, customEnd)
+                }}
+                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}/>
+              <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>—</span>
+              <input type="date" value={customEnd} min={customStart||undefined}
+                onChange={e=>{
+                  const en=e.target.value
+                  if(customStart && en && en<customStart) return
+                  saveCustomDates(customStart, en)
+                }}
+                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}/>
+            </div>
+          ) : (
+            <select value={year} onChange={e=>setYear(Number(e.target.value))}
+              style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
+              {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
+            </select>
+          )}
           <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}/>
         </div>
       </div>
@@ -1191,10 +1278,22 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
   )
 }
 
+// Shown by the month-by-month reports when a custom range spans more months
+// than the grid can sensibly display (or both custom dates aren't set yet).
+function GridTooWide({ T }) {
+  return (
+    <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center',border:`1px dashed ${T.border}`,borderRadius:14,lineHeight:1.7}}>
+      This month-by-month view supports up to {MAX_GRID_MONTHS} months.<br/>
+      Set both custom dates and keep the range within {MAX_GRID_MONTHS/12} years to see it, or switch to a tax/calendar year.
+    </div>
+  )
+}
+
 function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, accent, fmt }) {
-  const months = yearType==='tax'
-    ? [3,4,5,6,7,8,9,10,11,0,1,2].map(m=>({m,y:m>=3?year:year+1}))
-    : [0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({m,y:year}))
+  const months = periodMonths(year, yearType, range)
+  if (months.length > MAX_GRID_MONTHS) return <GridTooWide T={T}/>
+  const nMonths = months.length
+  const cols = `160px repeat(${nMonths},1fr) 100px`
   const propRent = filtProps.map(p => {
     const monthData = months.map(({m,y}) => {
       const paid = filtRent.filter(r => r.property_id===p.id && r.month === (m+1) && r.year === y)
@@ -1209,24 +1308,24 @@ function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, a
     <>
       <StatCards T={T} items={[
         {label:'Total income for period',value:fmt(grandTotal),color:T.green},
-        {label:'Monthly average',value:fmt(Math.round(grandTotal/12)),color:accent},
+        {label:'Monthly average',value:fmt(Math.round(grandTotal/nMonths)),color:accent},
         {label:'Properties tracked',value:filtProps.length,color:T.text},
       ]}/>
       <div style={{overflowX:'auto'}}>
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',minWidth:900}}>
-          <div style={{display:'grid',gridTemplateColumns:`160px repeat(12,1fr) 100px`,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 16px'}}>
+          <div style={{display:'grid',gridTemplateColumns:cols,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 16px'}}>
             <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Property</div>
-            {months.map(({m},i)=><div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{MONTHS[m]}</div>)}
+            {months.map(({m,y},i)=><div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{monthLabel(m,y,yearType)}</div>)}
             <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',textAlign:'right'}}>Total</div>
           </div>
           {propRent.map(({p,monthData,total}) => (
-            <div key={p.id} style={{display:'grid',gridTemplateColumns:`160px repeat(12,1fr) 100px`,padding:'10px 16px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
+            <div key={p.id} style={{display:'grid',gridTemplateColumns:cols,padding:'10px 16px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
               <div style={{fontFamily:mono,fontSize:11,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
               {monthData.map((v,i)=><div key={i} style={{fontFamily:mono,fontSize:11,color:T.green,textAlign:'center'}}>{v>0?fmt(v):'-'}</div>)}
               <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.green,textAlign:'right'}}>{fmt(total)}</div>
             </div>
           ))}
-          <div style={{display:'grid',gridTemplateColumns:`160px repeat(12,1fr) 100px`,padding:'10px 16px',background:T.bg}}>
+          <div style={{display:'grid',gridTemplateColumns:cols,padding:'10px 16px',background:T.bg}}>
             <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.text}}>Monthly total</div>
             {monthTotals.map((v,i)=><div key={i} style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.green,textAlign:'center'}}>{fmt(v)}</div>)}
             <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.green,textAlign:'right'}}>{fmt(grandTotal)}</div>
@@ -1491,9 +1590,8 @@ function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
 }
 
 function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T, accent, fmt }) {
-  const months = yearType==='tax'
-    ? [3,4,5,6,7,8,9,10,11,0,1,2].map(m=>({m,y:m>=3?year:year+1}))
-    : [0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({m,y:year}))
+  const months = periodMonths(year, yearType, range)
+  if (months.length > MAX_GRID_MONTHS) return <GridTooWide T={T}/>
   // Use real per-month data: collected rent from rent_payments, real
   // expense rows by date. Previously this just multiplied rent_pcm by
   // every month identically — showed the same figure for Jan as for
@@ -1515,7 +1613,7 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
       return d.getMonth() === m && d.getFullYear() === y
     }).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
-    return { label: MONTHS[m], rent, exp, net, m, y }
+    return { label: monthLabel(m, y, yearType), rent, exp, net, m, y }
   })
   const totalRent = mData.reduce((s,m)=>s+m.rent,0)
   const totalExp = mData.reduce((s,m)=>s+m.exp,0)
