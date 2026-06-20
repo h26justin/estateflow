@@ -1034,11 +1034,23 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         <div style={sectionStyle}>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Default Reporting Period</div>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20,lineHeight:1.7}}>
-            Choose whether reports default to the UK tax year (6 Apr — 5 Apr) or the calendar year (1 Jan — 31 Dec). You can always override this when running individual reports.
+            Choose whether reports default to the UK tax year (6 Apr — 5 Apr), the calendar year (1 Jan — 31 Dec), or a custom date range you set yourself. You can always override this when running individual reports.
           </div>
           {companies.map(company => {
             const cs = companySettings[company.id] || {}
-            const yearType = cs.year_type || 'tax_year'
+            // Normalise legacy short forms ('tax'/'calendar') to the canonical keys.
+            const rawType = cs.year_type || 'tax_year'
+            const yearType = rawType==='tax' ? 'tax_year' : rawType==='calendar' ? 'calendar_year' : rawType
+            // Persist a patch on top of the company's existing settings row.
+            const saveSettings = async(patch)=>{
+              const updated={...cs,...patch}
+              try{
+                const saved=await api.upsertCompanySettings(company.id,updated)
+                setCompanySettings(prev=>({...prev,[company.id]:saved||updated}))
+                showToast('Reporting period saved')
+              }catch(e){showToast(e.message,'error')}
+            }
+            const dateInputStyle={fontFamily:mono,fontSize:12,padding:'8px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:T.bg,color:T.text}
             return (
               <div key={company.id} style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${T.border}`}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
@@ -1046,15 +1058,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>{company.name}</span>
                 </div>
                 <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                  {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'}].map(opt=>(
-                    <button key={opt.k} onClick={async()=>{
-                      const updated={...cs,year_type:opt.k}
-                      try{
-                        const saved=await api.upsertCompanySettings(company.id,updated)
-                        setCompanySettings(prev=>({...prev,[company.id]:saved||updated}))
-                        showToast('Reporting period saved')
-                      }catch(e){showToast(e.message,'error')}
-                    }}
+                  {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'},{k:'custom',label:'Custom Dates',sub:'Set your own range'}].map(opt=>(
+                    <button key={opt.k} onClick={()=>saveSettings({year_type:opt.k})}
                     style={{fontFamily:mono,fontSize:11,padding:'10px 16px',borderRadius:10,cursor:'pointer',textAlign:'left',
                       border:`2px solid ${yearType===opt.k?T.gold:T.border}`,
                       background:yearType===opt.k?T.gold+'11':T.bg,
@@ -1064,6 +1069,30 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     </button>
                   ))}
                 </div>
+                {yearType==='custom' && (
+                  <div style={{display:'flex',gap:14,flexWrap:'wrap',marginTop:14}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                      <label style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Start date</label>
+                      <input type="date" value={cs.custom_period_start||''} max={cs.custom_period_end||undefined}
+                        onChange={e=>{
+                          const start=e.target.value
+                          if(cs.custom_period_end && start && start>cs.custom_period_end){showToast('Start date must be on or before the end date','error');return}
+                          saveSettings({year_type:'custom',custom_period_start:start||null})
+                        }}
+                        style={dateInputStyle}/>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                      <label style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>End date</label>
+                      <input type="date" value={cs.custom_period_end||''} min={cs.custom_period_start||undefined}
+                        onChange={e=>{
+                          const end=e.target.value
+                          if(cs.custom_period_start && end && end<cs.custom_period_start){showToast('End date must be on or after the start date','error');return}
+                          saveSettings({year_type:'custom',custom_period_end:end||null})
+                        }}
+                        style={dateInputStyle}/>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
