@@ -87,11 +87,17 @@ Model A (PR-based) under auto mode, same shape as FortaOS:
 - Review `git diff` — confirm it is only the intended change.
 - **No secrets, credentials, API keys, or model identifiers** in the diff or the
   message (Baseline §4). Blank / redact; refer by name or date.
-- **Commits are authored by Justin Hammond** (the operating user / pusher).
-  **No `Co-Authored-By` line and no model identifier anywhere** in the diff or
-  message — keep model ids out of history (Forta convention; supersedes the
-  generic `Co-Authored-By: Claude …` footer for this repo). When a session id is
-  available, footer the commit with the session link
+- **No model identifier anywhere** in the diff or message — keep model ids out
+  of history (Forta convention; supersedes the generic `Co-Authored-By: Claude …`
+  footer for this repo). This is the hard rule.
+- **Commits are attributed to Justin Hammond**, the operating user / pusher. Note
+  the mechanics: on a **squash merge** GitHub sets the commit author to the
+  *merging account* and the displayed name comes from that account's GitHub
+  **profile name** (set it to "Justin Hammond" so commits read that way) — local
+  `git config user.name` only labels the pre-squash branch commit. A
+  `Co-authored-by: Justin Hammond <…>` trailer that GitHub auto-adds on squash is
+  fine and expected; the thing that must never appear is a model/AI footer.
+- When a session id is available, footer the commit with the session link
   `https://claude.ai/code/session_<id>` for traceability; otherwise a clean
   message with no AI/model footer.
 - No `ROADMAP.md` machinery here (the repo has none). If one is added later, keep
