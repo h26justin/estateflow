@@ -22,7 +22,11 @@ const CSS = `
   .lp-link{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:#2D3C4A;cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
 `
 
-export default function LoginPage({ initialMode = 'login', onClose }) {
+export default function LoginPage({ initialMode = 'login', onClose, branding = null }) {
+  // Branded tenant login (served at <sub>.ownproperly.com). When present we
+  // swap the OwnProperly logo + gold accent for the company's identity. Falls
+  // back to the default gold when a company has no brand colour set.
+  const brandAccent = branding?.color || '#C8A84B'
   const [mode,     setMode]     = useState(initialMode)
   const [email,    setEmail]    = useState('')
   const [firstName, setFirstName] = useState('')
@@ -122,11 +126,21 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
     <div style={{ width:'100%', maxWidth: 420 }}>
       <style>{CSS}</style>
 
-      {/* Logo panel — gold tint for signup, neutral for login */}
-      <div style={{ background: mode==='signup' ? '#C8A84B22' : '#F4F3EF', border: mode==='signup' ? '1.5px solid #C8A84B44' : '1.5px solid transparent', borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center', transition:'background 0.3s' }}>
-        <img src="/logo.svg" alt="OwnProperly" style={{ width: 'min(280px, 100%)', height:'auto', display:'block', margin:'0 auto' }}/>
-        {mode==='signup' && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:'#8A6A00', marginTop:10, fontWeight:600, letterSpacing:'0.05em' }}>✨ 14-day free trial — no card needed</div>}
-      </div>
+      {/* Logo panel: company branding when on a tenant subdomain, else the
+          OwnProperly logo (gold tint for signup, neutral for login). */}
+      {branding ? (
+        <div style={{ background: brandAccent+'18', border:`1.5px solid ${brandAccent}44`, borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center' }}>
+          {branding.logo_url
+            ? <img src={branding.logo_url} alt={branding.name || 'Company logo'} style={{ width:'min(220px, 100%)', maxHeight:72, height:'auto', objectFit:'contain', display:'block', margin:'0 auto' }}/>
+            : <div style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em', color:brandAccent }}>{branding.name}</div>}
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:MUTED, marginTop:10, textTransform:'uppercase', letterSpacing:'0.1em' }}>Tenant Portal</div>
+        </div>
+      ) : (
+        <div style={{ background: mode==='signup' ? '#C8A84B22' : '#F4F3EF', border: mode==='signup' ? '1.5px solid #C8A84B44' : '1.5px solid transparent', borderRadius:16, padding:'24px 32px', marginBottom:24, textAlign:'center', transition:'background 0.3s' }}>
+          <img src="/logo.svg" alt="OwnProperly" style={{ width: 'min(280px, 100%)', height:'auto', display:'block', margin:'0 auto' }}/>
+          {mode==='signup' && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:'#8A6A00', marginTop:10, fontWeight:600, letterSpacing:'0.05em' }}>✨ 14-day free trial — no card needed</div>}
+        </div>
+      )}
 
       <div style={{ background:WHITE, border: mode==='signup' ? '1.5px solid #C8A84B66' : `1.5px solid ${BORDER}`, borderRadius:20, padding:'32px 28px', boxShadow: mode==='signup' ? '0 4px 32px rgba(200,168,75,0.15)' : '0 4px 32px rgba(45,60,74,0.12)', transition:'border-color 0.3s, box-shadow 0.3s' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
@@ -134,11 +148,15 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
           {/* h1 — primary page heading. Previously h2 with no h1, which
               fails WCAG 1.3.1 / SC 2.4.1 (no top-level landmark). */}
           <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0 }}>
-            {mode==='login' ? 'Sign in to your account' : 'Create your free account'}
+            {branding
+              ? (mode==='login' ? 'Sign in to your tenant portal' : 'Create your tenant account')
+              : (mode==='login' ? 'Sign in to your account' : 'Create your free account')}
           </h1>
         </div>
         <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:24 }}>
-          {mode==='login' ? 'Welcome back.' : 'Start your 14-day free trial — no card needed.'}
+          {branding
+            ? `${branding.name} tenant portal`
+            : (mode==='login' ? 'Welcome back.' : 'Start your 14-day free trial — no card needed.')}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -197,7 +215,7 @@ export default function LoginPage({ initialMode = 'login', onClose }) {
           {success&&<div role="status" aria-live="polite" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#16A34A', background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
 
           <button type="submit" className="lp-btn" disabled={loading}
-            style={{ marginTop:4, background: loading ? '#A3A8AC' : mode==='signup' ? '#C8A84B' : '#2D3C4A', color: mode==='signup' && !loading ? '#1A2530' : 'white' }}>
+            style={{ marginTop:4, background: loading ? '#A3A8AC' : branding ? brandAccent : mode==='signup' ? '#C8A84B' : '#2D3C4A', color: !branding && mode==='signup' && !loading ? '#1A2530' : 'white' }}>
             {loading ? 'Please wait…' : mode==='login' ? 'Sign In' : 'Create Account →'}
           </button>
         </form>
