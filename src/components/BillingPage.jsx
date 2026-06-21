@@ -82,7 +82,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   // A failed load must never masquerade as "no subscription / free trial".
   if (loadError) return (
     <div style={{ padding: 40, textAlign: 'center' }}>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.red, marginBottom: 14 }}>⚠ Couldn't load billing data — {loadError}</div>
+      <div style={{ fontFamily: mono, fontSize: 12, color: T.red, marginBottom: 14 }}>Couldn't load billing data — {loadError}</div>
       <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={loadData}>Retry</button>
     </div>
   )
@@ -93,7 +93,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
       {/* Platform admin tabs */}
       {isPlatformAdmin && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: `1px solid ${T.border}`, paddingBottom: 0 }}>
-          {[['billing','💳 My Billing'],['admin','⚙ Admin: All Accounts']].map(([k,l]) => (
+          {[['billing','My Billing'],['admin','Admin: All Accounts']].map(([k,l]) => (
             <button key={k} onClick={()=>setAdminTab(k)} style={{
               fontFamily: mono, fontSize: 11, padding: '8px 16px', borderRadius: '8px 8px 0 0',
               border: 'none', cursor: 'pointer', transition: 'all 0.15s',
@@ -153,12 +153,12 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                 {/* Trial warning */}
                 {status === 'trialing' && trialDaysLeft <= 7 && trialDaysLeft > 0 && (
                   <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: mono, fontSize: 11, color: T.amber }}>
-                    ⚠ Trial ends in {trialDaysLeft} day{trialDaysLeft!==1?'s':''}. Add a payment method to keep access.
+                    Trial ends in {trialDaysLeft} day{trialDaysLeft!==1?'s':''}. Add a payment method to keep access.
                   </div>
                 )}
                 {status === 'past_due' && (
                   <div style={{ background: T.red+'22', border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: mono, fontSize: 11, color: T.red }}>
-                    ⚠ Payment failed. Update your payment method to restore full access.
+                    Payment failed. Update your payment method to restore full access.
                   </div>
                 )}
 
@@ -169,7 +169,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                     <button className="btn btn-gold" style={{ fontSize: 12 }}
                       onClick={() => handleCheckout(co.id, 'checkout')}
                       disabled={!!working}>
-                      {working===co.id ? 'Redirecting…' : '💳 Add payment method'}
+                      {working===co.id ? 'Redirecting…' : 'Add payment method'}
                     </button>
                   )}
                   {status === 'active' && (
