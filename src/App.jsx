@@ -3852,6 +3852,22 @@ function mixHex(hex, t, amt) {
   return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
 }
 
+// Derive a hairline icon + bedroom count from the free-text prop_type
+// ("1-Bed Flat", "House", "HMO Room", "Studio", …). `beds` is null when the
+// type doesn't state one (e.g. plain "House"); `studio` flags studios.
+function propTypeMeta(propType) {
+  const t = String(propType || '').toLowerCase()
+  const bedM = t.match(/(\d+)\s*-?\s*bed/)
+  const beds = bedM ? parseInt(bedM[1], 10) : null
+  const studio = /studio|bedsit/.test(t)
+  let icon = 'home'
+  if (/hmo|room/.test(t)) icon = 'bed'
+  else if (/flat|apartment|maisonette|studio|bedsit/.test(t)) icon = 'building'
+  else if (/commercial|office|shop|retail|unit/.test(t)) icon = 'landmark'
+  // house / bungalow / detached / terraced / semi / (unknown) → home
+  return { icon, beds, studio }
+}
+
 function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis }) {
   const { T } = useTheme()
   if (!filtered.length) return <div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:32,textAlign:'center'}}>No properties match your filters.</div>
@@ -3865,7 +3881,7 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
         const co = p.company
         const accent = co?.color || T.gold
         const accentDeep = mixHex(accent, [14, 20, 28], 0.42)   // deepen, don't fade
-        const initial = (String(p.name||'?').trim()[0] || '?').toUpperCase()
+        const tm = propTypeMeta(p.prop_type)
         const sc = STATUS_CFG[p.status] || STATUS_CFG.purchased
         const cfg = complianceBadge(complianceStatusFor(p), T)
         const gy = calcGrossYield(p, yieldBasis)
@@ -3874,7 +3890,14 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
             style={{padding:0,overflow:'hidden',cursor:'pointer',display:'flex',flexDirection:'column'}}>
             {/* Gradient header — accent deepening into a darker accent */}
             <div style={{height:60,background:`linear-gradient(135deg, ${accent} 0%, ${accentDeep} 100%)`,padding:'11px 13px',display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
-              <div style={{width:38,height:38,borderRadius:10,background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.3)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:17,flexShrink:0}}>{initial}</div>
+              <div title={p.prop_type || 'Property'} style={{position:'relative',width:38,height:38,borderRadius:10,background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.3)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',flexShrink:0}}>
+                <Icon name={tm.icon} size={19} color="#fff"/>
+                {(tm.beds != null || tm.studio) && (
+                  <span style={{position:'absolute',bottom:-5,right:-5,minWidth:16,height:16,padding:'0 3px',borderRadius:8,background:'#fff',color:accentDeep,fontFamily:MONO,fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 2px rgba(0,0,0,0.2)'}}>
+                    {tm.studio ? 'S' : tm.beds}
+                  </span>
+                )}
+              </div>
               <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,background:'rgba(0,0,0,0.28)',color:'#fff',fontFamily:MONO,fontSize:10,fontWeight:600,whiteSpace:'nowrap'}}>
                 <span style={{width:6,height:6,borderRadius:'50%',background:sc.dot,flexShrink:0}}/>{sc.label}
               </span>
