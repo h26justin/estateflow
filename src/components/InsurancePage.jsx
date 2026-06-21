@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
@@ -273,7 +274,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
         />
       ) : filtered.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🛡️</div>
+          <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon name="shield-check" size={30} color={T.gold}/></div>
           <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 12 }}>
             No policies yet. Add your first insurance policy to start tracking renewals.
           </div>
@@ -441,7 +442,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
           <button onClick={onShowHistory} title="View history chain"
             style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
               background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
-            📊 History
+            History
           </button>
         )}
         {(bucket === 'expired' || bucket === 'urgent' || bucket === 'soon') && (
@@ -459,7 +460,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
         <button onClick={onDelete}
           style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
             background: 'transparent', border: `1px solid ${T.red}44`, color: T.red }}>
-          🗑
+          ✕
         </button>
       </div>
     </div>
@@ -526,7 +527,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
   function classify(property) {
     const covering = policiesForProperty(property)
     if (covering.length === 0) {
-      return { kind: 'not_insured', label: '❌ Not insured', color: T.red }
+      return { kind: 'not_insured', label: 'Not insured', color: T.red }
     }
     const today = new Date(); today.setHours(0, 0, 0, 0)
     // For each policy, compute days-to-expiry. The "best" is the largest
@@ -539,7 +540,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
     if (days < 0) {
       return {
         kind: 'expired',
-        label: `🔴 Expired ${Math.abs(days)}d ago`,
+        label: `Expired ${Math.abs(days)}d ago`,
         color: T.red, days,
         nextExpiry: best.pol.expiry_date, count: covering.length,
       }
@@ -547,14 +548,14 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
     if (days <= 30) {
       return {
         kind: 'renewing',
-        label: `⚠ Renews in ${days}d`,
+        label: `Renews in ${days}d`,
         color: T.amber, days,
         nextExpiry: best.pol.expiry_date, count: covering.length,
       }
     }
     return {
       kind: 'insured',
-      label: `✅ Insured`,
+      label: `Insured`,
       color: T.green, days,
       nextExpiry: best.pol.expiry_date, count: covering.length,
     }
@@ -566,7 +567,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
   if (groups.length === 0) {
     return (
       <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>🏠</div>
+        <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon name="home" size={30} color={T.faint}/></div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
           {properties.length === 0
             ? 'No properties yet. Add properties to start tracking insurance coverage.'

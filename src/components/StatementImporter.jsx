@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon } from '../lib/icons'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 import { safeOverlayClose } from '../lib/modalUtils'
 import FocusTrap from '../lib/FocusTrap'
@@ -226,7 +227,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
         <div style={{padding:'20px 24px',borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div>
-              <h2 id="statement-importer-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>📄 Import Statement</h2>
+              <h2 id="statement-importer-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>Import Statement</h2>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
                 {step==='upload'&&'Upload a PNE or RMS rental statement PDF'}
                 {step==='preview'&&`${format} Statement · ${parsed?.date} · ${items.length} items found`}
@@ -268,7 +269,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                 style={{border:`2px dashed ${T.border}`,borderRadius:12,padding:40,textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}
                 onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold}
                 onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
-                <div style={{fontSize:40,marginBottom:12}}>📄</div>
+                <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="file-text" size={36} color={T.faint}/></div>
                 <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:6}}>Drop your statement PDF here</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:16}}>or click to browse</div>
                 <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
@@ -443,7 +444,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
           {/* STEP 4: DONE */}
           {step==='done'&&importResults&&(
             <div style={{textAlign:'center',padding:20}}>
-              <div style={{fontSize:40,marginBottom:16}}>✅</div>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:16}}><Icon name="check-circle" size={38} color={T.green}/></div>
               <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:20}}>Import Complete!</div>
               <div style={{display:'grid',gap:8,marginBottom:20,textAlign:'left'}}>
                 {[
