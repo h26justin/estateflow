@@ -796,6 +796,14 @@ export default function App() {
 
   const isMobile = useIsMobile(769)
   const [showDrawer, setShowDrawer] = useState(false)
+  // Desktop left-rail collapse (redesign app shell). Snap between 212/68px —
+  // do NOT CSS-transition width (caused a stuck-transition bug per the handoff);
+  // only the label opacity fades. Mobile keeps the bottom tab bar (rail hidden).
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try { return localStorage.getItem('ef_rail_collapsed') === 'true' } catch(e) { return false }
+  })
+  useEffect(() => { try { localStorage.setItem('ef_rail_collapsed', String(railCollapsed)) } catch(e) {} }, [railCollapsed])
+  const railWidth = isMobile ? 0 : (railCollapsed ? 68 : 212)
   const [userAccess,  setUserAccess]  = useState([])  // company_ids this user can see
 
   useEffect(()=>{
@@ -1915,8 +1923,47 @@ export default function App() {
   }
 
   return (
-    <div style={{fontFamily:SANS,minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
+    <div style={{fontFamily:SANS,minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s',paddingLeft:railWidth}}>
       <style>{CSS}</style>
+      {/* ── LEFT RAIL (desktop) ── redesign app shell. Fixed in the gutter the
+          outer paddingLeft reserves. Mobile keeps the bottom tab bar instead. */}
+      {!isMobile && (
+        <aside style={{position:'fixed',left:0,top:0,bottom:0,width:railWidth,background:T.surface,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',zIndex:120}}>
+          {/* Brand block */}
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:railCollapsed?'14px 0':'14px 16px',justifyContent:railCollapsed?'center':'flex-start',height:52,flexShrink:0,borderBottom:`1px solid ${T.border}`}}>
+            <div style={{width:32,height:32,borderRadius:9,background:'#14202A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <span style={{fontFamily:SANS,fontWeight:700,fontSize:17,letterSpacing:'-0.04em',color:'#F4F3EF'}}>P<span style={{color:'#CBA64E'}}>.</span></span>
+            </div>
+            {!railCollapsed && <span style={{fontSize:18,letterSpacing:'-0.02em',color:T.text,whiteSpace:'nowrap'}}><span style={{fontWeight:500}}>Own</span><span style={{fontWeight:700}}>Properly</span></span>}
+          </div>
+          {/* Nav items */}
+          <nav style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'10px 8px',display:'flex',flexDirection:'column',gap:2}}>
+            {navItems.map(n=>{
+              const active = view===n.key||(view==='detail'&&n.key==='properties')
+              return (
+                <button key={n.key} title={railCollapsed?n.label:undefined} aria-current={active?'page':undefined}
+                  onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}}
+                  style={{display:'flex',alignItems:'center',gap:11,padding:railCollapsed?'10px 0':'10px 11px',justifyContent:railCollapsed?'center':'flex-start',
+                    borderRadius:10,border:'none',cursor:'pointer',width:'100%',textAlign:'left',
+                    background:active?T.card:'transparent',color:active?T.text:T.muted,
+                    fontFamily:SANS,fontSize:14,fontWeight:active?700:500,transition:'background 0.15s,color 0.15s'}}
+                  onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
+                  onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>
+                  <span style={{display:'flex',flexShrink:0,color:active?T.gold:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
+                  {!railCollapsed && <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.label}</span>}
+                </button>
+              )
+            })}
+          </nav>
+          {/* Collapse toggle */}
+          <button onClick={()=>setRailCollapsed(c=>!c)} aria-label={railCollapsed?'Expand sidebar':'Collapse sidebar'}
+            style={{display:'flex',alignItems:'center',gap:10,padding:railCollapsed?'12px 0':'12px 16px',justifyContent:railCollapsed?'center':'flex-start',
+              background:'none',border:'none',borderTop:`1px solid ${T.border}`,cursor:'pointer',color:T.muted,fontFamily:MONO,fontSize:11,flexShrink:0}}>
+            <Icon name={railCollapsed?'chevron-right':'chevron-left'} size={18}/>
+            {!railCollapsed && <span>Collapse</span>}
+          </button>
+        </aside>
+      )}
       {/* ── IMPERSONATION BANNER ── */}
       {impersonatingUser && (
         <div style={{background:'#8B1F1F',color:'white',padding:'10px 16px',textAlign:'center',fontFamily:MONO,fontSize:12,fontWeight:600,position:'sticky',top:0,zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',gap:16,flexWrap:'wrap'}}>
@@ -1971,22 +2018,17 @@ export default function App() {
       <a href='#main-content' style={{position:'absolute',left:'-9999px',top:'auto',width:1,height:1,overflow:'hidden'}} onFocus={e=>{e.target.style.left='16px';e.target.style.width='auto';e.target.style.height='auto'}} onBlur={e=>{e.target.style.left='-9999px';e.target.style.width='1px';e.target.style.height='1px'}}>Skip to main content</a>
       <header role='banner' style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
         <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-          {/* Logo */}
-          <div style={{display:'flex',alignItems:'center',flexShrink:0}}>
-            <img src="/logo.svg" alt="OwnProperly" style={{height:38,width:'auto'}}/>
+          {/* Left: logo on mobile, breadcrumb on desktop (nav lives in the rail) */}
+          <div style={{display:'flex',alignItems:'center',flexShrink:0,minWidth:0}}>
+            {isMobile
+              ? <img src="/logo.svg" alt="OwnProperly" style={{height:34,width:'auto'}}/>
+              : <span style={{fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',whiteSpace:'nowrap'}}>
+                  {navItems.find(n=>n.key===view)?.label || (view==='detail' ? 'Portfolio / Property' : 'Dashboard')}
+                </span>}
           </div>
 
-          {/* Desktop nav */}
-          {!isMobile&&<nav style={{display:'flex',gap:2,flex:1,justifyContent:'center'}}>
-            {navItems.map(n=>(
-              <button key={n.key} className={`tab ${view===n.key||(view==='detail'&&n.key==='properties')?'active':''}`}
-                onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}} aria-current={view===n.key?'page':undefined}>
-                <span style={{display:'inline-flex',alignItems:'center',gap:7}}>
-                  {ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={17}/>:n.icon} {n.label}
-                </span>
-              </button>
-            ))}
-          </nav>}
+          {/* Desktop nav now lives in the left rail; spacer pushes actions right */}
+          {!isMobile&&<div style={{flex:1}}/>}
 
           {/* Mobile: current page title */}
           {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
