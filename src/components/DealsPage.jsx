@@ -485,7 +485,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                         <button onClick={()=>setCompareIds(prev=>inCompare?prev.filter(id=>id!==deal.id):prev.length<3?[...prev,deal.id]:prev)}
                           style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',
                             border:`1px solid ${inCompare?T.gold:T.border}`,background:inCompare?T.gold+'22':'transparent',color:inCompare?T.gold:T.muted}}>
-                          {inCompare?'✓ Compare':'Compare'}
+                          {inCompare?'Compare':'Compare'}
                         </button>
                         <button onClick={()=>duplicateDeal(deal)}
                           style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
@@ -791,7 +791,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
           {/* Helpful nudge if too many items are 'undated' — hint them to fill in dates */}
           {agg.byBucket.undated.count > agg.totalCount / 2 && (
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
-              💡 Most items don't have completion or refurb dates set. Add them in each deal's Timeline section, or set refurb dates on properties, to see them in 30/60/90 day buckets.
+              Most items don't have completion or refurb dates set. Add them in each deal's Timeline section, or set refurb dates on properties, to see them in 30/60/90 day buckets.
             </div>
           )}
         </div>
@@ -933,7 +933,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             }}
             title="Rename deal"
             style={{fontFamily:mono,fontSize:10,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:6,padding:'4px 10px',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
-            ✎ Edit
+            Edit
           </button>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
@@ -1401,7 +1401,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                             <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>@{row.rate}%</div>
                             <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:row.passes?T.green:T.red,margin:'2px 0'}}>{row.dscr?.toFixed(2) || '—'}</div>
                             <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>{fmt(row.monthlyPayment)}/mo</div>
-                            <div style={{fontFamily:mono,fontSize:9,color:row.passes?T.green:T.red,fontWeight:700,marginTop:2}}>{row.passes?'✓ PASS':'✕ FAIL'}</div>
+                            <div style={{fontFamily:mono,fontSize:9,color:row.passes?T.green:T.red,fontWeight:700,marginTop:2}}>{row.passes?'PASS':'FAIL'}</div>
                           </div>
                         ))}
                       </div>

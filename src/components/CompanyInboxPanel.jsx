@@ -72,7 +72,7 @@ export default function CompanyInboxPanel({ companies, T }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 200px' }}>
           <div style={{ fontFamily: MONO, fontSize: 10, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-            📨 Statement inbox
+            Statement inbox
           </div>
           <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 4 }}>Forward rental statements to your portfolio</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted, lineHeight: 1.65 }}>
@@ -122,7 +122,7 @@ export default function CompanyInboxPanel({ companies, T }) {
                       background: theme.gold + '22', color: theme.gold,
                       cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
-                    📋 Copy
+                    Copy
                   </button>
                   <button onClick={() => rotate(co.id)} disabled={busyCo === co.id}
                     title="Generate a new address (the old one will stop working immediately)"

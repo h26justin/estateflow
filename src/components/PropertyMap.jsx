@@ -504,7 +504,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
               {popupProp.rent_pcm > 0 && <Row label="Monthly Rent" value={fmt(popupProp.rent_pcm)}/>}
               {popupProp.geocode_pinned && (
                 <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, marginTop: 4 }}>
-                  📌 Pin manually placed.{' '}
+                  Pin manually placed.{' '}
                   <button onClick={async () => {
                     try {
                       const updated = await api.resetPropertyPin(popupProp.id, popupProp.address)
@@ -594,12 +594,12 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
           style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${!heatmapMode ? T.gold : T.border}`,
             background: !heatmapMode ? T.gold + '22' : 'transparent',
-            color: !heatmapMode ? T.gold : T.muted }}>📍 Pins</button>
+            color: !heatmapMode ? T.gold : T.muted }}>Pins</button>
         <button onClick={() => setHeatmapMode(true)}
           style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${heatmapMode ? T.gold : T.border}`,
             background: heatmapMode ? T.gold + '22' : 'transparent',
-            color: heatmapMode ? T.gold : T.muted }}>🔥 Heatmap</button>
+            color: heatmapMode ? T.gold : T.muted }}>Heatmap</button>
         {heatmapMode && (
           <>
             <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginLeft: 8 }}>by</span>

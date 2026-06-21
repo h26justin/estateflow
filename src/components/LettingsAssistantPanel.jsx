@@ -312,7 +312,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                   <button className="btn btn-gold" style={{ width: '100%', marginBottom: 14 }}
                     disabled={triaging === selected.id}
                     onClick={() => runTriage(selected)}>
-                    {triaging === selected.id ? 'Thinking…' : selected.ai_reply_draft ? '↻ Re-run AI triage' : '✨ Draft reply + screen + score'}
+                    {triaging === selected.id ? 'Thinking…' : selected.ai_reply_draft ? '↻ Re-run AI triage' : 'Draft reply + screen + score'}
                   </button>
 
                   {selected.ai_score != null && (

@@ -181,7 +181,7 @@ export default function AdminDashboard({ onClose, user }) {
 
         {/* Tabs */}
         <div style={{display:'flex',gap:2,paddingBottom:0}}>
-          {[['revenue','📊 Revenue'],['accounts','🏢 Accounts'],['users','👥 Users'],['billing','💳 Billing'],['comms','✉️ Comms'],['platform','⚙️ Platform']].map(([k,l])=>(
+          {[['revenue','Revenue'],['accounts','Accounts'],['users','Users'],['billing','Billing'],['comms','Comms'],['platform','Platform']].map(([k,l])=>(
             <button key={k} style={tabBtn(k)} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
@@ -253,7 +253,7 @@ export default function AdminDashboard({ onClose, user }) {
               <button onClick={()=>setDeleteTarget(null)} style={{flex:1,fontFamily:mono,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
               <button onClick={handleDeleteUser} disabled={deleting||!deletePassword}
                 style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:deleting||!deletePassword?T.border:T.red,color:'white',cursor:'pointer'}}>
-                {deleting?'Deleting…':'🗑 Delete permanently'}
+                {deleting?'Deleting…':'Delete permanently'}
               </button>
             </div>
           </div>
@@ -450,7 +450,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
   }
 
   // End trial right now → trial_ends_at = now() + subscription → past_due.
-  // After this the customer sees the "💳 Add payment method" CTA on
+  // After this the customer sees the "Add payment method" CTA on
   // BillingPage on their next login. Destructive flag on requireConfirm
   // because it removes their access path.
   async function endTrialNow() {
@@ -589,7 +589,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               style={{fontFamily:mono,fontSize:11,padding:'8px 12px',borderRadius:8,
                 border:`1px solid ${T.red}44`,background:T.red+'11',color:T.red,
                 cursor:endingTrial?'wait':'pointer',fontWeight:700,width:'100%'}}>
-              {endingTrial?'Ending…':'⏹ End trial now — require payment'}
+              {endingTrial?'Ending…':'End trial now — require payment'}
             </button>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:6,lineHeight:1.5}}>
               Sets trial end to today and flips subscription to <em>past due</em>.
@@ -871,14 +871,14 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by company, email, or abbreviation…"
           style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px',outline:'none'}}/>
         <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:2,gap:2}}>
-          {[['by-company','🏢 By company'],['by-user','👤 By user']].map(([k,l])=>(
+          {[['by-company','By company'],['by-user','By user']].map(([k,l])=>(
             <button key={k} onClick={()=>setView(k)}
               style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.gold:T.muted,fontWeight:view===k?700:400}}>
               {l}
             </button>
           ))}
         </div>
-        <button onClick={()=>setMergeOpen(true)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>⚡ Merge companies</button>
+        <button onClick={()=>setMergeOpen(true)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>Merge companies</button>
         <button onClick={exportCSV} style={btnSm()}>↓ Export CSV</button>
       </div>
 
@@ -981,20 +981,20 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                           const ab = await confirmDialog({ title:'New abbreviation', prompt:true, defaultValue:co.abbr||'', confirmLabel:'Rename' })
                           if(ab===null) return
                           doRenameCompany(co,nm.trim(),ab.trim())
-                        }} style={btnSm()}>✎ Rename</button>
+                        }} style={btnSm()}>Rename</button>
                         <button onClick={()=>setTransferTarget(co)} style={btnSm()}>↗ Transfer ownership</button>
                         <button onClick={async ()=>{
                           const d = await confirmDialog({ title:'Extend trial by how many days?', prompt:true, defaultValue:'30', confirmLabel:'Extend' })
                           if(d&&!isNaN(+d)) doExtendTrial(co,+d)
-                        }} style={btnSm()}>⏱ Extend trial</button>
+                        }} style={btnSm()}>Extend trial</button>
                         <button onClick={()=>doToggleFreeTier(co)} style={btnSm(co.is_free_tier?T.gold:T.muted, co.is_free_tier?T.gold+'11':'transparent')}>
-                          {co.is_free_tier ? '✓ Free tier' : 'Grant free tier'}
+                          {co.is_free_tier ? 'Free tier' : 'Grant free tier'}
                         </button>
                         <button onClick={()=>doToggleFlag(co)} style={btnSm(co.flagged?T.red:T.muted, co.flagged?T.red+'11':'transparent', co.flagged?T.red+'44':T.border)}>
-                          {co.flagged ? '⚑ Flagged' : 'Flag account'}
+                          {co.flagged ? 'Flagged' : 'Flag account'}
                         </button>
                         <div style={{flex:1}}/>
-                        <button onClick={()=>doDeleteCompany(co)} style={btnSm(T.red, 'transparent', T.red+'44')}>✕ Delete company</button>
+                        <button onClick={()=>doDeleteCompany(co)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete company</button>
                       </div>
                     </div>
                   </div>
@@ -1007,7 +1007,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
           {orphanUsers.length > 0 && (
             <div style={{background:T.card,border:`1px solid ${T.amber}44`,borderRadius:12,padding:'16px 20px',marginTop:20}}>
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-                <span style={{fontFamily:mono,fontSize:11,color:T.amber,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>⚠ Users without companies ({orphanUsers.length})</span>
+                <span style={{fontFamily:mono,fontSize:11,color:T.amber,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>Users without companies ({orphanUsers.length})</span>
               </div>
               <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12,lineHeight:1.6}}>
                 These users signed up but don't own or have access to any company. They may need a company created for them, or may be test accounts that can be deleted.
@@ -1102,7 +1102,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                       }).then(()=>{})
                       window.location.href = '/#/dashboard'
                       window.location.reload()
-                    }} style={btnSm('#8B1F1F', '#8B1F1F11', '#8B1F1F44')}>🎭 Impersonate</button>
+                    }} style={btnSm('#8B1F1F', '#8B1F1F11', '#8B1F1F44')}>Impersonate</button>
                     <button onClick={()=>setAccessTarget(u)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>Manage access</button>
                     <button onClick={()=>setCreateCoTarget(u)} style={btnSm()}>+ Company</button>
                     <button onClick={()=>setResetConfirm(u)} style={btnSm()}>Reset pwd</button>
@@ -1244,7 +1244,7 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
         </div>
       </div>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>
-        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:700}}>⚙ Role</button>}
+        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:700}}>Role</button>}
         {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Access</button>}
         {onReset && <button onClick={onReset} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset</button>}
         {onRemove && <button onClick={onRemove} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.amber}44`,background:'transparent',color:T.amber}}>Remove</button>}
@@ -1667,7 +1667,7 @@ function BillingTab({ companies, T, fmt, pill }) {
 
       {pastDue.length>0&&(
         <>
-          <h3 style={{fontSize:14,fontWeight:700,color:T.red,marginBottom:12}}>⚠ Past due accounts</h3>
+          <h3 style={{fontSize:14,fontWeight:700,color:T.red,marginBottom:12}}>Past due accounts</h3>
           <div style={{background:T.card,border:`1px solid ${T.red}44`,borderRadius:14,overflow:'hidden',marginBottom:24}}>
             {pastDue.map(co=>(
               <div key={co.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>

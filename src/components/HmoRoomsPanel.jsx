@@ -160,7 +160,7 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
       {/* ── Rooms ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          🛏 Rooms
+          Rooms
           <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, fontWeight: 400 }}>
             {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
           </span>
@@ -235,7 +235,7 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
       {/* ── Licences ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 12px', flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          📋 HMO Licence
+          HMO Licence
           <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, fontWeight: 400 }}>
             {licences.length} {licences.length === 1 ? 'record' : 'records'}
           </span>

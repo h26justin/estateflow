@@ -114,7 +114,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
     <div style={{ marginTop: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          🔍 Property Inspections
+          Property Inspections
           <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, fontWeight: 400 }}>
             {items.length} {items.length === 1 ? 'record' : 'records'}
           </span>
@@ -177,7 +177,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
                   <span>Photo evidence ({form.photos?.length || 0})</span>
                   <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto}
                     style={{ fontFamily: MONO, fontSize: 10, padding: '4px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text, cursor: 'pointer' }}>
-                    {uploadingPhoto ? 'Uploading…' : '📷 Add photo'}
+                    {uploadingPhoto ? 'Uploading…' : 'Add photo'}
                   </button>
                 </label>
                 <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}

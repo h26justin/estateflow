@@ -99,7 +99,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
       if (extracted.lender)             bits.push(`Lender: ${extracted.lender}`)
       if (extracted.loan_amount)        bits.push(`Loan: £${Number(extracted.loan_amount).toLocaleString('en-GB')}`)
       if (extracted.repayment_type)     bits.push(`Type: ${extracted.repayment_type}`)
-      setScanMessage('✓ Pre-filled from ' + (bits.join(' · ') || 'document'))
+      setScanMessage('Pre-filled from ' + (bits.join(' · ') || 'document'))
     } catch (e) {
       console.error('Mortgage PDF scan failed', e)
       setScanMessage('⚠ ' + (e?.message || 'Could not scan the document'))
@@ -178,7 +178,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
       <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="building-mortgage-title">
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="building-mortgage-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
-            🏦 Building Mortgage
+            Building Mortgage
           </h2>
           <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginTop: 4, lineHeight: 1.6 }}>
             Set one mortgage that covers every unit in a building. We split the
@@ -229,7 +229,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
               }}>
                 <div style={{ flex: '1 1 220px', minWidth: 0 }}>
                   <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, fontWeight: 700, marginBottom: 2 }}>
-                    📄 Scan a mortgage offer / facility agreement
+                    Scan a mortgage offer / facility agreement
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.5 }}>
                     We'll extract loan amount, rate, term, type, monthly payment and fees, then pre-fill the form for you to verify.
@@ -240,7 +240,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleScanPdf(f); e.target.value = '' }}/>
                 <button onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}
                   className="btn btn-ghost" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                  {scanning ? 'Scanning…' : '📤 Upload PDF'}
+                  {scanning ? 'Scanning…' : 'Upload PDF'}
                 </button>
               </div>
               {scanMessage && (

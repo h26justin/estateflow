@@ -357,7 +357,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                           {/* Property match */}
                           {item.propertyId
                             ? <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.green}}>✓ {item.matchedName}</span>
-                            : <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.amber}}>⚠ Unmatched</span>
+                            : <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.amber}}>Unmatched</span>
                           }
                         </div>
 
@@ -481,7 +481,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
             <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setStep('upload')}>← Back</button>
             <button className="btn btn-gold" style={{fontSize:11}} onClick={handleImport}
               disabled={includedItems.filter(i=>i.propertyId).length===0}>
-              ✓ Confirm Import ({includedItems.filter(i=>i.propertyId).length} items)
+              Confirm Import ({includedItems.filter(i=>i.propertyId).length} items)
             </button>
           </div>
         )}

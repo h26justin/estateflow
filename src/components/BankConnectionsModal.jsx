@@ -240,7 +240,7 @@ export default function BankConnectionsModal({ onClose }) {
                 </div>
                 <button onClick={startConnect} disabled={connecting}
                   className="btn btn-gold" style={{ fontSize: 13, padding: '10px 22px', width: '100%' }}>
-                  {connecting ? 'Redirecting…' : '🏦 Connect a bank account →'}
+                  {connecting ? 'Redirecting…' : 'Connect a bank account →'}
                 </button>
                 <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10, textAlign: 'center' }}>
                   Supported: Barclays · HSBC · Lloyds · NatWest · Santander · Monzo · Starling · Revolut · and 30+ more

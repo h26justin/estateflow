@@ -125,7 +125,7 @@ export default function TrashPage({ user, onRestored }) {
     <div>
       {/* Header */}
       <div style={{marginBottom:20}}>
-        <h2 style={{fontSize:20,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>🗑 Trash</h2>
+        <h2 style={{fontSize:20,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Trash</h2>
         <p style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
           Deleted items are kept here for 30 days before being permanently removed. You can restore anything during that window.
         </p>
@@ -183,7 +183,7 @@ export default function TrashPage({ user, onRestored }) {
                     </button>
                     <button onClick={()=>purgeNow(item)} disabled={working===item.id}
                       style={{fontFamily:mono,fontSize:10,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
-                      ✕ Purge now
+                      Purge now
                     </button>
                   </div>
                 </div>

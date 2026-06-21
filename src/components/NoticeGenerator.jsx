@@ -251,7 +251,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                     {[
-                      { v: 'yes', label: '✓ Yes', activeFg: T.green, activeBg: T.green + '22', activeBd: T.green + '66' },
+                      { v: 'yes', label: 'Yes', activeFg: T.green, activeBg: T.green + '22', activeBd: T.green + '66' },
                       { v: 'na',  label: 'N/A',   activeFg: T.muted, activeBg: T.bg,           activeBd: T.border },
                     ].map(opt => {
                       const active = answer === opt.v
@@ -278,7 +278,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
                 borderRadius: 8, padding: '10px 14px', marginTop: 10,
                 fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.6,
               }}>
-                ⚠ You marked at least one item as "N/A". Be sure you understand which items genuinely don't apply to your tenancy. If unsure, get advice <em>before</em> serving this notice.
+                You marked at least one item as "N/A". Be sure you understand which items genuinely don't apply to your tenancy. If unsure, get advice <em>before</em> serving this notice.
               </div>
             )}
           </div>

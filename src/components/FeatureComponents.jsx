@@ -239,9 +239,9 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
        ) : details ? (
         <div style={{display:'grid',gap:10}}>
           {[
-            {l:'Tenant(s)',       v: canViewPersonal ? (details.tenant_names||'—') : '🔒 Hidden'},
-            {l:'Phone',           v: canViewPersonal ? (details.tenant_phone||'—') : '🔒 Hidden'},
-            {l:'Email',           v: canViewPersonal ? (details.tenant_email||'—') : '🔒 Hidden'},
+            {l:'Tenant(s)',       v: canViewPersonal ? (details.tenant_names||'—') : 'Hidden'},
+            {l:'Phone',           v: canViewPersonal ? (details.tenant_phone||'—') : 'Hidden'},
+            {l:'Email',           v: canViewPersonal ? (details.tenant_email||'—') : 'Hidden'},
             {l:'Tenancy Start',   v:formatDate(details.tenancy_start)},
             {l:'Tenancy End',     v:formatDate(details.tenancy_end), alert:renewalDays!==null&&renewalDays<=60},
             {l:'Deposit',         v:fmt(details.deposit_amount), sub:details.deposit_scheme},
@@ -600,31 +600,31 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   }
 
   const accountTabs = [
-    { key: 'account',       label: '👤 Profile' },
-    { key: 'security',      label: '🔒 Security & Data' },
-    { key: 'backups',       label: '💾 Backups' },
-    { key: 'billing',       label: '💳 Billing' },
-    { key: 'navbar',        label: '🧭 Navigation' },
-    { key: 'trash',         label: '🗑 Trash' },
-    { key: 'referral',      label: '🎁 Refer a Friend' },
-    { key: 'help',          label: '📖 Help & Guides' },
+    { key: 'account',       label: 'Profile' },
+    { key: 'security',      label: 'Security & Data' },
+    { key: 'backups',       label: 'Backups' },
+    { key: 'billing',       label: 'Billing' },
+    { key: 'navbar',        label: 'Navigation' },
+    { key: 'trash',         label: 'Trash' },
+    { key: 'referral',      label: 'Refer a Friend' },
+    { key: 'help',          label: 'Help & Guides' },
   ]
   const portfolioTabs = [
-    { key: 'branding',      label: '🎨 Branding & Logos' },
-    { key: 'tenant',        label: '🏠 Tenant Portal' },
-    { key: 'features',      label: '⚙ Features' },
-    { key: 'inbox',         label: '📨 Statement Inbox' },
-    { key: 'notifications', label: '🔔 Notifications' },
-    { key: 'milestones',    label: '📍 Deal Milestones' },
-    { key: 'integrations',  label: '🔌 Integrations' },
+    { key: 'branding',      label: 'Branding & Logos' },
+    { key: 'tenant',        label: 'Tenant Portal' },
+    { key: 'features',      label: 'Features' },
+    { key: 'inbox',         label: 'Statement Inbox' },
+    { key: 'notifications', label: 'Notifications' },
+    { key: 'milestones',    label: 'Deal Milestones' },
+    { key: 'integrations',  label: 'Integrations' },
     ...(activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin })
-      ? [{ key: 'bookkeeping', label: '🧮 AI Bookkeeping' }] : []),
+      ? [{ key: 'bookkeeping', label: 'AI Bookkeeping' }] : []),
   ]
   const preferencesTabs = [
-    { key: 'display',       label: '🖥 Display' },
-    { key: 'reporting',     label: '📅 Reporting' },
-    { key: 'team',          label: '👥 Team & Access' },
-    ...(isPlatformAdmin ? [{ key: 'admin', label: '🔐 Developer' }] : []),
+    { key: 'display',       label: 'Display' },
+    { key: 'reporting',     label: 'Reporting' },
+    { key: 'team',          label: 'Team & Access' },
+    ...(isPlatformAdmin ? [{ key: 'admin', label: 'Developer' }] : []),
   ]
   const settingsTabs = [...accountTabs, ...portfolioTabs, ...preferencesTabs]
 
@@ -773,14 +773,14 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     border:`1px solid ${darkMode?T.gold:T.border}`,
                     background:darkMode?T.gold+'22':'transparent',
                     color:darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
-                  🌙 Dark
+                  Dark
                 </button>
                 <button onClick={async()=>{setDarkMode(false);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:false})}catch(e){}}}
                   style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
                     border:`1px solid ${!darkMode?T.gold:T.border}`,
                     background:!darkMode?T.gold+'22':'transparent',
                     color:!darkMode?T.gold:T.muted,transition:'all 0.2s'}}>
-                  ☀️ Light
+                  Light
                 </button>
               </div>
             </div>
@@ -803,14 +803,14 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     border:`1px solid ${yieldBasis==='cost'?T.gold:T.border}`,
                     background:yieldBasis==='cost'?T.gold+'22':'transparent',
                     color:yieldBasis==='cost'?T.gold:T.muted,transition:'all 0.2s'}}>
-                  📊 Purchase + refurb cost
+                  Purchase + refurb cost
                 </button>
                 <button onClick={async()=>{setYieldBasis('value');try{await api.upsertUserProfile(user?.id,user?.email,{yield_basis:'value'})}catch(e){}}}
                   style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
                     border:`1px solid ${yieldBasis==='value'?T.gold:T.border}`,
                     background:yieldBasis==='value'?T.gold+'22':'transparent',
                     color:yieldBasis==='value'?T.gold:T.muted,transition:'all 0.2s'}}>
-                  🏠 Current property value
+                  Current property value
                 </button>
               </div>
             </div>
@@ -1457,7 +1457,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                     const updated = await api.fetchDocumentExtraction(doc.id)
                     setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, ...updated } : d))
                     setExpandedOcrId(doc.id)
-                    showToast('✨ Fields extracted!')
+                    showToast('Fields extracted!')
                   } catch(e) {
                     showToast('Extraction failed: ' + (e.message || 'unknown'), 'error')
                     setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, extraction_status: 'failed', extraction_error: e.message } : d))
@@ -1490,9 +1490,9 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                             {formatSize(doc.file_size)}
                           </span>}
                           {/* OCR status badge */}
-                          {status === 'processing' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.blue,background:T.blue+'22',padding:'1px 6px',borderRadius:20}}>🤖 Extracting…</span>}
-                          {status === 'completed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.green,background:T.green+'22',padding:'1px 6px',borderRadius:20}}>✨ AI-extracted</span>}
-                          {status === 'failed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.red,background:T.red+'22',padding:'1px 6px',borderRadius:20}} title={doc.extraction_error}>⚠ Extraction failed</span>}
+                          {status === 'processing' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.blue,background:T.blue+'22',padding:'1px 6px',borderRadius:20}}>Extracting…</span>}
+                          {status === 'completed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.green,background:T.green+'22',padding:'1px 6px',borderRadius:20}}>AI-extracted</span>}
+                          {status === 'failed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.red,background:T.red+'22',padding:'1px 6px',borderRadius:20}} title={doc.extraction_error}>Extraction failed</span>}
                         </div>
                       </div>
                       {/* Actions */}
@@ -1504,7 +1504,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                               color: status === 'completed' ? T.muted : T.gold,
                               border: `1px solid ${T.gold}44`,
                               borderRadius:8,cursor: ocrRunning === doc.id ? 'wait' : 'pointer',opacity: ocrRunning === doc.id ? 0.6 : 1}}>
-                            {ocrRunning === doc.id ? '🤖 …' : status === 'completed' ? '🔄 Re-extract' : '🤖 Extract'}
+                            {ocrRunning === doc.id ? '🤖 …' : status === 'completed' ? 'Re-extract' : 'Extract'}
                           </button>
                         )}
                         {status === 'completed' && (
@@ -1525,7 +1525,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                           style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
                             background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
                             borderRadius:8,cursor:'pointer'}}>
-                          ⬇ View
+                          View
                         </button>
                         {isAdmin&&<button onClick={()=>handleDelete(doc)}
                           style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
@@ -1543,7 +1543,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                       <div style={{background:T.surface,borderRadius:8,padding:'12px 16px',border:`1px dashed ${T.green}44`,marginTop:4}}>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
                           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
-                            ✨ AI-extracted fields {doc.extracted_at && <span style={{color:T.faint,textTransform:'none',letterSpacing:0,marginLeft:6}}>— extracted {formatDate(doc.extracted_at)}</span>}
+                            AI-extracted fields {doc.extracted_at && <span style={{color:T.faint,textTransform:'none',letterSpacing:0,marginLeft:6}}>— extracted {formatDate(doc.extracted_at)}</span>}
                           </div>
                         </div>
                         {extractedFields._parse_error ? (
@@ -1576,7 +1576,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                               const isArrayOfObjects = Array.isArray(value) && value.length > 0
                                 && value.some(v => v && typeof v === 'object' && !Array.isArray(v))
                               let displayValue
-                              if (typeof value === 'boolean') displayValue = value ? '✓ Yes' : '✕ No'
+                              if (typeof value === 'boolean') displayValue = value ? 'Yes' : 'No'
                               else if (Array.isArray(value)) displayValue = value.length === 0 ? '—' : value.map(fmtItem).join(isArrayOfObjects ? '\n' : ', ')
                               else if (typeof value === 'object') displayValue = fmtItem(value)
                               else displayValue = String(value)
@@ -1603,7 +1603,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                           if (linked) {
                             return (
                               <div style={{marginTop:10,padding:'10px 12px',background:T.green+'11',border:`1px solid ${T.green}44`,borderRadius:8,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.green,display:'flex',alignItems:'center',gap:8}}>
-                                <span>✓ Linked to Compliance — {candidate.cert_name} expires {candidate.expiry_date}</span>
+                                <span>Linked to Compliance — {candidate.cert_name} expires {candidate.expiry_date}</span>
                               </div>
                             )
                           }
@@ -2060,7 +2060,7 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
                         style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
                           background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
                           borderRadius:8,cursor:'pointer'}}>
-                        ⬇ View
+                        View
                       </button>
                       {isAdmin&&<button onClick={()=>handleDelete(doc)}
                         style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
@@ -2230,7 +2230,7 @@ function AccessModal({companies, onClose, showToast}) {
       <div className="modal" style={{maxWidth:660}}>
         <div style={{padding:'22px 26px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-            <h2 style={{fontSize:20,fontWeight:700,color:T.text}}>⚙ User Access Management</h2>
+            <h2 style={{fontSize:20,fontWeight:700,color:T.text}}>User Access Management</h2>
             <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
           </div>
           <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>
@@ -2240,13 +2240,13 @@ function AccessModal({companies, onClose, showToast}) {
           {/* Tabs */}
           <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`1px solid ${T.border}`,paddingBottom:0,flexWrap:'wrap'}}>
             <button style={tabStyle('users')} onClick={()=>setTab('users')}>
-              👥 Users ({users.length})
+              Users ({users.length})
             </button>
             <button style={tabStyle('invites')} onClick={()=>setTab('invites')}>
-              ✉ Pending Invites ({invites.length})
+              Pending Invites ({invites.length})
             </button>
             <button style={tabStyle('links')} onClick={()=>setTab('links')}>
-              🔗 Shareable Links
+              Shareable Links
             </button>
           </div>
 
@@ -2264,7 +2264,7 @@ function AccessModal({companies, onClose, showToast}) {
               </div>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}}
                 onClick={sendInvite} disabled={adding||!newEmail.trim()}>
-                {adding ? 'Sending…' : '✉ Send Invite'}
+                {adding ? 'Sending…' : 'Send Invite'}
               </button>
             </div>
             {/* Company selector — only show if more than 1 company */}
@@ -2674,11 +2674,11 @@ function ShareableLinksTab({ companies, showToast, T }) {
                                 style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '6px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.muted, minWidth: 0 }}/>
                               <button onClick={() => copy(inviteUrl(inv.code), inv.id + '-url')}
                                 style={{ fontFamily: mono, fontSize: 10, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-url' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-url' ? T.green : T.text, whiteSpace: 'nowrap' }}>
-                                {copiedId === inv.id + '-url' ? '✓ Copied' : 'Copy URL'}
+                                {copiedId === inv.id + '-url' ? 'Copied' : 'Copy URL'}
                               </button>
                               <button onClick={() => copy(inv.code, inv.id + '-code')}
                                 style={{ fontFamily: mono, fontSize: 10, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-code' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-code' ? T.green : T.text, whiteSpace: 'nowrap' }}>
-                                {copiedId === inv.id + '-code' ? '✓ Copied' : 'Copy code'}
+                                {copiedId === inv.id + '-code' ? 'Copied' : 'Copy code'}
                               </button>
                             </div>
                             {/* Status row */}
@@ -2789,7 +2789,7 @@ function MilestoneSettingsPanel({ user, config, onChange, showToast, T }) {
                   <div style={{ flex: 1 }}>
                     <span style={{ fontFamily: mono, fontSize: 12, color: T.text }}>{m.label}</span>
                     {m.required && (
-                      <span style={{ fontFamily: mono, fontSize: 9, color: T.gold, marginLeft: 8 }}>★ recommended</span>
+                      <span style={{ fontFamily: mono, fontSize: 9, color: T.gold, marginLeft: 8 }}>recommended</span>
                     )}
                   </div>
                   <span style={{ fontFamily: mono, fontSize: 10, color: enabled ? T.blue : T.muted }}>
@@ -2928,10 +2928,10 @@ function AdminSettingsPanel({ user, T, showToast }) {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}` }}>
-        <button style={tabBtn('accounts')} onClick={() => setTab('accounts')}>🏢 Accounts ({companies.length})</button>
-        <button style={tabBtn('users')} onClick={() => setTab('users')}>👥 Users ({users.length})</button>
-        <button style={tabBtn('flags')} onClick={() => setTab('flags')}>🚩 Feature Flags</button>
-        <button style={tabBtn('revenue')} onClick={() => setTab('revenue')}>📊 Revenue</button>
+        <button style={tabBtn('accounts')} onClick={() => setTab('accounts')}>Accounts ({companies.length})</button>
+        <button style={tabBtn('users')} onClick={() => setTab('users')}>Users ({users.length})</button>
+        <button style={tabBtn('flags')} onClick={() => setTab('flags')}>Feature Flags</button>
+        <button style={tabBtn('revenue')} onClick={() => setTab('revenue')}>Revenue</button>
       </div>
 
       {loading ? (
@@ -3104,7 +3104,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
                 onClick={handleDeleteUser}
                 disabled={deleting || !deletePassword}
                 style={{ flex: 2, fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '11px 20px', borderRadius: 10, border: 'none', background: deleting || !deletePassword ? T.border : T.red, color: 'white', cursor: deleting || !deletePassword ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
-                {deleting ? 'Verifying & deleting…' : '🗑 Permanently delete user'}
+                {deleting ? 'Verifying & deleting…' : 'Permanently delete user'}
               </button>
             </div>
           </div>
@@ -3169,7 +3169,7 @@ function FeatureFlagsPanel({ users, companies, T, showToast }) {
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:12}}>
         <div>
-          <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>🚩 Feature Flags</div>
+          <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Feature Flags</div>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Enable features globally, per user, or per company. Priority: user override → company override → global.</div>
         </div>
         <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowNew(true)}>+ New Flag</button>
@@ -3216,7 +3216,7 @@ function FeatureFlagsPanel({ users, companies, T, showToast }) {
                   <span style={{fontSize:14,fontWeight:700,color:T.text}}>{flag.name}</span>
                   <code style={{fontFamily:mono,fontSize:10,background:T.bg,padding:'2px 8px',borderRadius:4,color:T.muted}}>{flag.key}</code>
                   <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:flag.enabled_globally?T.green+'22':T.muted+'22',color:flag.enabled_globally?T.green:T.muted,textTransform:'uppercase'}}>
-                    {flag.enabled_globally ? '✓ Globally ON' : 'Globally OFF'}
+                    {flag.enabled_globally ? 'Globally ON' : 'Globally OFF'}
                   </span>
                 </div>
                 {flag.description && <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:6}}>{flag.description}</div>}
@@ -3301,7 +3301,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         {/* USER OVERRIDES */}
         <div style={{marginBottom:20}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>👥 Per-user overrides ({userOverrides.length})</div>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-user overrides ({userOverrides.length})</div>
             <button onClick={()=>setPickMode('user')} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>+ Add user</button>
           </div>
           {userOverrides.length === 0 && <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:10}}>No user overrides.</div>}
@@ -3324,7 +3324,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         {/* COMPANY OVERRIDES */}
         <div style={{marginBottom:20}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>🏢 Per-company overrides ({companyOverrides.length})</div>
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-company overrides ({companyOverrides.length})</div>
             <button onClick={()=>setPickMode('company')} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>+ Add company</button>
           </div>
           {companyOverrides.length === 0 && <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:10}}>No company overrides.</div>}
@@ -3439,7 +3439,7 @@ function RevenueAnalyticsPanel({ companies, T, showToast }) {
   return (
     <div>
       <div style={{marginBottom:20}}>
-        <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>📊 Revenue Analytics</div>
+        <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Revenue Analytics</div>
         <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Key metrics updated in real-time. MRR assumes £2/property/month.</div>
       </div>
 
@@ -3901,8 +3901,8 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
         <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:14 }}>Contact mode</div>
         <div style={{ display:'grid', gap:10, marginBottom:16 }}>
           {[
-            ['landlord','🏠 Landlord mode','Tenants message you via the portal. No direct contact details shown.'],
-            ['agent','🏢 Managing agent mode','Tenants see the agent name, phone and email instead of yours.'],
+            ['landlord','Landlord mode','Tenants message you via the portal. No direct contact details shown.'],
+            ['agent','Managing agent mode','Tenants see the agent name, phone and email instead of yours.'],
           ].map(([k,l,d])=>(
             <div key={k} onClick={()=>setMode(k)} style={{ display:'flex', gap:14, padding:'14px 16px', borderRadius:10, cursor:'pointer',
               border:`2px solid ${mode===k?T.gold:T.border}`, background:mode===k?T.gold+'11':T.bg }}>
@@ -4010,7 +4010,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
                   } catch(e) { showToast(e.message || 'Failed to send', 'error') }
                 }}
                 style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 16px', borderRadius:8, border:'none', background:'#4B8FE0', color:'white', cursor:'pointer', flexShrink:0 }}>
-                ✉ Email invite
+                Email invite
               </button>
             </div>
           )}
@@ -4079,7 +4079,7 @@ function SecurityDataPanel({ user, T, showToast }) {
     <div>
       {/* GDPR Data Export */}
       <div style={sectionCard}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>🔒 Your data</div>
+        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your data</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
           Under GDPR you have the right to data portability and to request deletion of your account. Download your complete data at any time from the Backups tab, or request account deletion here.
         </div>
@@ -4339,7 +4339,7 @@ function ReferralPanel({ user, T, showToast }) {
                 style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.gold, borderRadius:8, padding:'9px 12px', outline:'none' }}/>
               <button onClick={copy}
                 style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:'white', cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
-                {copied ? '✓ Copied!' : 'Copy link'}
+                {copied ? 'Copied!' : 'Copy link'}
               </button>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
@@ -4370,7 +4370,7 @@ function ReferralPanel({ user, T, showToast }) {
               <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:20,
                 background: r.status==='paying'?T.green+'22':r.status==='signed_up'?T.blue+'22':T.border,
                 color: r.status==='paying'?T.green:r.status==='signed_up'?T.blue:T.muted }}>
-                {r.status === 'paying' ? '✓ Paying' : r.status === 'signed_up' ? 'Signed up' : 'Pending'}
+                {r.status === 'paying' ? 'Paying' : r.status === 'signed_up' ? 'Signed up' : 'Pending'}
               </span>
             </div>
           ))}
@@ -4387,9 +4387,9 @@ function ReferralPanel({ user, T, showToast }) {
 function AccountTypePanel({ T, mono, user, accountType, setAccountType }) {
   const [saving, setSaving] = useState(false)
   const options = [
-    { key: 'individual',      label: '👤 Sole-trader / individual',  desc: 'You file Self Assessment as a person. MTD ITSA applies from Apr 2026.' },
-    { key: 'limited_company', label: '🏢 Limited company (SPV)',     desc: 'Property held in a company — you file Corporation Tax annually. MTD ITSA does NOT apply.' },
-    { key: 'mixed',           label: '🔀 Both',                       desc: 'Some properties personal, some in a company. We\'ll show everything.' },
+    { key: 'individual',      label: 'Sole-trader / individual',  desc: 'You file Self Assessment as a person. MTD ITSA applies from Apr 2026.' },
+    { key: 'limited_company', label: 'Limited company (SPV)',     desc: 'Property held in a company — you file Corporation Tax annually. MTD ITSA does NOT apply.' },
+    { key: 'mixed',           label: 'Both',                       desc: 'Some properties personal, some in a company. We\'ll show everything.' },
   ]
   async function pick(key) {
     setSaving(true)
@@ -4423,7 +4423,7 @@ function AccountTypePanel({ T, mono, user, accountType, setAccountType }) {
                 fontFamily: 'inherit',
               }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: active ? T.gold : T.text, marginBottom: 3 }}>
-                {o.label} {active && <span style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginLeft: 4 }}>✓ selected</span>}
+                {o.label} {active && <span style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginLeft: 4 }}>selected</span>}
               </div>
               <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.45 }}>{o.desc}</div>
             </button>

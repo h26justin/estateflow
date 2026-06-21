@@ -682,7 +682,7 @@ export default function HelpCenter() {
             {"▶ Replay app tour"}
           </button>
           <a href="/blog/" target="_blank" rel="noopener noreferrer" style={{ fontFamily: mono, fontSize: 11, color: T.gold, textDecoration: 'none' }}>
-            {"📖 Read full blog guides →"}
+            {"Read full blog guides →"}
           </a>
         </div>
       </div>

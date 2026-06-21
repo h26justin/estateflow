@@ -455,7 +455,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
         <button onClick={onEdit}
           style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
             background: 'transparent', border: `1px solid ${T.border}`, color: T.text }}>
-          ✎ Edit
+          Edit
         </button>
         <button onClick={onDelete}
           style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',

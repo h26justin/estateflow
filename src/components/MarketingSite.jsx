@@ -314,7 +314,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                 "Tucked away in the heart of the city centre, this beautifully presented three-bedroom terraced home offers everything a modern family could wish for. The recently fitted kitchen floods the open-plan living space with natural light, while the south-facing garden provides a rare green retreat..."
               </p>
               <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {['✨ Professional','🤝 Warm','💎 Luxury'].map(t => (
+                {['Professional','Warm','Luxury'].map(t => (
                   <span key={t} style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: '#6A7D8E', background: '#ffffff0A', border: '1px solid #ffffff14', borderRadius: 6, padding: '3px 8px' }}>{t}</span>
                 ))}
               </div>
@@ -348,13 +348,13 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               <tbody>
                 {[
                   ['Starting price', 'From £2/property/mo (£10/mo min)', 'Free', 'From £65/mo', 'From £15/mo'],
-                  ['MTD ITSA submissions', '✓ Built in', '✗', 'Roadmap', '✓ Add-on'],
-                  ['Section 24 calculator', '✓', '✗ DIY', '✗', '✓'],
-                  ['Compliance reminders', '✓ Auto', '✗ Manual', '✓', '✓'],
-                  ['Branded tenant portal', '✓ Subdomain', '✗', '✓', 'Add-on'],
-                  ['BTL deal calculator', '✓', '✗ DIY', '✗', '✓'],
+                  ['MTD ITSA submissions', 'Built in', '✗', 'Roadmap', 'Add-on'],
+                  ['Section 24 calculator', '✓', 'DIY', '✗', '✓'],
+                  ['Compliance reminders', 'Auto', 'Manual', '✓', '✓'],
+                  ['Branded tenant portal', 'Subdomain', '✗', '✓', 'Add-on'],
+                  ['BTL deal calculator', '✓', 'DIY', '✗', '✓'],
                   ['Multi-company billing', '✓', 'N/A', '✓', '✓'],
-                  ['Xero integration', '✓ Native', 'CSV export', '✓', '✓'],
+                  ['Xero integration', 'Native', 'CSV export', '✓', '✓'],
                   ['Free trial', '14 days', 'N/A', '14 days', '30 days'],
                 ].map(([label, op, ss, ar, lv], i) => (
                   <tr key={label} style={{ borderBottom: `1px solid ${BORDER}`, background: i % 2 ? '#FAFAF8' : 'transparent' }}>
@@ -475,7 +475,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             data-cal-namespace=""
             data-cal-config='{"layout":"month_view"}'
           >
-            📅 Book onboarding call →
+            Book onboarding call →
           </a>
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 16 }}>
             Free · 15 min · Zoom or Google Meet

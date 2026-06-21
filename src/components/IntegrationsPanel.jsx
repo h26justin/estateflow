@@ -124,7 +124,7 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
           </div>
         </div>
         <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
-          {isConnected ? '🟦 Xero connected' : 'Not connected'}
+          {isConnected ? 'Xero connected' : 'Not connected'}
         </span>
       </div>
 
@@ -143,10 +143,10 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
             <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-              {busy==='sync' ? 'Syncing…' : '🔄 Sync now'}
+              {busy==='sync' ? 'Syncing…' : 'Sync now'}
             </button>
             <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
-              {showSettings ? 'Hide settings' : '⚙ Settings'}
+              {showSettings ? 'Hide settings' : 'Settings'}
             </button>
             <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
               Disconnect
@@ -260,24 +260,24 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
     <div style={{ marginTop: 18, padding: '18px 0 4px', borderTop: `1px dashed ${T.border}` }}>
 
       <Section title="What to sync (push: OwnProperly → Xero)">
-        <Toggle keyName="sync_rent"                 label="💰 Rent payments → Xero (RECEIVE)" desc="Pushes every paid rent_payments row as a bank transaction (income)." />
-        <Toggle keyName="sync_expenses"             label="📤 Property expenses → Xero (SPEND)" desc="Pushes every property_expenses row as a bank transaction (expense)." />
-        <Toggle keyName="sync_mortgage_interest"    label="🏦 Mortgage interest accruals → Xero (SPEND)" desc="Monthly: mortgage_amount × rate ÷ 12, posted as a SPEND. Useful for Section 24 prep." />
-        <Toggle keyName="sync_deposits_separate"    label="🔒 Tenancy deposits → separate Xero account" desc="Posts deposit_amount from tenancy_details as a RECEIVE against a liability account (or whatever you pick below). Otherwise deposits don't sync at all." />
-        <Toggle keyName="sync_refurb_separate"      label="🔨 Refurb costs → separate Xero account" desc="Posts every paid refurb_costs row as a SPEND against a capex/refurb account. Off by default — many landlords prefer to lump refurbs into general expenses." />
-        <Toggle keyName="sync_tracking_categories"  label="🏷 Use Xero Tracking Categories per property" desc='Creates (or reuses) a "Property" tracking category in Xero and tags every transaction with it. Lets you run P&L by property in Xero.' />
-        <Toggle keyName="sync_real_tenant_contacts" label="👤 Use real tenant/supplier names" desc="Off: contacts appear as 'Property X — Tenant' / '— Supplier' (privacy-safe). On: uses tenant_names from tenancy_details. Update your tenant privacy notice if enabling." />
-        <Toggle keyName="sync_real_tenant_emails"   label="📧 Also push tenant email + phone to Xero contact" desc="Only meaningful if 'real names' is on. Adds email + mobile to each Xero contact. Carries higher GDPR risk — get tenant consent first." />
+        <Toggle keyName="sync_rent"                 label="Rent payments → Xero (RECEIVE)" desc="Pushes every paid rent_payments row as a bank transaction (income)." />
+        <Toggle keyName="sync_expenses"             label="Property expenses → Xero (SPEND)" desc="Pushes every property_expenses row as a bank transaction (expense)." />
+        <Toggle keyName="sync_mortgage_interest"    label="Mortgage interest accruals → Xero (SPEND)" desc="Monthly: mortgage_amount × rate ÷ 12, posted as a SPEND. Useful for Section 24 prep." />
+        <Toggle keyName="sync_deposits_separate"    label="Tenancy deposits → separate Xero account" desc="Posts deposit_amount from tenancy_details as a RECEIVE against a liability account (or whatever you pick below). Otherwise deposits don't sync at all." />
+        <Toggle keyName="sync_refurb_separate"      label="Refurb costs → separate Xero account" desc="Posts every paid refurb_costs row as a SPEND against a capex/refurb account. Off by default — many landlords prefer to lump refurbs into general expenses." />
+        <Toggle keyName="sync_tracking_categories"  label="Use Xero Tracking Categories per property" desc='Creates (or reuses) a "Property" tracking category in Xero and tags every transaction with it. Lets you run P&L by property in Xero.' />
+        <Toggle keyName="sync_real_tenant_contacts" label="Use real tenant/supplier names" desc="Off: contacts appear as 'Property X — Tenant' / '— Supplier' (privacy-safe). On: uses tenant_names from tenancy_details. Update your tenant privacy notice if enabling." />
+        <Toggle keyName="sync_real_tenant_emails"   label="Also push tenant email + phone to Xero contact" desc="Only meaningful if 'real names' is on. Adds email + mobile to each Xero contact. Carries higher GDPR risk — get tenant consent first." />
       </Section>
 
       <Section title="What to pull back (Xero → OwnProperly)">
-        <Toggle keyName="pull_reconciliation"  label="✓ Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
+        <Toggle keyName="pull_reconciliation"  label="Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
         <Toggle keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to OwnProperly. Off by default — leave off if you treat OwnProperly as the source of truth." />
       </Section>
 
       <Section title="Automation">
-        <Toggle keyName="enable_daily_cron" label="⏰ Daily reconciliation cron (6am UTC)" desc="Server-side daily pull of reconciliation status — no need to click Sync now. Off by default; safe to enable any time." />
-        <Toggle keyName="enable_webhook"    label="🔔 Xero webhook (push notifications)" desc="Xero pings us instantly when something changes. Requires you to also enable it in Xero's developer portal + paste the signing key below." />
+        <Toggle keyName="enable_daily_cron" label="Daily reconciliation cron (6am UTC)" desc="Server-side daily pull of reconciliation status — no need to click Sync now. Off by default; safe to enable any time." />
+        <Toggle keyName="enable_webhook"    label="Xero webhook (push notifications)" desc="Xero pings us instantly when something changes. Requires you to also enable it in Xero's developer portal + paste the signing key below." />
         {settings?.enable_webhook && (
           <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '12px 14px', marginTop: 10, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.55 }}>
             <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>Setup in Xero:</div>
@@ -392,7 +392,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
                   onSaved?.()
                 } catch (e) { showAppToast(e.message, 'error') }
               }} className="btn btn-ghost" style={{ fontSize: 10, padding: '4px 10px' }}>
-                🔄 Sync this one
+                Sync this one
               </button>
             </div>
           ))}
@@ -416,14 +416,14 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
               onSaved?.()
             } catch (e) { showAppToast(e.message, 'error') }
           }} className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red+'66' }}>
-            🗑 Wipe sync map for {company.name}
+            Wipe sync map for {company.name}
           </button>
         </div>
       </Section>
 
       <div style={{ marginTop: 18, display:'flex', justifyContent:'flex-end' }}>
         <button onClick={save} className="btn btn-gold" style={{ fontSize: 12 }} disabled={saving}>
-          {saving ? 'Saving…' : '💾 Save settings'}
+          {saving ? 'Saving…' : 'Save settings'}
         </button>
       </div>
     </div>
