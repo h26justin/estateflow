@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
@@ -13,10 +14,10 @@ import {
 } from '../lib/api/autopilot'
 
 const KIND_META = {
-  arrears:         { icon: '💸', label: 'Arrears' },
-  compliance:      { icon: '📋', label: 'Compliance' },
-  tenancy_renewal: { icon: '🤝', label: 'Tenancy renewal' },
-  mortgage:        { icon: '🏦', label: 'Mortgage' },
+  arrears:         { icon: 'pound', label: 'Arrears' },
+  compliance:      { icon: 'shield-check', label: 'Compliance' },
+  tenancy_renewal: { icon: 'calendar', label: 'Tenancy renewal' },
+  mortgage:        { icon: 'landmark', label: 'Mortgage' },
 }
 
 const SEVERITY_ORDER = ['high', 'medium', 'low']
@@ -52,7 +53,7 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
     <div className="card" style={{ padding: 18, marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <h2 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
-          🤖 Portfolio Autopilot
+          Portfolio Autopilot
           {actions.length > 0 && (
             <span style={{ background: highCount > 0 ? T.red : T.amber, color: 'white', borderRadius: 20, fontSize: 11, fontFamily: "'DM Mono',monospace", padding: '2px 8px', fontWeight: 700 }}>
               {actions.length}
@@ -68,7 +69,7 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, padding: 12 }}>Loading…</div>
       ) : actions.length === 0 ? (
         <div style={{ fontFamily: "'DM Mono',monospace", color: T.green, fontSize: 12, padding: 16 }}>
-          ✓ No actions awaiting review
+          No actions awaiting review
         </div>
       ) : (
         <>
@@ -78,7 +79,7 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
               const col = a.severity === 'high' ? T.red : a.severity === 'medium' ? T.amber : T.muted
               return (
                 <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderLeft: `3px solid ${col}`, background: T.bg, borderRadius: 8 }}>
-                  <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                  <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={14}/>:meta.icon}</span>
                   <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</div>
                 </div>
               )
@@ -155,7 +156,7 @@ export function AutopilotPage({ companyId = null }) {
     <div style={{ maxWidth: 880, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
-          🤖 Portfolio Autopilot
+          Portfolio Autopilot
         </h1>
         <button className="btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
       </div>
@@ -167,7 +168,7 @@ export function AutopilotPage({ companyId = null }) {
         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
       ) : actions.length === 0 ? (
         <div className="card" style={{ fontFamily: "'DM Mono',monospace", color: T.green, fontSize: 13, textAlign: 'center', padding: 48 }}>
-          ✓ Nothing needs your attention — Autopilot found no open actions.
+          Nothing needs your attention — Autopilot found no open actions.
         </div>
       ) : (
         grouped.map(group => (
@@ -185,7 +186,7 @@ export function AutopilotPage({ companyId = null }) {
                 return (
                   <div key={a.id} className="card" style={{ padding: 16, borderLeft: `3px solid ${sevColor(group.sev)}` }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                      <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                      <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={18}/>:meta.icon}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{a.title}</div>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -205,7 +206,7 @@ export function AutopilotPage({ companyId = null }) {
                             disabled={busyId === a.id}
                             onClick={() => handleAct(a)}
                           >
-                            ✓ Mark actioned
+                            Mark actioned
                           </button>
                           {a.draft_body && (
                             <button
@@ -281,7 +282,7 @@ function DraftModal({ action, onClose }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
-            <button className="btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? '✓ Copied' : 'Copy draft'}</button>
+            <button className="btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
           </div>
         </div>
       </FocusTrap>

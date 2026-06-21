@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 
 const mono = "'DM Mono',monospace"
@@ -57,7 +58,7 @@ export function AIListingWriter({ property, T: TProp }) {
   return (
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <span style={{ fontSize: 20 }}>✍</span>
+        <Icon name="file-text" size={20} color={T.gold}/>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>AI listing description writer</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Generate a professional property listing in seconds</div>
@@ -116,7 +117,7 @@ export function AIListingWriter({ property, T: TProp }) {
       <button onClick={generate} disabled={loading || !form.location}
         style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none',
           background: loading||!form.location ? T.border : T.gold, color:'white', cursor:'pointer', width:'100%', marginBottom: result?12:0 }}>
-        {loading ? '✍ Writing…' : '✨ Generate description'}
+        {loading ? 'Writing…' : 'Generate description'}
       </button>
 
       {result && (
@@ -192,7 +193,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
   return (
     <div style={{background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px'}}>
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
-        <span style={{fontSize:20}}>🔗</span>
+        <Icon name="globe" size={20} color={T.gold}/>
         <div>
           <div style={{fontSize:14, fontWeight:700, color:T.text}}>Listing yield calculator</div>
           <div style={{fontFamily:mono, fontSize:11, color:T.muted}}>Paste a Rightmove, Zoopla or OnTheMarket URL to pull the price and property type automatically</div>
@@ -219,7 +220,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:10, marginBottom:14}}>
             <div>
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
-                Asking price {scraped.price ? '✓ auto-detected' : '— enter manually'}
+                Asking price {scraped.price ? 'auto-detected' : '— enter manually'}
               </div>
               <MoneyInput prefix="£" value={scraped.price}
                 onChange={v=>setScraped(p=>({...p, price:v||0}))}
@@ -229,7 +230,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
             </div>
             <div>
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
-                Property type {scraped.propertyType ? '✓ auto-detected' : '— enter manually'}
+                Property type {scraped.propertyType ? 'auto-detected' : '— enter manually'}
               </div>
               <select value={scraped.propertyType || ''}
                 onChange={e=>setScraped(p=>({...p, propertyType:e.target.value}))}
@@ -335,7 +336,7 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
   return (
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <span style={{ fontSize: 20 }}>📈</span>
+        <Icon name="trending-up" size={20} color={T.gold}/>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Portfolio what-if modeller</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>See what your portfolio looks like after growth</div>
