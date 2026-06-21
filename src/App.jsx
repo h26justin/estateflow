@@ -3839,9 +3839,10 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
   </div>
 }
 // ─── PROPERTY CARD GRID ──────────────────────────────────────────────────────
-// Redesign "gradient property-card grid" (design/redesign-2026). An optional
-// browse layout alongside the dense list — gradient header (company accent) with
-// the property initial + status pill, then name/company and rent/yield/compliance.
+// Redesign card grid (design/redesign-2026). An optional browse layout alongside
+// the dense list — a light card with a company-accent left edge + accent-tinted
+// type-icon tile, then name / company+status pills / rent · yield · compliance.
+
 // Derive a hairline icon + bedroom count from the free-text prop_type
 // ("1-Bed Flat", "House", "HMO Room", "Studio", …). `beds` is null when the
 // type doesn't state one (e.g. plain "House"); `studio` flags studios.
@@ -3876,7 +3877,7 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
         return (
           <div key={p.id} className="card pcard" onClick={()=>openDetail(p)}
             style={{cursor:'pointer',display:'flex',flexDirection:'column',gap:9,padding:'14px 15px',borderLeft:`3px solid ${accent}`}}>
-            {/* Top: accent-tinted type-icon tile + name/company/address + status */}
+            {/* Top: accent-tinted type-icon tile + name / pills / address */}
             <div style={{display:'flex',alignItems:'flex-start',gap:11,minWidth:0}}>
               <div title={p.prop_type || 'Property'} style={{position:'relative',width:38,height:38,borderRadius:10,background:accent+'1A',border:`1px solid ${accent}33`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <Icon name={tm.icon} size={19} color={accent}/>
