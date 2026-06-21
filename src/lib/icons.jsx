@@ -83,6 +83,8 @@ const PATHS = {
   'send': '<path d="M21 3 10.5 13.5M21 3l-7 18-4-7.5L2.5 10z"/>',
   'pin': '<path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
   'flag': '<path d="M5 21V4M5 4h11l-1.5 4L16 12H5"/>',
+  'list': '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
+  'grid-2': '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
 }
 
 export function Icon({ name, size = 20, stroke = 1.7, color = 'currentColor', style, title, ...rest }) {
