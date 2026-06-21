@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { loadCdnScript } from '../lib/loadCdnScript'
@@ -48,7 +49,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
   // Arrears alerts
   properties.filter(p=>(p.arrears||0)>0).forEach(p=>{
     alerts.push({
-      type:'arrears', priority:1, icon:'💸', color:T.red,
+      type:'arrears', priority:1, icon:'pound', color:T.red,
       title:`${p.name}`, detail:`Arrears: ${fmt(p.arrears)}`,
       property:p, badge:'ARREARS'
     })
@@ -59,7 +60,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     const days = daysSince(p.updated_at)
     const lost = Math.floor((days||0)/30) * (p.rent_pcm||0)
     alerts.push({
-      type:'vacant', priority:2, icon:'🏚', color:T.amber,
+      type:'vacant', priority:2, icon:'home', color:T.amber,
       title:`${p.name}`, detail:`Vacant${days?` · ${days}d`:''}${lost>0?` · ${fmt(lost)} lost`:''}`,
       property:p, badge:'VACANT'
     })
@@ -74,7 +75,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     const prop = properties.find(p=>p.id===c.property?.id)
     alerts.push({
       type:'compliance', priority: days < 0 ? 0 : days <= 30 ? 1 : 2,
-      icon:'📋', color: days < 0 ? T.red : days <= 30 ? T.red : T.amber,
+      icon:'shield-check', color: days < 0 ? T.red : days <= 30 ? T.red : T.amber,
       title:`${c.cert_name}`, detail:`${c.property?.name} · ${days<0?`Expired ${Math.abs(days)}d ago`:`Expires in ${days}d`}`,
       property:prop, badge: days<0?'EXPIRED':'EXPIRING'
     })
@@ -89,7 +90,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     const prop = properties.find(p=>p.id===t.property?.id)
     alerts.push({
       type:'tenancy', priority: days < 0 ? 0 : 2,
-      icon:'🤝', color: days < 0 ? T.red : T.amber,
+      icon:'calendar', color: days < 0 ? T.red : T.amber,
       title:`${t.property?.name}`, detail:`Tenancy ${days<0?`expired ${Math.abs(days)}d ago`:`ends in ${days}d`}`,
       property:prop, badge:'TENANCY'
     })
@@ -105,7 +106,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     const prop = properties.find(p=>p.id===m.property?.id)
     const days = daysSince(m.date_raised || m.created_at)
     alerts.push({
-      type:'maintenance', priority:2, icon:'🔧', color:T.amber,
+      type:'maintenance', priority:2, icon:'wrench', color:T.amber,
       title:`${m.title}`, detail:`${m.property?.name} · Urgent job open ${days}d`,
       property:prop, badge:'URGENT'
     })
@@ -133,7 +134,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
         {alerts.map((alert,i)=>(
           <div key={i} className="card pcard" style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',borderLeft:`3px solid ${alert.color}`}}
             onClick={()=>alert.property&&openDetail(alert.property)}>
-            <span style={{fontSize:16,flexShrink:0}}>{alert.icon}</span>
+            <span style={{flexShrink:0,display:'flex',color:alert.color}}>{ICON_NAMES.includes(alert.icon)?<Icon name={alert.icon} size={17}/>:<span style={{fontSize:16}}>{alert.icon}</span>}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{alert.title}</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{alert.detail}</div>
