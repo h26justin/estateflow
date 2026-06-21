@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
+import { Icon } from '../lib/icons'
+import { SANS } from '../lib/styles'
 const TenantRentCollectionConsent = lazy(() => import('./RentCollectionPanel').then(m => ({ default: m.TenantRentCollectionConsent })))
 
 const mono = "'DM Mono',monospace"
@@ -99,7 +101,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   if (error || !profile) return (
     <div style={{minHeight:'100vh',background:'#F4F3EF',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
       <div style={{background:'white',borderRadius:16,padding:'40px 32px',maxWidth:400,textAlign:'center',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
-        <div style={{fontSize:40,marginBottom:16}}>🏠</div>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:16}}><Icon name="home" size={38} color="#9AA6B0"/></div>
         <h2 style={{fontSize:18,fontWeight:700,color:'#2D3C4A',marginBottom:8}}>Not set up yet</h2>
         <p style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,lineHeight:1.8,marginBottom:24}}>
           {error||"Your landlord hasn't linked your account to a property yet."}
@@ -134,16 +136,16 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   const canDocs     = features.feature_tenant_documents !== false
 
   const TABS = [
-    ['home',    '🏠 Home'],
-    ['rent',    '💷 Rent'],
-    ...(canRepairs  ? [['maintenance','🔧 Repairs']]   : []),
-    ...(canDocs     ? [['documents', '📄 Documents']]  : []),
-    ...(canMessage  ? [['messages',  '✉ Messages']]    : []),
-    ['profile', '👤 Profile'],
+    ['home',    'Home',      'home'],
+    ['rent',    'Rent',      'pound'],
+    ...(canRepairs  ? [['maintenance','Repairs',  'wrench']]    : []),
+    ...(canDocs     ? [['documents', 'Documents', 'file-text']] : []),
+    ...(canMessage  ? [['messages',  'Messages',  'mail']]      : []),
+    ['profile', 'Profile',   'users'],
   ]
 
   return (
-    <div style={{minHeight:'100vh',background:'#F4F3EF',fontFamily:"'Helvetica Neue',Arial,sans-serif"}}>
+    <div style={{minHeight:'100vh',background:'#F4F3EF',fontFamily:SANS}}>
 
       {/* Header — company branded */}
       <div style={{background:'#2D3C4A',padding:'0 24px',position:'sticky',top:0,zIndex:100}}>
@@ -175,7 +177,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
 
           {/* Nav tabs */}
           <nav style={{display:'flex',gap:20,overflowX:'auto',paddingBottom:0}}>
-            {TABS.map(([k,l])=>(<button key={k} style={tabStyle(k)} onClick={()=>setTab(k)}>{l}</button>))}
+            {TABS.map(([k,l,ic])=>(<button key={k} style={{...tabStyle(k),display:'inline-flex',alignItems:'center',gap:7}} onClick={()=>setTab(k)}><Icon name={ic} size={15}/> {l}</button>))}
           </nav>
         </div>
       </div>
@@ -243,18 +245,18 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
 
       {/* Alert banners */}
       {arrears > 0 && (
-        <div style={{background:'#E0555518',border:'1px solid #E0555544',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:'#E05555'}}>
-          ⚠ You have outstanding arrears of <strong>{fmt(arrears)}</strong> — please make payment as soon as possible.
+        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0555518',border:'1px solid #E0555544',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:'#E05555'}}>
+          <Icon name="alert-triangle" size={15} style={{flexShrink:0}}/><span>You have outstanding arrears of <strong>{fmt(arrears)}</strong> — please make payment as soon as possible.</span>
         </div>
       )}
       {openJobs > 0 && (
-        <div style={{background:brandColor+'18',border:`1px solid ${brandColor}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:brandColor}}>
-          🔧 You have {openJobs} repair request{openJobs!==1?'s':''} in progress.
+        <div style={{display:'flex',alignItems:'center',gap:9,background:brandColor+'18',border:`1px solid ${brandColor}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:brandColor}}>
+          <Icon name="wrench" size={15} style={{flexShrink:0}}/><span>You have {openJobs} repair request{openJobs!==1?'s':''} in progress.</span>
         </div>
       )}
       {endDays!=null && endDays<=90 && endDays>0 && (
-        <div style={{background:'#E0943A18',border:'1px solid #E0943A44',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:'#E0943A'}}>
-          📅 Your tenancy expires in {endDays} days. Please contact your landlord about renewal.
+        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0943A18',border:'1px solid #E0943A44',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:'#E0943A'}}>
+          <Icon name="calendar" size={15} style={{flexShrink:0}}/><span>Your tenancy expires in {endDays} days. Please contact your landlord about renewal.</span>
         </div>
       )}
 
@@ -599,7 +601,7 @@ function TenantMaintenance({ property, user, brandColor }) {
             <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:8}}>Add photos (optional, up to 5)</label>
             <label style={{display:'inline-block',cursor:'pointer'}}>
               <span style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:'1px solid #e0e0e0',background:'#f8f8f8',color:'#666'}}>
-                {uploading?'Uploading…':'📷 Add photos'}
+                {uploading?'Uploading…':'Add photos'}
               </span>
               <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={handlePhotoUpload} disabled={uploading||photos.length>=5}/>
             </label>
@@ -635,7 +637,7 @@ function TenantMaintenance({ property, user, brandColor }) {
 
       {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
       : jobs.length===0 ? <Card style={{textAlign:'center',padding:40}}>
-          <div style={{fontSize:32,marginBottom:12}}>🔧</div>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="wrench" size={30} color="#9AA6B0"/></div>
           <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No repair requests yet. Report any issues above.</div>
         </Card>
       : <div style={{display:'grid',gap:12}}>
@@ -699,7 +701,7 @@ function TenantDocuments({ property, user, brandColor }) {
       <p style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginBottom:20}}>Documents shared by your landlord — download anytime.</p>
       {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
       : docs.length===0 ? <Card style={{textAlign:'center',padding:40}}>
-          <div style={{fontSize:32,marginBottom:12}}>📄</div>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="file-text" size={30} color="#9AA6B0"/></div>
           <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No documents shared yet. Your landlord can share certificates, agreements and more.</div>
         </Card>
       : <div style={{display:'grid',gap:10}}>
@@ -762,7 +764,7 @@ function TenantMessages({ property, user, contactInfo, brandColor }) {
           {loading && <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>}
           {!loading && messages.length===0 && (
             <div style={{textAlign:'center',padding:48}}>
-              <div style={{fontSize:32,marginBottom:12}}>✉</div>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="mail" size={30} color="#9AA6B0"/></div>
               <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No messages yet.<br/>Send a message below.</div>
             </div>
           )}

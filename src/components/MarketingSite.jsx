@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SANS } from '../lib/styles'
+import { Icon } from '../lib/icons'
 
 // Redesign palette (design/redesign-2026). SLATE = ink/text + dark brand panels.
 const SLATE  = '#1C2830'
@@ -42,68 +43,68 @@ const CSS = `
 const FEATURE_CATS = [
   {
     cat: 'Portfolio Management',
-    icon: '🏘',
+    icon: 'building',
     color: '#4B8FE0',
     features: [
-      { icon: '🏠', title: 'Multi-company portfolios', desc: 'Organise properties under separate companies or trading names. Each gets its own branding, settings and access controls.' },
-      { icon: '📊', title: 'Property health scores', desc: 'Every property gets an automatic health score based on compliance, occupancy, rent and maintenance — so you see issues instantly.' },
-      { icon: '💹', title: 'Yield & equity tracking', desc: 'Live gross and net yields per property. Track current value, equity and portfolio-wide financials at a glance.' },
-      { icon: '🗑', title: '30-day trash recovery', desc: 'Accidentally deleted something? Soft-delete keeps everything recoverable for 30 days before permanent removal.' },
+      { icon: 'building', title: 'Multi-company portfolios', desc: 'Organise properties under separate companies or trading names. Each gets its own branding, settings and access controls.' },
+      { icon: 'pie-chart', title: 'Property health scores', desc: 'Every property gets an automatic health score based on compliance, occupancy, rent and maintenance — so you see issues instantly.' },
+      { icon: 'trending-up', title: 'Yield & equity tracking', desc: 'Live gross and net yields per property. Track current value, equity and portfolio-wide financials at a glance.' },
+      { icon: 'trash', title: '30-day trash recovery', desc: 'Accidentally deleted something? Soft-delete keeps everything recoverable for 30 days before permanent removal.' },
     ]
   },
   {
     cat: 'Rent & Finance',
-    icon: '💰',
+    icon: 'wallet',
     color: '#2ECC8A',
     features: [
-      { icon: '📅', title: 'Visual rent tracker', desc: 'Month-by-month payment squares for every tenancy. Paid, missed, late, void and refurb — colour-coded and clickable to update.' },
-      { icon: '📥', title: 'Statement importer', desc: 'Import bank statements in CSV, PNE or RMS format to match and reconcile rent payments automatically.' },
-      { icon: '📈', title: 'Rent increase timeline', desc: 'Log every rent review with date and amount. See the full history of increases per property at a glance.' },
-      { icon: '⚠', title: 'Arrears alerts', desc: 'Smart alerts flag missed and late payments immediately. Daily digest emails ensure nothing slips through.' },
+      { icon: 'calendar', title: 'Visual rent tracker', desc: 'Month-by-month payment squares for every tenancy. Paid, missed, late, void and refurb — colour-coded and clickable to update.' },
+      { icon: 'download', title: 'Statement importer', desc: 'Import bank statements in CSV, PNE or RMS format to match and reconcile rent payments automatically.' },
+      { icon: 'trending-up', title: 'Rent increase timeline', desc: 'Log every rent review with date and amount. See the full history of increases per property at a glance.' },
+      { icon: 'alert-triangle', title: 'Arrears alerts', desc: 'Smart alerts flag missed and late payments immediately. Daily digest emails ensure nothing slips through.' },
     ]
   },
   {
     cat: 'Compliance & Legal',
-    icon: '📋',
+    icon: 'shield-check',
     color: '#E0943A',
     features: [
-      { icon: '🔥', title: 'Certificate tracking', desc: 'Gas safety, EICR, EPC, HMO licences — every certificate with expiry date, automatic alerts at 90, 60 and 30 days.' },
-      { icon: '🪪', title: 'Right to Rent checks', desc: 'Log document type, check date and expiry for every tenant. Follow-up alerts ensure you stay legally compliant.' },
-      { icon: '🏦', title: 'Deposit protection', desc: 'Track which scheme protects each deposit (DPS, TDS, mydeposits), dates and certificate numbers.' },
-      { icon: '⚖', title: 'Section 21 & S8 notices', desc: 'Log served notices with dates, grounds and court hearing dates. Full notice history per tenancy.' },
+      { icon: 'flame', title: 'Certificate tracking', desc: 'Gas safety, EICR, EPC, HMO licences — every certificate with expiry date, automatic alerts at 90, 60 and 30 days.' },
+      { icon: 'id-card', title: 'Right to Rent checks', desc: 'Log document type, check date and expiry for every tenant. Follow-up alerts ensure you stay legally compliant.' },
+      { icon: 'landmark', title: 'Deposit protection', desc: 'Track which scheme protects each deposit (DPS, TDS, mydeposits), dates and certificate numbers.' },
+      { icon: 'scale', title: 'Section 21 & S8 notices', desc: 'Log served notices with dates, grounds and court hearing dates. Full notice history per tenancy.' },
     ]
   },
   {
     cat: 'Tenant Portal',
-    icon: '👥',
+    icon: 'users',
     color: '#9B59B6',
     features: [
-      { icon: '🌐', title: 'Branded subdomains', desc: 'Each company gets its own portal at yourname.ownproperly.com — branded with your colours and logo.' },
-      { icon: '🔧', title: 'Repair requests', desc: 'Tenants submit repairs with photos directly. You get an instant email alert and it logs in your maintenance tracker.' },
-      { icon: '💬', title: 'Secure messaging', desc: 'Private message threads between landlord and tenant. No WhatsApp, no personal emails — everything in one auditable place.' },
-      { icon: '📨', title: 'Branded email invites', desc: 'Invite tenants to their portal with a fully branded email. They set their own password and are in immediately.' },
+      { icon: 'globe', title: 'Branded subdomains', desc: 'Each company gets its own portal at yourname.ownproperly.com — branded with your colours and logo.' },
+      { icon: 'wrench', title: 'Repair requests', desc: 'Tenants submit repairs with photos directly. You get an instant email alert and it logs in your maintenance tracker.' },
+      { icon: 'message', title: 'Secure messaging', desc: 'Private message threads between landlord and tenant. No WhatsApp, no personal emails — everything in one auditable place.' },
+      { icon: 'mail', title: 'Branded email invites', desc: 'Invite tenants to their portal with a fully branded email. They set their own password and are in immediately.' },
     ]
   },
   {
     cat: 'Deals & Acquisitions',
-    icon: '🎯',
+    icon: 'target',
     color: '#C8A84B',
     features: [
-      { icon: '🧮', title: 'BTL/HMO/SA/BRRR calculator', desc: 'Full acquisition calculator with correct April 2025 SDLT rates, conveyancing costs, agent fees and Section 24 tax modelling.' },
-      { icon: '📌', title: 'Deal pipeline', desc: '6-stage Kanban board to track every deal from sourcing to completion. Milestones, contacts and documents per deal.' },
-      { icon: '✨', title: 'AI listing writer', desc: 'Generate professional Rightmove and Zoopla listing descriptions in seconds. Choose tone: professional, warm or luxury.' },
-      { icon: '📐', title: 'Portfolio modeller', desc: 'What-if modeller with 5 sliders — add properties, change yields, model refinancing — and see your portfolio projections live.' },
+      { icon: 'calculator', title: 'BTL/HMO/SA/BRRR calculator', desc: 'Full acquisition calculator with correct April 2025 SDLT rates, conveyancing costs, agent fees and Section 24 tax modelling.' },
+      { icon: 'target', title: 'Deal pipeline', desc: '6-stage Kanban board to track every deal from sourcing to completion. Milestones, contacts and documents per deal.' },
+      { icon: 'sparkle', title: 'AI listing writer', desc: 'Generate professional Rightmove and Zoopla listing descriptions in seconds. Choose tone: professional, warm or luxury.' },
+      { icon: 'trending-up', title: 'Portfolio modeller', desc: 'What-if modeller with 5 sliders — add properties, change yields, model refinancing — and see your portfolio projections live.' },
     ]
   },
   {
     cat: 'Reports & Data',
-    icon: '📊',
+    icon: 'pie-chart',
     color: '#E05555',
     features: [
-      { icon: '📄', title: '16 built-in reports', desc: 'P&L, tax summaries, arrears, compliance status, occupancy, rent roll, expenses and more — all exportable to CSV.' },
-      { icon: '🔒', title: 'GDPR audit log', desc: 'Every action in the platform is logged — who did what and when. Full data export for any tenant or company on request.' },
-      { icon: '📁', title: 'Document storage', desc: 'Upload leases, certificates and correspondence per property. Share documents directly with tenants via the portal.' },
-      { icon: '🔔', title: 'Smart alert engine', desc: 'Configurable alerts for arrears, expiring leases, compliance deadlines and vacant properties. Weekly digest or instant.' },
+      { icon: 'file-text', title: '16 built-in reports', desc: 'P&L, tax summaries, arrears, compliance status, occupancy, rent roll, expenses and more — all exportable to CSV.' },
+      { icon: 'lock', title: 'GDPR audit log', desc: 'Every action in the platform is logged — who did what and when. Full data export for any tenant or company on request.' },
+      { icon: 'folder', title: 'Document storage', desc: 'Upload leases, certificates and correspondence per property. Share documents directly with tenants via the portal.' },
+      { icon: 'bell', title: 'Smart alert engine', desc: 'Configurable alerts for arrears, expiring leases, compliance deadlines and vacant properties. Weekly digest or instant.' },
     ]
   },
 ]
@@ -191,19 +192,19 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <div className="feat-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
             {[
               {
-                icon: '⚡',
+                icon: 'zap',
                 title: 'Built for 2026, not 2010',
                 desc: "Clean modern UI, dark mode, keyboard-friendly, works on every device. Feels like the apps you actually use — not the ones your accountant forces on you.",
                 tag: 'Modern'
               },
               {
-                icon: '🎯',
+                icon: 'target',
                 title: 'Honest, simple pricing',
                 desc: "No add-on for tenants. No charge per user. Starter is £2 a property for the full landlord toolkit; Investor is £5 a property and adds AI insights and the deals pipeline. £10/month minimum on both. Add or remove properties anytime.",
                 tag: 'Honest'
               },
               {
-                icon: '🤖',
+                icon: 'robot',
                 title: 'AI that does the busywork',
                 desc: "Our AI writes your Rightmove listings, extracts data from your gas certs and EICRs, and pre-fills your tenancy agreements. While other tools are 'considering it for 2027'.",
                 tag: 'Smart'
@@ -211,7 +212,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             ].map(c => (
               <div key={c.title} style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '28px 26px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: GOLD + '18', border: `1px solid ${GOLD}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{c.icon}</div>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: GOLD + '18', border: `1px solid ${GOLD}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={c.icon} size={22} color={GOLD}/></div>
                   <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: GOLD, background: GOLD + '14', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
                 </div>
                 <h3 style={{ fontSize: 17, fontWeight: 600, color: SLATE, marginBottom: 10, lineHeight: 1.3 }}>{c.title}</h3>
@@ -253,14 +254,14 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           {FEATURE_CATS.map(cat => (
             <div key={cat.cat} style={{ marginBottom: 64 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${BORDER}` }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: cat.color + '18', border: `1px solid ${cat.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{cat.icon}</div>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: cat.color + '18', border: `1px solid ${cat.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={cat.icon} size={20} color={cat.color}/></div>
                 <h3 style={{ fontSize: 20, fontWeight: 600, color: SLATE, letterSpacing: '-0.01em' }}>{cat.cat}</h3>
               </div>
               <div className="feat-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
                 {cat.features.map(f => (
                   <div key={f.title} className="feat-card">
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 9, background: cat.color + '14', border: `1px solid ${cat.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{f.icon}</div>
+                      <div style={{ width: 38, height: 38, borderRadius: 9, background: cat.color + '14', border: `1px solid ${cat.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={f.icon} size={18} color={cat.color}/></div>
                       <div>
                         <h4 style={{ fontSize: 14, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{f.title}</h4>
                         <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, lineHeight: 1.75 }}>{f.desc}</p>

@@ -544,17 +544,17 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   }
 
   const FEATURES = [
-    {key:'feature_compliance',  label:'Compliance & Certificates', desc:'Track gas safety, EICR, EPC, HMO licences and other certificates with expiry alerts', icon:'📋'},
-    {key:'feature_tenancy',     label:'Tenancy Details',           desc:'Store tenant contact details, deposit info, rent review dates and break clauses', icon:'🤝'},
-    {key:'feature_maintenance', label:'Maintenance & Repairs',     desc:'Log repair jobs with contractor details, costs and status tracking', icon:'🔧'},
-    {key:'feature_documents',   label:'Document Storage',          desc:'Upload and store tenancy agreements, certificates and other documents', icon:'📁'},
-    {key:'feature_expenses',    label:'Expenses Tracker',          desc:'Track all property expenses to calculate true net profit per property', icon:'💰'},
-    {key:'feature_reports',     label:'Reports & Export',          desc:'Generate P&L reports and export data to CSV for your accountant', icon:'📊'},
-    {key:'feature_statements',  label:'Statement Importer',        desc:'Upload PNE and RMS rental statements to automatically log rent payments, management fees and maintenance costs', icon:'📄'},
-    {key:'feature_tenant_portal',    label:'Tenant Portal',             desc:'Allow tenants to log in and access their own portal — see rent history, tenancy details and documents', icon:'🏠', section:'tenant'},
-    {key:'feature_tenant_messaging', label:'Tenant Messaging',          desc:'Allow tenants to send messages to you directly through the portal — you reply from the inbox on your dashboard', icon:'✉️', section:'tenant'},
-    {key:'feature_tenant_repairs',   label:'Tenant Repair Requests',    desc:'Allow tenants to submit maintenance requests with photos — appears in your inbox instantly', icon:'🔧', section:'tenant'},
-    {key:'feature_tenant_documents', label:'Tenant Document Access',    desc:'Allow tenants to download documents you have shared with them from the portal', icon:'📄', section:'tenant'},
+    {key:'feature_compliance',  label:'Compliance & Certificates', desc:'Track gas safety, EICR, EPC, HMO licences and other certificates with expiry alerts', icon:'shield-check'},
+    {key:'feature_tenancy',     label:'Tenancy Details',           desc:'Store tenant contact details, deposit info, rent review dates and break clauses', icon:'users'},
+    {key:'feature_maintenance', label:'Maintenance & Repairs',     desc:'Log repair jobs with contractor details, costs and status tracking', icon:'wrench'},
+    {key:'feature_documents',   label:'Document Storage',          desc:'Upload and store tenancy agreements, certificates and other documents', icon:'folder'},
+    {key:'feature_expenses',    label:'Expenses Tracker',          desc:'Track all property expenses to calculate true net profit per property', icon:'wallet'},
+    {key:'feature_reports',     label:'Reports & Export',          desc:'Generate P&L reports and export data to CSV for your accountant', icon:'pie-chart'},
+    {key:'feature_statements',  label:'Statement Importer',        desc:'Upload PNE and RMS rental statements to automatically log rent payments, management fees and maintenance costs', icon:'file-text'},
+    {key:'feature_tenant_portal',    label:'Tenant Portal',             desc:'Allow tenants to log in and access their own portal — see rent history, tenancy details and documents', icon:'home', section:'tenant'},
+    {key:'feature_tenant_messaging', label:'Tenant Messaging',          desc:'Allow tenants to send messages to you directly through the portal — you reply from the inbox on your dashboard', icon:'mail', section:'tenant'},
+    {key:'feature_tenant_repairs',   label:'Tenant Repair Requests',    desc:'Allow tenants to submit maintenance requests with photos — appears in your inbox instantly', icon:'wrench', section:'tenant'},
+    {key:'feature_tenant_documents', label:'Tenant Document Access',    desc:'Allow tenants to download documents you have shared with them from the portal', icon:'file-text', section:'tenant'},
   ]
 
   async function toggleFeature(companyId, featureKey, currentValue) {
@@ -869,7 +869,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 const isSaving = saving===`${company.id}-${feature.key}`
                 return (
                   <div key={feature.key} style={{display:'flex',alignItems:'center',gap:16,padding:'14px 16px',background:T.bg,borderRadius:10,flexWrap:'wrap'}}>
-                    <span style={{fontSize:20,flexShrink:0}}>{feature.icon}</span>
+                    <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(feature.icon)?<Icon name={feature.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{feature.icon}</span>}</span>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{feature.desc}</div>
@@ -908,7 +908,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 const disabled = feature.key !== 'feature_tenant_portal' && !portalEnabled
                 return (
                   <div key={feature.key} style={{display:'flex',alignItems:'center',gap:16,padding:'14px 16px',background:T.bg,borderRadius:10,flexWrap:'wrap',opacity:disabled?0.4:1}}>
-                    <span style={{fontSize:20,flexShrink:0}}>{feature.icon}</span>
+                    <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(feature.icon)?<Icon name={feature.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{feature.icon}</span>}</span>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{feature.desc}</div>
