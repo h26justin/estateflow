@@ -3842,14 +3842,29 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
 // Redesign "gradient property-card grid" (design/redesign-2026). An optional
 // browse layout alongside the dense list — gradient header (company accent) with
 // the property initial + status pill, then name/company and rent/yield/compliance.
+// Mix a hex colour toward an [r,g,b] target by amt (0-1). Used to deepen the
+// company accent for a rich card-header gradient (vs fading it to white).
+function mixHex(hex, t, amt) {
+  const m = (hex || '').match(/[0-9a-f]{2}/gi)
+  if (!m || m.length < 3) return hex
+  const c = m.map(x => parseInt(x, 16))
+  const ch = i => Math.round(c[i] + (t[i] - c[i]) * amt)
+  return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
+}
+
 function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis }) {
   const { T } = useTheme()
   if (!filtered.length) return <div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:32,textAlign:'center'}}>No properties match your filters.</div>
+  // Compliance footer chip — one consistent pill shape for every state.
+  const compliancePill = (cfg) => cfg
+    ? <span title={cfg.label} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:999,background:cfg.bg,color:cfg.color,fontFamily:MONO,fontSize:9,fontWeight:700,whiteSpace:'nowrap'}}><Icon name={cfg.iconName} size={11}/>{cfg.label}</span>
+    : <span title="Compliance valid" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 9px',borderRadius:999,background:T.green+'1A',color:T.green,fontFamily:MONO,fontSize:9,fontWeight:700,whiteSpace:'nowrap'}}><span style={{width:6,height:6,borderRadius:'50%',background:T.green}}/>Valid</span>
   return (
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
       {filtered.map(p=>{
         const co = p.company
         const accent = co?.color || T.gold
+        const accentDeep = mixHex(accent, [14, 20, 28], 0.42)   // deepen, don't fade
         const initial = (String(p.name||'?').trim()[0] || '?').toUpperCase()
         const sc = STATUS_CFG[p.status] || STATUS_CFG.purchased
         const cfg = complianceBadge(complianceStatusFor(p), T)
@@ -3857,32 +3872,30 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
         return (
           <div key={p.id} className="card pcard" onClick={()=>openDetail(p)}
             style={{padding:0,overflow:'hidden',cursor:'pointer',display:'flex',flexDirection:'column'}}>
-            {/* Gradient header */}
-            <div style={{height:64,background:`linear-gradient(135deg, ${accent} 0%, ${accent}AA 100%)`,padding:'10px 12px',display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
-              <div style={{width:40,height:40,borderRadius:10,background:'rgba(255,255,255,0.18)',border:'1px solid rgba(255,255,255,0.35)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:18,flexShrink:0}}>{initial}</div>
-              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,background:'rgba(0,0,0,0.24)',color:'#fff',fontFamily:MONO,fontSize:10,fontWeight:600,whiteSpace:'nowrap'}}>
+            {/* Gradient header — accent deepening into a darker accent */}
+            <div style={{height:60,background:`linear-gradient(135deg, ${accent} 0%, ${accentDeep} 100%)`,padding:'11px 13px',display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+              <div style={{width:38,height:38,borderRadius:10,background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.3)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:17,flexShrink:0}}>{initial}</div>
+              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,background:'rgba(0,0,0,0.28)',color:'#fff',fontFamily:MONO,fontSize:10,fontWeight:600,whiteSpace:'nowrap'}}>
                 <span style={{width:6,height:6,borderRadius:'50%',background:sc.dot,flexShrink:0}}/>{sc.label}
               </span>
             </div>
             {/* Body */}
-            <div style={{padding:'12px 14px',flex:1,display:'flex',flexDirection:'column',gap:7}}>
+            <div style={{padding:'13px 15px',flex:1,display:'flex',flexDirection:'column',gap:6}}>
               <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
                 <span style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
                 <CompanyPill company={co}/>
               </div>
               <div style={{fontFamily:MONO,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
-              <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:8,marginTop:'auto',paddingTop:9,borderTop:`1px solid ${T.border}`}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:'auto',paddingTop:11,borderTop:`1px solid ${T.border}`}}>
                 <div>
-                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>Rent</div>
+                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Rent</div>
                   <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.text}}>{fmt(p.rent_pcm)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}>/mo</span></div>
                 </div>
                 <div>
-                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>Yield</div>
+                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
                   <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{gy.toFixed(1)}%</div>
                 </div>
-                {cfg
-                  ? <span title={cfg.label} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:999,background:cfg.bg,color:cfg.color,fontFamily:MONO,fontSize:9,fontWeight:700,whiteSpace:'nowrap'}}><Icon name={cfg.iconName} size={11}/>{cfg.label}</span>
-                  : <span title="Compliance OK" style={{display:'inline-flex',alignItems:'center',gap:5,fontFamily:MONO,fontSize:9,color:T.green,fontWeight:700}}><span style={{width:7,height:7,borderRadius:'50%',background:T.green}}/>OK</span>}
+                {compliancePill(cfg)}
               </div>
             </div>
           </div>
