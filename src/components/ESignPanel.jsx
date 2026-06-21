@@ -130,7 +130,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
     <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '20px 24px' }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontFamily: MONO, fontSize: 10, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-          ✍️ E-signature
+          E-signature
         </div>
         <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 4 }}>Send a document for signature</div>
         <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted, lineHeight: 1.65 }}>
@@ -171,7 +171,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
             cursor: canCreate ? 'pointer' : 'not-allowed', fontWeight: 700,
             justifySelf: 'start',
           }}>
-          {busy ? 'Sending…' : '✍️ Send for signature'}
+          {busy ? 'Sending…' : 'Send for signature'}
         </button>
       </div>
 

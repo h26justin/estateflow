@@ -250,7 +250,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   // partial failure never masquerades as "no data".
   const errorBanner = loadErrors.length > 0 && (
     <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',background:T.red+'18',border:`1px solid ${T.red}44`,borderRadius:10,padding:'10px 16px',marginBottom:16}}>
-      <span style={{fontFamily:mono,fontSize:11,color:T.red,flex:1}}>⚠ Couldn't load: {loadErrors.join(', ')} — figures shown may be incomplete.</span>
+      <span style={{fontFamily:mono,fontSize:11,color:T.red,flex:1}}>Couldn't load: {loadErrors.join(', ')} — figures shown may be incomplete.</span>
       <button onClick={loadAll} disabled={loading}
         style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'5px 14px',borderRadius:8,border:`1px solid ${T.red}`,background:'transparent',color:T.red,cursor:loading?'wait':'pointer'}}>
         {loading ? 'Retrying…' : 'Retry'}
@@ -562,7 +562,7 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
         color:'#0B0D14', cursor:busy?'wait':'pointer', fontWeight:700,
         whiteSpace:'nowrap',
       }}>
-      {busy ? 'Generating pack…' : '📦 Year-End Tax Pack'}
+      {busy ? 'Generating pack…' : 'Year-End Tax Pack'}
     </button>
   )
 }
@@ -1724,7 +1724,7 @@ function ReportArrears({ filtProps, T, accent, fmt }) {
         {label:'Clear properties',value:filtProps.length-rows.length,color:T.green},
       ]}/>
       {rows.length===0
-        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:mono,fontSize:13,color:T.green}}>✓ No arrears — all clear!</div>
+        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:mono,fontSize:13,color:T.green}}>No arrears — all clear!</div>
         : <ReportTable T={T} accent={accent}
             headers={[{label:'Property'},{label:'Arrears amount',right:true,width:'160px'},{label:'Monthly rent',right:true,width:'140px'},{label:'Status',width:'120px'}]}
             rows={rows.map(r=>[

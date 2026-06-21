@@ -293,7 +293,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             {/* Duplicate warning */}
             {similarHits.length > 0 && (
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#8A6A00', background: '#FFF8E1', border: '1px solid #F2D17A', borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.6 }}>
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠ A similar company already exists:</div>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>A similar company already exists:</div>
                 <div style={{ marginBottom: 6 }}>
                   {similarHits.map(h => h.name).join(', ')}
                 </div>

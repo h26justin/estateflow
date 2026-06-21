@@ -76,7 +76,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
             disabled={loading}
             onClick={run}
           >
-            {loading ? 'Analysing…' : triage ? '↻ Re-run AI triage' : '✨ AI triage'}
+            {loading ? 'Analysing…' : triage ? '↻ Re-run AI triage' : 'AI triage'}
           </button>
         )}
         {triagedAt && (

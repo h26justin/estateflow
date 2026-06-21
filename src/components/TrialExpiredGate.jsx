@@ -111,7 +111,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           borderRadius:14, padding:'24px 26px', marginBottom:18,
         }}>
           <div style={{ fontSize:18, fontWeight:700, color:T.text, marginBottom:8 }}>
-            ⏰ Your free trial has ended
+            Your free trial has ended
           </div>
           <div style={{ fontFamily:MONO, fontSize:12, color:T.text, lineHeight:1.7 }}>
             To keep using OwnProperly, please add a payment method. Just <strong>£2 per
@@ -168,7 +168,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
                 <button onClick={()=>payNow(co.id)} disabled={!!workingCoId}
                   className="btn btn-gold"
                   style={{ fontSize:12, whiteSpace:'nowrap' }}>
-                  {isWorking ? 'Redirecting…' : '💳 Add payment'}
+                  {isWorking ? 'Redirecting…' : 'Add payment'}
                 </button>
               </div>
             )

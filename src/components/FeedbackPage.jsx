@@ -98,7 +98,7 @@ export default function FeedbackPage({ user, showToast }) {
             background: sending ? T.border : T.gold, color: sending ? T.muted : '#000',
             fontFamily: mono, fontSize: 13, fontWeight: 700, cursor: sending ? 'default' : 'pointer', transition: 'all 0.2s'
           }}>
-            {sending ? '✉ Sending...' : '✉ Send Feedback'}
+            {sending ? 'Sending...' : 'Send Feedback'}
           </button>
 
           <p style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>

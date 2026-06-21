@@ -231,7 +231,7 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
       <div className="modal" style={{ maxWidth: step === 3 ? 920 : 640 }} role="dialog" aria-modal="true" aria-labelledby="bulk-add-property-modal-title">
         <div style={{ padding: '24px 28px 0' }}>
           <h2 id="bulk-add-property-modal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
-            🏢 Add a block of flats
+            Add a block of flats
           </h2>
           <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 14 }}>
             {step === 1 && `Step 1 of 3 — Set up the building and how many units.`}

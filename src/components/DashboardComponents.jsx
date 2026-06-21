@@ -144,7 +144,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
         ))}
         {alerts.length===0&&(
           <div style={{fontFamily:"'DM Mono',monospace",color:T.green,fontSize:12,textAlign:'center',padding:32,background:T.card,borderRadius:12}}>
-            ✓ All properties healthy — no alerts
+            All properties healthy — no alerts
           </div>
         )}
       </div>
@@ -520,15 +520,15 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           <select value={selectedYear} onChange={e=>setSelectedYear(+e.target.value)} style={{fontSize:11}}>
             {years.map(y=><option key={y}>{y}</option>)}
           </select>
-          <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>⬇ CSV</button>
-          <button className="btn btn-gold" style={{fontSize:11,background:'#1A1525',color:'#C8A84B',border:'1px solid #C8A84B'}} onClick={exportPDF}>⬇ PDF Report</button>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>CSV</button>
+          <button className="btn btn-gold" style={{fontSize:11,background:'#1A1525',color:'#C8A84B',border:'1px solid #C8A84B'}} onClick={exportPDF}>PDF Report</button>
           {onImport&&(()=>{
             // Show import button if ANY selected company has feature_statements enabled
             const hasFeature = selectedCompany==='all'
               ? companies.some(c=>(companySettings[c.id]||{}).feature_statements)
               : (companySettings[selectedCompany]||{}).feature_statements
             return hasFeature ? (
-              <button className="btn btn-gold" style={{fontSize:11,background:'#0D2B1F',color:'#2ECC8A',border:'1px solid #2ECC8A'}} onClick={onImport}>📄 Import Statement</button>
+              <button className="btn btn-gold" style={{fontSize:11,background:'#0D2B1F',color:'#2ECC8A',border:'1px solid #2ECC8A'}} onClick={onImport}>Import Statement</button>
             ) : null
           })()}
         </div>
@@ -742,7 +742,7 @@ export function ContractorsPage({companies, showToast}) {
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
           <input type="checkbox" checked={form.preferred} onChange={e=>s('preferred',e.target.checked)} style={{width:'auto'}}/>
-          <label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>⭐ Preferred contractor</label>
+          <label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Preferred contractor</label>
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
         <div style={{display:'flex',gap:8}}>
@@ -1004,7 +1004,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
         {/* Header */}
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
           <div>
-            <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em', marginBottom:4 }}>📈 Rent Review Planner</h2>
+            <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em', marginBottom:4 }}>Rent Review Planner</h2>
             <div style={{ fontFamily:mono, fontSize:11, color:T.muted, lineHeight:1.6 }}>
               Model the impact of rent increases across your portfolio. {rows.length} properties in scope.
             </div>
@@ -1012,11 +1012,11 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <button onClick={exportPDF} disabled={exporting || rows.length === 0}
               style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:exporting?'wait':'pointer', border:`1px solid ${T.gold}`, background:T.gold+'22', color:T.gold, fontWeight:700 }}>
-              {exporting ? 'Generating…' : '📄 Export PDF'}
+              {exporting ? 'Generating…' : 'Export PDF'}
             </button>
             <button onClick={onClose}
               style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:'pointer', border:`1px solid ${T.border}`, background:'transparent', color:T.muted }}>
-              ✕ Close
+              Close
             </button>
           </div>
         </div>

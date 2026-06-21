@@ -198,7 +198,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
         <div style={{ display:'grid', gap:10 }}>
           {unreadMessages === 0 && openJobs === 0 && (
             <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'24px', textAlign:'center', fontFamily:mono, fontSize:12, color:T.green }}>
-              ✓ All caught up — no new messages or open repairs.
+              All caught up — no new messages or open repairs.
             </div>
           )}
           {/* Unread conversations */}
@@ -332,7 +332,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
             </div>
             {job.status === 'complete' && (
               <div style={{ fontFamily:mono, fontSize:10, color:T.green, marginTop:8 }}>
-                ✓ Marked complete — this repair will move to the archive
+                Marked complete — this repair will move to the archive
               </div>
             )}
           </div>

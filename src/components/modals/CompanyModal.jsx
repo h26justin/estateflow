@@ -47,7 +47,7 @@ export default function CompanyModal({ onClose, onSave }) {
         {similarCompanies.length > 0 && (
           <div style={{ background:T.amber+'11', border:`1px solid ${T.amber}55`, borderRadius:10, padding:'12px 14px' }}>
             <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, fontWeight:700, color:T.amber, marginBottom:6 }}>
-              ⚠ A company with a similar name already exists
+              A company with a similar name already exists
             </div>
             <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted, marginBottom:10, lineHeight:1.5 }}>
               {similarCompanies.length === 1 ? 'Did you mean to join this one?' : 'Did you mean to join one of these?'} If yes, ask the owner for a shareable invite link instead of creating a duplicate.

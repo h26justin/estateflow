@@ -148,7 +148,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
             {job.reported_by_tenant && (
               <span title="Submitted by tenant via portal"
                 style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:700,color:T.blue,background:T.blue+'22',padding:'1px 8px',borderRadius:20,letterSpacing:'0.05em'}}>
-                👤 TENANT
+                TENANT
               </span>
             )}
           </div>

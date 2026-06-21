@@ -441,7 +441,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
             ))}
           </div>
           <div style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,marginTop:10,padding:'10px 12px',background:'#f8f8f8',borderRadius:8}}>
-            ⚠ Always use your reference exactly as shown so we can match your payment.
+            Always use your reference exactly as shown so we can match your payment.
           </div>
         </Card>
       )}
@@ -565,7 +565,7 @@ function TenantMaintenance({ property, user, brandColor }) {
 
       {success && (
         <div style={{background:'#2ECC8A18',border:'1px solid #2ECC8A44',borderRadius:10,padding:'12px 16px',marginBottom:16,fontFamily:mono,fontSize:12,color:'#2ECC8A'}}>
-          ✓ Repair request submitted — your landlord has been notified.
+          Repair request submitted — your landlord has been notified.
         </div>
       )}
 

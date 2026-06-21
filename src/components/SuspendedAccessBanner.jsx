@@ -57,7 +57,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
           borderRadius: 14, padding: '24px 26px', marginBottom: 18,
         }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 8 }}>
-            ⏸ Your access has been paused
+            Your access has been paused
           </div>
           <div style={{ fontFamily: MONO, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
             You're a collaborator on {suspended.length === 1 ? 'a company' : `${suspended.length} companies`}{' '}
@@ -87,7 +87,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
                     fontFamily: MONO, fontSize: 11, color: T.gold,
                     textDecoration: 'underline',
                   }}>
-                  ✉ Email them
+                  Email them
                 </a>
               )}
 

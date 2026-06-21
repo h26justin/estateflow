@@ -278,7 +278,7 @@ export default function TwoFactorPanel({ T }) {
           fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 22px',
           borderRadius: 8, border: 'none', background: T.gold, color: '#1A2530', cursor: 'pointer',
         }}>
-        🔒 Enable two-factor authentication
+        Enable two-factor authentication
       </button>
       {unverified.length > 0 && (
         <div style={{ marginTop: 14, fontFamily: mono, fontSize: 10, color: T.muted }}>

@@ -100,7 +100,7 @@ export default function BackupsPage({ user, showToast }) {
   return (
     <div>
       <div style={{marginBottom:20}}>
-        <h2 style={{fontSize:20,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>💾 Backup History</h2>
+        <h2 style={{fontSize:20,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Backup History</h2>
         <p style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
           Your data is automatically backed up every week. You can create a manual backup anytime, or download any previous backup to restore your data or share with support.
         </p>
@@ -132,7 +132,7 @@ export default function BackupsPage({ user, showToast }) {
             </button>
             <button onClick={createBackup} disabled={creating}
               style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px 22px',borderRadius:8,border:'none',background:creating?T.border:T.gold,color:'#1A2530',cursor:creating?'wait':'pointer'}}>
-              {creating ? 'Creating...' : '💾 Create backup now'}
+              {creating ? 'Creating...' : 'Create backup now'}
             </button>
           </div>
         </div>
@@ -182,7 +182,7 @@ export default function BackupsPage({ user, showToast }) {
                   <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:4,
                     background: b.type==='automatic' ? T.blue+'22' : b.type==='manual' ? T.gold+'22' : T.muted+'22',
                     color:     b.type==='automatic' ? T.blue      : b.type==='manual' ? T.gold      : T.muted}}>
-                    {b.type === 'automatic' ? '⚙ Auto' : b.type === 'manual' ? '✋ Manual' : b.type}
+                    {b.type === 'automatic' ? 'Auto' : b.type === 'manual' ? 'Manual' : b.type}
                   </span>
                 </div>
                 <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{formatBytes(b.size_bytes)}</div>
@@ -219,7 +219,7 @@ export default function BackupsPage({ user, showToast }) {
         </div>
         <a href="mailto:hello@ownproperly.com?subject=Restore backup request"
           style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 18px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.gold,textDecoration:'none',display:'inline-block'}}>
-          📧 Contact support for restore
+          Contact support for restore
         </a>
       </div>
     </div>

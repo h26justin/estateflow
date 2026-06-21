@@ -297,7 +297,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             users who don't care about compliance. */}
         <details style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px' }}>
           <summary style={{ cursor: 'pointer', fontFamily: "'DM Mono',monospace", fontSize: 11, color: T.text, fontWeight: 700, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📋 Compliance dates (optional)</span>
+            <span>Compliance dates (optional)</span>
             <span style={{ fontSize: 10, color: T.muted, fontWeight: 400 }}>tap to expand</span>
           </summary>
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>

@@ -110,7 +110,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
                 </div>
               </div>
               <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
-                {expired && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>⚑ EXPIRED</span>}
+                {expired && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
                 {expiring && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
                 {followUpDue && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'#4B8FE022', color:'#4B8FE0' }}>Follow-up due</span>}
                 <button onClick={()=>{setForm(r);setShowForm(true)}} style={{ fontFamily:mono, fontSize:10, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
@@ -224,7 +224,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {r.prescribed_info_sent !== 'yes' && (
-                <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>⚑ Prescribed info not sent</span>
+                <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
               )}
               <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#2ECC8A22', color: '#2ECC8A' }}>Protected</span>
               <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: mono, fontSize: 10, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
@@ -292,7 +292,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button onClick={() => setShowGenerator(true)}
             style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.amber, cursor: 'pointer' }}>
-            ✎ Generate S21/S8
+            Generate S21/S8
           </button>
           <button onClick={() => { setForm({ notice_type: 's21', status: 'draft' }); setShowForm(true) }}
             style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>
@@ -364,7 +364,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
                   {n.solicitor_ref && ` · Ref: ${n.solicitor_ref}`}
                 </div>
                 {daysToHearing !== null && daysToHearing > 0 && (
-                  <div style={{ fontFamily: mono, fontSize: 10, color: '#E0943A', marginTop: 4 }}>⏰ Hearing in {daysToHearing} days ({n.court_date})</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: '#E0943A', marginTop: 4 }}>Hearing in {daysToHearing} days ({n.court_date})</div>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -532,7 +532,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
         <div>
           <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3 }}>
-            {urgency === 'expired' ? '⚑ Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
+            {urgency === 'expired' ? 'Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
           </div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888' }}>
             End date: {new Date(tenancy.tenancy_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -561,7 +561,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
           </div>
           <button onClick={handleRenew} disabled={saving || !form.new_end_date}
             style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: 'white', cursor: 'pointer' }}>
-            {saving ? 'Saving…' : '✓ Confirm renewal'}
+            {saving ? 'Saving…' : 'Confirm renewal'}
           </button>
           <button onClick={() => setShowForm(false)}
             style={{ fontFamily: mono, fontSize: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T?.border || '#ddd'}`, background: 'transparent', color: T?.muted || '#888', cursor: 'pointer' }}>

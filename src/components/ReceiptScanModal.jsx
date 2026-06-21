@@ -110,7 +110,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
       <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="receipt-scan-modal-title">
         <div style={{ padding: '22px 24px 0' }}>
           <h2 id="receipt-scan-modal-title" style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 4 }}>
-            📷 Scan Receipt
+            Scan Receipt
           </h2>
           <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
             {stage === 'capture' && 'Snap or upload a receipt and we\'ll extract the details.'}
@@ -136,7 +136,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
             <div style={{ textAlign: 'center', padding: '12px 0' }}>
               <button onClick={() => fileRef.current?.click()}
                 className="btn btn-gold" style={{ fontSize: 14, padding: '14px 28px', width: '100%' }}>
-                📸 Open camera
+                Open camera
               </button>
               <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 10 }}>
                 On mobile this opens your camera. Desktop opens a file picker.
@@ -161,7 +161,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
               )}
               {extracted?.merchant_name && (
                 <div style={{ fontFamily: MONO, fontSize: 11, color: T.green, marginBottom: 10 }}>
-                  ✓ Extracted from {extracted.merchant_name}
+                  Extracted from {extracted.merchant_name}
                 </div>
               )}
 
@@ -202,7 +202,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
                   ← Re-scan
                 </button>
                 <button onClick={save} className="btn btn-gold" style={{ fontSize: 12 }}>
-                  💾 Save expense
+                  Save expense
                 </button>
               </div>
             </div>

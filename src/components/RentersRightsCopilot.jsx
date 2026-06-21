@@ -49,7 +49,7 @@ function Toggle({ T, on, onClick, disabled }) {
         fontSize: 12,
       }}
     >
-      {on ? '✓ Done' : 'Mark done'}
+      {on ? 'Done' : 'Mark done'}
     </button>
   )
 }

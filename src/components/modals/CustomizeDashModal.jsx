@@ -96,7 +96,7 @@ export default function CustomizeDashModal({
       <div role="dialog" aria-modal="true" aria-labelledby="customize-dash-modal-title" style={{background:T.surface,borderRadius:14,maxWidth:680,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
-            <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>⚙ Customize Dashboard</h2>
+            <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Customize Dashboard</h2>
             <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Drag to reorder, toggle to show/hide. {enabledCount} {tab === 'sections' ? 'sections' : 'cards'} on.</div>
           </div>
           <button onClick={onClose} style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
@@ -112,7 +112,7 @@ export default function CustomizeDashModal({
                 fontWeight: tab === t ? 700 : 400,
                 marginBottom: -1,
               }}>
-              {t === 'sections' ? '📐 Sections' : '📊 KPI Cards'}
+              {t === 'sections' ? 'Sections' : 'KPI Cards'}
             </button>
           ))}
         </div>

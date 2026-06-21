@@ -251,7 +251,7 @@ export default function OnboardingTour({ user, onComplete }) {
               color: isLast ? SLATE : WHITE,
               cursor: 'pointer', transition: 'all 0.18s',
             }}>
-            {saving ? 'Starting…' : isLast ? '🚀 Start using OwnProperly' : 'Next →'}
+            {saving ? 'Starting…' : isLast ? 'Start using OwnProperly' : 'Next →'}
           </button>
         </div>
       </div>
