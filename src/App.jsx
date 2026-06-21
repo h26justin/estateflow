@@ -3842,16 +3842,6 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
 // Redesign "gradient property-card grid" (design/redesign-2026). An optional
 // browse layout alongside the dense list — gradient header (company accent) with
 // the property initial + status pill, then name/company and rent/yield/compliance.
-// Mix a hex colour toward an [r,g,b] target by amt (0-1). Used to deepen the
-// company accent for a rich card-header gradient (vs fading it to white).
-function mixHex(hex, t, amt) {
-  const m = (hex || '').match(/[0-9a-f]{2}/gi)
-  if (!m || m.length < 3) return hex
-  const c = m.map(x => parseInt(x, 16))
-  const ch = i => Math.round(c[i] + (t[i] - c[i]) * amt)
-  return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
-}
-
 // Derive a hairline icon + bedroom count from the free-text prop_type
 // ("1-Bed Flat", "House", "HMO Room", "Studio", …). `beds` is null when the
 // type doesn't state one (e.g. plain "House"); `studio` flags studios.
@@ -3880,46 +3870,42 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
       {filtered.map(p=>{
         const co = p.company
         const accent = co?.color || T.gold
-        const accentDeep = mixHex(accent, [14, 20, 28], 0.42)   // deepen, don't fade
         const tm = propTypeMeta(p.prop_type)
-        const sc = STATUS_CFG[p.status] || STATUS_CFG.purchased
         const cfg = complianceBadge(complianceStatusFor(p), T)
         const gy = calcGrossYield(p, yieldBasis)
         return (
           <div key={p.id} className="card pcard" onClick={()=>openDetail(p)}
-            style={{padding:0,overflow:'hidden',cursor:'pointer',display:'flex',flexDirection:'column'}}>
-            {/* Gradient header — accent deepening into a darker accent */}
-            <div style={{height:60,background:`linear-gradient(135deg, ${accent} 0%, ${accentDeep} 100%)`,padding:'11px 13px',display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
-              <div title={p.prop_type || 'Property'} style={{position:'relative',width:38,height:38,borderRadius:10,background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.3)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',flexShrink:0}}>
-                <Icon name={tm.icon} size={19} color="#fff"/>
+            style={{cursor:'pointer',display:'flex',flexDirection:'column',gap:9,padding:'14px 15px',borderLeft:`3px solid ${accent}`}}>
+            {/* Top: accent-tinted type-icon tile + name/company/address + status */}
+            <div style={{display:'flex',alignItems:'flex-start',gap:11,minWidth:0}}>
+              <div title={p.prop_type || 'Property'} style={{position:'relative',width:38,height:38,borderRadius:10,background:accent+'1A',border:`1px solid ${accent}33`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <Icon name={tm.icon} size={19} color={accent}/>
                 {(tm.beds != null || tm.studio) && (
-                  <span style={{position:'absolute',bottom:-5,right:-5,minWidth:16,height:16,padding:'0 3px',borderRadius:8,background:'#fff',color:accentDeep,fontFamily:MONO,fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 2px rgba(0,0,0,0.2)'}}>
+                  <span style={{position:'absolute',bottom:-5,right:-5,minWidth:16,height:16,padding:'0 3px',borderRadius:8,background:accent,color:'#fff',fontFamily:MONO,fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',border:`1.5px solid ${T.surface}`}}>
                     {tm.studio ? 'S' : tm.beds}
                   </span>
                 )}
               </div>
-              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,background:'rgba(0,0,0,0.28)',color:'#fff',fontFamily:MONO,fontSize:10,fontWeight:600,whiteSpace:'nowrap'}}>
-                <span style={{width:6,height:6,borderRadius:'50%',background:sc.dot,flexShrink:0}}/>{sc.label}
-              </span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
+                  <span style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
+                  <CompanyPill company={co}/>
+                </div>
+                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:2}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
+              </div>
+              <Badge status={p.status}/>
             </div>
-            {/* Body */}
-            <div style={{padding:'13px 15px',flex:1,display:'flex',flexDirection:'column',gap:6}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
-                <span style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
-                <CompanyPill company={co}/>
+            {/* Footer: rent / yield / compliance */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,paddingTop:10,borderTop:`1px solid ${T.border}`}}>
+              <div>
+                <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Rent</div>
+                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.text}}>{fmt(p.rent_pcm)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}>/mo</span></div>
               </div>
-              <div style={{fontFamily:MONO,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:'auto',paddingTop:11,borderTop:`1px solid ${T.border}`}}>
-                <div>
-                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Rent</div>
-                  <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.text}}>{fmt(p.rent_pcm)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}>/mo</span></div>
-                </div>
-                <div>
-                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
-                  <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{gy.toFixed(1)}%</div>
-                </div>
-                {compliancePill(cfg)}
+              <div>
+                <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
+                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{gy.toFixed(1)}%</div>
               </div>
+              {compliancePill(cfg)}
             </div>
           </div>
         )
