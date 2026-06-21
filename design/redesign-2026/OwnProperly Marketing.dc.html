@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{ --ink:#1C2830; --slate:#14202A; --paper:#F4F3EF; --surface:#FFFFFF; --border:#E4E1D9; --muted:#5C6670; --faint:#8A8E92; --gold:#B8902F; --paid:#1F9D63; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<div style="background:var(--paper); font-family:'Schibsted Grotesk',sans-serif; color:var(--ink);">
+
+  <!-- ===== NAV ===== -->
+  <div style="position:sticky; top:0; z-index:30; background:rgba(244,243,239,0.85); backdrop-filter:blur(10px); border-bottom:1px solid var(--border);">
+    <div style="max-width:1080px; margin:0 auto; padding:0 28px; height:64px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:11px;">
+        <div style="width:32px; height:32px; border-radius:9px; background:var(--ink); display:flex; align-items:center; justify-content:center;"><span style="font-weight:700; font-size:18px; letter-spacing:-0.04em; color:var(--paper);">P<span style="color:var(--gold);">.</span></span></div>
+        <div style="font-size:18px; letter-spacing:-0.02em;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:28px;">
+        <sc-for list="{{ navLinks }}" as="l" hint-placeholder-count="4">
+          <span style="font-size:14px; color:var(--muted); cursor:pointer;">{{ l }}</span>
+        </sc-for>
+        <span style="font-size:14px; font-weight:600; cursor:pointer;">Sign in</span>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:14px; font-weight:700; padding:9px 18px; border-radius:10px; border:none; background:var(--gold); color:var(--ink); cursor:pointer;">Start free trial</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HERO ===== -->
+  <div style="max-width:1080px; margin:0 auto; padding:72px 28px 48px; text-align:center;">
+    <div style="display:inline-flex; align-items:center; gap:8px; font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); background:var(--surface); border:1px solid var(--border); padding:7px 14px; border-radius:999px; margin-bottom:28px;">
+      <span style="width:7px; height:7px; border-radius:2px; background:var(--paid);"></span>Built for the MTD ITSA April 2026 mandate
+    </div>
+    <h1 style="font-size:60px; line-height:1.04; font-weight:700; letter-spacing:-0.04em; margin:0 0 22px; max-width:820px; margin-left:auto; margin-right:auto; text-wrap:balance;">Own your rental portfolio <span style="color:var(--gold);">properly.</span></h1>
+    <p style="font-size:19px; line-height:1.6; color:var(--muted); max-width:580px; margin:0 auto 34px;">Rent, compliance, tax and tenants — every UK landlord obligation in one clean dashboard. From £2 per property a month.</p>
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:18px;">
+      <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:16px; font-weight:700; padding:14px 28px; border-radius:11px; border:none; background:var(--ink); color:#fff; cursor:pointer;">Start 14-day free trial</button>
+      <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:16px; font-weight:600; padding:14px 28px; border-radius:11px; border:1.5px solid var(--border); background:transparent; color:var(--ink); cursor:pointer;">Book a demo</button>
+    </div>
+    <div style="font-family:'DM Mono',monospace; font-size:12px; color:var(--faint);">No card required · cancel any time</div>
+
+    <!-- product shot -->
+    <div style="margin-top:48px; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:0 30px 60px rgba(28,40,48,0.12); overflow:hidden; text-align:left;">
+      <div style="height:38px; background:var(--paper); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:7px; padding:0 16px;">
+        <span style="width:11px;height:11px;border-radius:50%;background:#E0DCD3;"></span><span style="width:11px;height:11px;border-radius:50%;background:#E0DCD3;"></span><span style="width:11px;height:11px;border-radius:50%;background:#E0DCD3;"></span>
+        <span style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-left:12px;">app.ownproperly.com</span>
+      </div>
+      <div style="display:flex;">
+        <div style="flex:0 0 150px; background:var(--surface); border-right:1px solid var(--border); padding:16px 12px; display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; align-items:center; gap:9px; margin-bottom:8px;"><div style="width:24px;height:24px;border-radius:7px;background:var(--ink);display:flex;align-items:center;justify-content:center;"><span style="font-weight:700;font-size:13px;color:var(--paper);">P<span style="color:var(--gold);">.</span></span></div><span style="font-size:13px;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></span></div>
+          <sc-for list="{{ miniNav }}" as="m" hint-placeholder-count="5">
+            <div style="font-size:12px; padding:7px 9px; border-radius:7px; background:{{ m.bg }}; color:{{ m.color }}; font-weight:{{ m.weight }};">{{ m.label }}</div>
+          </sc-for>
+        </div>
+        <div style="flex:1; padding:20px; background:var(--paper);">
+          <div style="font-size:17px; font-weight:700; margin-bottom:14px;">Good morning, James</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;">
+            <sc-for list="{{ miniKpis }}" as="k" hint-placeholder-count="3">
+              <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px;">
+                <div style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); margin-bottom:6px;">{{ k.label }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:17px; font-weight:500; color:{{ k.color }};">{{ k.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); margin-bottom:10px;">Rent · June</div>
+            <div style="display:flex; gap:4px;">
+              <sc-for list="{{ miniCells }}" as="c" hint-placeholder-count="8">
+                <div style="flex:1; height:28px; border-radius:5px; background:{{ c }};"></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TRUST ===== -->
+  <div style="max-width:1080px; margin:0 auto; padding:24px 28px 56px;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:40px; flex-wrap:wrap; font-family:'DM Mono',monospace; font-size:13px; color:var(--faint);">
+      <span>★★★★★ 4.9 average</span>
+      <span style="width:4px;height:4px;border-radius:50%;background:var(--border);"></span>
+      <span>1 to 200+ properties</span>
+      <span style="width:4px;height:4px;border-radius:50%;background:var(--border);"></span>
+      <span>HMRC-recognised</span>
+      <span style="width:4px;height:4px;border-radius:50%;background:var(--border);"></span>
+      <span>UK-built support</span>
+    </div>
+  </div>
+
+  <!-- ===== FEATURE GRID ===== -->
+  <div style="background:var(--surface); border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
+    <div style="max-width:1080px; margin:0 auto; padding:64px 28px;">
+      <div style="text-align:center; margin-bottom:44px;">
+        <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.16em; text-transform:uppercase; color:var(--gold); margin-bottom:14px;">Everything in one place</div>
+        <h2 style="font-size:38px; font-weight:700; letter-spacing:-0.03em; margin:0; text-wrap:balance;">The whole job, not just the rent</h2>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+        <sc-for list="{{ features }}" as="f" hint-placeholder-count="6">
+          <div style="background:var(--paper); border:1px solid var(--border); border-radius:16px; padding:26px 24px;">
+            <span style="width:28px; height:28px; color:var(--gold); display:inline-flex; margin-bottom:16px;" dangerouslySetInnerHTML="{{ f.icon }}"></span>
+            <div style="font-size:17px; font-weight:700; margin-bottom:8px; letter-spacing:-0.01em;">{{ f.title }}</div>
+            <div style="font-size:14px; line-height:1.55; color:var(--muted);">{{ f.desc }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PRICING ===== -->
+  <div style="max-width:1080px; margin:0 auto; padding:64px 28px;">
+    <div style="text-align:center; margin-bottom:44px;">
+      <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.16em; text-transform:uppercase; color:var(--gold); margin-bottom:14px;">Simple pricing</div>
+      <h2 style="font-size:38px; font-weight:700; letter-spacing:-0.03em; margin:0 0 10px;">Pay per property</h2>
+      <p style="font-size:16px; color:var(--muted); margin:0;">£10/month minimum. Scale up or down any time.</p>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; max-width:760px; margin:0 auto;">
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:32px;">
+        <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:14px;">Landlord</div>
+        <div style="display:flex; align-items:baseline; gap:6px; margin-bottom:6px;"><span style="font-family:'DM Mono',monospace; font-size:42px; font-weight:500; letter-spacing:-0.02em;">£2</span><span style="font-size:14px; color:var(--muted);">/property/mo</span></div>
+        <div style="font-size:13px; color:var(--faint); margin-bottom:24px;">Rent, compliance, tenants, reports</div>
+        <div style="display:flex; flex-direction:column; gap:11px; margin-bottom:26px;">
+          <sc-for list="{{ planA }}" as="p" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:10px; font-size:14px;"><span style="width:16px; height:16px; color:var(--paid); flex-shrink:0;" dangerouslySetInnerHTML="{{ check }}"></span>{{ p }}</div>
+          </sc-for>
+        </div>
+        <button style="width:100%; font-family:'Schibsted Grotesk',sans-serif; font-size:14px; font-weight:600; padding:12px; border-radius:10px; border:1.5px solid var(--ink); background:transparent; color:var(--ink); cursor:pointer;">Start free trial</button>
+      </div>
+      <div style="background:var(--slate); color:#F4F3EF; border-radius:18px; padding:32px; position:relative;">
+        <span style="position:absolute; top:20px; right:24px; font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink); background:var(--gold); padding:4px 10px; border-radius:999px;">Popular</span>
+        <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#CBA64E; margin-bottom:14px;">Investor</div>
+        <div style="display:flex; align-items:baseline; gap:6px; margin-bottom:6px;"><span style="font-family:'DM Mono',monospace; font-size:42px; font-weight:500; letter-spacing:-0.02em;">£5</span><span style="font-size:14px; color:#A9B4BC;">/property/mo</span></div>
+        <div style="font-size:13px; color:#8E9AA4; margin-bottom:24px;">Everything, plus AI &amp; the deals pipeline</div>
+        <div style="display:flex; flex-direction:column; gap:11px; margin-bottom:26px;">
+          <sc-for list="{{ planB }}" as="p" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:10px; font-size:14px; color:#E7E4DC;"><span style="width:16px; height:16px; color:#CBA64E; flex-shrink:0;" dangerouslySetInnerHTML="{{ check }}"></span>{{ p }}</div>
+          </sc-for>
+        </div>
+        <button style="width:100%; font-family:'Schibsted Grotesk',sans-serif; font-size:14px; font-weight:700; padding:12px; border-radius:10px; border:none; background:var(--gold); color:var(--ink); cursor:pointer;">Start free trial</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CTA ===== -->
+  <div style="max-width:1080px; margin:0 auto; padding:0 28px 72px;">
+    <div style="background:var(--slate); border-radius:22px; padding:56px 40px; text-align:center; color:#F4F3EF;">
+      <h2 style="font-size:36px; font-weight:700; letter-spacing:-0.03em; margin:0 0 14px; text-wrap:balance;">Stop juggling spreadsheets.</h2>
+      <p style="font-size:17px; color:#A9B4BC; margin:0 auto 28px; max-width:480px;">Set up your portfolio in minutes. Import your agent's statements and you're running.</p>
+      <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:16px; font-weight:700; padding:14px 30px; border-radius:11px; border:none; background:var(--gold); color:var(--ink); cursor:pointer;">Start your free trial</button>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <div style="border-top:1px solid var(--border);">
+    <div style="max-width:1080px; margin:0 auto; padding:40px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:28px; height:28px; border-radius:8px; background:var(--ink); display:flex; align-items:center; justify-content:center;"><span style="font-weight:700; font-size:15px; letter-spacing:-0.04em; color:var(--paper);">P<span style="color:var(--gold);">.</span></span></div>
+        <span style="font-family:'DM Mono',monospace; font-size:12px; color:var(--faint);">© 2026 OwnProperly</span>
+      </div>
+      <div style="display:flex; gap:24px; font-size:13px; color:var(--muted);">
+        <span>Privacy</span><span>Terms</span><span>Security</span><span>Blog</span><span>hello@ownproperly.com</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  ic(d){ return {__html:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'}; }
+  renderVals(){
+    const check={__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>'};
+    return {
+      navLinks:['Features','Pricing','Compliance','Resources'],
+      miniNav:[['Dashboard',true],['Portfolio',false],['Rent',false],['Compliance',false],['Reports',false]].map(([label,a])=>({label,bg:a?'#FAF9F6':'transparent',color:a?'#1C2830':'#5C6670',weight:a?700:500})),
+      miniKpis:[{label:'Rent roll',value:'£5,880',color:'#1C2830'},{label:'Collected',value:'87%',color:'#B8902F'},{label:'Net yield',value:'5.4%',color:'#1C2830'}],
+      miniCells:['#1F9D63','#1F9D63','#1F9D63','#C77E1E','#1F9D63','#C5483B','#1F9D63','#E4E1D9'],
+      features:[
+        {icon:this.ic('<path d="M3 7h18M3 7l2-3h14l2 3M5 7v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M12 11v5M9.5 12.5h4a1.2 1.2 0 0 1 0 2.4h-3a1.2 1.2 0 0 0 0 2.4h4"/>'),title:'Rent tracking',desc:'Month-by-month rent across every tenancy, arrears flagged automatically, agent statements imported in seconds.'},
+        {icon:this.ic('<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'),title:'Compliance',desc:'Gas, EICR, EPC, HMO and more — every certificate tracked with alerts at 90, 60 and 30 days before expiry.'},
+        {icon:this.ic('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>'),title:'Tax & reports',desc:'16 built-in reports, MTD ITSA filing straight to HMRC, Section 24 modelling — all HMRC-ready, all CSV-exportable.'},
+        {icon:this.ic('<path d="M3 21V8l7-4 7 4v13M3 21h18M9 21v-5h4v5"/>'),title:'Tenant portals',desc:'A branded portal per company where tenants pay, see documents and report repairs at your-company.ownproperly.com.'},
+        {icon:this.ic('<path d="M3 17l5-5 4 3 8-8"/><path d="M16 4h4v4"/>'),title:'Deals pipeline',desc:'BTL, HMO, SA and BRRR calculators with April 2025 SDLT rates, tracked through a 6-stage pipeline to completion.'},
+        {icon:this.ic('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),title:'AI assistant',desc:'Reads your gas certs and EICRs, writes Rightmove listings, and scans your portfolio for what needs attention.'},
+      ],
+      planA:['Unlimited tenancies','All 16 reports + CSV','Compliance alerts','Tenant portals'],
+      planB:['Everything in Landlord','Deals pipeline & calculators','AI document extraction','MTD ITSA filing'],
+      check,
+    };
+  }
+}
+</script>
+</body>
+</html>

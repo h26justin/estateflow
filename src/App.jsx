@@ -74,7 +74,8 @@ import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
 import { showAppToast } from './lib/toast'
-import { MONO } from './lib/styles'
+import { MONO, SANS } from './lib/styles'
+import { Icon, ICON_NAMES } from './lib/icons'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
@@ -200,8 +201,12 @@ const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
     <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:breakdown?'pointer':'default'}}
       onClick={breakdown?()=>setOpen(o=>!o):undefined}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-        <div style={{fontSize:20,marginBottom:8}}>{icon}</div>
-        {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',marginTop:2}}>{open?'▲ CLOSE':'▼ DETAIL'}</span>}
+        {/* Redesign: a known icon name renders the hairline glyph in a tinted
+            accent tile; legacy emoji strings still render as-is. */}
+        {ICON_NAMES.includes(icon)
+          ? <div style={{width:34,height:34,borderRadius:9,background:(accent||T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><Icon name={icon} size={18} color={accent||T.gold}/></div>
+          : <div style={{fontSize:20,marginBottom:8}}>{icon}</div>}
+        {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',marginTop:2,display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
       </div>
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
@@ -223,6 +228,37 @@ const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
           ))}
         </div>
       )}
+    </div>
+  )
+})
+
+// Portfolio health ring (redesign Dashboard hero). `score` is 0-100; the band
+// label + colour follow the same thresholds the per-property HealthBadge uses.
+const HealthRing = memo(({ score }) => {
+  const { T } = useTheme()
+  const s = Math.max(0, Math.min(100, Math.round(score)))
+  const band = s >= 80 ? { label:'Good standing', color:T.green }
+             : s >= 60 ? { label:'Needs attention', color:T.amber }
+             : { label:'Action needed', color:T.red }
+  const r = 30, c = 2 * Math.PI * r, dash = (s / 100) * c
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:14}}>
+      <div style={{position:'relative',width:74,height:74,flexShrink:0}}>
+        <svg width="74" height="74" viewBox="0 0 74 74" style={{transform:'rotate(-90deg)'}}>
+          <circle cx="37" cy="37" r={r} fill="none" stroke={T.border} strokeWidth="6"/>
+          <circle cx="37" cy="37" r={r} fill="none" stroke={band.color} strokeWidth="6"
+            strokeLinecap="round" strokeDasharray={`${dash} ${c}`}/>
+        </svg>
+        <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
+          <span style={{fontFamily:MONO,fontSize:20,fontWeight:500,color:T.text,lineHeight:1}}>{s}</span>
+        </div>
+      </div>
+      <div>
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>Portfolio health</div>
+        <div style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:band.color}}>
+          <span style={{width:7,height:7,borderRadius:'50%',background:band.color}}/>{band.label}
+        </div>
+      </div>
     </div>
   )
 })
@@ -388,23 +424,26 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
         const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
         const isCurrent = m.year === currentYear && m.month === currentMonth
         const col = getStatusColor(m.status)
-        const letter = MONTH_LETTER[(m.month||1)-1]
+        // Redesign: full 3-letter month name in the cell (no single-letter
+        // squares), status colour as fill, gold outline for the current month,
+        // hatched fill for future months.
+        const name = MONTH_NAMES[(m.month||1)-1]
         const boxStyle = isFuture
-          ? { background:'transparent', border:'1px dashed rgba(128,128,128,0.35)', cursor:'default' }
+          ? { background:'repeating-linear-gradient(135deg, rgba(128,128,128,0.10) 0 5px, transparent 5px 10px)', border:'1px dashed rgba(128,128,128,0.40)', cursor:'default' }
           : isCurrent
-            ? { background:col, border:`2px solid #C8A84B`, cursor:'pointer' }
+            ? { background:col, border:`2px solid #B8902F`, cursor:'pointer' }
             : { background:col, border:'1px solid transparent', cursor:'pointer' }
-        const letterColor = isFuture ? 'rgba(128,128,128,0.45)' : '#fff'
+        const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : '#fff'
         return (
           <div key={m.id}
             title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${m.status} — click for day view`}
             onClick={!isFuture ? ()=>setPopover(m) : undefined}
-            style={{width:28,height:28,borderRadius:5,transition:'transform 0.15s, box-shadow 0.15s',
+            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',
               display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
-            onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.2)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
+            onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
-            <span style={{fontFamily:MONO,fontSize:8,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none'}}>{letter}</span>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:500,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
           </div>
         )
       })}
@@ -618,15 +657,15 @@ export default function App() {
   const SECTION_DEFAULT_ENABLED = { kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
   const WIDGET_META = {
-    portfolio_value:    { icon:'🏡', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
-    monthly_rent:       { icon:'💷', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
+    portfolio_value:    { icon:'home', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
+    monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
     arrears:            { icon:'⚠',  label:'Total Arrears',           description:'Overdue rent and vacant properties' },
-    refurb:             { icon:'🔨', label:'In Refurbishment',        description:'Properties under renovation' },
-    mortgages:          { icon:'🏦', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
-    cashflow_forecast:  { icon:'💰', label:'Cash Committed', description:'Total cash out across deals + properties, with 90-day urgency split' },
-    insurance_renewals: { icon:'🛡', label:'Insurance Renewals',      description:'Policies expiring soon with annual premium totals' },
-    property_count:     { icon:'🏠', label:'Property Count',          description:'Total properties with rented/vacant split' },
-    occupancy_rate:     { icon:'📊', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
+    refurb:             { icon:'hammer', label:'In Refurbishment',        description:'Properties under renovation' },
+    mortgages:          { icon:'landmark', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
+    cashflow_forecast:  { icon:'wallet', label:'Cash Committed', description:'Total cash out across deals + properties, with 90-day urgency split' },
+    insurance_renewals: { icon:'shield-check', label:'Insurance Renewals',      description:'Policies expiring soon with annual premium totals' },
+    property_count:     { icon:'home', label:'Property Count',          description:'Total properties with rented/vacant split' },
+    occupancy_rate:     { icon:'pie-chart', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
   const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','property_count','occupancy_rate']
   const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, property_count:false, occupancy_rate:false }
@@ -696,14 +735,16 @@ export default function App() {
   const CSS = `
   html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
   *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:${SANS};-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  h1,h2,h3,h4{font-family:${SANS};letter-spacing:-0.02em;}
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${T.bg}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
   input,select,textarea{font-family:${MONO};background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
   input:focus,select:focus,textarea:focus{border-color:${T.gold};}
   :focus-visible{outline:2px solid ${T.gold};outline-offset:2px;}
   select option{background:${T.surface};}
   label{font-family:${MONO};font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
-  .btn{font-family:${MONO};font-weight:500;border:none;cursor:pointer;border-radius:8px;padding:8px 18px;font-size:12px;transition:all 0.18s;letter-spacing:0.03em;}
-  .btn-gold{background:${T.gold};color:${T.bg};}.btn-gold:hover{background:${T.gold}dd;}
+  .btn{font-family:${SANS};font-weight:600;border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;transition:all 0.18s;letter-spacing:0;}
+  .btn-gold{background:${T.gold};color:#1C2830;}.btn-gold:hover{background:${T.gold}dd;}
   .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.gold};}
   .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
   .card{background:${T.card};border:1px solid ${T.border};border-radius:14px;}
@@ -746,7 +787,7 @@ export default function App() {
   @keyframes spin{to{transform:rotate(360deg)}}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px);}
   .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
-  .tab{font-family:${MONO};font-size:11px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0.05em;}
+  .tab{font-family:${SANS};font-weight:500;font-size:13px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0;}
   .tab.active{background:${T.border};color:${T.gold};}.tab:hover{color:${T.text};}
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:700px){.g2{grid-template-columns:1fr}}
@@ -1756,18 +1797,18 @@ export default function App() {
   // as a tab because its sub-pages (billing, branding, team, notifications,
   // etc.) are deep and benefit from a dedicated landmark.
   const ALL_NAV=[
-    {key:'dashboard',  label:'Dashboard',    icon:'🏠', short:'Home',     required:true},
-    {key:'properties', label:'Portfolio',    icon:'🏘', short:'Portfolio',required:true},
-    {key:'companies',  label:'Companies',    icon:'🏢', short:'Cos',      required:false},
-    {key:'rent',       label:'Rent Tracker', icon:'💰', short:'Rent',     required:false},
-    {key:'deals',      label:'Deals',        icon:'🎯', short:'Deals',    required:false},
-    {key:'insurance',  label:'Insurance',    icon:'🛡', short:'Insurance',required:false},
-    {key:'contractors',label:'Contractors',  icon:'🔧', short:'Trades',   required:false},
-    {key:'reports',    label:'Reports',      icon:'📊', short:'Reports',  required:false},
-    {key:'mtd',        label:'MTD Tax',      icon:'🏛️', short:'MTD',      required:false},
-    {key:'autopilot',  label:'Autopilot',    icon:'🤖', short:'Autopilot',required:false, flag:'portfolio_autopilot'},
-    {key:'renters-rights', label:'Renters Rights', icon:'⚖️', short:'RRA', required:false, flag:'renters_rights'},
-    {key:'settings',   label:'Settings',     icon:'⚙',  short:'Settings', required:true},
+    {key:'dashboard',  label:'Dashboard',    icon:'home',         short:'Home',     required:true},
+    {key:'properties', label:'Portfolio',    icon:'building',      short:'Portfolio',required:true},
+    {key:'companies',  label:'Companies',    icon:'grid',         short:'Cos',      required:false},
+    {key:'rent',       label:'Rent Tracker', icon:'pound',        short:'Rent',     required:false},
+    {key:'deals',      label:'Deals',        icon:'target',       short:'Deals',    required:false},
+    {key:'insurance',  label:'Insurance',    icon:'shield-check', short:'Insurance',required:false},
+    {key:'contractors',label:'Contractors',  icon:'wrench',       short:'Trades',   required:false},
+    {key:'reports',    label:'Reports',      icon:'pie-chart',    short:'Reports',  required:false},
+    {key:'mtd',        label:'MTD Tax',      icon:'landmark',     short:'MTD',      required:false},
+    {key:'autopilot',  label:'Autopilot',    icon:'robot',        short:'Autopilot',required:false, flag:'portfolio_autopilot'},
+    {key:'renters-rights', label:'Renters Rights', icon:'scale',  short:'RRA', required:false, flag:'renters_rights'},
+    {key:'settings',   label:'Settings',     icon:'settings',     short:'Settings', required:true},
   ]
   // MTD ITSA only applies to individuals/sole-traders. Limited-company landlords
   // file Corporation Tax, not Self Assessment — hide the page from their nav so
@@ -1874,7 +1915,7 @@ export default function App() {
   }
 
   return (
-    <div style={{fontFamily:"'Fraunces',Georgia,serif",minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
+    <div style={{fontFamily:SANS,minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s'}}>
       <style>{CSS}</style>
       {/* ── IMPERSONATION BANNER ── */}
       {impersonatingUser && (
@@ -1940,14 +1981,16 @@ export default function App() {
             {navItems.map(n=>(
               <button key={n.key} className={`tab ${view===n.key||(view==='detail'&&n.key==='properties')?'active':''}`}
                 onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}} aria-current={view===n.key?'page':undefined}>
-                {n.icon} {n.label}
+                <span style={{display:'inline-flex',alignItems:'center',gap:7}}>
+                  {ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={17}/>:n.icon} {n.label}
+                </span>
               </button>
             ))}
           </nav>}
 
           {/* Mobile: current page title */}
-          {isMobile&&<div style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
-            {navItems.find(n=>n.key===view)?.icon} {navItems.find(n=>n.key===view)?.label||'Dashboard'}
+          {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
+            {(()=>{const ni=navItems.find(n=>n.key===view); return ni&&ICON_NAMES.includes(ni.icon)?<Icon name={ni.icon} size={15} color={T.muted}/>:ni?.icon})()} {navItems.find(n=>n.key===view)?.label||'Dashboard'}
           </div>}
 
           {/* Right side */}
@@ -2124,7 +2167,7 @@ export default function App() {
                     background:view===n.key?T.gold+'18':'none',
                     border:'none',borderLeft:view===n.key?`3px solid ${T.gold}`:'3px solid transparent',
                     cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}>
-                  <span style={{fontSize:18,width:24,textAlign:'center'}}>{n.icon}</span>
+                  <span style={{width:24,display:'flex',justifyContent:'center',color:view===n.key?T.gold:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
                   <span style={{fontSize:14,fontWeight:view===n.key?600:400,color:view===n.key?T.gold:T.text}}>{n.label}</span>
                 </button>
               ))}
@@ -2191,7 +2234,7 @@ export default function App() {
                 of the new-account welcome hero. */}
             {loadError && (
               <div className="card" role="alert" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px solid ${T.red}66`}}>
-                <div style={{fontSize:isMobile?28:36,marginBottom:10}} aria-hidden="true">⚠️</div>
+                <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="alert-triangle" size={isMobile?30:38} color={T.red}/></div>
                 <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>We couldn't load your portfolio</h1>
                 <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
                   Your data is safe — this is usually a temporary connection problem. ({loadError})
@@ -2206,7 +2249,7 @@ export default function App() {
                 regular header takes over. */}
             {!loadError && activeProperties.length === 0 && companies.length === 0 && (
               <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
-                <div style={{fontSize:isMobile?28:36,marginBottom:10}} aria-hidden="true">🏠</div>
+                <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="home" size={isMobile?30:38} color={T.gold}/></div>
                 <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to OwnProperly</h1>
                 <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
                   You're on a 14-day free trial. The fastest way to see what the app does is to add your first company and one property — takes about 2 minutes.
@@ -2218,9 +2261,18 @@ export default function App() {
               </div>
             )}
             <div style={{marginBottom:isMobile?14:20,minWidth:0}}>
-              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:isMobile?10:16}}>
-                <div style={{flex:'1 1 100%',minWidth:0}}>
-                  <h1 style={{fontSize:isMobile?20:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?2:4}}>Portfolio Overview</h1>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16,marginBottom:isMobile?10:16}}>
+                <div style={{flex:'1 1 auto',minWidth:0}}>
+                  {(() => {
+                    const fn = (user?.user_metadata?.first_name || (user?.user_metadata?.full_name||'').trim().split(' ')[0] || '').trim()
+                    const hr = new Date().getHours()
+                    const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'
+                    return (
+                      <h1 style={{fontSize:isMobile?22:30,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?2:4}}>
+                        {greet}{fn ? <>, {fn}</> : ''}
+                      </h1>
+                    )
+                  })()}
                   <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
                     {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                     {dashProps.some(p=>p.current_value>0) && <>
@@ -2238,6 +2290,12 @@ export default function App() {
                     </>}
                   </p>
                 </div>
+                {/* Portfolio health ring — average of per-property health
+                    scores, consistent with the per-card HealthBadge. */}
+                {dashProps.length > 0 && (() => {
+                  const avg = dashProps.reduce((sum,p)=>sum+(api.calcPropertyHealthScore(p, p.compliance_items||[], tenanciesByProp[p.id]||p.tenancy||null, p.maintenance_jobs||[], p.rent_payments||[]).score||0),0)/dashProps.length
+                  return <HealthRing score={avg}/>
+                })()}
               </div>
               {/* Company filter pills */}
               {companies.length > 1 && (
@@ -2436,8 +2494,8 @@ export default function App() {
               function renderKpiGrid() {
                 // Widget definitions — each returns a StatCard JSX element
                 const WIDGET_DEFS = {
-                  portfolio_value: { icon:'🏡', label:'Portfolio Value', render: () => (
-                    <StatCard icon="🏡" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
+                  portfolio_value: { icon:'home', label:'Portfolio Value', render: () => (
+                    <StatCard icon="home" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
                       breakdown={[
                         {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
                         {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
@@ -2450,8 +2508,8 @@ export default function App() {
                       ]}
                     />
                   )},
-                  monthly_rent: { icon:'💷', label:'Monthly Rental Income', render: () => (
-                    <StatCard icon="💷" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
+                  monthly_rent: { icon:'pound', label:'Monthly Rental Income', render: () => (
+                    <StatCard icon="pound" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
                       breakdown={[
                         ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
                         {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
@@ -2460,8 +2518,8 @@ export default function App() {
                       ]}
                     />
                   )},
-                  arrears: { icon:'⚠', label:'Total Arrears', render: () => (
-                    <StatCard icon="⚠" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
+                  arrears: { icon:'alert-triangle', label:'Total Arrears', render: () => (
+                    <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
                       breakdown={[
                         ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
                         ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
@@ -2469,8 +2527,8 @@ export default function App() {
                       ]}
                     />
                   )},
-                  refurb: { icon:'🔨', label:'In Refurbishment', render: () => (
-                    <StatCard icon="🔨" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
+                  refurb: { icon:'hammer', label:'In Refurbishment', render: () => (
+                    <StatCard icon="hammer" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
                       breakdown={[
                         ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
                         ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
@@ -2479,8 +2537,8 @@ export default function App() {
                       ]}
                     />
                   )},
-                  mortgages: { icon:'🏦', label:'Mortgages Outstanding', render: () => (
-                    <StatCard icon="🏦" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
+                  mortgages: { icon:'landmark', label:'Mortgages Outstanding', render: () => (
+                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
                       breakdown={[
                         {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
                         {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
@@ -2495,7 +2553,7 @@ export default function App() {
                       ]}
                     />
                   )},
-                  cashflow_forecast: { icon:'💰', label:'Cash Committed', render: () => {
+                  cashflow_forecast: { icon:'wallet', label:'Cash Committed', render: () => {
                     // Filter deals by the dashboard's company filter so the
                     // widget stays in sync with the rest of the page. Properties
                     // are already filtered (dashProps).
@@ -2532,7 +2590,7 @@ export default function App() {
                       ? 'No live deals or properties'
                       : `${fmt(next90)} due in 90d · ${fmt(pipelineCash)} in pipeline`
                     return (
-                      <StatCard icon="💰" label="Cash Committed" value={fmt(cashAgg.totalCashOut)} sub={sub} accent={accent}
+                      <StatCard icon="wallet" label="Cash Committed" value={fmt(cashAgg.totalCashOut)} sub={sub} accent={accent}
                         breakdown={[
                           ...(overdueCash > 0 ? [{label:`Overdue (${overdueCount} ${overdueCount===1?'item':'items'})`, value:fmt(overdueCash), color:T.red, separator:true}] : []),
                           {label:'Next 30 days', value:fmt(cashAgg.byBucket['0-30']?.cashOut || 0), color:(cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber : T.muted, note:`${cashAgg.byBucket['0-30']?.count || 0} item(s) needing cash this month`},
@@ -2547,7 +2605,7 @@ export default function App() {
                       />
                     )
                   }},
-                  insurance_renewals: { icon:'🛡', label:'Insurance Renewals', render: () => {
+                  insurance_renewals: { icon:'shield-check', label:'Insurance Renewals', render: () => {
                     // Filter policies by the dashboard's company filter, mirroring
                     // how the cashflow widget handles dashCoFilter. RLS already
                     // limits the user's visible set.
@@ -2595,7 +2653,7 @@ export default function App() {
                           ? `${bucketed.d30.length} renewing in 30 days · ${activeCount} active`
                           : `${activeCount} active ${activeCount === 1 ? 'policy' : 'policies'}`
                     return (
-                      <StatCard icon="🛡" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent}
+                      <StatCard icon="shield-check" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent}
                         breakdown={[
                           ...(bucketed.expired.length > 0 ? [{label:`Expired (${bucketed.expired.length})`, value:fmt(sumP(bucketed.expired)), color:T.red, separator:true, note:'Policies past their expiry date. Renew immediately.'}] : []),
                           {label:'Next 30 days', value:fmt(sumP(bucketed.d30)), color:bucketed.d30.length > 0 ? T.amber : T.muted, note:`${bucketed.d30.length} ${bucketed.d30.length === 1 ? 'policy' : 'policies'} renewing this month`},
@@ -2607,8 +2665,8 @@ export default function App() {
                       />
                     )
                   }},
-                  property_count: { icon:'🏠', label:'Property Count', render: () => (
-                    <StatCard icon="🏠" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
+                  property_count: { icon:'home', label:'Property Count', render: () => (
+                    <StatCard icon="home" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
                       breakdown={[
                         {label:'Total properties', value:stats.total},
                         {label:'Rented', value:stats.rented, color:T.green},
@@ -2618,10 +2676,10 @@ export default function App() {
                       ]}
                     />
                   )},
-                  occupancy_rate: { icon:'📊', label:'Occupancy Rate', render: () => {
+                  occupancy_rate: { icon:'pie-chart', label:'Occupancy Rate', render: () => {
                     const rate = stats.total > 0 ? Math.round((stats.rented/stats.total)*100) : 0
                     return (
-                      <StatCard icon="📊" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red}
+                      <StatCard icon="pie-chart" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red}
                         breakdown={[
                           {label:'Occupied', value:stats.rented, color:T.green},
                           {label:'Vacant', value:stats.vacant, color:T.amber},
@@ -3494,7 +3552,7 @@ export default function App() {
               style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
                 alignItems:'center',gap:2,padding:'4px 8px',flex:1,
                 color:active?T.gold:T.muted,fontFamily:MONO}}>
-              <span style={{fontSize:20}}>{n.icon}</span>
+              <span style={{display:'flex'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:<span style={{fontSize:20}}>{n.icon}</span>}</span>
               <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>{n.short}</span>
             </button>
           )
@@ -3808,7 +3866,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           )}
           {showBuildingHeader&&(
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
-              <span style={{fontSize:13}} aria-hidden="true">🏘</span>
+              <Icon name="building" size={14} color={T.muted}/>
               <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{tail}</span>
               <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {buildingSize} units</span>
             </div>
@@ -3841,7 +3899,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
               </div>
               <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>
                 {p.prop_type} · {p.address}
-                {p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}
+                {p.managed_by&&<span style={{marginLeft:8,color:T.faint,display:'inline-flex',alignItems:'center',gap:4,verticalAlign:'middle'}}><Icon name="building" size={11}/> {p.managed_by}</span>}
               </div>
             </div>
             {/* Stats */}
@@ -3857,14 +3915,14 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
                 return (
                   <div title="Tap to view compliance"
                     onClick={(e)=>{e.stopPropagation(); openDetail(p)}}
-                    style={{display:'flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:12,
+                    style={{display:'flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,
                       background:cfg.bg,color:cfg.color,
                       fontFamily:MONO,fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>
-                    <span>{cfg.icon}</span><span>{cfg.label}</span>
+                    <Icon name={cfg.iconName} size={12}/><span>{cfg.label}</span>
                   </div>
                 )
               })()}
-              {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</div>}
+              {p.arrears>0&&<div style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}><Icon name="alert-triangle" size={13}/> {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
                 <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>

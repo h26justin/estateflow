@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { MONO } from '../../lib/styles'
 import FocusTrap from '../../lib/FocusTrap'
+import { Icon, ICON_NAMES } from '../../lib/icons'
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────
 // Combined dashboard customization modal. Two tabs: Sections (top-level
@@ -154,7 +155,7 @@ export default function CustomizeDashModal({
                   <button onClick={()=>move(i,1)} disabled={i===list.length-1}
                     style={{fontFamily:mono,fontSize:10,padding:'2px 6px',borderRadius:4,cursor:i===list.length-1?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===list.length-1?T.muted+'55':T.text}}>▼</button>
                 </div>
-                <div style={{fontSize:22}}>{def.icon}</div>
+                <div style={{fontSize:22,width:24,display:'flex',justifyContent:'center'}}>{ICON_NAMES.includes(def.icon)?<Icon name={def.icon} size={20} color={T.muted}/>:def.icon}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:2}}>{def.label}</div>
                   <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{def.description}</div>

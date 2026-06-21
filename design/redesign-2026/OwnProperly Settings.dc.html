@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#F4F3EF; --surface:#FFFFFF; --card:#FAF9F6; --border:#E4E1D9;
+      --text:#1C2830; --muted:#5C6670; --faint:#8A8E92; --gold:#B8902F;
+      --paid:#1F9D63; --missed:#C5483B; --refurb:#2D6FA8;
+      --shadow:0 1px 2px rgba(28,40,48,0.06);
+    }
+    [data-theme="dark"]{
+      --bg:#0E141A; --surface:#151D25; --card:#1B242D; --border:#28333D;
+      --text:#E8E5DD; --muted:#9AA6B0; --faint:#6E7681; --gold:#CBA64E;
+      --paid:#34C281; --missed:#E06A5E; --refurb:#5B9BD8;
+      --shadow:0 1px 2px rgba(0,0,0,0.3);
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="background:var(--bg); min-height:100vh; font-family:'Schibsted Grotesk',sans-serif; color:var(--text); display:flex;">
+
+  <div style="width:212px; flex:0 0 212px; position:sticky; top:0; height:100vh; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden;">
+    <div style="height:62px; display:flex; align-items:center; gap:11px; padding:0 18px; border-bottom:1px solid var(--border);">
+      <div style="width:32px; height:32px; border-radius:9px; background:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <span style="font-weight:700; font-size:18px; letter-spacing:-0.04em; color:var(--bg);">P<span style="color:var(--gold);">.</span></span>
+      </div>
+      <div style="font-size:18px; letter-spacing:-0.02em;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></div>
+    </div>
+    <div style="flex:1; padding:14px 12px; display:flex; flex-direction:column; gap:3px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+        <div style="display:flex; align-items:center; gap:13px; padding:10px 11px; border-radius:10px; cursor:pointer; background:{{ n.bg }}; color:{{ n.color }};">
+          <span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;" dangerouslySetInnerHTML="{{ n.icon }}"></span>
+          <span style="font-size:14px; font-weight:{{ n.weight }};">{{ n.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <div style="position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--border); height:62px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0 28px;">
+      <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.06em; color:var(--text);">Settings / Companies &amp; branding</div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onClick="{{ toggle }}" style="font-family:'DM Mono',monospace; font-size:11px; font-weight:500; padding:7px 14px; border-radius:999px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer;">{{ toggleLabel }}</button>
+        <div style="width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff;">JD</div>
+      </div>
+    </div>
+
+    <div style="max-width:1180px; margin:0 auto; width:100%; padding:30px 28px 80px;">
+      <h1 style="font-size:30px; font-weight:700; letter-spacing:-0.03em; margin:0 0 24px;">Settings</h1>
+
+      <div style="display:grid; grid-template-columns:200px 1fr; gap:28px;">
+        <!-- settings sub-nav -->
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <sc-for list="{{ settingsNav }}" as="s" hint-placeholder-count="7">
+            <div style="font-size:13px; font-weight:{{ s.weight }}; color:{{ s.color }}; background:{{ s.bg }}; padding:9px 13px; border-radius:9px; cursor:pointer;">{{ s.label }}</div>
+          </sc-for>
+        </div>
+
+        <!-- main panel -->
+        <div style="display:flex; flex-direction:column; gap:16px;">
+
+          <!-- company branding card -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px 26px; box-shadow:var(--shadow);">
+            <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">Company branding</div>
+            <div style="font-size:13px; color:var(--muted); margin-bottom:22px; line-height:1.5;">Each company gets its own logo, colour and tenant-portal subdomain. These also brand every PDF report you export.</div>
+
+            <div style="display:flex; gap:24px; flex-wrap:wrap;">
+              <!-- logo -->
+              <div style="flex:0 0 200px;">
+                <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); margin-bottom:10px;">Logo for reports</div>
+                <div style="height:96px; border:1.5px dashed var(--border); border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; background:var(--card);">
+                  <div style="font-size:22px; letter-spacing:-0.03em; color:var(--text);"><span style="font-weight:500;">Northgate</span></div>
+                  <div style="font-family:'DM Mono',monospace; font-size:10px; color:var(--faint);">PNG / SVG · click to replace</div>
+                </div>
+              </div>
+              <!-- name + colour -->
+              <div style="flex:1; min-width:260px; display:flex; flex-direction:column; gap:18px;">
+                <div>
+                  <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); margin-bottom:8px;">Company name</div>
+                  <div style="display:flex; align-items:center; border:1.5px solid var(--border); border-radius:10px; padding:11px 14px; background:var(--surface); font-size:14px;">Northgate Lettings Ltd</div>
+                </div>
+                <div>
+                  <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); margin-bottom:8px;">Report accent colour</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <sc-for list="{{ swatches }}" as="c" hint-placeholder-count="8">
+                      <div style="width:30px; height:30px; border-radius:8px; background:{{ c.hex }}; cursor:pointer; border:2px solid {{ c.ring }}; box-shadow:0 0 0 2px {{ c.glow }};"></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- reporting period -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px 26px; box-shadow:var(--shadow);">
+            <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">Default reporting period</div>
+            <div style="font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.5;">Whether reports default to the UK tax year or calendar year. Override per report any time.</div>
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1; border:1.5px solid var(--gold); background:color-mix(in srgb,var(--gold) 8%,transparent); border-radius:12px; padding:14px 16px; cursor:pointer;">
+                <div style="font-size:14px; font-weight:600;">UK Tax Year</div>
+                <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;">6 Apr — 5 Apr</div>
+              </div>
+              <div style="flex:1; border:1.5px solid var(--border); border-radius:12px; padding:14px 16px; cursor:pointer;">
+                <div style="font-size:14px; font-weight:600;">Calendar Year</div>
+                <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;">1 Jan — 31 Dec</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- toggles -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:8px 26px; box-shadow:var(--shadow);">
+            <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 0; border-bottom:1px solid {{ t.divider }};">
+                <div>
+                  <div style="font-size:14px; font-weight:600;">{{ t.label }}</div>
+                  <div style="font-size:12px; color:var(--muted); margin-top:2px;">{{ t.desc }}</div>
+                </div>
+                <div style="width:42px; height:24px; border-radius:999px; background:{{ t.trackBg }}; position:relative; flex-shrink:0; cursor:pointer;">
+                  <div style="position:absolute; top:2px; left:{{ t.knobX }}; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.2);"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:860}}">
+class Component extends DCLogic {
+  state={dark:false};
+
+  icon(name){
+    const s='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">';
+    const p={
+      dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+      portfolio:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      rent:'<path d="M3 7h18M3 7l2-3h14l2 3M5 7v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M12 11v5M9.5 12.5h4a1.2 1.2 0 0 1 0 2.4h-3a1.2 1.2 0 0 0 0 2.4h4"/>',
+      compliance:'<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+      deals:'<path d="M3 17l5-5 4 3 8-8"/><path d="M16 4h4v4"/>',
+      reports:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+      settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    };
+    return {__html:s+(p[name]||'')+'</svg>'};
+  }
+
+  renderVals(){
+    const dark=this.state.dark;
+    const navDefs=[['Dashboard','dashboard',false],['Portfolio','portfolio',false],['Rent','rent',false],['Compliance','compliance',false],['Deals','deals',false],['Reports','reports',false],['Settings','settings',true]];
+    const nav=navDefs.map(([label,ic,active])=>({label,icon:this.icon(ic),weight:active?700:500,color:active?'var(--text)':'var(--muted)',bg:active?'var(--card)':'transparent'}));
+
+    const settingsNav=['Companies & branding','Reporting','Notifications','Integrations','Team & roles','Billing','Security'].map((label,i)=>({
+      label, weight:i===0?600:500, color:i===0?'var(--text)':'var(--muted)', bg:i===0?'var(--card)':'transparent',
+    }));
+
+    const palette=['#B8902F','#2D6FA8','#1F9D63','#8255A8','#C5483B','#C77E1E','#2D3C4A','#0F8A8A'];
+    const swatches=palette.map((hex,i)=>({
+      hex, ring:i===0?'#fff':'transparent', glow:i===0?'var(--gold)':'transparent',
+    }));
+
+    const toggles=[
+      {label:'Compliance expiry alerts',desc:'Email at 90, 60 and 30 days before any certificate expires',on:true},
+      {label:'Rent arrears alerts',desc:'Notify when a payment is missed or late',on:true},
+      {label:'Weekly portfolio digest',desc:'Monday summary of rent, arrears and upcoming renewals',on:false},
+    ].map((t,i,arr)=>({
+      ...t,
+      trackBg: t.on?'var(--paid)':'var(--border)',
+      knobX: t.on?'20px':'2px',
+      divider: i===arr.length-1?'transparent':'var(--border)',
+    }));
+
+    return {
+      theme:dark?'dark':'light',
+      toggle:()=>this.setState(s=>({dark:!s.dark})), toggleLabel:dark?'Light mode':'Dark mode',
+      nav, settingsNav, swatches, toggles,
+    };
+  }
+}
+</script>
+</body>
+</html>

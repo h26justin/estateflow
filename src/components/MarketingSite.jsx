@@ -1,22 +1,24 @@
 import { useState } from 'react'
+import { SANS } from '../lib/styles'
 
-const SLATE  = '#2D3C4A'
-const GOLD   = '#C8A84B'
+// Redesign palette (design/redesign-2026). SLATE = ink/text + dark brand panels.
+const SLATE  = '#1C2830'
+const GOLD   = '#B8902F'
 const CREAM  = '#F4F3EF'
 const WHITE  = '#FFFFFF'
-const MUTED  = '#6B7691'
-const BORDER = '#E2DFD8'
-const DARK   = '#1A2530'
+const MUTED  = '#5C6670'
+const BORDER = '#E4E1D9'
+const DARK   = '#14202A'
 
 const CSS = `
   *{box-sizing:border-box;margin:0;padding:0;}
   html{scroll-behavior:smooth;}
   body{-webkit-font-smoothing:antialiased;}
-  .mkt-btn-gold{background:${GOLD};color:${DARK};font-family:'DM Mono',monospace;font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;letter-spacing:0.02em;text-decoration:none;display:inline-block;}
+  .mkt-btn-gold{background:${GOLD};color:${DARK};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;letter-spacing:0.02em;text-decoration:none;display:inline-block;}
   .mkt-btn-gold:hover{background:#B8942A;transform:translateY(-1px);box-shadow:0 4px 16px rgba(200,168,75,0.3);}
-  .mkt-btn-ghost{background:transparent;color:${SLATE};font-family:'DM Mono',monospace;font-weight:600;font-size:13px;padding:13px 28px;border-radius:10px;border:1.5px solid ${BORDER};cursor:pointer;transition:all 0.18s;text-decoration:none;display:inline-block;}
+  .mkt-btn-ghost{background:transparent;color:${SLATE};font-family:${SANS};font-weight:600;font-size:13px;padding:13px 28px;border-radius:10px;border:1.5px solid ${BORDER};cursor:pointer;transition:all 0.18s;text-decoration:none;display:inline-block;}
   .mkt-btn-ghost:hover{border-color:${SLATE};background:${SLATE};color:white;}
-  .mkt-btn-white{background:white;color:${SLATE};font-family:'DM Mono',monospace;font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;}
+  .mkt-btn-white{background:white;color:${SLATE};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;}
   .mkt-btn-white:hover{background:${CREAM};}
   .feat-card{background:${CREAM};border:1px solid ${BORDER};border-radius:14px;padding:26px 26px;transition:border-color 0.18s,transform 0.18s,box-shadow 0.18s;}
   .feat-card:hover{border-color:${GOLD}88;transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,0.07);}
@@ -123,7 +125,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
   }
 
   return (
-    <div style={{ fontFamily: 'Georgia, serif', background: CREAM, minHeight: '100vh', overflowX: 'hidden' }}>
+    <div style={{ fontFamily: SANS, color: SLATE, background: CREAM, minHeight: '100vh', overflowX: 'hidden' }}>
       <style>{CSS}</style>
 
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(244,243,239,0.96)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${BORDER}`, padding: '0 24px' }}>

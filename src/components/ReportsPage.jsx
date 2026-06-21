@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { loadCdnScript } from '../lib/loadCdnScript'
@@ -85,22 +86,22 @@ function daysUntil(dateStr) {
 //   - "open_jobs"      → top section of Maintenance Cost Report
 //   - "portfolio_growth" → Equity Report covers same numbers more clearly
 const REPORT_CATALOGUE = [
-  { id:'pnl',          cat:'tax',         icon:'📊', name:'Annual P&L',                  desc:'Collected rent vs expenses, net profit per property — HMRC-ready' },
-  { id:'income_sched', cat:'tax',         icon:'📅', name:'Rental income schedule',       desc:'Month-by-month rent received — ideal for SA105' },
-  { id:'expense_breakdown', cat:'tax',    icon:'🧾', name:'Expense breakdown',            desc:'All expenses by category, ready for your accountant' },
-  { id:'mortgage_interest', cat:'tax',    icon:'🏦', name:'Mortgage interest summary',    desc:'Total interest paid per property — Section 24 tax credit' },
-  { id:'capital_gains', cat:'tax',        icon:'📈', name:'Capital gains summary',        desc:'Purchase cost vs current value, unrealised gain per property' },
-  { id:'yield_compare', cat:'performance',icon:'🏆', name:'Yield comparison',             desc:'Gross and net yield ranked across all properties' },
-  { id:'occupancy',     cat:'performance',icon:'🏠', name:'Occupancy rate',               desc:'Portfolio occupancy %, vacant days, void cost by property' },
-  { id:'rent_collect',  cat:'performance',icon:'💰', name:'Rent collection rate',         desc:'% collected on time, late and missed payments by property' },
-  { id:'cashflow',      cat:'finance',    icon:'💷', name:'Monthly cash flow',            desc:'Real monthly rent in, all costs out, net cash month-by-month' },
-  { id:'equity',        cat:'finance',    icon:'🏗', name:'Equity report',                desc:'Property values, debt, equity, LTV and unrealised gain per property' },
-  { id:'mortgage_port', cat:'finance',    icon:'📋', name:'Mortgage portfolio',           desc:'All mortgages, rates, terms, monthly payments and LTV ratios' },
-  { id:'arrears',       cat:'finance',    icon:'⚠️', name:'Arrears report',               desc:'Outstanding rent by property, amount and days overdue' },
-  { id:'compliance',    cat:'compliance', icon:'✅', name:'Compliance status',            desc:'All certificates — expired, expiring soon, valid (RAG)' },
-  { id:'tenancy_sched', cat:'compliance', icon:'📝', name:'Tenancy schedule',             desc:'All tenancies, start/end dates, notice periods, renewals' },
-  { id:'maintenance_report',cat:'maintenance',icon:'🔧',name:'Maintenance overview',      desc:'Open jobs, total spend by property and trade' },
-  { id:'contractor_spend',cat:'maintenance',icon:'👷',name:'Contractor spend',            desc:'Total paid to each contractor, job counts, average cost' },
+  { id:'pnl',          cat:'tax',         icon:'pie-chart', name:'Annual P&L',                  desc:'Collected rent vs expenses, net profit per property — HMRC-ready' },
+  { id:'income_sched', cat:'tax',         icon:'calendar', name:'Rental income schedule',       desc:'Month-by-month rent received — ideal for SA105' },
+  { id:'expense_breakdown', cat:'tax',    icon:'receipt', name:'Expense breakdown',            desc:'All expenses by category, ready for your accountant' },
+  { id:'mortgage_interest', cat:'tax',    icon:'landmark', name:'Mortgage interest summary',    desc:'Total interest paid per property — Section 24 tax credit' },
+  { id:'capital_gains', cat:'tax',        icon:'trending-up', name:'Capital gains summary',        desc:'Purchase cost vs current value, unrealised gain per property' },
+  { id:'yield_compare', cat:'performance',icon:'target', name:'Yield comparison',             desc:'Gross and net yield ranked across all properties' },
+  { id:'occupancy',     cat:'performance',icon:'home', name:'Occupancy rate',               desc:'Portfolio occupancy %, vacant days, void cost by property' },
+  { id:'rent_collect',  cat:'performance',icon:'pound', name:'Rent collection rate',         desc:'% collected on time, late and missed payments by property' },
+  { id:'cashflow',      cat:'finance',    icon:'wallet', name:'Monthly cash flow',            desc:'Real monthly rent in, all costs out, net cash month-by-month' },
+  { id:'equity',        cat:'finance',    icon:'building', name:'Equity report',                desc:'Property values, debt, equity, LTV and unrealised gain per property' },
+  { id:'mortgage_port', cat:'finance',    icon:'file-text', name:'Mortgage portfolio',           desc:'All mortgages, rates, terms, monthly payments and LTV ratios' },
+  { id:'arrears',       cat:'finance',    icon:'alert-triangle', name:'Arrears report',               desc:'Outstanding rent by property, amount and days overdue' },
+  { id:'compliance',    cat:'compliance', icon:'shield-check', name:'Compliance status',            desc:'All certificates — expired, expiring soon, valid (RAG)' },
+  { id:'tenancy_sched', cat:'compliance', icon:'clipboard-check', name:'Tenancy schedule',             desc:'All tenancies, start/end dates, notice periods, renewals' },
+  { id:'maintenance_report',cat:'maintenance',icon:'wrench',name:'Maintenance overview',      desc:'Open jobs, total spend by property and trade' },
+  { id:'contractor_spend',cat:'maintenance',icon:'users',name:'Contractor spend',            desc:'Total paid to each contractor, job counts, average cost' },
 ]
 
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
@@ -311,7 +312,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
                   onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'}}
                   onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-                    <span style={{fontSize:22}}>{report.icon}</span>
+                    <span style={{width:38,height:38,borderRadius:9,background:CAT_COLORS[cat]+'18',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name={report.icon} size={19} color={CAT_COLORS[cat]}/></span>
                     <span style={{fontFamily:mono,fontSize:9,color:CAT_COLORS[cat],background:CAT_COLORS[cat]+'18',padding:'2px 8px',borderRadius:10,textTransform:'uppercase',letterSpacing:'0.08em'}}>{CAT_LABELS[cat].split(' ')[0]}</span>
                   </div>
                   <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:5}}>{report.name}</div>
@@ -336,7 +337,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
         <button onClick={backToCatalogue} style={{fontFamily:mono,fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 12px',cursor:'pointer'}}>← All Reports</button>
         <div style={{flex:1}}>
-          <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',margin:0}}>{activeReport?.icon} {activeReport?.name}</h1>
+          <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',margin:0,display:'flex',alignItems:'center',gap:10}}>{activeReport&&<Icon name={activeReport.icon} size={22} color={accent}/>} {activeReport?.name}</h1>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
           {companies.length > 1 && (

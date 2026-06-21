@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{ --surface:#FFFFFF; --card:#FAF9F6; --border:#E4E1D9; --text:#1C2830; --muted:#5C6670; --faint:#8A8E92; --gold:#B8902F; --paid:#1F9D63; --missed:#C5483B; --late:#C77E1E; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+    @keyframes op-shimmer{ 0%{background-position:-360px 0;} 100%{background-position:360px 0;} }
+    .sk{ background:linear-gradient(90deg,#EEECE6 25%,#F6F4EF 50%,#EEECE6 75%); background-size:720px 100%; animation:op-shimmer 1.3s infinite linear; border-radius:7px; }
+  </style>
+</helmet>
+
+<div style="background:#E7E5DF; min-width:100%; min-height:100vh; box-sizing:border-box; padding:48px; width:max-content; font-family:'Schibsted Grotesk',sans-serif; color:var(--text);">
+
+  <div style="margin-bottom:8px; font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:#8A8579;">OwnProperly · pre-launch states</div>
+  <h1 style="font-size:32px; font-weight:700; letter-spacing:-0.03em; margin:0 0 40px;">Empty · loading · error</h1>
+
+  <!-- ===== EMPTY ===== -->
+  <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:#9A958B; margin-bottom:16px;">Empty states</div>
+  <div style="display:flex; gap:32px; align-items:flex-start; margin-bottom:48px;">
+    <sc-for list="{{ empties }}" as="e" hint-placeholder-count="3">
+      <div style="flex:none; width:380px;">
+        <div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8579; margin-bottom:10px;">{{ e.label }}</div>
+        <div style="background:var(--surface); border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.08); border:1px solid var(--border); padding:48px 36px; text-align:center; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+          <div style="width:64px; height:64px; border-radius:16px; background:var(--card); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--gold); margin-bottom:20px;" dangerouslySetInnerHTML="{{ e.icon }}"></div>
+          <div style="font-size:18px; font-weight:700; letter-spacing:-0.01em; margin-bottom:8px;">{{ e.title }}</div>
+          <div style="font-size:14px; line-height:1.55; color:var(--muted); margin-bottom:22px; max-width:260px;">{{ e.body }}</div>
+          <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:14px; font-weight:700; padding:11px 20px; border-radius:10px; border:none; background:var(--gold); color:#1C2830; cursor:pointer;">{{ e.cta }}</button>
+          <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:14px;">{{ e.hint }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ===== LOADING ===== -->
+  <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:#9A958B; margin-bottom:16px;">Loading states · skeletons</div>
+  <div style="display:flex; gap:32px; align-items:flex-start; margin-bottom:48px;">
+
+    <!-- dashboard skeleton -->
+    <div style="flex:none; width:560px;">
+      <div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8579; margin-bottom:10px;">Dashboard · first load</div>
+      <div style="background:var(--surface); border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.08); border:1px solid var(--border); padding:26px;">
+        <div class="sk" style="width:200px; height:26px; margin-bottom:8px;"></div>
+        <div class="sk" style="width:140px; height:14px; margin-bottom:24px;"></div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+          <sc-for list="{{ four }}" as="x" hint-placeholder-count="4">
+            <div style="border:1px solid var(--border); border-radius:12px; padding:16px;">
+              <div class="sk" style="width:60%; height:10px; margin-bottom:14px;"></div>
+              <div class="sk" style="width:80%; height:22px;"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="border:1px solid var(--border); border-radius:12px; padding:18px;">
+          <div class="sk" style="width:120px; height:12px; margin-bottom:18px;"></div>
+          <sc-for list="{{ five }}" as="x" hint-placeholder-count="5">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+              <div class="sk" style="width:140px; height:13px;"></div>
+              <div class="sk" style="flex:1; height:13px;"></div>
+              <div class="sk" style="width:50px; height:13px;"></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- rent table skeleton -->
+    <div style="flex:none; width:480px;">
+      <div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8579; margin-bottom:10px;">Rent tracker · loading rows</div>
+      <div style="background:var(--surface); border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.08); border:1px solid var(--border); overflow:hidden;">
+        <div style="padding:16px 22px; background:var(--card); border-bottom:1px solid var(--border);"><div class="sk" style="width:180px; height:14px;"></div></div>
+        <sc-for list="{{ five }}" as="x" hint-placeholder-count="5">
+          <div style="display:flex; align-items:center; gap:14px; padding:16px 22px; border-bottom:1px solid var(--border);">
+            <div style="flex:0 0 150px;"><div class="sk" style="width:130px; height:13px; margin-bottom:7px;"></div><div class="sk" style="width:80px; height:10px;"></div></div>
+            <div style="flex:1; display:grid; grid-template-columns:repeat(12,1fr); gap:4px;">
+              <sc-for list="{{ twelve }}" as="m" hint-placeholder-count="12">
+                <div class="sk" style="height:34px; border-radius:7px;"></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ERROR ===== -->
+  <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:#9A958B; margin-bottom:16px;">Error states</div>
+  <div style="display:flex; gap:32px; align-items:flex-start;">
+
+    <!-- load failed -->
+    <div style="flex:none; width:380px;">
+      <div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8579; margin-bottom:10px;">Reports · data failed to load</div>
+      <div style="background:var(--surface); border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.08); border:1px solid var(--border); padding:48px 36px; text-align:center; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <div style="width:64px; height:64px; border-radius:16px; background:#FAEAE8; display:flex; align-items:center; justify-content:center; color:var(--missed); margin-bottom:20px;" dangerouslySetInnerHTML="{{ errIcon }}"></div>
+        <div style="font-size:18px; font-weight:700; margin-bottom:8px;">Couldn't load your data</div>
+        <div style="font-size:14px; line-height:1.55; color:var(--muted); margin-bottom:22px; max-width:260px;">Compliance and rent loaded fine, but expenses didn't. Your data is safe — this is a connection hiccup.</div>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:14px; font-weight:600; padding:11px 20px; border-radius:10px; border:1.5px solid var(--text); background:transparent; color:var(--text); cursor:pointer;">↻ Try again</button>
+      </div>
+    </div>
+
+    <!-- inline partial error + 404 stacked -->
+    <div style="flex:none; width:480px; display:flex; flex-direction:column; gap:20px;">
+      <div>
+        <div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8579; margin-bottom:10px;">Inline · partial sync failure</div>
+        <div style="background:var(--surface); border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.08); border:1px solid var(--border); padding:20px;">
+          <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; background:#FBF1E2; border:1px solid #E8D6B0; border-radius:10px;">
+            <span style="width:22px; height:22px; flex-shrink:0; color:var(--late);" dangerouslySetInnerHTML="{{ warnIcon }}"></span>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:600;">Bank sync paused</div>
+              <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-top:2px;">Re-authorise to keep importing payments (PSD2 · 90 days).</div>
+            </div>
+            <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:12px; font-weight:600; padding:7px 13px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; white-space:nowrap;">Reconnect</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8579; margin-bottom:10px;">404 · page not found</div>
+        <div style="background:var(--surface); border-radius:2px; box-shadow:0 1px 3px rgba(0,0,0,.08); border:1px solid var(--border); padding:40px 36px; text-align:center;">
+          <div style="font-family:'DM Mono',monospace; font-size:40px; font-weight:500; color:var(--gold); letter-spacing:-0.02em;">404</div>
+          <div style="font-size:16px; font-weight:700; margin:10px 0 6px;">We can't find that page</div>
+          <div style="font-size:13px; color:var(--muted); margin-bottom:20px;">It may have moved, or the link is out of date.</div>
+          <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:13px; font-weight:700; padding:10px 18px; border-radius:10px; border:none; background:var(--gold); color:#1C2830; cursor:pointer;">Back to dashboard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+class Component extends DCLogic {
+  ic(d,sz){ return {__html:'<svg width="'+(sz||30)+'" height="'+(sz||30)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'}; }
+  renderVals(){
+    return {
+      four:[0,0,0,0], five:[0,0,0,0,0], twelve:Array(12).fill(0),
+      empties:[
+        {label:'Portfolio · new account', icon:this.ic('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'), title:'Add your first property', body:'Your portfolio is empty. Add a property to start tracking rent, compliance and tax.', cta:'+ Add property', hint:'or import a block of units'},
+        {label:'Rent · no tenancies', icon:this.ic('<path d="M3 7h18M3 7l2-3h14l2 3M5 7v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M12 11v5M9.5 12.5h4a1.2 1.2 0 0 1 0 2.4h-3a1.2 1.2 0 0 0 0 2.4h4"/>'), title:'No rent to track yet', body:'Once a property has an active tenancy, its rent schedule appears here.', cta:'Add a tenancy', hint:'or import an agent statement'},
+        {label:'Compliance · all clear', icon:this.ic('<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'), title:'Nothing to track yet', body:'Add certificates to a property and we\u2019ll alert you at 90, 60 and 30 days before each expiry.', cta:'+ Add certificate', hint:'Gas · EICR · EPC · HMO'},
+      ],
+      errIcon:this.ic('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',30),
+      warnIcon:this.ic('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',22),
+    };
+  }
+}
+</script>
+</body>
+</html>

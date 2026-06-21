@@ -44,11 +44,11 @@ export function complianceStatusFor(property) {
 export function complianceBadge(status, T) {
   switch (status.state) {
     case 'expired':
-      return { color: T.red, bg: T.red + '22', icon: '⚠', label: `${status.count} expired` }
+      return { color: T.red, bg: T.red + '22', icon: '⚠', iconName: 'alert-triangle', label: `${status.count} expired` }
     case 'expiring':
-      return { color: T.amber, bg: T.amber + '22', icon: '⏰', label: `${status.count} expiring` }
+      return { color: T.amber, bg: T.amber + '22', icon: '⏰', iconName: 'alert-circle', label: `${status.count} expiring` }
     case 'missing':
-      return { color: T.muted, bg: T.bg, icon: '📋', label: 'Add certs' }
+      return { color: T.muted, bg: T.bg, icon: '📋', iconName: 'file-text', label: 'Add certs' }
     default:
       return null
   }

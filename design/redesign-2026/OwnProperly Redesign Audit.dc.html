@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<div style="background:#E7E5DF; min-height:100vh; font-family:'Schibsted Grotesk',sans-serif; color:#1C2830; padding:48px 20px 80px;">
+  <div style="max-width:920px; margin:0 auto; background:#fff; border:1px solid #E4E1D9; border-radius:6px; box-shadow:0 4px 24px rgba(0,0,0,0.06); overflow:hidden;">
+
+    <!-- header -->
+    <div style="background:#14202A; color:#F4F3EF; padding:40px 48px;">
+      <div style="display:flex; align-items:center; gap:11px; margin-bottom:24px;">
+        <div style="width:32px; height:32px; border-radius:9px; background:#22323D; display:flex; align-items:center; justify-content:center;"><span style="font-weight:700; font-size:18px; letter-spacing:-0.04em; color:#F4F3EF;">P<span style="color:#CBA64E;">.</span></span></div>
+        <div style="font-size:18px; letter-spacing:-0.02em;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></div>
+      </div>
+      <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:#CBA64E; margin-bottom:14px;">Redesign audit · handoff spec</div>
+      <h1 style="font-size:34px; font-weight:700; letter-spacing:-0.03em; margin:0 0 12px;">Every page, accounted for</h1>
+      <p style="font-size:15px; line-height:1.6; color:#A9B4BC; margin:0; max-width:620px;">A complete inventory of the product, tenant, marketing and document surfaces — what's mocked, what inherits the system, and the exact tokens to apply. This is the checklist for the Claude Code rollout.</p>
+    </div>
+
+    <!-- coverage summary -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); border-bottom:1px solid #E4E1D9;">
+      <div style="padding:22px 24px; border-right:1px solid #E4E1D9;">
+        <div style="font-family:'DM Mono',monospace; font-size:30px; font-weight:500; color:#1C2830;">11</div>
+        <div style="font-size:13px; color:#5C6670; margin-top:4px;">Screens mocked</div>
+      </div>
+      <div style="padding:22px 24px; border-right:1px solid #E4E1D9;">
+        <div style="font-family:'DM Mono',monospace; font-size:30px; font-weight:500; color:#1C2830;">~70</div>
+        <div style="font-size:13px; color:#5C6670; margin-top:4px;">Surfaces inventoried</div>
+      </div>
+      <div style="padding:22px 24px; border-right:1px solid #E4E1D9;">
+        <div style="font-family:'DM Mono',monospace; font-size:30px; font-weight:500; color:#B8902F;">1</div>
+        <div style="font-size:13px; color:#5C6670; margin-top:4px;">Design system</div>
+      </div>
+      <div style="padding:22px 24px;">
+        <div style="font-family:'DM Mono',monospace; font-size:30px; font-weight:500; color:#1F9D63;">100%</div>
+        <div style="font-size:13px; color:#5C6670; margin-top:4px;">Coverage planned</div>
+      </div>
+    </div>
+
+    <!-- legend -->
+    <div style="padding:20px 48px; border-bottom:1px solid #E4E1D9; display:flex; gap:26px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:9px;"><span style="font-family:'DM Mono',monospace; font-size:10px; font-weight:500; color:#1F9D63; background:#E8F4EC; padding:3px 9px; border-radius:6px;">MOCKED</span><span style="font-size:13px; color:#5C6670;">Redesigned mock delivered this round</span></div>
+      <div style="display:flex; align-items:center; gap:9px;"><span style="font-family:'DM Mono',monospace; font-size:10px; font-weight:500; color:#B8902F; background:#FBF1E2; padding:3px 9px; border-radius:6px;">APPLY</span><span style="font-size:13px; color:#5C6670;">Pattern exists — apply tokens + shell</span></div>
+      <div style="display:flex; align-items:center; gap:9px;"><span style="font-family:'DM Mono',monospace; font-size:10px; font-weight:500; color:#5C6670; background:#F1F0EC; padding:3px 9px; border-radius:6px;">RESTYLE</span><span style="font-size:13px; color:#5C6670;">Mechanical — type, colour, spacing only</span></div>
+    </div>
+
+    <!-- sections -->
+    <div style="padding:8px 48px 40px;">
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="8">
+        <div style="margin-top:34px;">
+          <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:6px;">
+            <h2 style="font-size:17px; font-weight:700; letter-spacing:-0.01em; margin:0;">{{ g.title }}</h2>
+            <span style="font-family:'DM Mono',monospace; font-size:11px; color:#A8A59D;">{{ g.count }}</span>
+          </div>
+          <div style="font-size:13px; color:#8A8E92; margin-bottom:14px;">{{ g.note }}</div>
+          <div style="border:1px solid #E4E1D9; border-radius:12px; overflow:hidden;">
+            <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+              <div style="display:grid; grid-template-columns:200px 86px 1fr; gap:14px; padding:12px 16px; border-bottom:1px solid #F1EFE9; align-items:center;">
+                <div style="font-size:13px; font-weight:600; color:#1C2830;">{{ it.name }}</div>
+                <div><span style="font-family:'DM Mono',monospace; font-size:9px; font-weight:500; color:{{ it.color }}; background:{{ it.bg }}; padding:3px 8px; border-radius:6px; white-space:nowrap;">{{ it.status }}</span></div>
+                <div style="font-size:12px; line-height:1.45; color:#5C6670;">{{ it.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+
+      <!-- rollout notes -->
+      <div style="margin-top:40px; background:#14202A; border-radius:14px; padding:30px 34px; color:#F4F3EF;">
+        <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#CBA64E; margin-bottom:18px;">Rollout rules for Claude Code</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+          <div>
+            <div style="font-size:14px; font-weight:700; margin-bottom:10px;">Tokens</div>
+            <div style="font-family:'DM Mono',monospace; font-size:12px; line-height:1.85; color:#A9B4BC;">paper #F4F3EF · surface #FFF<br>ink #1C2830 · muted #5C6670<br>border #E4E1D9 · gold #B8902F<br>paid #1F9D63 · late #C77E1E<br>missed #C5483B · refurb #2D6FA8<br>radius 10/14/16 · 4pt spacing</div>
+          </div>
+          <div>
+            <div style="font-size:14px; font-weight:700; margin-bottom:10px;">Type</div>
+            <div style="font-family:'DM Mono',monospace; font-size:12px; line-height:1.85; color:#A9B4BC;">Schibsted Grotesk — UI &amp; body<br>DM Mono — money, dates, labels<br>Logo: Own(500)+Properly(700)+gold stop<br>App icon: "P." monogram</div>
+          </div>
+        </div>
+        <div style="height:1px; background:#2C3A44; margin:22px 0;"></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#5FD3A0; margin-bottom:8px;">Do</div>
+            <div style="font-size:13px; line-height:1.6; color:#C8D0D6;">Replace emoji icons with the hairline SVG set · pair colour with a label (never colour alone) · use full month names in the rent grid · keep dark-mode token parity.</div>
+          </div>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#E0A0A0; margin-bottom:8px;">Don't</div>
+            <div style="font-size:13px; line-height:1.6; color:#C8D0D6;">No more single-letter rent squares · no Georgia serif on marketing · no Arial wordmark · don't rename the product (stays OwnProperly).</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px; font-size:13px; line-height:1.6; color:#8A8E92; text-align:center;">Reference files: Brand System · Dashboard · Portfolio · Rent Tracker · Compliance · Deals · Reports · Settings · Login · Tenant Portal · Marketing · PDF Report</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:960,&quot;height&quot;:1200}}">
+class Component extends DCLogic {
+  badge(s){
+    if(s==='MOCKED') return {status:s,color:'#1F9D63',bg:'#E8F4EC'};
+    if(s==='APPLY') return {status:s,color:'#B8902F',bg:'#FBF1E2'};
+    return {status:s,color:'#5C6670',bg:'#F1F0EC'};
+  }
+  rows(arr){ return arr.map(([name,st,note])=>({name,note,...this.badge(st)})); }
+
+  renderVals(){
+    const groups=[
+      {title:'Foundation', count:'shared', note:'Built once, inherited by every authenticated screen.',
+        items:this.rows([
+          ['App shell / left rail','MOCKED','Collapsible icon+label rail, breadcrumb top bar, account menu, theme toggle.'],
+          ['Brand system','MOCKED','Logo, palette, type, tokens, components, RAG status, rent cell.'],
+          ['Dark mode','MOCKED','Full token parity defined; carried through every mock.'],
+          ['Icon set','MOCKED','Hairline SVG family replaces all emoji across nav, alerts, reports.'],
+        ])},
+      {title:'Core app screens', count:'8 of 8 mocked', note:'The daily-use surfaces — all delivered as redesigned mocks (light + dark).',
+        items:this.rows([
+          ['Dashboard','MOCKED','Greeting, health ring, action-required, KPIs, rent + compliance widgets.'],
+          ['Portfolio + detail','MOCKED','Property cards grid → property detail with tabs and key facts.'],
+          ['Rent tracker','MOCKED','Full month-name cells, per-company grouping, summary tiles.'],
+          ['Compliance','MOCKED','RAG tiles, needs-attention list, certificate matrix.'],
+          ['Deals pipeline','MOCKED','6-stage board + BTL/BRRR calculator with Section 24.'],
+          ['Reports','MOCKED','16-report catalogue + Annual P&L report view.'],
+          ['Settings','MOCKED','Sub-nav, company branding, reporting period, alert toggles.'],
+          ['Login / auth','MOCKED','Split brand panel + form; covers signup & reset by extension.'],
+        ])},
+      {title:'Property sub-tabs & finance panels', count:'12', note:'Inherit the detail-view tab pattern, card and table styles — no new patterns needed.',
+        items:this.rows([
+          ['Rent history / collection','APPLY','Reuse rent-cell + table tokens.'],
+          ['Tenancy / deposit / RtR','APPLY','Status-chip + key/value card pattern.'],
+          ['EPC planner','APPLY','Use the band scale as a coloured progress component.'],
+          ['HMO rooms','APPLY','Per-room cards with status chips.'],
+          ['Inspections','APPLY','Timeline list + status chips.'],
+          ['Maintenance jobs','APPLY','Job cards: Reported / In progress / Done chips.'],
+          ['Insurance','APPLY','Same RAG buckets as Compliance.'],
+          ['MTD ITSA','APPLY','Quarter cards + HMRC connection state.'],
+          ['Day tracker','APPLY','Calendar-style cells from the rent-cell tokens.'],
+          ['Notices generator','APPLY','Form + document preview cards.'],
+          ['Lettings pipeline','APPLY','Mirror the deals board.'],
+          ['Referencing / e-sign','APPLY','Checklist + progress bar pattern.'],
+        ])},
+      {title:'Modals & dialogs', count:'16', note:'One modal shell: paper surface, 16px radius, mono labels, gold primary action.',
+        items:this.rows([
+          ['Property add/edit','APPLY','Define the canonical modal shell here first.'],
+          ['Company add/edit','APPLY','Includes branding fields (logo, colour).'],
+          ['Payment / record rent','APPLY','Mono amount input with £ prefix.'],
+          ['Statement importer','APPLY','Stepper + matched-rows preview table.'],
+          ['Receipt scan','APPLY','Upload zone + extracted-fields review.'],
+          ['Bank connections','APPLY','Connection status chips (synced / expired).'],
+          ['Building mortgage','APPLY','Form card pattern.'],
+          ['Bulk add property','APPLY','Repeating row inputs.'],
+          ['Access / roles','APPLY','Permission rows + toggles.'],
+          ['Delete / sell confirms','APPLY','Destructive variant: missed-red primary.'],
+          ['Customize dashboard','APPLY','Drag-list of widgets.'],
+          ['Tenant reference','APPLY','Form + status.'],
+        ])},
+      {title:'Tenant-facing', count:'2', note:'Per-company branded — accent colour pulled from company settings.',
+        items:this.rows([
+          ['Tenant portal','MOCKED','Branded header, next payment, repairs, payments, documents.'],
+          ['Tenant inbox / repairs','APPLY','Reuse portal cards + message thread.'],
+        ])},
+      {title:'Marketing & SEO', count:'~26', note:'Landing redesigned; sub-pages and blog inherit nav, hero, type and footer.',
+        items:this.rows([
+          ['Landing page','MOCKED','Hero, product shot, features, pricing, CTA, footer.'],
+          ['Pricing detail','APPLY','Reuse pricing cards + comparison table.'],
+          ['Section 24 calculator','APPLY','Calculator card + result tiles.'],
+          ['MTD ITSA page','APPLY','Feature page from landing blocks.'],
+          ['Best-landlord-software','APPLY','Comparison-table layout.'],
+          ['Blog index + 20 posts','RESTYLE','Article template: Schibsted body, mono meta, gold links.'],
+          ['Privacy / Terms / Security','RESTYLE','Legal doc template — type + spacing only.'],
+        ])},
+      {title:'Documents (PDF/CSV export)', count:'16 reports', note:'Branded with company logo + accent; this is the jsPDF visual spec.',
+        items:this.rows([
+          ['Annual P&L PDF','MOCKED','Header band, KPI strip, table, totals, Section 24 note, footer.'],
+          ['Other 15 report PDFs','APPLY','Same template; swap table columns + KPIs per report.'],
+          ['CSV exports','RESTYLE','No visual change — filename brand only.'],
+        ])},
+      {title:'Onboarding & system', count:'12', note:'Lower-traffic utility screens — apply shell, tokens and chips.',
+        items:this.rows([
+          ['Onboarding wizard','APPLY','Stepper + the split brand panel from Login.'],
+          ['Onboarding tour','APPLY','Tooltip cards in brand style.'],
+          ['Command palette','APPLY','Mono input, grouped results, gold active row.'],
+          ['Notification centre','APPLY','Alert rows matching dashboard alerts.'],
+          ['Help centre','APPLY','Search + category cards.'],
+          ['Billing','APPLY','Plan cards from marketing pricing.'],
+          ['Feedback','APPLY','Type cards + textarea.'],
+          ['Trash / Backups','RESTYLE','List + restore button.'],
+          ['Admin dashboard','APPLY','Internal — apply tokens, lower priority.'],
+          ['Trial expired / suspended','APPLY','Centered gate card, gold CTA.'],
+          ['Error boundary','RESTYLE','Branded empty state.'],
+          ['2FA panel','APPLY','Form card + status chip.'],
+        ])},
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

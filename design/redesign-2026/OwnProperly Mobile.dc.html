@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{ --bg:#F4F3EF; --surface:#FFFFFF; --card:#FAF9F6; --border:#E4E1D9; --text:#1C2830; --muted:#5C6670; --faint:#8A8E92; --gold:#B8902F; --paid:#1F9D63; --missed:#C5483B; --late:#C77E1E; --refurb:#2D6FA8; --paidBg:#E8F4EC; --missedBg:#FAEAE8; --lateBg:#FBF1E2; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+    .phone{ flex:none; width:372px; }
+    .screen{ background:var(--bg); border:10px solid #14202A; border-radius:44px; height:760px; overflow:hidden; box-shadow:0 20px 50px rgba(28,40,48,0.18); display:flex; flex-direction:column; position:relative; }
+    .statusbar{ height:34px; display:flex; align-items:center; justify-content:space-between; padding:0 22px; font-family:'DM Mono',monospace; font-size:12px; font-weight:500; color:var(--text); flex-shrink:0; }
+    .scroll{ flex:1; overflow:hidden; padding:6px 16px 16px; }
+    .tabbar{ flex-shrink:0; height:64px; background:var(--surface); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-around; padding-bottom:6px; }
+    .mlabel{ font-family:'DM Mono',monospace; font-size:11px; color:#8A8579; margin-bottom:10px; }
+  </style>
+</helmet>
+
+<div style="background:#E7E5DF; min-width:100%; min-height:100vh; box-sizing:border-box; padding:48px; width:max-content; font-family:'Schibsted Grotesk',sans-serif; color:var(--text);">
+
+  <div style="margin-bottom:8px; font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.18em; text-transform:uppercase; color:#8A8579;">OwnProperly · mobile / narrow</div>
+  <h1 style="font-size:32px; font-weight:700; letter-spacing:-0.03em; margin:0 0 6px;">The rail becomes a bottom bar</h1>
+  <p style="font-size:15px; color:#5A5C5A; margin:0 0 40px; max-width:560px;">Below ~720px the left rail collapses to a 4-item bottom tab bar with a “More” sheet. The wide rent grid becomes per-property cards with a swipeable 12-month strip.</p>
+
+  <div style="display:flex; gap:36px; align-items:flex-start;">
+
+    <!-- DASHBOARD -->
+    <div class="phone">
+      <div class="mlabel">Dashboard</div>
+      <div class="screen">
+        <div class="statusbar"><span>9:41</span><span style="letter-spacing:0.08em;">▰▰▰ ◇ ▮</span></div>
+        <div style="padding:6px 16px 0; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:9px;">
+            <div style="width:28px; height:28px; border-radius:8px; background:var(--text); display:flex; align-items:center; justify-content:center;"><span style="font-weight:700; font-size:15px; letter-spacing:-0.04em; color:var(--bg);">P<span style="color:var(--gold);">.</span></span></div>
+            <div style="width:30px; height:30px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:12px;">JD</div>
+          </div>
+          <div style="width:34px; height:34px; border-radius:9px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--muted);" dangerouslySetInnerHTML="{{ bell }}"></div>
+        </div>
+        <div class="scroll">
+          <div style="font-size:22px; font-weight:700; letter-spacing:-0.02em; margin:10px 0 3px;">Morning, James</div>
+          <div style="font-size:13px; color:var(--muted); margin-bottom:16px;">5 properties · 2 portfolios</div>
+
+          <div style="display:flex; align-items:center; gap:10px; background:var(--missedBg); border:1px solid color-mix(in srgb,var(--missed) 25%,transparent); border-radius:12px; padding:12px 14px; margin-bottom:8px;">
+            <span style="width:18px;height:18px;color:var(--missed);flex-shrink:0;" dangerouslySetInnerHTML="{{ warn }}"></span>
+            <div style="flex:1;"><div style="font-size:13px;font-weight:600;">EICR expired</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">8 Harbour Court · 12d overdue</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:var(--lateBg); border:1px solid color-mix(in srgb,var(--late) 25%,transparent); border-radius:12px; padding:12px 14px; margin-bottom:18px;">
+            <span style="width:18px;height:18px;color:var(--late);flex-shrink:0;" dangerouslySetInnerHTML="{{ clock }}"></span>
+            <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Rent in arrears</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">22a Mill Street · £1,960</div></div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <sc-for list="{{ mobileKpis }}" as="k" hint-placeholder-count="4">
+              <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px;">
+                <div style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); margin-bottom:7px;">{{ k.label }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:19px; font-weight:500; color:{{ k.color }};">{{ k.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div class="tabbar">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; color:{{ t.color }};">
+              <span style="width:22px; height:22px;" dangerouslySetInnerHTML="{{ t.icon }}"></span>
+              <span style="font-size:10px; font-weight:{{ t.weight }};">{{ t.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- RENT TRACKER -->
+    <div class="phone">
+      <div class="mlabel">Rent tracker · swipeable strip</div>
+      <div class="screen">
+        <div class="statusbar"><span>9:41</span><span style="letter-spacing:0.08em;">▰▰▰ ◇ ▮</span></div>
+        <div style="padding:8px 16px 12px; border-bottom:1px solid var(--border);">
+          <div style="font-size:20px; font-weight:700; letter-spacing:-0.02em;">Rent tracker</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px;">2025/26 · 87% collected</div>
+        </div>
+        <div class="scroll">
+          <sc-for list="{{ rentCards }}" as="p" hint-placeholder-count="3">
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <div style="min-width:0;"><div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ p.name }}</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint);">{{ p.rent }}/mo</div></div>
+                <span style="display:inline-flex; align-items:center; gap:5px; font-family:'DM Mono',monospace; font-size:10px; color:{{ p.color }}; background:{{ p.bg }}; padding:3px 9px; border-radius:6px; white-space:nowrap;"><span style="width:6px;height:6px;border-radius:2px;background:{{ p.color }};"></span>{{ p.status }}</span>
+              </div>
+              <!-- swipeable 12-month strip -->
+              <div style="display:flex; gap:4px; overflow-x:auto; padding-bottom:4px;">
+                <sc-for list="{{ p.cells }}" as="c" hint-placeholder-count="12">
+                  <div style="{{ c.style }}">{{ c.m }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <div style="text-align:center; font-family:'DM Mono',monospace; font-size:10px; color:var(--faint); margin-top:4px;">← swipe a row to see all 12 months →</div>
+        </div>
+        <div class="tabbar">
+          <sc-for list="{{ tabsRent }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; color:{{ t.color }};">
+              <span style="width:22px; height:22px;" dangerouslySetInnerHTML="{{ t.icon }}"></span>
+              <span style="font-size:10px; font-weight:{{ t.weight }};">{{ t.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE / MORE SHEET -->
+    <div class="phone">
+      <div class="mlabel">Compliance · stacked</div>
+      <div class="screen">
+        <div class="statusbar"><span>9:41</span><span style="letter-spacing:0.08em;">▰▰▰ ◇ ▮</span></div>
+        <div style="padding:8px 16px 12px; border-bottom:1px solid var(--border);">
+          <div style="font-size:20px; font-weight:700; letter-spacing:-0.02em;">Compliance</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px;">25 certificates · 5 properties</div>
+        </div>
+        <div class="scroll">
+          <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <div style="flex:1; text-align:center; background:var(--missedBg); border-radius:10px; padding:12px 6px;"><div style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500; color:var(--missed);">1</div><div style="font-family:'DM Mono',monospace; font-size:9px; color:var(--muted);">Expired</div></div>
+            <div style="flex:1; text-align:center; background:var(--lateBg); border-radius:10px; padding:12px 6px;"><div style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500; color:var(--late);">2</div><div style="font-family:'DM Mono',monospace; font-size:9px; color:var(--muted);">Expiring</div></div>
+            <div style="flex:1; text-align:center; background:var(--paidBg); border-radius:10px; padding:12px 6px;"><div style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500; color:var(--paid);">22</div><div style="font-family:'DM Mono',monospace; font-size:9px; color:var(--muted);">Valid</div></div>
+          </div>
+          <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:10px;">Needs attention</div>
+          <sc-for list="{{ certCards }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex; align-items:center; gap:11px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-left:3px solid {{ c.color }}; border-radius:10px; margin-bottom:8px;">
+              <div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600;">{{ c.type }}</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint);">{{ c.prop }}</div></div>
+              <div style="font-family:'DM Mono',monospace; font-size:11px; color:{{ c.color }}; white-space:nowrap;">{{ c.days }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div class="tabbar">
+          <sc-for list="{{ tabsComp }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; color:{{ t.color }};">
+              <span style="width:22px; height:22px;" dangerouslySetInnerHTML="{{ t.icon }}"></span>
+              <span style="font-size:10px; font-weight:{{ t.weight }};">{{ t.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+class Component extends DCLogic {
+  ic(d,sz){ return {__html:'<svg width="'+(sz||22)+'" height="'+(sz||22)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'}; }
+  P={
+    dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    portfolio:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    rent:'<path d="M3 7h18M3 7l2-3h14l2 3M5 7v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M12 11v5M9.5 12.5h4a1.2 1.2 0 0 1 0 2.4h-3a1.2 1.2 0 0 0 0 2.4h4"/>',
+    more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  };
+  tabset(active){
+    const items=[['Home','dashboard'],['Portfolio','portfolio'],['Rent','rent'],['More','more']];
+    return items.map(([label,k])=>({label,icon:this.ic(this.P[k]),color:label===active?'var(--gold)':'var(--faint)',weight:label===active?700:500}));
+  }
+  cell(m,status,cur,fut){
+    const base='flex:none;width:34px;height:38px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:\'DM Mono\',monospace;font-size:10px;font-weight:500;';
+    const C={paid:'var(--paid)',late:'var(--late)',missed:'var(--missed)',refurb:'var(--refurb)'};
+    if(fut) return {m,style:base+'background:repeating-linear-gradient(45deg,#F1F0EC,#F1F0EC 4px,#E7E5DE 4px,#E7E5DE 8px);border:1px dashed #D6D2C8;color:#A8A59D;'};
+    if(cur) return {m,style:base+'background:transparent;border:2px solid var(--gold);color:var(--gold);font-weight:600;'};
+    return {m,style:base+'background:'+C[status]+';color:#fff;'};
+  }
+  strip(sched){ const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const cur=6; return M.map((m,i)=>this.cell(m,sched[i]||'future',i===cur,i>cur)); }
+
+  renderVals(){
+    return {
+      bell:this.ic('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.5 21a1.5 1.5 0 0 0 3 0"/>',20),
+      warn:this.ic('<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',18),
+      clock:this.ic('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',18),
+      tabs:this.tabset('Home'), tabsRent:this.tabset('Rent'), tabsComp:this.tabset('More'),
+      mobileKpis:[
+        {label:'Rent roll',value:'£5,880',color:'var(--text)'},
+        {label:'Collected',value:'87%',color:'var(--gold)'},
+        {label:'In arrears',value:'£3,310',color:'var(--missed)'},
+        {label:'Net yield',value:'5.4%',color:'var(--text)'},
+      ],
+      rentCards:[
+        {name:'14 Northgate Road',rent:'£1,250',status:'Occupied',color:'var(--paid)',bg:'var(--paidBg)',cells:this.strip(['paid','paid','paid','late','paid','paid','paid'])},
+        {name:'22a Mill Street',rent:'£980',status:'In arrears',color:'var(--missed)',bg:'var(--missedBg)',cells:this.strip(['paid','paid','missed','missed','paid','paid','paid'])},
+        {name:'5 Quay Apartments',rent:'£1,100',status:'Occupied',color:'var(--paid)',bg:'var(--paidBg)',cells:this.strip(['paid','paid','paid','paid','paid','paid','paid'])},
+      ],
+      certCards:[
+        {type:'EICR',prop:'8 Harbour Court',color:'var(--missed)',days:'12d overdue'},
+        {type:'Gas Safety',prop:'14 Northgate Road',color:'var(--late)',days:'24d left'},
+        {type:'HMO Licence',prop:'5 Quay Apartments',color:'var(--late)',days:'58d left'},
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

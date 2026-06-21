@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{ --ink:#1C2830; --gold:#B8902F; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+    .op-sec-label{ font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.16em; text-transform:uppercase; color:#9A958B; margin-bottom:20px; }
+    .op-card{ background:#FFFFFF; border:1px solid #E4E1D9; border-radius:18px; }
+  </style>
+</helmet>
+
+<div style="background:#EAE8E1; min-height:100vh; font-family:'Schibsted Grotesk',sans-serif; color:#1C2830; padding:0 0 96px;">
+
+  <!-- ===== HERO ===== -->
+  <div style="background:#14202A; padding:72px 32px 64px;">
+    <div style="max-width:1040px; margin:0 auto;">
+      <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); margin-bottom:24px;">Brand system · v1</div>
+      <div style="display:flex; align-items:center; gap:28px; flex-wrap:wrap; margin-bottom:28px;">
+        <div style="width:84px; height:84px; border-radius:20px; background:var(--ink); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:46px; letter-spacing:-0.04em; color:#F4F3EF; line-height:1;">P<span style="color:var(--gold);">.</span></div>
+        </div>
+        <div style="font-size:64px; letter-spacing:-0.035em; color:#F4F3EF; line-height:0.95;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span><span style="color:var(--gold);font-weight:700;">.</span></div>
+      </div>
+      <p style="font-size:18px; line-height:1.6; color:#A9B4BC; max-width:600px; margin:0;">The product is <strong style="color:#fff;">OwnProperly</strong>. Everyone calls it <strong style="color:#fff;">Properly</strong>. One typographic system — Schibsted Grotesk for voice, DM Mono for numbers — on slate, gold and paper.</p>
+    </div>
+  </div>
+
+  <div style="max-width:1040px; margin:0 auto; padding:64px 32px 0;">
+
+    <!-- ===== LOGO ===== -->
+    <div class="op-sec-label">01 · Logo</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+      <div class="op-card" style="padding:40px; display:flex; flex-direction:column; gap:14px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B;">PRIMARY · HORIZONTAL</div>
+        <div style="font-size:38px; letter-spacing:-0.03em; color:#1C2830; line-height:1;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span><span style="color:#B8902F;font-weight:700;">.</span></div>
+      </div>
+      <div class="op-card" style="padding:40px; display:flex; flex-direction:column; gap:14px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B;">STACKED · WITH TAGLINE</div>
+        <div>
+          <div style="font-size:30px; letter-spacing:-0.03em; color:#1C2830; line-height:0.98;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></div>
+          <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:#9A958B; margin-top:7px;">Property portfolio software</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:54px;">
+      <div style="background:#14202A; border-radius:18px; padding:32px; display:flex; align-items:center; justify-content:center;">
+        <div style="font-size:26px; letter-spacing:-0.03em; color:#F4F3EF; line-height:1;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span><span style="color:#CBA64E;font-weight:700;">.</span></div>
+      </div>
+      <div style="background:#14202A; border-radius:18px; padding:32px; display:flex; align-items:center; justify-content:center;">
+        <div style="width:64px; height:64px; border-radius:16px; background:#22323D; display:flex; align-items:center; justify-content:center;">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:34px; letter-spacing:-0.04em; color:#F4F3EF; line-height:1;">P<span style="color:#CBA64E;">.</span></div>
+        </div>
+      </div>
+      <div class="op-card" style="padding:32px; display:flex; align-items:center; justify-content:center;">
+        <div style="width:64px; height:64px; border-radius:16px; background:#F4F3EF; border:1px solid #E4E1D9; display:flex; align-items:center; justify-content:center;">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:34px; letter-spacing:-0.04em; color:#1C2830; line-height:1;">P<span style="color:#B8902F;">.</span></div>
+        </div>
+      </div>
+      <div class="op-card" style="padding:24px; display:flex; flex-direction:column; gap:8px; justify-content:center;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B;">FAVICON / APP</div>
+        <div style="font-size:13px; line-height:1.45; color:#5C6670;">The "P." monogram is the square mark — drawn from the wordmark, no separate symbol needed.</div>
+      </div>
+    </div>
+
+    <!-- ===== VOICE ===== -->
+    <div class="op-sec-label">02 · Voice</div>
+    <div class="op-card" style="padding:36px 40px; margin-bottom:54px; display:grid; grid-template-columns:1fr 1fr; gap:36px;">
+      <div>
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#1F9D63; margin-bottom:10px;">DO</div>
+        <div style="font-size:16px; line-height:1.7; color:#1C2830;">"Own your rental portfolio <strong>properly</strong>." · "Sorted, <strong>properly</strong>." · Plain, confident, British. Short sentences. Money and dates are exact.</div>
+      </div>
+      <div>
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#C5483B; margin-bottom:10px;">DON'T</div>
+        <div style="font-size:16px; line-height:1.7; color:#5C6670;">No hype, no "revolutionary", no exclamation marks, no emoji in the product UI. Never "EstateFlow" — the name is OwnProperly.</div>
+      </div>
+    </div>
+
+    <!-- ===== COLOUR ===== -->
+    <div class="op-sec-label">03 · Colour</div>
+
+    <!-- light palette -->
+    <div style="font-family:'DM Mono',monospace; font-size:11px; color:#9A958B; margin-bottom:12px;">CORE · LIGHT</div>
+    <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:20px;">
+      <div class="op-card" style="overflow:hidden;"><div style="height:72px; background:#F4F3EF; border-bottom:1px solid #E4E1D9;"></div><div style="padding:12px 14px;"><div style="font-size:13px; font-weight:600;">Paper</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8E92;">#F4F3EF</div></div></div>
+      <div class="op-card" style="overflow:hidden;"><div style="height:72px; background:#FFFFFF; border-bottom:1px solid #E4E1D9;"></div><div style="padding:12px 14px;"><div style="font-size:13px; font-weight:600;">Surface</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8E92;">#FFFFFF</div></div></div>
+      <div class="op-card" style="overflow:hidden;"><div style="height:72px; background:#E4E1D9;"></div><div style="padding:12px 14px;"><div style="font-size:13px; font-weight:600;">Border</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8E92;">#E4E1D9</div></div></div>
+      <div class="op-card" style="overflow:hidden;"><div style="height:72px; background:#1C2830;"></div><div style="padding:12px 14px;"><div style="font-size:13px; font-weight:600;">Ink</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8E92;">#1C2830</div></div></div>
+      <div class="op-card" style="overflow:hidden;"><div style="height:72px; background:#5C6670;"></div><div style="padding:12px 14px;"><div style="font-size:13px; font-weight:600;">Muted</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8E92;">#5C6670</div></div></div>
+      <div class="op-card" style="overflow:hidden;"><div style="height:72px; background:#B8902F;"></div><div style="padding:12px 14px;"><div style="font-size:13px; font-weight:600;">Gold</div><div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8E92;">#B8902F</div></div></div>
+    </div>
+
+    <!-- dark palette -->
+    <div style="font-family:'DM Mono',monospace; font-size:11px; color:#9A958B; margin-bottom:12px;">CORE · DARK</div>
+    <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:20px; background:#0E141A; border-radius:14px; padding:14px;">
+      <div style="border-radius:12px; overflow:hidden; border:1px solid #28333D;"><div style="height:64px; background:#0E141A;"></div><div style="padding:10px 12px; background:#151D25;"><div style="font-size:12px; font-weight:600; color:#E8E5DD;">Base</div><div style="font-family:'DM Mono',monospace; font-size:10px; color:#6E7681;">#0E141A</div></div></div>
+      <div style="border-radius:12px; overflow:hidden; border:1px solid #28333D;"><div style="height:64px; background:#151D25;"></div><div style="padding:10px 12px; background:#151D25;"><div style="font-size:12px; font-weight:600; color:#E8E5DD;">Surface</div><div style="font-family:'DM Mono',monospace; font-size:10px; color:#6E7681;">#151D25</div></div></div>
+      <div style="border-radius:12px; overflow:hidden; border:1px solid #28333D;"><div style="height:64px; background:#1B242D;"></div><div style="padding:10px 12px; background:#151D25;"><div style="font-size:12px; font-weight:600; color:#E8E5DD;">Card</div><div style="font-family:'DM Mono',monospace; font-size:10px; color:#6E7681;">#1B242D</div></div></div>
+      <div style="border-radius:12px; overflow:hidden; border:1px solid #28333D;"><div style="height:64px; background:#28333D;"></div><div style="padding:10px 12px; background:#151D25;"><div style="font-size:12px; font-weight:600; color:#E8E5DD;">Border</div><div style="font-family:'DM Mono',monospace; font-size:10px; color:#6E7681;">#28333D</div></div></div>
+      <div style="border-radius:12px; overflow:hidden; border:1px solid #28333D;"><div style="height:64px; background:#E8E5DD;"></div><div style="padding:10px 12px; background:#151D25;"><div style="font-size:12px; font-weight:600; color:#E8E5DD;">Text</div><div style="font-family:'DM Mono',monospace; font-size:10px; color:#6E7681;">#E8E5DD</div></div></div>
+      <div style="border-radius:12px; overflow:hidden; border:1px solid #28333D;"><div style="height:64px; background:#CBA64E;"></div><div style="padding:10px 12px; background:#151D25;"><div style="font-size:12px; font-weight:600; color:#E8E5DD;">Gold</div><div style="font-family:'DM Mono',monospace; font-size:10px; color:#6E7681;">#CBA64E</div></div></div>
+    </div>
+
+    <!-- status palette -->
+    <div style="font-family:'DM Mono',monospace; font-size:11px; color:#9A958B; margin-bottom:12px;">STATUS · COLOUR + LABEL ALWAYS PAIRED (never colour alone)</div>
+    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:54px;">
+      <div class="op-card" style="padding:18px; display:flex; flex-direction:column; gap:10px; align-items:flex-start;"><span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; font-weight:500; color:#1F9D63; background:#E8F4EC; border:1px solid #1F9D6333; padding:4px 9px; border-radius:6px;"><span style="width:8px;height:8px;border-radius:2px;background:#1F9D63;"></span>Paid</span><div style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92;">#1F9D63</div></div>
+      <div class="op-card" style="padding:18px; display:flex; flex-direction:column; gap:10px; align-items:flex-start;"><span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; font-weight:500; color:#C5483B; background:#FAEAE8; border:1px solid #C5483B33; padding:4px 9px; border-radius:6px;"><span style="width:8px;height:8px;border-radius:2px;background:#C5483B;"></span>Missed</span><div style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92;">#C5483B</div></div>
+      <div class="op-card" style="padding:18px; display:flex; flex-direction:column; gap:10px; align-items:flex-start;"><span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; font-weight:500; color:#C77E1E; background:#FBF1E2; border:1px solid #C77E1E33; padding:4px 9px; border-radius:6px;"><span style="width:8px;height:8px;border-radius:2px;background:#C77E1E;"></span>Late</span><div style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92;">#C77E1E</div></div>
+      <div class="op-card" style="padding:18px; display:flex; flex-direction:column; gap:10px; align-items:flex-start;"><span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; font-weight:500; color:#2D6FA8; background:#E7F0F7; border:1px solid #2D6FA833; padding:4px 9px; border-radius:6px;"><span style="width:8px;height:8px;border-radius:2px;background:#2D6FA8;"></span>Refurb</span><div style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92;">#2D6FA8</div></div>
+      <div class="op-card" style="padding:18px; display:flex; flex-direction:column; gap:10px; align-items:flex-start;"><span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; font-weight:500; color:#76808A; background:#F1F0EC; border:1px solid #9AA0A633; padding:4px 9px; border-radius:6px;"><span style="width:8px;height:8px;border-radius:2px;background:#9AA0A6;"></span>Void</span><div style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92;">#9AA0A6</div></div>
+    </div>
+
+    <!-- ===== TYPE ===== -->
+    <div class="op-sec-label">04 · Type</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+      <div class="op-card" style="padding:36px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:14px;">SCHIBSTED GROTESK · VOICE &amp; UI</div>
+        <div style="font-size:52px; font-weight:700; letter-spacing:-0.03em; line-height:1; margin-bottom:6px;">Aa</div>
+        <div style="font-size:14px; color:#5C6670;">Headings, body, buttons, table content. 400 → 800.</div>
+      </div>
+      <div class="op-card" style="padding:36px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:14px;">DM MONO · NUMBERS &amp; LABELS</div>
+        <div style="font-family:'DM Mono',monospace; font-size:52px; font-weight:500; letter-spacing:-0.02em; line-height:1; margin-bottom:6px;">£0.00</div>
+        <div style="font-size:14px; color:#5C6670;">Money, dates, metrics, eyebrow labels. Tabular alignment.</div>
+      </div>
+    </div>
+    <div class="op-card" style="padding:36px 40px; margin-bottom:54px; display:flex; flex-direction:column; gap:18px;">
+      <div style="display:flex; align-items:baseline; gap:18px; border-bottom:1px solid #F1EFE9; padding-bottom:14px;"><span style="font-family:'DM Mono',monospace;font-size:10px;color:#B0ABA0;width:120px;flex-shrink:0;">DISPLAY · 46/700</span><span style="font-size:46px;font-weight:700;letter-spacing:-0.03em;line-height:1;">Run it properly</span></div>
+      <div style="display:flex; align-items:baseline; gap:18px; border-bottom:1px solid #F1EFE9; padding-bottom:14px;"><span style="font-family:'DM Mono',monospace;font-size:10px;color:#B0ABA0;width:120px;flex-shrink:0;">H2 · 26/700</span><span style="font-size:26px;font-weight:700;letter-spacing:-0.02em;">Your portfolio at a glance</span></div>
+      <div style="display:flex; align-items:baseline; gap:18px; border-bottom:1px solid #F1EFE9; padding-bottom:14px;"><span style="font-family:'DM Mono',monospace;font-size:10px;color:#B0ABA0;width:120px;flex-shrink:0;">BODY · 16/400</span><span style="font-size:16px;line-height:1.6;color:#3A444C;">Every property, tenancy and certificate in one place — clear enough to read in five seconds.</span></div>
+      <div style="display:flex; align-items:baseline; gap:18px;"><span style="font-family:'DM Mono',monospace;font-size:10px;color:#B0ABA0;width:120px;flex-shrink:0;">LABEL · MONO 11</span><span style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5C6670;">Monthly rent received</span></div>
+    </div>
+
+    <!-- ===== TOKENS ===== -->
+    <div class="op-sec-label">05 · Radius, spacing &amp; elevation</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:54px;">
+      <div class="op-card" style="padding:32px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:18px;">RADIUS</div>
+        <div style="display:flex; gap:14px; align-items:flex-end;">
+          <div style="text-align:center;"><div style="width:46px;height:46px;background:#EDEBE4;border:1px solid #E4E1D9;border-radius:8px;"></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#8A8E92;margin-top:6px;">8</div></div>
+          <div style="text-align:center;"><div style="width:46px;height:46px;background:#EDEBE4;border:1px solid #E4E1D9;border-radius:12px;"></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#8A8E92;margin-top:6px;">12</div></div>
+          <div style="text-align:center;"><div style="width:46px;height:46px;background:#EDEBE4;border:1px solid #E4E1D9;border-radius:18px;"></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#8A8E92;margin-top:6px;">18</div></div>
+          <div style="text-align:center;"><div style="width:46px;height:46px;background:#EDEBE4;border:1px solid #E4E1D9;border-radius:999px;"></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#8A8E92;margin-top:6px;">pill</div></div>
+        </div>
+      </div>
+      <div class="op-card" style="padding:32px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:18px;">SPACING · 4PT</div>
+        <div style="display:flex; gap:8px; align-items:flex-end; height:48px;">
+          <div style="width:16px;height:4px;background:#B8902F;"></div>
+          <div style="width:16px;height:8px;background:#B8902F;"></div>
+          <div style="width:16px;height:12px;background:#B8902F;"></div>
+          <div style="width:16px;height:16px;background:#B8902F;"></div>
+          <div style="width:16px;height:24px;background:#B8902F;"></div>
+          <div style="width:16px;height:32px;background:#B8902F;"></div>
+          <div style="width:16px;height:48px;background:#B8902F;"></div>
+        </div>
+        <div style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92; margin-top:10px;">4 · 8 · 12 · 16 · 24 · 32 · 48</div>
+      </div>
+      <div class="op-card" style="padding:32px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:18px;">ELEVATION</div>
+        <div style="display:flex; gap:16px;">
+          <div style="text-align:center;"><div style="width:64px;height:48px;background:#fff;border-radius:12px;box-shadow:0 1px 2px rgba(28,40,48,0.06);"></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#8A8E92;margin-top:8px;">sm</div></div>
+          <div style="text-align:center;"><div style="width:64px;height:48px;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(28,40,48,0.10);"></div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#8A8E92;margin-top:8px;">md</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== COMPONENTS ===== -->
+    <div class="op-sec-label">06 · Components</div>
+
+    <div class="op-card" style="padding:36px 40px; margin-bottom:20px;">
+      <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:20px;">BUTTONS</div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:14px; padding:12px 24px; border-radius:10px; border:none; background:#1C2830; color:#fff; cursor:pointer;">Primary</button>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:14px; padding:12px 24px; border-radius:10px; border:none; background:#B8902F; color:#1C2830; cursor:pointer;">Accent · Start free trial</button>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:14px; padding:11px 24px; border-radius:10px; border:1.5px solid #D8D4CB; background:transparent; color:#1C2830; cursor:pointer;">Ghost</button>
+        <button style="font-family:'DM Mono',monospace; font-weight:500; font-size:12px; padding:7px 16px; border-radius:999px; border:1px solid #D8D4CB; background:transparent; color:#5C6670; cursor:pointer;">Filter pill</button>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+      <!-- stat tile -->
+      <div class="op-card" style="padding:36px 40px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:20px;">STAT TILE</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div style="background:#FAF9F6; border:1px solid #EFEDE7; border-radius:12px; padding:16px 18px;">
+            <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8E92; margin-bottom:8px;">Rent received</div>
+            <div style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; color:#1C2830; letter-spacing:-0.02em;">£12,450</div>
+            <div style="font-family:'DM Mono',monospace; font-size:11px; color:#1F9D63; margin-top:6px;">▲ 4.2% vs last mo</div>
+          </div>
+          <div style="background:#FAF9F6; border:1px solid #EFEDE7; border-radius:12px; padding:16px 18px;">
+            <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8E92; margin-bottom:8px;">In arrears</div>
+            <div style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; color:#C5483B; letter-spacing:-0.02em;">£1,300</div>
+            <div style="font-family:'DM Mono',monospace; font-size:11px; color:#8A8E92; margin-top:6px;">2 tenancies</div>
+          </div>
+        </div>
+      </div>
+      <!-- input + chips -->
+      <div class="op-card" style="padding:36px 40px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B; margin-bottom:20px;">INPUT &amp; STATUS CHIPS</div>
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8E92; margin-bottom:7px;">Monthly rent</div>
+        <div style="display:flex; align-items:center; gap:8px; border:1.5px solid #D8D4CB; border-radius:10px; padding:11px 14px; margin-bottom:18px; background:#fff;">
+          <span style="font-family:'DM Mono',monospace; color:#8A8E92;">£</span>
+          <span style="font-family:'DM Mono',monospace; font-size:15px; color:#1C2830;">1,250</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; color:#1F9D63; background:#E8F4EC; padding:4px 10px; border-radius:6px;"><span style="width:7px;height:7px;border-radius:2px;background:#1F9D63;"></span>Occupied</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; color:#C77E1E; background:#FBF1E2; padding:4px 10px; border-radius:6px;"><span style="width:7px;height:7px;border-radius:2px;background:#C77E1E;"></span>EICR due 30d</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; color:#9AA0A6; background:#F1F0EC; padding:4px 10px; border-radius:6px;"><span style="width:7px;height:7px;border-radius:2px;background:#9AA0A6;"></span>Vacant</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW rent cell concept -->
+    <div class="op-card" style="padding:36px 40px; margin-bottom:20px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#9A958B;">RENT CELL · THE KEY READABILITY FIX</div>
+        <div style="font-family:'DM Mono',monospace; font-size:11px; color:#B8902F;">label + colour, full month names</div>
+      </div>
+      <p style="font-size:14px; line-height:1.55; color:#5C6670; margin:0 0 22px; max-width:560px;">Today's single-letter colour squares (J F M…) lean on colour alone and are ambiguous. The new cell carries a 3-letter month, a clear fill, and a status that reads without the legend.</p>
+      <div style="display:flex; gap:5px; flex-wrap:wrap;">
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:#1F9D63; display:flex;align-items:center;justify-content:center;color:#fff;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Jan</div></div>
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:#1F9D63; display:flex;align-items:center;justify-content:center;color:#fff;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Feb</div></div>
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:#C77E1E; display:flex;align-items:center;justify-content:center;color:#fff;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Mar</div></div>
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:#1F9D63; display:flex;align-items:center;justify-content:center;color:#fff;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Apr</div></div>
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:#C5483B; display:flex;align-items:center;justify-content:center;color:#fff;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">May</div></div>
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:#2D6FA8; display:flex;align-items:center;justify-content:center;color:#fff;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Jun</div></div>
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:#fff; border:2px solid #B8902F; display:flex;align-items:center;justify-content:center;color:#B8902F;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Jul</div></div>
+        <div style="width:46px; text-align:center;"><div style="height:44px; border-radius:8px; background:repeating-linear-gradient(45deg,#F1F0EC,#F1F0EC 4px,#E7E5DE 4px,#E7E5DE 8px); border:1px dashed #C9C5BB; display:flex;align-items:center;justify-content:center;color:#9AA0A6;font-family:'DM Mono',monospace;font-size:11px;">Aug</div></div>
+      </div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; font-family:'DM Mono',monospace; font-size:11px; color:#5C6670;">
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:2px;background:#B8902F;"></span>this month (outlined)</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:9px;height:9px;border-radius:2px;background:repeating-linear-gradient(45deg,#F1F0EC,#F1F0EC 3px,#E7E5DE 3px,#E7E5DE 6px);"></span>future (hatched)</span>
+      </div>
+    </div>
+
+    <!-- dark component strip -->
+    <div style="background:#0E141A; border-radius:18px; padding:36px 40px; margin-bottom:54px;">
+      <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#6E7681; margin-bottom:20px;">SAME COMPONENTS · DARK MODE</div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:24px;">
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:14px; padding:12px 24px; border-radius:10px; border:none; background:#E8E5DD; color:#0E141A; cursor:pointer;">Primary</button>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:14px; padding:12px 24px; border-radius:10px; border:none; background:#CBA64E; color:#14202A; cursor:pointer;">Accent</button>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:14px; padding:11px 24px; border-radius:10px; border:1.5px solid #33424C; background:transparent; color:#E8E5DD; cursor:pointer;">Ghost</button>
+      </div>
+      <div style="display:flex; gap:5px; flex-wrap:wrap;">
+        <div style="width:46px;"><div style="height:44px; border-radius:8px; background:#34C281; display:flex;align-items:center;justify-content:center;color:#0E141A;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Jan</div></div>
+        <div style="width:46px;"><div style="height:44px; border-radius:8px; background:#34C281; display:flex;align-items:center;justify-content:center;color:#0E141A;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Feb</div></div>
+        <div style="width:46px;"><div style="height:44px; border-radius:8px; background:#E2A24A; display:flex;align-items:center;justify-content:center;color:#0E141A;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Mar</div></div>
+        <div style="width:46px;"><div style="height:44px; border-radius:8px; background:#E06A5E; display:flex;align-items:center;justify-content:center;color:#0E141A;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Apr</div></div>
+        <div style="width:46px;"><div style="height:44px; border-radius:8px; background:#5B9BD8; display:flex;align-items:center;justify-content:center;color:#0E141A;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">May</div></div>
+        <div style="width:46px;"><div style="height:44px; border-radius:8px; background:#14202A; border:2px solid #CBA64E; display:flex;align-items:center;justify-content:center;color:#CBA64E;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">Jun</div></div>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div style="background:#14202A; border-radius:18px; padding:36px 40px; color:#F4F3EF;">
+      <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#CBA64E; margin-bottom:14px;">Next</div>
+      <p style="font-size:16px; line-height:1.65; margin:0; max-width:680px; color:#E7E4DC;">This system now drives the three screens you flagged: the <strong style="color:#fff;">marketing landing</strong>, the <strong style="color:#fff;">dashboard</strong>, and the <strong style="color:#fff;">rent tracker</strong> — the rent cell above is the centrepiece of making the data readable.</p>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#B8902F&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;ink&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#1C2830&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  apply() {
+    const root = document.documentElement;
+    if (this.props.accent) root.style.setProperty('--gold', this.props.accent);
+    if (this.props.ink) root.style.setProperty('--ink', this.props.ink);
+  }
+  componentDidMount() { this.apply(); }
+  componentDidUpdate() { this.apply(); }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

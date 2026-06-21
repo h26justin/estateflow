@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<!-- grey board so the A4 sheet reads as a document -->
+<div style="background:#D9D6CE; min-height:100vh; padding:40px 20px; display:flex; justify-content:center; font-family:'Schibsted Grotesk',sans-serif;">
+
+  <!-- A4 sheet -->
+  <div style="width:794px; min-height:1123px; background:#fff; box-shadow:0 12px 40px rgba(0,0,0,0.18); display:flex; flex-direction:column;">
+
+    <!-- ===== BRANDED HEADER BAND ===== -->
+    <div style="background:{{ accent }}; padding:34px 48px; color:#fff; display:flex; align-items:flex-start; justify-content:space-between;">
+      <div>
+        <div style="display:flex; align-items:center; gap:11px; margin-bottom:18px;">
+          <div style="width:34px; height:34px; border-radius:9px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:17px;">N</div>
+          <div style="font-size:19px; font-weight:600;">Northgate Lettings Ltd</div>
+        </div>
+        <div style="font-size:28px; font-weight:700; letter-spacing:-0.02em;">Annual Profit &amp; Loss</div>
+        <div style="font-family:'DM Mono',monospace; font-size:12px; color:rgba(255,255,255,0.85); margin-top:6px;">2025/26 UK tax year · collected basis · all properties</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.7);">Generated</div>
+        <div style="font-family:'DM Mono',monospace; font-size:13px; margin-top:4px;">21 Jun 2026</div>
+      </div>
+    </div>
+
+    <!-- ===== BODY ===== -->
+    <div style="padding:34px 48px; flex:1;">
+
+      <!-- KPI strip -->
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1px solid #E4E1D9; border-radius:10px; overflow:hidden; margin-bottom:30px;">
+        <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+          <div style="padding:16px 18px; border-right:1px solid #E4E1D9;">
+            <div style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:#8A8E92; margin-bottom:8px;">{{ k.label }}</div>
+            <div style="font-family:'DM Mono',monospace; font-size:21px; font-weight:500; letter-spacing:-0.02em; color:{{ k.color }};">{{ k.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- table -->
+      <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8A8E92; margin-bottom:12px;">Property P&amp;L breakdown</div>
+      <div style="border:1px solid #E4E1D9; border-radius:10px; overflow:hidden;">
+        <div style="display:grid; grid-template-columns:1.7fr 1fr 1fr 1fr 1fr 0.7fr; gap:8px; padding:11px 18px; background:#FAF9F6; border-bottom:1.5px solid #E4E1D9;">
+          <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6">
+            <div style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:#8A8E92; text-align:{{ c.align }};">{{ c.label }}</div>
+          </sc-for>
+        </div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+          <div style="display:grid; grid-template-columns:1.7fr 1fr 1fr 1fr 1fr 0.7fr; gap:8px; padding:13px 18px; border-bottom:1px solid #EFEDE7; align-items:center;">
+            <div style="font-size:12px; font-weight:600; color:#1C2830;">{{ r.name }}</div>
+            <div style="font-family:'DM Mono',monospace; font-size:12px; text-align:right; color:#1C2830;">{{ r.income }}</div>
+            <div style="font-family:'DM Mono',monospace; font-size:12px; text-align:right; color:#5C6670;">{{ r.costs }}</div>
+            <div style="font-family:'DM Mono',monospace; font-size:12px; text-align:right; color:#5C6670;">{{ r.interest }}</div>
+            <div style="font-family:'DM Mono',monospace; font-size:12px; text-align:right; font-weight:500; color:#1F9D63;">{{ r.net }}</div>
+            <div style="font-family:'DM Mono',monospace; font-size:11px; text-align:right; color:#5C6670;">{{ r.margin }}</div>
+          </div>
+        </sc-for>
+        <div style="display:grid; grid-template-columns:1.7fr 1fr 1fr 1fr 1fr 0.7fr; gap:8px; padding:13px 18px; background:#FAF9F6; align-items:center;">
+          <div style="font-size:12px; font-weight:700;">Portfolio total</div>
+          <div style="font-family:'DM Mono',monospace; font-size:12px; font-weight:700; text-align:right;">{{ totals.income }}</div>
+          <div style="font-family:'DM Mono',monospace; font-size:12px; font-weight:700; text-align:right; color:#5C6670;">{{ totals.costs }}</div>
+          <div style="font-family:'DM Mono',monospace; font-size:12px; font-weight:700; text-align:right; color:#5C6670;">{{ totals.interest }}</div>
+          <div style="font-family:'DM Mono',monospace; font-size:12px; font-weight:700; text-align:right; color:#1F9D63;">{{ totals.net }}</div>
+          <div style="font-family:'DM Mono',monospace; font-size:11px; font-weight:700; text-align:right; color:#1F9D63;">{{ totals.margin }}</div>
+        </div>
+      </div>
+
+      <!-- note -->
+      <div style="margin-top:20px; padding:14px 18px; background:#FBF1E2; border:1px solid #E8D6B0; border-radius:10px; font-family:'DM Mono',monospace; font-size:11px; line-height:1.55; color:#7A5B1E;">
+        <strong>Section 24:</strong> mortgage interest is shown as a separate line, not deducted from profit. Relief is applied as a 20% tax credit on your Self Assessment. This report is a summary for record-keeping and is not tax advice.
+      </div>
+
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <div style="border-top:1px solid #E4E1D9; padding:18px 48px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:9px;">
+        <div style="width:22px; height:22px; border-radius:6px; background:#1C2830; display:flex; align-items:center; justify-content:center;"><span style="font-weight:700; font-size:12px; letter-spacing:-0.04em; color:#F4F3EF;">P<span style="color:#B8902F;">.</span></span></div>
+        <span style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92;">Generated by <span style="color:#5C6670;">OwnProperly</span></span>
+      </div>
+      <div style="font-family:'DM Mono',monospace; font-size:10px; color:#8A8E92;">Northgate Lettings Ltd · Co. 09823471 · Page 1 of 1</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:834,&quot;height&quot;:1180}}">
+class Component extends DCLogic {
+  fmt(n){ return '£'+Math.round(n).toLocaleString('en-GB'); }
+  renderVals(){
+    const data=[
+      ['14 Northgate Road',15000,2400,4200],
+      ['22a Mill Street',11760,1900,3100],
+      ['8 Harbour Court',13500,3600,5400],
+      ['5 Quay Apartments',13200,1700,3800],
+      ['31 Esplanade',16200,2100,4600],
+    ];
+    const comp=data.map(([name,inc,c,intr])=>{const net=inc-c-intr;return{name,inc,c,intr,net,margin:net/inc};});
+    const rows=comp.map(c=>({name:c.name,income:this.fmt(c.inc),costs:this.fmt(c.c),interest:this.fmt(c.intr),net:this.fmt(c.net),margin:Math.round(c.margin*100)+'%'}));
+    const sum=comp.reduce((a,c)=>({inc:a.inc+c.inc,c:a.c+c.c,intr:a.intr+c.intr,net:a.net+c.net}),{inc:0,c:0,intr:0,net:0});
+    return {
+      accent:'#B8902F',
+      kpis:[
+        {label:'Rental income',value:this.fmt(sum.inc),color:'#1C2830'},
+        {label:'Running costs',value:this.fmt(sum.c),color:'#1C2830'},
+        {label:'Mortgage interest',value:this.fmt(sum.intr),color:'#1C2830'},
+        {label:'Net profit',value:this.fmt(sum.net),color:'#1F9D63'},
+      ],
+      cols:[{label:'Property',align:'left'},{label:'Income',align:'right'},{label:'Costs',align:'right'},{label:'Mtg int.',align:'right'},{label:'Net',align:'right'},{label:'Margin',align:'right'}],
+      rows,
+      totals:{income:this.fmt(sum.inc),costs:this.fmt(sum.c),interest:this.fmt(sum.intr),net:this.fmt(sum.net),margin:Math.round(sum.net/sum.inc*100)+'%'},
+    };
+  }
+}
+</script>
+</body>
+</html>

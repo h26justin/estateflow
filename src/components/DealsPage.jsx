@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import { AIListingWriter, ListingYieldCalculator } from './AITools'
 import LettingsPipeline from './LettingsPipeline'
@@ -322,11 +323,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
         <div style={{display:'flex',gap:10,alignItems:'center',flexShrink:0}}>
           {compareIds.length >= 2 && dealView==='list' && (
             <button className="btn btn-ghost" style={{fontSize:12}} onClick={()=>setShowCompare(true)}>
-              📊 Compare ({compareIds.length})
+              Compare ({compareIds.length})
             </button>
           )}
           <div style={{display:'flex',background:T.surface,borderRadius:8,border:`1px solid ${T.border}`,overflow:'hidden'}}>
-            {[['list','☰ List'],['pipeline','📋 Pipeline'],['lettings','🏠 Lettings'],['tools','✨ Tools']].map(([k,l])=>(
+            {[['list','List'],['pipeline','Pipeline'],['lettings','Lettings'],['tools','Tools']].map(([k,l])=>(
               <button key={k} onClick={()=>setDealView(k)}
                 style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',
                   background:dealView===k?T.gold:'transparent',
@@ -409,13 +410,13 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
         ? <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading deals…</div>
         : loadError
           ? <div className="card" style={{padding:48,textAlign:'center'}}>
-              <div style={{fontSize:36,marginBottom:12}}>⚠</div>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="alert-triangle" size={34} color={T.red}/></div>
               <div style={{fontFamily:mono,fontSize:12,color:T.red,marginBottom:16}}>Couldn't load deals — {loadError}</div>
               <button className="btn btn-ghost" onClick={loadDeals}>Retry</button>
             </div>
         : filtered.length === 0
           ? <div className="card" style={{padding:48,textAlign:'center'}}>
-              <div style={{fontSize:36,marginBottom:12}}>🎯</div>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="target" size={34} color={T.gold}/></div>
               <div style={{fontFamily:mono,fontSize:12,color:T.muted,marginBottom:16}}>No deals yet. Add your first deal to analyse.</div>
               <button className="btn btn-gold" onClick={createNewDeal}>+ Add Deal</button>
             </div>
@@ -646,7 +647,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}}
           onClick={() => setCollapsed(false)}>
           <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-            <span style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>💰 Cashflow</span>
+            <span style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cashflow</span>
             <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(agg.totalHeadline)}</span>
             <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>headline · {fmt(agg.totalCashOut)} cash out · {agg.totalCount} {agg.totalCount===1?'item':'items'}</span>
           </div>
@@ -661,7 +662,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
       {/* Header row: title + view toggle + collapse */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}}>
         <div>
-          <div style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>💰 Cashflow Across Active Deals</div>
+          <div style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Cashflow Across Active Deals</div>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>Aggregate cash commitments. Updates as you change deal stages and dates.</div>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
@@ -950,7 +951,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
           </select>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave} disabled={saving}>
-            {saving?'Saving…':'💾 Save'}
+            {saving?'Saving…':'Save'}
           </button>
           {form.status === 'completed' && (
             <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>onConvert&&onConvert(form)}>Convert to Property →</button>
@@ -997,7 +998,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
       {/* Tabs */}
       <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:`1px solid ${T.border}`,flexWrap:'wrap'}}>
-        {[['calculator','🔢 Calculator'],['tracker','📍 Purchase Tracker'],['contacts','👥 Contacts'],['documents','📄 Documents']].map(([k,l])=>(
+        {[['calculator','Calculator'],['tracker','Purchase Tracker'],['contacts','Contacts'],['documents','Documents']].map(([k,l])=>(
           <button key={k} style={tabStyle(k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -1361,7 +1362,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               return (
                 <div style={{background:T.card,border:`2px solid ${scoreColor}44`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-                    <span style={sect}>🎯 Deal score &amp; stress test</span>
+                    <span style={sect}>Deal score &amp; stress test</span>
                     <div style={{display:'flex',alignItems:'center',gap:12}}>
                       <div style={{fontSize:32,fontWeight:700,color:scoreColor,fontFamily:mono}}>{scoreData.score}</div>
                       <div>
@@ -1721,12 +1722,12 @@ function ContactsTab({ dealId, userId, showToast }) {
       {/* Tab switcher */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
         <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
-          {[['deal','This deal'],['book','📒 Address book']].map(([k,l])=>(
+          {[['deal','This deal'],['book','Address book']].map(([k,l])=>(
             <button key={k} onClick={()=>setAbView(k)} style={{fontFamily:mono,fontSize:11,padding:'7px 16px',border:'none',cursor:'pointer',background:abView===k?T.gold+'22':'transparent',color:abView===k?T.gold:T.muted,fontWeight:abView===k?700:400}}>{l}</button>
           ))}
         </div>
         <div style={{display:'flex',gap:8}}>
-          {abView==='deal' && <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setAbView('book')}}>📒 Pick from address book</button>}
+          {abView==='deal' && <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setAbView('book')}}>Pick from address book</button>}
           <button className="btn btn-gold" style={{fontSize:11}} onClick={startNew}>+ New contact</button>
         </div>
       </div>
@@ -1972,12 +1973,12 @@ function CompareModal({ deals, companies, onClose }) {
 // ── DEAL PIPELINE KANBAN ──────────────────────────────────────────────────────
 function DealPipeline({ deals, companies, onOpen, onNew, T }) {
   const STAGES = [
-    { key: 'analysing',   label: '🔍 Analysing',   color: '#4B8FE0' },
-    { key: 'offer',       label: '📝 Offer made',  color: '#C8A84B' },
-    { key: 'under_offer', label: '🤝 Under offer', color: '#E0943A' },
-    { key: 'exchanged',   label: '✍ Exchanged',   color: '#9B59B6' },
-    { key: 'complete',    label: '🎉 Complete',    color: '#2ECC8A' },
-    { key: 'dead',        label: '❌ Dead',        color: '#888' },
+    { key: 'analysing',   label: 'Analysing',   color: '#4B8FE0' },
+    { key: 'offer',       label: 'Offer made',  color: '#C8A84B' },
+    { key: 'under_offer', label: 'Under offer', color: '#E0943A' },
+    { key: 'exchanged',   label: 'Exchanged',   color: '#9B59B6' },
+    { key: 'complete',    label: 'Complete',    color: '#2ECC8A' },
+    { key: 'dead',        label: 'Dead',        color: '#888' },
   ]
 
   const byStage = Object.fromEntries(STAGES.map(s => [s.key, deals.filter(d => (d.status||'analysing') === s.key)]))

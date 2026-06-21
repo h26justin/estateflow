@@ -18,6 +18,11 @@
 
 export const MONO = "'DM Mono',monospace"
 
+// UI / heading / body / button face — OwnProperly redesign (design/redesign-2026).
+// DM Mono stays reserved for money, dates, metrics and eyebrow labels.
+export const SANS =
+  "'Schibsted Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+
 // ── TYPOGRAPHY ────────────────────────────────────────────────────────────
 
 // Small uppercase mono label. Used above inputs and on small captions.
@@ -56,8 +61,9 @@ export const monoFaint = (T) => ({
 
 // Section heading style. `h2` size by default.
 export const heading = (T, level = 2) => {
-  const sizes = { 1: 28, 2: 20, 3: 16 }
+  const sizes = { 1: 30, 2: 26, 3: 16 }
   return {
+    fontFamily: SANS,
     fontSize: sizes[level] || sizes[2],
     fontWeight: 700,
     color: T.text,
@@ -175,3 +181,56 @@ export const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 
 // Most styling is inline so media queries are awkward; prefer JS isMobile
 // check from useWindowSize when responsive behaviour is needed.
 export const MOBILE_BP = 768
+
+// ── STATUS SYSTEM ─────────────────────────────────────────────────────────
+// The redesign's semantic status palette (design/redesign-2026 handoff). Each
+// status carries the spec's exact text colour AND a soft background tint, in
+// both themes. ALWAYS pair the colour with a text label — never colour alone
+// (colour-blind safety; it's in the brand rules). The lighter spec text hues
+// are safe here because they sit on their matching tint, not on bare paper.
+//
+// Keys map to product meanings:
+//   ok    = paid / valid / occupied / current
+//   warn  = late / expiring / due soon
+//   bad   = missed / expired / arrears / overdue
+//   info  = refurb / in progress / informational
+//   void  = void / not-applicable / inactive
+export const STATUS = {
+  light: {
+    ok:   { text:'#1F9D63', bg:'#E8F4EC' },
+    warn: { text:'#C77E1E', bg:'#FBF1E2' },
+    bad:  { text:'#C5483B', bg:'#FAEAE8' },
+    info: { text:'#2D6FA8', bg:'#E7F0F7' },
+    void: { text:'#6F757B', bg:'#F1F0EC' },
+  },
+  dark: {
+    ok:   { text:'#34C281', bg:'#15271F' },
+    warn: { text:'#E2A24A', bg:'#2A2113' },
+    bad:  { text:'#E06A5E', bg:'#2B1714' },
+    info: { text:'#5B9BD8', bg:'#15212E' },
+    void: { text:'#9AA0A6', bg:'#1B232B' },
+  },
+}
+
+// Resolve a status palette for the current theme. `darkMode` from useTheme().
+export const statusColors = (key, darkMode) =>
+  (darkMode ? STATUS.dark : STATUS.light)[key] || (darkMode ? STATUS.dark : STATUS.light).void
+
+// Ready-to-spread pill style for a status. e.g. style={statusPill('bad', darkMode)}
+export const statusPill = (key, darkMode) => {
+  const c = statusColors(key, darkMode)
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '3px 10px',
+    borderRadius: 999,
+    background: c.bg,
+    color: c.text,
+    border: `1px solid ${c.text}33`,
+    fontFamily: MONO,
+    fontSize: 11,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  }
+}
