@@ -3887,13 +3887,14 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
                 )}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{display:'flex',alignItems:'center',gap:7,minWidth:0}}>
-                  <span style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
+                {/* Name gets the full width (wraps to 2 lines); pills sit below */}
+                <div style={{fontSize:14,fontWeight:700,color:T.text,lineHeight:1.3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{p.name}</div>
+                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:3}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
+                <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:8}}>
                   <CompanyPill company={co}/>
+                  <Badge status={p.status}/>
                 </div>
-                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:2}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
               </div>
-              <Badge status={p.status}/>
             </div>
             {/* Footer: rent / yield / compliance */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,paddingTop:10,borderTop:`1px solid ${T.border}`}}>
