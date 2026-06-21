@@ -612,6 +612,9 @@ export default function App() {
   // being purely local state inside ReportsPage. null = catalogue view.
   const [selectedReportId, setSelectedReportId] = useState(null)
   const [portfolioTab, setPortfolioTab] = useState('properties')
+  // Portfolio properties layout: dense list (default) or gradient card grid.
+  const [propLayout, setPropLayout] = useState(() => { try { return localStorage.getItem('ef_prop_layout') || 'list' } catch(e) { return 'list' } })
+  useEffect(() => { try { localStorage.setItem('ef_prop_layout', propLayout) } catch(e) {} }, [propLayout])
   const [coFilter,    setCoFilter]     = useState('all')
   const [dashCoFilter, setDashCoFilter] = useState([]) // [] = all companies
   const [statusFilter,setStatusFilter] = useState('all')
@@ -2947,13 +2950,13 @@ export default function App() {
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
               </div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                {[['properties','🏘 Properties'],['companies','🏢 Companies'],['map','🗺 Map'],['contractors','🔧 Contractors']].map(([k,l])=>(
+                {[['properties','building','Properties'],['companies','grid','Companies'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
                   <button key={k} onClick={()=>setPortfolioTab(k)}
-                    style={{fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
+                    style={{display:'inline-flex',alignItems:'center',gap:6,fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                       border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
                       background:portfolioTab===k?T.gold+'22':'transparent',
                       color:portfolioTab===k?T.gold:T.muted,fontWeight:portfolioTab===k?700:400}}>
-                    {l}
+                    <Icon name={ic} size={14}/>{l}
                   </button>
                 ))}
               </div>
@@ -2982,8 +2985,8 @@ export default function App() {
               <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}}
                 onClick={()=>setShowBuildingMortgage(true)}
                 disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive}
-                title="Update a mortgage across all units in a building in one go">🏦 Building Mortgage</button>
-              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddBulk(true)} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)">🏘 + Add Block</button>
+                title="Update a mortgage across all units in a building in one go"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="landmark" size={14}/>Building Mortgage</span></button>
+              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddBulk(true)} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="building" size={14}/>+ Add Block</span></button>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
@@ -3004,8 +3007,8 @@ export default function App() {
                       style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
                         border:`1px solid ${showArchived?T.muted:T.border}`,
                         background:showArchived?T.muted+'22':'transparent',
-                        color:showArchived?T.text:T.muted,transition:'all 0.18s'}}>
-                      📦 {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
+                        color:showArchived?T.text:T.muted,transition:'all 0.18s',display:'inline-flex',alignItems:'center',gap:5}}>
+                      <Icon name="trash" size={12}/>{showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
                     </button>
                   </>
                 )}
@@ -3032,8 +3035,21 @@ export default function App() {
                   {opt.l}
                 </button>
               ))}
+              {/* List / Grid layout toggle (grid is the redesign card view) */}
+              <div style={{display:'flex',gap:2,marginLeft:'auto',background:T.card,border:`1px solid ${T.border}`,borderRadius:9,padding:2}}>
+                {[['list','list','List'],['grid','grid-2','Grid']].map(([k,ic,lbl])=>(
+                  <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-pressed={propLayout===k}
+                    style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,cursor:'pointer',border:'none',
+                      background:propLayout===k?T.gold+'22':'transparent',color:propLayout===k?T.gold:T.muted,
+                      fontFamily:MONO,fontSize:10,fontWeight:propLayout===k?700:400}}>
+                    <Icon name={ic} size={14}/>{!isMobile&&lbl}
+                  </button>
+                ))}
+              </div>
             </div>
-            <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties} sortBy={sortBy} yieldBasis={yieldBasis}/>
+            {propLayout==='grid'
+              ? <PropertyGrid filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} yieldBasis={yieldBasis}/>
+              : <DraggablePropertyList filtered={filtered} fmt={fmt} openDetail={openDetail} calcGrossYield={calcGrossYield} setProperties={setProperties} properties={properties} sortBy={sortBy} yieldBasis={yieldBasis}/>}
             </div>}
           </div>}
 
@@ -3822,6 +3838,60 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
     </div>
   </div>
 }
+// ─── PROPERTY CARD GRID ──────────────────────────────────────────────────────
+// Redesign "gradient property-card grid" (design/redesign-2026). An optional
+// browse layout alongside the dense list — gradient header (company accent) with
+// the property initial + status pill, then name/company and rent/yield/compliance.
+function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis }) {
+  const { T } = useTheme()
+  if (!filtered.length) return <div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:32,textAlign:'center'}}>No properties match your filters.</div>
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
+      {filtered.map(p=>{
+        const co = p.company
+        const accent = co?.color || T.gold
+        const initial = (String(p.name||'?').trim()[0] || '?').toUpperCase()
+        const sc = STATUS_CFG[p.status] || STATUS_CFG.purchased
+        const cfg = complianceBadge(complianceStatusFor(p), T)
+        const gy = calcGrossYield(p, yieldBasis)
+        return (
+          <div key={p.id} className="card pcard" onClick={()=>openDetail(p)}
+            style={{padding:0,overflow:'hidden',cursor:'pointer',display:'flex',flexDirection:'column'}}>
+            {/* Gradient header */}
+            <div style={{height:64,background:`linear-gradient(135deg, ${accent} 0%, ${accent}AA 100%)`,padding:'10px 12px',display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+              <div style={{width:40,height:40,borderRadius:10,background:'rgba(255,255,255,0.18)',border:'1px solid rgba(255,255,255,0.35)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:18,flexShrink:0}}>{initial}</div>
+              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,background:'rgba(0,0,0,0.24)',color:'#fff',fontFamily:MONO,fontSize:10,fontWeight:600,whiteSpace:'nowrap'}}>
+                <span style={{width:6,height:6,borderRadius:'50%',background:sc.dot,flexShrink:0}}/>{sc.label}
+              </span>
+            </div>
+            {/* Body */}
+            <div style={{padding:'12px 14px',flex:1,display:'flex',flexDirection:'column',gap:7}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+                <span style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
+                <CompanyPill company={co}/>
+              </div>
+              <div style={{fontFamily:MONO,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
+              <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:8,marginTop:'auto',paddingTop:9,borderTop:`1px solid ${T.border}`}}>
+                <div>
+                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>Rent</div>
+                  <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.text}}>{fmt(p.rent_pcm)}<span style={{fontSize:9,color:T.muted,fontWeight:400}}>/mo</span></div>
+                </div>
+                <div>
+                  <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>Yield</div>
+                  <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{gy.toFixed(1)}%</div>
+                </div>
+                {cfg
+                  ? <span title={cfg.label} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:999,background:cfg.bg,color:cfg.color,fontFamily:MONO,fontSize:9,fontWeight:700,whiteSpace:'nowrap'}}><Icon name={cfg.iconName} size={11}/>{cfg.label}</span>
+                  : <span title="Compliance OK" style={{display:'inline-flex',alignItems:'center',gap:5,fontFamily:MONO,fontSize:9,color:T.green,fontWeight:700}}><span style={{width:7,height:7,borderRadius:'50%',background:T.green}}/>OK</span>}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
 function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setProperties, properties, sortBy, yieldBasis}) {
   const { T } = useTheme()
