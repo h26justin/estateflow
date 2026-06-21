@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#F4F3EF; --surface:#FFFFFF; --card:#FAF9F6; --border:#E4E1D9;
+      --text:#1C2830; --muted:#5C6670; --faint:#8A8E92; --gold:#B8902F;
+      --paid:#1F9D63; --missed:#C5483B; --late:#C77E1E; --refurb:#2D6FA8;
+      --paidBg:#E8F4EC; --missedBg:#FAEAE8; --lateBg:#FBF1E2; --refurbBg:#E7F0F7;
+      --shadow:0 1px 2px rgba(28,40,48,0.06); --shadowMd:0 10px 30px rgba(28,40,48,0.10);
+    }
+    [data-theme="dark"]{
+      --bg:#0E141A; --surface:#151D25; --card:#1B242D; --border:#28333D;
+      --text:#E8E5DD; --muted:#9AA6B0; --faint:#6E7681; --gold:#CBA64E;
+      --paid:#34C281; --missed:#E06A5E; --late:#E2A24A; --refurb:#5B9BD8;
+      --paidBg:#13241D; --missedBg:#2A1A18; --lateBg:#2A2113; --refurbBg:#13212E;
+      --shadow:0 1px 2px rgba(0,0,0,0.3); --shadowMd:0 10px 30px rgba(0,0,0,0.4);
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="background:var(--bg); min-height:100vh; font-family:'Schibsted Grotesk',sans-serif; color:var(--text); display:flex;">
+
+  <div style="width:212px; flex:0 0 212px; position:sticky; top:0; height:100vh; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden;">
+    <div style="height:62px; display:flex; align-items:center; gap:11px; padding:0 18px; border-bottom:1px solid var(--border);">
+      <div style="width:32px; height:32px; border-radius:9px; background:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <span style="font-weight:700; font-size:18px; letter-spacing:-0.04em; color:var(--bg);">P<span style="color:var(--gold);">.</span></span>
+      </div>
+      <div style="font-size:18px; letter-spacing:-0.02em;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></div>
+    </div>
+    <div style="flex:1; padding:14px 12px; display:flex; flex-direction:column; gap:3px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="6">
+        <div style="display:flex; align-items:center; gap:13px; padding:10px 11px; border-radius:10px; cursor:pointer; background:{{ n.bg }}; color:{{ n.color }};">
+          <span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;" dangerouslySetInnerHTML="{{ n.icon }}"></span>
+          <span style="font-size:14px; font-weight:{{ n.weight }};">{{ n.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:12px; border-top:1px solid var(--border);">
+      <div style="display:flex; align-items:center; gap:13px; padding:9px 11px; border-radius:10px; cursor:pointer; color:var(--faint);">
+        <span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;" dangerouslySetInnerHTML="{{ collapseIcon }}"></span>
+        <span style="font-size:13px;">Collapse</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <div style="position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--border); height:62px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0 28px;">
+      <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.06em; color:var(--text);">{{ crumb }}</div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onClick="{{ toggle }}" style="font-family:'DM Mono',monospace; font-size:11px; font-weight:500; padding:7px 14px; border-radius:999px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer;">{{ toggleLabel }}</button>
+        <div style="width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff;">JD</div>
+      </div>
+    </div>
+
+    <div style="max-width:1280px; margin:0 auto; width:100%; padding:30px 28px 80px;">
+
+      <!-- ===== GRID VIEW ===== -->
+      <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+            <div>
+              <h1 style="font-size:30px; font-weight:700; letter-spacing:-0.03em; margin:0 0 6px;">Portfolio</h1>
+              <div style="font-size:15px; color:var(--muted);">5 properties · £1.42M value · £5,880/mo rent roll</div>
+            </div>
+            <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:13px; font-weight:700; padding:10px 18px; border-radius:10px; border:none; background:var(--gold); color:#1C2830; cursor:pointer;">+ Add property</button>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px;">
+            <sc-for list="{{ properties }}" as="p" hint-placeholder-count="6">
+              <div onClick="{{ p.onClick }}" style="background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; cursor:pointer; box-shadow:var(--shadow);">
+                <div style="height:120px; background:{{ p.swatch }}; position:relative; display:flex; align-items:flex-end; padding:12px;">
+                  <span style="position:absolute; top:12px; right:12px; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; font-family:'DM Mono',monospace; font-size:11px; font-weight:500; color:{{ p.statusColor }}; background:var(--surface); padding:4px 10px; border-radius:999px;"><span style="width:7px;height:7px;border-radius:2px;background:{{ p.statusColor }};"></span>{{ p.status }}</span>
+                  <span style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:40px; color:rgba(255,255,255,0.9); letter-spacing:-0.04em;">{{ p.initial }}</span>
+                </div>
+                <div style="padding:16px 18px;">
+                  <div style="font-size:15px; font-weight:600; margin-bottom:2px;">{{ p.name }}</div>
+                  <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-bottom:14px;">{{ p.company }}</div>
+                  <div style="display:flex; gap:18px;">
+                    <div>
+                      <div style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint);">Rent</div>
+                      <div style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500; margin-top:2px;">{{ p.rent }}</div>
+                    </div>
+                    <div>
+                      <div style="font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint);">Yield</div>
+                      <div style="font-family:'DM Mono',monospace; font-size:14px; font-weight:500; margin-top:2px; color:var(--gold);">{{ p.yield }}</div>
+                    </div>
+                    <div style="margin-left:auto; display:flex; align-items:flex-end;">
+                      <span style="display:inline-flex; align-items:center; gap:5px; font-family:'DM Mono',monospace; font-size:10px; color:{{ p.compColor }};"><span style="width:7px;height:7px;border-radius:2px;background:{{ p.compColor }};"></span>{{ p.comp }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===== DETAIL VIEW ===== -->
+      <sc-if value="{{ showDetail }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div onClick="{{ back }}" style="display:inline-flex; align-items:center; gap:7px; white-space:nowrap; font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); cursor:pointer; margin-bottom:16px;"><span style="font-size:15px;">←</span> Portfolio</div>
+
+          <!-- hero -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:18px; overflow:hidden; margin-bottom:18px; box-shadow:var(--shadow);">
+            <div style="height:150px; background:linear-gradient(120deg, #2D3C4A, #3F5566); display:flex; align-items:flex-end; padding:18px 22px;">
+              <span style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:56px; color:rgba(255,255,255,0.9); letter-spacing:-0.04em;">14</span>
+            </div>
+            <div style="padding:20px 24px; display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+              <div>
+                <h1 style="font-size:24px; font-weight:700; letter-spacing:-0.02em; margin:0 0 5px;">14 Northgate Road</h1>
+                <div style="font-family:'DM Mono',monospace; font-size:12px; color:var(--muted);">London SW6 4QP · Northgate Lettings Ltd · 2-bed flat</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:12px; color:var(--paid); background:var(--paidBg); padding:6px 12px; border-radius:8px;"><span style="width:7px;height:7px;border-radius:2px;background:var(--paid);"></span>Occupied</span>
+                <span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:12px; color:var(--late); background:var(--lateBg); padding:6px 12px; border-radius:8px;"><span style="width:7px;height:7px;border-radius:2px;background:var(--late);"></span>Gas due 24d</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- tabs -->
+          <div style="display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:22px; overflow-x:auto;">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
+              <div style="font-size:13px; font-weight:{{ t.weight }}; color:{{ t.color }}; padding:11px 14px; border-bottom:2px solid {{ t.border }}; cursor:pointer; white-space:nowrap;">{{ t.label }}</div>
+            </sc-for>
+          </div>
+
+          <!-- key facts -->
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px;">
+            <sc-for list="{{ facts }}" as="f" hint-placeholder-count="4">
+              <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow);">
+                <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); margin-bottom:8px;">{{ f.label }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:21px; font-weight:500; letter-spacing:-0.02em; color:{{ f.color }};">{{ f.value }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:5px;">{{ f.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+            <!-- tenancy -->
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; box-shadow:var(--shadow);">
+              <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:16px;">Current tenancy</div>
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                <div style="width:40px; height:40px; border-radius:50%; background:var(--refurb); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px;">SC</div>
+                <div>
+                  <div style="font-size:14px; font-weight:600;">Sarah Connolly</div>
+                  <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint);">Tenant since Mar 2023</div>
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <sc-for list="{{ tenancyRows }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex; justify-content:space-between; font-family:'DM Mono',monospace; font-size:12px;"><span style="color:var(--muted);">{{ r.k }}</span><span style="font-weight:500;">{{ r.v }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- compliance -->
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; box-shadow:var(--shadow);">
+              <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:16px;">Compliance</div>
+              <div style="display:flex; flex-direction:column; gap:11px;">
+                <sc-for list="{{ detailCerts }}" as="c" hint-placeholder-count="5">
+                  <div style="display:flex; align-items:center; gap:11px;">
+                    <span style="width:8px; height:8px; border-radius:2px; background:{{ c.color }}; flex-shrink:0;"></span>
+                    <div style="flex:1; font-size:13px;">{{ c.type }}</div>
+                    <div style="font-family:'DM Mono',monospace; font-size:11px; color:{{ c.color }};">{{ c.status }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:860}}">
+class Component extends DCLogic {
+  state={dark:false, detail:false};
+
+  icon(name){
+    const s='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">';
+    const p={
+      dashboard:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+      portfolio:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      rent:'<path d="M3 7h18M3 7l2-3h14l2 3M5 7v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M12 11v5M9.5 12.5h4a1.2 1.2 0 0 1 0 2.4h-3a1.2 1.2 0 0 0 0 2.4h4"/>',
+      compliance:'<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+      deals:'<path d="M3 17l5-5 4 3 8-8"/><path d="M16 4h4v4"/>',
+      reports:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+      collapse:'<path d="M15 6l-6 6 6 6"/><path d="M20 6l-6 6 6 6"/>',
+    };
+    return {__html:s+(p[name]||'')+'</svg>'};
+  }
+
+  renderVals(){
+    const dark=this.state.dark, detail=this.state.detail;
+    const navDefs=[['Dashboard','dashboard',false],['Portfolio','portfolio',true],['Rent','rent',false],['Compliance','compliance',false],['Deals','deals',false],['Reports','reports',false]];
+    const nav=navDefs.map(([label,ic,active])=>({label,icon:this.icon(ic),weight:active?700:500,color:active?'var(--text)':'var(--muted)',bg:active?'var(--card)':'transparent'}));
+
+    const open=()=>this.setState({detail:true});
+    const props=[
+      ['14 Northgate Road','Northgate Lettings','14','£1,250','5.8%','linear-gradient(120deg,#2D3C4A,#3F5566)','Occupied','var(--paid)','Gas due 24d','var(--late)'],
+      ['22a Mill Street','Northgate Lettings','22','£980','6.2%','linear-gradient(120deg,#6E5844,#917657)','In arrears','var(--missed)','All valid','var(--paid)'],
+      ['8 Harbour Court','Northgate Lettings','8','£1,500','5.1%','linear-gradient(120deg,#3A5A4A,#4E7560)','Recently let','var(--refurb)','EICR expired','var(--missed)'],
+      ['5 Quay Apartments','Harbour View','5','£1,100','5.6%','linear-gradient(120deg,#4A4660,#625C82)','Occupied','var(--paid)','HMO due 58d','var(--late)'],
+      ['31 Esplanade','Harbour View','31','£1,350','5.4%','linear-gradient(120deg,#2D4A52,#3E646E)','In arrears','var(--missed)','All valid','var(--paid)'],
+    ];
+    const properties=props.map(([name,company,initial,rent,yld,swatch,status,statusColor,comp,compColor])=>({
+      name,company,initial,rent,yield:yld,swatch,status,statusColor,comp,compColor,onClick:open,
+    }));
+
+    const tabs=['Overview','Rent','Compliance','Tenancy','Documents','Expenses'].map((label,i)=>({
+      label, weight:i===0?700:500, color:i===0?'var(--text)':'var(--muted)', border:i===0?'var(--gold)':'transparent',
+    }));
+
+    const facts=[
+      {label:'Value',value:'£385K',note:'▲ 2.9% est.',color:'var(--text)'},
+      {label:'Monthly rent',value:'£1,250',note:'due 1st',color:'var(--text)'},
+      {label:'Net yield',value:'5.8%',note:'after costs',color:'var(--gold)'},
+      {label:'Equity / LTV',value:'£162K',note:'58% LTV',color:'var(--text)'},
+    ];
+    const tenancyRows=[
+      {k:'Term',v:'AST · 12 months'},{k:'Started',v:'14 Mar 2023'},{k:'Renews',v:'14 Mar 2026'},{k:'Deposit',v:'£1,442 · DPS'},
+    ];
+    const detailCerts=[
+      {type:'Gas Safety (CP12)',status:'24d left',color:'var(--late)'},
+      {type:'EICR',status:'3.2y left',color:'var(--paid)'},
+      {type:'EPC · band C',status:'6y left',color:'var(--paid)'},
+      {type:'Legionella',status:'11mo left',color:'var(--paid)'},
+      {type:'PAT',status:'8mo left',color:'var(--paid)'},
+    ];
+
+    return {
+      theme:dark?'dark':'light',
+      toggle:()=>this.setState(s=>({dark:!s.dark})), toggleLabel:dark?'Light mode':'Dark mode',
+      collapseIcon:this.icon('collapse'),
+      crumb: detail? 'Portfolio / 14 Northgate Road' : 'Portfolio',
+      showGrid:!detail, showDetail:detail, back:()=>this.setState({detail:false}),
+      nav, properties, tabs, facts, tenancyRows, detailCerts,
+    };
+  }
+}
+</script>
+</body>
+</html>

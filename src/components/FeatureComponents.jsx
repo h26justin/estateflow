@@ -1,5 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
+import { statusPill } from '../lib/styles'
 import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
@@ -35,13 +37,16 @@ function daysUntil(dateStr) {
 }
 
 function ExpiryBadge({dateStr}) {
-  const { T } = useTheme()
+  // Theme-aware RAG pill via the redesign STATUS system (was hardcoded
+  // dark-mode backgrounds that rendered wrong in light mode).
+  const { darkMode } = useTheme()
   const days = daysUntil(dateStr)
-  if (days === null) return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>No expiry set</span>
-  if (days < 0)   return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:T.red,background:'#2B1010',padding:'2px 8px',borderRadius:20}}>EXPIRED {Math.abs(days)}d ago</span>
-  if (days <= 30) return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,color:T.amber,background:'#2B1A0A',padding:'2px 8px',borderRadius:20}}>Expires in {days}d</span>
-  if (days <= 90) return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.amber,background:'#2B1A0A',padding:'2px 8px',borderRadius:20}}>{days}d remaining</span>
-  return <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.green,background:'#0D2B1F',padding:'2px 8px',borderRadius:20}}>{days}d remaining</span>
+  const pill = (key, txt) => <span style={{...statusPill(key, darkMode), fontSize:10}}>{txt}</span>
+  if (days === null) return pill('void', 'No expiry set')
+  if (days < 0)   return pill('bad',  `Expired ${Math.abs(days)}d ago`)
+  if (days <= 30) return pill('warn', `Expires in ${days}d`)
+  if (days <= 90) return pill('warn', `${days}d remaining`)
+  return pill('ok', `${days}d remaining`)
 }
 
 // ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
@@ -54,13 +59,13 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
 
   const CERT_TYPES = [
-    {value:'gas',     label:'Gas Safety Certificate',    icon:'🔥'},
-    {value:'eicr',    label:'Electrical Safety (EICR)',   icon:'⚡'},
-    {value:'epc',     label:'EPC Rating',                 icon:'🌿'},
-    {value:'hmo',     label:'HMO Licence',                icon:'🏠'},
-    {value:'fire',    label:'Fire Risk Assessment',        icon:'🔴'},
-    {value:'pat',     label:'PAT Testing',                 icon:'🔌'},
-    {value:'other',   label:'Other Certificate',           icon:'📄'},
+    {value:'gas',     label:'Gas Safety Certificate',    icon:'flame'},
+    {value:'eicr',    label:'Electrical Safety (EICR)',   icon:'zap'},
+    {value:'epc',     label:'EPC Rating',                 icon:'leaf'},
+    {value:'hmo',     label:'HMO Licence',                icon:'home'},
+    {value:'fire',    label:'Fire Risk Assessment',        icon:'alert-triangle'},
+    {value:'pat',     label:'PAT Testing',                 icon:'plug'},
+    {value:'other',   label:'Other Certificate',           icon:'file-text'},
   ]
 
   useEffect(()=>{ loadItems() },[propertyId])
@@ -133,7 +138,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
             const ct = CERT_TYPES.find(t=>t.value===item.cert_type)
             return (
               <div key={item.id} className="card" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
-                <span style={{fontSize:24,flexShrink:0}}>{ct?.icon||'📄'}</span>
+                <span style={{width:38,height:38,borderRadius:9,background:T.gold+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={ICON_NAMES.includes(ct?.icon)?ct.icon:'file-text'} size={19} color={T.gold}/></span>
                 <div style={{flex:1,minWidth:150}}>
                   <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{item.cert_name}</div>
                   <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
@@ -201,8 +206,8 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
       </div>
 
       {renewalDays!==null && renewalDays<=60 && (
-        <div style={{background:'#2B1A0A',border:'1px solid #5C3A1A',borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:"'DM Mono',monospace",fontSize:12,color:T.amber}}>
-          ⚠ Tenancy {renewalDays<0?`expired ${Math.abs(renewalDays)} days ago`:`expires in ${renewalDays} days`} — consider renewal action
+        <div style={{display:'flex',alignItems:'center',gap:9,background:T.amber+'1A',border:`1px solid ${T.amber}44`,borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:"'DM Mono',monospace",fontSize:12,color:T.amber}}>
+          <Icon name="alert-triangle" size={15}/> Tenancy {renewalDays<0?`expired ${Math.abs(renewalDays)} days ago`:`expires in ${renewalDays} days`} — consider renewal action
         </div>
       )}
 

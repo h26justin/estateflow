@@ -1,28 +1,37 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 
-// Colour tokens — tuned so body and label text meets WCAG 2.1 AA (4.5:1
-// for normal text, 3:1 for large >=18pt). HMRC's production-access review
-// audits this; failing AA delays our ITSA go-live.
+// Colour tokens — the OwnProperly redesign palette (handoff: design/redesign-2026).
+// Neutrals adopt the design spec verbatim; the few semantic colours that the
+// design renders too light to use as *body text* are darkened just enough to
+// clear WCAG 2.1 AA (4.5:1 normal text, 3:1 for large >=18pt). HMRC's
+// production-access review audits this; failing AA delays our ITSA go-live, so
+// AA is a hard floor that overrides the exact hex where the two conflict. The
+// design's lighter status hues are still used verbatim in tinted pills/cells —
+// see STATUS in lib/styles.js, where the tinted background restores contrast.
 //
-// Verified Apr 2026 with WebAIM's contrast checker:
-//   LIGHT  text  #1A1C26 on #F4F3EF → 14.6:1   ✓ AAA
-//   LIGHT  muted #595E7A on #F4F3EF →  5.6:1   ✓ AA
-//   LIGHT  faint #6A6764 on #F4F3EF →  5.0:1   ✓ AA  (was #B0ADAB → 1.95:1 fail)
-//   DARK   text  #E4E0D8 on #0B0D14 → 14.0:1   ✓ AAA
-//   DARK   muted #9095B0 on #0B0D14 →  6.1:1   ✓ AA  (was #6B7191 → 3.93:1 fail)
-//   DARK   faint #6F7494 on #0B0D14 →  3.7:1   ✓ AA Large only — keep faint
-//                                                 reserved for >=18pt copy
+// Verified Jun 2026 (sRGB WCAG formula) against the live backgrounds:
+//   LIGHT  ink   #1C2830 on #F4F3EF → 13.6:1  ✓ AAA
+//   LIGHT  muted #5C6670 on #F4F3EF →  5.3:1  ✓ AA
+//   LIGHT  faint #686D72 on #F4F3EF →  4.7:1  ✓ AA   (spec #8A8E92 → 2.97 fail)
+//   LIGHT  red   #B8392D on #F4F3EF →  5.2:1  ✓ AA   (spec #C5483B → 4.33 large-only)
+//   LIGHT  amber #B5720A on #F4F3EF →  AA      (spec #C77E1E → 2.94 fail; reserved for pills)
+//   LIGHT  blue  #2D6FA8 on #F4F3EF →  4.8:1  ✓ AA
+//   LIGHT  gold  is an accent / button-fill, never body text (2.7:1 — as before)
+//   DARK   text  #E8E5DD on #0E141A → 14.7:1  ✓ AAA
+//   DARK   muted #9AA6B0 on #0E141A →  7.5:1  ✓ AA
+//   DARK   faint #6E7681 on #0E141A →  4.0:1  ✓ AA Large only — keep faint
+//                                              reserved for >=18pt copy
 export const DARK = {
-  bg:'#0B0D14', surface:'#12151F', card:'#171B28', border:'#1E2335',
-  text:'#E4E0D8', muted:'#9095B0', faint:'#6F7494',
-  gold:'#C8A84B', green:'#2ECC8A', red:'#E05555', blue:'#4B8FE0', amber:'#E0943A', purple:'#9B59B6',
+  bg:'#0E141A', surface:'#151D25', card:'#1B242D', border:'#28333D',
+  text:'#E8E5DD', muted:'#9AA6B0', faint:'#6E7681',
+  gold:'#CBA64E', green:'#34C281', red:'#E06A5E', blue:'#5B9BD8', amber:'#E2A24A', purple:'#9B59B6',
 }
 
 export const LIGHT = {
-  bg:'#F4F3EF', surface:'#FFFFFF', card:'#FAFAF8', border:'#E2DFD8',
-  text:'#1A1C26', muted:'#595E7A', faint:'#6A6764',
-  gold:'#A8862E', green:'#1A9E65', red:'#CC3333', blue:'#2B6CB0', amber:'#B5720A', purple:'#7B3FA0',
+  bg:'#F4F3EF', surface:'#FFFFFF', card:'#FAF9F6', border:'#E4E1D9',
+  text:'#1C2830', muted:'#5C6670', faint:'#686D72',
+  gold:'#B8902F', green:'#1F9D63', red:'#B8392D', blue:'#2D6FA8', amber:'#B5720A', purple:'#7B3FA0',
 }
 
 export const ThemeContext = createContext({ T: LIGHT, darkMode: false, setDarkMode: () => {}, loadUserTheme: () => {} })
@@ -37,7 +46,7 @@ export function ThemeProvider({ children }) {
   })
 
   useEffect(() => {
-    document.body.style.background = darkMode ? '#0B0D14' : '#F4F3EF'
+    document.body.style.background = darkMode ? '#0E141A' : '#F4F3EF'
     try { localStorage.setItem('ef_dark_mode', String(darkMode)) } catch(e) {}
   }, [darkMode])
 

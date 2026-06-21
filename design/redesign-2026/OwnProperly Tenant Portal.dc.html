@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{ --brand:#2D6FA8; --brandSoft:#E7F0F7; --bg:#F4F3EF; --surface:#FFFFFF; --border:#E4E1D9; --text:#1C2830; --muted:#5C6670; --faint:#8A8E92; --paid:#1F9D63; --paidBg:#E8F4EC; --shadow:0 1px 2px rgba(28,40,48,0.06); }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<div style="background:var(--bg); min-height:100vh; font-family:'Schibsted Grotesk',sans-serif; color:var(--text);">
+
+  <!-- branded header -->
+  <div style="background:var(--brand); color:#fff;">
+    <div style="max-width:760px; margin:0 auto; padding:0 24px;">
+      <div style="height:60px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:11px;">
+          <div style="width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px;">N</div>
+          <div style="font-size:16px; font-weight:600;">Northgate Lettings</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px;">
+          <span style="font-family:'DM Mono',monospace; font-size:11px; color:rgba(255,255,255,0.7);">tenant portal</span>
+          <div style="width:30px; height:30px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;">SC</div>
+        </div>
+      </div>
+      <!-- tabs -->
+      <div style="display:flex; gap:2px;">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+          <div style="font-size:13px; font-weight:{{ t.weight }}; color:{{ t.color }}; padding:11px 15px; border-bottom:2px solid {{ t.border }}; cursor:pointer;">{{ t.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:760px; margin:0 auto; padding:28px 24px 64px;">
+
+    <div style="margin-bottom:24px;">
+      <h1 style="font-size:26px; font-weight:700; letter-spacing:-0.02em; margin:0 0 5px;">Hello, Sarah</h1>
+      <div style="font-size:14px; color:var(--muted);">14 Northgate Road, London SW6 4QP</div>
+    </div>
+
+    <!-- next payment -->
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px 24px; margin-bottom:16px; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+      <div>
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); margin-bottom:8px;">Next payment due</div>
+        <div style="display:flex; align-items:baseline; gap:10px;">
+          <span style="font-family:'DM Mono',monospace; font-size:30px; font-weight:500; letter-spacing:-0.02em;">£1,250</span>
+          <span style="font-family:'DM Mono',monospace; font-size:13px; color:var(--muted);">on 1 July</span>
+        </div>
+        <span style="display:inline-flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; color:var(--paid); background:var(--paidBg); padding:4px 10px; border-radius:6px; margin-top:12px;"><span style="width:7px;height:7px;border-radius:2px;background:var(--paid);"></span>June paid · on time</span>
+      </div>
+      <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:14px; font-weight:700; padding:12px 22px; border-radius:10px; border:none; background:var(--brand); color:#fff; cursor:pointer;">Set up standing order</button>
+    </div>
+
+    <!-- quick actions -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; cursor:pointer; box-shadow:var(--shadow); display:flex; align-items:center; gap:14px;">
+        <span style="width:24px; height:24px; color:var(--brand); flex-shrink:0;" dangerouslySetInnerHTML="{{ wrenchIcon }}"></span>
+        <div><div style="font-size:14px; font-weight:600;">Report a repair</div><div style="font-size:12px; color:var(--muted); margin-top:2px;">Add photos · tracked to completion</div></div>
+      </div>
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; cursor:pointer; box-shadow:var(--shadow); display:flex; align-items:center; gap:14px;">
+        <span style="width:24px; height:24px; color:var(--brand); flex-shrink:0;" dangerouslySetInnerHTML="{{ chatIcon }}"></span>
+        <div><div style="font-size:14px; font-weight:600;">Message landlord</div><div style="font-size:12px; color:var(--muted); margin-top:2px;">Usually replies within a day</div></div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <!-- payment history -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; box-shadow:var(--shadow);">
+        <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:16px;">Recent payments</div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <sc-for list="{{ payments }}" as="p" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <div style="font-size:13px; font-weight:500;">{{ p.month }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:10px; color:var(--faint);">{{ p.date }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-family:'DM Mono',monospace; font-size:13px;">{{ p.amount }}</span>
+                <span style="width:8px; height:8px; border-radius:2px; background:var(--paid);"></span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- documents -->
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; box-shadow:var(--shadow);">
+        <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:16px;">Your documents</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <sc-for list="{{ docs }}" as="d" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:11px; padding:10px 12px; background:var(--bg); border-radius:10px; cursor:pointer;">
+              <span style="width:18px; height:18px; color:var(--muted); flex-shrink:0;" dangerouslySetInnerHTML="{{ docIcon }}"></span>
+              <span style="font-size:13px; flex:1;">{{ d }}</span>
+              <span style="width:16px; height:16px; color:var(--brand);" dangerouslySetInnerHTML="{{ dlIcon }}"></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center; font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:36px;">Powered by <span style="color:var(--muted);">OwnProperly</span> · northgate.ownproperly.com</div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:760,&quot;height&quot;:820}}">
+class Component extends DCLogic {
+  renderVals(){
+    const tabs=['Home','Payments','Repairs','Documents','Messages'].map((label,i)=>({
+      label, weight:i===0?700:500,
+      color:i===0?'#fff':'rgba(255,255,255,0.7)',
+      border:i===0?'#fff':'transparent',
+    }));
+    return {
+      tabs,
+      wrenchIcon:{__html:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4a5 5 0 0 0-5 6l-6 6 3 3 6-6a5 5 0 0 0 6-5l-3 3-3-1-1-3z"/></svg>'},
+      chatIcon:{__html:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-5.3A8 8 0 1 1 21 12z"/></svg>'},
+      docIcon:{__html:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>'},
+      dlIcon:{__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>'},
+      payments:[
+        {month:'June 2026',date:'Paid 1 Jun',amount:'£1,250'},
+        {month:'May 2026',date:'Paid 1 May',amount:'£1,250'},
+        {month:'April 2026',date:'Paid 2 Apr',amount:'£1,250'},
+        {month:'March 2026',date:'Paid 1 Mar',amount:'£1,250'},
+      ],
+      docs:['Tenancy agreement (AST)','Gas Safety Certificate','How to Rent guide','EPC · band C'],
+    };
+  }
+}
+</script>
+</body>
+</html>

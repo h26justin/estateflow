@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#F4F3EF; --surface:#FFFFFF; --card:#FAF9F6; --border:#E4E1D9;
+      --text:#1C2830; --muted:#5C6670; --faint:#8A8E92; --gold:#B8902F;
+      --paid:#1F9D63; --missed:#C5483B; --late:#C77E1E;
+      --tax:#3F77C2; --perf:#1F9D63; --fin:#B8902F; --comp:#8255A8; --maint:#C77E1E;
+      --shadow:0 1px 2px rgba(28,40,48,0.06); --shadowMd:0 10px 30px rgba(28,40,48,0.10);
+    }
+    [data-theme="dark"]{
+      --bg:#0E141A; --surface:#151D25; --card:#1B242D; --border:#28333D;
+      --text:#E8E5DD; --muted:#9AA6B0; --faint:#6E7681; --gold:#CBA64E;
+      --paid:#34C281; --missed:#E06A5E; --late:#E2A24A;
+      --tax:#5B9BD8; --perf:#34C281; --fin:#CBA64E; --comp:#A87FD0; --maint:#E2A24A;
+      --shadow:0 1px 2px rgba(0,0,0,0.3); --shadowMd:0 10px 30px rgba(0,0,0,0.4);
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="background:var(--bg); min-height:100vh; font-family:'Schibsted Grotesk',sans-serif; color:var(--text); display:flex;">
+
+  <!-- ===== LEFT RAIL ===== -->
+  <div style="width:{{ railW }}; flex:0 0 {{ railW }}; position:sticky; top:0; height:100vh; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden;">
+    <div style="height:62px; display:flex; align-items:center; gap:11px; padding:0 18px; border-bottom:1px solid var(--border);">
+      <div style="width:32px; height:32px; border-radius:9px; background:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <span style="font-weight:700; font-size:18px; letter-spacing:-0.04em; color:var(--bg);">P<span style="color:var(--gold);">.</span></span>
+      </div>
+      <div style="font-size:18px; letter-spacing:-0.02em; white-space:nowrap; opacity:{{ labelOpacity }};"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></div>
+    </div>
+    <div style="flex:1; padding:14px 12px; display:flex; flex-direction:column; gap:3px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="6">
+        <div title="{{ n.label }}" style="display:flex; align-items:center; gap:13px; padding:10px 11px; border-radius:10px; cursor:pointer; background:{{ n.bg }}; color:{{ n.color }}; white-space:nowrap;">
+          <span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;" dangerouslySetInnerHTML="{{ n.icon }}"></span>
+          <span style="font-size:14px; font-weight:{{ n.weight }}; opacity:{{ labelOpacity }};">{{ n.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:12px; border-top:1px solid var(--border);">
+      <div onClick="{{ toggleRail }}" title="Collapse menu" style="display:flex; align-items:center; gap:13px; padding:9px 11px; border-radius:10px; cursor:pointer; color:var(--faint); white-space:nowrap;">
+        <span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;" dangerouslySetInnerHTML="{{ collapseIcon }}"></span>
+        <span style="font-size:13px; opacity:{{ labelOpacity }};">Collapse</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN COLUMN ===== -->
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <div style="position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--border); height:62px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0 28px;">
+      <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.06em; color:var(--faint); white-space:nowrap;">{{ crumb }}</div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onClick="{{ toggle }}" style="font-family:'DM Mono',monospace; font-size:11px; font-weight:500; padding:7px 14px; border-radius:999px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer;">{{ toggleLabel }}</button>
+        <div style="width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff;">JD</div>
+      </div>
+    </div>
+
+    <div style="max-width:1280px; margin:0 auto; width:100%; padding:32px 28px 80px;">
+
+      <!-- ===================== CATALOGUE VIEW ===================== -->
+      <sc-if value="{{ showCatalogue }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="margin-bottom:24px;">
+            <h1 style="font-size:30px; font-weight:700; letter-spacing:-0.03em; margin:0 0 6px;">Reports</h1>
+            <div style="font-size:15px; color:var(--muted);">16 reports · every one exports to CSV &amp; PDF for your accountant</div>
+          </div>
+
+          <!-- controls -->
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6">
+                <div onClick="{{ f.onClick }}" style="font-family:'DM Mono',monospace; font-size:12px; padding:7px 14px; border-radius:999px; cursor:pointer; border:1px solid {{ f.border }}; background:{{ f.bg }}; color:{{ f.color }}; font-weight:{{ f.weight }};">{{ f.label }}</div>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <div style="display:flex; align-items:center; gap:7px; border:1px solid var(--border); border-radius:10px; padding:8px 13px; background:var(--surface); cursor:pointer;">
+                <span style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint);">Company</span>
+                <span style="font-size:13px; font-weight:600;">All</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:7px; border:1px solid var(--border); border-radius:10px; padding:8px 13px; background:var(--surface); cursor:pointer;">
+                <span style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint);">Period</span>
+                <span style="font-size:13px; font-weight:600;">2025/26 tax year</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- category groups -->
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+            <div style="margin-bottom:30px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <span style="width:9px; height:9px; border-radius:3px; background:{{ g.color }};"></span>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted);">{{ g.label }}</span>
+                <span style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint);">{{ g.count }}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px;">
+                <sc-for list="{{ g.reports }}" as="r" hint-placeholder-count="3">
+                  <div onClick="{{ r.onClick }}" style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 18px 18px 16px; display:flex; gap:14px; cursor:pointer; box-shadow:var(--shadow); border-left:3px solid {{ r.color }};">
+                    <span style="width:30px; height:30px; flex-shrink:0; color:{{ r.color }}; display:flex; align-items:flex-start; justify-content:center; margin-top:2px;" dangerouslySetInnerHTML="{{ r.icon }}"></span>
+                    <div style="min-width:0;">
+                      <div style="font-size:14px; font-weight:600; margin-bottom:4px;">{{ r.name }}</div>
+                      <div style="font-size:12px; line-height:1.45; color:var(--muted);">{{ r.desc }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- ===================== P&L REPORT VIEW ===================== -->
+      <sc-if value="{{ showReport }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <!-- back + title -->
+          <div onClick="{{ backToCatalogue }}" style="display:inline-flex; align-items:center; gap:7px; white-space:nowrap; font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); cursor:pointer; margin-bottom:16px;">
+            <span style="font-size:15px;">←</span> All reports
+          </div>
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:26px;">
+            <div>
+              <h1 style="font-size:28px; font-weight:700; letter-spacing:-0.03em; margin:0 0 6px;">Annual P&amp;L</h1>
+              <div style="font-size:14px; color:var(--muted);">All companies · 2025/26 tax year · collected basis</div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:13px; font-weight:600; padding:9px 16px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer;">Export CSV</button>
+              <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:13px; font-weight:700; padding:9px 16px; border-radius:10px; border:none; background:var(--gold); color:#1C2830; cursor:pointer;">Export PDF</button>
+            </div>
+          </div>
+
+          <!-- summary tiles -->
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;">
+            <sc-for list="{{ pnlTiles }}" as="t" hint-placeholder-count="4">
+              <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow);">
+                <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); margin-bottom:10px;">{{ t.label }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; letter-spacing:-0.02em; color:{{ t.color }};">{{ t.value }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:6px;">{{ t.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- net profit by property bars -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px 26px; margin-bottom:20px; box-shadow:var(--shadow);">
+            <div style="font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:20px;">Net profit by property</div>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <sc-for list="{{ bars }}" as="b" hint-placeholder-count="5">
+                <div style="display:flex; align-items:center; gap:16px;">
+                  <div style="flex:0 0 150px; font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ b.name }}</div>
+                  <div style="flex:1; height:22px; background:var(--card); border-radius:6px; overflow:hidden; position:relative;">
+                    <div style="height:100%; width:{{ b.pct }}; background:{{ b.color }}; border-radius:6px;"></div>
+                  </div>
+                  <div style="flex:0 0 90px; text-align:right; font-family:'DM Mono',monospace; font-size:13px; font-weight:500; color:{{ b.color }};">{{ b.value }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- per-property table -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow);">
+            <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr 1fr 0.8fr; gap:8px; padding:14px 22px; background:var(--card); border-bottom:1px solid var(--border);">
+              <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6">
+                <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); text-align:{{ c.align }};">{{ c.label }}</div>
+              </sc-for>
+            </div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+              <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr 1fr 0.8fr; gap:8px; padding:15px 22px; border-bottom:1px solid var(--border); align-items:center;">
+                <div>
+                  <div style="font-size:13px; font-weight:600;">{{ r.name }}</div>
+                  <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:2px;">{{ r.company }}</div>
+                </div>
+                <div style="font-family:'DM Mono',monospace; font-size:13px; text-align:right; color:var(--text);">{{ r.income }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:13px; text-align:right; color:var(--muted);">{{ r.expenses }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:13px; text-align:right; color:var(--muted);">{{ r.interest }}</div>
+                <div style="font-family:'DM Mono',monospace; font-size:13px; text-align:right; font-weight:500; color:{{ r.netColor }};">{{ r.net }}</div>
+                <div style="text-align:right;"><span style="font-family:'DM Mono',monospace; font-size:11px; color:{{ r.netColor }}; background:{{ r.marginBg }}; padding:3px 8px; border-radius:6px;">{{ r.margin }}</span></div>
+              </div>
+            </sc-for>
+            <!-- totals -->
+            <div style="display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr 1fr 0.8fr; gap:8px; padding:16px 22px; background:var(--card); align-items:center;">
+              <div style="font-size:13px; font-weight:700;">Portfolio total</div>
+              <div style="font-family:'DM Mono',monospace; font-size:13px; font-weight:500; text-align:right;">{{ totals.income }}</div>
+              <div style="font-family:'DM Mono',monospace; font-size:13px; font-weight:500; text-align:right; color:var(--muted);">{{ totals.expenses }}</div>
+              <div style="font-family:'DM Mono',monospace; font-size:13px; font-weight:500; text-align:right; color:var(--muted);">{{ totals.interest }}</div>
+              <div style="font-family:'DM Mono',monospace; font-size:13px; font-weight:700; text-align:right; color:var(--paid);">{{ totals.net }}</div>
+              <div style="text-align:right; font-family:'DM Mono',monospace; font-size:12px; font-weight:600; color:var(--paid);">{{ totals.margin }}</div>
+            </div>
+          </div>
+
+          <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:14px;">Section 24: mortgage interest shown separately — relief applied as a 20% tax credit, not a deduction.</div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { dark:false, railCollapsed:false, openReport:null, filter:'all' };
+
+  icon(name) {
+    const s = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">';
+    const p = {
+      portfolio:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      rent:'<path d="M3 7h18M3 7l2-3h14l2 3M5 7v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M12 11v5M9.5 12.5h4a1.2 1.2 0 0 1 0 2.4h-3a1.2 1.2 0 0 0 0 2.4h4"/>',
+      compliance:'<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+      deals:'<path d="M3 17l5-5 4 3 8-8"/><path d="M16 4h4v4"/>',
+      reports:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+      settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+      collapse:'<path d="M15 6l-6 6 6 6"/><path d="M20 6l-6 6 6 6"/>',
+      expand:'<path d="M9 6l6 6-6 6"/><path d="M4 6l6 6-6 6"/>',
+      // report icons
+      pnl:'<path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-7"/>',
+      sched:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h2M11 13h2M15 13h2M7 17h2M11 17h2"/>',
+      receipt:'<path d="M5 3v18l2-1.5L9 21l2-1.5L13 21l2-1.5L17 21l2-1.5V3l-2 1.5L15 3l-2 1.5L11 3 9 4.5 7 3z"/><path d="M8 8h8M8 12h8"/>',
+      bank:'<path d="M3 9l9-5 9 5M5 9v9M19 9v9M9 9v9M15 9v9M3 19h18"/>',
+      growth:'<path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/>',
+      trophy:'<path d="M7 4h10v4a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M9 18h6M10 14h4l1 4H9z"/>',
+      house:'<path d="M3 11l9-7 9 7M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/>',
+      coins:'<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3M3 12v5c0 1.7 2.7 3 6 3"/><circle cx="16" cy="15" r="5"/>',
+      cashflow:'<path d="M3 6h13l-3-3M21 18H8l3 3M5 11h6M5 14h4"/>',
+      build:'<path d="M3 21V8l7-4 7 4v13M3 21h18M9 21v-5h4v5M7 11h.01M13 11h.01"/>',
+      list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+      warn:'<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
+      check:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+      doc:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
+      wrench:'<path d="M15 4a5 5 0 0 0-5 6l-6 6 3 3 6-6a5 5 0 0 0 6-5l-3 3-3-1-1-3z"/>',
+      hardhat:'<path d="M3 18a9 9 0 0 1 18 0M3 18h18M9 10V6a3 3 0 0 1 6 0v4M12 3v3"/>',
+    };
+    return { __html: s + (p[name]||'') + '</svg>' };
+  }
+
+  fmt(n){ const neg=n<0; return (neg?'-£':'£')+Math.abs(Math.round(n)).toLocaleString('en-GB'); }
+
+  catalogue() {
+    return [
+      ['tax','pnl','Annual P&L','Collected rent vs expenses, net profit per property — HMRC-ready'],
+      ['tax','sched','Rental income schedule','Month-by-month rent received — ideal for SA105'],
+      ['tax','receipt','Expense breakdown','All expenses by category, ready for your accountant'],
+      ['tax','bank','Mortgage interest summary','Total interest paid per property — Section 24 tax credit'],
+      ['tax','growth','Capital gains summary','Purchase cost vs current value, unrealised gain per property'],
+      ['performance','trophy','Yield comparison','Gross and net yield ranked across all properties'],
+      ['performance','house','Occupancy rate','Portfolio occupancy %, vacant days, void cost by property'],
+      ['performance','coins','Rent collection rate','% collected on time, late and missed payments by property'],
+      ['finance','cashflow','Monthly cash flow','Real monthly rent in, all costs out, net cash month-by-month'],
+      ['finance','build','Equity report','Property values, debt, equity, LTV and unrealised gain'],
+      ['finance','list','Mortgage portfolio','All mortgages, rates, terms, monthly payments and LTV ratios'],
+      ['finance','warn','Arrears report','Outstanding rent by property, amount and days overdue'],
+      ['compliance','check','Compliance status','All certificates — expired, expiring soon, valid (RAG)'],
+      ['compliance','doc','Tenancy schedule','All tenancies, start/end dates, notice periods, renewals'],
+      ['maintenance','wrench','Maintenance overview','Open jobs, total spend by property and trade'],
+      ['maintenance','hardhat','Contractor spend','Total paid to each contractor, job counts, average cost'],
+    ];
+  }
+
+  pnlData() {
+    // name, company, income, runningCosts (mgmt+maint+ins+other), mortgageInterest
+    return [
+      ['14 Northgate Road','Northgate Lettings', 15000, 2400, 4200],
+      ['22a Mill Street','Northgate Lettings', 11760, 1900, 3100],
+      ['8 Harbour Court','Northgate Lettings', 13500, 3600, 5400],
+      ['5 Quay Apartments','Harbour View', 13200, 1700, 3800],
+      ['31 Esplanade','Harbour View', 16200, 2100, 4600],
+    ];
+  }
+
+  renderVals() {
+    const dark = this.state.dark, collapsed = this.state.railCollapsed;
+    const open = this.state.openReport;
+
+    const navDefs = [
+      ['Portfolio','portfolio',false],['Rent','rent',false],['Compliance','compliance',false],
+      ['Deals','deals',false],['Reports','reports',true],['Settings','settings',false],
+    ];
+    const nav = navDefs.map(([label,ic,active])=>({
+      label, icon:this.icon(ic), weight:active?700:500,
+      color:active?'var(--text)':'var(--muted)', bg:active?'var(--card)':'transparent',
+    }));
+
+    const catColor = { tax:'var(--tax)', performance:'var(--perf)', finance:'var(--fin)', compliance:'var(--comp)', maintenance:'var(--maint)' };
+    const catLabel = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' };
+    const order = ['tax','performance','finance','compliance','maintenance'];
+
+    const all = this.catalogue();
+    const filt = this.state.filter;
+    const visible = filt==='all' ? all : all.filter(r=>r[0]===filt);
+
+    const groups = order.filter(cat => filt==='all'||filt===cat).map(cat => {
+      const reps = visible.filter(r=>r[0]===cat).map(([c,ic,name,desc])=>({
+        name, desc, icon:this.icon(ic), color:catColor[cat],
+        onClick: () => this.setState({ openReport:'pnl' }),
+      }));
+      return { label:catLabel[cat], color:catColor[cat], count:reps.length+(reps.length===1?' report':' reports'), reports:reps };
+    }).filter(g=>g.reports.length);
+
+    const filters = [['all','All'],...order.map(c=>[c,catLabel[c].split(' ')[0]])].map(([k,label])=>{
+      const active = filt===k;
+      return {
+        label, onClick:()=>this.setState({filter:k}),
+        bg: active?'var(--text)':'transparent',
+        color: active?'var(--bg)':'var(--muted)',
+        border: active?'var(--text)':'var(--border)',
+        weight: active?600:400,
+      };
+    });
+
+    // ── P&L computations ──
+    const data = this.pnlData();
+    const computed = data.map(([name,company,income,costs,interest])=>{
+      const net = income - costs - interest;
+      return { name, company, income, costs, interest, net, margin: net/income };
+    });
+    const maxNet = Math.max(...computed.map(c=>c.net));
+    const bars = computed.map(c=>({
+      name:c.name, value:this.fmt(c.net),
+      pct: Math.round((c.net/maxNet)*100)+'%',
+      color: c.margin>=0.45 ? 'var(--paid)' : c.margin>=0.3 ? 'var(--gold)' : 'var(--late)',
+    }));
+    const rows = computed.map(c=>({
+      name:c.name, company:c.company,
+      income:this.fmt(c.income), expenses:this.fmt(c.costs), interest:this.fmt(c.interest),
+      net:this.fmt(c.net), netColor: c.net>=0?'var(--paid)':'var(--missed)',
+      margin: Math.round(c.margin*100)+'%',
+      marginBg: c.margin>=0.45 ? 'color-mix(in srgb, var(--paid) 14%, transparent)' : 'color-mix(in srgb, var(--gold) 16%, transparent)',
+    }));
+    const sum = computed.reduce((a,c)=>({income:a.income+c.income,costs:a.costs+c.costs,interest:a.interest+c.interest,net:a.net+c.net}),{income:0,costs:0,interest:0,net:0});
+    const totals = { income:this.fmt(sum.income), expenses:this.fmt(sum.costs), interest:this.fmt(sum.interest), net:this.fmt(sum.net), margin:Math.round(sum.net/sum.income*100)+'%' };
+    const pnlTiles = [
+      { label:'Rental income', value:this.fmt(sum.income), color:'var(--text)', note:'collected, 5 properties' },
+      { label:'Running costs', value:this.fmt(sum.costs), color:'var(--text)', note:'mgmt, maintenance, insurance' },
+      { label:'Mortgage interest', value:this.fmt(sum.interest), color:'var(--text)', note:'Section 24 — credit at 20%' },
+      { label:'Net profit', value:this.fmt(sum.net), color:'var(--paid)', note:Math.round(sum.net/sum.income*100)+'% net margin' },
+    ];
+    const cols = [
+      {label:'Property',align:'left'},{label:'Income',align:'right'},{label:'Costs',align:'right'},
+      {label:'Mtg interest',align:'right'},{label:'Net profit',align:'right'},{label:'Margin',align:'right'},
+    ];
+
+    return {
+      theme: dark?'dark':'light',
+      toggle: ()=>this.setState(s=>({dark:!s.dark})), toggleLabel: dark?'Light mode':'Dark mode',
+      toggleRail: ()=>this.setState(s=>({railCollapsed:!s.railCollapsed})),
+      railW: collapsed?'68px':'212px', labelOpacity: collapsed?0:1,
+      collapseIcon: collapsed?this.icon('expand'):this.icon('collapse'),
+      nav,
+      crumb: open ? 'Reports / Annual P&L' : 'Reports',
+      showCatalogue: !open, showReport: !!open,
+      backToCatalogue: ()=>this.setState({openReport:null}),
+      groups, filters,
+      pnlTiles, bars, rows, cols, totals,
+    };
+  }
+}
+</script>
+</body>
+</html>

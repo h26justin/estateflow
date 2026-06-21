@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700&family=DM+Mono:wght@500&display=swap">
+<style>
+  html,body{margin:0;height:100%;}
+  #stage{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;}
+  .w{font-family:'Schibsted Grotesk',sans-serif;letter-spacing:-0.03em;line-height:1;}
+  .t{font-family:'DM Mono',monospace;letter-spacing:0.26em;text-transform:uppercase;}
+  .mono{font-family:'Schibsted Grotesk',sans-serif;font-weight:700;letter-spacing:-0.05em;line-height:1;}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+const S = document.getElementById('stage');
+function wordmark(ink, gold){ return '<div class="w" style="font-size:120px;color:'+ink+'"><span style="font-weight:500">Own</span><span style="font-weight:700">Properly</span><span style="font-weight:700;color:'+gold+'">.</span></div>'; }
+function stacked(ink, gold, sub, rule){ return '<div style="text-align:left"><div class="w" style="font-size:96px;color:'+ink+'"><span style="font-weight:500">Own</span><span style="font-weight:700">Properly</span><span style="font-weight:700;color:'+gold+'">.</span></div><div style="height:1px;background:'+rule+';margin:18px 4px"></div><div class="t" style="font-size:20px;color:'+sub+'">Property portfolio software</div></div>'; }
+function monogram(tileBg, ink, gold, r){ return '<div style="width:360px;height:360px;border-radius:'+r+'px;background:'+tileBg+';display:flex;align-items:center;justify-content:center"><div class="mono" style="font-size:224px;color:'+ink+'">P<span style="color:'+gold+'">.</span></div></div>'; }
+
+const V = {
+  'wordmark-light':  ()=>{document.body.style.background='#F4F3EF'; S.innerHTML=wordmark('#1C2830','#B8902F');},
+  'wordmark-dark':   ()=>{document.body.style.background='#14202A'; S.innerHTML=wordmark('#F4F3EF','#CBA64E');},
+  'stacked-light':   ()=>{document.body.style.background='#F4F3EF'; S.innerHTML=stacked('#1C2830','#B8902F','#8A8E92','#D8D4CB');},
+  'stacked-dark':    ()=>{document.body.style.background='#14202A'; S.innerHTML=stacked('#F4F3EF','#CBA64E','#6E7A84','#2C3A44');},
+  'monogram-light':  ()=>{document.body.style.background='#E7E5DF'; S.innerHTML=monogram('#F4F3EF','#1C2830','#B8902F',80);},
+  'monogram-dark':   ()=>{document.body.style.background='#E7E5DF'; S.innerHTML=monogram('#14202A','#F4F3EF','#CBA64E',80);},
+  'favicon':         ()=>{document.body.style.background='#FFFFFF'; S.innerHTML=monogram('#14202A','#F4F3EF','#CBA64E',72);},
+};
+window.showVariant = (k)=>V[k]();
+showVariant('wordmark-light');
+</script>
+</body>
+</html>

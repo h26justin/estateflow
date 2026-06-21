@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    :root{
+      --bg:#F4F3EF; --surface:#FFFFFF; --card:#FAF9F6; --border:#E4E1D9;
+      --text:#1C2830; --muted:#5C6670; --faint:#8A8E92; --gold:#B8902F;
+      --paid:#1F9D63; --missed:#C5483B; --late:#C77E1E; --refurb:#2D6FA8; --void:#9AA0A6;
+      --cellText:#FFFFFF; --futureBg:repeating-linear-gradient(45deg,#F1F0EC,#F1F0EC 4px,#E7E5DE 4px,#E7E5DE 8px); --futureBorder:#D6D2C8; --futureText:#A8A59D;
+      --paidBg:#E8F4EC; --missedBg:#FAEAE8; --lateBg:#FBF1E2; --shadow:0 1px 2px rgba(28,40,48,0.06); --shadowMd:0 10px 30px rgba(28,40,48,0.10);
+    }
+    [data-theme="dark"]{
+      --bg:#0E141A; --surface:#151D25; --card:#1B242D; --border:#28333D;
+      --text:#E8E5DD; --muted:#9AA6B0; --faint:#6E7681; --gold:#CBA64E;
+      --paid:#34C281; --missed:#E06A5E; --late:#E2A24A; --refurb:#5B9BD8; --void:#3A444C;
+      --cellText:#0E141A; --futureBg:repeating-linear-gradient(45deg,#161E26,#161E26 4px,#1B242D 4px,#1B242D 8px); --futureBorder:#28333D; --futureText:#5E6772;
+      --paidBg:#13241D; --missedBg:#2A1A18; --lateBg:#2A2113; --shadow:0 1px 2px rgba(0,0,0,0.3); --shadowMd:0 10px 30px rgba(0,0,0,0.4);
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; }
+  </style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="background:var(--bg); min-height:100vh; font-family:'Schibsted Grotesk',sans-serif; color:var(--text); transition:background 0.2s; display:flex;">
+
+  <!-- ===== LEFT RAIL ===== -->
+  <div style="width:{{ railW }}; flex:0 0 {{ railW }}; position:sticky; top:0; height:100vh; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden;">
+    <!-- brand + collapse -->
+    <div style="height:62px; display:flex; align-items:center; gap:11px; padding:0 18px; border-bottom:1px solid var(--border);">
+      <div style="width:32px; height:32px; border-radius:9px; background:var(--text); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <span style="font-weight:700; font-size:18px; letter-spacing:-0.04em; color:var(--bg);">P<span style="color:var(--gold);">.</span></span>
+      </div>
+      <div style="font-size:18px; letter-spacing:-0.02em; white-space:nowrap; opacity:{{ labelOpacity }}; transition:opacity 0.15s;"><span style="font-weight:500;">Own</span><span style="font-weight:700;">Properly</span></div>
+    </div>
+    <!-- nav items -->
+    <div style="flex:1; padding:14px 12px; display:flex; flex-direction:column; gap:3px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="6">
+        <div title="{{ n.label }}" style="display:flex; align-items:center; gap:13px; padding:10px 11px; border-radius:10px; cursor:pointer; background:{{ n.bg }}; color:{{ n.color }}; white-space:nowrap;">
+          <span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;" dangerouslySetInnerHTML="{{ n.icon }}"></span>
+          <span style="font-size:14px; font-weight:{{ n.weight }}; opacity:{{ labelOpacity }}; transition:opacity 0.15s;">{{ n.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <!-- collapse toggle -->
+    <div style="padding:12px; border-top:1px solid var(--border);">
+      <div onClick="{{ toggleRail }}" title="Collapse menu" style="display:flex; align-items:center; gap:13px; padding:9px 11px; border-radius:10px; cursor:pointer; color:var(--faint); white-space:nowrap;">
+        <span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;" dangerouslySetInnerHTML="{{ collapseIcon }}"></span>
+        <span style="font-size:13px; opacity:{{ labelOpacity }}; transition:opacity 0.15s;">Collapse</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN COLUMN ===== -->
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+    <!-- top strip: page context + account -->
+    <div style="position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--border); height:62px; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:0 28px;">
+      <div style="font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.06em; color:var(--faint);">Portfolio / <span style="color:var(--text);">Rent</span></div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onClick="{{ toggle }}" style="font-family:'DM Mono',monospace; font-size:11px; font-weight:500; padding:7px 14px; border-radius:999px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer;">{{ toggleLabel }}</button>
+        <div style="width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff;">JD</div>
+      </div>
+    </div>
+
+  <div style="max-width:1280px; margin:0 auto; width:100%; padding:32px 28px 80px;">
+
+    <!-- ===== PAGE HEADER ===== -->
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:26px;">
+      <div>
+        <h1 style="font-size:30px; font-weight:700; letter-spacing:-0.03em; margin:0 0 6px;">Rent tracker</h1>
+        <div style="font-size:15px; color:var(--muted);">5 properties · 2 portfolios · tax year 2025/26</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div style="display:flex; gap:5px; background:var(--card); border:1px solid var(--border); border-radius:999px; padding:3px;">
+          <sc-for list="{{ years }}" as="y" hint-placeholder-count="3">
+            <div style="font-family:'DM Mono',monospace; font-size:12px; padding:5px 14px; border-radius:999px; cursor:pointer; color:{{ y.color }}; background:{{ y.bg }}; font-weight:{{ y.weight }};">{{ y.label }}</div>
+          </sc-for>
+        </div>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:13px; font-weight:600; padding:9px 16px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer;">Day view</button>
+        <button style="font-family:'Schibsted Grotesk',sans-serif; font-size:13px; font-weight:700; padding:9px 16px; border-radius:10px; border:none; background:var(--gold); color:#1C2830; cursor:pointer;">Plan rent review</button>
+      </div>
+    </div>
+
+    <!-- ===== PORTFOLIO SUMMARY ===== -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:14px;">
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow);">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); margin-bottom:10px;">Received · year to date</div>
+        <div style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; letter-spacing:-0.02em;">{{ sum.received }}</div>
+        <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--paid); margin-top:6px;">{{ sum.receivedNote }}</div>
+      </div>
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow);">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); margin-bottom:10px;">Expected · ytd</div>
+        <div style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; letter-spacing:-0.02em; color:var(--muted);">{{ sum.expected }}</div>
+        <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:6px;">{{ sum.expectedNote }}</div>
+      </div>
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow);">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); margin-bottom:10px;">In arrears</div>
+        <div style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; letter-spacing:-0.02em; color:var(--missed);">{{ sum.arrears }}</div>
+        <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--missed); margin-top:6px;">{{ sum.arrearsNote }}</div>
+      </div>
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow);">
+        <div style="font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); margin-bottom:10px;">Collection rate</div>
+        <div style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; letter-spacing:-0.02em; color:var(--gold);">{{ sum.rate }}</div>
+        <div style="height:6px; border-radius:999px; background:var(--border); margin-top:11px; overflow:hidden;"><div style="height:100%; width:{{ sum.rate }}; background:var(--gold); border-radius:999px;"></div></div>
+      </div>
+    </div>
+
+    <!-- legend -->
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; padding:0 2px;">
+      <sc-for list="{{ legend }}" as="l" hint-placeholder-count="5">
+        <span style="display:flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; color:var(--muted);"><span style="width:11px; height:11px; border-radius:3px; background:{{ l.color }};"></span>{{ l.label }}</span>
+      </sc-for>
+    </div>
+
+    <!-- ===== COMPANY SECTIONS ===== -->
+    <sc-for list="{{ companies }}" as="co" hint-placeholder-count="2">
+      <div style="margin-bottom:20px; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow);">
+        <!-- company header -->
+        <div style="display:flex; align-items:center; gap:14px; padding:16px 22px; background:var(--card); border-bottom:1px solid var(--border);">
+          <div style="width:4px; height:26px; border-radius:2px; background:{{ co.accent }};"></div>
+          <div style="flex:1;">
+            <div style="font-size:16px; font-weight:700; letter-spacing:-0.01em;">{{ co.name }}</div>
+            <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint); margin-top:2px;">{{ co.meta }}</div>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:8px; white-space:nowrap;">
+            <span style="font-family:'DM Mono',monospace; font-size:11px; color:var(--faint);">{{ co.rate }} collected ·</span>
+            <span style="font-family:'DM Mono',monospace; font-size:16px; font-weight:500; color:var(--gold);">{{ co.received }}</span>
+          </div>
+        </div>
+
+        <!-- property rows -->
+        <sc-for list="{{ co.props }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex; align-items:center; gap:20px; padding:16px 22px; border-bottom:1px solid var(--border); cursor:pointer;">
+            <!-- name + meta -->
+            <div style="flex:0 0 210px; min-width:210px;">
+              <div style="font-size:14px; font-weight:600; line-height:1.25; margin-bottom:4px;">{{ p.name }}</div>
+              <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--muted);">{{ p.meta }}</div>
+              <div style="margin-top:7px;">
+                <span style="display:inline-flex; align-items:center; gap:5px; font-family:'DM Mono',monospace; font-size:10px; color:{{ p.statusColor }}; background:{{ p.statusBg }}; padding:3px 8px; border-radius:6px;"><span style="width:6px; height:6px; border-radius:2px; background:{{ p.statusDot }};"></span>{{ p.statusLabel }}</span>
+              </div>
+            </div>
+            <!-- month cells -->
+            <div style="flex:1; display:grid; grid-template-columns:repeat(12,1fr); gap:4px;">
+              <sc-for list="{{ p.cells }}" as="c" hint-placeholder-count="12">
+                <div title="{{ c.title }}" style="{{ c.boxStyle }}">{{ c.m }}</div>
+              </sc-for>
+            </div>
+            <!-- right summary -->
+            <div style="flex:0 0 120px; text-align:right;">
+              <div style="font-family:'DM Mono',monospace; font-size:15px; font-weight:500; color:var(--text);">{{ p.received }}</div>
+              <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-top:2px;">{{ p.collected }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+
+  </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { dark: false, railCollapsed: false };
+
+  icon(name) {
+    const s = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">';
+    const paths = {
+      portfolio: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      rent: '<path d="M3 7h18M3 7l2-3h14l2 3M5 7v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7"/><path d="M12 11v5M9.5 12.5h4a1.2 1.2 0 0 1 0 2.4h-3a1.2 1.2 0 0 0 0 2.4h4"/>',
+      compliance: '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+      deals: '<path d="M3 17l5-5 4 3 8-8"/><path d="M16 4h4v4"/>',
+      reports: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+      settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+      collapse: '<path d="M15 6l-6 6 6 6"/><path d="M20 6l-6 6 6 6"/>',
+      expand: '<path d="M9 6l6 6-6 6"/><path d="M4 6l6 6-6 6"/>',
+    };
+    return { __html: s + (paths[name] || '') + '</svg>' };
+  }
+
+  fmt(n) { return '£' + Math.round(n).toLocaleString('en-GB'); }
+
+  // status → css var color
+  col(s) {
+    return { paid: 'var(--paid)', late: 'var(--late)', missed: 'var(--missed)', refurb: 'var(--refurb)', void: 'var(--void)' }[s];
+  }
+
+  cellFor(month, status, isCurrent, isFuture) {
+    const base = 'height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:\'DM Mono\',monospace;font-size:11px;font-weight:500;min-width:0;';
+    if (isFuture) {
+      return { m: month, title: month + ': upcoming', boxStyle: base + 'background:var(--futureBg);border:1px dashed var(--futureBorder);color:var(--futureText);' };
+    }
+    if (isCurrent) {
+      const c = this.col(status);
+      return { m: month, title: month + ': ' + status + ' (this month)', boxStyle: base + 'background:transparent;border:2px solid var(--gold);color:var(--gold);font-weight:600;' };
+    }
+    if (status === 'void') {
+      return { m: month, title: month + ': void', boxStyle: base + 'background:var(--card);border:1px solid var(--border);color:var(--void);' };
+    }
+    return { m: month, title: month + ': ' + status, boxStyle: base + 'background:' + this.col(status) + ';color:var(--cellText);border:1px solid transparent;' };
+  }
+
+  buildCells(sched) {
+    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const current = 6; // Jul is the live month
+    return M.map((m, i) => this.cellFor(m, sched[i] || 'future', i === current, i > current));
+  }
+
+  statusChip(s) {
+    const map = {
+      occupied: { statusLabel: 'Occupied', statusColor: 'var(--paid)', statusBg: 'var(--paidBg)', statusDot: 'var(--paid)' },
+      arrears:  { statusLabel: 'In arrears', statusColor: 'var(--missed)', statusBg: 'var(--missedBg)', statusDot: 'var(--missed)' },
+      refurb:   { statusLabel: 'Recently let', statusColor: 'var(--refurb)', statusBg: 'var(--lateBg)', statusDot: 'var(--refurb)' },
+    };
+    return map[s] || map.occupied;
+  }
+
+  computeProp(name, meta, rent, sched, status) {
+    const done = sched.filter(s => s === 'paid' || s === 'late');
+    const dueMonths = sched.filter(s => s !== 'future' && s !== 'void' && s !== 'refurb').length || 1;
+    const received = done.length * rent;
+    const collectedPct = Math.round((sched.filter(s => s === 'paid' || s === 'late').length / dueMonths) * 100);
+    return {
+      name, meta: this.fmt(rent) + '/mo · due ' + meta,
+      cells: this.buildCells(sched),
+      received: this.fmt(received),
+      collected: done.length + '/' + dueMonths + ' months',
+      ...this.statusChip(status),
+    };
+  }
+
+  renderVals() {
+    const dark = this.state.dark;
+    // ── property schedules (Jul = current) ──
+    const A = [
+      this.computeProp('14 Northgate Road', '1st', 1250, ['paid','paid','paid','late','paid','paid','paid'], 'occupied'),
+      this.computeProp('22a Mill Street', '5th', 980, ['paid','paid','missed','missed','paid','paid','paid'], 'arrears'),
+      this.computeProp('8 Harbour Court', '28th', 1500, ['void','refurb','refurb','paid','paid','paid','paid'], 'refurb'),
+    ];
+    const B = [
+      this.computeProp('5 Quay Apartments', '15th', 1100, ['paid','paid','paid','paid','paid','paid','paid'], 'occupied'),
+      this.computeProp('31 Esplanade', '10th', 1350, ['paid','paid','paid','paid','late','missed','missed'], 'arrears'),
+    ];
+
+    const sumReceived = (props) => props.reduce((s,p)=>s+parseInt(p.received.replace(/[^0-9]/g,'')),0);
+    const aRec = sumReceived(A), bRec = sumReceived(B);
+
+    const companies = [
+      { name: 'Northgate Lettings Ltd', accent: 'var(--gold)', meta: '3 properties · SW6', props: A, received: this.fmt(aRec), rate: '88%', rateColor: 'var(--late)' },
+      { name: 'Harbour View Holdings', accent: 'var(--refurb)', meta: '2 properties · BN1', props: B, received: this.fmt(bRec), rate: '85%', rateColor: 'var(--late)' },
+    ];
+
+    const navDefs = [
+      ['Portfolio','portfolio',false],['Rent','rent',true],['Compliance','compliance',false],
+      ['Deals','deals',false],['Reports','reports',false],['Settings','settings',false],
+    ];
+    const nav = navDefs.map(([label,ic,active])=>({
+      label, icon: this.icon(ic),
+      weight: active ? 700 : 500,
+      color: active ? 'var(--text)' : 'var(--muted)',
+      bg: active ? 'var(--card)' : 'transparent',
+    }));
+
+    const collapsed = this.state.railCollapsed;
+
+    const years = [['All',false],['2024/25',false],['2025/26',true]].map(([label,active])=>({
+      label, weight: active?600:400,
+      color: active ? '#1C2830' : 'var(--muted)',
+      bg: active ? 'var(--gold)' : 'transparent',
+    }));
+
+    const legend = [
+      ['Paid','var(--paid)'],['Late','var(--late)'],['Missed','var(--missed)'],['Refurb','var(--refurb)'],['Void','var(--void)'],
+    ].map(([label,color])=>({label,color}));
+
+    return {
+      theme: dark ? 'dark' : 'light',
+      toggle: () => this.setState(s => ({ dark: !s.dark })),
+      toggleLabel: dark ? 'Light mode' : 'Dark mode',
+      toggleRail: () => this.setState(s => ({ railCollapsed: !s.railCollapsed })),
+      railW: collapsed ? '68px' : '212px',
+      labelOpacity: collapsed ? 0 : 1,
+      collapseIcon: collapsed ? this.icon('expand') : this.icon('collapse'),
+      nav, years, legend, companies,
+      sum: {
+        received: this.fmt(aRec + bRec),
+        receivedNote: '▲ on track',
+        expected: this.fmt((aRec+bRec) + 3310),
+        expectedNote: '7 months billed',
+        arrears: this.fmt(3310),
+        arrearsNote: '2 tenancies flagged',
+        rate: '87%',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
