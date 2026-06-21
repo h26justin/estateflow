@@ -3,18 +3,25 @@ import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
+import { Icon } from '../lib/icons'
 
 const mono = "'DM Mono',monospace"
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
 
 const STAGES = [
-  { key: 'vacant',       label: 'Vacant',       color: '#E05555', icon: '🏠' },
-  { key: 'advertising',  label: 'Advertising',  color: '#4B8FE0', icon: '📢' },
-  { key: 'viewings',     label: 'Viewings',     color: '#E0943A', icon: '👀' },
-  { key: 'referencing',  label: 'Referencing',  color: '#9B59B6', icon: '🔍' },
-  { key: 'contract',     label: 'Contract',     color: '#C8A84B', icon: '📝' },
-  { key: 'movein',       label: 'Move-in',      color: '#2ECC8A', icon: '🔑' },
+  { key: 'vacant',       label: 'Vacant',       color: '#E05555', icon: 'home' },
+  { key: 'advertising',  label: 'Advertising',  color: '#4B8FE0', icon: 'megaphone' },
+  { key: 'viewings',     label: 'Viewings',     color: '#E0943A', icon: 'eye' },
+  { key: 'referencing',  label: 'Referencing',  color: '#9B59B6', icon: 'search' },
+  { key: 'contract',     label: 'Contract',     color: '#C8A84B', icon: 'file-text' },
+  { key: 'movein',       label: 'Move-in',      color: '#2ECC8A', icon: 'key' },
 ]
+// Inline stage label with its icon (not for <option>, which can't hold SVG).
+const StageTag = ({ stage, size = 13 }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <Icon name={stage.icon} size={size} /> {stage.label}
+  </span>
+)
 
 const STAGE_NEXT = {
   vacant: 'advertising', advertising: 'viewings', viewings: 'referencing',
@@ -146,7 +153,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
         await api.archiveLettingsProgression(id)
         setLettings(prev => prev.filter(l => l.id !== id))
         setSelected(null)
-        showToast('🎉 Let agreed! Letting archived.')
+        showToast('Let agreed! Letting archived.')
       } catch(e) { showToast(e.message, 'error') }
     } else {
       await updateField(id, { stage: newStage })
@@ -254,7 +261,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
         <div style={{ textAlign: 'center', padding: 60, fontFamily: mono, color: T.muted, fontSize: 12 }}>Loading…</div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🏠</div>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom: 12 }}><Icon name="home" size={30} color={T.faint}/></div>
           <div style={{ fontFamily: mono, fontSize: 13, color: T.muted, marginBottom: 16 }}>
             {lettings.length === 0 ? 'No active lettings. Start tracking a property.' : 'No lettings in this stage.'}
           </div>
@@ -295,7 +302,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                       </div>
                     </div>
                     <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color, flexShrink: 0, marginLeft: 10 }}>
-                      {stage.icon} {stage.label}
+                      <StageTag stage={stage}/>
                     </span>
                   </div>
 
@@ -309,7 +316,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                       {progress}% checklist · {letting.stage === 'vacant' && days !== null ? `${days} days vacant` : letting.applicant_name ? `Applicant: ${letting.applicant_name}` : 'No applicant yet'}
                     </div>
                     {letting.stage === 'vacant' && days > 14 && (
-                      <span style={{ fontFamily: mono, fontSize: 10, color: '#E05555' }}>⚠ {days} days</span>
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily: mono, fontSize: 10, color: '#E05555' }}><Icon name="alert-triangle" size={11}/> {days} days</span>
                     )}
                   </div>
                 </div>
@@ -335,7 +342,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 3 }}>{propName}</div>
                       <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color }}>
-                        {stage.icon} {stage.label}
+                        <StageTag stage={stage}/>
                       </span>
                     </div>
                     <button onClick={() => setSelected(null)}
@@ -460,13 +467,13 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                     {nextStage && (
                       <button onClick={() => moveStage(selected.id, nextStageKey)}
                         style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: nextStage.color, color: '#fff', cursor: 'pointer', textAlign: 'left' }}>
-                        Move to {nextStage.icon} {nextStage.label} →
+                        Move to <StageTag stage={nextStage} size={12}/> →
                       </button>
                     )}
                     {selected.stage === 'movein' && (
                       <button onClick={() => moveStage(selected.id, null)}
                         style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#fff', cursor: 'pointer', textAlign: 'left' }}>
-                        🎉 Mark as let agreed — archive
+                        Mark as let agreed — archive
                       </button>
                     )}
                     {/* Move back */}
@@ -474,7 +481,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                       style={{ ...inp, fontSize: 11, color: T.muted }}>
                       <option value="">Move to different stage…</option>
                       {STAGES.filter(s => s.key !== selected.stage).map(s => (
-                        <option key={s.key} value={s.key}>{s.icon} {s.label}</option>
+                        <option key={s.key} value={s.key}>{s.label}</option>
                       ))}
                       <option value="withdrawn">↩ Mark as withdrawn</option>
                     </select>

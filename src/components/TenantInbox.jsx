@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
@@ -178,15 +179,15 @@ export default function TenantInbox({ user, companies, showToast, companySetting
           )}
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          {tabBtn('inbox',    '📬 Inbox',    totalUnread)}
-          {tabBtn('repairs',  '🔧 Repairs',  openJobs)}
-          {tabBtn('messages', '✉ Messages',  unreadMessages)}
+          {tabBtn('inbox',    'Inbox',    totalUnread)}
+          {tabBtn('repairs',  'Repairs',  openJobs)}
+          {tabBtn('messages', 'Messages',  unreadMessages)}
         </div>
       </div>
 
       {!hasAnything && (
         <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'32px 24px', textAlign:'center' }}>
-          <div style={{ fontSize:28, marginBottom:10 }}>📭</div>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:10, color:T.faint }}><Icon name="inbox" size={28}/></div>
           <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>No tenant messages or repair requests yet.</div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>When tenants submit repairs or send messages, they'll appear here.</div>
         </div>
@@ -274,14 +275,14 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
         onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold+'88'}
         onMouseLeave={e=>e.currentTarget.style.borderColor=isExpanded?T.gold:T.border}>
         <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-          <div style={{ width:36, height:36, borderRadius:8, background:T.red+'22', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>🔧</div>
+          <div style={{ width:36, height:36, borderRadius:8, background:T.red+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:T.red }}><Icon name="wrench" size={17}/></div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                 <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>Repair request</span>
                 <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:sc.bg, color:sc.color }}>{sc.label}</span>
                 {job.priority && job.priority !== 'normal' && (
-                  <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color }}>⚑ {pc.label}</span>
+                  <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color, display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="flag" size={10}/>{pc.label}</span>
                 )}
               </div>
               <span style={{ fontFamily:mono, fontSize:10, color:T.muted, flexShrink:0 }}>
@@ -357,7 +358,7 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
         onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold+'88'}
         onMouseLeave={e=>e.currentTarget.style.borderColor=isExpanded?T.gold:hasUnread?T.gold+'44':T.border}>
         <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-          <div style={{ width:36, height:36, borderRadius:8, background:T.gold+'22', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>✉</div>
+          <div style={{ width:36, height:36, borderRadius:8, background:T.gold+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:T.gold }}><Icon name="mail" size={17}/></div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>

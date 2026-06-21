@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
+import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
 const TYPE_ICON = {
-  compliance:     '📋',
-  rent:           '💰',
-  maintenance:    '🔧',
-  tenant_message: '💬',
-  system:         '📣',
-  backup:         '💾',
-  trial:          '⏳',
-  deal:           '🎯',
+  compliance:     'shield-check',
+  rent:           'pound',
+  maintenance:    'wrench',
+  tenant_message: 'message',
+  system:         'megaphone',
+  backup:         'download',
+  trial:          'clock',
+  deal:           'target',
 }
 
 function timeAgo(iso) {
@@ -121,7 +122,7 @@ export default function NotificationCentre() {
           height: 32, minWidth: 36,
           transition: 'border-color 0.15s, background 0.15s',
         }}>
-        <span aria-hidden="true">🔔</span>
+        <span aria-hidden="true" style={{display:'flex',color:T.text}}><Icon name="bell" size={17}/></span>
         {unread > 0 && (
           <span aria-hidden="true" style={{
             position: 'absolute', top: -4, right: -4,
@@ -173,7 +174,7 @@ export default function NotificationCentre() {
                 </div>
               ) : items.length === 0 ? (
                 <div style={{ padding: '36px 20px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, marginBottom: 10, opacity: 0.6 }}>🔕</div>
+                  <div style={{ display:'flex', justifyContent:'center', marginBottom: 10, color: T.faint }}><Icon name="bell-off" size={26}/></div>
                   <div style={{ fontFamily: mono, fontSize: 12, color: T.text, fontWeight: 600, marginBottom: 4 }}>You're all caught up</div>
                   <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, lineHeight: 1.5, maxWidth: 240, margin: '0 auto' }}>
                     Compliance reminders, rent activity and system updates will show up here.
@@ -197,8 +198,8 @@ export default function NotificationCentre() {
                       width: 30, height: 30, borderRadius: 8,
                       background: T.bg, border: `1px solid ${T.border}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 15, flexShrink: 0, marginTop: 1,
-                    }} aria-hidden="true">{TYPE_ICON[n.type] || '🔔'}</div>
+                      flexShrink: 0, marginTop: 1, color: T.muted,
+                    }} aria-hidden="true"><Icon name={TYPE_ICON[n.type] || 'bell'} size={16}/></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'space-between' }}>
                         <div style={{ fontSize: 13, fontWeight: !n.read_at ? 700 : 500, color: T.text, lineHeight: 1.35 }}>

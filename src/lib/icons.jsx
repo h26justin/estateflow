@@ -76,6 +76,13 @@ const PATHS = {
   'lock': '<rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   'id-card': '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><path d="M5.5 16a3 3 0 0 1 6 0M14 9.5h4M14 13h4"/>',
   'calculator': '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15v3M8 18h4"/>',
+  'megaphone': '<path d="M3 11v2a1 1 0 0 0 1 1h2l9 5V5L6 10H4a1 1 0 0 0-1 1z"/><path d="M18 8a4 4 0 0 1 0 8"/>',
+  'key': '<circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M17 17l2-2M15 19l2-2"/>',
+  'refresh': '<path d="M4 12a8 8 0 0 1 13.5-5.8L20 8M20 4v4h-4"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16M4 20v-4h4"/>',
+  'bell-off': '<path d="M18 9a6 6 0 0 0-9-5.2M6 9c0 5-2 6-2 6h11M4 4l16 16"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  'send': '<path d="M21 3 10.5 13.5M21 3l-7 18-4-7.5L2.5 10z"/>',
+  'pin': '<path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  'flag': '<path d="M5 21V4M5 4h11l-1.5 4L16 12H5"/>',
 }
 
 export function Icon({ name, size = 20, stroke = 1.7, color = 'currentColor', style, title, ...rest }) {
