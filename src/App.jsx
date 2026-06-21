@@ -4047,14 +4047,14 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           <button onClick={()=>setShowRentReview(true)}
             title="Plan rent review"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
-              border:`1px solid ${T.green}`,background:T.green+'22',color:T.green,whiteSpace:'nowrap'}}>
-            📈 {isMobile ? 'Review' : 'Plan rent review'}
+              border:`1px solid ${T.green}`,background:T.green+'22',color:T.green,whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:6}}>
+            <Icon name="trending-up" size={13}/> {isMobile ? 'Review' : 'Plan rent review'}
           </button>
           <button onClick={()=>setShowBankConnect(true)}
             title="Connect bank (early access)"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.blue}`,background:T.blue+'22',color:T.blue,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
-            🏦 {isMobile ? 'Bank' : 'Connect bank'}
+            <Icon name="landmark" size={13}/> {isMobile ? 'Bank' : 'Connect bank'}
             <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>SOON</span>
           </button>
           {/* Bank Inbox hidden while Open Banking integration is paused —
@@ -4075,14 +4075,40 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           <button onClick={onDayTracker}
             title="Day-by-day view"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
-              border:`1px solid ${'#C8A84B'}`,background:'#C8A84B22',color:'#C8A84B',whiteSpace:'nowrap'}}>
-            📅 {isMobile ? 'Day' : 'Day view'}
+              border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold,whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:6}}>
+            <Icon name="calendar" size={13}/> {isMobile ? 'Day' : 'Day view'}
           </button>
         </div>
       </div>
 
       {showBankConnect && <BankConnectionsModal onClose={()=>setShowBankConnect(false)}/>}
       {showBankInbox && <BankInboxModal onClose={()=>{setShowBankInbox(false); onRefresh?.()}} properties={properties} onMatched={onRefresh}/>}
+
+      {/* Portfolio rent summary tiles (respects the company filter + year) */}
+      {(() => {
+        const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
+        const visProps = visCos.flatMap(c => properties.filter(p => p.company_id===c.id && (p.rent_payments?.length>0 || isPropertyEarningRent(p.status))))
+        if (!visProps.length) return null
+        const agg = visProps.reduce((a,p)=>{ const s=getStats(p.rent_payments||[], globalYear, p.rent_pcm); a.paid+=s.paid; a.missed+=s.missed; a.late+=s.late; a.income+=s.income; return a }, {paid:0,missed:0,late:0,income:0})
+        const tracked = agg.paid + agg.missed + agg.late
+        const rate = tracked ? Math.round((agg.paid / tracked) * 100) : 0
+        const tiles = [
+          { label: globalYear ? `Collected · ${globalYear}` : 'Collected · all years', value: fmt(agg.income), accent: T.green },
+          { label: 'Collection rate', value: `${rate}%`, accent: rate>=95?T.green:rate>=85?T.amber:T.red },
+          { label: 'Months paid', value: agg.paid, accent: T.text },
+          { label: 'Missed / late', value: `${agg.missed} / ${agg.late}`, accent: (agg.missed>0)?T.red:T.amber },
+        ]
+        return (
+          <div className="summary-cards" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:isMobile?14:20}}>
+            {tiles.map(t=>(
+              <div key={t.label} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'16px 18px'}}>
+                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{t.label}</div>
+                <div style={{fontFamily:MONO,fontSize:20,fontWeight:500,color:t.accent,letterSpacing:'-0.01em'}}>{t.value}</div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Company filter pills (only render if there's more than one
           company to choose from — saves vertical space for solo landlords) */}
