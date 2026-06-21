@@ -85,6 +85,8 @@ const PATHS = {
   'flag': '<path d="M5 21V4M5 4h11l-1.5 4L16 12H5"/>',
   'list': '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
   'grid-2': '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+  'bed': '<path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/><path d="M3 15h18"/><path d="M3 18v2M21 18v2"/><path d="M7 10V8.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1V10"/>',
+  'door': '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12" r="0.8"/>',
 }
 
 export function Icon({ name, size = 20, stroke = 1.7, color = 'currentColor', style, title, ...rest }) {
