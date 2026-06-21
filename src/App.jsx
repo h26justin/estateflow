@@ -470,6 +470,55 @@ function PageLoadingSpinner({ T }) {
   )
 }
 
+// Shimmer skeleton primitive (redesign Loading state). Add the `.skeleton`
+// class (defined in the global CSS) plus a size.
+const Skeleton = ({ w = '100%', h = 14, r = 8, style }) =>
+  <div className="skeleton" style={{ width: w, height: h, borderRadius: r, ...style }} />
+
+// Dashboard loading state — greeting + health ring, 4 KPI tiles, two widget
+// columns — mirrors the real layout so the page doesn't jump on load.
+function DashboardSkeleton() {
+  const { T } = useTheme()
+  const tile = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
+  return (
+    <div aria-busy="true" aria-label="Loading">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+          <Skeleton w="240px" h={30} style={{ marginBottom: 10 }} />
+          <Skeleton w="320px" h={12} />
+        </div>
+        <Skeleton w={74} h={74} r="50%" />
+      </div>
+      <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
+        {[0,1,2,3].map(i => (
+          <div key={i} style={tile}>
+            <Skeleton w={34} h={34} r={9} style={{ marginBottom: 12 }} />
+            <Skeleton w="60%" h={10} style={{ marginBottom: 10 }} />
+            <Skeleton w="80%" h={20} />
+          </div>
+        ))}
+      </div>
+      <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {[0,1].map(col => (
+          <div key={col} style={tile}>
+            <Skeleton w="40%" h={12} style={{ marginBottom: 16 }} />
+            {[0,1,2,3].map(r => (
+              <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <Skeleton w={32} h={32} r={8} />
+                <div style={{ flex: 1 }}>
+                  <Skeleton w="70%" h={11} style={{ marginBottom: 6 }} />
+                  <Skeleton w="45%" h={9} />
+                </div>
+                <Skeleton w={54} h={12} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function PortfolioModellerWidget({ properties = [] }) {
   const { T } = useTheme()
   const [extraProps, setExtraProps] = useState(5)
@@ -785,6 +834,9 @@ export default function App() {
   .fade{animation:fadeIn 0.25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   @keyframes spin{to{transform:rotate(360deg)}}
+  .skeleton{position:relative;overflow:hidden;background:${T.card};border-radius:8px;}
+  .skeleton::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,${T.border}99,transparent);animation:shimmer 1.3s infinite;}
+  @keyframes shimmer{100%{transform:translateX(100%)}}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px);}
   .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
   .tab{font-family:${SANS};font-weight:500;font-size:13px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0;}
@@ -2268,7 +2320,7 @@ export default function App() {
         )
       })}
       <main style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%'}}>
-        {loading?<Spinner/>:<Suspense fallback={<PageLoadingSpinner T={T}/>}>
+        {loading?(view==='dashboard'?<DashboardSkeleton/>:<Spinner/>):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
             {/* Load failure — a transient Supabase/network error must never
