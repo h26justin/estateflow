@@ -1608,7 +1608,7 @@ export default function App() {
 
   const selected = properties.find(p=>p.id===selectedId)
 
-  function openDetail(p){setSelectedId(p.id);setDetailTab('overview');setView('detail')}
+  function openDetail(p, tab='overview'){setSelectedId(p.id);setDetailTab(tab);setView('detail')}
 
   async function handleSaveProp(formData){
     try{
@@ -2950,7 +2950,7 @@ export default function App() {
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
               </div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                {[['properties','building','Properties'],['companies','grid','Companies'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
+                {[['properties','building','Properties'],['companies','grid','Companies'],['compliance','shield-check','Compliance'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
                   <button key={k} onClick={()=>setPortfolioTab(k)}
                     style={{display:'inline-flex',alignItems:'center',gap:6,fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                       border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
@@ -2962,6 +2962,7 @@ export default function App() {
               </div>
             </div>
             {portfolioTab==='companies'&&<CompaniesPanel companies={companies} setCompanies={setCompanies} user={user} showToast={showToast} companySettings={companySettings} setCompanySettings={setCompanySettings} T={T}/>}
+            {portfolioTab==='compliance'&&<ComplianceMatrix properties={properties} companies={companies} openDetail={(p)=>openDetail(p,'compliance')}/>}
             {portfolioTab==='contractors'&&<ContractorsPage user={user} companies={companies} showToast={showToast}/>}
             {portfolioTab==='map'&&<>
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
@@ -3838,6 +3839,107 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
     </div>
   </div>
 }
+// ─── COMPLIANCE MATRIX ───────────────────────────────────────────────────────
+// Portfolio-wide certificate matrix (redesign): RAG summary tiles + a
+// needs-attention list + a properties × cert-type grid. Reads each property's
+// compliance_items (same data as the per-property Compliance tab).
+const CERT_COLS = [['gas','Gas'],['eicr','EICR'],['epc','EPC'],['hmo','HMO'],['fire','Fire'],['pat','PAT']]
+function complianceCell(p, key) {
+  const items = (p.compliance_items || []).filter(c => !c.deleted_at && c.cert_type === key && c.expiry_date)
+  if (!items.length) return { state: 'missing' }
+  const latest = items.reduce((a, b) => new Date(b.expiry_date).getTime() > new Date(a.expiry_date).getTime() ? b : a)
+  const days = Math.ceil((new Date(latest.expiry_date).getTime() - Date.now()) / 86400000)
+  if (Number.isNaN(days)) return { state: 'missing' }
+  if (days < 0) return { state: 'expired', days }
+  if (days <= 60) return { state: 'expiring', days }
+  return { state: 'valid', days }
+}
+function ComplianceMatrix({ properties, companies, openDetail }) {
+  const { T } = useTheme()
+  const active = (properties || []).filter(p => p.status !== 'sold' && !p.archived_at)
+  let expired = 0, expiring = 0, valid = 0
+  active.forEach(p => CERT_COLS.forEach(([k]) => { const c = complianceCell(p, k); if (c.state === 'expired') expired++; else if (c.state === 'expiring') expiring++; else if (c.state === 'valid') valid++ }))
+  const attention = active.map(p => ({ p, issues: CERT_COLS.map(([k, lbl]) => ({ lbl, ...complianceCell(p, k) })).filter(c => c.state === 'expired' || c.state === 'expiring') }))
+    .filter(x => x.issues.length)
+    .sort((a, b) => Math.min(...a.issues.map(i => i.days)) - Math.min(...b.issues.map(i => i.days)))
+  const tiles = [{ l: 'Expired', v: expired, c: T.red }, { l: 'Expiring soon', v: expiring, c: T.amber }, { l: 'Valid', v: valid, c: T.green }]
+  const cellPill = (c) => {
+    if (c.state === 'missing') return <span style={{ color: T.faint, fontFamily: MONO, fontSize: 12 }}>—</span>
+    const map = { expired: [T.red, 'Expired'], expiring: [T.amber, `${c.days}d`], valid: [T.green, 'Valid'] }
+    const [col, txt] = map[c.state]
+    return <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 8px', borderRadius: 999, background: col + '1A', color: col, fontFamily: MONO, fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap' }}>{txt}</span>
+  }
+  const GRID = 'minmax(150px,1.4fr) repeat(6, minmax(58px,1fr))'
+  if (!active.length) return <div style={{ fontFamily: MONO, color: T.muted, fontSize: 12, padding: 32, textAlign: 'center' }}>No properties to track compliance for yet.</div>
+  const ordered = [...companies, { id: null }].flatMap(co => active.filter(p => p.company_id === co.id).map(p => ({ ...p, _co: co })))
+  return (
+    <div className="fade">
+      {/* RAG summary tiles */}
+      <div className="summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 18 }}>
+        {tiles.map(t => (
+          <div key={t.l} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '16px 18px' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t.l}</div>
+            <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 500, color: t.c }}>{t.v}</div>
+          </div>
+        ))}
+      </div>
+      {/* Needs attention */}
+      {attention.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>Needs attention</h2>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {attention.slice(0, 8).map(({ p, issues }) => (
+              <div key={p.id} className="card pcard" onClick={() => openDetail(p)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{p.name}</span>
+                <CompanyPill company={p.company} />
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                  {issues.map(i => (
+                    <span key={i.lbl} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: (i.state === 'expired' ? T.red : T.amber) + '1A', color: i.state === 'expired' ? T.red : T.amber, fontFamily: MONO, fontSize: 9, fontWeight: 700 }}>
+                      {i.lbl} {i.state === 'expired' ? 'expired' : `${i.days}d`}
+                    </span>
+                  ))}
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: T.gold, whiteSpace: 'nowrap' }}>Review →</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Certificate matrix */}
+      <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 14, background: T.card }}>
+        <div style={{ minWidth: 640 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${T.border}`, position: 'sticky', top: 0, background: T.card }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Property</div>
+            {CERT_COLS.map(([k, l]) => <div key={k} style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>{l}</div>)}
+          </div>
+          {ordered.map((p, i) => {
+            const prev = i > 0 ? ordered[i - 1] : null
+            const showCo = !prev || prev.company_id !== p.company_id
+            return (
+              <div key={p.id}>
+                {showCo && p._co?.id && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
+                    <span style={{ width: 3, height: 14, borderRadius: 2, background: p._co.color || T.gold }} />
+                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: p._co.color || T.gold }}>{p._co.abbr}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{p._co.name}</span>
+                  </div>
+                )}
+                <div onClick={() => openDetail(p)} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
+                  <div style={{ minWidth: 0, paddingRight: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>
+                  </div>
+                  {CERT_COLS.map(([k]) => <div key={k} style={{ textAlign: 'center' }}>{cellPill(complianceCell(p, k))}</div>)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── PROPERTY CARD GRID ──────────────────────────────────────────────────────
 // Redesign card grid (design/redesign-2026). An optional browse layout alongside
 // the dense list — a light card with a company-accent left edge + accent-tinted
