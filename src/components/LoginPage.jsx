@@ -5,6 +5,7 @@ import { looksLikeCompanyInviteCode } from '../lib/inviteUtils'
 import { logError } from '../lib/logError'
 import { SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
+import { setStoredDevice, clearStoredDevice, deviceLabel } from '../lib/trustedDevice'
 
 // OwnProperly redesign (design/redesign-2026) — split slate brand panel + paper
 // form. The auth page is intentionally theme-independent (always the light /
@@ -351,6 +352,7 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
   const [code, setCode]   = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy]   = useState(false)
+  const [remember, setRemember] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
@@ -367,6 +369,25 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
         factorId: factor.id, challengeId: challenge.id, code: code.trim(),
       })
       if (vErr) throw vErr
+      // Session is now AAL2 — the only state in which trust_this_device() will
+      // mint a token. Failure here is non-fatal: the user is signed in either
+      // way, they'll just be challenged again next time.
+      if (remember) {
+        try {
+          const { data: dev, error: tErr } = await supabase.rpc('trust_this_device', {
+            p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+            p_label: deviceLabel(),
+          })
+          if (tErr) throw tErr
+          if (dev?.token) setStoredDevice({ token: dev.token, id: dev.id })
+        } catch (e) {
+          logError('mfaChallenge:trustDevice', e)
+        }
+      } else {
+        // Unticked on a device that was previously remembered → drop the stale
+        // local token (the server row, if any, expires on its own).
+        clearStoredDevice()
+      }
       onVerified?.()
     } catch (err) {
       logError('mfaChallenge:verify', err)
@@ -393,6 +414,12 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
             style={{ textAlign:'center', fontSize:18, letterSpacing:'0.2em' }}/>
         </div>
         {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        <label htmlFor="lp-mfa-remember" style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginTop:2 }}>
+          <input id="lp-mfa-remember" type="checkbox" checked={remember}
+            onChange={e=>setRemember(e.target.checked)}
+            style={{ width:16, height:16, marginTop:1, accentColor:SLATE, flexShrink:0 }}/>
+          <span>Remember this device for 30 days — skip the code on this browser.</span>
+        </label>
         <button type="submit" className="lp-btn" disabled={busy || code.length !== 6} style={{ marginTop:4 }}>
           {busy ? 'Verifying…' : 'Verify'}
         </button>
@@ -420,8 +447,13 @@ export function SetNewPasswordScreen({ onDone }) {
     if (password !== confirmPw) { setError('Passwords do not match.'); return }
     setBusy(true); setError('')
     const { error: err } = await supabase.auth.updateUser({ password })
+    if (err) { setBusy(false); setError(err.message || 'Could not update your password — try again.'); return }
+    // A password reset invalidates every "remembered" device — anyone who held
+    // a trust token must re-verify. Non-fatal if it fails (the rows still
+    // expire on their own); always drop the local token on this browser.
+    try { await supabase.rpc('revoke_all_trusted_devices') } catch (e) { logError('setNewPassword:revokeTrusted', e) }
+    clearStoredDevice()
     setBusy(false)
-    if (err) { setError(err.message || 'Could not update your password — try again.'); return }
     onDone?.()
   }
 

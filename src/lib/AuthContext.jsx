@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { logError } from './logError'
+import { getStoredDevice, clearStoredDevice } from './trustedDevice'
 import { MfaChallengeScreen, SetNewPasswordScreen } from '../components/LoginPage'
 
 // AuthContext — three-state auth model.
@@ -74,19 +75,41 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!userId) { setAal({ userId: null, status: 'ok' }); return }
     let cancelled = false
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-      .then(({ data, error }) => {
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
         if (cancelled) return
         if (error) throw error
         const challenge = data?.currentLevel === 'aal1' && data?.nextLevel === 'aal2'
-        setAal({ userId, status: challenge ? 'challenge' : 'ok' })
-      })
-      .catch(e => {
+        if (!challenge) { setAal({ userId, status: 'ok' }); return }
+
+        // MFA is due — but this browser may hold a live "remember this device"
+        // token. The check is SERVER-SIDE (is_device_trusted validates the
+        // token's hash against an unexpired row); a forged localStorage value
+        // simply fails it and falls through to the challenge.
+        const stored = getStoredDevice()
+        if (stored?.token) {
+          try {
+            const { data: trusted, error: tErr } = await supabase.rpc('is_device_trusted', { p_token: stored.token })
+            if (cancelled) return
+            if (!tErr && trusted === true) { setAal({ userId, status: 'ok' }); return }
+            // Expired / revoked / unrecognised — forget it so we stop asking.
+            clearStoredDevice()
+          } catch (e) {
+            // On any RPC error, fail to the SAFE side: show the challenge.
+            logError('AuthContext:isDeviceTrusted', e)
+          }
+        }
+        if (cancelled) return
+        setAal({ userId, status: 'challenge' })
+      } catch (e) {
         if (cancelled) return
         logError('AuthContext:aalCheck', e)
-        // Fail open — a broken check must not lock every user out.
+        // Fail open on the AAL probe itself — a broken check must not lock
+        // every user out. (The trusted-device branch above fails CLOSED.)
         setAal({ userId, status: 'ok' })
-      })
+      }
+    })()
     return () => { cancelled = true }
   }, [userId])
 
