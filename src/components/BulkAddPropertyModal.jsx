@@ -14,7 +14,7 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
-import { safeOverlayClose, isFormDirty } from '../lib/modalUtils'
+import { safeOverlayClose } from '../lib/modalUtils'
 import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
 
