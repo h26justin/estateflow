@@ -547,7 +547,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <footer style={{ background: DARK, padding: '40px 24px', borderTop: '1px solid #ffffff0F' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <img src="/logo.svg" alt="OwnProperly" style={{ height: 40, filter: 'brightness(0.8)', marginBottom: 8 }}/>
+            <img src="/wordmark-dark.svg" alt="OwnProperly" style={{ height: 40, marginBottom: 8 }}/>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6B7899' }}>Property Portfolio Management · Built for UK Landlords</div>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
