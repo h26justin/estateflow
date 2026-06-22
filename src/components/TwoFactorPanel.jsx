@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
+import { getStoredDevice, clearStoredDevice } from '../lib/trustedDevice'
 
 export default function TwoFactorPanel({ T }) {
   const mono = "'DM Mono',monospace"
@@ -40,6 +41,21 @@ export default function TwoFactorPanel({ T }) {
   const [code, setCode]             = useState('')
   const [verifying, setVerifying]   = useState(false)
   const [busy, setBusy]             = useState(null)    // 'unenroll-<id>' while disabling
+  const [devices, setDevices]       = useState([])      // trusted "remember this device" entries
+  const [deviceBusy, setDeviceBusy] = useState(null)    // 'revoke-<id>' | 'revoke-all'
+  const thisDeviceId = getStoredDevice()?.id || null
+
+  async function loadDevices() {
+    try {
+      const { data, error } = await supabase.rpc('list_trusted_devices')
+      if (error) throw error
+      setDevices(data || [])
+    } catch (e) {
+      // Pre-migration this RPC won't exist yet — don't break the 2FA panel.
+      console.error('list_trusted_devices', e)
+      setDevices([])
+    }
+  }
 
   async function refresh() {
     setLoading(true)
@@ -50,12 +66,48 @@ export default function TwoFactorPanel({ T }) {
       // surface TOTP in the UI for now (SMS isn't enabled at the Supabase
       // project level so we don't list it).
       const totp = data?.totp || []
-      setFactors(totp.filter(f => f.status === 'verified'))
+      const verified = totp.filter(f => f.status === 'verified')
+      setFactors(verified)
       setUnverified(totp.filter(f => f.status === 'unverified'))
+      if (verified.length > 0) await loadDevices()
+      else setDevices([])
     } catch (e) {
       console.error('listFactors', e)
     }
     setLoading(false)
+  }
+
+  async function revokeDevice(id) {
+    setDeviceBusy(`revoke-${id}`)
+    try {
+      const { error } = await supabase.rpc('revoke_trusted_device', { p_id: id })
+      if (error) throw error
+      if (id === thisDeviceId) clearStoredDevice()
+      showAppToast('Device removed — it will need a code at next sign-in.')
+      await loadDevices()
+    } catch (e) {
+      showAppToast('Could not remove device: ' + (e?.message || 'unknown'), 'error')
+    }
+    setDeviceBusy(null)
+  }
+
+  async function revokeAllDevices() {
+    if (!await confirmDialog({
+      title: 'Sign out all remembered devices?',
+      body: 'Every device will need a 6-digit code at the next sign-in, including this one.',
+      confirmLabel: 'Remove all', destructive: true,
+    })) return
+    setDeviceBusy('revoke-all')
+    try {
+      const { error } = await supabase.rpc('revoke_all_trusted_devices')
+      if (error) throw error
+      clearStoredDevice()
+      showAppToast('All remembered devices removed.')
+      await loadDevices()
+    } catch (e) {
+      showAppToast('Could not remove devices: ' + (e?.message || 'unknown'), 'error')
+    }
+    setDeviceBusy(null)
   }
 
   useEffect(() => { refresh() }, [])
@@ -129,6 +181,10 @@ export default function TwoFactorPanel({ T }) {
     try {
       const { error } = await supabase.auth.mfa.unenroll({ factorId })
       if (error) throw error
+      // With 2FA off there is no second factor to remember — clear any trusted
+      // devices so stale tokens don't linger (non-fatal if it fails).
+      try { await supabase.rpc('revoke_all_trusted_devices') } catch (e) { console.error('revoke_all_trusted_devices', e) }
+      clearStoredDevice()
       showAppToast('Two-factor authentication disabled.')
       await refresh()
     } catch (e) {
@@ -181,6 +237,58 @@ export default function TwoFactorPanel({ T }) {
             </button>
           </div>
         ))}
+
+        {/* Remembered devices — browsers that skip the code for 30 days. */}
+        <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${T.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Remembered devices
+            </div>
+            {devices.length > 0 && (
+              <button
+                onClick={revokeAllDevices}
+                disabled={deviceBusy === 'revoke-all'}
+                style={{
+                  fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 8,
+                  border: `1px solid ${T.red}66`, background: T.red + '11', color: T.red,
+                  cursor: deviceBusy ? 'not-allowed' : 'pointer',
+                }}>
+                {deviceBusy === 'revoke-all' ? 'Removing…' : 'Remove all'}
+              </button>
+            )}
+          </div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.6 }}>
+            Devices where you ticked “remember this device for 30 days” skip the code at sign-in until they expire.
+          </div>
+          {devices.length === 0 ? (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No remembered devices.</div>
+          ) : devices.map(d => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, marginBottom: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: mono, fontSize: 12, color: T.text, fontWeight: 600 }}>
+                  {d.label || 'Unknown device'}
+                  {d.id === thisDeviceId && (
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600, color: T.green }}>· this device</span>
+                  )}
+                </div>
+                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+                  Expires {d.expires_at ? new Date(d.expires_at).toLocaleDateString('en-GB') : 'soon'}
+                  {d.last_used_at ? ` · last used ${new Date(d.last_used_at).toLocaleDateString('en-GB')}` : ''}
+                </div>
+              </div>
+              <button
+                onClick={() => revokeDevice(d.id)}
+                disabled={deviceBusy === `revoke-${d.id}`}
+                style={{
+                  fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8,
+                  border: `1px solid ${T.border}`, background: 'transparent', color: T.muted,
+                  cursor: deviceBusy ? 'not-allowed' : 'pointer', flexShrink: 0, marginLeft: 12,
+                }}>
+                {deviceBusy === `revoke-${d.id}` ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
