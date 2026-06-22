@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
+import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
-import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
+import { isPropertyEarningRent } from '../lib/propertyStatus'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
@@ -928,11 +929,12 @@ async function renderYearEndPackPDF({ reports, company, companyColor, logoUrl, p
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = 210, H = 297, margin = 14, cW = W - margin * 2
 
-  // Shared palette (matches the dashboard's print colours).
-  const cream = [244, 243, 239], cardBg = [255, 255, 255], border = [226, 223, 216]
-  const gold = [200, 168, 75], dark = [26, 37, 48], slate = [45, 60, 74]
-  const muted = [107, 118, 145], faint = [160, 165, 178]
-  const green = [46, 204, 138], red = [224, 85, 85], amber = [224, 148, 58]
+  // Redesign palette (design/redesign-2026) — kept in sync with the single-report
+  // renderer. Old values here were washed-out / sub-AA on the tax-pack export.
+  const cream = [244, 243, 239], cardBg = [255, 255, 255], border = [228, 225, 217]
+  const gold = [184, 144, 47], dark = [28, 40, 48], slate = [20, 32, 42]
+  const muted = [92, 102, 112], faint = [104, 109, 114]
+  const green = [31, 157, 99], red = [184, 57, 45], amber = [138, 86, 0]
   const accent = companyColor
     ? (companyColor.match(/[0-9a-f]{2}/gi)?.map(h => parseInt(h, 16)) || gold)
     : gold
@@ -1742,7 +1744,7 @@ function ReportArrears({ filtProps, T, accent, fmt }) {
 function ReportCompliance({ filtComp, T, accent }) {
   const rows = filtComp.map(c => {
     const days = daysUntil(c.expiry_date)
-    const status = !c.expiry_date ? 'no-date' : days < 0 ? 'expired' : days <= 60 ? 'expiring' : 'valid'
+    const status = !c.expiry_date ? 'no-date' : days < 0 ? 'expired' : days <= SOON_DAYS ? 'expiring' : 'valid'
     return { c, days, status }
   }).sort((a,b) => {
     const order = { expired:-1, expiring:0, 'no-date':1, valid:2 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { Icon, ICON_NAMES } from '../lib/icons'
+import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 
 const mono = "'DM Mono',monospace"

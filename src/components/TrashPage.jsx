@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
@@ -7,12 +8,12 @@ import { showAppToast } from '../lib/toast'
 const mono = "'DM Mono',monospace"
 
 const TYPE_CONFIG = {
-  properties:         { icon: '🏠', label: 'Property',    color: '#C8A84B' },
-  companies:          { icon: '🏢', label: 'Company',     color: '#2ECC8A' },
-  tenancy_details:    { icon: '📋', label: 'Tenancy',     color: '#4B8FE0' },
-  compliance_items:   { icon: '✅', label: 'Certificate', color: '#7B68EE' },
-  maintenance_jobs:   { icon: '🔧', label: 'Repair',      color: '#E0943A' },
-  property_expenses:  { icon: '💷', label: 'Expense',     color: '#D46F97' },
+  properties:         { icon: 'home', label: 'Property',    color: '#C8A84B' },
+  companies:          { icon: 'grid', label: 'Company',     color: '#2ECC8A' },
+  tenancy_details:    { icon: 'shield-check', label: 'Tenancy',     color: '#4B8FE0' },
+  compliance_items:   { icon: 'shield-check', label: 'Certificate', color: '#7B68EE' },
+  maintenance_jobs:   { icon: 'wrench', label: 'Repair',      color: '#E0943A' },
+  property_expenses:  { icon: 'pound', label: 'Expense',     color: '#D46F97' },
   deals:              { icon: '🎯', label: 'Deal',        color: '#3AAFB9' },
   property_documents: { icon: '📄', label: 'Document',    color: '#9B8AC2' },
 }
@@ -150,7 +151,7 @@ export default function TrashPage({ user, onRestored }) {
                   color:filter===tab.key?T.gold:T.muted,
                   fontWeight:filter===tab.key?700:400,
                 }}>
-                {tab.icon && <span style={{marginRight:4}}>{tab.icon}</span>}
+                {tab.icon && <span style={{marginRight:4,display:'inline-flex',verticalAlign:'-2px'}}>{ICON_NAMES.includes(tab.icon)?<Icon name={tab.icon} size={13}/>:tab.icon}</span>}
                 {tab.label} ({tab.count})
               </button>
             ))}
@@ -168,7 +169,7 @@ export default function TrashPage({ user, onRestored }) {
               return (
                 <div key={`${item._type}-${item.id}`} style={{display:'grid',gridTemplateColumns:'100px 1fr 140px 140px 200px',gap:12,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:6}}>
-                    <span style={{fontSize:16}}>{cfg.icon}</span>
+                    <span style={{display:'inline-flex'}}>{ICON_NAMES.includes(cfg.icon)?<Icon name={cfg.icon} size={15}/>:cfg.icon}</span>
                     <span style={{fontFamily:mono,fontSize:10,color:cfg.color,fontWeight:700}}>{cfg.label}</span>
                   </div>
                   <div style={{fontSize:13,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item._name || 'Unnamed'}</div>

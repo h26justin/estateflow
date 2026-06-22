@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
 
 // ── ONBOARDING WIZARD ───────────────────────────────────────────────────
@@ -193,7 +194,7 @@ export default function OnboardingWizard({ user, onComplete }) {
         {/* ── STEP: CHOOSE ── */}
         {step === 'choose' && (
           <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
-            <div style={{ fontSize: 24, marginBottom: 6 }}>👋</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="sparkle" size={26}/></div>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Welcome to OwnProperly
             </h2>
@@ -203,7 +204,7 @@ export default function OnboardingWizard({ user, onComplete }) {
 
             <div style={{ display: 'grid', gap: 10 }}>
               <button className="ob-choice" onClick={() => { setError(''); setStep('join') }}>
-                <span className="ob-choice-icon">🔑</span>
+                <span className="ob-choice-icon"><Icon name="key" size={20}/></span>
                 <div className="ob-choice-title">I have an invite code</div>
                 <div className="ob-choice-desc">
                   Someone on your team shared an invite code. Paste it to join their company.
@@ -211,7 +212,7 @@ export default function OnboardingWizard({ user, onComplete }) {
               </button>
 
               <button className="ob-choice" onClick={() => { setError(''); setStep('create') }}>
-                <span className="ob-choice-icon">🏢</span>
+                <span className="ob-choice-icon"><Icon name="grid" size={20}/></span>
                 <div className="ob-choice-title">I'm setting up a fresh portfolio</div>
                 <div className="ob-choice-desc">
                   Create a company to organise your properties under. You can add more companies later.
@@ -233,7 +234,7 @@ export default function OnboardingWizard({ user, onComplete }) {
         {/* ── STEP: JOIN EXISTING ── */}
         {step === 'join' && (
           <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
-            <div style={{ fontSize: 24, marginBottom: 6 }}>🔑</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="key" size={26}/></div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Join an existing company
             </h2>
@@ -276,7 +277,7 @@ export default function OnboardingWizard({ user, onComplete }) {
         {/* ── STEP: CREATE NEW ── */}
         {step === 'create' && (
           <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
-            <div style={{ fontSize: 24, marginBottom: 6 }}>🏢</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="grid" size={26}/></div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Name your company
             </h2>
@@ -356,7 +357,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             Assessment, so we hide the MTD page from their nav entirely. */}
         {step === 'tax_setup' && (
           <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
-            <div style={{ fontSize: 24, marginBottom: 6 }}>🏛️</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="landmark" size={26}/></div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
               How do you hold your properties?
             </h2>
@@ -365,16 +366,16 @@ export default function OnboardingWizard({ user, onComplete }) {
             </p>
 
             {[
-              { key: 'individual',      icon: '👤', title: 'As an individual (sole-trader)',
+              { key: 'individual',      icon: 'users', title: 'As an individual (sole-trader)',
                 desc: 'You file Self Assessment in your own name. MTD ITSA quarterly filing applies from 6 April 2026 if your rental income tops £50k.' },
-              { key: 'limited_company', icon: '🏢', title: 'Via a limited company (SPV)',
+              { key: 'limited_company', icon: 'building', title: 'Via a limited company (SPV)',
                 desc: 'Property sits in a company — you file Corporation Tax (CT600) annually. MTD ITSA doesn\'t apply to companies, so we\'ll hide it.' },
-              { key: 'mixed',           icon: '🔀', title: 'A mix of both',
+              { key: 'mixed',           icon: 'grid', title: 'A mix of both',
                 desc: 'Some personal, some in a company. We\'ll show every tax feature so you can pick what\'s relevant.' },
             ].map(opt => (
               <button key={opt.key} className="ob-choice" onClick={() => handlePickAccountType(opt.key)} disabled={saving}
                 style={{ marginBottom: 10 }}>
-                <span className="ob-choice-icon">{opt.icon}</span>
+                <span className="ob-choice-icon">{ICON_NAMES.includes(opt.icon)?<Icon name={opt.icon} size={20}/>:opt.icon}</span>
                 <div className="ob-choice-title">{opt.title}</div>
                 <div className="ob-choice-desc">{opt.desc}</div>
               </button>
@@ -397,7 +398,7 @@ export default function OnboardingWizard({ user, onComplete }) {
         {/* ── STEP: FIRST PROPERTY (optional) ── */}
         {step === 'first_property' && (
           <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
-            <div style={{ fontSize: 24, marginBottom: 6 }}>🏠</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="home" size={26}/></div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Add your first property?
             </h2>
@@ -445,7 +446,7 @@ export default function OnboardingWizard({ user, onComplete }) {
         {/* ── STEP: DONE ── */}
         {step === 'done' && (
           <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '36px 32px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)', textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom: 16 }}><Icon name="sparkle" size={44}/></div>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: SLATE, marginBottom: 10 }}>You're all set</h2>
             <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 8, lineHeight: 1.7 }}>
               You're now part of <strong style={{ color: SLATE }}>{successCo}</strong>.

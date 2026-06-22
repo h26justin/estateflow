@@ -73,6 +73,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
   }).forEach(c=>{
     const days = daysUntil(c.expiry_date)
     const prop = properties.find(p=>p.id===c.property?.id)
+    if (!prop) return   // scope to the active company filter (properties == dashProps)
     alerts.push({
       type:'compliance', priority: days < 0 ? 0 : days <= 30 ? 1 : 2,
       icon:'shield-check', color: days < 0 ? T.red : days <= 30 ? T.red : T.amber,
@@ -88,6 +89,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
   }).forEach(t=>{
     const days = daysUntil(t.tenancy_end)
     const prop = properties.find(p=>p.id===t.property?.id)
+    if (!prop) return   // scope to the active company filter
     alerts.push({
       type:'tenancy', priority: days < 0 ? 0 : 2,
       icon:'calendar', color: days < 0 ? T.red : T.amber,
@@ -104,6 +106,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     return (days||0) > 30 && m.priority === 'urgent'
   }).forEach(m=>{
     const prop = properties.find(p=>p.id===m.property?.id)
+    if (!prop) return   // scope to the active company filter
     const days = daysSince(m.date_raised || m.created_at)
     alerts.push({
       type:'maintenance', priority:2, icon:'wrench', color:T.amber,

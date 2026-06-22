@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
 
 const SLATE = '#2D3C4A'
@@ -9,49 +10,49 @@ const MUTED = '#6B7691'
 
 const STEPS = [
   {
-    icon: '🎉',
+    icon: 'sparkle',
     title: 'Welcome to OwnProperly!',
     desc: "Your entire property portfolio in one place. Let's take a quick tour of everything available to you — it'll only take a couple of minutes.",
     tip: null,
     tag: null,
   },
   {
-    icon: '🏘',
+    icon: 'building',
     title: 'Add your properties',
     desc: "Hit the gold \"+ New\" button at the top right and select \"Add Property\". Add your address, status, purchase price, current value and monthly rent. Each property gets its own dashboard with health score, yield and equity.",
     tip: "Group properties under different companies — each company gets its own branding, reports and tenant portal subdomain.",
     tag: 'Portfolio',
   },
   {
-    icon: '💰',
+    icon: 'wallet',
     title: 'Rent Tracker',
     desc: "The Rent Tracker shows every property's payment history as colour-coded month squares — green for paid, red for missed, amber for late. Click any square to see a day-by-day breakdown of exactly which days were covered, and hit the Day view button to see all properties at once.",
     tip: "Import your agent's monthly PDF statement directly — OwnProperly reads PNE and RMS formats and matches payments to properties automatically.",
     tag: 'Finance',
   },
   {
-    icon: '📋',
+    icon: 'shield-check',
     title: 'Compliance tracking',
     desc: "The Compliance tab on each property tracks gas certificates, EICRs, EPCs, HMO licences and more — with automatic alerts at 90, 60 and 30 days before expiry. Never miss a certificate renewal again.",
     tip: "The Right to Rent tab tracks document types and follow-up dates per tenant. You'll be alerted before time-limited permission expires.",
     tag: 'Compliance',
   },
   {
-    icon: '⚖️',
+    icon: 'scale',
     title: 'Legal & tenancy tools',
     desc: "Track deposit protection (scheme, certificate number, date) in the Deposit tab. Log Section 21 and Section 8 notices with served dates and court hearing dates in the Notices tab. Keep a full rent increase history in the Rent History tab.",
     tip: "All of these records are your evidence if a dispute ever reaches court or an adjudicator.",
     tag: 'Legal',
   },
   {
-    icon: '👥',
+    icon: 'users',
     title: 'Tenant portal',
     desc: "Give every tenant their own branded portal at yourcompany.ownproperly.com. They can submit repair requests with photos, message you securely, view shared documents and see their payment history — all without your personal contact details.",
     tip: "Go to Settings → Tenant Portal to enable features and Settings → Branding to upload your logo and set your brand colour.",
     tag: 'Tenants',
   },
   {
-    icon: '🔧',
+    icon: 'wrench',
     title: 'Maintenance & repairs',
     desc: "Log repair jobs in the Maintenance tab — assign contractors, track costs and mark jobs from open to complete. When a tenant submits a repair through the portal, it appears instantly in your Tenant Inbox with their description and photos.",
     tip: "All maintenance history is saved permanently — useful for inspections, disputes and understanding per-property costs.",
@@ -65,35 +66,35 @@ const STEPS = [
     tag: 'Deals',
   },
   {
-    icon: '✨',
+    icon: 'sparkle',
     title: 'AI listing writer',
     desc: "Head to Deals → Tools → AI listing writer. Enter your property details, choose your platform (Rightmove/Zoopla) and tone (professional, warm or luxury) and get a polished listing description in seconds.",
     tip: "The portfolio what-if modeller lets you drag sliders to model adding properties, changing yields and projecting income over 10 years.",
     tag: 'AI Tools',
   },
   {
-    icon: '🏠',
+    icon: 'home',
     title: 'Lettings pipeline',
     desc: "The Lettings tab in Deals tracks every vacant property through 6 stages — Vacant → Advertising → Viewings → Referencing → Contract → Move-in. Each stage has a built-in checklist so nothing gets missed on the way to a new tenancy.",
     tip: "Days vacant is tracked automatically — you'll see a warning if a property has been empty for more than 14 days.",
     tag: 'Lettings',
   },
   {
-    icon: '📊',
+    icon: 'pie-chart',
     title: '16 reports & analytics',
     desc: "The Reports section has 16 built-in reports — P&L per property, tax summaries, arrears, compliance status, occupancy rate, rent roll, yield rankings and more. Every report exports to CSV for your accountant.",
     tip: "The dashboard shows your total portfolio value, monthly income, equity and arrears at a glance — with filters by company.",
     tag: 'Reports',
   },
   {
-    icon: '💬',
+    icon: 'message',
     title: 'Feedback & settings',
     desc: "Found something that's not working or have an idea for a new feature? Hit the Feedback tab — we read every message and it directly shapes what we build next. In Settings, customise your navigation, branding, notifications and team access.",
     tip: "OwnProperly is a PWA — add it to your home screen on iPhone or Android for a native app experience with no App Store needed.",
     tag: null,
   },
   {
-    icon: '🚀',
+    icon: 'sparkle',
     title: "You're ready to go!",
     desc: "Start by adding your properties, then set up compliance tracking and invite your tenants to their portal. Your dashboard will fill up fast and you'll have full visibility of your portfolio within minutes.",
     tip: null,
@@ -187,7 +188,7 @@ export default function OnboardingTour({ user, onComplete }) {
 
         {/* Content */}
         <div style={{ padding: '28px 32px 24px' }}>
-          <div style={{ fontSize: 40, marginBottom: 14, lineHeight: 1 }}>{current.icon}</div>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom: 14 }}>{ICON_NAMES.includes(current.icon)?<Icon name={current.icon} size={38}/>:current.icon}</div>
           <h2 style={{
             fontSize: 21, fontWeight: 700, color: SLATE,
             marginBottom: 12, letterSpacing: '-0.02em',

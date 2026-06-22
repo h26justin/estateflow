@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
@@ -17,13 +18,13 @@ const SEVERITY_COLOR = {
 }
 
 const CATEGORY_ICON = {
-  yield:       '📈',
-  rent:        '💰',
-  compliance:  '📋',
-  expenses:    '💸',
-  arrears:     '⚠',
-  opportunity: '✨',
-  risk:        '⚠',
+  yield:       'trending-up',
+  rent:        'wallet',
+  compliance:  'shield-check',
+  expenses:    'wallet',
+  arrears:     'alert-triangle',
+  opportunity: 'sparkle',
+  risk:        'alert-triangle',
 }
 
 function timeAgo(iso) {
@@ -139,7 +140,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                 display: 'flex', flexDirection: 'column', gap: 6,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <span style={{ fontSize: 14 }} aria-hidden="true">{CATEGORY_ICON[it.category] || '•'}</span>
+                  <span style={{ display:'inline-flex' }} aria-hidden="true">{ICON_NAMES.includes(CATEGORY_ICON[it.category])?<Icon name={CATEGORY_ICON[it.category]} size={14}/>:(CATEGORY_ICON[it.category]||'•')}</span>
                   <span style={{
                     fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
                     textTransform: 'uppercase', color: palette.fg,
