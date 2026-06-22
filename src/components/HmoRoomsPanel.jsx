@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
@@ -361,7 +362,7 @@ function LicenceCard({ licence, T, canEdit, onEdit, onRemove }) {
   let accent = T.green
   if (days != null) {
     if (days < 0) { reminder = `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`; accent = T.red }
-    else if (days <= 60) { reminder = `Expires in ${days} day${days === 1 ? '' : 's'}`; accent = T.amber }
+    else if (days <= SOON_DAYS) { reminder = `Expires in ${days} day${days === 1 ? '' : 's'}`; accent = T.amber }
     else { reminder = `Expires ${dateGB(licence.expiry_date)}`; accent = T.green }
   }
   if (licence.status === 'expired' || licence.status === 'lapsed') accent = T.red

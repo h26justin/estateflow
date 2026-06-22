@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
@@ -1743,7 +1744,7 @@ function ReportArrears({ filtProps, T, accent, fmt }) {
 function ReportCompliance({ filtComp, T, accent }) {
   const rows = filtComp.map(c => {
     const days = daysUntil(c.expiry_date)
-    const status = !c.expiry_date ? 'no-date' : days < 0 ? 'expired' : days <= 60 ? 'expiring' : 'valid'
+    const status = !c.expiry_date ? 'no-date' : days < 0 ? 'expired' : days <= SOON_DAYS ? 'expiring' : 'valid'
     return { c, days, status }
   }).sort((a,b) => {
     const order = { expired:-1, expiring:0, 'no-date':1, valid:2 }

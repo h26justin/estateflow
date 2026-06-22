@@ -69,7 +69,7 @@ import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
-import { complianceStatusFor, complianceBadge } from './lib/complianceStatus'
+import { complianceStatusFor, complianceBadge, certTypeStatus } from './lib/complianceStatus'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
@@ -267,7 +267,7 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 function getStatusColor(status) {
   if (status==='paid')    return '#2ECC8A'
   if (status==='overdue' || status==='missed')  return '#E05555'  // 'missed' kept for backward-compat (pre-2026-05-25 rows)
-  if (status==='late') return '#E0943A'
+  if (status==='late' || status==='partial') return '#E0943A'  // partial = attention (amber)
   if (status==='refurb')  return '#4B8FE0'
   return '#888EA8' // void - visible in both themes
 }
@@ -276,7 +276,7 @@ function getStatusColor(status) {
 // payment + balance). For the year-strip dot and per-month stat counts we
 // collapse a month's segments to one "dominant" status. Problems surface first
 // (overdue/late), otherwise paid > refurb > void > future.
-const MONTH_STATUS_PRIORITY = ['overdue','missed','late','paid','refurb','void','future']
+const MONTH_STATUS_PRIORITY = ['overdue','missed','late','partial','paid','refurb','void','future']
 function monthDominantStatus(segs) {
   for (const s of MONTH_STATUS_PRIORITY) {
     if (segs.some(p => p.status === s)) return s
@@ -304,12 +304,16 @@ function getMonthlyRentStats(payments, year, rentPcm) {
     const dom = monthDominantStatus(segs)
     if (dom === 'paid') paid++
     else if (dom === 'overdue' || dom === 'missed') missed++
-    else if (dom === 'late') late++
+    else if (dom === 'late' || dom === 'partial') late++   // partial = attention bucket
     else if (dom === 'refurb') refurb++
     else if (dom === 'void') voidM++
-    const paidSegs = segs.filter(p => p.status === 'paid')
-    const monthIncome = paidSegs.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-    income += monthIncome > 0 ? monthIncome : (paidSegs.length ? (rentPcm || 0) : 0)
+    // Income credits actual amounts from paid AND partial segments (matching the
+    // Reports module); the rent_pcm fallback only covers a legacy amount-less
+    // PAID row, never a partial (a partial without an amount contributes £0).
+    const fullPaidSegs = segs.filter(p => p.status === 'paid')
+    const incomeSegs = segs.filter(p => p.status === 'paid' || p.status === 'partial')
+    const monthIncome = incomeSegs.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    income += monthIncome > 0 ? monthIncome : (fullPaidSegs.length ? (rentPcm || 0) : 0)
   }
   return { paid, missed, late, refurb, voidM, income }
 }
@@ -391,7 +395,7 @@ function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
         <button onClick={()=>{onClose();if(onDayTracker)onDayTracker()}}
           style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
             border:'none',background:'#C8A84B',color:'#1A2530',cursor:'pointer'}}>
-          📅 View full day tracker →
+          View full day tracker →
         </button>
       </div>
     </div>
@@ -1916,12 +1920,12 @@ export default function App() {
                 <div style={{display:'flex',gap:8}}>
                   <button onClick={()=>openRename(c)}
                     style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
-                    ✏ Rename
+                    Rename
                   </button>
                   {(c.owner_id === user?.id || devModeActive) && (
                     <button onClick={()=>setDeleteCoTarget(c)}
                       style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.red}33`,background:'transparent',color:T.red,cursor:'pointer'}}>
-                      🗑 Delete
+                      Delete
                     </button>
                   )}
                 </div>
@@ -2026,7 +2030,7 @@ export default function App() {
             setImpersonatingUser(null)
             window.location.reload()
           }} style={{background:'white',color:'#8B1F1F',border:'none',padding:'5px 14px',borderRadius:5,fontFamily:'inherit',fontSize:11,fontWeight:700,cursor:'pointer'}}>
-            ✕ Stop impersonating
+            Stop impersonating
           </button>
         </div>
       )}
@@ -2050,18 +2054,18 @@ export default function App() {
         }}>
           {devModeActive ? (
             <>
-              <span>🔐 DEVELOPER MODE — you see all user data across the platform</span>
+              <span>DEVELOPER MODE — you see all user data across the platform</span>
               <button onClick={()=>{ setDevModeDisabled(true); window.location.reload() }}
                 style={{background:'#C8A84B',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
-                👤 VIEW AS REGULAR USER
+                VIEW AS REGULAR USER
               </button>
             </>
           ) : (
             <>
-              <span>👤 REGULAR USER VIEW — permission gates active (data-level access unchanged)</span>
+              <span>REGULAR USER VIEW — permission gates active (data-level access unchanged)</span>
               <button onClick={()=>{ setDevModeDisabled(false); window.location.reload() }}
                 style={{background:'#9ecb9e',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
-                🔐 ENABLE DEVELOPER MODE
+                ENABLE DEVELOPER MODE
               </button>
             </>
           )}
@@ -2186,7 +2190,7 @@ export default function App() {
               )
             })()}
             <NotificationCentre/>
-            {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>⚙ Admin</button>}
+            {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
             {/* "⋯ More" menu — houses pages that aren't worth their own tab
                 (Feedback, Sign Out, etc.). Keeps primary nav focused on
                 daily-use pages. */}
@@ -2295,7 +2299,7 @@ export default function App() {
               ))}
               <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px',marginTop:4}}
                 onClick={()=>{setView('feedback');setSelectedId(null);setShowDrawer(false)}}>
-                💬 Send Feedback
+                Send Feedback
               </button>
               <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px'}}
                 onClick={()=>supabase.auth.signOut()}>
@@ -2860,7 +2864,7 @@ export default function App() {
                     </div>
                     <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
                       style={{fontFamily:MONO,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
-                      ⚙ Customize
+                      Customize
                     </button>
                   </div>
                   {visibleSections.map(s => {
@@ -3150,7 +3154,7 @@ export default function App() {
                       <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{selected.address}</div>
                       <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{selected.prop_type}</div>
                       {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:'#1A1D27',border:'1px solid #2E3044',fontFamily:MONO,fontSize:10,color:'#8B8FA8'}}>🏢 {selected.managed_by}</div>}
-                      {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:10,color:T.muted}}>📦 Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
+                      {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:10,color:T.muted}}>Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
                     </div>
                     <div style={{display:'flex',gap:8}}>
                       {(canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive) && (
@@ -3253,7 +3257,7 @@ export default function App() {
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                           <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
-                            💷 Rent · {focusYear}
+                            Rent · {focusYear}
                           </div>
                           {arrears > 0 && (
                             <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:10,background:T.red+'22',color:T.red}}>
@@ -3305,7 +3309,7 @@ export default function App() {
                     return (
                       <div className="card" style={{padding:'14px 20px',marginTop:14,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
                         <div>
-                          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>🛡 Insurance</div>
+                          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Insurance</div>
                           <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>No policies cover this property yet.</div>
                         </div>
                         <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setView('insurance')}>Add policy →</button>
@@ -3320,7 +3324,7 @@ export default function App() {
                     <div className="card" style={{padding:'16px 20px',marginTop:14}}>
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
                         <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
-                          🛡 Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
+                          Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
                         </div>
                         <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>setView('insurance')}>Manage →</button>
                       </div>
@@ -3422,7 +3426,7 @@ export default function App() {
                             border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,
                             cursor:'pointer',display:'flex',alignItems:'center',gap:6,
                           }}>
-                          🪪 Tenant Referencing
+                          Tenant Referencing
                           <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.gold}}>EARLY</span>
                         </button>
                       </div>
@@ -3511,7 +3515,7 @@ export default function App() {
                   ))}
                 </div>
                 {(selected.arrears||0)>0&&<div className="card" style={{padding:'16px 18px',borderLeft:`3px solid ${T.red}`}}>
-                  <div style={{fontFamily:MONO,fontSize:10,color:T.red,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>⚠ Rent Arrears</div>
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.red,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Rent Arrears</div>
                   <div style={{fontFamily:MONO,fontSize:22,fontWeight:700,color:T.red,marginBottom:4}}>{fmt(selected.arrears)}</div>
                   {selected.notes&&<div style={{fontFamily:MONO,fontSize:11,color:T.muted,lineHeight:1.6}}>{selected.notes}</div>}
                 </div>}
@@ -3767,7 +3771,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
             <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
             <button onClick={()=>onUpdatePhase(prop.id, ph.id, {done:!ph.done})} title={ph.done?'Mark in progress':'Mark complete'}
               style={{...iconBtn,color:ph.done?'#2ECC8A':'#E0943A',borderColor:(ph.done?'#2ECC8A':'#E0943A')+'44'}}>
-              {ph.done?'✓ Done':'In Progress'}
+              {ph.done?'Done':'In Progress'}
             </button>
             {isAdmin&&<>
               <button onClick={()=>startEditPhase(ph)} style={iconBtn} title="Edit">✎</button>
@@ -3820,7 +3824,7 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
             <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:item.paid?'#2ECC8A':'#E0943A'}}>{fmt(item.cost)}</div>
             <button onClick={()=>onUpdateCost(prop.id, item.id, {paid:!item.paid})} title={item.paid?'Mark unpaid':'Mark paid'}
               style={{...iconBtn,color:item.paid?'#2ECC8A':'#E0943A',borderColor:(item.paid?'#2ECC8A':'#E0943A')+'44'}}>
-              {item.paid?'✓ Paid':'Unpaid'}
+              {item.paid?'Paid':'Unpaid'}
             </button>
             {isAdmin&&<>
               <button onClick={()=>startEditCost(item)} style={iconBtn} title="Edit">✎</button>
@@ -3842,16 +3846,9 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
 // needs-attention list + a properties × cert-type grid. Reads each property's
 // compliance_items (same data as the per-property Compliance tab).
 const CERT_COLS = [['gas','Gas'],['eicr','EICR'],['epc','EPC'],['hmo','HMO'],['fire','Fire'],['pat','PAT']]
-function complianceCell(p, key) {
-  const items = (p.compliance_items || []).filter(c => !c.deleted_at && c.cert_type === key && c.expiry_date)
-  if (!items.length) return { state: 'missing' }
-  const latest = items.reduce((a, b) => new Date(b.expiry_date).getTime() > new Date(a.expiry_date).getTime() ? b : a)
-  const days = Math.ceil((new Date(latest.expiry_date).getTime() - Date.now()) / 86400000)
-  if (Number.isNaN(days)) return { state: 'missing' }
-  if (days <= 0) return { state: 'expired', days }   // expired today counts as expired, not "0d expiring"
-  if (days <= 60) return { state: 'expiring', days }
-  return { state: 'valid', days }
-}
+// Matrix cell status — delegates to the shared classifier in complianceStatus.js
+// so the matrix and per-property surfaces can't diverge.
+const complianceCell = (p, key) => certTypeStatus(p, key)
 function ComplianceMatrix({ properties, companies, openDetail }) {
   const { T } = useTheme()
   const active = (properties || []).filter(p => p.status !== 'sold' && !p.archived_at)
