@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 
 export default function FeedbackPage({ user, showToast }) {
   const { T } = useTheme()
@@ -39,9 +40,9 @@ export default function FeedbackPage({ user, showToast }) {
   const inp = { fontFamily: mono, fontSize: 13, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none', width: '100%', boxSizing: 'border-box' }
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }
   const TYPES = [
-    { key: 'feature', icon: '✨', label: 'Feature Request', desc: 'Suggest something new' },
-    { key: 'bug',     icon: '🐛', label: 'Bug Report',      desc: 'Something not working?' },
-    { key: 'general', icon: '💬', label: 'General Feedback', desc: 'Anything else' },
+    { key: 'feature', icon: 'sparkle', label: 'Feature Request', desc: 'Suggest something new' },
+    { key: 'bug',     icon: 'alert-circle', label: 'Bug Report',      desc: 'Something not working?' },
+    { key: 'general', icon: 'message', label: 'General Feedback', desc: 'Anything else' },
   ]
 
   return (
@@ -72,7 +73,7 @@ export default function FeedbackPage({ user, showToast }) {
                   border: `1px solid ${type === t.key ? T.gold : T.border}`,
                   borderRadius: 10, padding: '10px 8px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s'
                 }}>
-                  <div style={{ fontSize: 20, marginBottom: 4 }}>{t.icon}</div>
+                  <div style={{ display:'flex', justifyContent:'center', marginBottom: 4 }}>{ICON_NAMES.includes(t.icon)?<Icon name={t.icon} size={20}/>:t.icon}</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: type === t.key ? T.gold : T.text }}>{t.label}</div>
                   <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>{t.desc}</div>
                 </button>

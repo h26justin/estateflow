@@ -5,10 +5,8 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
 import { safeOverlayClose } from '../lib/modalUtils'
-import { fmt } from '../lib/format'
 import {
   listAutopilotActions,
-  countOpenAutopilotActions,
   actOnAutopilotAction,
   dismissAutopilotAction,
 } from '../lib/api/autopilot'

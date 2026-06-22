@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
-import { fmt } from '../lib/format'
 import {
   fetchEnquiries,
   createEnquiry,

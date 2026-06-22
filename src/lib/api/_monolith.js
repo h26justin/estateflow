@@ -2229,7 +2229,7 @@ export async function extendTrial(companyId, days) {
 
 // Force-end a trial right now. Sets companies.trial_ends_at = now() so
 // the trial period is over, and flips any matching subscription row to
-// 'past_due' so the BillingPage shows the "💳 Add payment method" CTA
+// 'past_due' so the BillingPage shows the "Add payment method" CTA
 // the next time the customer signs in (existing logic at
 // BillingPage.jsx:126 — past_due renders the upgrade prompt). After
 // this, only payment via Stripe Checkout restores access.
@@ -3291,7 +3291,7 @@ export async function markDocumentForExtraction(documentId) {
 // Upload a PDF/image to storage, register it as a property document,
 // trigger extraction, and return the extracted fields synchronously.
 //
-// Used by BuildingMortgageModal's "📄 Scan mortgage PDF" flow so the
+// Used by BuildingMortgageModal's "Scan mortgage PDF" flow so the
 // user can drop in a Handelsbanken-style facility agreement (or any
 // mortgage offer) and have the form pre-fill with lender, loan amount,
 // rate, term, type, fees, monthly payment. Saves them from typing.

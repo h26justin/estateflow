@@ -1,21 +1,22 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 
 const CATEGORIES = [
-  { key: 'start',       label: 'Getting Started',      icon: '🚀' },
-  { key: 'properties',  label: 'Properties',            icon: '🏠' },
-  { key: 'companies',   label: 'Companies',             icon: '🏢' },
-  { key: 'rent',        label: 'Rent Tracker',          icon: '💷' },
-  { key: 'compliance',  label: 'Compliance',            icon: '📋' },
-  { key: 'tenancy',     label: 'Tenancy & Legal',       icon: '⚖' },
-  { key: 'maintenance', label: 'Maintenance',           icon: '🔧' },
-  { key: 'documents',   label: 'Documents & Expenses',  icon: '📁' },
+  { key: 'start',       label: 'Getting Started',      icon: 'sparkle' },
+  { key: 'properties',  label: 'Properties',            icon: 'home' },
+  { key: 'companies',   label: 'Companies',             icon: 'grid' },
+  { key: 'rent',        label: 'Rent Tracker',          icon: 'pound' },
+  { key: 'compliance',  label: 'Compliance',            icon: 'shield-check' },
+  { key: 'tenancy',     label: 'Tenancy & Legal',       icon: 'scale' },
+  { key: 'maintenance', label: 'Maintenance',           icon: 'wrench' },
+  { key: 'documents',   label: 'Documents & Expenses',  icon: 'folder' },
   { key: 'deals',       label: 'Deals & Calculator',    icon: '🎯' },
-  { key: 'lettings',    label: 'Lettings Pipeline',     icon: '🔑' },
-  { key: 'reports',     label: 'Reports',               icon: '📊' },
-  { key: 'portal',      label: 'Tenant Portal',         icon: '🏠' },
+  { key: 'lettings',    label: 'Lettings Pipeline',     icon: 'key' },
+  { key: 'reports',     label: 'Reports',               icon: 'pie-chart' },
+  { key: 'portal',      label: 'Tenant Portal',         icon: 'home' },
   { key: 'settings',    label: 'Settings & Account',    icon: '⚙' },
-  { key: 'ai',          label: 'AI Tools',              icon: '✨' },
+  { key: 'ai',          label: 'AI Tools',              icon: 'sparkle' },
 ]
 
 const GUIDES = [
@@ -711,7 +712,7 @@ export default function HelpCenter() {
                 border: `1px solid ${activeCat === c.key ? T.gold : T.border}`,
                 background: activeCat === c.key ? T.gold + '22' : 'transparent',
                 color: activeCat === c.key ? T.gold : T.muted, fontWeight: activeCat === c.key ? 700 : 400 }}>
-              {c.icon} {c.label} ({count})
+              {ICON_NAMES.includes(c.icon)?<Icon name={c.icon} size={14}/>:c.icon} {c.label} ({count})
             </button>
           )
         })}
@@ -726,7 +727,7 @@ export default function HelpCenter() {
         grouped.map(group => (
           <div key={group.key} style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span style={{ fontSize: 18 }}>{group.icon}</span>
+              <span style={{ display:'flex' }}>{ICON_NAMES.includes(group.icon)?<Icon name={group.icon} size={18}/>:group.icon}</span>
               <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{group.label}</span>
               <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>({group.guides.length})</span>
             </div>

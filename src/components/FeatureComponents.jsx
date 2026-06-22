@@ -114,7 +114,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
               const t = CERT_TYPES.find(x=>x.value===e.target.value)
               s('cert_type',e.target.value); s('cert_name',t?.label||'')
             }}>
-              {CERT_TYPES.map(t=><option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
+              {CERT_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div><label>Certificate Name</label><input value={form.cert_name} onChange={e=>s('cert_name',e.target.value)}/></div>
@@ -575,12 +575,12 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   const labelStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
 
   const ALL_NAV_OPTIONS = [
-    {key:'companies',   label:'Companies',    icon:'🏢'},
-    {key:'rent',        label:'Rent Tracker', icon:'💷'},
-    {key:'deals',       label:'Deals',        icon:'🎯'},
-    {key:'reports',     label:'Reports',      icon:'📊'},
-    {key:'mtd',         label:'MTD Tax',      icon:'🏛️'},
-    {key:'contractors', label:'Contractors',  icon:'🔧'},
+    {key:'companies',   label:'Companies',    icon:'grid'},
+    {key:'rent',        label:'Rent Tracker', icon:'pound'},
+    {key:'deals',       label:'Deals',        icon:'target'},
+    {key:'reports',     label:'Reports',      icon:'pie-chart'},
+    {key:'mtd',         label:'MTD Tax',      icon:'landmark'},
+    {key:'contractors', label:'Contractors',  icon:'wrench'},
   ]
 
   const ALL_DEFAULT_NAV = ['dashboard','properties','companies','rent','deals','reports','mtd','contractors','settings']
@@ -966,7 +966,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               return (
                 <div key={item.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:T.bg,borderRadius:10,border:`1px solid ${T.border}`}}>
                   <div style={{display:'flex',alignItems:'center',gap:10}}>
-                    <span style={{fontSize:18}}>{item.icon}</span>
+                    <span style={{display:'flex',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={18}/>:<span style={{fontSize:18}}>{item.icon}</span>}</span>
                     <span style={{fontFamily:mono,fontSize:13,color:T.text}}>{item.label}</span>
                   </div>
                   <div onClick={()=>saveNavPref(item.key,!enabled)}

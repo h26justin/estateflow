@@ -186,8 +186,11 @@ export const MOBILE_BP = 768
 // The redesign's semantic status palette (design/redesign-2026 handoff). Each
 // status carries the spec's exact text colour AND a soft background tint, in
 // both themes. ALWAYS pair the colour with a text label — never colour alone
-// (colour-blind safety; it's in the brand rules). The lighter spec text hues
-// are safe here because they sit on their matching tint, not on bare paper.
+// (colour-blind safety; it's in the brand rules). Light-mode text hues are
+// darkened from the spec so they clear WCAG AA (>=4.5:1) ON THEIR OWN TINT —
+// the spec values failed there (ok 3.07, warn 2.92, bad 4.12, void 4.09).
+// Verified on each tint: ok #147A49→4.8:1, warn #8A5600→5.5:1, bad #A83328→5.7:1,
+// info #2D6FA8→4.6:1 (already passed), void #5C6168→5.5:1. Dark pills all pass.
 //
 // Keys map to product meanings:
 //   ok    = paid / valid / occupied / current
@@ -197,11 +200,11 @@ export const MOBILE_BP = 768
 //   void  = void / not-applicable / inactive
 export const STATUS = {
   light: {
-    ok:   { text:'#1F9D63', bg:'#E8F4EC' },
-    warn: { text:'#C77E1E', bg:'#FBF1E2' },
-    bad:  { text:'#C5483B', bg:'#FAEAE8' },
+    ok:   { text:'#147A49', bg:'#E8F4EC' },
+    warn: { text:'#8A5600', bg:'#FBF1E2' },
+    bad:  { text:'#A83328', bg:'#FAEAE8' },
     info: { text:'#2D6FA8', bg:'#E7F0F7' },
-    void: { text:'#6F757B', bg:'#F1F0EC' },
+    void: { text:'#5C6168', bg:'#F1F0EC' },
   },
   dark: {
     ok:   { text:'#34C281', bg:'#15271F' },

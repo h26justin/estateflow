@@ -15,7 +15,8 @@ import { supabase } from './supabase'
 //   LIGHT  muted #5C6670 on #F4F3EF →  5.3:1  ✓ AA
 //   LIGHT  faint #686D72 on #F4F3EF →  4.7:1  ✓ AA   (spec #8A8E92 → 2.97 fail)
 //   LIGHT  red   #B8392D on #F4F3EF →  5.2:1  ✓ AA   (spec #C5483B → 4.33 large-only)
-//   LIGHT  amber #B5720A on #F4F3EF →  AA      (spec #C77E1E → 2.94 fail; reserved for pills)
+//   LIGHT  amber #8A5600 on #F4F3EF →  5.5:1  ✓ AA  (was #B5720A → 3.5:1 FAIL, incl. on its
+//                                              own tints; darkened so amber-as-text passes)
 //   LIGHT  blue  #2D6FA8 on #F4F3EF →  4.8:1  ✓ AA
 //   LIGHT  gold  is an accent / button-fill, never body text (2.7:1 — as before)
 //   DARK   text  #E8E5DD on #0E141A → 14.7:1  ✓ AAA
@@ -31,7 +32,7 @@ export const DARK = {
 export const LIGHT = {
   bg:'#F4F3EF', surface:'#FFFFFF', card:'#FAF9F6', border:'#E4E1D9',
   text:'#1C2830', muted:'#5C6670', faint:'#686D72',
-  gold:'#B8902F', green:'#1F9D63', red:'#B8392D', blue:'#2D6FA8', amber:'#B5720A', purple:'#7B3FA0',
+  gold:'#B8902F', green:'#1F9D63', red:'#B8392D', blue:'#2D6FA8', amber:'#8A5600', purple:'#7B3FA0',
 }
 
 export const ThemeContext = createContext({ T: LIGHT, darkMode: false, setDarkMode: () => {}, loadUserTheme: () => {} })
