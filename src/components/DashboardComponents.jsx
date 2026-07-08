@@ -682,7 +682,11 @@ export function ContractorsPage({companies, showToast}) {
     if (!form.name||!form.trade) return
     try {
       const {data:{user}} = await supabase.auth.getUser()
-      const saveData = {...form, company_id: form.company_ids[0]||null, company_ids_json: JSON.stringify(form.company_ids), user_id:user.id}
+      // Build the payload explicitly — the form state's `company_ids` array is
+      // UI-only (no such column), spreading it in fails the whole insert with
+      // a schema-cache error.
+      const { company_ids, ...fields } = form
+      const saveData = {...fields, company_id: company_ids[0]||null, company_ids_json: JSON.stringify(company_ids), user_id:user.id}
       const {data,error} = await supabase.from('contractors')
         .insert(saveData).select().single()
       if (error) throw error

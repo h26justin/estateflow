@@ -923,7 +923,11 @@ export default function App() {
       if (parts[0] === 'reports' && parts[1]) {
         return { view: 'reports', selectedReportId: parts[1] }
       }
-      return { view: parts[0] || 'dashboard' }
+      // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
+      // opened while signed in) must not become a view — an unmatched view
+      // key renders an empty main area. Fall back to the dashboard.
+      const KNOWN_VIEWS = ['dashboard','properties','companies','rent','deals','insurance','contractors','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail']
+      return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
     // Restore on first load
@@ -2095,7 +2099,10 @@ export default function App() {
         </div>
       )}
       {/* ── HEADER ── */}
-      <a href='#main-content' style={{position:'absolute',left:'-9999px',top:'auto',width:1,height:1,overflow:'hidden'}} onFocus={e=>{e.target.style.left='16px';e.target.style.width='auto';e.target.style.height='auto'}} onBlur={e=>{e.target.style.left='-9999px';e.target.style.width='1px';e.target.style.height='1px'}}>Skip to main content</a>
+      {/* Skip link: focus <main> directly instead of navigating — setting
+          location.hash to #main-content would be parsed by the hash router
+          as an unknown view and blank the screen. */}
+      <a href='#main-content' onClick={e=>{e.preventDefault(); const m=document.getElementById('main-content'); if(m){m.focus(); m.scrollIntoView()}}} style={{position:'absolute',left:'-9999px',top:'auto',width:1,height:1,overflow:'hidden'}} onFocus={e=>{e.target.style.left='16px';e.target.style.width='auto';e.target.style.height='auto'}} onBlur={e=>{e.target.style.left='-9999px';e.target.style.width='1px';e.target.style.height='1px'}}>Skip to main content</a>
       <header role='banner' style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
         <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
           {/* Left: logo on mobile, breadcrumb on desktop (nav lives in the rail) */}
@@ -2347,7 +2354,7 @@ export default function App() {
           </div>
         )
       })}
-      <main style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%'}}>
+      <main id="main-content" tabIndex={-1} style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%',outline:'none'}}>
         {loading?(view==='dashboard'?<DashboardSkeleton/>:<Spinner/>):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">

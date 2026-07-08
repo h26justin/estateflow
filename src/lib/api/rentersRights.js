@@ -30,7 +30,9 @@ export const RRA_CHECKLIST = [
 // companies/properties. Returns rows (company-level rows have property_id null).
 export async function fetchRraCompliance(companyId) {
   let q = supabase.from('rra_compliance')
-    .select('*, property:properties(id,name,address,postcode)')
+    // properties has no postcode column — selecting it fails the whole query
+    // and blanked the Renters Rights page.
+    .select('*, property:properties(id,name,address)')
     .order('updated_at', { ascending: false })
   if (companyId) q = q.eq('company_id', companyId)
   const { data, error } = await q

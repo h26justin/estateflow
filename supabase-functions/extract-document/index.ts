@@ -510,14 +510,18 @@ serve(async (req) => {
           .is('deleted_at', null)
           .maybeSingle()
 
+        // compliance_items has no `issuer` or `updated_at` columns — writing
+        // them fails the whole statement, so auto-created compliance rows
+        // silently never appeared. Issuer goes in `notes`; new rows are owned
+        // by the DOCUMENT owner (doc.user_id), not the caller, so a platform
+        // admin triggering extraction doesn't create a row RLS hides from
+        // the landlord.
         if (existing) {
           if (!existing.expiry_date || new Date(existing.expiry_date) <= new Date(expiryDate)) {
             await admin.from('compliance_items')
               .update({
                 expiry_date: expiryDate,
-                issuer: issuer || undefined,
                 document_id: documentId,
-                updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id)
             complianceRowId = existing.id
@@ -528,9 +532,9 @@ serve(async (req) => {
               property_id: finalPropertyId,
               cert_type: certType,
               expiry_date: expiryDate,
-              issuer,
+              notes: issuer ? `Issuer: ${issuer}` : null,
               document_id: documentId,
-              user_id: caller.id,
+              user_id: doc.user_id,
             })
             .select('id').single()
           complianceRowId = inserted?.id || null

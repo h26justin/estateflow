@@ -120,9 +120,11 @@ serve(async (req) => {
   if (permErr) return json({ error: 'Permission check failed' }, 500)
   if (!canWrite) return json({ error: 'You do not have write access to this property' }, 403)
 
+  // properties has no postcode column — selecting it errors the query and
+  // the whole notice draft 404'd. The address string carries the postcode.
   const { data: prop } = await admin
     .from('properties')
-    .select('id, name, address, postcode')
+    .select('id, name, address')
     .eq('id', property_id)
     .is('deleted_at', null)
     .maybeSingle()
@@ -137,7 +139,7 @@ serve(async (req) => {
     'You are drafting a UK landlord letter/notice for the Renters Rights Act regime.',
     'TASK: ' + guide,
     '',
-    'PROPERTY: ' + propLabel + (prop.postcode ? ' (' + prop.postcode + ')' : ''),
+    'PROPERTY: ' + propLabel,
     'TENANT: ' + tenantName,
     ground ? 'GROUND/REFERENCE SUPPLIED: ' + ground : '',
     '',

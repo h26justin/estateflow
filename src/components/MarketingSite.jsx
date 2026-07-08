@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 
@@ -124,6 +124,17 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
     setActiveNav(id)
     setMobileMenuOpen(false)
   }
+
+  // Blog pages link to /#pricing and /#features. This component mounts after
+  // the async auth check, long past the browser's native fragment scroll, so
+  // honour the hash ourselves once the sections exist.
+  useEffect(() => {
+    const id = (window.location.hash || '').replace('#', '')
+    if (['features', 'pricing', 'home'].includes(id)) {
+      document.getElementById(id)?.scrollIntoView()
+      setActiveNav(id)
+    }
+  }, [])
 
   return (
     <div style={{ fontFamily: SANS, color: SLATE, background: CREAM, minHeight: '100vh', overflowX: 'hidden' }}>
