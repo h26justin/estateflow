@@ -96,10 +96,12 @@ const STATUS_COLOR = {
 
 const STATUS_LABEL = { paid:'Paid', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
 
-// Statuses the user can manually set via click. We deliberately omit 'future'
-// (clicking a future day doesn't make sense) and 'refurb' (set elsewhere via
-// the property's refurb tab so accidental clicks don't change refurb state).
-const SETTABLE_STATUSES = ['paid', 'late', 'overdue', 'void']
+// Statuses the user can manually set via the edit popover. We deliberately
+// omit 'future' (clicking a future day doesn't make sense). 'refurb' is
+// settable so a period the property couldn't be let (refurbishment) can be
+// recorded distinctly from a plain void gap; the popover's explicit Save
+// step guards against the accidental-click risk that used to exclude it.
+const SETTABLE_STATUSES = ['paid', 'late', 'overdue', 'void', 'refurb']
 
 export default function DayTrackerPage({ companies, properties, setProperties, showToast, onBack }) {
   const { T } = useTheme()
@@ -554,12 +556,16 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
 
             {/* Status */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:10 }}>
-              {SETTABLE_STATUSES.map(s => {
+              {SETTABLE_STATUSES.map((s, si) => {
                 const isSel = s === form.status
+                // With an odd number of statuses, let the last button span the
+                // row so the 2-column grid doesn't leave a ragged gap.
+                const spansRow = si === SETTABLE_STATUSES.length - 1 && SETTABLE_STATUSES.length % 2 === 1
                 return (
                   <button key={s} onClick={() => setForm(f => ({ ...f, status: s }))} disabled={savingPayment}
                     style={{
                       fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 0', borderRadius:6,
+                      gridColumn: spansRow ? '1 / -1' : 'auto',
                       border:`1px solid ${isSel ? STATUS_COLOR[s] : T.border}`,
                       background: isSel ? STATUS_COLOR[s] + '22' : 'transparent',
                       color: STATUS_COLOR[s],
