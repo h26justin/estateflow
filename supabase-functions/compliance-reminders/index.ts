@@ -63,10 +63,12 @@ function renewalBookingUrl(type: string, postcode?: string | null): { label: str
   const renewalMap: Record<string, { label: string; url: string }> = {
     gas:         { label: 'Find a Gas Safe engineer',     url: `https://www.gassaferegister.co.uk/find-an-engineer-or-check-the-register/${pcq}` },
     eicr:        { label: 'Find an NICEIC electrician',   url: `https://www.niceic.com/find-a-contractor${pcq}` },
-    epc:         { label: 'Find an EPC assessor',         url: 'https://www.gov.uk/find-energy-certificate' },
-    pat:         { label: 'Find a PAT tester',            url: 'https://www.napit.org.uk/find-a-contractor' },
-    fire:        { label: 'Find a fire risk assessor',    url: 'https://www.ifsm.org.uk/find-an-assessor' },
-    legionella:  { label: 'Find a legionella assessor',   url: 'https://www.lcaregister.com/' },
+    // Link targets verified live 2026-07: the previous NAPIT/IFSM paths 404
+    // and lcaregister.com no longer resolves at all.
+    epc:         { label: 'Find an EPC assessor',         url: 'https://www.gov.uk/get-new-energy-certificate' },
+    pat:         { label: 'Find a PAT tester',            url: 'https://search.napit.org.uk/' },
+    fire:        { label: 'Find a fire risk assessor',    url: 'https://www.ifsm.org.uk/' },
+    legionella:  { label: 'Find a legionella assessor',   url: 'https://www.legionellacontrol.org.uk/' },
     alarm:       { label: 'Find an electrician',          url: `https://www.niceic.com/find-a-contractor${pcq}` },
     insurance:   { label: 'Compare landlord insurance',   url: 'https://www.simplybusiness.co.uk/landlord-insurance/' },
     hmo:         { label: 'Apply on your council site',   url: 'https://www.gov.uk/house-in-multiple-occupation-licence' },

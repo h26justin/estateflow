@@ -67,7 +67,7 @@ Noticed you haven't added a property yet — totally normal, most people don't u
 
 Here's the fastest way to get value from the trial:
 
-→ Add your first property: ${appUrl}/properties
+→ Add your first property: ${appUrl}/#/properties
 
 You only need three fields to get going:
 - Name (e.g. "Flat 1, Station Road")
@@ -96,7 +96,7 @@ The four UK landlord compliance dates that catch people out:
 
 OwnProperly emails you 90, 60, 30 and 7 days before each one expires. So you never have to remember.
 
-→ Add your compliance dates: ${appUrl}/properties (click any property → Compliance tab)
+→ Add your compliance dates: ${appUrl}/#/properties (click any property → Compliance tab)
 
 If you've got a Gas Safety cert sitting in a pile of paper somewhere, take 30 seconds and type the expiry date in now. You'll thank yourself in 11 months.
 
@@ -121,7 +121,7 @@ Timeline:
 
 In OwnProperly, you can practice the full submission flow today against HMRC's sandbox — no risk, no real data sent. Most landlords run 2-3 practice submissions before they trust the live flow.
 
-→ Start MTD ITSA setup: ${appUrl}/mtd
+→ Start MTD ITSA setup: ${appUrl}/#/mtd
 
 It's a 3-minute setup: enter your NINO, click "Connect HMRC", sign in via gov.uk. Then run a practice quarter.
 
@@ -143,7 +143,7 @@ Quick recap on pricing:
 
 For most landlords that's £10–£50/month total. Less than the cost of one missed Gas Safety cert.
 
-→ Add your card and continue: ${appUrl}/?settings=billing
+→ Add your card and continue: ${appUrl}/#/settings/billing
 
 If you've decided OwnProperly isn't right, that's fine — you can just let the trial expire and your account moves to read-only. Your data stays safe and you can come back later.
 
@@ -158,7 +158,7 @@ Justin
 
 Your trial ends tomorrow. Two options:
 
-1. Add a card: ${appUrl}/?settings=billing — continue with everything you've set up
+1. Add a card: ${appUrl}/#/settings/billing — continue with everything you've set up
 2. Book a 15-min call with me: ${calUrl} — tell me what didn't work, get a personal walkthrough of anything you're stuck on
 
 I want to know if we're not delivering for you. The fastest way to fix it is a real conversation, not another email. So if you're on the fence, please pick option 2.
@@ -230,11 +230,19 @@ serve(async (req) => {
 
     // Query candidates. Use auth.users via the admin API since the
     // service role can read it; we also pull user_profiles for name/optout.
-    const { data: users, error: uerr } = await admin
-      .auth.admin.listUsers({ page: 1, perPage: 200 })
-    if (uerr) { errors.push(`list users: ${uerr.message}`); continue }
+    // Paginate — a single page:1 call silently stops covering anyone beyond
+    // the first 200 accounts as the user base grows.
+    const allUsers: any[] = []
+    for (let page = 1; page <= 50; page++) {
+      const { data: users, error: uerr } = await admin
+        .auth.admin.listUsers({ page, perPage: 200 })
+      if (uerr) { errors.push(`list users p${page}: ${uerr.message}`); break }
+      const batch = users?.users || []
+      allUsers.push(...batch)
+      if (batch.length < 200) break
+    }
 
-    const candidates = (users?.users || []).filter(u => {
+    const candidates = allUsers.filter(u => {
       const c = u.created_at ? new Date(u.created_at).toISOString() : ''
       return c >= fromStr && c < toStr && !!u.email
     })

@@ -188,9 +188,11 @@ serve(async (req) => {
       if (!ownerId) continue
 
       // 2. Pull this company's portfolio data.
+      // properties has no postcode column — selecting it errors the query,
+      // leaving every company with zero properties and no autopilot actions.
       const { data: properties } = await admin
         .from('properties')
-        .select('id, name, address, postcode, rent_pcm, status, arrears, mortgage_product_end_date, user_id, deleted_at')
+        .select('id, name, address, rent_pcm, status, arrears, mortgage_product_end_date, user_id, deleted_at')
         .eq('company_id', companyId)
         .is('deleted_at', null)
 
@@ -280,7 +282,7 @@ serve(async (req) => {
             : `The ${label} for ${p.name || p.address} expires on ${fmtDate(c.expiry_date)}. Book the renewal inspection now to avoid a coverage gap.`,
           due_date: c.expiry_date,
           dedupe_key: `compliance:${c.id}`,
-          metadata: { cert_type: c.cert_type, days: d, property: p.name || p.address, postcode: p.postcode },
+          metadata: { cert_type: c.cert_type, days: d, property: p.name || p.address },
         })
       }
 

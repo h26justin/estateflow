@@ -16,6 +16,7 @@ import IntegrationsPanel from './IntegrationsPanel'
 import TwoFactorPanel from './TwoFactorPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
+import { showAppToast } from '../lib/toast'
 import { supabase } from '../lib/supabase'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -1955,15 +1956,19 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
         if (uploadErr) throw uploadErr
 
         // Private bucket — no public URL stored. Signed URL minted at view time.
-        await supabase.from('company_documents').insert({
+        // company_documents uses `type`/`size` columns (NOT file_type/file_size
+        // like property_documents) — inserting the wrong keys fails with a
+        // schema-cache error and no document is saved.
+        const { error: insertErr } = await supabase.from('company_documents').insert({
           company_id: companyId,
           user_id: u.id,
           name: docName || file.name,
           file_path: filePath,
-          file_type: file.type,
-          file_size: file.size,
+          type: file.type,
+          size: file.size,
           category: selectedCategory,
         })
+        if (insertErr) throw insertErr
         showToast('Document uploaded')
         setDocName('')
         await loadDocs()
@@ -2044,8 +2049,8 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
                         <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
                           {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                         </span>
-                        {doc.file_size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
-                          {formatSize(doc.file_size)}
+                        {doc.size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
+                          {formatSize(doc.size)}
                         </span>}
                       </div>
                     </div>

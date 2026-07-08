@@ -524,7 +524,15 @@ serve(async (req) => {
         const now = new Date()
         const yyyymm = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
         const localId = `${p.id}:${yyyymm}`
-        if (syncedSet.has(`mortgage_interest:${localId}`)) continue
+        // The dedupe check MUST use the same hashed-UUID local_id that gets
+        // stored in xero_sync_map below — comparing against the raw
+        // "<property_id>:<YYYY-MM>" string never matches, which re-posted the
+        // same month's interest SPEND to Xero on every sync.
+        const hashHexBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(localId))
+        const hashBytesArr = new Uint8Array(hashHexBuf)
+        const hexStr = Array.from(hashBytesArr).slice(0, 16).map(b => b.toString(16).padStart(2,'0')).join('')
+        const localIdUuid = `${hexStr.slice(0,8)}-${hexStr.slice(8,12)}-${hexStr.slice(12,16)}-${hexStr.slice(16,20)}-${hexStr.slice(20,32)}`
+        if (syncedSet.has(`mortgage_interest:${localIdUuid}`)) continue
         const txnDate = `${yyyymm}-01`
         const tracking = trackingForProperty(p.id)
         const lineItem: any = {
@@ -551,19 +559,12 @@ serve(async (req) => {
         const data = await r.json()
         const xid = data.BankTransactions?.[0]?.BankTransactionID
         if (xid) {
-          // Cast UUID column local_id — for mortgage_interest we use a
-          // synthetic property_id:yyyymm string. We need a different
-          // column or a stable hash. For now use a v5-style UUID derived
-          // from the localId so we conform to the column type. Note that
-          // xero_sync_map.local_id is UUID, so we need to fit.
-          // Quickest path: hash to UUID-shaped string.
-          const hashHex = (await crypto.subtle.digest('SHA-256', new TextEncoder().encode(localId)))
-          const hashBytes = new Uint8Array(hashHex)
-          const hex = Array.from(hashBytes).slice(0, 16).map(b => b.toString(16).padStart(2,'0')).join('')
-          const uuid = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`
+          // xero_sync_map.local_id is a UUID column, so the synthetic
+          // "<property_id>:<YYYY-MM>" key is stored as the SHA-256-derived
+          // UUID computed above (the dedupe check uses the same value).
           await admin.from('xero_sync_map').upsert({
             user_id: caller.id, company_id: companyId,
-            entity_type: 'mortgage_interest', local_id: uuid,
+            entity_type: 'mortgage_interest', local_id: localIdUuid,
             xero_id: xid, xero_kind: 'BankTransaction',
           }, { onConflict: 'user_id,company_id,entity_type,local_id' })
           created++

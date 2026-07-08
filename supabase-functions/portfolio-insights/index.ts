@@ -68,7 +68,7 @@ function buildPortfolioSummary(data: any) {
     .filter((c: any) => !c.deleted_at && c.expiry_date)
     .map((c: any) => {
       const days = Math.floor((new Date(c.expiry_date).getTime() - now.getTime()) / 86_400_000)
-      return `${c.cert_type || c.item_type} for property ${c.property_id} — ${days < 0 ? `EXPIRED ${Math.abs(days)}d ago` : `expires in ${days}d`}`
+      return `${c.cert_type} for property ${c.property_id} — ${days < 0 ? `EXPIRED ${Math.abs(days)}d ago` : `expires in ${days}d`}`
     })
     .filter(Boolean)
     .join('\n')
@@ -80,7 +80,7 @@ function buildPortfolioSummary(data: any) {
 
   const dealLines = deals
     .filter((d: any) => !d.deleted_at && d.status !== 'dead' && d.status !== 'completed')
-    .map((d: any) => `${d.name || d.address || 'Deal'} (${d.status}, ${d.purchase_type || 'mortgage'}) — purchase £${num(d.purchase_price).toLocaleString()}, refurb £${num(d.refurb_cost).toLocaleString()}, est rent £${num(d.estimated_rent).toLocaleString()}/mo`)
+    .map((d: any) => `${d.name || d.address || 'Deal'} (${d.status}, ${d.purchase_type || 'mortgage'}) — purchase £${num(d.purchase_price).toLocaleString()}, refurb £${num(d.refurb_cost).toLocaleString()}, est rent £${num(d.monthly_rent).toLocaleString()}/mo`)
     .join('\n')
 
   // Aggregate stats — these also get returned to the client for the widget
@@ -188,9 +188,11 @@ serve(async (req) => {
     // Pull the data we need. All server-side, scoped to the caller.
     const [propsRes, complianceRes, insuranceRes, dealsRes] = await Promise.all([
       admin.from('properties').select('id, name, address, prop_type, status, purchase_price, refurb_cost, current_value, est_value, rent_pcm, mortgage_amount, mortgage_rate, arrears, deleted_at').eq('user_id', caller.id),
-      admin.from('compliance_items').select('id, cert_type, item_type, expiry_date, property_id, deleted_at').eq('user_id', caller.id),
+      admin.from('compliance_items').select('id, cert_type, expiry_date, property_id, deleted_at').eq('user_id', caller.id),
       admin.from('insurance_policies').select('id, policy_type, provider, premium, expiry_date, deleted_at').eq('user_id', caller.id).then((r: any) => r),
-      admin.from('deals').select('id, name, address, status, purchase_type, purchase_price, refurb_cost, estimated_rent, deleted_at').eq('user_id', caller.id).then((r: any) => r),
+      // deals has no estimated_rent column (it's monthly_rent) — selecting it
+      // errored the query and silently blanked deals out of the AI insights.
+      admin.from('deals').select('id, name, address, status, purchase_type, purchase_price, refurb_cost, monthly_rent, deleted_at').eq('user_id', caller.id).then((r: any) => r),
     ])
 
     const data = {
