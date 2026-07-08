@@ -284,6 +284,18 @@ function monthDominantStatus(segs) {
   return segs[0]?.status || 'void'
 }
 
+// Default year for rent year-filters: the current year when it has data,
+// otherwise the most recent year that does. Never blindly "latest year with
+// rows": future months are pre-generated ~6 months ahead
+// (ensureFutureRentMonths), so from July onwards the latest year is NEXT
+// year, which made the Rent Tracker open on it.
+function defaultRentYear(payments) {
+  const years = [...new Set(payments.map(p => p.year))].sort()
+  if (years.length === 0) return null
+  const currentYear = new Date().getFullYear()
+  return years.includes(currentYear) ? currentYear : years[years.length - 1]
+}
+
 // Month-level stats for a set of rent segments (optionally scoped to a year).
 // Counts collapse a month's segments to its dominant status so a month split
 // across several segments (tenant changeover, partial payment + balance)
@@ -3241,12 +3253,9 @@ export default function App() {
                 {detailTab==='overview' && (() => {
                   const payments = selected.rent_payments || []
                   if (payments.length === 0) return null
-                  const currentYear = new Date().getFullYear()
-                  // Latest year with any data — usually currentYear, falls
-                  // back to whatever's most recent if user hasn't generated
-                  // current-year months yet.
-                  const years = [...new Set(payments.map(p => p.year))].sort()
-                  const focusYear = years.includes(currentYear) ? currentYear : years[years.length - 1]
+                  // Current year when it has data, else the most recent
+                  // year that does (shared defaultRentYear helper).
+                  const focusYear = defaultRentYear(payments)
                   // Month-collapsed stats — same maths as the Rent Tracker
                   // page so the two screens agree for the same year.
                   const { paid, missed, late, income: collected } = getMonthlyRentStats(payments, focusYear, selected.rent_pcm)
@@ -4236,7 +4245,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
   const allYears = [...new Set(allPayments.map(p=>p.year))].sort()
-  const [globalYear, setGlobalYear] = useState(allYears[allYears.length-1]||null)
+  const [globalYear, setGlobalYear] = useState(() => defaultRentYear(allPayments))
   const [expandedCompanies, setExpandedCompanies] = useState({})
 
   function toggleCompany(id) {
@@ -4566,7 +4575,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
   const { T } = useTheme()
   const payments = selected.rent_payments || []
   const years = [...new Set(payments.map(p=>p.year))].sort()
-  const [filterYear, setFilterYear] = useState(years[years.length-1] || null)
+  const [filterYear, setFilterYear] = useState(() => defaultRentYear(payments))
 
   // Stats for selected year — month-collapsed via the shared helper so
   // multi-segment months (changeovers, partial payments) count once and
