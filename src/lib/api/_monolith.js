@@ -1085,8 +1085,11 @@ export async function fetchNotes(propertyId, category) {
 }
 
 export async function createNote(propertyId, content, category, userId, userEmail) {
+  // The DB column is `note` (NOT NULL), and the UI renders `n.note`.
+  // This insert wrote `content` since day one, so saving always failed with
+  // "Could not find the 'content' column of 'property_notes'".
   const { data, error } = await supabase.from('property_notes')
-    .insert({ property_id: propertyId, content, category, user_id: userId, user_email: userEmail })
+    .insert({ property_id: propertyId, note: content, category, user_id: userId, user_email: userEmail })
     .select().single()
   if (error) throw error
   return data
