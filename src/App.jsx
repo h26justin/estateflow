@@ -777,8 +777,12 @@ export default function App() {
   // limited_company users don't see MTD ITSA (they file Corp Tax, not Self Assessment).
   const [accountType, setAccountType] = useState(null)
   const [yieldBasis, setYieldBasis]      = useState('cost') // 'cost' = purchase+refurb, 'value' = current value
-  const [showLoginModal, setShowLoginModal] = useState(false)
-  const [loginMode, setLoginMode] = useState('login')
+  // Invite emails link to /?invite=<token>. A logged-out visitor must land
+  // straight in the signup modal (LoginPage reads the param itself and
+  // redeems after auth), without this they just see the marketing page and
+  // the invite goes nowhere.
+  const [showLoginModal, setShowLoginModal] = useState(() => new URLSearchParams(window.location.search).has('invite'))
+  const [loginMode, setLoginMode] = useState(() => new URLSearchParams(window.location.search).has('invite') ? 'signup' : 'login')
   const [trialWarning, setTrialWarning] = useState(null)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showTour, setShowTour] = useState(false)
@@ -988,6 +992,33 @@ export default function App() {
       setLoading(true)
       setLoadError(null)
       try {
+        // Redeem any invite BEFORE fetching access rows, so the granted
+        // companies appear in this very load (no reload needed). Two sources:
+        //  - ?invite=<token> in the URL, when an already-logged-in user clicked
+        //    an invite email link (logged-out users get the signup modal,
+        //    which redeems via LoginPage instead).
+        //  - pending_invite_token stashed at signup (email-confirmation flow).
+        // Clear both regardless of outcome so we don't retry a bad token forever.
+        try {
+          const inviteParam = new URLSearchParams(window.location.search).get('invite')
+          const pending = localStorage.getItem('pending_invite_token') || inviteParam
+          if (pending) {
+            const isCode = looksLikeCompanyInviteCode(pending)
+            try {
+              if (isCode) {
+                const result = await api.redeemCompanyInvite(pending)
+                showToast(`Joined ${result?.company_name || 'company'} ✓`)
+              } else {
+                await api.acceptInvitation(pending)
+                showToast('Invitation accepted ✓')
+              }
+            } catch(e) {
+              if (e.message) showToast(e.message, 'error')
+            }
+            localStorage.removeItem('pending_invite_token')
+            if (inviteParam) window.history.replaceState({}, '', window.location.pathname)
+          }
+        } catch(e) { /* non-fatal */ }
         // One user_profiles read serves the developer flag AND nav/yield/
         // account prefs (previously three separate selects of the same row).
         const [cos, props, accessById, accessByEmail, prof] = await Promise.all([
@@ -1070,28 +1101,8 @@ export default function App() {
           if (raw) setSectionPrefs(JSON.parse(raw))
         } catch(e) { /* non-fatal — fall back to defaults */ }
 
-        // If a pending invite token was stashed at signup (because the user
-        // had to confirm their email before signing in), redeem it now while
-        // we have a valid session. Clear the stash regardless of outcome so
-        // we don't try forever on a bad token.
-        try {
-          const pending = localStorage.getItem('pending_invite_token')
-          if (pending) {
-            const isCode = looksLikeCompanyInviteCode(pending)
-            try {
-              if (isCode) {
-                const result = await api.redeemCompanyInvite(pending)
-                showToast(`Joined ${result?.company_name || 'company'} ✓`)
-              } else {
-                await api.acceptInvitation(pending)
-                showToast('Invitation accepted ✓')
-              }
-            } catch(e) {
-              if (e.message) showToast(e.message, 'error')
-            }
-            localStorage.removeItem('pending_invite_token')
-          }
-        } catch(e) { /* non-fatal */ }
+        // (Invite redemption ran at the top of loadData, before the access
+        // fetches, so any newly granted companies are already in scope.)
         // (Theme, nav prefs, announcements and onboarding status are loaded
         // in the parallel batch above.)
         // Build the set of company IDs this user has access to

@@ -1372,20 +1372,38 @@ export async function fetchPendingInvitations(companyId) {
 }
 
 export async function acceptInvitation(token) {
+  const user = (await supabase.auth.getUser()).data.user
+  const nowIso = new Date().toISOString()
+  // Inviting someone to several companies creates one invitations row per
+  // company, but the invite email carries only ONE row's token. A valid,
+  // unexpired token for this email therefore redeems ALL of the email's
+  // pending invitations (RLS restricts us to rows addressed to us anyway).
+  const { data: tokenRow, error: tokenErr } = await supabase
+    .from('invitations')
+    .select('id, expires_at')
+    .eq('token', token)
+    .eq('email', user.email)
+    .maybeSingle()
+  if (tokenErr) throw tokenErr
+  if (!tokenRow) throw new Error('This invitation is not valid for this account. Sign in with the email address the invite was sent to')
+  if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
+    throw new Error('This invitation has expired. Ask to be invited again')
+  }
   const { data, error } = await supabase
     .from('invitations')
-    .update({ accepted: true, accepted_at: new Date().toISOString() })
-    .eq('token', token)
-    .eq('email', (await supabase.auth.getUser()).data.user.email)
-    .select().single()
+    .update({ accepted: true, accepted_at: nowIso })
+    .eq('email', user.email)
+    .eq('accepted', false)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .select()
   if (error) throw error
-  // Grant access to the company
-  if (data) {
+  // Grant access to each company
+  for (const inv of (data || [])) {
     await supabase.from('user_company_access').upsert({
-      user_id: (await supabase.auth.getUser()).data.user.id,
-      company_id: data.company_id,
-      email: data.email,
-      is_admin: data.is_admin,
+      user_id: user.id,
+      company_id: inv.company_id,
+      email: inv.email,
+      is_admin: inv.is_admin,
       is_owner: false,
     }, { onConflict: 'user_id,company_id' })
   }
