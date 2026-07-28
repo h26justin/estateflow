@@ -15,6 +15,8 @@ import { useConfirm } from '../lib/ConfirmContext'
 
 export default function IntegrationsPanel({ T, mono, companies = [], properties = [] }) {
   const [connections, setConnections] = useState([])
+  const [lodgifyConnections, setLodgifyConnections] = useState([])
+  const [lodgifyMappings, setLodgifyMappings] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { load() }, [])
@@ -22,8 +24,14 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
   async function load() {
     setLoading(true)
     try {
-      const conns = await api.fetchXeroConnections()
+      const [conns, lodgifyConns, lodgifyMaps] = await Promise.all([
+        api.fetchXeroConnections(),
+        api.fetchLodgifyConnections().catch(() => []),
+        api.fetchLodgifyMappings().catch(() => []),
+      ])
       setConnections(conns)
+      setLodgifyConnections(lodgifyConns)
+      setLodgifyMappings(lodgifyMaps)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -67,51 +75,51 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
         Short-term lets
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
-        Pull Airbnb / Booking.com / direct bookings from Lodgify into the Rent Tracker as revenue. One Lodgify account covers all your listings.
+        Pull Airbnb / Booking.com / direct bookings from Lodgify into the Rent Tracker as revenue. Each company can hold its own Lodgify account.
       </div>
-      <LodgifyCard T={T} mono={mono} properties={properties || []} />
+      {visibleCompanies.map(co => {
+        const conn = lodgifyConnections.find(c => c.company_id === co.id)
+        return (
+          <LodgifyCard
+            key={co.id}
+            T={T} mono={mono}
+            company={co}
+            connection={conn}
+            savedMappings={conn ? lodgifyMappings.filter(m => m.connection_id === conn.id) : []}
+            properties={(properties || []).filter(p => p.company_id === co.id)}
+            onChanged={load}
+          />
+        )
+      })}
     </div>
   )
 }
 
-// ── LODGIFY (STL) CARD ─────────────────────────────────────────────────
-// One per user, not per company — a Lodgify account holds all listings.
-// Flow: paste API key → map each Lodgify listing to an OwnProperly
-// property → sync (manual button here; daily 05:30 UTC cron server-side).
-function LodgifyCard({ T, mono, properties }) {
+// ── LODGIFY (STL) CARD — one per company ───────────────────────────────
+// Same model as the Xero cards: each company holds its own Lodgify account
+// (e.g. ExH Property Group's STL block vs Vale Property Group's). Flow:
+// paste API key → map each Lodgify listing to a property in THIS company →
+// sync (manual button here; server cron three times a day).
+function LodgifyCard({ T, mono, company, connection, savedMappings, properties, onChanged }) {
   const confirmDialog = useConfirm()
-  const [connection, setConnection] = useState(null)
-  const [mappings, setMappings] = useState([])          // saved rows from DB
+  const [mappings, setMappings] = useState(savedMappings)
   const [lodgifyProps, setLodgifyProps] = useState(null) // live list, loaded on demand
   const [apiKey, setApiKey] = useState('')
-  const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null)
   const [lastSync, setLastSync] = useState(null)         // result of the last manual sync
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
-    setLoading(true)
-    try {
-      const [conn, maps] = await Promise.all([
-        api.fetchLodgifyConnection(),
-        api.fetchLodgifyMappings(),
-      ])
-      setConnection(conn)
-      setMappings(maps)
-    } catch (e) { console.error(e) }
-    setLoading(false)
-  }
+  // Parent reload replaces savedMappings; mirror it unless mid-edit.
+  useEffect(() => { if (!lodgifyProps) setMappings(savedMappings) /* eslint-disable-next-line */ }, [savedMappings])
 
   async function connect() {
     if (!apiKey.trim()) { showAppToast('Paste your Lodgify API key first', 'error'); return }
     setBusy('connect')
     try {
-      const r = await api.connectLodgify(apiKey.trim())
+      const r = await api.connectLodgify(company.id, apiKey.trim())
       setApiKey('')
       setLodgifyProps(r.properties || [])
-      showAppToast(`Lodgify connected — ${r.properties?.length || 0} ${r.properties?.length === 1 ? 'listing' : 'listings'} found. Map them below.`)
-      await load()
+      showAppToast(`Lodgify connected to ${company.name} — ${r.properties?.length || 0} ${r.properties?.length === 1 ? 'listing' : 'listings'} found. Map them below.`)
+      onChanged?.()
     } catch (e) { showAppToast(e.message, 'error') }
     setBusy(null)
   }
@@ -119,7 +127,7 @@ function LodgifyCard({ T, mono, properties }) {
   async function openMappingEditor() {
     setBusy('props')
     try {
-      const r = await api.fetchLodgifyProperties()
+      const r = await api.fetchLodgifyProperties(company.id)
       setLodgifyProps(r.properties || [])
     } catch (e) { showAppToast(e.message, 'error') }
     setBusy(null)
@@ -136,14 +144,14 @@ function LodgifyCard({ T, mono, properties }) {
   async function saveMappings() {
     setBusy('save')
     try {
-      await api.saveLodgifyMappings(mappings.map(m => ({
+      await api.saveLodgifyMappings(company.id, mappings.map(m => ({
         lodgify_property_id: m.lodgify_property_id,
         lodgify_property_name: m.lodgify_property_name,
         property_id: m.property_id,
       })))
       showAppToast('Mappings saved')
       setLodgifyProps(null)
-      await load()
+      onChanged?.()
     } catch (e) { showAppToast(e.message, 'error') }
     setBusy(null)
   }
@@ -151,30 +159,31 @@ function LodgifyCard({ T, mono, properties }) {
   async function syncNow() {
     setBusy('sync')
     try {
-      const r = await api.runLodgifySync()
+      const r = await api.runLodgifySync(company.id)
       setLastSync(r)
       const parts = [
         r.created ? `${r.created} new` : null,
         r.updated ? `${r.updated} updated` : null,
         r.removed ? `${r.removed} cancelled` : null,
       ].filter(Boolean).join(', ') || 'nothing new'
-      showAppToast(`Lodgify: ${parts} (${r.bookings} bookings checked)`)
-      await load()
+      showAppToast(`Lodgify (${company.abbr || company.name}): ${parts} (${r.bookings} bookings checked)`)
+      onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
   }
 
   async function disconnect() {
     if (!await confirmDialog({
-      title: 'Disconnect Lodgify?',
+      title: `Disconnect Lodgify from ${company.name}?`,
       body: 'Future syncs stop and the booking list clears. Rent Tracker entries already created stay — that revenue really happened.',
       confirmLabel: 'Disconnect', destructive: true,
     })) return
     setBusy('disconnect')
     try {
-      await api.disconnectLodgify()
-      setConnection(null); setMappings([]); setLodgifyProps(null)
-      showAppToast('Lodgify disconnected')
+      await api.disconnectLodgify(company.id)
+      setMappings([]); setLodgifyProps(null)
+      showAppToast(`Lodgify disconnected from ${company.name}`)
+      onChanged?.()
     } catch (e) { showAppToast(e.message, 'error') }
     setBusy(null)
   }
@@ -185,7 +194,7 @@ function LodgifyCard({ T, mono, properties }) {
 
   // Alphabetical with natural number handling ("Flat 2" before "Flat 10") —
   // the raw properties array arrives in portfolio drag-sort order, which
-  // interleaves companies and reads as noise in a long dropdown.
+  // reads as noise in a long dropdown.
   const propLabel = p => p.name || p.address || ''
   const naturalSort = (a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' })
   const sortedProperties = properties
@@ -197,17 +206,15 @@ function LodgifyCard({ T, mono, properties }) {
   const sortedMappings = [...mappings].sort((a, b) =>
     naturalSort(a.lodgify_property_name || String(a.lodgify_property_id), b.lodgify_property_name || String(b.lodgify_property_id)))
 
-  if (loading) return <div style={card}><div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div></div>
-
   return (
     <div style={card}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom: 14, flexWrap:'wrap', gap: 10 }}>
         <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 8, background: '#E8542722', color: '#E85427', display:'flex', alignItems:'center', justifyContent:'center', fontSize: 17 }}>
-            🏖
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: (company.color || '#E85427') + '22', color: company.color || '#E85427', display:'flex', alignItems:'center', justifyContent:'center', fontFamily: mono, fontSize: 11, fontWeight: 700 }}>
+            {company.abbr}
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>Lodgify</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Lodgify</div>
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
               Airbnb · Booking.com · direct bookings
             </div>
