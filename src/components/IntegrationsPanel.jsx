@@ -284,7 +284,7 @@ function LodgifyCard({ T, mono, properties }) {
             </button>
           </div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
-            Also syncs automatically every morning (05:30 UTC).
+            Also syncs automatically three times a day (04:00, 12:00, 18:00 UTC).
           </div>
 
           {lodgifyProps && (
