@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="OwnProperly">
-  <style>.op-m{font-family:'Schibsted Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-weight:700;font-size:148px;letter-spacing:-0.04em;}</style>
-  <rect width="240" height="240" rx="48" fill="#14202A"/>
-  <text x="118" y="172" text-anchor="middle" class="op-m" fill="#F4F3EF">P<tspan fill="#CBA64E">.</tspan></text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><rect width="32" height="32" rx="8" fill="#14202A"/><path d="M13.67 22.86L10.69 22.86L10.69 9.14L17.83 9.14Q19.31 9.14 20.3 9.69Q21.29 10.24 21.8 11.23Q22.31 12.22 22.31 13.58L22.31 13.58Q22.31 14.94 21.78 15.95Q21.25 16.96 20.23 17.52Q19.21 18.08 17.73 18.08L17.73 18.08L13.67 18.08L13.67 22.86M13.67 11.58L13.67 15.64L17.33 15.64Q18.27 15.64 18.78 15.1Q19.29 14.56 19.29 13.6L19.29 13.6Q19.29 12.94 19.07 12.5Q18.85 12.06 18.42 11.82Q17.99 11.58 17.33 11.58L17.33 11.58L13.67 11.58" fill="#67AAED"/></svg>

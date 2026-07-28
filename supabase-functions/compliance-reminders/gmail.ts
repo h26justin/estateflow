@@ -146,7 +146,7 @@ export async function sendGmail({ from, to, subject, html, text }: {
   const saJson = Deno.env.get('GOOGLE_SA_KEY')
   if (!saJson) throw new Error('GOOGLE_SA_KEY not configured')
   const sender = Deno.env.get('GMAIL_SENDER') || 'noreply@ownproperly.com'
-  const fromHeader = from || `OwnProperly <${sender}>`
+  const fromHeader = from || `Properly <${sender}>`
 
   let sa: ServiceAccount
   try { sa = JSON.parse(saJson) }

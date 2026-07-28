@@ -22,7 +22,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 const SUPABASE_URL   = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
-const FROM_EMAIL     = Deno.env.get('FROM_EMAIL') || 'Justin at OwnProperly <justin@ownproperly.com>'
+const FROM_EMAIL     = Deno.env.get('FROM_EMAIL') || 'Justin at Properly <justin@ownproperly.com>'
 const APP_BASE_URL   = Deno.env.get('APP_BASE_URL') || 'https://www.ownproperly.com'
 
 const corsHeaders = {
@@ -58,14 +58,14 @@ The biggest mistake landlords make with Section 24 is treating it as a fixed rea
 2. Incorporation makes sense for higher-rate landlords with leveraged portfolios — but the SDLT 3% surcharge on transfer is brutal. Model it carefully.
 3. Annual rate changes (bank rate movements) hit S24 landlords directly because the bigger the interest, the bigger the gap between 20% credit and 40% marginal rate.
 
-OwnProperly automates Section 24 across every property in your portfolio and handles your quarterly MTD ITSA filings. £2 per property per month, 14-day free trial, no card needed.
+Properly automates Section 24 across every property in your portfolio and handles your quarterly MTD ITSA filings. £2 per property per month, 14-day free trial, no card needed.
 
 → Start your free trial: ${APP_BASE_URL}
 
 Any questions, just reply.
 
 Justin
-Founder, OwnProperly
+Founder, Properly
 `
     : `Hi,
 
@@ -80,7 +80,7 @@ A short pointer to whatever you might find useful:
 Or just reply and tell me what you're trying to figure out.
 
 Justin
-Founder, OwnProperly
+Founder, Properly
 `
 
   const res = await fetch('https://api.resend.com/emails', {

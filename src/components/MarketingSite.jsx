@@ -12,6 +12,12 @@ const BORDER = '#E4E1D9'
 const DARK   = '#14202A'
 
 const CSS = `
+  .show-mobile-logo { display: none; }
+  @media (max-width: 768px) {
+    .hide-mobile-logo { display: none; }
+    .show-mobile-logo { display: block; }
+  }
+
   *{box-sizing:border-box;margin:0;padding:0;}
   html{scroll-behavior:smooth;}
   body{-webkit-font-smoothing:antialiased;}
@@ -141,8 +147,11 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <style>{CSS}</style>
 
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(244,243,239,0.96)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${BORDER}`, padding: '0 24px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 116 }}>
-          <img src="/logo.svg" alt="OwnProperly" style={{ height: 100, width: 'auto' }}/>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 76 }}>
+          <a href="/" aria-label="Properly — home" style={{ display:'flex', alignItems:'center' }}>
+            <img src="/logo.svg" alt="Properly" className="hide-mobile-logo" style={{ height: 48, width: 'auto' }}/>
+            <img src="/brand/lockup-short.svg" alt="Properly" className="show-mobile-logo" style={{ height: 30, width: 'auto' }}/>
+          </a>
           <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
             <div className="hide-mobile" style={{ display: 'flex', gap: 24 }}>
               {[['home','Home'],['features','Features'],['pricing','Pricing']].map(([id,label]) => (
@@ -194,7 +203,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ padding: '88px 24px 72px', background: WHITE }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Why OwnProperly</div>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Why Properly</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>The landlord tool you'd actually choose</h2>
             <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 580, margin: '0 auto' }}>
               Most property software was built before the iPhone. Ours wasn't. Here's what that means in practice.
@@ -335,7 +344,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       </section>
 
       {/* Trust + comparison section — landlords kicking the tyres compare
-          OwnProperly against spreadsheets and the established names. This
+          Properly against spreadsheets and the established names. This
           inline table cuts that off at the pass. Numbers below are based
           on publicly-listed pricing as of May 2026 — update when they
           change. */}
@@ -343,14 +352,14 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How we compare</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>OwnProperly vs the alternatives</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Properly vs the alternatives</h2>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace", fontSize: 13, minWidth: 720 }}>
               <thead>
                 <tr style={{ borderBottom: `2px solid ${SLATE}` }}>
                   <th style={{ textAlign: 'left', padding: '14px 12px', color: MUTED, fontWeight: 600 }}></th>
-                  <th style={{ textAlign: 'center', padding: '14px 12px', color: GOLD, fontWeight: 700, background: GOLD + '11' }}>OwnProperly</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: GOLD, fontWeight: 700, background: GOLD + '11' }}>Properly</th>
                   <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Spreadsheets</th>
                   <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Arthur Online</th>
                   <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Landlord Vision</th>
@@ -469,7 +478,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Prefer a real conversation?</div>
           <h2 style={{ fontSize: 32, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 16 }}>Book a 15-minute onboarding call</h2>
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px' }}>
-            Stuck on whether OwnProperly fits your portfolio? Book a call with Justin (founder).
+            Stuck on whether Properly fits your portfolio? Book a call with Justin (founder).
             We'll go through your setup live and answer any questions about MTD ITSA, Section 24,
             multi-company billing or compliance tracking. No pitch, no follow-up unless you ask.
           </p>
@@ -508,20 +517,20 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <div style={{ display: 'grid', gap: 14 }}>
             {[
               ['What is the best landlord software for UK rental properties?',
-               'OwnProperly is property portfolio management software built specifically for UK landlords. It tracks rent payments, compliance certificates (Gas Safety, EICR, EPC), tenant references and Right to Rent, and includes a BTL deal calculator. Pricing starts at £2 per property per month (£10/month minimum) with a 14-day free trial.'],
-              ['How much does OwnProperly cost?',
-               'OwnProperly is £2 per property per month on the Starter plan. The Investor plan is £5 per property per month and adds AI portfolio insights, the AI listing writer and the deals pipeline. Both plans have a £10/month minimum and include a 14-day free trial with no credit card required.'],
-              ['Does OwnProperly support Making Tax Digital (MTD) for landlords?',
-               "Yes. OwnProperly is built for the MTD ITSA April 2026 mandate. It connects directly to HMRC via gov.uk OAuth, files quarterly Property Business submissions, and includes Section 24 mortgage interest restriction calculations. Sandbox mode lets you practice before going live."],
-              ['What compliance certificates does OwnProperly track?',
-               'OwnProperly tracks all UK landlord compliance: Gas Safety (CP12), EICR electrical reports, EPC energy performance ratings, HMO licences, Right to Rent expiry, deposit protection (TDS/DPS/MyDeposits), Legionella risk assessments and PAT testing. It sends automatic email reminders before each expiry.'],
+               'Properly (ownproperly.com) is property portfolio management software built specifically for UK landlords. It tracks rent payments, compliance certificates (Gas Safety, EICR, EPC), tenant references and Right to Rent, and includes a BTL deal calculator. Pricing starts at £2 per property per month (£10/month minimum) with a 14-day free trial.'],
+              ['How much does Properly cost?',
+               'Properly is £2 per property per month on the Starter plan. The Investor plan is £5 per property per month and adds AI portfolio insights, the AI listing writer and the deals pipeline. Both plans have a £10/month minimum and include a 14-day free trial with no credit card required.'],
+              ['Does Properly support Making Tax Digital (MTD) for landlords?',
+               "Yes. Properly is built for the MTD ITSA April 2026 mandate. It connects directly to HMRC via gov.uk OAuth, files quarterly Property Business submissions, and includes Section 24 mortgage interest restriction calculations. Sandbox mode lets you practice before going live."],
+              ['What compliance certificates does Properly track?',
+               'Properly tracks all UK landlord compliance: Gas Safety (CP12), EICR electrical reports, EPC energy performance ratings, HMO licences, Right to Rent expiry, deposit protection (TDS/DPS/MyDeposits), Legionella risk assessments and PAT testing. It sends automatic email reminders before each expiry.'],
               ['Can multiple landlords share an account?',
-               'Yes. OwnProperly supports multi-user companies with role-based permissions. You can invite a co-owner, accountant, or letting agent with granular controls over what they can view (financials) and edit (properties, tenancies, expenses, compliance).'],
-              ['Does OwnProperly integrate with Xero or QuickBooks?',
-               'OwnProperly has native Xero integration — connect once per company and rent, expenses, mortgage interest, deposits and refurb costs sync automatically. Granular toggles control what syncs. Reconciliation status pulls back from Xero. QuickBooks support is on the roadmap.'],
-              ['Is OwnProperly suitable for HMO landlords?',
-               'Yes. OwnProperly handles HMOs with per-room rent tracking, individual tenant references, HMO licence expiry alerts, and the ability to bulk-add a block of units in one step. Both selective licensing and mandatory HMO licensing are supported.'],
-              ['Can tenants access OwnProperly?',
+               'Yes. Properly supports multi-user companies with role-based permissions. You can invite a co-owner, accountant, or letting agent with granular controls over what they can view (financials) and edit (properties, tenancies, expenses, compliance).'],
+              ['Does Properly integrate with Xero or QuickBooks?',
+               'Properly has native Xero integration — connect once per company and rent, expenses, mortgage interest, deposits and refurb costs sync automatically. Granular toggles control what syncs. Reconciliation status pulls back from Xero. QuickBooks support is on the roadmap.'],
+              ['Is Properly suitable for HMO landlords?',
+               'Yes. Properly handles HMOs with per-room rent tracking, individual tenant references, HMO licence expiry alerts, and the ability to bulk-add a block of units in one step. Both selective licensing and mandatory HMO licensing are supported.'],
+              ['Can tenants access Properly?',
                'Yes. Each property has a branded tenant portal where tenants can see their tenancy details, payment history, request repairs with photos, and download shared documents (gas safety certificates, the How to Rent guide). The portal lives at your-company.ownproperly.com.'],
             ].map(([q, a]) => (
               <details key={q} style={{ background: '#FAFAF8', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '18px 22px' }}>
@@ -558,7 +567,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <footer style={{ background: DARK, padding: '40px 24px', borderTop: '1px solid #ffffff0F' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <img src="/wordmark-dark.svg" alt="OwnProperly" style={{ height: 40, marginBottom: 8 }}/>
+            <img src="/wordmark-dark.svg" alt="Properly" style={{ height: 44, marginBottom: 10 }}/>
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6B7899' }}>Property Portfolio Management · Built for UK Landlords</div>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -568,7 +577,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             <a href="/blog/" style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#6B7899', textDecoration: 'none' }}>Guides</a>
           </div>
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#4A5568' }}>
-            © {new Date().getFullYear()} OwnProperly ·{' '}
+            © {new Date().getFullYear()} Properly ·{' '}
             <button onClick={onPrivacy} style={{ background: 'none', border: 'none', color: '#7A8899', cursor: 'pointer', fontFamily: "'DM Mono',monospace", fontSize: 'inherit', textDecoration: 'underline' }}>Privacy Policy</button>
             {' '} · {' '}
             <a href="mailto:hello@ownproperly.com" style={{ color: '#7A8899', textDecoration: 'none' }}>hello@ownproperly.com</a>

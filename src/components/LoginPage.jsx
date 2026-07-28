@@ -81,7 +81,7 @@ function BrandPanel({ branding, brandAccent }) {
       </div>
 
       <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:'#6E7A84' }}>
-        {branding ? `Powered by OwnProperly` : 'Trusted by UK landlords from 1 to 200+ properties'}
+        {branding ? `Powered by Properly` : 'Trusted by UK landlords from 1 to 200+ properties'}
       </div>
     </div>
   )
@@ -208,7 +208,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
             ? (branding.logo_url
                 ? <img src={branding.logo_url} alt={branding.name || 'Company logo'} style={{ maxWidth:200, maxHeight:48, height:'auto', objectFit:'contain', display:'block' }}/>
                 : <div style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:brandAccent }}>{branding.name}</div>)
-            : <img src="/logo.svg" alt="OwnProperly" style={{ height:30, width:'auto', display:'block' }}/>}
+            : <img src="/logo.svg" alt="Properly" style={{ height:44, width:'auto', display:'block' }}/>}
         </div>
       )}
 
@@ -294,7 +294,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
         </form>
 
         <div style={{ textAlign:'center', fontSize:13, color:MUTED, marginTop:28 }}>
-          {mode==='login' ? <>New to OwnProperly? </> : <>Already have an account? </>}
+          {mode==='login' ? <>New to Properly? </> : <>Already have an account? </>}
           <button className="lp-link" style={{ fontSize:13, color:GOLD, fontWeight:600 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
             {mode==='login' ? 'Start a 14-day free trial' : 'Sign in'}
           </button>
@@ -334,7 +334,7 @@ function GateShell({ children }) {
       <div style={{ width:'100%', maxWidth: 400 }}>
         <style>{CSS}</style>
         <div style={{ marginBottom:24, textAlign:'center' }}>
-          <img src="/logo.svg" alt="OwnProperly" style={{ height:32, width:'auto', display:'inline-block' }}/>
+          <img src="/logo.svg" alt="Properly" style={{ height:46, width:'auto', display:'inline-block' }}/>
         </div>
         <div style={{ background:WHITE, border:`1.5px solid ${BORDER}`, borderRadius:16, padding:'32px 28px', boxShadow:'0 10px 30px rgba(28,40,48,0.10)' }}>
           {children}

@@ -43,7 +43,7 @@ const RESEND_API_KEY  = Deno.env.get('RESEND_API_KEY') || ''
 const CRON_SECRET     = Deno.env.get('CRON_SECRET') || ''
 const APP_BASE_URL    = Deno.env.get('APP_BASE_URL') || 'https://www.ownproperly.com'
 const CAL_URL         = Deno.env.get('CAL_BOOKING_URL') || 'https://cal.com/ownproperly/onboarding'
-const FROM_EMAIL      = Deno.env.get('FROM_EMAIL') || 'Justin at OwnProperly <justin@ownproperly.com>'
+const FROM_EMAIL      = Deno.env.get('FROM_EMAIL') || 'Justin at Properly <justin@ownproperly.com>'
 
 // Day-offset → template-key lookup. Keep these in sync with EMAIL_SEQUENCES.md.
 const TEMPLATES: Record<number, string> = {
@@ -94,7 +94,7 @@ The four UK landlord compliance dates that catch people out:
 · EPC — every 10 years (or when re-let if E or below). Up to £5,000 fine.
 · Right to Rent — per tenant, ongoing for time-limited. Up to £20,000 per occupier.
 
-OwnProperly emails you 90, 60, 30 and 7 days before each one expires. So you never have to remember.
+Properly emails you 90, 60, 30 and 7 days before each one expires. So you never have to remember.
 
 → Add your compliance dates: ${appUrl}/#/properties (click any property → Compliance tab)
 
@@ -111,7 +111,7 @@ P.S. Reply if anything's confusing about which certificates apply to your situat
 
 If you've got rental income over £50,000, Making Tax Digital for Income Tax (MTD ITSA) goes live on 6 April 2026. From that day you have to file quarterly digital submissions to HMRC — annual self-assessment is gone.
 
-The good news: this is one of the main reasons we built OwnProperly. Most other landlord tools haven't shipped MTD ITSA yet.
+The good news: this is one of the main reasons we built Properly. Most other landlord tools haven't shipped MTD ITSA yet.
 
 Timeline:
 · April 2026 — mandatory if your previous-year rental income was above £50,000
@@ -119,7 +119,7 @@ Timeline:
 · Quarterly submissions: four per year, each due one month + 7 days after quarter end
 · First quarter (April–July 2026) is due 5 August 2026
 
-In OwnProperly, you can practice the full submission flow today against HMRC's sandbox — no risk, no real data sent. Most landlords run 2-3 practice submissions before they trust the live flow.
+In Properly, you can practice the full submission flow today against HMRC's sandbox — no risk, no real data sent. Most landlords run 2-3 practice submissions before they trust the live flow.
 
 → Start MTD ITSA setup: ${appUrl}/#/mtd
 
@@ -145,7 +145,7 @@ For most landlords that's £10–£50/month total. Less than the cost of one mis
 
 → Add your card and continue: ${appUrl}/#/settings/billing
 
-If you've decided OwnProperly isn't right, that's fine — you can just let the trial expire and your account moves to read-only. Your data stays safe and you can come back later.
+If you've decided Properly isn't right, that's fine — you can just let the trial expire and your account moves to read-only. Your data stays safe and you can come back later.
 
 If anything's holding you back, hit reply and tell me what's missing. Genuinely useful feedback.
 
@@ -163,7 +163,7 @@ Your trial ends tomorrow. Two options:
 
 I want to know if we're not delivering for you. The fastest way to fix it is a real conversation, not another email. So if you're on the fence, please pick option 2.
 
-If you decide OwnProperly isn't right after that, fine — but at least I'll have learnt something.
+If you decide Properly isn't right after that, fine — but at least I'll have learnt something.
 
 Justin
 `,

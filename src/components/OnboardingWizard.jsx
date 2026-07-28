@@ -186,7 +186,7 @@ export default function OnboardingWizard({ user, onComplete }) {
       <div style={{ width: '100%', maxWidth: 520 }}>
 
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.svg" alt="OwnProperly" style={{ height: 52, width: 'auto' }}/>
+          <img src="/logo.svg" alt="Properly" style={{ height: 52, width: 'auto' }}/>
         </div>
 
         <ProgressDots current={progress}/>
@@ -196,7 +196,7 @@ export default function OnboardingWizard({ user, onComplete }) {
           <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="sparkle" size={26}/></div>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
-              Welcome to OwnProperly
+              Welcome to Properly
             </h2>
             <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 24, lineHeight: 1.6 }}>
               Let's get you set up. This takes about 30 seconds.

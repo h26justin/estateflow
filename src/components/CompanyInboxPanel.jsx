@@ -76,7 +76,7 @@ export default function CompanyInboxPanel({ companies, T }) {
           </div>
           <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 4 }}>Forward rental statements to your portfolio</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted, lineHeight: 1.65 }}>
-            Each company has a unique forwarding address. When your letting agent emails a statement PDF to it, OwnProperly will scan the file, extract the rent payments, and drop a notification in your bell ready to review and import — no manual upload.
+            Each company has a unique forwarding address. When your letting agent emails a statement PDF to it, Properly will scan the file, extract the rent payments, and drop a notification in your bell ready to review and import — no manual upload.
           </div>
         </div>
       </div>

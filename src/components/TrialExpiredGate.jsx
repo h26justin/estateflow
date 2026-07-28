@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
+import { ChromeLogo } from './Logo'
 
 // ── TRIAL EXPIRED GATE ─────────────────────────────────────────────────
 // Full-screen blocker that appears the moment a user signs in and any
@@ -101,7 +102,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
       <div style={{ maxWidth:560, width:'100%' }}>
         {/* Brand strip */}
         <div style={{ textAlign:'center', marginBottom:32 }}>
-          <div style={{ fontSize:28, fontWeight:700, letterSpacing:'-0.03em', color:T.text }}>OwnProperly</div>
+          <ChromeLogo height={30} style={{ display:'inline-block' }}/>
           <div style={{ fontFamily:MONO, fontSize:11, color:T.muted, marginTop:4 }}>Account access paused</div>
         </div>
 
@@ -114,7 +115,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
             Your free trial has ended
           </div>
           <div style={{ fontFamily:MONO, fontSize:12, color:T.text, lineHeight:1.7 }}>
-            To keep using OwnProperly, please add a payment method. Just <strong>£2 per
+            To keep using Properly, please add a payment method. Just <strong>£2 per
             property per month</strong> — no setup fees, cancel any time. Your data is
             safe; nothing is deleted while access is paused.
           </div>

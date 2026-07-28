@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-  <title>MTD ITSA Software for UK Landlords (April 2026 Ready) — OwnProperly</title>
+  <title>MTD ITSA Software for UK Landlords (April 2026 Ready) — Properly</title>
   <meta name="description" content="HMRC-recognised landlord software built for Making Tax Digital ITSA. Quarterly Property Business submissions, Section 24 calculations, sandbox + production OAuth. From £2 per property per month."/>
   <meta name="keywords" content="MTD ITSA, MTD ITSA software, MTD landlord, Making Tax Digital landlord, HMRC landlord software, Section 24 calculator, quarterly tax submission, ITSA April 2026"/>
 
@@ -12,16 +12,16 @@
 
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://www.ownproperly.com/mtd-itsa-landlord-software/"/>
-  <meta property="og:title" content="MTD ITSA Software for UK Landlords — Ready for April 2026 — OwnProperly"/>
+  <meta property="og:title" content="MTD ITSA Software for UK Landlords — Ready for April 2026 — Properly"/>
   <meta property="og:description" content="The only landlord SaaS built for MTD ITSA from day one. Quarterly HMRC filing, Section 24 relief, encrypted at rest. From £2 per property per month."/>
-  <meta property="og:site_name" content="OwnProperly"/>
+  <meta property="og:site_name" content="Properly"/>
   <meta property="og:locale" content="en_GB"/>
 
   <meta name="twitter:card" content="summary_large_image"/>
-  <meta name="twitter:title" content="MTD ITSA Software for UK Landlords — OwnProperly"/>
+  <meta name="twitter:title" content="MTD ITSA Software for UK Landlords — Properly"/>
   <meta name="twitter:description" content="HMRC-recognised landlord software for Making Tax Digital ITSA. April 2026 ready."/>
 
-  <link rel="icon" href="/logo.svg" type="image/svg+xml"/>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="manifest" href="/manifest.json"/>
 
   <!-- Structured Data: Product + AggregateRating + Offer -->
@@ -29,9 +29,9 @@
   {
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": "OwnProperly — MTD ITSA Landlord Software",
+    "name": "Properly — MTD ITSA Landlord Software",
     "description": "Property portfolio management software built for UK landlords filing under Making Tax Digital for Income Tax Self Assessment (MTD ITSA). Quarterly Property Business submissions to HMRC, Section 24 mortgage-interest relief calculations, encrypted token storage.",
-    "brand": { "@type": "Brand", "name": "OwnProperly" },
+    "brand": { "@type": "Brand", "name": "Properly" },
     "offers": {
       "@type": "Offer",
       "price": "2.00",
@@ -72,7 +72,7 @@
         "name": "Do I need software for MTD ITSA?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. HMRC requires MTD ITSA submissions to come from recognised software via API. Spreadsheets are not allowed unless connected via 'bridging software'. OwnProperly is built as an MTD-compatible solution — connect once via HMRC gov.uk OAuth and file quarterly directly from the dashboard."
+          "text": "Yes. HMRC requires MTD ITSA submissions to come from recognised software via API. Spreadsheets are not allowed unless connected via 'bridging software'. Properly is built as an MTD-compatible solution — connect once via HMRC gov.uk OAuth and file quarterly directly from the dashboard."
         }
       },
       {
@@ -85,10 +85,10 @@
       },
       {
         "@type": "Question",
-        "name": "Does OwnProperly handle Section 24 mortgage interest relief?",
+        "name": "Does Properly handle Section 24 mortgage interest relief?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. OwnProperly tracks mortgage interest separately from other expenses (HMRC requires this — it goes into 'residentialFinancialCost' on the submission, not the main expenses bucket) and applies the 20% basic-rate restriction to your personal-name properties automatically. Limited company properties are unaffected."
+          "text": "Yes. Properly tracks mortgage interest separately from other expenses (HMRC requires this — it goes into 'residentialFinancialCost' on the submission, not the main expenses bucket) and applies the 20% basic-rate restriction to your personal-name properties automatically. Limited company properties are unaffected."
         }
       },
       {
@@ -96,15 +96,15 @@
         "name": "What about limited companies (SPVs) — do they need MTD ITSA?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "No. Limited company landlords file Corporation Tax, not Self Assessment. OwnProperly detects this from your account type setting and hides the MTD ITSA page for SPV-only portfolios. The Section 24 restriction does not apply to limited company income either."
+          "text": "No. Limited company landlords file Corporation Tax, not Self Assessment. Properly detects this from your account type setting and hides the MTD ITSA page for SPV-only portfolios. The Section 24 restriction does not apply to limited company income either."
         }
       },
       {
         "@type": "Question",
-        "name": "Is the OwnProperly MTD integration live or sandbox?",
+        "name": "Is the Properly MTD integration live or sandbox?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "OwnProperly currently submits to the HMRC sandbox (test) environment by default — every account can practice end-to-end without risk. Production access is gated by HMRC's production-approval review (typical lead time 4-6 weeks from application). Once approved, users flip a single Sandbox toggle off."
+          "text": "Properly currently submits to the HMRC sandbox (test) environment by default — every account can practice end-to-end without risk. Production access is gated by HMRC's production-approval review (typical lead time 4-6 weeks from application). Once approved, users flip a single Sandbox toggle off."
         }
       },
       {
@@ -112,7 +112,7 @@
         "name": "Are my HMRC tokens secure?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. OwnProperly stores HMRC OAuth tokens encrypted at rest using AES-GCM with a per-deployment key. The fraud-prevention headers required by HMRC are computed per submission. A database dump alone cannot impersonate a user. We are committed to following HMRC's MTD security guidance and to commissioning an annual penetration test."
+          "text": "Yes. Properly stores HMRC OAuth tokens encrypted at rest using AES-GCM with a per-deployment key. The fraud-prevention headers required by HMRC are computed per submission. A database dump alone cannot impersonate a user. We are committed to following HMRC's MTD security guidance and to commissioning an annual penetration test."
         }
       }
     ]
@@ -190,7 +190,7 @@
 <body>
   <nav>
     <div class="nav-inner">
-      <a href="/" class="nav-logo">OwnProperly</a>
+      <a href="/" class="nav-logo">Properly</a>
       <a href="/" class="nav-cta">Start free trial</a>
     </div>
   </nav>
@@ -202,7 +202,7 @@
   <header class="hero">
     <span class="badge">Built for April 2026</span>
     <h1>MTD ITSA software for UK landlords — file quarterly to HMRC in minutes, not days.</h1>
-    <p class="lede">Making Tax Digital for Income Tax goes live on 6 April 2026. If your gross rental income is over £50,000, you must file quarterly Property Business submissions through HMRC-recognised software. OwnProperly is built for this from the ground up — connect once with gov.uk OAuth, sync your rent and expenses, and submit each quarter with one click.</p>
+    <p class="lede">Making Tax Digital for Income Tax goes live on 6 April 2026. If your gross rental income is over £50,000, you must file quarterly Property Business submissions through HMRC-recognised software. Properly is built for this from the ground up — connect once with gov.uk OAuth, sync your rent and expenses, and submit each quarter with one click.</p>
     <div class="cta-row">
       <a href="/" class="btn-gold">Start your 14-day free trial</a>
       <a href="#how-it-works" class="btn-ghost">See how it works</a>
@@ -244,32 +244,32 @@
   </section>
 
   <section id="how-it-works" style="background:#fff;border-top:1px solid #E2DFD8;border-bottom:1px solid #E2DFD8">
-    <h2>How OwnProperly handles MTD ITSA</h2>
+    <h2>How Properly handles MTD ITSA</h2>
     <div class="grid-3">
       <div class="card">
         <div class="step-num">Step 1</div>
         <h3>Connect HMRC once</h3>
-        <p>Click "Connect HMRC" in Settings. You'll be redirected to gov.uk, sign in with your Government Gateway credentials, and authorise OwnProperly to file on your behalf. Tokens are encrypted at rest.</p>
+        <p>Click "Connect HMRC" in Settings. You'll be redirected to gov.uk, sign in with your Government Gateway credentials, and authorise Properly to file on your behalf. Tokens are encrypted at rest.</p>
       </div>
       <div class="card">
         <div class="step-num">Step 2</div>
         <h3>Add your NINO + Business ID</h3>
-        <p>Enter your National Insurance Number and HMRC property business reference once. OwnProperly validates these against HMRC's records before any submission.</p>
+        <p>Enter your National Insurance Number and HMRC property business reference once. Properly validates these against HMRC's records before any submission.</p>
       </div>
       <div class="card">
         <div class="step-num">Step 3</div>
         <h3>Track rent + expenses</h3>
-        <p>Your rent payments and property expenses (already in OwnProperly for compliance + rent tracking) feed the quarterly figures automatically. Mortgage interest is tracked separately for Section 24.</p>
+        <p>Your rent payments and property expenses (already in Properly for compliance + rent tracking) feed the quarterly figures automatically. Mortgage interest is tracked separately for Section 24.</p>
       </div>
       <div class="card">
         <div class="step-num">Step 4</div>
         <h3>Preview the quarter</h3>
-        <p>Two weeks before each deadline, OwnProperly emails you. Open the quarter, review the totals (income, expenses, mortgage interest, deductible costs) and check for missing items.</p>
+        <p>Two weeks before each deadline, Properly emails you. Open the quarter, review the totals (income, expenses, mortgage interest, deductible costs) and check for missing items.</p>
       </div>
       <div class="card">
         <div class="step-num">Step 5</div>
         <h3>Submit to HMRC</h3>
-        <p>One click. OwnProperly sends the submission with the required fraud-prevention headers and returns the HMRC reference number. You get an immediate confirmation email.</p>
+        <p>One click. Properly sends the submission with the required fraud-prevention headers and returns the HMRC reference number. You get an immediate confirmation email.</p>
       </div>
       <div class="card">
         <div class="step-num">Step 6</div>
@@ -282,7 +282,7 @@
   <section>
     <h2>Section 24 is built in</h2>
     <p class="body">Since April 2020, mortgage interest on residential lettings can no longer be deducted as an expense for personal-name landlords. Instead, you receive a 20% tax credit on the finance cost. This is the biggest tax shock for higher-rate landlords who haven't yet incorporated.</p>
-    <p class="body">OwnProperly tracks mortgage interest separately from other property expenses (HMRC requires this — it goes into "residentialFinancialCost" on the quarterly submission) and applies the 20% restriction to your personal-name properties automatically. Limited company (SPV) properties are unaffected, and OwnProperly detects the distinction from your account type setting.</p>
+    <p class="body">Properly tracks mortgage interest separately from other property expenses (HMRC requires this — it goes into "residentialFinancialCost" on the quarterly submission) and applies the 20% restriction to your personal-name properties automatically. Limited company (SPV) properties are unaffected, and Properly detects the distinction from your account type setting.</p>
     <p class="body">You also get a year-one Section 24 calculator on every property (and on the Deals page for purchases you're considering), so you can model the real after-tax return before you commit.</p>
   </section>
 
@@ -294,27 +294,27 @@
     </details>
     <details>
       <summary>Do I need software for MTD ITSA?</summary>
-      <p>Yes. HMRC requires MTD ITSA submissions to come from recognised software via API. Spreadsheets are not allowed unless connected via "bridging software". OwnProperly is built as an MTD-compatible solution — connect once via HMRC gov.uk OAuth and file quarterly directly from the dashboard.</p>
+      <p>Yes. HMRC requires MTD ITSA submissions to come from recognised software via API. Spreadsheets are not allowed unless connected via "bridging software". Properly is built as an MTD-compatible solution — connect once via HMRC gov.uk OAuth and file quarterly directly from the dashboard.</p>
     </details>
     <details>
       <summary>How many submissions do MTD ITSA landlords have to make per year?</summary>
       <p>Four quarterly Property Business submissions plus a final declaration at the end of the tax year. Quarter deadlines fall one month and seven days after each quarter end (so the 6 April–5 July quarter is due 5 August). Missing a deadline triggers penalty points and ultimately fines.</p>
     </details>
     <details>
-      <summary>Does OwnProperly handle Section 24 mortgage interest relief?</summary>
-      <p>Yes. OwnProperly tracks mortgage interest separately from other expenses (HMRC requires this — it goes into "residentialFinancialCost" on the submission, not the main expenses bucket) and applies the 20% basic-rate restriction to your personal-name properties automatically. Limited company properties are unaffected.</p>
+      <summary>Does Properly handle Section 24 mortgage interest relief?</summary>
+      <p>Yes. Properly tracks mortgage interest separately from other expenses (HMRC requires this — it goes into "residentialFinancialCost" on the submission, not the main expenses bucket) and applies the 20% basic-rate restriction to your personal-name properties automatically. Limited company properties are unaffected.</p>
     </details>
     <details>
       <summary>What about limited companies (SPVs) — do they need MTD ITSA?</summary>
-      <p>No. Limited company landlords file Corporation Tax, not Self Assessment. OwnProperly detects this from your account type setting and hides the MTD ITSA page for SPV-only portfolios. The Section 24 restriction does not apply to limited company income either.</p>
+      <p>No. Limited company landlords file Corporation Tax, not Self Assessment. Properly detects this from your account type setting and hides the MTD ITSA page for SPV-only portfolios. The Section 24 restriction does not apply to limited company income either.</p>
     </details>
     <details>
-      <summary>Is the OwnProperly MTD integration live or sandbox?</summary>
-      <p>OwnProperly currently submits to the HMRC sandbox (test) environment by default — every account can practice end-to-end without risk. Production access is gated by HMRC's production-approval review (typical lead time 4-6 weeks from application). Once approved, users flip a single Sandbox toggle off.</p>
+      <summary>Is the Properly MTD integration live or sandbox?</summary>
+      <p>Properly currently submits to the HMRC sandbox (test) environment by default — every account can practice end-to-end without risk. Production access is gated by HMRC's production-approval review (typical lead time 4-6 weeks from application). Once approved, users flip a single Sandbox toggle off.</p>
     </details>
     <details>
       <summary>Are my HMRC tokens secure?</summary>
-      <p>Yes. OwnProperly stores HMRC OAuth tokens encrypted at rest using AES-GCM with a per-deployment key. The fraud-prevention headers required by HMRC are computed per submission. A database dump alone cannot impersonate a user. We are committed to following HMRC's MTD security guidance and to commissioning an annual penetration test.</p>
+      <p>Yes. Properly stores HMRC OAuth tokens encrypted at rest using AES-GCM with a per-deployment key. The fraud-prevention headers required by HMRC are computed per submission. A database dump alone cannot impersonate a user. We are committed to following HMRC's MTD security guidance and to commissioning an annual penetration test.</p>
     </details>
   </section>
 
@@ -325,7 +325,7 @@
   </section>
 
   <footer>
-    <div>© OwnProperly · UK landlord property portfolio management software</div>
+    <div>© Properly · UK landlord property portfolio management software</div>
     <div>
       <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/security">Security</a> · <a href="/blog/">Blog</a>
     </div>

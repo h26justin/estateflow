@@ -22,6 +22,7 @@
 // on their own session, which is the right place for the action.
 
 import { MONO } from '../lib/styles'
+import { ChromeLogo } from './Logo'
 
 export default function SuspendedAccessBanner({ suspended = [], user, T, onSignOut }) {
   // Group suspended companies by account-owner email so we can list
@@ -45,7 +46,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
       <div style={{ maxWidth: 580, width: '100%' }}>
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: T.text }}>OwnProperly</div>
+          <ChromeLogo height={30} style={{ display: 'inline-block' }}/>
           <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginTop: 4 }}>
             Account paused
           </div>
@@ -81,7 +82,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
               </div>
               {ownerEmail !== 'your account owner' && (
                 <a
-                  href={`mailto:${ownerEmail}?subject=${encodeURIComponent('OwnProperly subscription needs updating')}&body=${encodeURIComponent(`Hi,\n\nMy OwnProperly access to ${cos.map(c => c.name).join(', ')} has been paused. Could you update the subscription so I can get back in?\n\nThanks`)}`}
+                  href={`mailto:${ownerEmail}?subject=${encodeURIComponent('Properly subscription needs updating')}&body=${encodeURIComponent(`Hi,\n\nMy Properly access to ${cos.map(c => c.name).join(', ')} has been paused. Could you update the subscription so I can get back in?\n\nThanks`)}`}
                   style={{
                     display: 'inline-block', marginTop: 2,
                     fontFamily: MONO, fontSize: 11, color: T.gold,

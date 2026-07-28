@@ -175,7 +175,7 @@ export default function BankConnectionsModal({ onClose }) {
               }}>
                 <strong>Coming soon.</strong> We're finalising a UK Open
                 Banking integration. Once live, connecting your bank means
-                rent payments appear in OwnProperly within hours of hitting
+                rent payments appear in Properly within hours of hitting
                 your account — no more chasing PDF statements. Register
                 your interest below and we'll prioritise launching for your bank.
               </div>

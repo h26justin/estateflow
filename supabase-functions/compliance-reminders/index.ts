@@ -189,7 +189,7 @@ serve(async (req) => {
       const html = `
               <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 640px; margin: 0 auto; padding: 32px 24px; color: #1A2530;">
                 <div style="text-align:center;margin-bottom:24px">
-                  <img src="https://www.ownproperly.com/logo.svg" alt="OwnProperly" style="height:36px"/>
+                  <img src="https://www.ownproperly.com/brand/email-lockup.png" alt="Properly" style="height:40px;width:auto"/>
                 </div>
                 <h2 style="margin:0 0 8px;font-size:22px">Hi ${firstName},</h2>
                 <p style="color:#5A6A7A;line-height:1.6;margin-top:0">
@@ -207,7 +207,7 @@ serve(async (req) => {
                   <tbody>${itemRows}</tbody>
                 </table>
                 <div style="text-align:center;margin:28px 0">
-                  <a href="https://www.ownproperly.com/#/properties" style="display:inline-block;background:#C8A84B;color:#1A2530;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">Review in OwnProperly</a>
+                  <a href="https://www.ownproperly.com/#/properties" style="display:inline-block;background:#C8A84B;color:#1A2530;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700">Review in Properly</a>
                 </div>
                 <div style="background:#FEF3C7;border-left:4px solid #E0943A;padding:14px 18px;border-radius:6px;margin:24px 0">
                   <strong style="color:#92400E">Quick tip:</strong>
@@ -228,7 +228,7 @@ serve(async (req) => {
         } else if (Deno.env.get('GOOGLE_SA_KEY')) {
           // Primary path — Gmail API via Workspace service account
           await sendGmail({
-            from: `OwnProperly <${GMAIL_SENDER}>`,
+            from: `Properly <${GMAIL_SENDER}>`,
             to: profile.email,
             subject,
             html,
@@ -239,7 +239,7 @@ serve(async (req) => {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              from: `OwnProperly <${GMAIL_SENDER}>`,
+              from: `Properly <${GMAIL_SENDER}>`,
               to: [profile.email],
               subject,
               html,

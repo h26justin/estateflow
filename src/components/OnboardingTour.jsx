@@ -11,7 +11,7 @@ const MUTED = '#6B7691'
 const STEPS = [
   {
     icon: 'sparkle',
-    title: 'Welcome to OwnProperly!',
+    title: 'Welcome to Properly!',
     desc: "Your entire property portfolio in one place. Let's take a quick tour of everything available to you — it'll only take a couple of minutes.",
     tip: null,
     tag: null,
@@ -27,7 +27,7 @@ const STEPS = [
     icon: 'wallet',
     title: 'Rent Tracker',
     desc: "The Rent Tracker shows every property's payment history as colour-coded month squares — green for paid, red for missed, amber for late. Click any square to see a day-by-day breakdown of exactly which days were covered, and hit the Day view button to see all properties at once.",
-    tip: "Import your agent's monthly PDF statement directly — OwnProperly reads PNE and RMS formats and matches payments to properties automatically.",
+    tip: "Import your agent's monthly PDF statement directly — Properly reads PNE and RMS formats and matches payments to properties automatically.",
     tag: 'Finance',
   },
   {
@@ -90,7 +90,7 @@ const STEPS = [
     icon: 'message',
     title: 'Feedback & settings',
     desc: "Found something that's not working or have an idea for a new feature? Hit the Feedback tab — we read every message and it directly shapes what we build next. In Settings, customise your navigation, branding, notifications and team access.",
-    tip: "OwnProperly is a PWA — add it to your home screen on iPhone or Android for a native app experience with no App Store needed.",
+    tip: "Properly is a PWA — add it to your home screen on iPhone or Android for a native app experience with no App Store needed.",
     tag: null,
   },
   {
@@ -155,7 +155,7 @@ export default function OnboardingTour({ user, onComplete }) {
         {/* Header */}
         <div style={{ background: SLATE, padding: '26px 32px 22px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <img src="/logo.svg" alt="OwnProperly" style={{ height: 30, width: 'auto' }}/>
+            <img src="/brand/app-sidebar.svg" alt="Properly" style={{ height: 26, width: 'auto' }}/>
             <button onClick={skip} disabled={saving} style={{
               background: 'none', border: 'none', color: '#7A8899',
               fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer',
@@ -252,7 +252,7 @@ export default function OnboardingTour({ user, onComplete }) {
               color: isLast ? SLATE : WHITE,
               cursor: 'pointer', transition: 'all 0.18s',
             }}>
-            {saving ? 'Starting…' : isLast ? 'Start using OwnProperly' : 'Next →'}
+            {saving ? 'Starting…' : isLast ? 'Start using Properly' : 'Next →'}
           </button>
         </div>
       </div>

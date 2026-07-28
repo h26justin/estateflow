@@ -6,7 +6,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 // ── INTEGRATIONS SETTINGS PANEL — Phase 2 ────────────────────────────
 // Settings → Portfolio Setup → Integrations.
 //
-// Multi-company: each of the user's OwnProperly companies gets its own
+// Multi-company: each of the user's Properly companies gets its own
 // Xero connection card. A user with N companies can link N separate
 // Xero orgs.
 //
@@ -48,7 +48,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
         Integrations
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
-        Connect each OwnProperly company to its own Xero organisation. Each connection has independent sync controls.
+        Connect each Properly company to its own Xero organisation. Each connection has independent sync controls.
       </div>
 
       {visibleCompanies.length === 0 && (
@@ -526,7 +526,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   return (
     <div style={{ marginTop: 18, padding: '18px 0 4px', borderTop: `1px dashed ${T.border}` }}>
 
-      <Section title="What to sync (push: OwnProperly → Xero)">
+      <Section title="What to sync (push: Properly → Xero)">
         <Toggle keyName="sync_rent"                 label="Rent payments → Xero (RECEIVE)" desc="Pushes every paid rent_payments row as a bank transaction (income)." />
         <Toggle keyName="sync_expenses"             label="Property expenses → Xero (SPEND)" desc="Pushes every property_expenses row as a bank transaction (expense)." />
         <Toggle keyName="sync_mortgage_interest"    label="Mortgage interest accruals → Xero (SPEND)" desc="Monthly: mortgage_amount × rate ÷ 12, posted as a SPEND. Useful for Section 24 prep." />
@@ -537,9 +537,9 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         <Toggle keyName="sync_real_tenant_emails"   label="Also push tenant email + phone to Xero contact" desc="Only meaningful if 'real names' is on. Adds email + mobile to each Xero contact. Carries higher GDPR risk — get tenant consent first." />
       </Section>
 
-      <Section title="What to pull back (Xero → OwnProperly)">
+      <Section title="What to pull back (Xero → Properly)">
         <Toggle keyName="pull_reconciliation"  label="Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
-        <Toggle keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to OwnProperly. Off by default — leave off if you treat OwnProperly as the source of truth." />
+        <Toggle keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to Properly. Off by default — leave off if you treat Properly as the source of truth." />
       </Section>
 
       <Section title="Automation">
