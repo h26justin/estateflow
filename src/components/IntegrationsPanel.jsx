@@ -62,6 +62,252 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
           />
         )
       })}
+
+      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', margin: '26px 0 6px' }}>
+        Short-term lets
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
+        Pull Airbnb / Booking.com / direct bookings from Lodgify into the Rent Tracker as revenue. One Lodgify account covers all your listings.
+      </div>
+      <LodgifyCard T={T} mono={mono} properties={properties || []} />
+    </div>
+  )
+}
+
+// ── LODGIFY (STL) CARD ─────────────────────────────────────────────────
+// One per user, not per company — a Lodgify account holds all listings.
+// Flow: paste API key → map each Lodgify listing to an OwnProperly
+// property → sync (manual button here; daily 05:30 UTC cron server-side).
+function LodgifyCard({ T, mono, properties }) {
+  const confirmDialog = useConfirm()
+  const [connection, setConnection] = useState(null)
+  const [mappings, setMappings] = useState([])          // saved rows from DB
+  const [lodgifyProps, setLodgifyProps] = useState(null) // live list, loaded on demand
+  const [apiKey, setApiKey] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(null)
+  const [lastSync, setLastSync] = useState(null)         // result of the last manual sync
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const [conn, maps] = await Promise.all([
+        api.fetchLodgifyConnection(),
+        api.fetchLodgifyMappings(),
+      ])
+      setConnection(conn)
+      setMappings(maps)
+    } catch (e) { console.error(e) }
+    setLoading(false)
+  }
+
+  async function connect() {
+    if (!apiKey.trim()) { showAppToast('Paste your Lodgify API key first', 'error'); return }
+    setBusy('connect')
+    try {
+      const r = await api.connectLodgify(apiKey.trim())
+      setApiKey('')
+      setLodgifyProps(r.properties || [])
+      showAppToast(`Lodgify connected — ${r.properties?.length || 0} ${r.properties?.length === 1 ? 'listing' : 'listings'} found. Map them below.`)
+      await load()
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  async function openMappingEditor() {
+    setBusy('props')
+    try {
+      const r = await api.fetchLodgifyProperties()
+      setLodgifyProps(r.properties || [])
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  function setMappingFor(lp, propertyId) {
+    setMappings(ms => {
+      const rest = ms.filter(m => String(m.lodgify_property_id) !== String(lp.id))
+      if (!propertyId) return rest
+      return [...rest, { lodgify_property_id: lp.id, lodgify_property_name: lp.name, property_id: propertyId }]
+    })
+  }
+
+  async function saveMappings() {
+    setBusy('save')
+    try {
+      await api.saveLodgifyMappings(mappings.map(m => ({
+        lodgify_property_id: m.lodgify_property_id,
+        lodgify_property_name: m.lodgify_property_name,
+        property_id: m.property_id,
+      })))
+      showAppToast('Mappings saved')
+      setLodgifyProps(null)
+      await load()
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  async function syncNow() {
+    setBusy('sync')
+    try {
+      const r = await api.runLodgifySync()
+      setLastSync(r)
+      const parts = [
+        r.created ? `${r.created} new` : null,
+        r.updated ? `${r.updated} updated` : null,
+        r.removed ? `${r.removed} cancelled` : null,
+      ].filter(Boolean).join(', ') || 'nothing new'
+      showAppToast(`Lodgify: ${parts} (${r.bookings} bookings checked)`)
+      await load()
+    } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
+    setBusy(null)
+  }
+
+  async function disconnect() {
+    if (!await confirmDialog({
+      title: 'Disconnect Lodgify?',
+      body: 'Future syncs stop and the booking list clears. Rent Tracker entries already created stay — that revenue really happened.',
+      confirmLabel: 'Disconnect', destructive: true,
+    })) return
+    setBusy('disconnect')
+    try {
+      await api.disconnectLodgify()
+      setConnection(null); setMappings([]); setLodgifyProps(null)
+      showAppToast('Lodgify disconnected')
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 26px', marginBottom: 16 }
+  const selectStyle = { fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, width: '100%' }
+  const isConnected = !!connection
+
+  if (loading) return <div style={card}><div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div></div>
+
+  return (
+    <div style={card}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom: 14, flexWrap:'wrap', gap: 10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: '#E8542722', color: '#E85427', display:'flex', alignItems:'center', justifyContent:'center', fontSize: 17 }}>
+            🏖
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>Lodgify</div>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+              Airbnb · Booking.com · direct bookings
+            </div>
+          </div>
+        </div>
+        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+          {isConnected ? 'Connected' : 'Not connected'}
+        </span>
+      </div>
+
+      {!isConnected ? (
+        <>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
+            Bookings sync in as dated Rent Tracker entries — paid, part-paid or pending from the booking's balance, tagged with the channel (Airbnb, Booking.com…). Get your key in Lodgify: <strong style={{ color: T.text }}>Settings → Public API</strong>.
+          </div>
+          <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="Paste Lodgify API key"
+              autoComplete="off"
+              style={{ ...selectStyle, flex: 1, minWidth: 220, maxWidth: 380 }}
+            />
+            <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+              {busy==='connect' ? 'Checking key…' : '🔌 Connect Lodgify'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {mappings.length > 0 ? (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 6 }}>
+              {mappings.map(m => {
+                const prop = properties.find(p => p.id === m.property_id)
+                return (
+                  <div key={m.lodgify_property_id} style={{ marginBottom: 2 }}>
+                    <span style={{ color: T.muted }}>{m.lodgify_property_name || `Lodgify #${m.lodgify_property_id}`}</span>
+                    {' → '}{prop ? (prop.name || prop.address) : m.property_id}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber || '#c90', marginBottom: 6 }}>
+              No listings mapped yet — nothing will sync until you map one.
+            </div>
+          )}
+          {connection.last_synced_at && (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
+              Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
+              {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
+            </div>
+          )}
+          {connection.last_sync_status === 'error' && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          )}
+          {lastSync && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
+              {lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
+              {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
+            </div>
+          )}
+          <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
+            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy || mappings.length === 0}>
+              {busy==='sync' ? 'Syncing…' : 'Sync now'}
+            </button>
+            <button onClick={lodgifyProps ? () => setLodgifyProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
+              {busy==='props' ? 'Loading listings…' : (lodgifyProps ? 'Hide mappings' : 'Edit mappings')}
+            </button>
+            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+              Disconnect
+            </button>
+          </div>
+          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+            Also syncs automatically every morning (05:30 UTC).
+          </div>
+
+          {lodgifyProps && (
+            <div style={{ marginTop: 16, padding: '16px 0 4px', borderTop: `1px dashed ${T.border}` }}>
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
+                Map Lodgify listings to properties
+              </div>
+              {lodgifyProps.length === 0 && (
+                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No listings found in this Lodgify account.</div>
+              )}
+              <div style={{ display:'grid', gap: 8 }}>
+                {lodgifyProps.map(lp => {
+                  const current = mappings.find(m => String(m.lodgify_property_id) === String(lp.id))
+                  return (
+                    <div key={lp.id} style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems:'center' }}>
+                      <div style={{ fontFamily: mono, fontSize: 11, color: T.text, overflow:'hidden', textOverflow:'ellipsis' }}>{lp.name}</div>
+                      <select style={selectStyle}
+                        value={current?.property_id || ''}
+                        onChange={e => setMappingFor(lp, e.target.value || null)}>
+                        <option value="">(don't sync)</option>
+                        {properties.filter(p => !p.deleted_at && !p.archived_at).map(p => (
+                          <option key={p.id} value={p.id}>{p.name || p.address}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ marginTop: 12, display:'flex', justifyContent:'flex-end' }}>
+                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+                  {busy==='save' ? 'Saving…' : 'Save mappings'}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
