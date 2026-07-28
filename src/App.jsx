@@ -268,9 +268,18 @@ function getStatusColor(status) {
   if (status==='paid')    return '#2ECC8A'
   if (status==='overdue' || status==='missed')  return '#E05555'  // 'missed' kept for backward-compat (pre-2026-05-25 rows)
   if (status==='late' || status==='partial') return '#E0943A'  // partial = attention (amber)
-  if (status==='pending') return '#9B6FDE'  // booked / invoiced, money not yet received (STL bookings)
+  if (status==='pending') return '#9B6FDE'  // legacy pending rows (pre-2026-07 Lodgify sync wrote these)
   if (status==='refurb')  return '#4B8FE0'
   return '#888EA8' // void - visible in both themes
+}
+
+// Short-term-let revenue keeps its own colour so STL and long-term income
+// read differently at a glance even though both are status 'paid'. A paid
+// segment is "STL" when a Lodgify booking links to it (stl_bookings join
+// on fetchProperties).
+const STL_COLOR = '#9B6FDE'
+function stlPaymentIds(property) {
+  return new Set((property?.stl_bookings || []).map(b => b.rent_payment_id).filter(Boolean))
 }
 
 // A month can now hold several dated rent segments (tenant changeover, partial
@@ -332,12 +341,16 @@ function getMonthlyRentStats(payments, year, rentPcm) {
 }
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
-function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
+function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
   const { T } = useTheme()
   const mono = MONO
   const year = payment.year, month = payment.month
   const days = new Date(year, month, 0).getDate()
   const firstDow = (new Date(year, month-1, 1).getDay() + 6) % 7
+
+  // Paid STL segments render as the pseudo-status 'stl' (purple) so
+  // short-term-let days read differently from long-term rent.
+  const segStatus = p => (p.status === 'paid' && stlIds?.has(p.id)) ? 'stl' : p.status
 
   function getDayStatus(day) {
     const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
@@ -346,21 +359,21 @@ function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
     if (dateStr > todayStr) return 'future'
     // Dated segments win over legacy whole-month rows (two passes).
     for (const p of allPayments) {
-      if (p.period_start && p.period_end && dateStr >= p.period_start && dateStr <= p.period_end) return p.status
+      if (p.period_start && p.period_end && dateStr >= p.period_start && dateStr <= p.period_end) return segStatus(p)
     }
     for (const p of allPayments) {
-      if (!p.period_start && p.year === year && p.month === month) return p.status
+      if (!p.period_start && p.year === year && p.month === month) return segStatus(p)
     }
     return 'void'
   }
 
-  const COLOR = { paid:'#2ECC8A', overdue:'#E05555', missed:'#E05555', late:'#E0943A', refurb:'#4B8FE0', void:'#888EA8', future:'transparent' }
+  const COLOR = { paid:'#2ECC8A', stl:STL_COLOR, pending:'#9B6FDE', partial:'#E0943A', overdue:'#E05555', missed:'#E05555', late:'#E0943A', refurb:'#4B8FE0', void:'#888EA8', future:'transparent' }
   const monthName = new Date(year, month-1).toLocaleString('en-GB', {month:'long', year:'numeric'})
   const cells = []
   for (let i = 0; i < firstDow; i++) cells.push(null)
   for (let d = 1; d <= days; d++) cells.push(d)
   const statuses = Array.from({length:days},(_,i)=>getDayStatus(i+1))
-  const paidDays = statuses.filter(s=>s==='paid').length
+  const paidDays = statuses.filter(s=>s==='paid'||s==='stl').length
   const voidDays = statuses.filter(s=>s==='void').length
   const missedDays = statuses.filter(s=>s==='overdue'||s==='missed').length
 
@@ -415,7 +428,7 @@ function DayPopover({ payment, allPayments, onClose, onDayTracker }) {
   )
 }
 
-const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
+const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
   if (!payments?.length) return null
   const [popover, setPopover] = useState(null)
   const scoped = filterYear ? payments.filter(m=>m.year===filterYear) : payments
@@ -427,7 +440,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
     byMonth.get(key).push(p)
   }
   const filtered = [...byMonth.values()]
-    .map(segs => ({ ...segs[0], status: monthDominantStatus(segs) }))
+    .map(segs => ({ ...segs[0], status: monthDominantStatus(segs), isStl: !!stlIds && segs.some(s => stlIds.has(s.id)) }))
     .sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
   const now = new Date()
   const currentYear = now.getFullYear()
@@ -438,7 +451,8 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
       {filtered.map(m=>{
         const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
         const isCurrent = m.year === currentYear && m.month === currentMonth
-        const col = getStatusColor(m.status)
+        const isStlPaid = m.isStl && m.status === 'paid'
+        const col = isStlPaid ? STL_COLOR : getStatusColor(m.status)
         // Redesign: full 3-letter month name in the cell (no single-letter
         // squares), status colour as fill, gold outline for the current month,
         // hatched fill for future months.
@@ -451,7 +465,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
         const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : '#fff'
         return (
           <div key={m.id}
-            title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${m.status} — click for day view`}
+            title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL booked (paid)' : m.status} — click for day view`}
             onClick={!isFuture ? ()=>setPopover(m) : undefined}
             style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',
               display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
@@ -463,7 +477,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker}) => {
         )
       })}
     </div>
-    {popover&&<DayPopover payment={popover} allPayments={payments} onClose={()=>setPopover(null)} onDayTracker={onDayTracker}/>}
+    {popover&&<DayPopover payment={popover} allPayments={payments} stlIds={stlIds} onClose={()=>setPopover(null)} onDayTracker={onDayTracker}/>}
   </>
 }
 const Spinner = () => {
@@ -3299,7 +3313,7 @@ export default function App() {
                       </div>
 
                       {/* Year of dots */}
-                      <RentDots payments={payments} filterYear={focusYear}
+                      <RentDots payments={payments} filterYear={focusYear} stlIds={stlPaymentIds(selected)}
                         onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})}
                         onDayTracker={()=>setView('daytracker')}/>
 
@@ -4294,7 +4308,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+            {[{c:T.green,l:'Paid'},{c:STL_COLOR,l:'STL'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
                 <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
               </span>
@@ -4490,8 +4504,16 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
                 return groups.map((group) => {
                   const isBuilding = group.items.length > 1
-                  // Sum building-level totals for the header
+                  // Sum building-level totals for the header: nominal rent roll
+                  // plus actual collected revenue for the selected year — the
+                  // "whole block" line for multi-unit buildings (HMOs, STL
+                  // blocks like Piers View).
                   const bgRent = group.items.reduce((s,p) => s + (Number(p.rent_pcm)||0), 0)
+                  const bgStats = group.items.reduce((acc, p) => {
+                    const s = getStats(p.rent_payments||[], globalYear, p.rent_pcm)
+                    acc.income += s.income; acc.paid += s.paid; acc.missed += s.missed; acc.late += s.late
+                    return acc
+                  }, { income:0, paid:0, missed:0, late:0 })
                   return (
                     <div key={group.key}>
                       {isBuilding && (
@@ -4499,6 +4521,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                           padding: '10px 18px', background: T.bg,
                           borderBottom: `1px solid ${T.border}`,
                           display: 'flex', alignItems: 'center', gap: 10,
+                          flexWrap: 'wrap',
                           fontFamily: MONO,
                         }}>
                           <span style={{ fontSize: 14 }} aria-hidden="true">🏘</span>
@@ -4507,6 +4530,20 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                           </span>
                           <span style={{ fontSize: 10, color: T.muted }}>
                             · {group.items.length} units · {fmt(bgRent)}/mo
+                          </span>
+                          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {bgStats.missed > 0 && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: T.red }}>{bgStats.missed} missed</span>
+                            )}
+                            {bgStats.late > 0 && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: T.amber }}>{bgStats.late} late</span>
+                            )}
+                            <span style={{ fontSize: 10, color: T.muted }}>
+                              {globalYear ? `${globalYear} revenue` : 'all-years revenue'}
+                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: T.gold }}>
+                              {fmt(bgStats.income)}
+                            </span>
                           </span>
                         </div>
                       )}
@@ -4537,7 +4574,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                 <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>
                                   {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                                 </div>
-                                <RentDots payments={p.rent_payments||[]} filterYear={globalYear} onDayTracker={onDayTracker}/>
+                                <RentDots payments={p.rent_payments||[]} stlIds={stlPaymentIds(p)} filterYear={globalYear} onDayTracker={onDayTracker}/>
                               </div>
                               {/* Right: stats + badge */}
                               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
@@ -4643,11 +4680,11 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
         </div>
 
         {/* Dots */}
-        <RentDots payments={payments} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})} filterYear={filterYear} onDayTracker={onDayTracker}/>
+        <RentDots payments={payments} stlIds={stlPaymentIds(selected)} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})} filterYear={filterYear} onDayTracker={onDayTracker}/>
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+          {[{c:T.green,l:'Paid'},{c:STL_COLOR,l:'STL'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
             <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>

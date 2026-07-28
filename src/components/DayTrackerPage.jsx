@@ -30,13 +30,20 @@ function getSegmentForDay(day, year, month, payments) {
   return null
 }
 
-function getDayStatus(day, year, month, payments) {
+// Paid segments created by a Lodgify booking render as the pseudo-status
+// 'stl' (purple) so short-term-let income reads differently from long-term
+// rent. stlIds is the Set of rent_payment ids linked from stl_bookings.
+function segDisplayStatus(seg, stlIds) {
+  return (seg.status === 'paid' && stlIds?.has(seg.id)) ? 'stl' : seg.status
+}
+
+function getDayStatus(day, year, month, payments, stlIds) {
   const dateStr = toKey(year, month, day)
   const now = new Date()
   const today = toKey(now.getFullYear(), now.getMonth()+1, now.getDate())
   if (dateStr > today) return 'future'
   const seg = getSegmentForDay(day, year, month, payments)
-  return seg ? seg.status : 'void'  // uncovered past days are gaps → void
+  return seg ? segDisplayStatus(seg, stlIds) : 'void'  // uncovered past days are gaps → void
 }
 
 // Returns true if a property has at least one period that is past, not future,
@@ -86,8 +93,9 @@ function isPropertyOverdue(prop) {
 
 const STATUS_COLOR = {
   paid:    '#2ECC8A',
+  stl:     '#9B6FDE',  // pseudo-status: paid segment linked to a Lodgify booking
   partial: '#E0943A',  // part-paid = attention, same amber as late
-  pending: '#9B6FDE',  // booked / invoiced but money not yet received (STL bookings)
+  pending: '#9B6FDE',  // legacy rows from the pre-2026-07 Lodgify sync
   overdue: '#E05555',
   missed:  '#E05555',  // legacy alias for pre-2026-05-25 rows
   late:    '#E0943A',
@@ -96,7 +104,7 @@ const STATUS_COLOR = {
   future:  'transparent',
 }
 
-const STATUS_LABEL = { paid:'Paid', partial:'Partial', pending:'Pending', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
+const STATUS_LABEL = { paid:'Paid', stl:'STL', partial:'Partial', pending:'Pending', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
 
 // Statuses the user can manually set via click. We deliberately omit 'future'
 // (clicking a future day doesn't make sense) and 'refurb' (set elsewhere via
@@ -376,7 +384,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
 
       {/* Legend */}
       <div style={{ display:'flex', gap:16, marginBottom:20, flexWrap:'wrap' }}>
-        {Object.entries(STATUS_LABEL).filter(([k])=>k!=='future'&&k!=='missed').map(([k,l]) => (
+        {Object.entries(STATUS_LABEL).filter(([k])=>k!=='future'&&k!=='missed'&&k!=='pending').map(([k,l]) => (
           <span key={k} style={{ display:'flex', alignItems:'center', gap:5, fontFamily:mono, fontSize:11, color:T.muted }}>
             <span style={{ width:10, height:10, borderRadius:2, background:STATUS_COLOR[k], display:'inline-block', border:k==='void'?`1px solid ${T.border}`:'none' }}/>
             {l}
@@ -430,8 +438,9 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                 <tbody>
                   {compProps.map((prop, pi) => {
                     const payments = prop.rent_payments || []
-                    const dayStatuses = dayNums.map(d => getDayStatus(d, year, month, payments))
-                    const paidDays = dayStatuses.filter(s => s === 'paid').length
+                    const stlIds = new Set((prop.stl_bookings || []).map(b => b.rent_payment_id).filter(Boolean))
+                    const dayStatuses = dayNums.map(d => getDayStatus(d, year, month, payments, stlIds))
+                    const paidDays = dayStatuses.filter(s => s === 'paid' || s === 'stl').length
                     const voidDays = dayStatuses.filter(s => s === 'void').length
                     const isOverdue = overdueIds.has(prop.id)
                     const highlightOverdue = overdueMode === 'overdue-highlighted' && isOverdue
@@ -463,13 +472,14 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                           // bookings) show the segment's colour faded, so the
                           // forward calendar is visible without being editable.
                           const futureSeg = isFuture ? getSegmentForDay(d, year, month, payments) : null
-                          const futureCol = futureSeg ? (STATUS_COLOR[futureSeg.status] || STATUS_COLOR.void) + '66' : 'transparent'
+                          const futureStatus = futureSeg ? segDisplayStatus(futureSeg, stlIds) : null
+                          const futureCol = futureStatus ? (STATUS_COLOR[futureStatus] || STATUS_COLOR.void) + '66' : 'transparent'
                           const isHovered = hoverDay?.propId===prop.id && hoverDay?.day===d
 
                           return (
                             <td key={d} style={{ padding:'4px 1px', textAlign:'center', position:'relative' }}>
                               <div
-                                onMouseEnter={() => setHoverDay({ propId:prop.id, day:d, status: futureSeg ? futureSeg.status : status, propName: prop.name||prop.address })}
+                                onMouseEnter={() => setHoverDay({ propId:prop.id, day:d, status: futureStatus || status, propName: prop.name||prop.address })}
                                 onMouseLeave={() => setHoverDay(null)}
                                 onClick={isFuture ? undefined : (e) => openEditPopover(e, prop, d)}
                                 style={{

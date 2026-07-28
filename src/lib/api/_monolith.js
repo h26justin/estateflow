@@ -39,7 +39,7 @@ export async function fetchProperties() {
   // without an extra round-trip per row.
   const { data, error } = await supabase
     .from('properties')
-    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,expiry_date,deleted_at)')
+    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,expiry_date,deleted_at), stl_bookings(id,rent_payment_id)')
     .is('deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})

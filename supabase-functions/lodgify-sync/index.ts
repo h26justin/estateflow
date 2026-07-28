@@ -28,8 +28,9 @@
 //     so back-to-back changeover days don't overlap
 //   • year/month/month_label derived from arrival — whole booking is
 //     attributed to the arrival month, same convention as createRentSegment
-//   • status: paid when nothing left due, partial when part-paid,
-//     otherwise pending — reuses the existing rent status vocabulary
+//   • status: always 'paid' — STL bookings are collected upfront by the
+//     channel, so a confirmed booking is income; the UI renders STL
+//     segments in a distinct colour via the stl_bookings link
 //   • dedupe on (connection_id, lodgify_booking_id); the created segment id
 //     is remembered in stl_bookings.rent_payment_id so re-syncs update in
 //     place and cancellations delete the segment
@@ -206,11 +207,11 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
     if (upErr) throw upErr
 
     if (isActive) {
-      // paid when nothing left due; partial when part-paid; else pending.
-      let rentStatus = 'pending'
-      if (due !== null && due <= 0.005) rentStatus = 'paid'
-      else if (total !== null && paid !== null && paid >= total - 0.005) rentStatus = 'paid'
-      else if (paid !== null && paid > 0.005) rentStatus = 'partial'
+      // STL bookings are paid upfront (Airbnb/Booking.com collect before the
+      // stay), so every confirmed booking counts as income immediately —
+      // no pending/partial split. The UI shows STL segments in their own
+      // colour via the stl_bookings link, not via status.
+      const rentStatus = 'paid'
 
       // Last night of the stay, so a same-day changeover's next arrival
       // doesn't overlap this segment in the Day Tracker.
