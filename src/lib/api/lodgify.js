@@ -7,15 +7,19 @@
 // the Rent Tracker / Day Tracker / reports like any other rent.
 //
 // Flow (Settings → Portfolio Setup → Integrations → Short-term lets):
-//   1. connectLodgify(apiKey)  — key from Lodgify → Settings → Public API.
-//      Validated server-side, stored encrypted, returns the Lodgify
-//      properties so the mapping UI can render immediately.
-//   2. saveLodgifyMappings([{lodgify_property_id, lodgify_property_name,
-//      property_id}]) — which OwnProperly property each Lodgify listing is.
-//   3. runLodgifySync() — manual pull; a daily 05:30 UTC cron also runs it.
+//   1. connectLodgify(companyId, apiKey) — key from Lodgify → Settings →
+//      Public API. Validated server-side, stored encrypted against the
+//      company, returns the Lodgify properties so the mapping UI can
+//      render immediately.
+//   2. saveLodgifyMappings(companyId, [{lodgify_property_id,
+//      lodgify_property_name, property_id}]) — which OwnProperly property
+//      each Lodgify listing is (must belong to the same company).
+//   3. runLodgifySync(companyId) — manual pull; the server cron also runs
+//      every connection three times a day.
 //
-// The connection row is one-per-user (a Lodgify account covers all its
-// properties). API key columns are never selected client-side.
+// Connections are one-per-(user, company), same model as Xero — each
+// company can hold its own Lodgify account. API key columns are never
+// selected client-side.
 
 import { supabase } from '../supabase'
 
@@ -41,47 +45,47 @@ async function invoke(action, payload = {}) {
   return data
 }
 
-// ── Connection ──────────────────────────────────────────────────────────
-export async function fetchLodgifyConnection() {
+// ── Connections (one per company) ───────────────────────────────────────
+export async function fetchLodgifyConnections() {
   const { data, error } = await supabase
     .from('lodgify_connections')
-    .select('id, status, last_synced_at, last_sync_status, last_sync_error, created_at')
-    .maybeSingle()
+    .select('id, company_id, status, last_synced_at, last_sync_status, last_sync_error, created_at')
+    .order('created_at', { ascending: true })
   if (error) throw error
-  return data
+  return data || []
 }
 
-export async function connectLodgify(apiKey) {
-  return invoke('connect', { api_key: apiKey })
+export async function connectLodgify(companyId, apiKey) {
+  return invoke('connect', { company_id: companyId, api_key: apiKey })
 }
 
-export async function disconnectLodgify() {
-  return invoke('disconnect')
+export async function disconnectLodgify(companyId) {
+  return invoke('disconnect', { company_id: companyId })
 }
 
 // ── Property mapping ────────────────────────────────────────────────────
 export async function fetchLodgifyMappings() {
   const { data, error } = await supabase
     .from('lodgify_property_mappings')
-    .select('id, lodgify_property_id, lodgify_property_name, property_id')
+    .select('id, connection_id, lodgify_property_id, lodgify_property_name, property_id')
     .order('created_at', { ascending: true })
   if (error) throw error
   return data || []
 }
 
 // Live list from the Lodgify API (for the mapping editor).
-export async function fetchLodgifyProperties() {
-  return invoke('list_properties')
+export async function fetchLodgifyProperties(companyId) {
+  return invoke('list_properties', { company_id: companyId })
 }
 
-export async function saveLodgifyMappings(mappings) {
-  return invoke('save_mappings', { mappings })
+export async function saveLodgifyMappings(companyId, mappings) {
+  return invoke('save_mappings', { company_id: companyId, mappings })
 }
 
 // ── Sync ────────────────────────────────────────────────────────────────
 // Returns { bookings, created, updated, removed, skippedUnmapped }.
-export async function runLodgifySync() {
-  return invoke('sync')
+export async function runLodgifySync(companyId) {
+  return invoke('sync', { company_id: companyId })
 }
 
 // ── Bookings (read-only view of what synced) ────────────────────────────

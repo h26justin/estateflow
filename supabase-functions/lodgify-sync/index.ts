@@ -5,18 +5,22 @@
 // each confirmed booking as a dated rent_payments segment, so STL revenue
 // appears in the Rent Tracker exactly like AST rent.
 //
-// Actions (POST { action, ... } with user JWT):
-//   connect         { api_key }  → validates the key against Lodgify,
-//                                  stores it encrypted, returns the
-//                                  account's Lodgify properties for mapping
-//   list_properties              → live list of Lodgify properties
-//   save_mappings   { mappings } → [{ lodgify_property_id,
+// Connections are PER COMPANY (unique on user_id + company_id, same model
+// as Xero): each OwnProperly company can hold its own Lodgify account.
+//
+// Actions (POST { action, company_id, ... } with user JWT):
+//   connect         { company_id, api_key } → validates the key against
+//                                  Lodgify, stores it encrypted against the
+//                                  company, returns the account's Lodgify
+//                                  properties for mapping
+//   list_properties { company_id } → live list of Lodgify properties
+//   save_mappings   { company_id, mappings } → [{ lodgify_property_id,
 //                                     lodgify_property_name, property_id }]
-//   sync                         → pull bookings, upsert stl_bookings,
+//   sync            { company_id } → pull bookings, upsert stl_bookings,
 //                                  create/update/remove rent segments
-//   disconnect                   → delete the connection (cascades mappings
-//                                  + stl_bookings; rent segments already
-//                                  written stay — they're real revenue)
+//   disconnect      { company_id } → delete the connection (cascades
+//                                  mappings + stl_bookings; rent segments
+//                                  already written stay — real revenue)
 //
 // Cron mode: POST with x-cron-secret header (matched against CRON_SECRET,
 // fail-closed) syncs ALL active connections — used by the lodgify-daily-sync
@@ -296,9 +300,17 @@ serve(async (req) => {
     const body = await req.json()
     action = body.action
 
+    // Every user-mode action is company-scoped.
+    const companyId = body.company_id
+    if (!companyId) return jsonError(400, 'company_id required')
+    const { data: company } = await admin.from('companies')
+      .select('id').eq('id', companyId).eq('user_id', caller.id)
+      .is('deleted_at', null).maybeSingle()
+    if (!company) return jsonError(403, 'Company not found')
+
     const getConnection = async () => {
       const { data } = await admin.from('lodgify_connections')
-        .select('*').eq('user_id', caller.id).maybeSingle()
+        .select('*').eq('user_id', caller.id).eq('company_id', companyId).maybeSingle()
       return data
     }
 
@@ -318,12 +330,13 @@ serve(async (req) => {
 
       const { error: cErr } = await admin.from('lodgify_connections').upsert({
         user_id: caller.id,
+        company_id: companyId,
         api_key: enc ? null : apiKey,
         api_key_enc: enc,
         status: 'active',
         last_sync_status: null, last_sync_error: null,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      }, { onConflict: 'user_id,company_id' })
       if (cErr) throw cErr
 
       return jsonResp(200, { connected: true, properties })
@@ -342,14 +355,16 @@ serve(async (req) => {
       if (!conn) return jsonError(404, 'Not connected to Lodgify yet')
       const mappings = Array.isArray(body.mappings) ? body.mappings : []
 
-      // Only the caller's own properties are mappable.
+      // Only the caller's own properties IN THIS COMPANY are mappable —
+      // a connection's bookings must not write revenue into another
+      // company's properties.
       const propIds = mappings.map((m: any) => m.property_id).filter(Boolean)
       if (propIds.length) {
         const { data: owned } = await admin.from('properties')
-          .select('id').eq('user_id', caller.id).in('id', propIds)
+          .select('id').eq('user_id', caller.id).eq('company_id', companyId).in('id', propIds)
         const ownedSet = new Set((owned || []).map((p: any) => p.id))
         const bad = propIds.find((id: string) => !ownedSet.has(id))
-        if (bad) return jsonError(403, 'Property not found: ' + bad)
+        if (bad) return jsonError(403, 'Property not found in this company: ' + bad)
       }
 
       await admin.from('lodgify_property_mappings').delete().eq('connection_id', conn.id)
