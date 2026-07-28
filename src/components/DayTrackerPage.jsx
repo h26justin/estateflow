@@ -86,6 +86,8 @@ function isPropertyOverdue(prop) {
 
 const STATUS_COLOR = {
   paid:    '#2ECC8A',
+  partial: '#E0943A',  // part-paid = attention, same amber as late
+  pending: '#9B6FDE',  // booked / invoiced but money not yet received (STL bookings)
   overdue: '#E05555',
   missed:  '#E05555',  // legacy alias for pre-2026-05-25 rows
   late:    '#E0943A',
@@ -94,7 +96,7 @@ const STATUS_COLOR = {
   future:  'transparent',
 }
 
-const STATUS_LABEL = { paid:'Paid', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
+const STATUS_LABEL = { paid:'Paid', partial:'Partial', pending:'Pending', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
 
 // Statuses the user can manually set via click. We deliberately omit 'future'
 // (clicking a future day doesn't make sense) and 'refurb' (set elsewhere via
@@ -374,7 +376,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
 
       {/* Legend */}
       <div style={{ display:'flex', gap:16, marginBottom:20, flexWrap:'wrap' }}>
-        {Object.entries(STATUS_LABEL).filter(([k])=>k!=='future').map(([k,l]) => (
+        {Object.entries(STATUS_LABEL).filter(([k])=>k!=='future'&&k!=='missed').map(([k,l]) => (
           <span key={k} style={{ display:'flex', alignItems:'center', gap:5, fontFamily:mono, fontSize:11, color:T.muted }}>
             <span style={{ width:10, height:10, borderRadius:2, background:STATUS_COLOR[k], display:'inline-block', border:k==='void'?`1px solid ${T.border}`:'none' }}/>
             {l}
@@ -452,19 +454,27 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                         {/* Day squares */}
                         {dayNums.map((d, di) => {
                           const status = dayStatuses[di]
-                          const col = STATUS_COLOR[status]
+                          // Unknown statuses render as void-grey rather than an
+                          // invisible square (pending/partial were invisible
+                          // until they got colours — never repeat that).
+                          const col = STATUS_COLOR[status] || STATUS_COLOR.void
                           const isFuture = status === 'future'
+                          // Future days covered by a dated segment (upcoming STL
+                          // bookings) show the segment's colour faded, so the
+                          // forward calendar is visible without being editable.
+                          const futureSeg = isFuture ? getSegmentForDay(d, year, month, payments) : null
+                          const futureCol = futureSeg ? (STATUS_COLOR[futureSeg.status] || STATUS_COLOR.void) + '66' : 'transparent'
                           const isHovered = hoverDay?.propId===prop.id && hoverDay?.day===d
 
                           return (
                             <td key={d} style={{ padding:'4px 1px', textAlign:'center', position:'relative' }}>
                               <div
-                                onMouseEnter={() => setHoverDay({ propId:prop.id, day:d, status, propName: prop.name||prop.address })}
+                                onMouseEnter={() => setHoverDay({ propId:prop.id, day:d, status: futureSeg ? futureSeg.status : status, propName: prop.name||prop.address })}
                                 onMouseLeave={() => setHoverDay(null)}
                                 onClick={isFuture ? undefined : (e) => openEditPopover(e, prop, d)}
                                 style={{
                                   width:16, height:16, borderRadius:3, margin:'0 auto',
-                                  background: isFuture ? 'transparent' : col,
+                                  background: isFuture ? futureCol : col,
                                   border: isFuture ? `1px dashed ${T.border}` : 'none',
                                   transition:'transform 0.1s',
                                   transform: isHovered ? 'scale(1.4)' : 'scale(1)',

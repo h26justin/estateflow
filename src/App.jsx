@@ -268,6 +268,7 @@ function getStatusColor(status) {
   if (status==='paid')    return '#2ECC8A'
   if (status==='overdue' || status==='missed')  return '#E05555'  // 'missed' kept for backward-compat (pre-2026-05-25 rows)
   if (status==='late' || status==='partial') return '#E0943A'  // partial = attention (amber)
+  if (status==='pending') return '#9B6FDE'  // booked / invoiced, money not yet received (STL bookings)
   if (status==='refurb')  return '#4B8FE0'
   return '#888EA8' // void - visible in both themes
 }
@@ -276,7 +277,7 @@ function getStatusColor(status) {
 // payment + balance). For the year-strip dot and per-month stat counts we
 // collapse a month's segments to one "dominant" status. Problems surface first
 // (overdue/late), otherwise paid > refurb > void > future.
-const MONTH_STATUS_PRIORITY = ['overdue','missed','late','partial','paid','refurb','void','future']
+const MONTH_STATUS_PRIORITY = ['overdue','missed','late','partial','paid','pending','refurb','void','future']
 function monthDominantStatus(segs) {
   for (const s of MONTH_STATUS_PRIORITY) {
     if (segs.some(p => p.status === s)) return s
