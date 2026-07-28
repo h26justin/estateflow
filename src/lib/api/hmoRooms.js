@@ -9,6 +9,7 @@
 // 2026-06-11_hmo_rooms.sql).
 
 import { supabase } from '../supabase'
+import { naturalCompare } from '../addressUtils'
 
 const uid = async () => (await supabase.auth.getUser()).data.user.id
 
@@ -42,7 +43,8 @@ export async function fetchRooms(propertyId) {
     .eq('property_id', propertyId)
     .order('room_name', { ascending: true })
   if (error) throw error
-  return data || []
+  // DB ordering is lexical ("Room 1, Room 10, Room 2") — natural-sort here.
+  return (data || []).sort((a, b) => naturalCompare(a.room_name, b.room_name))
 }
 
 export async function createRoom(propertyId, room) {

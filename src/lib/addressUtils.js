@@ -136,6 +136,28 @@ export function naturalCompare(a, b) {
 }
 
 /**
+ * Canonical order for a list of properties — the ONE sort every property
+ * list in the app should inherit. Rules:
+ *   1. Explicit drag positions win: rows with a non-null sort_order come
+ *      first, ordered by it (the Properties page "Custom Order" drag).
+ *   2. Everything else sorts by natural name order ("Room 2" before
+ *      "Room 10"), falling back to address for unnamed rows.
+ * This mirrors the DB's `order by sort_order, name` but replaces the
+ * lexical name tiebreak with naturalCompare, so consumers that render the
+ * array as-is (Day Tracker, dashboards, dropdowns, command palette, …)
+ * all read correctly. Returns a new array; does not mutate.
+ */
+export function sortPropertiesCanonically(list) {
+  return [...(list || [])].sort((a, b) => {
+    const ao = a?.sort_order, bo = b?.sort_order
+    if (ao != null && bo != null && ao !== bo) return ao - bo
+    if (ao != null && bo == null) return -1
+    if (ao == null && bo != null) return 1
+    return naturalCompare(a?.name || a?.address, b?.name || b?.address)
+  })
+}
+
+/**
  * Extract a sortable "secondary key" within a building. Used to order
  * flats/rooms 1, 2, 3, ..., 10, 11 within their building cluster.
  *

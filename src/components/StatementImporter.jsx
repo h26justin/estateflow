@@ -7,6 +7,7 @@ import { safeOverlayClose } from '../lib/modalUtils'
 import FocusTrap from '../lib/FocusTrap'
 import MoneyInput from '../lib/MoneyInput'
 import { loadCdnScript } from '../lib/loadCdnScript'
+import { naturalCompare } from '../lib/addressUtils'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
@@ -384,7 +385,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                               }}
                               style={{fontSize:11,padding:'4px 8px',width:'100%'}}>
                               <option value="">— Select property manually —</option>
-                              {[...properties].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>(
+                              {[...properties].sort((a,b)=>naturalCompare(a.name, b.name)).map(p=>(
                                 <option key={p.id} value={p.id}>{p.name}</option>
                               ))}
                             </select>
@@ -402,7 +403,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                                 updateItem(idx,'matchedName',prop?.name||'')
                               }}
                               style={{fontSize:10,padding:'2px 6px',background:T.bg,border:`1px solid ${T.border}`,color:T.muted,borderRadius:4,width:'auto'}}>
-                              {[...properties].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>(
+                              {[...properties].sort((a,b)=>naturalCompare(a.name, b.name)).map(p=>(
                                 <option key={p.id} value={p.id}>{p.name}</option>
                               ))}
                             </select>

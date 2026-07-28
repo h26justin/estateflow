@@ -5,6 +5,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
+import { naturalCompare } from '../lib/addressUtils'
 import {
   fetchRooms, createRoom, updateRoom, deleteRoom,
   fetchLicences, createLicence, updateLicence, deleteLicence,
@@ -78,7 +79,7 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
         setRooms(prev => prev.map(x => x.id === editingRoomId ? updated : x))
       } else {
         const created = await createRoom(propertyId, roomForm)
-        setRooms(prev => [...prev, created].sort((a, b) => (a.room_name || '').localeCompare(b.room_name || '')))
+        setRooms(prev => [...prev, created].sort((a, b) => naturalCompare(a.room_name, b.room_name)))
       }
       cancelRoom()
       showAppToast(editingRoomId ? 'Room updated' : 'Room added')

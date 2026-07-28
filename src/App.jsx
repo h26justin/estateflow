@@ -1413,7 +1413,9 @@ export default function App() {
         case 'yield-high':   return calcGrossYield(b, yieldBasis)-calcGrossYield(a, yieldBasis)
         case 'arrears':      return (b.arrears||0)-(a.arrears||0)
         case 'value-high':   return (b.est_value||0)-(a.est_value||0)
-        case 'custom':       return (a.sort_order||0)-(b.sort_order||0)
+        // Custom: drag positions first; rows never dragged (NULL sort_order)
+        // tie at 0, so fall back to natural name order instead of DB order.
+        case 'custom':       return ((a.sort_order||0)-(b.sort_order||0)) || natSort(a.name||a.address||'', b.name||b.address||'')
         default:             return 0
       }
     })
