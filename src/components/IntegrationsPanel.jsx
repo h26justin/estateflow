@@ -183,6 +183,20 @@ function LodgifyCard({ T, mono, properties }) {
   const selectStyle = { fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, width: '100%' }
   const isConnected = !!connection
 
+  // Alphabetical with natural number handling ("Flat 2" before "Flat 10") —
+  // the raw properties array arrives in portfolio drag-sort order, which
+  // interleaves companies and reads as noise in a long dropdown.
+  const propLabel = p => p.name || p.address || ''
+  const naturalSort = (a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' })
+  const sortedProperties = properties
+    .filter(p => !p.deleted_at && !p.archived_at)
+    .sort((a, b) => naturalSort(propLabel(a), propLabel(b)))
+  const sortedLodgifyProps = lodgifyProps
+    ? [...lodgifyProps].sort((a, b) => naturalSort(a.name || '', b.name || ''))
+    : null
+  const sortedMappings = [...mappings].sort((a, b) =>
+    naturalSort(a.lodgify_property_name || String(a.lodgify_property_id), b.lodgify_property_name || String(b.lodgify_property_id)))
+
   if (loading) return <div style={card}><div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div></div>
 
   return (
@@ -227,7 +241,7 @@ function LodgifyCard({ T, mono, properties }) {
         <>
           {mappings.length > 0 ? (
             <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 6 }}>
-              {mappings.map(m => {
+              {sortedMappings.map(m => {
                 const prop = properties.find(p => p.id === m.property_id)
                 return (
                   <div key={m.lodgify_property_id} style={{ marginBottom: 2 }}>
@@ -282,7 +296,7 @@ function LodgifyCard({ T, mono, properties }) {
                 <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No listings found in this Lodgify account.</div>
               )}
               <div style={{ display:'grid', gap: 8 }}>
-                {lodgifyProps.map(lp => {
+                {sortedLodgifyProps.map(lp => {
                   const current = mappings.find(m => String(m.lodgify_property_id) === String(lp.id))
                   return (
                     <div key={lp.id} style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems:'center' }}>
@@ -291,8 +305,8 @@ function LodgifyCard({ T, mono, properties }) {
                         value={current?.property_id || ''}
                         onChange={e => setMappingFor(lp, e.target.value || null)}>
                         <option value="">(don't sync)</option>
-                        {properties.filter(p => !p.deleted_at && !p.archived_at).map(p => (
-                          <option key={p.id} value={p.id}>{p.name || p.address}</option>
+                        {sortedProperties.map(p => (
+                          <option key={p.id} value={p.id}>{propLabel(p)}</option>
                         ))}
                       </select>
                     </div>
