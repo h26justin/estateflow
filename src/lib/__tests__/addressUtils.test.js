@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from '../addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding, sortPropertiesCanonically } from '../addressUtils'
 
 describe('groupKeyForAddress', () => {
   it('returns null for empty input', () => {
@@ -130,6 +130,44 @@ describe('naturalCompare', () => {
     expect(naturalCompare(null, 'a')).toBeLessThan(0)
     expect(naturalCompare('a', undefined)).toBeGreaterThan(0)
     expect(naturalCompare(null, undefined)).toBe(0)
+  })
+})
+
+describe('sortPropertiesCanonically', () => {
+  it('natural-sorts names when no sort_order is set', () => {
+    const props = [
+      { name: 'Room 10, Piers View' },
+      { name: 'Room 1, Piers View' },
+      { name: 'Room 2, Piers View' },
+    ]
+    expect(sortPropertiesCanonically(props).map(p => p.name)).toEqual([
+      'Room 1, Piers View', 'Room 2, Piers View', 'Room 10, Piers View',
+    ])
+  })
+
+  it('puts explicit drag positions first, in order', () => {
+    const props = [
+      { name: 'B House' },
+      { name: 'Z House', sort_order: 0 },
+      { name: 'A House', sort_order: 1 },
+    ]
+    expect(sortPropertiesCanonically(props).map(p => p.name)).toEqual([
+      'Z House', 'A House', 'B House',
+    ])
+  })
+
+  it('falls back to address for unnamed rows and tolerates null input', () => {
+    const props = [{ address: '10 High St' }, { address: '2 High St' }, { name: null, address: null }]
+    const sorted = sortPropertiesCanonically(props)
+    expect(sorted[0].name ?? sorted[0].address).toBeNull()
+    expect(sorted.slice(1).map(p => p.address)).toEqual(['2 High St', '10 High St'])
+    expect(sortPropertiesCanonically(null)).toEqual([])
+  })
+
+  it('does not mutate the input array', () => {
+    const props = [{ name: 'B' }, { name: 'A' }]
+    sortPropertiesCanonically(props)
+    expect(props.map(p => p.name)).toEqual(['B', 'A'])
   })
 })
 

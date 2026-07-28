@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { loadCdnScript } from '../loadCdnScript'
 import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
+import { sortPropertiesCanonically } from '../addressUtils'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -44,7 +45,10 @@ export async function fetchProperties() {
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
   if (error) throw error
-  return data
+  // Postgres name ordering is lexical ("Room 1, Room 10, Room 2") — re-sort
+  // with the canonical natural comparator so every consumer of this array
+  // (most pages render it as-is) reads correctly.
+  return sortPropertiesCanonically(data)
 }
 export async function createProperty(prop) {
   const { data, error } = await supabase

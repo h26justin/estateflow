@@ -4,6 +4,7 @@ import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
+import { naturalCompare } from '../lib/addressUtils'
 
 // ── RECEIPT SCAN MODAL ───────────────────────────────────────────────
 // Mobile-first expense capture. User taps "Scan receipt" → device
@@ -170,7 +171,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
                   <label>Property *</label>
                   <select value={propertyId} onChange={e => setPropertyId(e.target.value)}>
                     <option value="">— Pick a property —</option>
-                    {[...properties].sort((a,b) => a.name.localeCompare(b.name)).map(p => (
+                    {[...properties].sort((a,b) => naturalCompare(a.name, b.name)).map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>

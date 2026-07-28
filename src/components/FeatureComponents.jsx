@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { statusPill } from '../lib/styles'
+import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
@@ -3816,7 +3817,10 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
     setSubdomain(c?.subdomain || generateSubdomain(c?.name || ''))
     setInviteLink('')
     supabase.from('properties').select('id,name,address').eq('company_id', selectedCo)
-      .then(({data}) => { setProperties(data||[]); setInviteProperty(data?.[0]?.id||'') })
+      .then(({data}) => {
+        const sorted = (data||[]).sort((a,b)=>naturalCompare(a.name||a.address, b.name||b.address))
+        setProperties(sorted); setInviteProperty(sorted[0]?.id||'')
+      })
     // Load bank details
     api.fetchCompanyBankDetails(selectedCo).then(b => {
       setBankName(b.bank_name||''); setBankSort(b.bank_sort_code||'')
