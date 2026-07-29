@@ -1,9 +1,10 @@
 
-import { useState, useEffect, useMemo, useCallback, useRef, memo, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, memo, lazy, Suspense, Fragment } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
-import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS } from './lib/nav'
+import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS } from './lib/nav'
+import { REPORT_CATALOGUE } from './lib/reportCatalogue'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -964,9 +965,15 @@ export default function App() {
       if (parts[0] === 'admin') {
         return { view: 'admin', adminTab: parts[1] || null }
       }
-      if (parts[0] === 'properties' && parts[1] === 'companies') {
-        return { view: 'properties', portfolioTab: 'companies' }
+      // All portfolio sub-tabs are addressable: #/properties/<tab>
+      const PORTFOLIO_TABS = ['properties','companies','compliance','map','contractors']
+      if (parts[0] === 'properties') {
+        return { view: 'properties', portfolioTab: PORTFOLIO_TABS.includes(parts[1]) ? parts[1] : 'properties' }
       }
+      // Legacy top-level views, folded into Portfolio sub-tabs (they used
+      // to exist twice at two different levels).
+      if (parts[0] === 'companies')   return { view: 'properties', portfolioTab: 'companies' }
+      if (parts[0] === 'contractors') return { view: 'properties', portfolioTab: 'contractors' }
       if (parts[0] === 'rent' && parts[1] === 'day') {
         return { view: 'daytracker' }
       }
@@ -978,7 +985,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','companies','rent','deals','insurance','contractors','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','insurance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -1010,7 +1017,10 @@ export default function App() {
       // when the user pops back from a specific report to the catalogue).
       setSelectedReportId(parsed.selectedReportId || null)
       if (parsed.detailTab) setDetailTab(parsed.detailTab)
-      if (parsed.portfolioTab) setPortfolioTab(parsed.portfolioTab)
+      // Always reflect the portfolio sub-tab when on the portfolio view —
+      // popping back from #/properties/companies to #/properties must reset
+      // the tab, not leave it stale.
+      if (parsed.view === 'properties') setPortfolioTab(parsed.portfolioTab || 'properties')
       if (parsed.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: parsed.settingsTab } }))
     }
     window.addEventListener('popstate', handlePopState)
@@ -1029,6 +1039,9 @@ export default function App() {
   // Sync to URL whenever navigation state changes
   useEffect(() => {
     if (!user) return
+    // The admin overlay owns #/admin/<tab> (AdminDashboard pushes it) —
+    // don't fight it by rewriting the hash back to the underlying view.
+    if (showAdmin) return
     // Leaving the reports view? Drop any selected report id so we don't
     // carry stale state into the next visit.
     if (view !== 'reports' && selectedReportId) {
@@ -1039,8 +1052,8 @@ export default function App() {
     if (view === 'detail' && selectedId) {
       target = `#/detail/${selectedId}`
       if (detailTab && detailTab !== 'overview') target += `/${detailTab}`
-    } else if (view === 'properties' && portfolioTab === 'companies') {
-      target = '#/properties/companies'
+    } else if (view === 'properties' && portfolioTab && portfolioTab !== 'properties') {
+      target = `#/properties/${portfolioTab}`
     } else if (view === 'daytracker') {
       target = '#/rent/day'
     } else if (view === 'reports' && selectedReportId) {
@@ -1056,6 +1069,9 @@ export default function App() {
     // sub-tab (e.g. the upgrade CTA's '#/settings/billing') before
     // SettingsPage mounts, landing the user on the Account tab instead.
     if (view === 'settings' && /^#\/settings(\/|$)/.test(window.location.hash)) return
+    // DealsPage owns its sub-view / deal-detail URL segments the same way
+    // (#/deals/pipeline, #/deals/deal/<id>).
+    if (view === 'deals' && /^#\/deals(\/|$)/.test(window.location.hash)) return
     if (window.location.hash !== target) {
       // Push a history entry only when the *place* changes (view, property,
       // report). Intra-page tab flips (detailTab, portfolioTab) REPLACE the
@@ -1070,7 +1086,27 @@ export default function App() {
     lastSyncedNav.current = { view, selectedId, selectedReportId }
   // user.id only — see the note on the loadData useEffect below for why.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user?.id])
+  }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user?.id, showAdmin])
+
+  // A deep link can name a detail tab this property/account doesn't have
+  // (feature toggled off, non-HMO 'rooms', no 'epc-plan' flag). The strip
+  // wouldn't show the tab, so the content pane rendered empty — clamp back
+  // to Overview instead.
+  useEffect(() => {
+    if (view !== 'detail' || !selectedId) return
+    const sel = properties.find(p => p.id === selectedId)
+    if (!sel) return
+    const cs = companySettings[sel.company_id] || {}
+    const eligibility = {
+      compliance: cs.feature_compliance, maintenance: cs.feature_maintenance,
+      documents: cs.feature_documents, expenses: cs.feature_expenses,
+      tenancy: cs.feature_tenancy, 'right-to-rent': cs.feature_tenancy,
+      deposit: cs.feature_tenancy, notices: cs.feature_tenancy, 'rent-history': cs.feature_tenancy,
+      rooms: sel.is_hmo || activeFlags.has('hmo_rooms'),
+      'epc-plan': activeFlags.has('epc_planner'),
+    }
+    if (detailTab in eligibility && !eligibility[detailTab]) setDetailTab('overview')
+  }, [view, selectedId, detailTab, properties, companySettings, activeFlags])
 
   // Per-view document titles so history entries, bookmarks and the browser
   // tab strip are tellable apart (index.html's marketing title otherwise
@@ -1157,7 +1193,7 @@ export default function App() {
         setIsPlatformAdmin(isPlatformAdminFlag)
         // Nav / yield / account prefs from the same row.
         if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
-        else setUserNavPrefs(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
+        else setUserNavPrefs(DEFAULT_NAV_KEYS)
         if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
         setAccountType(prof?.account_type || null)
 
@@ -1574,25 +1610,58 @@ export default function App() {
 
   // Commands list for the palette. Rebuilt whenever the underlying data
   // changes (properties / companies / view); cheap enough to recompute.
+  // Top-level navigation tabs — the registry lives in lib/nav.js (shared with
+  // the Settings → Navigation toggles so the two can never disagree again).
+  // Feedback used to live here as a required tab, but it's not a daily-use
+  // page — moved to the "⋯ More" menu / drawer instead.
+  // MTD ITSA only applies to individuals/sole-traders. Limited-company landlords
+  // file Corporation Tax, not Self Assessment — hide the page from their nav so
+  // their UI isn't cluttered with an irrelevant feature.
+  const navItems = ALL_NAV
+    .filter(n => n.flag ? activeFlags.has(n.flag) : (n.required || userNavPrefs.includes(n.key)))
+    .filter(n => n.key !== 'mtd' || accountType !== 'limited_company')
+
   const paletteCommands = useMemo(() => {
     const cmds = []
-    // Navigation
-    const navCmds = [
-      { key:'dashboard',  icon:'🏠', label:'Dashboard' },
-      { key:'properties', icon:'🏘', label:'Portfolio' },
-      { key:'rent',       icon:'💰', label:'Rent Tracker' },
-      { key:'deals',      icon:'🎯', label:'Deals' },
-      { key:'insurance',  icon:'🛡', label:'Insurance' },
-      { key:'reports',    icon:'📊', label:'Reports' },
-      { key:'mtd',        icon:'🏛️', label:'MTD Tax' },
-      { key:'settings',   icon:'⚙',  label:'Settings' },
-      { key:'feedback',   icon:'💬', label:'Send Feedback' },
-    ]
-    for (const n of navCmds) {
+    // Navigation — generated from the effective nav (registry + user prefs +
+    // flags + account-type gating), so the palette can never offer a page
+    // the user can't have (e.g. MTD Tax for limited companies) and never
+    // misses one they can (Autopilot, Renters Rights, Insurance…).
+    for (const n of navItems) {
       cmds.push({
         id: `nav:${n.key}`, icon: n.icon, label: `Go to ${n.label}`,
         group: 'navigate', keywords: n.label,
         action: () => { setView(n.key); setSelectedId(null) },
+      })
+    }
+    cmds.push(
+      { id:'nav:portfolio-companies', icon:'grid', label:'Go to Companies', group:'navigate', keywords:'companies portfolio',
+        action: () => { setSelectedId(null); setPortfolioTab('companies'); setView('properties') } },
+      { id:'nav:portfolio-compliance', icon:'shield-check', label:'Go to Compliance', group:'navigate', keywords:'certificates gas eicr epc',
+        action: () => { setSelectedId(null); setPortfolioTab('compliance'); setView('properties') } },
+      { id:'nav:portfolio-contractors', icon:'wrench', label:'Go to Contractors', group:'navigate', keywords:'trades contractors',
+        action: () => { setSelectedId(null); setPortfolioTab('contractors'); setView('properties') } },
+      { id:'nav:daytracker', icon:'calendar', label:'Go to Day Tracker', group:'navigate', keywords:'rent day tracker',
+        action: () => { setSelectedId(null); setView('daytracker') } },
+      { id:'nav:feedback', icon:'💬', label:'Send Feedback', group:'navigate', keywords:'feedback bug feature',
+        action: () => { setView('feedback'); setSelectedId(null) } },
+    )
+    // Settings sub-tabs — "Settings → Billing" etc., from the shared registry.
+    for (const group of Object.values(SETTINGS_TABS)) {
+      for (const t of group) {
+        cmds.push({
+          id: `settings:${t.key}`, icon: 'settings', label: `Settings → ${t.label}`,
+          group: 'navigate', keywords: `settings ${t.label}`,
+          action: () => openSettingsTab(t.key),
+        })
+      }
+    }
+    // Individual reports — "Report: Annual P&L" etc.
+    for (const r of REPORT_CATALOGUE) {
+      cmds.push({
+        id: `report:${r.id}`, icon: r.icon, label: `Report: ${r.name}`,
+        group: 'navigate', keywords: `report ${r.desc}`,
+        action: () => { setSelectedId(null); setSelectedReportId(r.id); setView('reports') },
       })
     }
     // Open property by name/address
@@ -1628,7 +1697,7 @@ export default function App() {
     )
     return cmds
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [properties, companies, darkMode])
+  }, [properties, companies, darkMode, navItems])
 
   // Early returns AFTER all hooks
   // Privacy & Terms render at /privacy and /terms even when unauthenticated.
@@ -1727,7 +1796,32 @@ export default function App() {
 
   const selected = properties.find(p=>p.id===selectedId)
 
-  function openDetail(p, tab='overview'){setSelectedId(p.id);setDetailTab(tab);setView('detail')}
+  // Record where the user came from so the property page's Back returns
+  // there (Portfolio sub-tab, Rent Tracker, Dashboard…) instead of always
+  // dumping them on the Properties tab.
+  const detailOrigin = useRef(null)
+  function openDetail(p, tab='overview'){
+    detailOrigin.current = { view, portfolioTab }
+    setSelectedId(p.id);setDetailTab(tab);setView('detail')
+  }
+  function closeDetail(){
+    const origin = detailOrigin.current
+    detailOrigin.current = null
+    setSelectedId(null)
+    if (origin && origin.view !== 'detail') {
+      if (origin.view === 'properties' && origin.portfolioTab) setPortfolioTab(origin.portfolioTab)
+      setView(origin.view)
+    } else {
+      setView('properties')
+    }
+  }
+  // Settings sub-tabs are owned by SettingsPage (it reads its initial tab
+  // from the hash at mount and listens for this event when already open).
+  function openSettingsTab(tab){
+    window.history.pushState({ view: 'settings', settingsTab: tab }, '', `#/settings/${tab}`)
+    setView('settings')
+    window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab } }))
+  }
 
   async function handleSaveProp(formData){
     try{
@@ -1973,17 +2067,6 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  // Top-level navigation tabs — the registry lives in lib/nav.js (shared with
-  // the Settings → Navigation toggles so the two can never disagree again).
-  // Feedback used to live here as a required tab, but it's not a daily-use
-  // page — moved to the "⋯ More" menu / drawer instead.
-  // MTD ITSA only applies to individuals/sole-traders. Limited-company landlords
-  // file Corporation Tax, not Self Assessment — hide the page from their nav so
-  // their UI isn't cluttered with an irrelevant feature.
-  const navItems = ALL_NAV
-    .filter(n => n.flag ? activeFlags.has(n.flag) : (n.required || userNavPrefs.includes(n.key)))
-    .filter(n => n.key !== 'mtd' || accountType !== 'limited_company')
-
   function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
     const mono = MONO
 
@@ -2094,11 +2177,20 @@ export default function App() {
             {railCollapsed ? <ChromeIcon size={30}/> : <ChromeLogo height={26}/>}
           </div>
           {/* Nav items */}
-          <nav style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'10px 8px',display:'flex',flexDirection:'column',gap:2}}>
-            {navItems.map(n=>{
+          <nav aria-label="Primary" style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'10px 8px',display:'flex',flexDirection:'column',gap:2}}>
+            {navItems.map((n,i)=>{
               const active = view===n.key||(view==='detail'&&n.key==='properties')
+              // Section header whenever the registry group changes (skip the
+              // first group — a header above Dashboard is just noise).
+              // Collapsed rail shows a hairline divider instead.
+              const newGroup = i>0 && n.group !== navItems[i-1].group
+              const header = newGroup && (railCollapsed
+                ? <div key={`hdr-${n.group}`} aria-hidden="true" style={{height:1,background:T.border,margin:'8px 10px'}}/>
+                : <div key={`hdr-${n.group}`} style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'12px 11px 4px'}}>{n.group}</div>)
               return (
-                <button key={n.key} title={railCollapsed?n.label:undefined} aria-current={active?'page':undefined}
+                <Fragment key={n.key}>
+                {header}
+                <button title={railCollapsed?n.label:undefined} aria-current={active?'page':undefined}
                   onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}}
                   style={{display:'flex',alignItems:'center',gap:11,padding:railCollapsed?'10px 0':'10px 11px',justifyContent:railCollapsed?'center':'flex-start',
                     borderRadius:10,border:'none',cursor:'pointer',width:'100%',textAlign:'left',
@@ -2109,6 +2201,7 @@ export default function App() {
                   <span style={{display:'flex',flexShrink:0,color:active?T.gold:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
                   {!railCollapsed && <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.label}</span>}
                 </button>
+                </Fragment>
               )
             })}
           </nav>
@@ -2182,9 +2275,26 @@ export default function App() {
           <div style={{display:'flex',alignItems:'center',flexShrink:0,minWidth:0}}>
             {isMobile
               ? <ChromeLogo height={26}/>
-              : <span style={{fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',whiteSpace:'nowrap'}}>
-                  {navItems.find(n=>n.key===view)?.label || (view==='detail' ? 'Portfolio / Property' : 'Dashboard')}
-                </span>}
+              : view==='detail' && selected
+                // Real breadcrumb on the property page: Portfolio and the
+                // company segment are clickable; the property name is the
+                // current location. (The old header showed the static string
+                // "Portfolio / Property".)
+                ? <nav aria-label="Breadcrumb" style={{fontFamily:MONO,fontSize:12,color:T.muted,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+                    <button onClick={closeDetail} style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}
+                      onMouseEnter={e=>e.currentTarget.style.color=T.text} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Portfolio</button>
+                    {(()=>{ const co = companies.find(c=>c.id===selected.company_id); return co ? <>
+                      <span aria-hidden="true">/</span>
+                      <button onClick={()=>{setCoFilter(co.id);setStatusFilter('all');setPortfolioTab('properties');setSelectedId(null);setView('properties')}}
+                        style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}
+                        onMouseEnter={e=>e.currentTarget.style.color=T.text} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>{co.abbr||co.name}</button>
+                    </> : null })()}
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page" style={{color:T.text,overflow:'hidden',textOverflow:'ellipsis',maxWidth:260}}>{selected.name}</span>
+                  </nav>
+                : <span style={{fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',whiteSpace:'nowrap'}}>
+                    {navItems.find(n=>n.key===view)?.label || VIEW_LABELS[view] || 'Dashboard'}
+                  </span>}
           </div>
 
           {/* Desktop nav now lives in the left rail; spacer pushes actions right */}
@@ -2192,7 +2302,7 @@ export default function App() {
 
           {/* Mobile: current page title */}
           {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
-            {(()=>{const ni=navItems.find(n=>n.key===view); return ni&&ICON_NAMES.includes(ni.icon)?<Icon name={ni.icon} size={15} color={T.muted}/>:ni?.icon})()} {navItems.find(n=>n.key===view)?.label||'Dashboard'}
+            {(()=>{const ni=navItems.find(n=>n.key===view); return ni&&ICON_NAMES.includes(ni.icon)?<Icon name={ni.icon} size={15} color={T.muted}/>:ni?.icon})()} <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{view==='detail'&&selected?selected.name:(navItems.find(n=>n.key===view)?.label||VIEW_LABELS[view]||'Dashboard')}</span>
           </div>}
 
           {/* Right side */}
@@ -2312,6 +2422,8 @@ export default function App() {
                       padding:'6px',minWidth:180,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
                         {icon:'⌘', label:'Search & jump…', hint:'⌘K', action:()=>setShowPalette(true)},
+                        {icon:'❓',label:'Help & Guides', action:()=>openSettingsTab('help')},
+                        {icon:'🗑',label:'Trash', action:()=>openSettingsTab('trash')},
                         {icon:'💬',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
                         {icon:'↗', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
                       ].map((item,i,arr)=>(
@@ -2334,6 +2446,11 @@ export default function App() {
                 )}
               </div>
             )}
+            {/* Search - mobile only (desktop has ⌘K + the ⋯ menu entry) */}
+            {isMobile&&<button onClick={()=>setShowPalette(true)}
+              aria-label="Search and jump" style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',color:T.text,display:'flex',alignItems:'center',justifyContent:'center',width:36,height:36}}>
+              <Icon name="search" size={16}/>
+            </button>}
             {/* Hamburger - mobile only */}
             {isMobile&&<button onClick={()=>setShowDrawer(true)}
               aria-label="Open menu" style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.text,fontSize:16,display:'flex',flexDirection:'column',gap:4,alignItems:'center',justifyContent:'center',width:36,height:36}}>
@@ -2351,7 +2468,7 @@ export default function App() {
           {/* Backdrop */}
           <div style={{flex:1,background:'rgba(0,0,0,0.6)'}} onClick={()=>setShowDrawer(false)}/>
           {/* Drawer panel */}
-          <div style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
+          <div role="dialog" aria-modal="true" aria-label="Navigation menu" style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
             {/* Drawer header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${T.border}`}}>
               <div style={{display:'flex',alignItems:'center'}}>
@@ -2360,20 +2477,35 @@ export default function App() {
               <button onClick={()=>setShowDrawer(false)} aria-label="Close menu"
                 style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px'}}>✕</button>
             </div>
-            {/* Nav items */}
-            <div style={{flex:1,overflowY:'auto',padding:'12px 0'}}>
-              {navItems.map(n=>(
-                <button key={n.key}
+            {/* Search row — the palette's only other mobile entry point is
+                the header icon; keyboard ⌘K needs a keyboard. */}
+            <button onClick={()=>{setShowDrawer(false);setShowPalette(true)}}
+              style={{display:'flex',alignItems:'center',gap:10,margin:'12px 16px 0',padding:'10px 12px',
+                background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',textAlign:'left'}}>
+              <Icon name="search" size={16} color={T.muted}/>
+              <span style={{fontFamily:MONO,fontSize:12,color:T.muted}}>Search & jump…</span>
+            </button>
+            {/* Nav items — grouped with the same section headers as the
+                desktop rail */}
+            <nav aria-label="Primary" style={{flex:1,overflowY:'auto',padding:'12px 0'}}>
+              {navItems.map((n,i)=>{
+                const active = view===n.key||(view==='detail'&&n.key==='properties')
+                const newGroup = i>0 && n.group !== navItems[i-1].group
+                return (
+                <Fragment key={n.key}>
+                {newGroup && <div style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'14px 20px 4px'}}>{n.group}</div>}
+                <button aria-current={active?'page':undefined}
                   onClick={()=>{setView(n.key);setSelectedId(null);setShowDrawer(false)}}
                   style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 20px',
-                    background:view===n.key?T.gold+'18':'none',
-                    border:'none',borderLeft:view===n.key?`3px solid ${T.gold}`:'3px solid transparent',
+                    background:active?T.gold+'18':'none',
+                    border:'none',borderLeft:active?`3px solid ${T.gold}`:'3px solid transparent',
                     cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}>
-                  <span style={{width:24,display:'flex',justifyContent:'center',color:view===n.key?T.gold:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
-                  <span style={{fontSize:14,fontWeight:view===n.key?600:400,color:view===n.key?T.gold:T.text}}>{n.label}</span>
+                  <span style={{width:24,display:'flex',justifyContent:'center',color:active?T.gold:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
+                  <span style={{fontSize:14,fontWeight:active?600:400,color:active?T.gold:T.text}}>{n.label}</span>
                 </button>
-              ))}
-            </div>
+                </Fragment>
+              )})}
+            </nav>
             {/* Drawer footer */}
             <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
               {[
@@ -2401,6 +2533,10 @@ export default function App() {
                 </button>
               ))}
               <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px',marginTop:4}}
+                onClick={()=>{openSettingsTab('help');setShowDrawer(false)}}>
+                Help & Guides
+              </button>
+              <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px'}}
                 onClick={()=>{setView('feedback');setSelectedId(null);setShowDrawer(false)}}>
                 Send Feedback
               </button>
@@ -2958,7 +3094,7 @@ export default function App() {
                                   </div>
                                 ))}
                               </div>
-                              <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setActiveCoTab(c.id);setView('companies')}}>View Properties -&gt;</button>
+                              <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setCoFilter(c.id);setStatusFilter('all');setPortfolioTab('properties');setView('properties')}}>View Properties -&gt;</button>
                             </div>
                           ))}
                         </div>
@@ -3170,72 +3306,9 @@ export default function App() {
             </div>}
           </div>}
 
-          {view==='companies'&&<div className="fade">
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:20}}>
-              <h1 style={{flex:'1 1 auto',minWidth:0,fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em'}}>Companies</h1>
-              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
-            </div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
-              {companies.map(c=>(
-                <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`} style={{border:`1px solid ${activeCoTab===c.id?c.color:T.border}`,color:activeCoTab===c.id?c.color:T.muted,background:activeCoTab===c.id?c.color+'11':'transparent'}} onClick={()=>setActiveCoTab(c.id)}>{c.name}</button>
-              ))}
-            </div>
-            {companies.filter(c=>c.id===activeCoTab).map(c=>{
-              // companyStats is derived from dashCos which is filtered by
-              // dashCoFilter, so a company can be in `companies` (and the
-              // tab row) but absent from companyStats. Default to zeros
-              // rather than crashing on cs.count. (CompaniesPanel applies
-              // the same fallback — see line ~1512.)
-              const cs=companyStats.find(x=>x.id===c.id) || {
-                id:c.id, count:0, rented:0, vacant:0, monthlyRent:0,
-                invested:0, estVal:0, arrears:0,
-              }
-              const cProps=activeProperties.filter(p=>p.company_id===c.id)
-              return <div key={c.id}>
-                <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
-                  <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
-                  <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
-                  <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
-                  <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
-                </div>
-                <div style={{display:'grid',gap:10}}>
-                  {groupPropertiesByBuilding(cProps).map(group => (
-                    <div key={group.tail || group.items[0].id}>
-                      {group.isBuilding && (
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
-                          <span style={{fontSize:13}} aria-hidden="true">🏘</span>
-                          <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
-                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
-                        </div>
-                      )}
-                      <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
-                        {group.items.map(p => {
-                          const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
-                          return (
-                          <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
-                            <div style={{flex:1,minWidth:150}}>
-                              <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
-                              <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
-                            </div>
-                            {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                              <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                              <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
-                            </div>
-                            <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
-                            <Badge status={p.status}/>
-                            <HealthBadge property={p} tenancy={tenanciesByProp[p.id]||null}/>
-                          </div>
-                        )})}
-                      </div>
-                    </div>
-                  ))}
-                  {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}
-                </div>
-              </div>
-            })}
-          </div>}
-
+          {/* Standalone Companies view removed — Companies now lives solely
+              as a Portfolio sub-tab (#/properties/companies); legacy #/companies
+              deep links are mapped across in parseHash. */}
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs}/>}
@@ -3243,9 +3316,20 @@ export default function App() {
           {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
           {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
-          {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
           {view==='autopilot'&&activeFlags.has('portfolio_autopilot')&&<div className="fade"><AutopilotPage companyId={activeCoTab||null}/></div>}
           {view==='renters-rights'&&activeFlags.has('renters_rights')&&<div className="fade"><RentersRightsCopilot companyId={activeCoTab||null}/></div>}
+          {/* A bookmark/shared link can name a flag-gated view the account
+              doesn't have — say so instead of rendering an empty pane. */}
+          {((view==='autopilot'&&!activeFlags.has('portfolio_autopilot'))||(view==='renters-rights'&&!activeFlags.has('renters_rights')))&&(
+            <div className="card fade" style={{padding:'40px 32px',textAlign:'center'}}>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="lock" size={32} color={T.muted}/></div>
+              <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>This feature isn't enabled for your account</h1>
+              <p style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:20,maxWidth:440,margin:'0 auto 20px',lineHeight:1.6}}>
+                {view==='autopilot'?'Portfolio Autopilot':'The Renters Rights copilot'} is rolling out gradually. If you'd like early access, send us a message from the Feedback page.
+              </p>
+              <button className="btn btn-gold" onClick={()=>setView('dashboard')}>Back to Dashboard</button>
+            </div>
+          )}
 
           {view==='detail'&&!selected&&<div className="fade" style={{padding:40,textAlign:'center'}}>
             <div style={{fontSize:48,marginBottom:16}}>🔒</div>
@@ -3253,11 +3337,11 @@ export default function App() {
             <p style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:20}}>
               This property doesn't exist or you don't have access to it.
             </p>
-            <button className="btn btn-gold" onClick={()=>{setView('properties');setSelectedId(null)}}>&lt;- Back to Properties</button>
+            <button className="btn btn-gold" onClick={closeDetail}>&lt;- Back to Properties</button>
           </div>}
 
           {view==='detail'&&selected&&<div className="fade">
-            <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>&lt;- Back</button>
+            <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={closeDetail}>&lt;- Back</button>
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 280px',gap:18,alignItems:'start'}}>
               <div style={{minWidth:0}}>
                 <div className="card" style={{padding:isMobile?'18px 16px':'24px 28px',marginBottom:16}}>
@@ -3503,7 +3587,10 @@ export default function App() {
                     </div>
                   ))}
                 </div>}
-                {detailTab==='contractors'&&<ContractorsPage propertyFilter={selected.id} showToast={showToast} user={user} compact={true}/>}
+                {/* NOTE: no 'contractors' detail tab — it was renderable here
+                    but never present in the tab strip, so it was reachable
+                    only by hand-typed URL with nothing highlighted. Property-
+                    scoped contractor history lives in Maintenance. */}
                 {(detailTab==='overview'||detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_compliance') || devModeActive}/>}
                 {(detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&(()=>{
@@ -3772,23 +3859,24 @@ export default function App() {
       })()}
 
       {/* Mobile bottom nav - consistent icons, + More opens drawer */}
-      <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
-        {/* Mobile bottom-nav: 4 user-pref items + Settings + More drawer,
-            ALWAYS guaranteeing Dashboard first and Settings as the 5th slot
-            (Settings is `required:true` so it's always in navItems already —
-            we just ensure it's not trimmed off by the 5-cap if the user has
-            many other items enabled). The "More" button below provides
-            access to anything that didn't fit. */}
+      <nav className="mobile-nav" aria-label="Primary" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+        {/* Mobile bottom-nav: 6 slots — Dashboard, the user's 3 highest-
+            priority items (mobileRank from lib/nav.js, not registry
+            declaration order), Settings, and More (opens the drawer with
+            everything else). */}
         {(() => {
           const dash = navItems.find(n => n.key === 'dashboard')
           const settingsItem = navItems.find(n => n.key === 'settings')
-          const middle = navItems.filter(n => n.key !== 'dashboard' && n.key !== 'settings').slice(0, 3)
+          const middle = navItems
+            .filter(n => n.key !== 'dashboard' && n.key !== 'settings')
+            .sort((a, b) => (a.mobileRank ?? 99) - (b.mobileRank ?? 99))
+            .slice(0, 3)
           return [dash, ...middle, settingsItem].filter(Boolean)
         })().map(n=>{
           const key = n.key
           const active = view===key||(view==='detail'&&key==='properties')
           return (
-            <button key={key} onClick={()=>{setView(key);setSelectedId(null)}}
+            <button key={key} aria-current={active?'page':undefined} onClick={()=>{setView(key);setSelectedId(null)}}
               style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
                 alignItems:'center',gap:2,padding:'4px 8px',flex:1,
                 color:active?T.gold:T.muted,fontFamily:MONO}}>

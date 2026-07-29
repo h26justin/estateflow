@@ -157,8 +157,10 @@ export default function TrashPage({ user, onRestored }) {
             ))}
           </div>
 
-          {/* Items */}
+          {/* Items — horizontal scroll on narrow screens, same pattern as the compliance matrix */}
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+            <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+            <div style={{minWidth:660}}>
             <div style={{display:'grid',gridTemplateColumns:'100px 1fr 140px 140px 200px',gap:12,padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
               {['Type','Item','Deleted','Auto-purge in','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
@@ -190,6 +192,8 @@ export default function TrashPage({ user, onRestored }) {
                 </div>
               )
             })}
+            </div>
+            </div>
           </div>
 
           <div style={{fontFamily:mono,fontSize:11,color:T.faint,marginTop:12,textAlign:'center'}}>

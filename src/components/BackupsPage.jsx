@@ -154,6 +154,9 @@ export default function BackupsPage({ user, showToast }) {
         </div>
       ) : (
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+          {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
+          <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+          <div style={{minWidth:640}}>
           <div style={{display:'grid',gridTemplateColumns:'1.4fr 100px 90px 1fr 180px',gap:14,padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
             {['Created','Type','Size','Contents','Actions'].map(h=>(
               <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
@@ -202,6 +205,8 @@ export default function BackupsPage({ user, showToast }) {
               </div>
             )
           })}
+          </div>
+          </div>
         </div>
       )}
 

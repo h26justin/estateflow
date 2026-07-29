@@ -16,18 +16,21 @@
 //   group     — rail section header (rendered when the group changes)
 //   mobileRank— priority for the 3 middle bottom-bar slots (lower = first)
 
+// Note: Companies and Contractors are deliberately NOT top-level entries —
+// they used to exist BOTH here and as Portfolio sub-tabs (two different
+// Companies screens, only one with a URL). They now live solely as Portfolio
+// sub-tabs; legacy '#/companies' / '#/contractors' hashes are mapped across
+// in App.jsx's parseHash.
 export const ALL_NAV = [
   { key: 'dashboard',      label: 'Dashboard',      icon: 'home',         short: 'Home',      required: true,  group: 'Overview',    mobileRank: 0 },
   { key: 'properties',     label: 'Portfolio',      icon: 'building',     short: 'Portfolio', required: true,  group: 'Portfolio',   mobileRank: 0 },
-  { key: 'companies',      label: 'Companies',      icon: 'grid',         short: 'Cos',       required: false, group: 'Portfolio',   mobileRank: 4 },
-  { key: 'contractors',    label: 'Contractors',    icon: 'wrench',       short: 'Trades',    required: false, group: 'Portfolio',   mobileRank: 5 },
   { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
   { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
-  { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 6 },
-  { key: 'insurance',      label: 'Insurance',      icon: 'shield-check', short: 'Insurance', required: false, group: 'Money',       mobileRank: 7 },
+  { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 4 },
+  { key: 'insurance',      label: 'Insurance',      icon: 'shield-check', short: 'Insurance', required: false, group: 'Money',       mobileRank: 5 },
   { key: 'deals',          label: 'Deals',          icon: 'target',       short: 'Deals',     required: false, group: 'Growth & AI', mobileRank: 2 },
-  { key: 'autopilot',      label: 'Autopilot',      icon: 'robot',        short: 'Autopilot', required: false, group: 'Growth & AI', mobileRank: 8, flag: 'portfolio_autopilot' },
-  { key: 'renters-rights', label: 'Renters Rights', icon: 'scale',        short: 'RRA',       required: false, group: 'Growth & AI', mobileRank: 9, flag: 'renters_rights' },
+  { key: 'autopilot',      label: 'Autopilot',      icon: 'robot',        short: 'Autopilot', required: false, group: 'Growth & AI', mobileRank: 6, flag: 'portfolio_autopilot' },
+  { key: 'renters-rights', label: 'Renters Rights', icon: 'scale',        short: 'RRA',       required: false, group: 'Growth & AI', mobileRank: 7, flag: 'renters_rights' },
   { key: 'settings',       label: 'Settings',       icon: 'settings',     short: 'Settings',  required: true,  group: 'System',      mobileRank: 0 },
 ]
 
@@ -38,6 +41,37 @@ export const DEFAULT_NAV_KEYS = ALL_NAV.filter(n => !n.flag).map(n => n.key)
 
 // Everything a user may switch on/off in Settings → Navigation.
 export const NAV_TOGGLE_OPTIONS = ALL_NAV.filter(n => !n.required && !n.flag)
+
+// Settings sub-tabs, grouped as SettingsPage renders them. The base
+// (unconditional) set lives here so the command palette can offer
+// "Settings → Billing" etc.; SettingsPage appends its conditional tabs
+// (AI Bookkeeping, Developer) locally.
+export const SETTINGS_TABS = {
+  account: [
+    { key: 'account',       label: 'Profile' },
+    { key: 'security',      label: 'Security & Data' },
+    { key: 'backups',       label: 'Backups' },
+    { key: 'billing',       label: 'Billing' },
+    { key: 'navbar',        label: 'Navigation' },
+    { key: 'trash',         label: 'Trash' },
+    { key: 'referral',      label: 'Refer a Friend' },
+    { key: 'help',          label: 'Help & Guides' },
+  ],
+  portfolio: [
+    { key: 'branding',      label: 'Branding & Logos' },
+    { key: 'tenant',        label: 'Tenant Portal' },
+    { key: 'features',      label: 'Features' },
+    { key: 'inbox',         label: 'Statement Inbox' },
+    { key: 'notifications', label: 'Notifications' },
+    { key: 'milestones',    label: 'Deal Milestones' },
+    { key: 'integrations',  label: 'Integrations' },
+  ],
+  preferences: [
+    { key: 'display',       label: 'Display' },
+    { key: 'reporting',     label: 'Reporting' },
+    { key: 'team',          label: 'Team & Access' },
+  ],
+}
 
 // Labels for views that have no nav entry (or whose entry may be hidden by
 // prefs/flags) so headers and document.title never fall back to "Dashboard"

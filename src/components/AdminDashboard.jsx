@@ -297,7 +297,7 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
 
   return (
     <div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:28}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:28}}>
         {kpis.map((k,i)=>(
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
             <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{k.label}</div>
@@ -342,6 +342,9 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
       </div>
 
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+        {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
+        <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+        <div style={{minWidth:760}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 140px 90px 90px 80px 120px 80px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
           {['Company / Owner','Status','Platform props','Billed props','MRR','Free tier',''].map(h=>(
             <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
@@ -379,6 +382,8 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
             </div>
           )
         })}
+        </div>
+        </div>
       </div>
     </div>
   )
@@ -1046,6 +1051,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         <>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14}}>{filteredUsers.length} of {users.length} users</div>
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+            {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
+            <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+            <div style={{minWidth:760}}>
             <div style={{display:'grid',gridTemplateColumns:'1.4fr 220px 110px 280px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
               {['User','Companies','Signed up','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
@@ -1112,6 +1120,8 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                 </div>
               )
             })}
+            </div>
+            </div>
           </div>
         </>
       )}
@@ -1657,7 +1667,7 @@ function BillingTab({ companies, T, fmt, pill }) {
 
   return (
     <div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:24}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:14,marginBottom:24}}>
         {[{label:'Active paying',value:active.length,color:T.green},{label:'Past due',value:pastDue.length,color:pastDue.length>0?T.red:T.green},{label:'Total properties billed',value:mrrByProps,color:T.text}].map(k=>(
           <div key={k.label} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
             <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{k.label}</div>
@@ -1670,6 +1680,8 @@ function BillingTab({ companies, T, fmt, pill }) {
         <>
           <h3 style={{fontSize:14,fontWeight:700,color:T.red,marginBottom:12}}>Past due accounts</h3>
           <div style={{background:T.card,border:`1px solid ${T.red}44`,borderRadius:14,overflow:'hidden',marginBottom:24}}>
+            <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+            <div style={{minWidth:460}}>
             {pastDue.map(co=>(
               <div key={co.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                 <div>
@@ -1681,12 +1693,16 @@ function BillingTab({ companies, T, fmt, pill }) {
                 <div style={{fontFamily:mono,fontSize:12,color:T.red,fontWeight:700}}>{fmt(co.subscriptions?.[0]?.property_count||0)}/mo</div>
               </div>
             ))}
+            </div>
+            </div>
           </div>
         </>
       )}
 
       <h3 style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:12}}>Active subscriptions</h3>
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+        <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+        <div style={{minWidth:520}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 140px 80px 130px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
           {['Account','Status','Props','MRR'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
         </div>
@@ -1702,6 +1718,8 @@ function BillingTab({ companies, T, fmt, pill }) {
           </div>
         ))}
         {active.length===0&&<div style={{padding:24,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>No active subscriptions yet</div>}
+        </div>
+        </div>
       </div>
     </div>
   )

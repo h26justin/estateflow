@@ -1,129 +1,72 @@
 import { useState } from 'react'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
-
-const SLATE = '#2D3C4A'
-const GOLD  = '#C8A84B'
-const CREAM = '#F4F3EF'
-const WHITE = '#FFFFFF'
-const MUTED = '#6B7691'
+import { useTheme } from '../lib/ThemeContext'
+import FocusTrap from '../lib/FocusTrap'
+import { ChromeLogo } from './Logo'
 
 const STEPS = [
   {
     icon: 'sparkle',
-    title: 'Welcome to Properly!',
-    desc: "Your entire property portfolio in one place. Let's take a quick tour of everything available to you — it'll only take a couple of minutes.",
+    title: 'Welcome to Properly',
+    desc: "Your whole portfolio in one place. The dashboard shows total value, monthly income, equity and arrears at a glance. This quick tour takes under a minute.",
     tip: null,
     tag: null,
   },
   {
     icon: 'building',
-    title: 'Add your properties',
-    desc: "Hit the gold \"+ New\" button at the top right and select \"Add Property\". Add your address, status, purchase price, current value and monthly rent. Each property gets its own dashboard with health score, yield and equity.",
-    tip: "Group properties under different companies — each company gets its own branding, reports and tenant portal subdomain.",
+    title: 'Your portfolio',
+    desc: "Hit the gold \"+ New\" button to add a property. Each one gets its own dashboard with health score, yield, equity, documents and maintenance history.",
+    tip: "Group properties under companies — each gets its own branding, reports and tenant portal subdomain.",
     tag: 'Portfolio',
   },
   {
     icon: 'wallet',
-    title: 'Rent Tracker',
-    desc: "The Rent Tracker shows every property's payment history as colour-coded month squares — green for paid, red for missed, amber for late. Click any square to see a day-by-day breakdown of exactly which days were covered, and hit the Day view button to see all properties at once.",
-    tip: "Import your agent's monthly PDF statement directly — Properly reads PNE and RMS formats and matches payments to properties automatically.",
+    title: 'Rent tracking',
+    desc: "The Rent Tracker colour-codes every month — green paid, red missed, amber late. Click any square for a day-by-day breakdown, or import your agent's PDF statement.",
+    tip: "Reports has 16 exports for your accountant — P&L, arrears, rent roll, tax summaries and more.",
     tag: 'Finance',
   },
   {
     icon: 'shield-check',
-    title: 'Compliance tracking',
-    desc: "The Compliance tab on each property tracks gas certificates, EICRs, EPCs, HMO licences and more — with automatic alerts at 90, 60 and 30 days before expiry. Never miss a certificate renewal again.",
-    tip: "The Right to Rent tab tracks document types and follow-up dates per tenant. You'll be alerted before time-limited permission expires.",
+    title: 'Compliance & alerts',
+    desc: "Track gas certificates, EICRs, EPCs, licences, deposits and notices per property — with automatic alerts at 90, 60 and 30 days before anything expires.",
+    tip: "Deposit, notice and rent-increase records double as your evidence if a dispute ever reaches court.",
     tag: 'Compliance',
-  },
-  {
-    icon: 'scale',
-    title: 'Legal & tenancy tools',
-    desc: "Track deposit protection (scheme, certificate number, date) in the Deposit tab. Log Section 21 and Section 8 notices with served dates and court hearing dates in the Notices tab. Keep a full rent increase history in the Rent History tab.",
-    tip: "All of these records are your evidence if a dispute ever reaches court or an adjudicator.",
-    tag: 'Legal',
   },
   {
     icon: 'users',
     title: 'Tenant portal',
-    desc: "Give every tenant their own branded portal at yourcompany.ownproperly.com. They can submit repair requests with photos, message you securely, view shared documents and see their payment history — all without your personal contact details.",
-    tip: "Go to Settings → Tenant Portal to enable features and Settings → Branding to upload your logo and set your brand colour.",
+    desc: "Give tenants a branded portal — repair requests with photos, secure messaging, documents and payment history. Requests land straight in your Tenant Inbox.",
+    tip: "Enable it in Settings → Tenant Portal, and set your logo and colours in Settings → Branding.",
     tag: 'Tenants',
   },
   {
-    icon: 'wrench',
-    title: 'Maintenance & repairs',
-    desc: "Log repair jobs in the Maintenance tab — assign contractors, track costs and mark jobs from open to complete. When a tenant submits a repair through the portal, it appears instantly in your Tenant Inbox with their description and photos.",
-    tip: "All maintenance history is saved permanently — useful for inspections, disputes and understanding per-property costs.",
-    tag: 'Maintenance',
-  },
-  {
-    icon: '🎯',
-    title: 'Deals & acquisitions',
-    desc: "The Deals section has a full BTL/HMO/SA/BRRR calculator with correct April 2025 SDLT rates, Section 24 tax modelling and per-room HMO analysis. Track deals through a 6-stage pipeline from sourcing to completion.",
-    tip: "Paste a Rightmove or Zoopla URL into the listing yield calculator and it'll pull the price and property type automatically.",
-    tag: 'Deals',
-  },
-  {
-    icon: 'sparkle',
-    title: 'AI listing writer',
-    desc: "Head to Deals → Tools → AI listing writer. Enter your property details, choose your platform (Rightmove/Zoopla) and tone (professional, warm or luxury) and get a polished listing description in seconds.",
-    tip: "The portfolio what-if modeller lets you drag sliders to model adding properties, changing yields and projecting income over 10 years.",
-    tag: 'AI Tools',
-  },
-  {
-    icon: 'home',
-    title: 'Lettings pipeline',
-    desc: "The Lettings tab in Deals tracks every vacant property through 6 stages — Vacant → Advertising → Viewings → Referencing → Contract → Move-in. Each stage has a built-in checklist so nothing gets missed on the way to a new tenancy.",
-    tip: "Days vacant is tracked automatically — you'll see a warning if a property has been empty for more than 14 days.",
-    tag: 'Lettings',
-  },
-  {
-    icon: 'pie-chart',
-    title: '16 reports & analytics',
-    desc: "The Reports section has 16 built-in reports — P&L per property, tax summaries, arrears, compliance status, occupancy rate, rent roll, yield rankings and more. Every report exports to CSV for your accountant.",
-    tip: "The dashboard shows your total portfolio value, monthly income, equity and arrears at a glance — with filters by company.",
-    tag: 'Reports',
-  },
-  {
     icon: 'message',
-    title: 'Feedback & settings',
-    desc: "Found something that's not working or have an idea for a new feature? Hit the Feedback tab — we read every message and it directly shapes what we build next. In Settings, customise your navigation, branding, notifications and team access.",
-    tip: "Properly is a PWA — add it to your home screen on iPhone or Android for a native app experience with no App Store needed.",
-    tag: null,
-  },
-  {
-    icon: 'sparkle',
-    title: "You're ready to go!",
-    desc: "Start by adding your properties, then set up compliance tracking and invite your tenants to their portal. Your dashboard will fill up fast and you'll have full visibility of your portfolio within minutes.",
-    tip: null,
+    title: 'Need a hand?',
+    desc: "Explore Deals, Lettings and Reports when you're ready. Ideas or issues? The Feedback tab comes straight to us and shapes what we build next.",
+    tip: "Properly is a PWA — add it to your home screen for a native app feel, no App Store needed.",
     tag: null,
   },
 ]
 
-const TAG_COLORS = {
-  Portfolio:   '#4B8FE0',
-  Finance:     '#2ECC8A',
-  Compliance:  '#E0943A',
-  Legal:       '#E05555',
-  Tenants:     '#9B59B6',
-  Maintenance: '#4B8FE0',
-  Deals:       '#C8A84B',
-  'AI Tools':  '#C8A84B',
-  Lettings:    '#2ECC8A',
-  Reports:     '#4B8FE0',
-}
-
 export default function OnboardingTour({ user, onComplete }) {
+  const { T } = useTheme()
   const [step, setStep]     = useState(0)
   const [saving, setSaving] = useState(false)
+
+  const TAG_COLORS = {
+    Portfolio:  T.blue,
+    Finance:    T.green,
+    Compliance: T.amber,
+    Tenants:    T.purple,
+  }
 
   const current = STEPS[step]
   const isLast  = step === STEPS.length - 1
   const isFirst = step === 0
   const progress = ((step + 1) / STEPS.length) * 100
-  const tagColor = current.tag ? TAG_COLORS[current.tag] || GOLD : null
+  const tagColor = current.tag ? TAG_COLORS[current.tag] || T.gold : null
 
   async function finish() {
     setSaving(true)
@@ -145,117 +88,119 @@ export default function OnboardingTour({ user, onComplete }) {
       background: 'rgba(10,14,20,0.88)',
       backdropFilter: 'blur(4px)',
     }}>
-      <div style={{
-        width: '100%', maxWidth: 540,
-        background: WHITE, borderRadius: 24,
-        overflow: 'hidden',
-        boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
-      }}>
+      <FocusTrap onEscape={skip}>
+        <div role="dialog" aria-modal="true" aria-labelledby="tour-step-title" style={{
+          width: '100%', maxWidth: 540,
+          maxHeight: '88vh', overflowY: 'auto', overflowX: 'hidden',
+          background: T.surface, border: `1px solid ${T.border}`, borderRadius: 24,
+          boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+        }}>
 
-        {/* Header */}
-        <div style={{ background: SLATE, padding: '26px 32px 22px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <img src="/brand/app-sidebar.svg" alt="Properly" style={{ height: 26, width: 'auto' }}/>
-            <button onClick={skip} disabled={saving} style={{
-              background: 'none', border: 'none', color: '#7A8899',
-              fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer',
-              letterSpacing: '0.05em',
-            }}>Skip tour ✕</button>
-          </div>
-
-          {/* Progress bar */}
-          <div style={{ background: '#ffffff18', borderRadius: 4, height: 4, marginBottom: 16 }}>
-            <div style={{
-              height: '100%', borderRadius: 4, background: GOLD,
-              width: `${progress}%`, transition: 'width 0.4s ease',
-            }}/>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: '#7A8899', letterSpacing: '0.1em' }}>
-              {step + 1} / {STEPS.length}
+          {/* Header */}
+          <div style={{ background: T.card, borderBottom: `1px solid ${T.border}`, padding: '26px 32px 22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <ChromeLogo height={26}/>
+              <button onClick={skip} disabled={saving} style={{
+                background: 'none', border: 'none', color: T.muted,
+                fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer',
+                letterSpacing: '0.05em',
+              }}>Skip tour ✕</button>
             </div>
-            {current.tag && (
-              <span style={{
-                fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 700,
-                padding: '2px 10px', borderRadius: 20,
-                background: (tagColor || GOLD) + '28', color: tagColor || GOLD,
-                letterSpacing: '0.06em',
-              }}>{current.tag}</span>
+
+            {/* Progress bar */}
+            <div style={{ background: T.border, borderRadius: 4, height: 4, marginBottom: 16 }}>
+              <div style={{
+                height: '100%', borderRadius: 4, background: T.gold,
+                width: `${progress}%`, transition: 'width 0.4s ease',
+              }}/>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, letterSpacing: '0.1em' }}>
+                {step + 1} / {STEPS.length}
+              </div>
+              {current.tag && (
+                <span style={{
+                  fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 700,
+                  padding: '2px 10px', borderRadius: 20,
+                  background: (tagColor || T.gold) + '28', color: tagColor || T.gold,
+                  letterSpacing: '0.06em',
+                }}>{current.tag}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div style={{ padding: '28px 32px 24px' }}>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom: 14 }}>{ICON_NAMES.includes(current.icon)?<Icon name={current.icon} size={38}/>:current.icon}</div>
+            <h2 id="tour-step-title" style={{
+              fontSize: 21, fontWeight: 700, color: T.text,
+              marginBottom: 12, letterSpacing: '-0.02em',
+              lineHeight: 1.25,
+            }}>
+              {current.title}
+            </h2>
+            <p style={{
+              fontFamily: "'DM Mono',monospace", fontSize: 12.5,
+              color: T.muted, lineHeight: 1.85, marginBottom: current.tip ? 18 : 0,
+            }}>
+              {current.desc}
+            </p>
+
+            {current.tip && (
+              <div style={{
+                background: T.gold + '14', border: `1px solid ${T.gold}33`,
+                borderRadius: 10, padding: '11px 15px',
+                fontFamily: "'DM Mono',monospace", fontSize: 11.5,
+                color: T.text, lineHeight: 1.75,
+              }}>
+                <span style={{ fontWeight: 700, color: T.gold }}>💡 </span>
+                {current.tip}
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Content */}
-        <div style={{ padding: '28px 32px 24px' }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom: 14 }}>{ICON_NAMES.includes(current.icon)?<Icon name={current.icon} size={38}/>:current.icon}</div>
-          <h2 style={{
-            fontSize: 21, fontWeight: 700, color: SLATE,
-            marginBottom: 12, letterSpacing: '-0.02em',
-            fontFamily: 'Georgia, serif', lineHeight: 1.25,
-          }}>
-            {current.title}
-          </h2>
-          <p style={{
-            fontFamily: "'DM Mono',monospace", fontSize: 12.5,
-            color: MUTED, lineHeight: 1.85, marginBottom: current.tip ? 18 : 0,
-          }}>
-            {current.desc}
-          </p>
+          {/* Step dots */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 5, paddingBottom: 2 }}>
+            {STEPS.map((_, i) => (
+              <button key={i} type="button" onClick={() => setStep(i)}
+                aria-label={`Go to step ${i + 1} of ${STEPS.length}`} aria-current={i === step ? 'step' : undefined}
+                style={{
+                  width: i === step ? 18 : 6, height: 6,
+                  borderRadius: 3, cursor: 'pointer', border: 'none', padding: 0,
+                  background: i === step ? T.gold : i < step ? T.gold + '55' : T.border,
+                  transition: 'all 0.25s',
+                }}/>
+            ))}
+          </div>
 
-          {current.tip && (
-            <div style={{
-              background: GOLD + '14', border: `1px solid ${GOLD}33`,
-              borderRadius: 10, padding: '11px 15px',
-              fontFamily: "'DM Mono',monospace", fontSize: 11.5,
-              color: '#7A5E1A', lineHeight: 1.75,
-            }}>
-              <span style={{ fontWeight: 700, color: GOLD }}>💡 </span>
-              {current.tip}
-            </div>
-          )}
-        </div>
-
-        {/* Step dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 5, paddingBottom: 2 }}>
-          {STEPS.map((_, i) => (
-            <button key={i} type="button" onClick={() => setStep(i)}
-              aria-label={`Go to step ${i + 1} of ${STEPS.length}`} aria-current={i === step ? 'step' : undefined}
+          {/* Footer */}
+          <div style={{ padding: '18px 32px 28px', display: 'flex', gap: 10 }}>
+            {!isFirst && (
+              <button onClick={() => setStep(s => s - 1)} style={{
+                flex: 1, fontFamily: "'DM Mono',monospace", fontWeight: 600,
+                fontSize: 13, padding: '12px 20px', borderRadius: 10,
+                border: `1.5px solid ${T.border}`, background: 'transparent',
+                color: T.text, cursor: 'pointer',
+              }}>← Back</button>
+            )}
+            <button
+              onClick={isLast ? finish : () => setStep(s => s + 1)}
+              disabled={saving}
               style={{
-                width: i === step ? 18 : 6, height: 6,
-                borderRadius: 3, cursor: 'pointer', border: 'none', padding: 0,
-                background: i === step ? GOLD : i < step ? GOLD + '55' : '#D8D4CE',
-                transition: 'all 0.25s',
-              }}/>
-          ))}
+                flex: isFirst ? 1 : 2,
+                fontFamily: "'DM Mono',monospace", fontWeight: 700,
+                fontSize: 13, padding: '12px 20px', borderRadius: 10,
+                border: 'none',
+                background: T.gold,
+                color: '#1C2830',
+                cursor: 'pointer', transition: 'all 0.18s',
+              }}>
+              {saving ? 'Starting…' : isLast ? 'Start using Properly' : 'Next →'}
+            </button>
+          </div>
         </div>
-
-        {/* Footer */}
-        <div style={{ padding: '18px 32px 28px', display: 'flex', gap: 10 }}>
-          {!isFirst && (
-            <button onClick={() => setStep(s => s - 1)} style={{
-              flex: 1, fontFamily: "'DM Mono',monospace", fontWeight: 600,
-              fontSize: 13, padding: '12px 20px', borderRadius: 10,
-              border: '1.5px solid #DDE1E5', background: 'transparent',
-              color: SLATE, cursor: 'pointer',
-            }}>← Back</button>
-          )}
-          <button
-            onClick={isLast ? finish : () => setStep(s => s + 1)}
-            disabled={saving}
-            style={{
-              flex: isFirst ? 1 : 2,
-              fontFamily: "'DM Mono',monospace", fontWeight: 700,
-              fontSize: 13, padding: '12px 20px', borderRadius: 10,
-              border: 'none',
-              background: isLast ? GOLD : SLATE,
-              color: isLast ? SLATE : WHITE,
-              cursor: 'pointer', transition: 'all 0.18s',
-            }}>
-            {saving ? 'Starting…' : isLast ? 'Start using Properly' : 'Next →'}
-          </button>
-        </div>
-      </div>
+      </FocusTrap>
     </div>
   )
 }

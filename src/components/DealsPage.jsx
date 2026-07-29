@@ -157,10 +157,24 @@ function PortfolioModellerInDeals({ properties = [], T }) {
 export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set(), canUseInvestor = false, convertRefreshKey = 0 }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
+  // ── URL SYNC ───────────────────────────────────────────────────────────────
+  // DealsPage owns the #/deals/… URL segments (same pattern as SettingsPage
+  // with #/settings/<tab>): #/deals/pipeline|lettings|tools for sub-views,
+  // #/deals/deal/<id> for a deal. Previously all of this was un-addressable
+  // local state — refresh lost your place and Back exited Deals entirely.
+  const parseDealsHash = () => {
+    const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
+    if (parts[0] !== 'deals') return null
+    if (parts[1] === 'deal' && parts[2]) return { dealId: parts[2] }
+    return { sub: ['pipeline','lettings','tools'].includes(parts[1]) ? parts[1] : 'list' }
+  }
+  const initialHash = parseDealsHash()
   const [view, setView]       = useState('list')
-  const [dealView, setDealView] = useState('list') // list | pipeline | tools // list | deal
+  const [dealView, setDealView] = useState(initialHash?.sub || 'list') // list | pipeline | lettings | tools
   const [deals, setDeals]     = useState([])
   const [selectedDeal, setSelectedDeal] = useState(null)
+  // Deal id from a deep link — resolved once deals have loaded.
+  const pendingDealId = useRef(initialHash?.dealId || null)
   const [dealTab, setDealTab] = useState('calculator')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -172,6 +186,56 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [triggerNewLetting, setTriggerNewLetting] = useState(false)
 
   useEffect(() => { loadDeals() }, [])
+
+  // Keep the URL in step with where the user is. Entering/leaving a deal is
+  // a place change (pushState, so Back works); switching sub-view tabs
+  // replaces the current entry.
+  const dealsRef = useRef(deals)
+  useEffect(() => { dealsRef.current = deals }, [deals])
+  useEffect(() => {
+    const target = view === 'deal' && selectedDeal
+      ? `#/deals/deal/${selectedDeal.id}`
+      : (dealView !== 'list' ? `#/deals/${dealView}` : '#/deals')
+    if (window.location.hash === target) return
+    const enteringOrLeavingDeal = target.startsWith('#/deals/deal/') || window.location.hash.startsWith('#/deals/deal/')
+    if (enteringOrLeavingDeal) window.history.pushState({ dealsTarget: target }, '', target)
+    else window.history.replaceState({ dealsTarget: target }, '', target)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dealView, selectedDeal?.id])
+
+  // React to browser Back/Forward (and programmatic hash sets) while on
+  // Deals. App.jsx handles leaving the page; this handles movement within it.
+  useEffect(() => {
+    const onPop = () => {
+      const parsed = parseDealsHash()
+      if (!parsed) return
+      if (parsed.dealId) {
+        const d = dealsRef.current.find(x => String(x.id) === String(parsed.dealId))
+        if (d) { setSelectedDeal({ ...d }); setView('deal'); return }
+        pendingDealId.current = parsed.dealId
+        return
+      }
+      setSelectedDeal(null)
+      setView('list')
+      setDealView(parsed.sub)
+    }
+    window.addEventListener('popstate', onPop)
+    window.addEventListener('hashchange', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('hashchange', onPop)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Resolve a deep-linked deal once the list has loaded.
+  useEffect(() => {
+    if (!pendingDealId.current || !deals.length) return
+    const d = deals.find(x => String(x.id) === String(pendingDealId.current))
+    pendingDealId.current = null
+    if (d) { setSelectedDeal({ ...d }); setView('deal') }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deals])
   // App bumps convertRefreshKey after a completed deal has been converted to
   // a property and soft-deleted. Reload the list (the deal is now gone) and
   // drop back to the list view so the user isn't left staring at a deal that

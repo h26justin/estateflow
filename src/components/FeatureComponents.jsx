@@ -1,8 +1,9 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
+import { useIsMobile } from '../lib/useWindowSize'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { statusPill } from '../lib/styles'
-import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS } from '../lib/nav'
+import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_TABS } from '../lib/nav'
 import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
@@ -433,6 +434,7 @@ function BookkeepingTabBody({ companies, properties = [], T, mono }) {
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
 export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = [], activeFlags = new Set(), companySubs = []}) {
   const { T } = useTheme()
+  const isMobile = useIsMobile(769)
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
   const [settingsTab, setSettingsTabInternal] = useState(() => {
@@ -443,12 +445,15 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     return 'account'
   })
 
-  // Wrapper that syncs tab changes to the URL
+  // Wrapper that syncs tab changes to the URL. replaceState, not pushState:
+  // flipping through 19 settings tabs must not bury the page the user came
+  // from under 19 history entries (Back should leave Settings, and
+  // refresh/bookmark still restore the tab from the hash).
   const setSettingsTab = (tab) => {
     setSettingsTabInternal(tab)
     const target = `#/settings/${tab}`
     if (window.location.hash !== target) {
-      window.history.pushState({ view: 'settings', settingsTab: tab }, '', target)
+      window.history.replaceState({ view: 'settings', settingsTab: tab }, '', target)
     }
   }
 
@@ -596,31 +601,16 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     } catch(e) { showToast(e.message,'error') }
   }
 
-  const accountTabs = [
-    { key: 'account',       label: 'Profile' },
-    { key: 'security',      label: 'Security & Data' },
-    { key: 'backups',       label: 'Backups' },
-    { key: 'billing',       label: 'Billing' },
-    { key: 'navbar',        label: 'Navigation' },
-    { key: 'trash',         label: 'Trash' },
-    { key: 'referral',      label: 'Refer a Friend' },
-    { key: 'help',          label: 'Help & Guides' },
-  ]
+  // Base tab registry lives in lib/nav.js (shared with the command palette);
+  // conditional tabs are appended here.
+  const accountTabs = SETTINGS_TABS.account
   const portfolioTabs = [
-    { key: 'branding',      label: 'Branding & Logos' },
-    { key: 'tenant',        label: 'Tenant Portal' },
-    { key: 'features',      label: 'Features' },
-    { key: 'inbox',         label: 'Statement Inbox' },
-    { key: 'notifications', label: 'Notifications' },
-    { key: 'milestones',    label: 'Deal Milestones' },
-    { key: 'integrations',  label: 'Integrations' },
+    ...SETTINGS_TABS.portfolio,
     ...(activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin })
       ? [{ key: 'bookkeeping', label: 'AI Bookkeeping' }] : []),
   ]
   const preferencesTabs = [
-    { key: 'display',       label: 'Display' },
-    { key: 'reporting',     label: 'Reporting' },
-    { key: 'team',          label: 'Team & Access' },
+    ...SETTINGS_TABS.preferences,
     ...(isPlatformAdmin ? [{ key: 'admin', label: 'Developer' }] : []),
   ]
   const settingsTabs = [...accountTabs, ...portfolioTabs, ...preferencesTabs]
@@ -632,49 +622,41 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>Manage your profile, portfolio setup and personal preferences.</p>
       </div>
 
-      {/* Three-group settings nav */}
-      <div style={{marginBottom:24,borderBottom:`1px solid ${T.border}`,paddingBottom:12,display:'grid',gap:12}}>
-        <div>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>My Account</div>
-          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-            {accountTabs.map(t=>(
-              <button key={t.key} onClick={()=>setSettingsTab(t.key)} style={{
-                fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
-                border:`1px solid ${settingsTab===t.key?T.gold:T.border}`,
-                background:settingsTab===t.key?T.gold+'22':'transparent',
-                color:settingsTab===t.key?T.gold:T.muted,fontWeight:settingsTab===t.key?700:400,
-              }}>{t.label}</button>
-            ))}
+      {/* Settings navigation: a grouped left sub-rail on desktop (19 flat
+          pills were unscannable), the familiar pill groups on mobile. */}
+      <div style={{display:'flex',gap:28,alignItems:'flex-start',flexDirection:isMobile?'column':'row'}}>
+      <nav aria-label="Settings sections" style={isMobile
+        ? {width:'100%',borderBottom:`1px solid ${T.border}`,paddingBottom:12,display:'grid',gap:12}
+        : {width:200,flexShrink:0,position:'sticky',top:76,display:'grid',gap:18}}>
+        {[['My Account',accountTabs],['Portfolio Setup',portfolioTabs],['Preferences',preferencesTabs]].map(([groupLabel,tabs])=>(
+          <div key={groupLabel}>
+            <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6,paddingLeft:isMobile?0:11}}>{groupLabel}</div>
+            <div style={isMobile?{display:'flex',gap:5,flexWrap:'wrap'}:{display:'grid',gap:1}}>
+              {tabs.map(t=>{
+                const active = settingsTab===t.key
+                const accent = t.key==='admin'?T.red:T.gold
+                return isMobile ? (
+                  <button key={t.key} onClick={()=>setSettingsTab(t.key)} aria-current={active?'page':undefined} style={{
+                    fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
+                    border:`1px solid ${active?accent:T.border}`,
+                    background:active?accent+'22':'transparent',
+                    color:active?accent:T.muted,fontWeight:active?700:400,
+                  }}>{t.label}</button>
+                ) : (
+                  <button key={t.key} onClick={()=>setSettingsTab(t.key)} aria-current={active?'page':undefined} style={{
+                    fontFamily:mono,fontSize:12,padding:'8px 11px',borderRadius:8,cursor:'pointer',textAlign:'left',width:'100%',
+                    border:'none',background:active?accent+'18':'transparent',
+                    color:active?accent:T.muted,fontWeight:active?700:400,transition:'background 0.15s,color 0.15s',
+                  }}
+                  onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
+                  onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>{t.label}</button>
+                )
+              })}
+            </div>
           </div>
-        </div>
-        <div>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>Portfolio Setup</div>
-          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-            {portfolioTabs.map(t=>(
-              <button key={t.key} onClick={()=>setSettingsTab(t.key)} style={{
-                fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
-                border:`1px solid ${settingsTab===t.key?T.gold:T.border}`,
-                background:settingsTab===t.key?T.gold+'22':'transparent',
-                color:settingsTab===t.key?T.gold:T.muted,fontWeight:settingsTab===t.key?700:400,
-              }}>{t.label}</button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6}}>Preferences</div>
-          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-            {preferencesTabs.map(t=>(
-              <button key={t.key} onClick={()=>setSettingsTab(t.key)} style={{
-                fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
-                border:`1px solid ${settingsTab===t.key?(t.key==='admin'?T.red:T.gold):T.border}`,
-                background:settingsTab===t.key?(t.key==='admin'?T.red+'22':T.gold+'22'):'transparent',
-                color:settingsTab===t.key?(t.key==='admin'?T.red:T.gold):T.muted,fontWeight:settingsTab===t.key?700:400,
-              }}>{t.label}</button>
-            ))}
-          </div>
-        </div>
-      </div>
-
+        ))}
+      </nav>
+      <div style={{flex:1,minWidth:0,width:'100%'}}>
       {/* ── ACCOUNT TAB ── */}
       {settingsTab==='account' && (
         profileLoading
@@ -1119,6 +1101,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           </div>
         </>
       )}
+
+      </div>{/* /settings content */}
+      </div>{/* /settings flex row */}
 
       {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast}/>}
     </div>
