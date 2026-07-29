@@ -69,6 +69,7 @@ import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
+import { ChromeLogo } from './components/Logo'
 import { complianceStatusFor, complianceBadge, certTypeStatus } from './lib/complianceStatus'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
@@ -2125,7 +2126,7 @@ export default function App() {
           {/* Left: logo on mobile, breadcrumb on desktop (nav lives in the rail) */}
           <div style={{display:'flex',alignItems:'center',flexShrink:0,minWidth:0}}>
             {isMobile
-              ? <img src="/logo.svg" alt="OwnProperly" style={{height:34,width:'auto'}}/>
+              ? <ChromeLogo height={26}/>
               : <span style={{fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',whiteSpace:'nowrap'}}>
                   {navItems.find(n=>n.key===view)?.label || (view==='detail' ? 'Portfolio / Property' : 'Dashboard')}
                 </span>}
@@ -2299,7 +2300,7 @@ export default function App() {
             {/* Drawer header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${T.border}`}}>
               <div style={{display:'flex',alignItems:'center'}}>
-                <img src="/logo.svg" alt="OwnProperly" style={{height:32,width:'auto'}}/>
+                <ChromeLogo height={26}/>
               </div>
               <button onClick={()=>setShowDrawer(false)} aria-label="Close menu"
                 style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px'}}>✕</button>
@@ -2396,7 +2397,7 @@ export default function App() {
             {!loadError && activeProperties.length === 0 && companies.length === 0 && (
               <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
                 <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="home" size={isMobile?30:38} color={T.gold}/></div>
-                <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to OwnProperly</h1>
+                <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to Properly</h1>
                 <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
                   You're on a 14-day free trial. The fastest way to see what the app does is to add your first company and one property — takes about 2 minutes.
                 </p>

@@ -68,7 +68,7 @@ function htmlPage(title: string, body: string, returnTo: string) {
 <style>body{font-family:-apple-system,sans-serif;max-width:520px;margin:60px auto;padding:0 20px;color:#1a1f2e;line-height:1.5}
 h1{color:#1a1f2e;letter-spacing:-0.02em}.err{background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:14px 16px;color:#991B1B;font-family:Menlo,monospace;font-size:13px}
 a.btn{display:inline-block;margin-top:18px;padding:10px 18px;background:#C8A84B;color:white;border-radius:8px;text-decoration:none;font-weight:600}</style></head>
-<body><h1>${escapeHtml(title)}</h1>${body}<a class="btn" href="${escapeHtml(safeReturnTo(returnTo, APP_RETURN_BASE))}">← Back to OwnProperly</a></body></html>`, {
+<body><h1>${escapeHtml(title)}</h1>${body}<a class="btn" href="${escapeHtml(safeReturnTo(returnTo, APP_RETURN_BASE))}">← Back to Properly</a></body></html>`, {
     status: 400,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })

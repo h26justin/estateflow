@@ -151,7 +151,7 @@ serve(async (req) => {
       // instead of silently failing and leaving the user wondering why
       // the connection vanished.
       return new Response(
-        `<h1>Xero connection failed</h1><p>Token encryption failed: ${escapeHtml((e as Error).message)}</p><p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p><p><a href="${escapeHtml(returnTo)}">Back to OwnProperly</a></p>`,
+        `<h1>Xero connection failed</h1><p>Token encryption failed: ${escapeHtml((e as Error).message)}</p><p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p><p><a href="${escapeHtml(returnTo)}">Back to Properly</a></p>`,
         { status: 500, headers: { 'Content-Type': 'text/html' } }
       )
     }
@@ -173,7 +173,7 @@ serve(async (req) => {
     if (upsertErr) {
       console.error('xero_connections upsert failed:', upsertErr.message, upsertErr.code, upsertErr.details, upsertErr.hint)
       return new Response(
-        `<h1>Xero connection failed</h1><p>Could not save the Xero connection to the database. Please retry from Settings → Integrations — if it keeps failing, contact support.</p><p><a href="${escapeHtml(returnTo)}">Back to OwnProperly</a></p>`,
+        `<h1>Xero connection failed</h1><p>Could not save the Xero connection to the database. Please retry from Settings → Integrations — if it keeps failing, contact support.</p><p><a href="${escapeHtml(returnTo)}">Back to Properly</a></p>`,
         { status: 500, headers: { 'Content-Type': 'text/html' } }
       )
     }

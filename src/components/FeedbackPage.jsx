@@ -23,7 +23,7 @@ export default function FeedbackPage({ user, showToast }) {
         body: JSON.stringify({
           name: user?.email,
           email: user?.email,
-          subject: `[OwnProperly ${typeLabel}] ${subject}`,
+          subject: `[Properly ${typeLabel}] ${subject}`,
           message: body,
           _captcha: 'false'
         })
@@ -49,7 +49,7 @@ export default function FeedbackPage({ user, showToast }) {
     <div className="fade" style={{ maxWidth: 640, margin: '0 auto', padding: '0 16px 60px' }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>Feedback</h1>
       <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 28 }}>
-        OwnProperly is new and your feedback shapes what we build next. Tell us what is broken, what is missing, or what you love.
+        Properly is new and your feedback shapes what we build next. Tell us what is broken, what is missing, or what you love.
       </p>
 
       {sent ? (

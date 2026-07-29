@@ -276,7 +276,7 @@ function DraftModal({ action, onClose }) {
             {action.draft_body}
           </div>
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, marginBottom: 16 }}>
-            AI-generated draft. Review and edit before sending — OwnProperly does not send this for you.
+            AI-generated draft. Review and edit before sending — Properly does not send this for you.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>

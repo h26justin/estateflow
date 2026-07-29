@@ -174,7 +174,7 @@ const GUIDES = [
   { id: 18, cat: 'companies', title: 'Understanding multi-company structure', tags: ['company','structure','spv','limited'],
     steps: [
       "Many UK landlords hold properties through multiple companies (SPVs) for tax efficiency, liability protection, or portfolio separation.",
-      "OwnProperly lets you create one company per legal entity. Each company has its own properties, compliance, rent tracking, and reports.",
+      "Properly lets you create one company per legal entity. Each company has its own properties, compliance, rent tracking, and reports.",
       "Reports can be filtered by company, so you can generate P&L reports per company for your accountant.",
       "The Portfolio Overview page shows all companies together, with filters to drill into one at a time.",
       "Each company can have its own logo, colour, and branding for professional PDF report exports.",
@@ -263,7 +263,7 @@ const GUIDES = [
   { id: 28, cat: 'compliance', title: 'Setting expiry dates & understanding alerts', tags: ['compliance','expiry','alert','reminder'],
     steps: [
       "When adding or editing a compliance certificate, always set the expiry date accurately.",
-      "OwnProperly generates alerts at these intervals: 90 days before expiry (amber), 30 days before (red), and on the expiry date itself.",
+      "Properly generates alerts at these intervals: 90 days before expiry (amber), 30 days before (red), and on the expiry date itself.",
       "Alerts appear on the Dashboard in the Smart Alerts panel and contribute to the property health score.",
       "To stop receiving alerts for a specific certificate, update it with a new expiry date once renewed.",
       "You can control which alert types appear in Settings > Notifications.",
@@ -273,14 +273,14 @@ const GUIDES = [
       "Gas Safety Certificate (CP12): Required annually for all properties with gas appliances. Must be carried out by a Gas Safe registered engineer. You must give a copy to tenants within 28 days.",
       "EICR (Electrical Installation Condition Report): Required every 5 years for rented properties. Must be carried out by a qualified electrician. Any C1 (danger present) or C2 (potentially dangerous) issues must be remediated within 28 days.",
       "EPC (Energy Performance Certificate): Required when letting a property. Must be rated E or above (with some exemptions). Valid for 10 years. The government plans to require a C rating for new tenancies from 2030.",
-      "Track all three in the Compliance tab of each property. Set expiry dates and OwnProperly will alert you before they are due.",
+      "Track all three in the Compliance tab of each property. Set expiry dates and Properly will alert you before they are due.",
     ]},
   { id: 30, cat: 'compliance', title: 'HMO licensing requirements', tags: ['compliance','hmo','licence','licensing'],
     steps: [
       "A House in Multiple Occupation (HMO) is a property rented to 3 or more tenants forming 2 or more households who share facilities.",
       "Mandatory HMO licensing applies to properties with 5 or more tenants. Many councils also require additional licensing for smaller HMOs.",
       "Check your local council website for their specific licensing requirements.",
-      "In OwnProperly, add the HMO licence as a compliance certificate with the licence number and expiry date.",
+      "In Properly, add the HMO licence as a compliance certificate with the licence number and expiry date.",
       "HMO licences typically last 5 years. Operating without one when required can result in fines of up to \u00a330,000.",
     ]},
   { id: 31, cat: 'compliance', title: 'Tracking multiple certificates per property', tags: ['compliance','multiple','certificates','manage'],
@@ -308,7 +308,7 @@ const GUIDES = [
       "In the Tenancy tab, find the deposit section and select your scheme: DPS, TDS, mydeposits, or DPS Custodial.",
       "Enter the deposit amount and scheme reference number.",
       "Upload a copy of the deposit certificate if you have one.",
-      "OwnProperly will track this alongside the tenancy. Failure to protect a deposit can result in penalties of 1\u20133x the deposit amount and prevents you from serving a valid Section 21 notice.",
+      "Properly will track this alongside the tenancy. Failure to protect a deposit can result in penalties of 1\u20133x the deposit amount and prevents you from serving a valid Section 21 notice.",
     ]},
   { id: 34, cat: 'tenancy', title: 'Running a right to rent check', tags: ['right','rent','check','immigration'],
     steps: [
@@ -322,7 +322,7 @@ const GUIDES = [
     ]},
   { id: 35, cat: 'tenancy', title: 'Tenancy renewal alerts', tags: ['tenancy','renewal','expiry','alert'],
     steps: [
-      "When you set a tenancy end date, OwnProperly automatically generates alerts as the date approaches.",
+      "When you set a tenancy end date, Properly automatically generates alerts as the date approaches.",
       "Alerts appear on the Dashboard: 90 days before (plan ahead), 30 days before (action needed), and on the date itself.",
       "Use these alerts to decide whether to: renew the tenancy (new fixed term), let it roll to periodic (month by month), or serve notice and relet.",
       "Update the tenancy end date after renewal to reset the alert cycle.",
@@ -519,7 +519,7 @@ const GUIDES = [
     ]},
   { id: 58, cat: 'reports', title: 'Overview of all 16 reports', tags: ['report','list','overview','available'],
     steps: [
-      "OwnProperly includes 16 built-in reports covering: Tax & Accounting (annual P&L, rental income schedule, expense breakdown, mortgage interest summary, capital gains summary), Portfolio Performance (yield comparison, occupancy rate, rent collection rate), Cash Flow & Finance (monthly cash flow, equity report, mortgage portfolio, arrears), Compliance & Legal (compliance status, tenancy schedule), and Maintenance (maintenance overview, contractor spend).",
+      "Properly includes 16 built-in reports covering: Tax & Accounting (annual P&L, rental income schedule, expense breakdown, mortgage interest summary, capital gains summary), Portfolio Performance (yield comparison, occupancy rate, rent collection rate), Cash Flow & Finance (monthly cash flow, equity report, mortgage portfolio, arrears), Compliance & Legal (compliance status, tenancy schedule), and Maintenance (maintenance overview, contractor spend).",
       "All reports can be filtered by company, date range, and property status.",
       "Reports update in real time as you add data \u2014 no manual recalculation needed.",
       "Navigate to Reports and browse the full list organised by category.",
@@ -676,7 +676,7 @@ export default function HelpCenter() {
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 16 }}>
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Getting Started</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.7 }}>
-          Step-by-step guides for every feature in OwnProperly. Search or browse by category.
+          Step-by-step guides for every feature in Properly. Search or browse by category.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>

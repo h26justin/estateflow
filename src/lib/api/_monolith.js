@@ -251,7 +251,7 @@ export async function exportPropertySummaryPDF(property) {
 
   // Footer
   doc.setFontSize(8); doc.setTextColor(160, 165, 178)
-  doc.text('OwnProperly — Property Summary', margin, 290)
+  doc.text('Properly — Property Summary', margin, 290)
 
   // Trigger download
   const safeName = (property.name || 'property').replace(/[^a-z0-9]+/gi, '_').toLowerCase()

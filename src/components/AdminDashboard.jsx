@@ -5,6 +5,7 @@ import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
 import RolePermissionsModal from './RolePermissionsModal'
+import { ChromeLogo } from './Logo'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const mono = "'DM Mono',monospace"
@@ -171,7 +172,7 @@ export default function AdminDashboard({ onClose, user }) {
       <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 32px',flexShrink:0,position:'sticky',top:0,zIndex:10}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:60}}>
           <div style={{display:'flex',alignItems:'center',gap:16}}>
-            <img src="/logo.svg" alt="OwnProperly" style={{height:28}}/>
+            <ChromeLogo height={26}/>
             <div style={{width:1,height:24,background:T.border}}/>
             <span style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
             {metrics.flagged>0&&<span style={{fontFamily:mono,fontSize:10,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}>⚑ {metrics.flagged} flagged</span>}
@@ -1758,7 +1759,7 @@ function CommsTab({ user, users, T }) {
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Message</label>
           <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={8} placeholder="Write your message here…"
             style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical',outline:'none'}}/>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:4}}>Sent from hello@ownproperly.com using your OwnProperly branding</div>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:4}}>Sent from hello@ownproperly.com using your Properly branding</div>
         </div>
 
         {sent&&<div style={{fontFamily:mono,fontSize:12,color:sent.startsWith('✓')?T.green:T.red,marginBottom:16,padding:'10px 14px',background:sent.startsWith('✓')?T.green+'18':T.red+'18',borderRadius:8}}>{sent}</div>}

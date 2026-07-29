@@ -260,12 +260,12 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
     doc.setTextColor(...gold)
     doc.setFontSize(20)
     doc.setFont('helvetica','bold')
-    doc.text('Own Properly', 14, 16)
+    doc.text('Properly', 14, 16)
 
     doc.setTextColor(...muted)
     doc.setFontSize(7)
     doc.setFont('helvetica','normal')
-    doc.text('PROPERTY MANAGEMENT', 14, 21)
+    doc.text('ownproperly.com', 14, 21)
 
     // Report title
     doc.setTextColor(...white)
@@ -370,7 +370,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
         doc.setTextColor(...gold)
         doc.setFontSize(8)
         doc.setFont('helvetica','bold')
-        doc.text('Own Properly — Property P&L (continued)', 14, 8)
+        doc.text('Properly — Property P&L (continued)', 14, 8)
         y = 20
         // Re-draw column headers
         doc.setFillColor(...surface)
@@ -495,7 +495,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       doc.setTextColor(...muted)
       doc.setFontSize(7)
       doc.setFont('helvetica','normal')
-      doc.text('Own Properly Property Management — Confidential', 14, H-4)
+      doc.text('Properly (ownproperly.com) — Confidential', 14, H-4)
       doc.text(`Page ${i} of ${pageCount}`, W-14, H-4, {align:'right'})
     }
 
@@ -935,9 +935,9 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
     doc.setFillColor(...dark); doc.rect(0, 0, W, 42, 'F')
     doc.setFillColor(...gold); doc.rect(0, 0, 4, 42, 'F')
     doc.setTextColor(...gold); doc.setFontSize(20); doc.setFont('helvetica','bold')
-    doc.text('Own Properly', 14, 16)
+    doc.text('Properly', 14, 16)
     doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal')
-    doc.text('PROPERTY MANAGEMENT', 14, 21)
+    doc.text('ownproperly.com', 14, 21)
     doc.setTextColor(...white); doc.setFontSize(13); doc.setFont('helvetica','bold')
     doc.text('Rent Review Scenario', 14, 32)
     doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...muted)

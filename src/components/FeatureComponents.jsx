@@ -4266,7 +4266,7 @@ function AuditLogPanel({ user, companies, T }) {
         {loading ? (
           <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>Loading audit log…</div>
         ) : logs.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No activity recorded yet. Actions you take in OwnProperly will appear here.</div>
+          <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No activity recorded yet. Actions you take in Properly will appear here.</div>
         ) : (
           logs.map(log => {
             const cfg = ACTION_LABELS[log.action] || { label: log.action, color: T.muted }

@@ -1,4 +1,4 @@
-# OwnProperly Security Disclosure
+# Properly (ownproperly.com) Security Disclosure
 # RFC 9116 — https://www.rfc-editor.org/rfc/rfc9116
 # Updated 24 May 2026
 
