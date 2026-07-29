@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 // ── AI LISTING DESCRIPTION WRITER ────────────────────────────────────────────
 export function AIListingWriter({ property, T: TProp }) {
@@ -116,7 +117,7 @@ export function AIListingWriter({ property, T: TProp }) {
 
       <button onClick={generate} disabled={loading || !form.location}
         style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none',
-          background: loading||!form.location ? T.border : T.gold, color:'white', cursor:'pointer', width:'100%', marginBottom: result?12:0 }}>
+          background: loading||!form.location ? T.border : T.gold, color:'#1C2830', cursor:'pointer', width:'100%', marginBottom: result?12:0 }}>
         {loading ? 'Writing…' : 'Generate description'}
       </button>
 
@@ -207,7 +208,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px', outline:'none'}}/>
         <button onClick={analyse} disabled={loading || !url.trim()}
           style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none',
-            background:loading||!url.trim()?T.border:T.gold, color:'white', cursor:loading?'wait':'pointer', flexShrink:0}}>
+            background:loading||!url.trim()?T.border:T.gold, color:'#1C2830', cursor:loading?'wait':'pointer', flexShrink:0}}>
           {loading ? 'Fetching…' : 'Analyse →'}
         </button>
       </div>
@@ -292,7 +293,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
                 bedrooms:scraped.bedrooms,
                 location:scraped.address
               })}
-                style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer'}}>
+                style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer'}}>
                 → Open full deal calculator
               </button>
             )}

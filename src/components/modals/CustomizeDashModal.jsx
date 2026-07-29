@@ -91,15 +91,18 @@ export default function CustomizeDashModal({
   const enabledCount = list.filter(w => w.enabled).length
 
   return (
-    <div className="overlay" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
       <FocusTrap onEscape={onClose}>
-      <div role="dialog" aria-modal="true" aria-labelledby="customize-dash-modal-title" style={{background:T.surface,borderRadius:14,maxWidth:680,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
+      {/* Uses the stylesheet's .overlay/.modal (the previous inline override
+          fought the class with its own z-index/padding and disabled the
+          mobile bottom-sheet behaviour). */}
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="customize-dash-modal-title" style={{maxWidth:680,padding:24}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Customize Dashboard</h2>
             <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Drag to reorder, toggle to show/hide. {enabledCount} {tab === 'sections' ? 'sections' : 'cards'} on.</div>
           </div>
-          <button onClick={onClose} style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
+          <button onClick={onClose} aria-label="Close" style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
         </div>
 
         {/* Tab switcher */}

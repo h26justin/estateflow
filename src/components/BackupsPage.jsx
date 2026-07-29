@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
+import { SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 function formatBytes(bytes) {
   if (!bytes) return '—'
@@ -145,7 +147,7 @@ export default function BackupsPage({ user, showToast }) {
 
       {/* Backup list */}
       {loading ? (
-        <div style={{textAlign:'center',padding:40,fontFamily:mono,fontSize:12,color:T.muted}}>Loading backups...</div>
+        <SkeletonRows rows={4}/>
       ) : backups.length === 0 ? (
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'60px 20px',textAlign:'center'}}>
           <div style={{fontSize:48,marginBottom:12}}>📦</div>
@@ -154,6 +156,9 @@ export default function BackupsPage({ user, showToast }) {
         </div>
       ) : (
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+          {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
+          <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+          <div style={{minWidth:640}}>
           <div style={{display:'grid',gridTemplateColumns:'1.4fr 100px 90px 1fr 180px',gap:14,padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
             {['Created','Type','Size','Contents','Actions'].map(h=>(
               <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
@@ -202,6 +207,8 @@ export default function BackupsPage({ user, showToast }) {
               </div>
             )
           })}
+          </div>
+          </div>
         </div>
       )}
 

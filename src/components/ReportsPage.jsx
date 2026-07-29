@@ -1,4 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
+import { MONO } from '../lib/styles'
+import { REPORT_CATALOGUE } from '../lib/reportCatalogue'
+import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
@@ -23,7 +26,7 @@ function fmtCompact(n) {
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = (n,d=1) => (n||0).toFixed(d)+'%'
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 // Natural sort: company name first, then property name with numeric ordering (Flat 1, Flat 2, Flat 10)
@@ -78,32 +81,6 @@ function daysUntil(dateStr) {
   if (!dateStr) return null
   return Math.ceil((new Date(dateStr) - new Date()) / (1000*60*60*24))
 }
-
-// Curated to 16 reports — May 2026. Removed 4 redundancies whose data
-// is now folded into the surviving reports:
-//   - "expiring_certs" → top section of Compliance
-//   - "best_worst"     → Yield Comparison already ranks (and best_worst
-//                        crashed at runtime on row colour logic)
-//   - "open_jobs"      → top section of Maintenance Cost Report
-//   - "portfolio_growth" → Equity Report covers same numbers more clearly
-const REPORT_CATALOGUE = [
-  { id:'pnl',          cat:'tax',         icon:'pie-chart', name:'Annual P&L',                  desc:'Collected rent vs expenses, net profit per property — HMRC-ready' },
-  { id:'income_sched', cat:'tax',         icon:'calendar', name:'Rental income schedule',       desc:'Month-by-month rent received — ideal for SA105' },
-  { id:'expense_breakdown', cat:'tax',    icon:'receipt', name:'Expense breakdown',            desc:'All expenses by category, ready for your accountant' },
-  { id:'mortgage_interest', cat:'tax',    icon:'landmark', name:'Mortgage interest summary',    desc:'Total interest paid per property — Section 24 tax credit' },
-  { id:'capital_gains', cat:'tax',        icon:'trending-up', name:'Capital gains summary',        desc:'Purchase cost vs current value, unrealised gain per property' },
-  { id:'yield_compare', cat:'performance',icon:'target', name:'Yield comparison',             desc:'Gross and net yield ranked across all properties' },
-  { id:'occupancy',     cat:'performance',icon:'home', name:'Occupancy rate',               desc:'Portfolio occupancy %, vacant days, void cost by property' },
-  { id:'rent_collect',  cat:'performance',icon:'pound', name:'Rent collection rate',         desc:'% collected on time, late and missed payments by property' },
-  { id:'cashflow',      cat:'finance',    icon:'wallet', name:'Monthly cash flow',            desc:'Real monthly rent in, all costs out, net cash month-by-month' },
-  { id:'equity',        cat:'finance',    icon:'building', name:'Equity report',                desc:'Property values, debt, equity, LTV and unrealised gain per property' },
-  { id:'mortgage_port', cat:'finance',    icon:'file-text', name:'Mortgage portfolio',           desc:'All mortgages, rates, terms, monthly payments and LTV ratios' },
-  { id:'arrears',       cat:'finance',    icon:'alert-triangle', name:'Arrears report',               desc:'Outstanding rent by property, amount and days overdue' },
-  { id:'compliance',    cat:'compliance', icon:'shield-check', name:'Compliance status',            desc:'All certificates — expired, expiring soon, valid (RAG)' },
-  { id:'tenancy_sched', cat:'compliance', icon:'clipboard-check', name:'Tenancy schedule',             desc:'All tenancies, start/end dates, notice periods, renewals' },
-  { id:'maintenance_report',cat:'maintenance',icon:'wrench',name:'Maintenance overview',      desc:'Open jobs, total spend by property and trade' },
-  { id:'contractor_spend',cat:'maintenance',icon:'users',name:'Contractor spend',            desc:'Total paid to each contractor, job counts, average cost' },
-]
 
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
 const CAT_COLORS = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#9B59B6', maintenance:'#E0943A' }
@@ -391,7 +368,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
       </div>
 
       {errorBanner}
-      {loading && <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading report data…</div>}
+      {loading && <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonRows rows={6}/></div>}
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}/>}
     </div>
   )
@@ -424,7 +401,7 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
 // ── SHARED COMPONENTS ─────────────────────────────────────────────────────────
 function StatCards({ items, T }) {
   return (
-    <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(items.length,4)},1fr)`,gap:12,marginBottom:24}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:24}}>
       {items.map((item,i)=>(
         <div key={i} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
           <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.label}</div>
@@ -436,22 +413,37 @@ function StatCards({ items, T }) {
   )
 }
 
-function ReportTable({ headers, rows, T, accent }) {
+function ReportTable({ headers, rows, T, accent, totals }) {
   if (!rows.length) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12}}>No data for this period</div>
+  const cols = headers.map(h=>h.width||'1fr').join(' ')
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
-      <div style={{display:'grid',gridTemplateColumns:headers.map(h=>h.width||'1fr').join(' '),gap:16,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 20px'}}>
-        {headers.map((h,i)=><div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',textAlign:h.right?'right':'left'}}>{h.label}</div>)}
-      </div>
-      {rows.map((row,ri)=>(
-        <div key={ri} style={{display:'grid',gridTemplateColumns:headers.map(h=>h.width||'1fr').join(' '),gap:16,padding:'11px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
-          {row.map((cell,ci)=>(
-            <div key={ci} style={{fontFamily:mono,fontSize:12,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left',fontWeight:typeof cell==='object'&&cell.bold?700:400}}>
-              {typeof cell==='object'?cell.v:cell}
+      {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
+      <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+        <div style={{minWidth:640}}>
+          <div style={{display:'grid',gridTemplateColumns:cols,gap:16,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 20px'}}>
+            {headers.map((h,i)=><div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',textAlign:h.right?'right':'left'}}>{h.label}</div>)}
+          </div>
+          {rows.map((row,ri)=>(
+            <div key={ri} style={{display:'grid',gridTemplateColumns:cols,gap:16,padding:'11px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
+              {row.map((cell,ci)=>(
+                <div key={ci} style={{fontFamily:mono,fontSize:12,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left',fontWeight:typeof cell==='object'&&cell.bold?700:400}}>
+                  {typeof cell==='object'?cell.v:cell}
+                </div>
+              ))}
             </div>
           ))}
+          {totals && (
+            <div style={{display:'grid',gridTemplateColumns:cols,gap:16,padding:'12px 20px',background:T.bg}}>
+              {totals.map((cell,ci)=>(
+                <div key={ci} style={{fontFamily:mono,fontSize:12,fontWeight:700,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left'}}>
+                  {typeof cell==='object'?cell.v:cell}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      ))}
+      </div>
     </div>
   )
 }
@@ -1269,14 +1261,14 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
           {v:fmt(r.net),color:r.net>=0?T.green:T.red,bold:true,right:true},
           {v:r.yield>0?fmtPct(r.yield):'—',color:r.yield>=6?T.green:r.yield>=4?T.amber:T.red,right:true},
         ])}
+        totals={[
+          'Total',
+          {v:fmt(totalRent),color:T.green},
+          {v:fmt(totalExp),color:T.red},
+          {v:fmt(totalNet),color:totalNet>=0?T.green:T.red},
+          '',
+        ]}
       />
-      <div style={{display:'grid',gridTemplateColumns:'1fr 120px 120px 120px 100px',gap:0,padding:'12px 20px',background:T.bg,borderRadius:'0 0 14px 14px',border:`1px solid ${T.border}`,borderTop:'none',marginTop:-1}}>
-        <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.text}}>Total</div>
-        <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.green,textAlign:'right'}}>{fmt(totalRent)}</div>
-        <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.red,textAlign:'right'}}>{fmt(totalExp)}</div>
-        <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:totalNet>=0?T.green:T.red,textAlign:'right'}}>{fmt(totalNet)}</div>
-        <div/>
-      </div>
     </>
   )
 }
@@ -1314,7 +1306,7 @@ function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, a
         {label:'Monthly average',value:fmt(Math.round(grandTotal/nMonths)),color:accent},
         {label:'Properties tracked',value:filtProps.length,color:T.text},
       ]}/>
-      <div style={{overflowX:'auto'}}>
+      <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',minWidth:900}}>
           <div style={{display:'grid',gridTemplateColumns:cols,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 16px'}}>
             <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Property</div>

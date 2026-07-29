@@ -16,10 +16,20 @@
 //     - If form is clean: close immediately
 //     - If form is dirty: show confirm; close only on OK
 //   - Pressing Escape: handled by parent if needed (we don't intercept)
-export function safeOverlayClose(isDirty, onClose) {
-  return (e) => {
+//
+// Pass the themed `confirm` from useConfirm() as the third argument so the
+// guard matches the rest of the app — without it this falls back to the
+// unbranded native window.confirm (whose default "OK" is the destructive
+// choice). The themed dialog puts "Keep editing" as the safe cancel.
+export function safeOverlayClose(isDirty, onClose, confirmFn) {
+  return async (e) => {
     if (e.target !== e.currentTarget) return
-    if (isDirty && !window.confirm('You have unsaved changes. Discard them?')) return
+    if (isDirty) {
+      const ok = confirmFn
+        ? await confirmFn({ title: 'Discard changes?', body: 'You have unsaved changes. They will be lost.', confirmLabel: 'Discard', cancelLabel: 'Keep editing', destructive: true })
+        : window.confirm('You have unsaved changes. Discard them?')
+      if (!ok) return
+    }
     onClose()
   }
 }

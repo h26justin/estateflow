@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 // Convert a YYYY-MM-DD string or Date to a plain date key YYYY-MM-DD
 function toKey(y, m, d) {

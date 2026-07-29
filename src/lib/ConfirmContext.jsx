@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react'
+import { MONO } from './styles'
 import { useTheme } from './ThemeContext'
+import FocusTrap from './FocusTrap'
 
 // Promise-based themed confirmation dialog.
 //
@@ -80,12 +82,13 @@ export function useConfirm() {
 function ConfirmDialog({ state, onConfirm, onCancel }) {
   const { T } = useTheme()
   const [value, setValue] = useState(state.defaultValue)
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   return (
     <div className="overlay" onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
-      <div className="modal" style={{ maxWidth: 420 }}>
+      <FocusTrap onEscape={onCancel}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" style={{ maxWidth: 420 }}>
         <div style={{ padding: '24px 28px 0' }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: state.body ? 8 : 22, color: T.text }}>
+          <h2 id="confirm-dialog-title" style={{ fontSize: 17, fontWeight: 700, marginBottom: state.body ? 8 : 22, color: T.text }}>
             {state.title}
           </h2>
           {state.body && (
@@ -115,7 +118,8 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
             {state.confirmLabel}
           </button>
         </div>
-      </div>
+        </div>
+      </FocusTrap>
     </div>
   )
 }

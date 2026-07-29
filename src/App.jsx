@@ -1,8 +1,10 @@
 
-import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, memo, lazy, Suspense, Fragment } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
+import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS } from './lib/nav'
+import { REPORT_CATALOGUE } from './lib/reportCatalogue'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -74,7 +76,8 @@ import { complianceStatusFor, complianceBadge, certTypeStatus } from './lib/comp
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
-import { MONO, SANS } from './lib/styles'
+import { MONO, SANS, statusColors } from './lib/styles'
+import { Skeleton } from './lib/Skeleton'
 import { Icon, ICON_NAMES } from './lib/icons'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
@@ -195,19 +198,33 @@ const CompanyPill = memo(({company}) => {
   return <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||'#C8A84B')+'22',color:company.color||'#C8A84B',border:`1px solid ${(company.color||'#C8A84B')}44`}}>{company.abbr}</span>
 })
 
-const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
+const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
   const { T } = useTheme()
+  // Cards with a breakdown keep click = expand; navigation gets its own
+  // explicit link so the two affordances never fight. Cards without a
+  // breakdown navigate on click directly.
+  const clickable = breakdown || onNavigate
   return (
-    <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:breakdown?'pointer':'default'}}
-      onClick={breakdown?()=>setOpen(o=>!o):undefined}>
+    <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
+      onClick={breakdown?()=>setOpen(o=>!o):(onNavigate||undefined)}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         {/* Redesign: a known icon name renders the hairline glyph in a tinted
             accent tile; legacy emoji strings still render as-is. */}
         {ICON_NAMES.includes(icon)
           ? <div style={{width:34,height:34,borderRadius:9,background:(accent||T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><Icon name={icon} size={18} color={accent||T.gold}/></div>
           : <div style={{fontSize:20,marginBottom:8}}>{icon}</div>}
-        {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',marginTop:2,display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
+        <span style={{display:'inline-flex',alignItems:'center',gap:10,marginTop:2}}>
+          {onNavigate&&(
+            <button onClick={e=>{e.stopPropagation();onNavigate()}}
+              aria-label={navLabel||`Open ${label}`}
+              style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:9,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
+              onMouseEnter={e=>e.currentTarget.style.color=T.gold} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
+              {(navLabel||'VIEW').toUpperCase()}<Icon name="arrow-right" size={11}/>
+            </button>
+          )}
+          {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
+        </span>
       </div>
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
@@ -273,6 +290,17 @@ function getStatusColor(status) {
   if (status==='pending') return '#9B6FDE'  // legacy pending rows (pre-2026-07 Lodgify sync wrote these)
   if (status==='refurb')  return '#4B8FE0'
   return '#888EA8' // void - visible in both themes
+}
+
+// AA text/tint pair for a rent status — the month grid renders the label in
+// the status TEXT colour on the status TINT (the old raw-hue fill with white
+// text sat at ~1.8:1 on paid-green). STL/pending keep their purple identity
+// via a matching hand-tuned pair (purple isn't in the shared STATUS set).
+const STL_PAIR = { light: { text:'#6E44B8', bg:'#F0EAFB' }, dark: { text:'#B89BEF', bg:'#241A38' } }
+function rentStatusPair(status, darkMode) {
+  if (status === 'pending') return darkMode ? STL_PAIR.dark : STL_PAIR.light
+  const key = { paid:'ok', overdue:'bad', missed:'bad', late:'warn', partial:'warn', refurb:'info' }[status] || 'void'
+  return statusColors(key, darkMode)
 }
 
 // Short-term-let revenue keeps its own colour so STL and long-term income
@@ -353,7 +381,7 @@ function getMonthlyRentStats(payments, year, rentPcm) {
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
 function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
-  const { T } = useTheme()
+  const { T, darkMode } = useTheme()
   const mono = MONO
   const year = payment.year, month = payment.month
   const days = new Date(year, month, 0).getDate()
@@ -378,7 +406,11 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
     return 'void'
   }
 
-  const COLOR = { paid:'#2ECC8A', stl:STL_COLOR, pending:'#9B6FDE', partial:'#E0943A', overdue:'#E05555', missed:'#E05555', late:'#E0943A', refurb:'#4B8FE0', void:'#888EA8', future:'transparent' }
+  // Day cells share the month grid's AA tint/text pairs (this map used to
+  // restate the legacy raw hues with white labels).
+  const pairFor = (status) => status === 'stl'
+    ? (darkMode ? STL_PAIR.dark : STL_PAIR.light)
+    : rentStatusPair(status, darkMode)
   const monthName = new Date(year, month-1).toLocaleString('en-GB', {month:'long', year:'numeric'})
   const cells = []
   for (let i = 0; i < firstDow; i++) cells.push(null)
@@ -395,7 +427,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
         onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
           <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{monthName}</div>
-          <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1}}>×</button>
+          <button onClick={onClose} aria-label="Close day view" style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1,padding:'6px 8px',margin:'-6px -8px'}}>×</button>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:4}}>
           {['M','T','W','T','F','S','S'].map((d,i)=>(
@@ -406,22 +438,22 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
           {cells.map((d,i)=>{
             if (!d) return <div key={`b${i}`}/>
             const status = statuses[d-1]
-            const col = COLOR[status]
             const isFuture = status==='future'
+            const pair = isFuture ? null : pairFor(status)
             return (
               <div key={d} title={`${d}: ${status}`} style={{
                 aspectRatio:'1',borderRadius:3,
-                background:isFuture?'transparent':col,
-                border:isFuture?`1px dashed ${T.border}`:'none',
+                background:isFuture?'transparent':pair.bg,
+                border:isFuture?`1px dashed ${T.border}`:`1px solid ${pair.text}44`,
                 display:'flex',alignItems:'center',justifyContent:'center',
               }}>
-                <span style={{fontFamily:mono,fontSize:8,color:isFuture?T.muted:'rgba(255,255,255,0.85)',fontWeight:700}}>{d}</span>
+                <span style={{fontFamily:mono,fontSize:8,color:isFuture?T.muted:pair.text,fontWeight:700}}>{d}</span>
               </div>
             )
           })}
         </div>
         <div style={{display:'flex',gap:14,marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${T.border}`,flexWrap:'wrap'}}>
-          {[[paidDays,'#2ECC8A','paid'],[voidDays,'#888EA8','void'],[missedDays,'#E05555','missed']].map(([v,c,l])=>(
+          {[[paidDays,rentStatusPair('paid',darkMode).text,'paid'],[voidDays,rentStatusPair('void',darkMode).text,'void'],[missedDays,rentStatusPair('missed',darkMode).text,'missed']].map(([v,c,l])=>(
             <div key={l} style={{fontFamily:mono,fontSize:10}}>
               <span style={{color:c,fontWeight:700}}>{v}</span>
               <span style={{color:T.muted}}> {l}</span>
@@ -431,7 +463,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
         </div>
         <button onClick={()=>{onClose();if(onDayTracker)onDayTracker()}}
           style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
-            border:'none',background:'#C8A84B',color:'#1A2530',cursor:'pointer'}}>
+            border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>
           View full day tracker →
         </button>
       </div>
@@ -441,6 +473,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
 
 const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
   if (!payments?.length) return null
+  const { darkMode } = useTheme()
   const [popover, setPopover] = useState(null)
   const scoped = filterYear ? payments.filter(m=>m.year===filterYear) : payments
   // Collapse multiple segments per month into one representative dot.
@@ -463,28 +496,35 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
         const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
         const isCurrent = m.year === currentYear && m.month === currentMonth
         const isStlPaid = m.isStl && m.status === 'paid'
-        const col = isStlPaid ? STL_COLOR : getStatusColor(m.status)
-        // Redesign: full 3-letter month name in the cell (no single-letter
-        // squares), status colour as fill, gold outline for the current month,
-        // hatched fill for future months.
+        // Redesign: full 3-letter month name in the cell, STATUS TINT as the
+        // fill with the AA text colour for the label (the previous raw-hue
+        // fill + white label read at ~1.8:1 on paid-green), gold outline for
+        // the current month, hatched fill for future months.
+        const pair = isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : rentStatusPair(m.status, darkMode)
         const name = MONTH_NAMES[(m.month||1)-1]
+        const statusLabel = isFuture ? 'future' : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
         const boxStyle = isFuture
           ? { background:'repeating-linear-gradient(135deg, rgba(128,128,128,0.10) 0 5px, transparent 5px 10px)', border:'1px dashed rgba(128,128,128,0.40)', cursor:'default' }
           : isCurrent
-            ? { background:col, border:`2px solid #B8902F`, cursor:'pointer' }
-            : { background:col, border:'1px solid transparent', cursor:'pointer' }
-        const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : '#fff'
+            ? { background:pair.bg, border:`2px solid #B8902F`, cursor:'pointer' }
+            : { background:pair.bg, border:`1px solid ${pair.text}55`, cursor:'pointer' }
+        const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : pair.text
         return (
-          <div key={m.id}
+          // A real <button>: these cells are the primary interaction on the
+          // Rent Tracker and were mouse-only divs whose title tooltip never
+          // appeared on touch.
+          <button key={m.id} type="button"
+            aria-label={`${m.month_label || `${name} ${m.year}`}: ${statusLabel}${isFuture ? '' : ' — open day view'}`}
             title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL booked (paid)' : m.status} — click for day view`}
-            onClick={!isFuture ? ()=>setPopover(m) : undefined}
-            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',
+            disabled={isFuture}
+            onClick={!isFuture ? (e)=>{e.stopPropagation();setPopover(m)} : undefined}
+            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',padding:0,
               display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
-            onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
+            onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${pair.text}55`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:500,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
-          </div>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
+          </button>
         )
       })}
     </div>
@@ -510,10 +550,8 @@ function PageLoadingSpinner({ T }) {
   )
 }
 
-// Shimmer skeleton primitive (redesign Loading state). Add the `.skeleton`
-// class (defined in the global CSS) plus a size.
-const Skeleton = ({ w = '100%', h = 14, r = 8, style }) =>
-  <div className="skeleton" style={{ width: w, height: h, borderRadius: r, ...style }} />
+// Skeleton primitives live in lib/Skeleton.jsx (shared with page-level
+// loading states across components).
 
 // Dashboard loading state — greeting + health ring, 4 KPI tiles, two widget
 // columns — mirrors the real layout so the page doesn't jump on load.
@@ -663,7 +701,6 @@ export default function App() {
   const [showArchived,setShowArchived] = useState(false)
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
-  const [showAddBulk, setShowAddBulk]  = useState(false)
   const [showBuildingMortgage, setShowBuildingMortgage] = useState(false)
   const [showReceiptScan, setShowReceiptScan] = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
@@ -689,7 +726,6 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showSellModal,      setShowSellModal]      = useState(null) // property id
   const [propertyActionBusy, setPropertyActionBusy] = useState(false)
-  const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [isTenant, setIsTenant] = useState(false)
   // /privacy and /terms render their own static pages, even when the
@@ -796,7 +832,7 @@ export default function App() {
   const [impersonatingUser, setImpersonatingUser] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
   })
-  const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
+  const [userNavPrefs, setUserNavPrefs] = useState(DEFAULT_NAV_KEYS)
   // Tenant-portal branding for the current subdomain (<sub>.ownproperly.com).
   // Looked up once on mount via a public RPC so a logged-OUT visitor sees the
   // company's branded login instead of the generic marketing site. null = no
@@ -842,7 +878,7 @@ export default function App() {
   .btn{font-family:${SANS};font-weight:600;border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;transition:all 0.18s;letter-spacing:0;}
   .btn-gold{background:${T.gold};color:#1C2830;}.btn-gold:hover{background:${T.gold}dd;}
   .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.gold};}
-  .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
+  .btn-danger{background:${T.red};color:#fff;border:1px solid ${T.red};}.btn-danger:hover{filter:brightness(0.92);}
   .card{background:${T.card};border:1px solid ${T.border};border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
   @media(max-width:768px){
@@ -911,6 +947,10 @@ export default function App() {
     return () => window.removeEventListener('ownproperly:restart-tour', handler)
   }, [])
 
+  // Last place we synced to the URL — used to decide pushState vs
+  // replaceState (see the sync effect below).
+  const lastSyncedNav = useRef(null)
+
   // ── BROWSER HISTORY INTEGRATION ────────────────────────────────────────────
   // URLs map to state:
   //   #/dashboard                         → view=dashboard
@@ -928,9 +968,16 @@ export default function App() {
     const parseHash = () => {
       const h = window.location.hash.replace(/^#\/?/, '')
       if (!h) return { view: 'dashboard' }
-      const parts = h.split('/').filter(Boolean)
+      // Hash segments come back percent-encoded from window.location.hash
+      // (e.g. a legacy '#/detail/<id>/epc%20plan' bookmark), so decode each
+      // part before matching. Legacy space-keyed tabs map onto their slugs.
+      const parts = h.split('/').filter(Boolean).map(p => {
+        try { return decodeURIComponent(p) } catch { return p }
+      })
+      const LEGACY_TABS = { 'epc plan': 'epc-plan', 'right to rent': 'right-to-rent', 'rent history': 'rent-history' }
       if (parts[0] === 'detail' && parts[1]) {
-        return { view: 'detail', selectedId: parts[1], detailTab: parts[2] || 'overview' }
+        const rawTab = parts[2] || 'overview'
+        return { view: 'detail', selectedId: parts[1], detailTab: LEGACY_TABS[rawTab] || rawTab }
       }
       if (parts[0] === 'settings') {
         return { view: 'settings', settingsTab: parts[1] || null }
@@ -938,9 +985,17 @@ export default function App() {
       if (parts[0] === 'admin') {
         return { view: 'admin', adminTab: parts[1] || null }
       }
-      if (parts[0] === 'properties' && parts[1] === 'companies') {
-        return { view: 'properties', portfolioTab: 'companies' }
+      if (parts[0] === 'import') return { view: 'import' }
+      if (parts[0] === 'properties' && parts[1] === 'bulk') return { view: 'bulk-add' }
+      // All portfolio sub-tabs are addressable: #/properties/<tab>
+      const PORTFOLIO_TABS = ['properties','companies','compliance','map','contractors']
+      if (parts[0] === 'properties') {
+        return { view: 'properties', portfolioTab: PORTFOLIO_TABS.includes(parts[1]) ? parts[1] : 'properties' }
       }
+      // Legacy top-level views, folded into Portfolio sub-tabs (they used
+      // to exist twice at two different levels).
+      if (parts[0] === 'companies')   return { view: 'properties', portfolioTab: 'companies' }
+      if (parts[0] === 'contractors') return { view: 'properties', portfolioTab: 'contractors' }
       if (parts[0] === 'rent' && parts[1] === 'day') {
         return { view: 'daytracker' }
       }
@@ -952,7 +1007,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','companies','rent','deals','insurance','contractors','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','insurance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -984,16 +1039,31 @@ export default function App() {
       // when the user pops back from a specific report to the catalogue).
       setSelectedReportId(parsed.selectedReportId || null)
       if (parsed.detailTab) setDetailTab(parsed.detailTab)
-      if (parsed.portfolioTab) setPortfolioTab(parsed.portfolioTab)
+      // Always reflect the portfolio sub-tab when on the portfolio view —
+      // popping back from #/properties/companies to #/properties must reset
+      // the tab, not leave it stale.
+      if (parsed.view === 'properties') setPortfolioTab(parsed.portfolioTab || 'properties')
       if (parsed.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: parsed.settingsTab } }))
     }
     window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
+    // Programmatic `window.location.hash = …` navigations (notification
+    // links, insight actions, the error boundary's "go home") fire
+    // `hashchange`, NOT `popstate` — without this listener they change the
+    // URL but never the screen, and the sync effect then rewrites the URL
+    // back to the stale view.
+    window.addEventListener('hashchange', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('hashchange', handlePopState)
+    }
   }, [])
 
   // Sync to URL whenever navigation state changes
   useEffect(() => {
     if (!user) return
+    // The admin overlay owns #/admin/<tab> (AdminDashboard pushes it) —
+    // don't fight it by rewriting the hash back to the underlying view.
+    if (showAdmin) return
     // Leaving the reports view? Drop any selected report id so we don't
     // carry stale state into the next visit.
     if (view !== 'reports' && selectedReportId) {
@@ -1004,10 +1074,12 @@ export default function App() {
     if (view === 'detail' && selectedId) {
       target = `#/detail/${selectedId}`
       if (detailTab && detailTab !== 'overview') target += `/${detailTab}`
-    } else if (view === 'properties' && portfolioTab === 'companies') {
-      target = '#/properties/companies'
+    } else if (view === 'properties' && portfolioTab && portfolioTab !== 'properties') {
+      target = `#/properties/${portfolioTab}`
     } else if (view === 'daytracker') {
       target = '#/rent/day'
+    } else if (view === 'bulk-add') {
+      target = '#/properties/bulk'
     } else if (view === 'reports' && selectedReportId) {
       // When drilled into a specific report, encode its id so browser
       // back returns to the catalogue (the bare /reports URL).
@@ -1021,12 +1093,54 @@ export default function App() {
     // sub-tab (e.g. the upgrade CTA's '#/settings/billing') before
     // SettingsPage mounts, landing the user on the Account tab instead.
     if (view === 'settings' && /^#\/settings(\/|$)/.test(window.location.hash)) return
+    // DealsPage owns its sub-view / deal-detail URL segments the same way
+    // (#/deals/pipeline, #/deals/deal/<id>).
+    if (view === 'deals' && /^#\/deals(\/|$)/.test(window.location.hash)) return
     if (window.location.hash !== target) {
-      window.history.pushState({ view, selectedId, detailTab, portfolioTab, selectedReportId }, '', target)
+      // Push a history entry only when the *place* changes (view, property,
+      // report). Intra-page tab flips (detailTab, portfolioTab) REPLACE the
+      // current entry — otherwise browsing a property's 9 tabs means
+      // pressing Back 9 times to leave it.
+      const prev = lastSyncedNav.current
+      const placeChanged = !prev || prev.view !== view || prev.selectedId !== selectedId || prev.selectedReportId !== selectedReportId
+      const historyState = { view, selectedId, detailTab, portfolioTab, selectedReportId }
+      if (placeChanged) window.history.pushState(historyState, '', target)
+      else window.history.replaceState(historyState, '', target)
     }
+    lastSyncedNav.current = { view, selectedId, selectedReportId }
   // user.id only — see the note on the loadData useEffect below for why.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user?.id])
+  }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user?.id, showAdmin])
+
+  // A deep link can name a detail tab this property/account doesn't have
+  // (feature toggled off, non-HMO 'rooms', no 'epc-plan' flag). The strip
+  // wouldn't show the tab, so the content pane rendered empty — clamp back
+  // to Overview instead.
+  useEffect(() => {
+    if (view !== 'detail' || !selectedId) return
+    const sel = properties.find(p => p.id === selectedId)
+    if (!sel) return
+    const cs = companySettings[sel.company_id] || {}
+    const eligibility = {
+      compliance: cs.feature_compliance, maintenance: cs.feature_maintenance,
+      documents: cs.feature_documents, expenses: cs.feature_expenses,
+      tenancy: cs.feature_tenancy, 'right-to-rent': cs.feature_tenancy,
+      deposit: cs.feature_tenancy, notices: cs.feature_tenancy, 'rent-history': cs.feature_tenancy,
+      rooms: sel.is_hmo || activeFlags.has('hmo_rooms'),
+      'epc-plan': activeFlags.has('epc_planner'),
+    }
+    if (detailTab in eligibility && !eligibility[detailTab]) setDetailTab('overview')
+  }, [view, selectedId, detailTab, properties, companySettings, activeFlags])
+
+  // Per-view document titles so history entries, bookmarks and the browser
+  // tab strip are tellable apart (index.html's marketing title otherwise
+  // labels every page identically). Restored on sign-out via cleanup.
+  const titleName = view === 'detail' ? (properties.find(p => p.id === selectedId)?.name || null) : null
+  useEffect(() => {
+    const label = titleName || VIEW_LABELS[view] || null
+    document.title = label ? `${label} · Properly` : 'Properly — Property Portfolio Management Software for UK Landlords'
+    return () => { document.title = 'Properly — Property Portfolio Management Software for UK Landlords' }
+  }, [view, titleName])
 
   useEffect(()=>{
     if (!user) return
@@ -1103,7 +1217,7 @@ export default function App() {
         setIsPlatformAdmin(isPlatformAdminFlag)
         // Nav / yield / account prefs from the same row.
         if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
-        else setUserNavPrefs(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
+        else setUserNavPrefs(DEFAULT_NAV_KEYS)
         if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
         setAccountType(prof?.account_type || null)
 
@@ -1484,7 +1598,15 @@ export default function App() {
   }),[dashCos, dashProps])
 
 
-  const showToast = useCallback((msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),3500)},[])
+  // Success/info toasts auto-dismiss; ERROR toasts stay until dismissed —
+  // a 3.5s window is not enough to read a failure, and the toast is the
+  // only feedback channel most forms have.
+  const toastTimer = useRef(null)
+  const showToast = useCallback((msg,type='success')=>{
+    if (toastTimer.current) { clearTimeout(toastTimer.current); toastTimer.current = null }
+    setToast({msg,type})
+    if (type !== 'error') toastTimer.current = setTimeout(()=>setToast(null),3500)
+  },[])
 
   // Listen for global toast events so deep-tree components can trigger a
   // toast without receiving showToast as a prop. See src/lib/toast.js.
@@ -1512,31 +1634,64 @@ export default function App() {
 
   // Commands list for the palette. Rebuilt whenever the underlying data
   // changes (properties / companies / view); cheap enough to recompute.
+  // Top-level navigation tabs — the registry lives in lib/nav.js (shared with
+  // the Settings → Navigation toggles so the two can never disagree again).
+  // Feedback used to live here as a required tab, but it's not a daily-use
+  // page — moved to the "⋯ More" menu / drawer instead.
+  // MTD ITSA only applies to individuals/sole-traders. Limited-company landlords
+  // file Corporation Tax, not Self Assessment — hide the page from their nav so
+  // their UI isn't cluttered with an irrelevant feature.
+  const navItems = ALL_NAV
+    .filter(n => n.flag ? activeFlags.has(n.flag) : (n.required || userNavPrefs.includes(n.key)))
+    .filter(n => n.key !== 'mtd' || accountType !== 'limited_company')
+
   const paletteCommands = useMemo(() => {
     const cmds = []
-    // Navigation
-    const navCmds = [
-      { key:'dashboard',  icon:'🏠', label:'Dashboard' },
-      { key:'properties', icon:'🏘', label:'Portfolio' },
-      { key:'rent',       icon:'💰', label:'Rent Tracker' },
-      { key:'deals',      icon:'🎯', label:'Deals' },
-      { key:'insurance',  icon:'🛡', label:'Insurance' },
-      { key:'reports',    icon:'📊', label:'Reports' },
-      { key:'mtd',        icon:'🏛️', label:'MTD Tax' },
-      { key:'settings',   icon:'⚙',  label:'Settings' },
-      { key:'feedback',   icon:'💬', label:'Send Feedback' },
-    ]
-    for (const n of navCmds) {
+    // Navigation — generated from the effective nav (registry + user prefs +
+    // flags + account-type gating), so the palette can never offer a page
+    // the user can't have (e.g. MTD Tax for limited companies) and never
+    // misses one they can (Autopilot, Renters Rights, Insurance…).
+    for (const n of navItems) {
       cmds.push({
         id: `nav:${n.key}`, icon: n.icon, label: `Go to ${n.label}`,
         group: 'navigate', keywords: n.label,
         action: () => { setView(n.key); setSelectedId(null) },
       })
     }
+    cmds.push(
+      { id:'nav:portfolio-companies', icon:'grid', label:'Go to Companies', group:'navigate', keywords:'companies portfolio',
+        action: () => { setSelectedId(null); setPortfolioTab('companies'); setView('properties') } },
+      { id:'nav:portfolio-compliance', icon:'shield-check', label:'Go to Compliance', group:'navigate', keywords:'certificates gas eicr epc',
+        action: () => { setSelectedId(null); setPortfolioTab('compliance'); setView('properties') } },
+      { id:'nav:portfolio-contractors', icon:'wrench', label:'Go to Contractors', group:'navigate', keywords:'trades contractors',
+        action: () => { setSelectedId(null); setPortfolioTab('contractors'); setView('properties') } },
+      { id:'nav:daytracker', icon:'calendar', label:'Go to Day Tracker', group:'navigate', keywords:'rent day tracker',
+        action: () => { setSelectedId(null); setView('daytracker') } },
+      { id:'nav:feedback', icon:'message', label:'Send Feedback', group:'navigate', keywords:'feedback bug feature',
+        action: () => { setView('feedback'); setSelectedId(null) } },
+    )
+    // Settings sub-tabs — "Settings → Billing" etc., from the shared registry.
+    for (const group of Object.values(SETTINGS_TABS)) {
+      for (const t of group) {
+        cmds.push({
+          id: `settings:${t.key}`, icon: 'settings', label: `Settings → ${t.label}`,
+          group: 'navigate', keywords: `settings ${t.label}`,
+          action: () => openSettingsTab(t.key),
+        })
+      }
+    }
+    // Individual reports — "Report: Annual P&L" etc.
+    for (const r of REPORT_CATALOGUE) {
+      cmds.push({
+        id: `report:${r.id}`, icon: r.icon, label: `Report: ${r.name}`,
+        group: 'navigate', keywords: `report ${r.desc}`,
+        action: () => { setSelectedId(null); setSelectedReportId(r.id); setView('reports') },
+      })
+    }
     // Open property by name/address
     for (const p of properties) {
       cmds.push({
-        id: `prop:${p.id}`, icon: '🏠', label: p.name || p.address || 'Untitled property',
+        id: `prop:${p.id}`, icon: 'home', label: p.name || p.address || 'Untitled property',
         keywords: `${p.address || ''} ${p.company?.name || ''} ${p.company?.abbr || ''}`.trim(),
         group: 'open',
         hint: p.company?.abbr,
@@ -1546,7 +1701,7 @@ export default function App() {
     // Open company by name
     for (const c of companies) {
       cmds.push({
-        id: `co:${c.id}`, icon: '🏢', label: c.name,
+        id: `co:${c.id}`, icon: 'grid', label: c.name,
         keywords: c.abbr,
         group: 'open',
         hint: 'Company',
@@ -1555,18 +1710,18 @@ export default function App() {
     }
     // Quick actions (matches the "+ New" menu)
     cmds.push(
-      { id:'act:add-prop',   icon:'🏠', label:'Add Property',         group:'create', action:()=>{ setEditProp(null); setShowAddProp(true) } },
-      { id:'act:add-bulk',   icon:'🏘', label:'Add Block of Flats',   group:'create', action:()=>setShowAddBulk(true) },
-      { id:'act:add-co',     icon:'🏢', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
-      { id:'act:import',     icon:'📄', label:'Import Statement',     group:'create', action:()=>setShowImporter(true) },
-      { id:'act:scan-receipt', icon:'📷', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
-      { id:'act:dark',       icon:'🌙', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+      { id:'act:add-prop',   icon:'home', label:'Add Property',         group:'create', action:()=>{ setEditProp(null); setShowAddProp(true) } },
+      { id:'act:add-bulk',   icon:'building', label:'Add Block of Flats',   group:'create', action:()=>openWorkflow('bulk-add') },
+      { id:'act:add-co',     icon:'grid', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
+      { id:'act:import',     icon:'file-text', label:'Import Statement',     group:'create', action:()=>openWorkflow('import') },
+      { id:'act:scan-receipt', icon:'receipt', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
+      { id:'act:dark',       icon:'moon', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
         group:'action', keywords: 'theme toggle', action:()=>setDarkMode(!darkMode) },
-      { id:'act:signout',    icon:'↗', label:'Sign Out',              group:'action', action:()=>supabase.auth.signOut() },
+      { id:'act:signout',    icon:'log-out', label:'Sign Out',              group:'action', action:()=>supabase.auth.signOut() },
     )
     return cmds
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [properties, companies, darkMode])
+  }, [properties, companies, darkMode, navItems])
 
   // Early returns AFTER all hooks
   // Privacy & Terms render at /privacy and /terms even when unauthenticated.
@@ -1665,7 +1820,43 @@ export default function App() {
 
   const selected = properties.find(p=>p.id===selectedId)
 
-  function openDetail(p, tab='overview'){setSelectedId(p.id);setDetailTab(tab);setView('detail')}
+  // Record where the user came from so the property page's Back returns
+  // there (Portfolio sub-tab, Rent Tracker, Dashboard…) instead of always
+  // dumping them on the Properties tab.
+  const detailOrigin = useRef(null)
+  function openDetail(p, tab='overview'){
+    detailOrigin.current = { view, portfolioTab }
+    setSelectedId(p.id);setDetailTab(tab);setView('detail')
+  }
+  function closeDetail(){
+    const origin = detailOrigin.current
+    detailOrigin.current = null
+    setSelectedId(null)
+    if (origin && origin.view !== 'detail') {
+      if (origin.view === 'properties' && origin.portfolioTab) setPortfolioTab(origin.portfolioTab)
+      setView(origin.view)
+    } else {
+      setView('properties')
+    }
+  }
+  // Full-page workflows (statement import, bulk add) record where the user
+  // came from so closing them returns there.
+  const workflowOrigin = useRef('dashboard')
+  function openWorkflow(key){
+    workflowOrigin.current = (view === 'import' || view === 'bulk-add') ? 'dashboard' : view
+    setSelectedId(null)
+    setView(key)
+  }
+  function closeWorkflow(){
+    setView(workflowOrigin.current || 'dashboard')
+  }
+  // Settings sub-tabs are owned by SettingsPage (it reads its initial tab
+  // from the hash at mount and listens for this event when already open).
+  function openSettingsTab(tab){
+    window.history.pushState({ view: 'settings', settingsTab: tab }, '', `#/settings/${tab}`)
+    setView('settings')
+    window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab } }))
+  }
 
   async function handleSaveProp(formData){
     try{
@@ -1911,32 +2102,6 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  // Top-level navigation tabs. Feedback used to live here as a required tab,
-  // but it's not a daily-use page — moved to the "⋯ More" menu in the
-  // top-right so it doesn't clutter the primary navigation. Settings stays
-  // as a tab because its sub-pages (billing, branding, team, notifications,
-  // etc.) are deep and benefit from a dedicated landmark.
-  const ALL_NAV=[
-    {key:'dashboard',  label:'Dashboard',    icon:'home',         short:'Home',     required:true},
-    {key:'properties', label:'Portfolio',    icon:'building',      short:'Portfolio',required:true},
-    {key:'companies',  label:'Companies',    icon:'grid',         short:'Cos',      required:false},
-    {key:'rent',       label:'Rent Tracker', icon:'pound',        short:'Rent',     required:false},
-    {key:'deals',      label:'Deals',        icon:'target',       short:'Deals',    required:false},
-    {key:'insurance',  label:'Insurance',    icon:'shield-check', short:'Insurance',required:false},
-    {key:'contractors',label:'Contractors',  icon:'wrench',       short:'Trades',   required:false},
-    {key:'reports',    label:'Reports',      icon:'pie-chart',    short:'Reports',  required:false},
-    {key:'mtd',        label:'MTD Tax',      icon:'landmark',     short:'MTD',      required:false},
-    {key:'autopilot',  label:'Autopilot',    icon:'robot',        short:'Autopilot',required:false, flag:'portfolio_autopilot'},
-    {key:'renters-rights', label:'Renters Rights', icon:'scale',  short:'RRA', required:false, flag:'renters_rights'},
-    {key:'settings',   label:'Settings',     icon:'settings',     short:'Settings', required:true},
-  ]
-  // MTD ITSA only applies to individuals/sole-traders. Limited-company landlords
-  // file Corporation Tax, not Self Assessment — hide the page from their nav so
-  // their UI isn't cluttered with an irrelevant feature.
-  const navItems = ALL_NAV
-    .filter(n => n.flag ? activeFlags.has(n.flag) : (n.required || userNavPrefs.includes(n.key)))
-    .filter(n => n.key !== 'mtd' || accountType !== 'limited_company')
-
   function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
     const mono = MONO
 
@@ -2047,11 +2212,20 @@ export default function App() {
             {railCollapsed ? <ChromeIcon size={30}/> : <ChromeLogo height={26}/>}
           </div>
           {/* Nav items */}
-          <nav style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'10px 8px',display:'flex',flexDirection:'column',gap:2}}>
-            {navItems.map(n=>{
+          <nav aria-label="Primary" style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'10px 8px',display:'flex',flexDirection:'column',gap:2}}>
+            {navItems.map((n,i)=>{
               const active = view===n.key||(view==='detail'&&n.key==='properties')
+              // Section header whenever the registry group changes (skip the
+              // first group — a header above Dashboard is just noise).
+              // Collapsed rail shows a hairline divider instead.
+              const newGroup = i>0 && n.group !== navItems[i-1].group
+              const header = newGroup && (railCollapsed
+                ? <div key={`hdr-${n.group}`} aria-hidden="true" style={{height:1,background:T.border,margin:'8px 10px'}}/>
+                : <div key={`hdr-${n.group}`} style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'12px 11px 4px'}}>{n.group}</div>)
               return (
-                <button key={n.key} title={railCollapsed?n.label:undefined} aria-current={active?'page':undefined}
+                <Fragment key={n.key}>
+                {header}
+                <button title={railCollapsed?n.label:undefined} aria-current={active?'page':undefined}
                   onClick={()=>{setView(n.key);if(n.key!=='detail')setSelectedId(null)}}
                   style={{display:'flex',alignItems:'center',gap:11,padding:railCollapsed?'10px 0':'10px 11px',justifyContent:railCollapsed?'center':'flex-start',
                     borderRadius:10,border:'none',cursor:'pointer',width:'100%',textAlign:'left',
@@ -2062,6 +2236,7 @@ export default function App() {
                   <span style={{display:'flex',flexShrink:0,color:active?T.gold:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
                   {!railCollapsed && <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.label}</span>}
                 </button>
+                </Fragment>
               )
             })}
           </nav>
@@ -2135,9 +2310,26 @@ export default function App() {
           <div style={{display:'flex',alignItems:'center',flexShrink:0,minWidth:0}}>
             {isMobile
               ? <ChromeLogo height={26}/>
-              : <span style={{fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',whiteSpace:'nowrap'}}>
-                  {navItems.find(n=>n.key===view)?.label || (view==='detail' ? 'Portfolio / Property' : 'Dashboard')}
-                </span>}
+              : view==='detail' && selected
+                // Real breadcrumb on the property page: Portfolio and the
+                // company segment are clickable; the property name is the
+                // current location. (The old header showed the static string
+                // "Portfolio / Property".)
+                ? <nav aria-label="Breadcrumb" style={{fontFamily:MONO,fontSize:12,color:T.muted,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+                    <button onClick={closeDetail} style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}
+                      onMouseEnter={e=>e.currentTarget.style.color=T.text} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Portfolio</button>
+                    {(()=>{ const co = companies.find(c=>c.id===selected.company_id); return co ? <>
+                      <span aria-hidden="true">/</span>
+                      <button onClick={()=>{setCoFilter(co.id);setStatusFilter('all');setPortfolioTab('properties');setSelectedId(null);setView('properties')}}
+                        style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}
+                        onMouseEnter={e=>e.currentTarget.style.color=T.text} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>{co.abbr||co.name}</button>
+                    </> : null })()}
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page" style={{color:T.text,overflow:'hidden',textOverflow:'ellipsis',maxWidth:260}}>{selected.name}</span>
+                  </nav>
+                : <span style={{fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',whiteSpace:'nowrap'}}>
+                    {navItems.find(n=>n.key===view)?.label || VIEW_LABELS[view] || 'Dashboard'}
+                  </span>}
           </div>
 
           {/* Desktop nav now lives in the left rail; spacer pushes actions right */}
@@ -2145,7 +2337,7 @@ export default function App() {
 
           {/* Mobile: current page title */}
           {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
-            {(()=>{const ni=navItems.find(n=>n.key===view); return ni&&ICON_NAMES.includes(ni.icon)?<Icon name={ni.icon} size={15} color={T.muted}/>:ni?.icon})()} {navItems.find(n=>n.key===view)?.label||'Dashboard'}
+            {(()=>{const ni=navItems.find(n=>n.key===view); return ni&&ICON_NAMES.includes(ni.icon)?<Icon name={ni.icon} size={15} color={T.muted}/>:ni?.icon})()} <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{view==='detail'&&selected?selected.name:(navItems.find(n=>n.key===view)?.label||VIEW_LABELS[view]||'Dashboard')}</span>
           </div>}
 
           {/* Right side */}
@@ -2166,25 +2358,25 @@ export default function App() {
                       background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                       padding:'6px',minWidth:210,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
-                        {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
-                        {icon:'🏘',label:'Add Block of Flats', action:()=>setShowAddBulk(true)},
-                        {icon:'🏢',label:'Add Company',     action:()=>setShowAddCo(true)},
-                        {icon:'📄',label:'Import Statement',action:()=>setShowImporter(true)},
-                        {icon:'📷',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
+                        {icon:'home',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
+                        {icon:'building',label:'Add Block of Flats', action:()=>openWorkflow('bulk-add')},
+                        {icon:'grid',label:'Add Company',     action:()=>setShowAddCo(true)},
+                        {icon:'file-text',label:'Import Statement',action:()=>openWorkflow('import')},
+                        {icon:'receipt',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
                         // For these three "drill into a property" actions:
                         // if the user has exactly one property, just open it on
                         // the right tab. If they have many, take them to the
                         // portfolio so they can pick. (Was previously a toast
                         // instruction with no action — looked broken.)
-                        {icon:'💰',label:'Log Expense',     action:()=>{
+                        {icon:'pound',label:'Log Expense',     action:()=>{
                           if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
                           else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log against' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                         }},
-                        {icon:'📋',label:'Add Compliance',  action:()=>{
+                        {icon:'clipboard-check',label:'Add Compliance',  action:()=>{
                           if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('compliance'); setView('detail') }
                           else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to add a certificate to' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                         }},
-                        {icon:'🔧',label:'Log Maintenance', action:()=>{
+                        {icon:'wrench',label:'Log Maintenance', action:()=>{
                           if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('maintenance'); setView('detail') }
                           else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                         }},
@@ -2196,7 +2388,7 @@ export default function App() {
                             transition:'background 0.15s'}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                           onMouseLeave={e=>e.currentTarget.style.background='none'}>
-                          <span style={{fontSize:16,width:22,textAlign:'center'}}>{item.icon}</span>
+                          <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={16}/>:<span style={{fontSize:16}}>{item.icon}</span>}</span>
                           <span style={{fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
                         </button>
                       ))}
@@ -2264,9 +2456,11 @@ export default function App() {
                       background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                       padding:'6px',minWidth:180,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
-                        {icon:'⌘', label:'Search & jump…', hint:'⌘K', action:()=>setShowPalette(true)},
-                        {icon:'💬',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
-                        {icon:'↗', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
+                        {icon:'search', label:'Search & jump…', hint:'⌘K', action:()=>setShowPalette(true)},
+                        {icon:'sparkle',label:'Help & Guides', action:()=>openSettingsTab('help')},
+                        {icon:'trash',label:'Trash', action:()=>openSettingsTab('trash')},
+                        {icon:'message',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
+                        {icon:'log-out', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
                       ].map((item,i,arr)=>(
                         <button key={item.label} role="menuitem"
                           onClick={()=>{item.action();setShowMoreMenu(false)}}
@@ -2277,7 +2471,7 @@ export default function App() {
                             transition:'background 0.15s'}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                           onMouseLeave={e=>e.currentTarget.style.background='none'}>
-                          <span style={{fontSize:14,width:22,textAlign:'center'}}>{item.icon}</span>
+                          <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={15}/>:<span style={{fontSize:14}}>{item.icon}</span>}</span>
                           <span style={{flex:1,fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
                           {item.hint && <span style={{fontFamily:MONO,fontSize:10,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
                         </button>
@@ -2287,6 +2481,11 @@ export default function App() {
                 )}
               </div>
             )}
+            {/* Search - mobile only (desktop has ⌘K + the ⋯ menu entry) */}
+            {isMobile&&<button onClick={()=>setShowPalette(true)}
+              aria-label="Search and jump" style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',color:T.text,display:'flex',alignItems:'center',justifyContent:'center',width:36,height:36}}>
+              <Icon name="search" size={16}/>
+            </button>}
             {/* Hamburger - mobile only */}
             {isMobile&&<button onClick={()=>setShowDrawer(true)}
               aria-label="Open menu" style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.text,fontSize:16,display:'flex',flexDirection:'column',gap:4,alignItems:'center',justifyContent:'center',width:36,height:36}}>
@@ -2304,7 +2503,7 @@ export default function App() {
           {/* Backdrop */}
           <div style={{flex:1,background:'rgba(0,0,0,0.6)'}} onClick={()=>setShowDrawer(false)}/>
           {/* Drawer panel */}
-          <div style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
+          <div role="dialog" aria-modal="true" aria-label="Navigation menu" style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
             {/* Drawer header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${T.border}`}}>
               <div style={{display:'flex',alignItems:'center'}}>
@@ -2313,34 +2512,49 @@ export default function App() {
               <button onClick={()=>setShowDrawer(false)} aria-label="Close menu"
                 style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px'}}>✕</button>
             </div>
-            {/* Nav items */}
-            <div style={{flex:1,overflowY:'auto',padding:'12px 0'}}>
-              {navItems.map(n=>(
-                <button key={n.key}
+            {/* Search row — the palette's only other mobile entry point is
+                the header icon; keyboard ⌘K needs a keyboard. */}
+            <button onClick={()=>{setShowDrawer(false);setShowPalette(true)}}
+              style={{display:'flex',alignItems:'center',gap:10,margin:'12px 16px 0',padding:'10px 12px',
+                background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',textAlign:'left'}}>
+              <Icon name="search" size={16} color={T.muted}/>
+              <span style={{fontFamily:MONO,fontSize:12,color:T.muted}}>Search & jump…</span>
+            </button>
+            {/* Nav items — grouped with the same section headers as the
+                desktop rail */}
+            <nav aria-label="Primary" style={{flex:1,overflowY:'auto',padding:'12px 0'}}>
+              {navItems.map((n,i)=>{
+                const active = view===n.key||(view==='detail'&&n.key==='properties')
+                const newGroup = i>0 && n.group !== navItems[i-1].group
+                return (
+                <Fragment key={n.key}>
+                {newGroup && <div style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'14px 20px 4px'}}>{n.group}</div>}
+                <button aria-current={active?'page':undefined}
                   onClick={()=>{setView(n.key);setSelectedId(null);setShowDrawer(false)}}
                   style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 20px',
-                    background:view===n.key?T.gold+'18':'none',
-                    border:'none',borderLeft:view===n.key?`3px solid ${T.gold}`:'3px solid transparent',
+                    background:active?T.gold+'18':'none',
+                    border:'none',borderLeft:active?`3px solid ${T.gold}`:'3px solid transparent',
                     cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}>
-                  <span style={{width:24,display:'flex',justifyContent:'center',color:view===n.key?T.gold:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
-                  <span style={{fontSize:14,fontWeight:view===n.key?600:400,color:view===n.key?T.gold:T.text}}>{n.label}</span>
+                  <span style={{width:24,display:'flex',justifyContent:'center',color:active?T.gold:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
+                  <span style={{fontSize:14,fontWeight:active?600:400,color:active?T.gold:T.text}}>{n.label}</span>
                 </button>
-              ))}
-            </div>
+                </Fragment>
+              )})}
+            </nav>
             {/* Drawer footer */}
             <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
               {[
-                {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}},
-                {icon:'🏘',label:'Add Block of Flats', action:()=>{setShowAddBulk(true);setShowDrawer(false)}},
-                {icon:'🏢',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
-                {icon:'📄',label:'Import Statement',action:()=>{setShowImporter(true);setShowDrawer(false)}},
-                {icon:'📷',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
-                {icon:'💰',label:'Log Expense',     action:()=>{
+                {icon:'home',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}},
+                {icon:'building',label:'Add Block of Flats', action:()=>{openWorkflow('bulk-add');setShowDrawer(false)}},
+                {icon:'grid',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
+                {icon:'file-text',label:'Import Statement',action:()=>{openWorkflow('import');setShowDrawer(false)}},
+                {icon:'receipt',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
+                {icon:'pound',label:'Log Expense',     action:()=>{
                   if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
                   else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log against' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                   setShowDrawer(false)
                 }},
-                {icon:'🔧',label:'Log Maintenance', action:()=>{
+                {icon:'wrench',label:'Log Maintenance', action:()=>{
                   if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('maintenance'); setView('detail') }
                   else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                   setShowDrawer(false)
@@ -2349,11 +2563,15 @@ export default function App() {
                 <button key={item.label} onClick={item.action}
                   style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
                     background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',textAlign:'left'}}>
-                  <span style={{fontSize:15}}>{item.icon}</span>
+                  <span style={{display:'flex',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={15}/>:<span style={{fontSize:15}}>{item.icon}</span>}</span>
                   <span style={{fontFamily:MONO,fontSize:11,color:T.text,fontWeight:500}}>{item.label}</span>
                 </button>
               ))}
               <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px',marginTop:4}}
+                onClick={()=>{openSettingsTab('help');setShowDrawer(false)}}>
+                Help & Guides
+              </button>
+              <button className="btn btn-ghost" style={{width:'100%',fontSize:12,padding:'10px'}}
                 onClick={()=>{setView('feedback');setSelectedId(null);setShowDrawer(false)}}>
                 Send Feedback
               </button>
@@ -2397,21 +2615,28 @@ export default function App() {
                 <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
               </div>
             )}
-            {/* First-run zero-state. Brand new accounts land here with no
-                properties and no companies — instead of seeing a wall of £0
-                KPIs, give them a friendly hero CTA pointing at the next
-                step. Once they have at least one property/company, the
-                regular header takes over. */}
-            {!loadError && activeProperties.length === 0 && companies.length === 0 && (
+            {/* First-run zero-state. Accounts with no properties land here —
+                including the most common post-onboarding state (a company
+                created by the wizard but no property yet, which previously
+                skipped this hero and dumped the user on a wall of £0 KPIs).
+                While this shows, the dashboard sections below are skipped
+                entirely. */}
+            {!loadError && activeProperties.length === 0 && (
               <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
                 <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="home" size={isMobile?30:38} color={T.gold}/></div>
                 <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to Properly</h1>
                 <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
-                  You're on a 14-day free trial. The fastest way to see what the app does is to add your first company and one property — takes about 2 minutes.
+                  {companies.length === 0
+                    ? "You're on a 14-day free trial. The fastest way to see what the app does is to add your first company and one property — takes about 2 minutes."
+                    : 'Your company is set up — now add your first property to bring the dashboard to life. Takes about a minute.'}
                 </p>
                 <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                  <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>1. Add a Company</button>
-                  <button className="btn btn-ghost" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={companies.length===0} title={companies.length===0 ? 'Add a company first' : ''}>2. Add a Property</button>
+                  {companies.length === 0
+                    ? <>
+                        <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>1. Add a Company</button>
+                        <button className="btn btn-ghost" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled title="Add a company first">2. Add a Property</button>
+                      </>
+                    : <button className="btn btn-gold" onClick={()=>{setEditProp(null);setShowAddProp(true)}}>Add your first property</button>}
                 </div>
               </div>
             )}
@@ -2428,7 +2653,7 @@ export default function App() {
                       </h1>
                     )
                   })()}
-                  <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
+                  {activeProperties.length > 0 && <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
                     {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                     {dashProps.some(p=>p.current_value>0) && <>
                       {/* On mobile drop to a new line so the value/equity pair has its own row */}
@@ -2443,7 +2668,7 @@ export default function App() {
                         {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0)-(p.mortgage_amount||0),0))}
                       </span>
                     </>}
-                  </p>
+                  </p>}
                 </div>
                 {/* Portfolio health ring — average of per-property health
                     scores, consistent with the per-card HealthBadge. */}
@@ -2460,8 +2685,8 @@ export default function App() {
                     onClick={()=>setDashCoFilter([])}
                     style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                       border:`1px solid ${dashCoFilter.length===0?T.gold:T.border}`,
-                      background:dashCoFilter.length===0?T.gold+'22':'transparent',
-                      color:dashCoFilter.length===0?T.gold:T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
+                      background:dashCoFilter.length===0?T.gold:'transparent',
+                      color:dashCoFilter.length===0?'#1C2830':T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
                     All companies
                   </button>
                   {companies.map(c=>{
@@ -2495,6 +2720,10 @@ export default function App() {
               )}
             </div>
             {(() => {
+              // First-run: the welcome hero above is the whole dashboard.
+              // Rendering the sections under it would just be a wall of £0
+              // KPIs and empty widgets.
+              if (!loadError && activeProperties.length === 0) return null
               // ───────────────────────────────────────────────────────────────
               // Dashboard sections registry — each section is a labelled chunk
               // that the user can reorder and show/hide. Section content is
@@ -2504,13 +2733,13 @@ export default function App() {
 
               const SECTION_DEFS = {
                 kpi_grid: {
-                  icon: '📊',
+                  icon: 'pie-chart',
                   label: 'KPI cards',
                   description: 'Portfolio value, monthly rent, arrears, and other key metrics',
                   render: () => renderKpiGrid(),
                 },
                 by_company: {
-                  icon: '🏢',
+                  icon: 'grid',
                   label: 'By Company',
                   description: 'A card per company with its property/rent stats',
                   render: () => renderByCompany(),
@@ -2650,7 +2879,7 @@ export default function App() {
                 // Widget definitions — each returns a StatCard JSX element
                 const WIDGET_DEFS = {
                   portfolio_value: { icon:'home', label:'Portfolio Value', render: () => (
-                    <StatCard icon="home" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
+                    <StatCard icon="home" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
                         {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
@@ -2664,7 +2893,7 @@ export default function App() {
                     />
                   )},
                   monthly_rent: { icon:'pound', label:'Monthly Rental Income', render: () => (
-                    <StatCard icon="pound" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
+                    <StatCard icon="pound" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                       breakdown={[
                         ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
                         {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
@@ -2674,7 +2903,7 @@ export default function App() {
                     />
                   )},
                   arrears: { icon:'alert-triangle', label:'Total Arrears', render: () => (
-                    <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
+                    <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                       breakdown={[
                         ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
                         ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
@@ -2683,7 +2912,7 @@ export default function App() {
                     />
                   )},
                   refurb: { icon:'hammer', label:'In Refurbishment', render: () => (
-                    <StatCard icon="hammer" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
+                    <StatCard icon="hammer" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue} onNavigate={()=>{setStatusFilter('refurb');setPortfolioTab('properties');setView('properties')}} navLabel="View"
                       breakdown={[
                         ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
                         ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
@@ -2693,7 +2922,7 @@ export default function App() {
                     />
                   )},
                   mortgages: { icon:'landmark', label:'Mortgages Outstanding', render: () => (
-                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
+                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6" onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
                         {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
@@ -2745,7 +2974,7 @@ export default function App() {
                       ? 'No live deals or properties'
                       : `${fmt(next90)} due in 90d · ${fmt(pipelineCash)} in pipeline`
                     return (
-                      <StatCard icon="wallet" label="Cash Committed" value={fmt(cashAgg.totalCashOut)} sub={sub} accent={accent}
+                      <StatCard icon="wallet" label="Cash Committed" value={fmt(cashAgg.totalCashOut)} sub={sub} accent={accent} onNavigate={()=>setView('deals')} navLabel="Deals"
                         breakdown={[
                           ...(overdueCash > 0 ? [{label:`Overdue (${overdueCount} ${overdueCount===1?'item':'items'})`, value:fmt(overdueCash), color:T.red, separator:true}] : []),
                           {label:'Next 30 days', value:fmt(cashAgg.byBucket['0-30']?.cashOut || 0), color:(cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber : T.muted, note:`${cashAgg.byBucket['0-30']?.count || 0} item(s) needing cash this month`},
@@ -2808,7 +3037,7 @@ export default function App() {
                           ? `${bucketed.d30.length} renewing in 30 days · ${activeCount} active`
                           : `${activeCount} active ${activeCount === 1 ? 'policy' : 'policies'}`
                     return (
-                      <StatCard icon="shield-check" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent}
+                      <StatCard icon="shield-check" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent} onNavigate={()=>setView('insurance')} navLabel="Insurance"
                         breakdown={[
                           ...(bucketed.expired.length > 0 ? [{label:`Expired (${bucketed.expired.length})`, value:fmt(sumP(bucketed.expired)), color:T.red, separator:true, note:'Policies past their expiry date. Renew immediately.'}] : []),
                           {label:'Next 30 days', value:fmt(sumP(bucketed.d30)), color:bucketed.d30.length > 0 ? T.amber : T.muted, note:`${bucketed.d30.length} ${bucketed.d30.length === 1 ? 'policy' : 'policies'} renewing this month`},
@@ -2821,7 +3050,7 @@ export default function App() {
                     )
                   }},
                   property_count: { icon:'home', label:'Property Count', render: () => (
-                    <StatCard icon="home" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
+                    <StatCard icon="home" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Total properties', value:stats.total},
                         {label:'Rented', value:stats.rented, color:T.green},
@@ -2834,7 +3063,7 @@ export default function App() {
                   occupancy_rate: { icon:'pie-chart', label:'Occupancy Rate', render: () => {
                     const rate = stats.total > 0 ? Math.round((stats.rented/stats.total)*100) : 0
                     return (
-                      <StatCard icon="pie-chart" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red}
+                      <StatCard icon="pie-chart" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red} onNavigate={()=>{setStatusFilter('vacant');setPortfolioTab('properties');setView('properties')}} navLabel="Vacant"
                         breakdown={[
                           {label:'Occupied', value:stats.rented, color:T.green},
                           {label:'Vacant', value:stats.vacant, color:T.amber},
@@ -2900,7 +3129,7 @@ export default function App() {
                                   </div>
                                 ))}
                               </div>
-                              <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setActiveCoTab(c.id);setView('companies')}}>View Properties -&gt;</button>
+                              <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setCoFilter(c.id);setStatusFilter('all');setPortfolioTab('properties');setView('properties')}}>View Properties -&gt;</button>
                             </div>
                           ))}
                         </div>
@@ -3012,8 +3241,8 @@ export default function App() {
                   <button key={k} onClick={()=>setPortfolioTab(k)}
                     style={{display:'inline-flex',alignItems:'center',gap:6,fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                       border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
-                      background:portfolioTab===k?T.gold+'22':'transparent',
-                      color:portfolioTab===k?T.gold:T.muted,fontWeight:portfolioTab===k?700:400}}>
+                      background:portfolioTab===k?T.gold:'transparent',
+                      color:portfolioTab===k?'#1C2830':T.muted,fontWeight:portfolioTab===k?700:400}}>
                     <Icon name={ic} size={14}/>{l}
                   </button>
                 ))}
@@ -3045,7 +3274,7 @@ export default function App() {
                 onClick={()=>setShowBuildingMortgage(true)}
                 disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive}
                 title="Update a mortgage across all units in a building in one go"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="landmark" size={14}/>Building Mortgage</span></button>
-              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddBulk(true)} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="building" size={14}/>+ Add Block</span></button>
+              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>openWorkflow('bulk-add')} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="building" size={14}/>+ Add Block</span></button>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
@@ -3056,7 +3285,7 @@ export default function App() {
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
                 {['all', ...PROPERTY_STATUSES].map(f=>(
-                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold+'22':'transparent',color:statusFilter===f?T.gold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
+                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
                 ))}
                 {archivedCount > 0 && (
                   <>
@@ -3089,8 +3318,8 @@ export default function App() {
                 <button key={opt.v} onClick={()=>setSortBy(opt.v)}
                   style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
-                    background:sortBy===opt.v?T.gold+'22':'transparent',
-                    color:sortBy===opt.v?T.gold:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
+                    background:sortBy===opt.v?T.gold:'transparent',
+                    color:sortBy===opt.v?'#1C2830':T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
                   {opt.l}
                 </button>
               ))}
@@ -3099,7 +3328,7 @@ export default function App() {
                 {[['list','list','List'],['grid','grid-2','Grid']].map(([k,ic,lbl])=>(
                   <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-pressed={propLayout===k}
                     style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,cursor:'pointer',border:'none',
-                      background:propLayout===k?T.gold+'22':'transparent',color:propLayout===k?T.gold:T.muted,
+                      background:propLayout===k?T.gold:'transparent',color:propLayout===k?'#1C2830':T.muted,
                       fontFamily:MONO,fontSize:10,fontWeight:propLayout===k?700:400}}>
                     <Icon name={ic} size={14}/>{!isMobile&&lbl}
                   </button>
@@ -3112,72 +3341,9 @@ export default function App() {
             </div>}
           </div>}
 
-          {view==='companies'&&<div className="fade">
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:20}}>
-              <h1 style={{flex:'1 1 auto',minWidth:0,fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em'}}>Companies</h1>
-              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddCo(true)}>+ Add Company</button>
-            </div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
-              {companies.map(c=>(
-                <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`} style={{border:`1px solid ${activeCoTab===c.id?c.color:T.border}`,color:activeCoTab===c.id?c.color:T.muted,background:activeCoTab===c.id?c.color+'11':'transparent'}} onClick={()=>setActiveCoTab(c.id)}>{c.name}</button>
-              ))}
-            </div>
-            {companies.filter(c=>c.id===activeCoTab).map(c=>{
-              // companyStats is derived from dashCos which is filtered by
-              // dashCoFilter, so a company can be in `companies` (and the
-              // tab row) but absent from companyStats. Default to zeros
-              // rather than crashing on cs.count. (CompaniesPanel applies
-              // the same fallback — see line ~1512.)
-              const cs=companyStats.find(x=>x.id===c.id) || {
-                id:c.id, count:0, rented:0, vacant:0, monthlyRent:0,
-                invested:0, estVal:0, arrears:0,
-              }
-              const cProps=activeProperties.filter(p=>p.company_id===c.id)
-              return <div key={c.id}>
-                <div className="company-stats-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
-                  <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
-                  <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
-                  <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
-                  <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
-                </div>
-                <div style={{display:'grid',gap:10}}>
-                  {groupPropertiesByBuilding(cProps).map(group => (
-                    <div key={group.tail || group.items[0].id}>
-                      {group.isBuilding && (
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
-                          <span style={{fontSize:13}} aria-hidden="true">🏘</span>
-                          <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
-                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
-                        </div>
-                      )}
-                      <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
-                        {group.items.map(p => {
-                          const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
-                          return (
-                          <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
-                            <div style={{flex:1,minWidth:150}}>
-                              <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
-                              <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}{p.managed_by&&<span style={{marginLeft:8,color:'#5A5E72'}}>· 🏢 {p.managed_by}</span>}</div>
-                            </div>
-                            {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                              <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                              <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
-                            </div>
-                            <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
-                            <Badge status={p.status}/>
-                            <HealthBadge property={p} tenancy={tenanciesByProp[p.id]||null}/>
-                          </div>
-                        )})}
-                      </div>
-                    </div>
-                  ))}
-                  {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.<br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></div>}
-                </div>
-              </div>
-            })}
-          </div>}
-
+          {/* Standalone Companies view removed — Companies now lives solely
+              as a Portfolio sub-tab (#/properties/companies); legacy #/companies
+              deep links are mapped across in parseHash. */}
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs}/>}
@@ -3185,9 +3351,31 @@ export default function App() {
           {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
           {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
-          {view==='contractors'&&<ContractorsPage companies={companies} showToast={showToast}/>}
+          {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
+          {view==='bulk-add'&&<BulkAddPropertyModal asPage
+            companies={companies}
+            onClose={closeWorkflow}
+            onSaved={(created)=>{
+              setProperties(prev => [...prev, ...created])
+              setPortfolioTab('properties')
+              setView('properties')
+            }}
+            showToast={showToast}
+          />}
           {view==='autopilot'&&activeFlags.has('portfolio_autopilot')&&<div className="fade"><AutopilotPage companyId={activeCoTab||null}/></div>}
           {view==='renters-rights'&&activeFlags.has('renters_rights')&&<div className="fade"><RentersRightsCopilot companyId={activeCoTab||null}/></div>}
+          {/* A bookmark/shared link can name a flag-gated view the account
+              doesn't have — say so instead of rendering an empty pane. */}
+          {((view==='autopilot'&&!activeFlags.has('portfolio_autopilot'))||(view==='renters-rights'&&!activeFlags.has('renters_rights')))&&(
+            <div className="card fade" style={{padding:'40px 32px',textAlign:'center'}}>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="lock" size={32} color={T.muted}/></div>
+              <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>This feature isn't enabled for your account</h1>
+              <p style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:20,maxWidth:440,margin:'0 auto 20px',lineHeight:1.6}}>
+                {view==='autopilot'?'Portfolio Autopilot':'The Renters Rights copilot'} is rolling out gradually. If you'd like early access, send us a message from the Feedback page.
+              </p>
+              <button className="btn btn-gold" onClick={()=>setView('dashboard')}>Back to Dashboard</button>
+            </div>
+          )}
 
           {view==='detail'&&!selected&&<div className="fade" style={{padding:40,textAlign:'center'}}>
             <div style={{fontSize:48,marginBottom:16}}>🔒</div>
@@ -3195,11 +3383,11 @@ export default function App() {
             <p style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:20}}>
               This property doesn't exist or you don't have access to it.
             </p>
-            <button className="btn btn-gold" onClick={()=>{setView('properties');setSelectedId(null)}}>&lt;- Back to Properties</button>
+            <button className="btn btn-gold" onClick={closeDetail}>&lt;- Back to Properties</button>
           </div>}
 
           {view==='detail'&&selected&&<div className="fade">
-            <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={()=>setView('properties')}>&lt;- Back</button>
+            <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={closeDetail}>&lt;- Back</button>
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 280px',gap:18,alignItems:'start'}}>
               <div style={{minWidth:0}}>
                 <div className="card" style={{padding:isMobile?'18px 16px':'24px 28px',marginBottom:16}}>
@@ -3247,7 +3435,7 @@ export default function App() {
                                          handleArchiveProp(selected.id, true)
                                      }}]
                               ),
-                              { label: 'Delete property', icon: '🗑',
+                              { label: 'Delete property', icon: 'trash',
                                 destructive: true,
                                 onSelect: () => setShowDeleteConfirm(selected.id) },
                             ] : []),
@@ -3271,14 +3459,19 @@ export default function App() {
                   if(cs.feature_documents)   tabs.push('documents')
                   if(cs.feature_expenses)    tabs.push('expenses')
                   if(selected.is_hmo || activeFlags.has('hmo_rooms')) tabs.push('rooms')
-                  if(activeFlags.has('epc_planner')) tabs.push('epc plan')
+                  if(activeFlags.has('epc_planner')) tabs.push('epc-plan')
+                  // Tab keys are URL slugs (they form the #/detail/<id>/<tab>
+                  // segment — keys with spaces came back percent-encoded on
+                  // refresh and matched nothing, rendering a blank pane).
+                  // Multi-word keys need explicit display labels.
+                  const TAB_LABELS = { 'epc-plan': 'EPC Plan' }
                   // Treat tenancy sub-tab URLs as if "tenancy" is the active top-level tab
-                  const TENANCY_SUB = ['right to rent','deposit','notices','rent history']
+                  const TENANCY_SUB = ['right-to-rent','deposit','notices','rent-history']
                   const activeTop = TENANCY_SUB.includes(detailTab) ? 'tenancy' : detailTab
                   return (
                     <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
                       {tabs.map(t=>(
-                        <button key={t} className={`tab ${activeTop===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:'capitalize'}}>{t}</button>
+                        <button key={t} className={`tab ${activeTop===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:TAB_LABELS[t]?'none':'capitalize'}}>{TAB_LABELS[t]||t}</button>
                       ))}
                     </div>
                   )
@@ -3440,18 +3633,21 @@ export default function App() {
                     </div>
                   ))}
                 </div>}
-                {detailTab==='contractors'&&<ContractorsPage propertyFilter={selected.id} showToast={showToast} user={user} compact={true}/>}
-                {(detailTab==='overview'||detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T}/>}
+                {/* NOTE: no 'contractors' detail tab — it was renderable here
+                    but never present in the tab strip, so it was reachable
+                    only by hand-typed URL with nothing highlighted. Property-
+                    scoped contractor history lives in Maintenance. */}
+                {(detailTab==='overview'||detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_compliance') || devModeActive}/>}
-                {(detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&(()=>{
+                {(detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&(()=>{
                   // The four legacy values map to themselves as sub-tabs; "tenancy" => "details".
                   const subTab = detailTab==='tenancy' ? 'details' : detailTab
                   const SUBS = [
                     ['details',       'Details'],
-                    ['right to rent', 'Right to Rent'],
+                    ['right-to-rent', 'Right to Rent'],
                     ['deposit',       'Deposit'],
                     ['notices',       'Notices'],
-                    ['rent history',  'Rent History'],
+                    ['rent-history',  'Rent History'],
                   ]
                   return (
                     <div>
@@ -3484,10 +3680,10 @@ export default function App() {
                         </button>
                       </div>
                       {subTab==='details'      &&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
-                      {subTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                      {subTab==='right-to-rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='deposit'      &&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='notices'      &&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T} property={selected}/>}
-                      {subTab==='rent history' &&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast} T={T}/>}
+                      {subTab==='rent-history' &&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast} T={T}/>}
                     </div>
                   )
                 })()}
@@ -3495,10 +3691,10 @@ export default function App() {
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses" canEdit={canDo(permissionsMap, selected.company_id, 'edit_expenses') || devModeActive} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive}/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
                 {detailTab==='rooms'&&(selected.is_hmo||activeFlags.has('hmo_rooms'))&&<HmoRoomsPanel propertyId={selected.id} canEdit={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
-                {detailTab==='epc plan'&&activeFlags.has('epc_planner')&&<EpcPlanner property={selected} T={T} canWrite={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
-                {activeFlags.has('rent_collection')&&(detailTab==='rent'||detailTab==='rent history')&&<RentCollectionPanel property={selected} companyId={selected.company_id} tenantUserId={null}/>}
+                {detailTab==='epc-plan'&&activeFlags.has('epc_planner')&&<EpcPlanner property={selected} T={T} canWrite={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
+                {activeFlags.has('rent_collection')&&(detailTab==='rent'||detailTab==='rent-history')&&<RentCollectionPanel property={selected} companyId={selected.company_id} tenantUserId={null}/>}
                 {detailTab==='documents'&&activeFlags.has('esign')&&<ESignPanel propertyId={selected.id} companyId={selected.company_id} documents={[]} T={T}/>}
-                {(detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&activeFlags.has('referencing')&&<ReferencingPanel propertyId={selected.id} canEdit={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
+                {(detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&activeFlags.has('referencing')&&<ReferencingPanel propertyId={selected.id} canEdit={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
               </div>
               <div style={{display:'grid',gap:12}}>
                 <div className="card" style={{padding:'18px 20px'}}>
@@ -3581,15 +3777,6 @@ export default function App() {
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
       {showReferencing && selected && <TenantReferenceModal property={selected} onClose={()=>setShowReferencing(false)}/>}
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null);setConvertSourceDealId(null)}} onSave={handleSaveProp}/>}
-      {showAddBulk&&<Suspense fallback={null}><BulkAddPropertyModal
-        companies={companies}
-        onClose={()=>setShowAddBulk(false)}
-        onSaved={(created)=>{
-          setProperties(prev => [...prev, ...created])
-          setShowAddBulk(false)
-        }}
-        showToast={showToast}
-      /></Suspense>}
       {showBuildingMortgage && <BuildingMortgageModal
         properties={activeCoTab ? activeProperties.filter(p => p.company_id === activeCoTab) : activeProperties}
         setProperties={setProperties}
@@ -3671,7 +3858,6 @@ export default function App() {
       )}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
       {/* Access modal now lives inside Settings page */}
-      {showImporter&&<Suspense fallback={null}><StatementImporter properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/></Suspense>}
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
       {showSellModal&&<SellPropertyModal
         property={properties.find(p=>p.id===showSellModal)}
@@ -3691,30 +3877,42 @@ export default function App() {
       {/* Toast: role=alert + aria-live=assertive for errors (so screen readers
           interrupt and announce), role=status + aria-live=polite for success
           notices (so they're announced without interrupting the user). */}
-      {toast&&<div
-        role={toast.type==='error'?'alert':'status'}
-        aria-live={toast.type==='error'?'assertive':'polite'}
-        aria-atomic="true"
-        style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:MONO,fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
+      {toast&&(()=>{
+        // Theme-aware surface (the old hardcoded dark panels failed AA in
+        // light mode, the shipped default) + clear of the mobile bottom bar
+        // and iPhone safe area. Errors persist (no auto-dismiss), so always
+        // offer an explicit close.
+        const tint = toast.type==='error'?T.red:T.green
+        return <div
+          role={toast.type==='error'?'alert':'status'}
+          aria-live={toast.type==='error'?'assertive':'polite'}
+          aria-atomic="true"
+          style={{position:'fixed',bottom:isMobile?'calc(env(safe-area-inset-bottom) + 76px)':24,right:isMobile?12:24,left:isMobile?12:'auto',zIndex:999,background:T.card,border:`1px solid ${tint}`,borderLeft:`3px solid ${tint}`,color:T.text,fontFamily:MONO,fontSize:13,fontWeight:500,padding:'12px 16px',borderRadius:10,animation:'fadeIn 0.2s ease',boxShadow:'0 6px 24px rgba(0,0,0,0.18)',display:'flex',alignItems:'center',gap:12,maxWidth:isMobile?'none':420}}>
+          <span style={{flex:1}}>{toast.msg}</span>
+          <button onClick={()=>setToast(null)} aria-label="Dismiss notification"
+            style={{background:'none',border:'none',cursor:'pointer',color:T.muted,padding:'4px 6px',margin:'-4px -6px',fontSize:14,lineHeight:1,flexShrink:0}}>✕</button>
+        </div>
+      })()}
 
       {/* Mobile bottom nav - consistent icons, + More opens drawer */}
-      <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
-        {/* Mobile bottom-nav: 4 user-pref items + Settings + More drawer,
-            ALWAYS guaranteeing Dashboard first and Settings as the 5th slot
-            (Settings is `required:true` so it's always in navItems already —
-            we just ensure it's not trimmed off by the 5-cap if the user has
-            many other items enabled). The "More" button below provides
-            access to anything that didn't fit. */}
+      <nav className="mobile-nav" aria-label="Primary" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+        {/* Mobile bottom-nav: 6 slots — Dashboard, the user's 3 highest-
+            priority items (mobileRank from lib/nav.js, not registry
+            declaration order), Settings, and More (opens the drawer with
+            everything else). */}
         {(() => {
           const dash = navItems.find(n => n.key === 'dashboard')
           const settingsItem = navItems.find(n => n.key === 'settings')
-          const middle = navItems.filter(n => n.key !== 'dashboard' && n.key !== 'settings').slice(0, 3)
+          const middle = navItems
+            .filter(n => n.key !== 'dashboard' && n.key !== 'settings')
+            .sort((a, b) => (a.mobileRank ?? 99) - (b.mobileRank ?? 99))
+            .slice(0, 3)
           return [dash, ...middle, settingsItem].filter(Boolean)
         })().map(n=>{
           const key = n.key
           const active = view===key||(view==='detail'&&key==='properties')
           return (
-            <button key={key} onClick={()=>{setView(key);setSelectedId(null)}}
+            <button key={key} aria-current={active?'page':undefined} onClick={()=>{setView(key);setSelectedId(null)}}
               style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
                 alignItems:'center',gap:2,padding:'4px 8px',flex:1,
                 color:active?T.gold:T.muted,fontFamily:MONO}}>
@@ -4334,8 +4532,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <button key={yr||'all'} onClick={()=>setGlobalYear(yr)}
                 style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${globalYear===yr?T.gold:T.border}`,
-                  background:globalYear===yr?T.gold+'22':'transparent',
-                  color:globalYear===yr?T.gold:T.muted,transition:'all 0.18s'}}>
+                  background:globalYear===yr?T.gold:'transparent',
+                  color:globalYear===yr?'#1C2830':T.muted,transition:'all 0.18s'}}>
                 {yr||'All'}
               </button>
             ))}
@@ -4420,8 +4618,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           <button onClick={()=>setCoFilter([])}
             style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
               border:`1px solid ${coFilter.length===0?T.gold:T.border}`,
-              background:coFilter.length===0?T.gold+'22':'transparent',
-              color:coFilter.length===0?T.gold:T.muted,fontWeight:coFilter.length===0?700:400}}>
+              background:coFilter.length===0?T.gold:'transparent',
+              color:coFilter.length===0?'#1C2830':T.muted,fontWeight:coFilter.length===0?700:400}}>
             All companies
           </button>
           {companies.map(c => {
@@ -4684,14 +4882,14 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
             <button onClick={()=>setFilterYear(null)}
               style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${filterYear===null?T.gold:T.border}`,
-                background:filterYear===null?T.gold+'22':'transparent',
-                color:filterYear===null?T.gold:T.muted}}>All</button>
+                background:filterYear===null?T.gold:'transparent',
+                color:filterYear===null?'#1C2830':T.muted}}>All</button>
             {years.map(yr=>(
               <button key={yr} onClick={()=>setFilterYear(yr)}
                 style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${filterYear===yr?T.gold:T.border}`,
-                  background:filterYear===yr?T.gold+'22':'transparent',
-                  color:filterYear===yr?T.gold:T.muted}}>{yr}</button>
+                  background:filterYear===yr?T.gold:'transparent',
+                  color:filterYear===yr?'#1C2830':T.muted}}>{yr}</button>
             ))}
           </div>
         </div>

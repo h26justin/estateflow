@@ -235,7 +235,7 @@ export default function NotificationCentre() {
                         background: 'none', border: 'none', cursor: 'pointer',
                         color: T.faint, fontSize: 14, lineHeight: 1, padding: 4,
                         alignSelf: 'flex-start',
-                      }}>×</button>
+                      }} aria-label="Dismiss notification">×</button>
                     {!n.read_at && (
                       <span aria-hidden="true" style={{
                         position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)',

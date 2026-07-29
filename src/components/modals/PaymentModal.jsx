@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MONO } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import FocusTrap from '../../lib/FocusTrap'
 
@@ -23,9 +24,9 @@ export default function PaymentModal({ payment, onClose, onSave }) {
       <FocusTrap onEscape={onClose}>
       <div className="modal" style={{maxWidth:380}} role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
         <div style={{padding:'24px 28px'}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
+          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
           <h2 id="payment-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{payment.month_label}</h2>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.muted,marginBottom:24}}>
+          <div style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:24}}>
             Current status: <span style={{color:payment.status==='paid'?T.green:(payment.status==='overdue'||payment.status==='missed')?T.red:payment.status==='late'?T.amber:T.faint,fontWeight:700}}>{payment.status==='missed'?'overdue':payment.status}</span>
           </div>
 
@@ -46,7 +47,7 @@ export default function PaymentModal({ payment, onClose, onSave }) {
                     }
                   }}
                   style={{
-                    fontFamily:"'DM Mono',monospace",fontWeight:600,fontSize:13,
+                    fontFamily:MONO,fontWeight:600,fontSize:13,
                     background: isPending ? opt.color : (payment.status===opt.status ? opt.bg : T.surface),
                     color: isPending ? '#fff' : opt.color,
                     border: `2px solid ${isPending || payment.status===opt.status ? opt.color : T.border}`,
@@ -61,7 +62,7 @@ export default function PaymentModal({ payment, onClose, onSave }) {
             })}
           </div>
           {pending && (
-            <div role="status" aria-live="polite" style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.amber,textAlign:'center',marginBottom:12}}>
+            <div role="status" aria-live="polite" style={{fontFamily:MONO,fontSize:11,color:T.amber,textAlign:'center',marginBottom:12}}>
               Click again to confirm — or pick a different status.
             </div>
           )}

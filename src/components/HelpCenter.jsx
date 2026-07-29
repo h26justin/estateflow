@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 
@@ -646,7 +647,7 @@ const GUIDES = [
 
 export default function HelpCenter() {
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [search, setSearch]     = useState('')
   const [activeCat, setActiveCat] = useState('all')
   const [openGuide, setOpenGuide] = useState(null)

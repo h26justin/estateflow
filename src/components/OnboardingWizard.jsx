@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { MONO } from '../lib/styles'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
+import { useTheme } from '../lib/ThemeContext'
+import Logo from './Logo'
 
 // ── ONBOARDING WIZARD ───────────────────────────────────────────────────
 // Shown to any signed-in user who has no companies attached to their
@@ -17,32 +20,26 @@ import * as api from '../lib/api'
 
 const COLOURS = ['#C8A84B', '#4B8FE0', '#2ECC8A', '#E05555', '#9B59B6', '#E0943A', '#1ABC9C', '#E74C3C', '#3498DB', '#2C3E50']
 
-const SLATE  = '#2D3C4A'
-const BG     = '#F4F3EF'
-const WHITE  = '#FFFFFF'
-const BORDER = '#DDE1E5'
-const MUTED  = '#7A8694'
-const GOLD   = '#C8A84B'
-
-const CSS = `
+// Theme-driven stylesheet — regenerated from the active token set so the
+// wizard matches the rest of the app in both light and dark mode.
+const buildCSS = (T) => `
   *{box-sizing:border-box;margin:0;padding:0;}
-  .ob-input{font-family:'DM Mono',monospace;background:#fff;border:1.5px solid #DDE1E5;color:#2D3C4A;border-radius:10px;padding:12px 14px;width:100%;font-size:14px;outline:none;transition:border-color 0.2s;}
-  .ob-input:focus{border-color:#2D3C4A;box-shadow:0 0 0 3px rgba(45,60,74,0.08);}
-  .ob-btn{font-family:'DM Mono',monospace;font-weight:600;background:#2D3C4A;color:white;border:none;border-radius:10px;padding:14px 24px;font-size:13px;cursor:pointer;transition:background 0.18s;width:100%;}
-  .ob-btn:hover:not(:disabled){background:#1E2C38;}
-  .ob-btn:disabled{background:#A3A8AC;cursor:not-allowed;}
-  .ob-btn-ghost{background:transparent;border:1.5px solid #DDE1E5;color:#2D3C4A;}
-  .ob-btn-ghost:hover:not(:disabled){border-color:#2D3C4A;}
-  .ob-btn-gold{background:#C8A84B;color:#1A2530;}
-  .ob-btn-gold:hover:not(:disabled){background:#B59736;}
-  .ob-choice{font-family:'DM Mono',monospace;background:white;border:1.5px solid #DDE1E5;color:#2D3C4A;border-radius:14px;padding:20px 22px;cursor:pointer;text-align:left;width:100%;transition:border-color 0.18s, transform 0.12s, box-shadow 0.18s;display:block;}
-  .ob-choice:hover{border-color:#2D3C4A;transform:translateY(-2px);box-shadow:0 4px 16px rgba(45,60,74,0.10);}
-  .ob-choice-title{font-size:14px;font-weight:700;color:#2D3C4A;margin-bottom:4px;letter-spacing:-0.01em;}
-  .ob-choice-desc{font-family:'DM Mono',monospace;font-size:11px;color:#7A8694;line-height:1.5;}
+  .ob-input{font-family:'DM Mono',monospace;background:${T.surface};border:1.5px solid ${T.border};color:${T.text};border-radius:10px;padding:12px 14px;width:100%;font-size:14px;outline:none;transition:border-color 0.2s;}
+  .ob-input:focus{border-color:${T.gold};box-shadow:0 0 0 3px ${T.gold}22;}
+  .ob-btn{font-family:'DM Mono',monospace;font-weight:700;background:${T.gold};color:#1C2830;border:none;border-radius:10px;padding:14px 24px;font-size:13px;cursor:pointer;transition:background 0.18s;width:100%;}
+  .ob-btn:hover:not(:disabled){background:${T.gold}dd;}
+  .ob-btn:disabled{background:${T.border};color:${T.muted};cursor:not-allowed;}
+  .ob-btn-ghost{background:transparent;border:1.5px solid ${T.border};color:${T.text};font-weight:600;}
+  .ob-btn-ghost:hover:not(:disabled){background:transparent;border-color:${T.gold};color:${T.gold};}
+  .ob-btn-ghost:disabled{background:transparent;}
+  .ob-choice{font-family:'DM Mono',monospace;background:${T.surface};border:1.5px solid ${T.border};color:${T.text};border-radius:14px;padding:20px 22px;cursor:pointer;text-align:left;width:100%;transition:border-color 0.18s, transform 0.12s, box-shadow 0.18s;display:block;}
+  .ob-choice:hover{border-color:${T.gold};transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.10);}
+  .ob-choice-title{font-size:14px;font-weight:700;color:${T.text};margin-bottom:4px;letter-spacing:-0.01em;}
+  .ob-choice-desc{font-family:'DM Mono',monospace;font-size:11px;color:${T.muted};line-height:1.5;}
   .ob-choice-icon{font-size:24px;margin-bottom:10px;display:block;}
-  .ob-step-dot{width:6px;height:6px;border-radius:50%;background:#DDE1E5;transition:background 0.2s, width 0.2s;}
-  .ob-step-dot.active{background:#C8A84B;width:18px;border-radius:3px;}
-  .ob-step-dot.done{background:#2D3C4A;}
+  .ob-step-dot{width:6px;height:6px;border-radius:50%;background:${T.border};transition:background 0.2s, width 0.2s;}
+  .ob-step-dot.active{background:${T.gold};width:18px;border-radius:3px;}
+  .ob-step-dot.done{background:${T.text};}
 `
 
 // Progress indicator: shows where we are in the 4-stage flow
@@ -58,6 +55,7 @@ function ProgressDots({ current }) {
 }
 
 export default function OnboardingWizard({ user, onComplete }) {
+  const { T, darkMode } = useTheme()
   // Step state:
   //   'choose'         — initial choice gate
   //   'create'         — creating a new company
@@ -181,24 +179,24 @@ export default function OnboardingWizard({ user, onComplete }) {
   function skipFirstProp() { setStep('done') }
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <style>{CSS}</style>
+    <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <style>{buildCSS(T)}</style>
       <div style={{ width: '100%', maxWidth: 520 }}>
 
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.svg" alt="Properly" style={{ height: 52, width: 'auto' }}/>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <Logo variant={darkMode ? 'reversed' : 'primary'} height={52}/>
         </div>
 
         <ProgressDots current={progress}/>
 
         {/* ── STEP: CHOOSE ── */}
         {step === 'choose' && (
-          <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
+          <div style={{ background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="sparkle" size={26}/></div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Welcome to Properly
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 24, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
               Let's get you set up. This takes about 30 seconds.
             </p>
 
@@ -233,17 +231,17 @@ export default function OnboardingWizard({ user, onComplete }) {
 
         {/* ── STEP: JOIN EXISTING ── */}
         {step === 'join' && (
-          <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
+          <div style={{ background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="key" size={26}/></div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Join an existing company
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 24, lineHeight: 1.6 }}>
-              Paste the invite code your colleague sent you. It looks like <code style={{ background: BG, padding: '2px 6px', borderRadius: 4 }}>ABC-XYZ</code>.
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
+              Paste the invite code your colleague sent you. It looks like <code style={{ background: T.bg, padding: '2px 6px', borderRadius: 4 }}>ABC-XYZ</code>.
             </p>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
                 Invite Code
               </label>
               <input className="ob-input" value={inviteCode}
@@ -254,13 +252,13 @@ export default function OnboardingWizard({ user, onComplete }) {
             </div>
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
                 {error}
               </div>
             )}
 
             <div style={{ display: 'grid', gap: 8 }}>
-              <button className="ob-btn ob-btn-gold" onClick={handleJoinCompany} disabled={saving || !inviteCode.trim()}>
+              <button className="ob-btn" onClick={handleJoinCompany} disabled={saving || !inviteCode.trim()}>
                 {saving ? 'Joining…' : 'Join Company →'}
               </button>
               <button className="ob-btn ob-btn-ghost" onClick={() => { setError(''); setStep('choose') }} disabled={saving}>
@@ -268,32 +266,32 @@ export default function OnboardingWizard({ user, onComplete }) {
               </button>
             </div>
 
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 20, padding: '12px 14px', background: BG, borderRadius: 8, lineHeight: 1.6 }}>
-              <strong style={{ color: SLATE }}>No invite code yet?</strong> Ask your colleague to log in and go to <strong>Companies → Access</strong> to create one for you.
+            <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginTop: 20, padding: '12px 14px', background: T.bg, borderRadius: 8, lineHeight: 1.6 }}>
+              <strong style={{ color: T.text }}>No invite code yet?</strong> Ask your colleague to log in and go to <strong>Companies → Access</strong> to create one for you.
             </div>
           </div>
         )}
 
         {/* ── STEP: CREATE NEW ── */}
         {step === 'create' && (
-          <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
+          <div style={{ background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="grid" size={26}/></div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Name your company
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 24, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
               This is the wrapper your properties sit under. Most landlords use their trading name or family name — it's easy to rename later.
             </p>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Company Name</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Company Name</label>
               <input className="ob-input" value={companyName} onChange={e => handleNameChange(e.target.value)}
                 placeholder="e.g. Acme Property Group" autoFocus/>
             </div>
 
             {/* Duplicate warning */}
             {similarHits.length > 0 && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#8A6A00', background: '#FFF8E1', border: '1px solid #F2D17A', borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.6 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: T.amber, background: `${T.amber}1A`, border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.6 }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>A similar company already exists:</div>
                 <div style={{ marginBottom: 6 }}>
                   {similarHits.map(h => h.name).join(', ')}
@@ -301,7 +299,7 @@ export default function OnboardingWizard({ user, onComplete }) {
                 <div>
                   Did you mean to <button
                     onClick={() => { setError(''); setStep('join') }}
-                    style={{ background: 'none', border: 'none', color: '#8A6A00', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, padding: 0, fontWeight: 700 }}>
+                    style={{ background: 'none', border: 'none', color: T.amber, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, padding: 0, fontWeight: 700 }}>
                     join the existing one
                   </button>? Ask the owner for an invite code.
                 </div>
@@ -309,23 +307,23 @@ export default function OnboardingWizard({ user, onComplete }) {
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Short Code (2–4 letters)</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Short Code (2–4 letters)</label>
               <input className="ob-input" value={companyAbbr} onChange={e => setCompanyAbbr(e.target.value.toUpperCase().slice(0,4))}
                 placeholder="APG" maxLength={4}/>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, marginTop: 5 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 5 }}>
                 Shown as a badge on every property in this company
               </div>
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 10 }}>Brand Colour</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 10 }}>Brand Colour</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {COLOURS.map(col => (
                   <button key={col} type="button" onClick={() => setCompanyColor(col)}
                     aria-label={`Brand colour ${col}`} aria-pressed={companyColor === col}
                     style={{
                       width: 32, height: 32, borderRadius: 8, background: col, cursor: 'pointer',
-                      border: `3px solid ${companyColor === col ? SLATE : 'transparent'}`,
+                      border: `3px solid ${companyColor === col ? T.text : 'transparent'}`,
                       transition: 'border 0.15s', boxSizing: 'border-box', padding: 0
                     }}/>
                 ))}
@@ -333,7 +331,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             </div>
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
                 {error}
               </div>
             )}
@@ -356,12 +354,12 @@ export default function OnboardingWizard({ user, onComplete }) {
             2026). Limited-company landlords file Corp Tax, not Self
             Assessment, so we hide the MTD page from their nav entirely. */}
         {step === 'tax_setup' && (
-          <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
+          <div style={{ background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="landmark" size={26}/></div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               How do you hold your properties?
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 24, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
               We'll tailor your nav so you only see the tax features you actually need. You can change this any time in Settings.
             </p>
 
@@ -382,14 +380,14 @@ export default function OnboardingWizard({ user, onComplete }) {
             ))}
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginTop: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginTop: 12 }}>
                 {error}
               </div>
             )}
 
             <button onClick={() => setStep(createdCompanyId ? 'first_property' : 'done')}
               disabled={saving}
-              style={{ background: 'none', border: 'none', fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, cursor: 'pointer', marginTop: 14, padding: 6 }}>
+              style={{ background: 'none', border: 'none', fontFamily: MONO, fontSize: 11, color: T.muted, cursor: 'pointer', marginTop: 14, padding: 6 }}>
               Skip for now — I'll set this up later
             </button>
           </div>
@@ -397,42 +395,42 @@ export default function OnboardingWizard({ user, onComplete }) {
 
         {/* ── STEP: FIRST PROPERTY (optional) ── */}
         {step === 'first_property' && (
-          <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)' }}>
+          <div style={{ background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 20, padding: '32px 30px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 6 }}><Icon name="home" size={26}/></div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: SLATE, marginBottom: 8, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Add your first property?
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 22, lineHeight: 1.6 }}>
-              <strong style={{ color: SLATE }}>{successCo}</strong> is set up. Add one property now to see what the dashboard looks like with real data — just the basics, you can fill in the rest later.
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 22, lineHeight: 1.6 }}>
+              <strong style={{ color: T.text }}>{successCo}</strong> is set up. Add one property now to see what the dashboard looks like with real data — just the basics, you can fill in the rest later.
             </p>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Property Name</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Property Name</label>
               <input className="ob-input" value={propName} onChange={e => setPropName(e.target.value)}
                 placeholder="e.g. Flat 1, Station Road" autoFocus/>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Address</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Address</label>
               <input className="ob-input" value={propAddress} onChange={e => setPropAddress(e.target.value)}
                 placeholder="Full UK address"/>
             </div>
 
             <div style={{ marginBottom: 22 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Monthly Rent (optional)</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Monthly Rent (optional)</label>
               <input className="ob-input" value={propRent}
                 onChange={e => setPropRent(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="£" inputMode="decimal"/>
             </div>
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
                 {error}
               </div>
             )}
 
             <div style={{ display: 'grid', gap: 8 }}>
-              <button className="ob-btn ob-btn-gold" onClick={handleCreateFirstProperty}
+              <button className="ob-btn" onClick={handleCreateFirstProperty}
                 disabled={saving || !propName.trim() || !propAddress.trim()}>
                 {saving ? 'Adding…' : 'Add Property & Finish →'}
               </button>
@@ -445,13 +443,13 @@ export default function OnboardingWizard({ user, onComplete }) {
 
         {/* ── STEP: DONE ── */}
         {step === 'done' && (
-          <div style={{ background: WHITE, border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '36px 32px', boxShadow: '0 4px 24px rgba(45,60,74,0.08)', textAlign: 'center' }}>
+          <div style={{ background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 20, padding: '36px 32px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 16 }}><Icon name="sparkle" size={44}/></div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: SLATE, marginBottom: 10 }}>You're all set</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 8, lineHeight: 1.7 }}>
-              You're now part of <strong style={{ color: SLATE }}>{successCo}</strong>.
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 10 }}>You're all set</h2>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 8, lineHeight: 1.7 }}>
+              You're now part of <strong style={{ color: T.text }}>{successCo}</strong>.
             </p>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, marginBottom: 32, lineHeight: 1.7 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 32, lineHeight: 1.7 }}>
               Head to the dashboard whenever you're ready.
             </p>
             <button className="ob-btn" onClick={handleFinish}>
@@ -460,7 +458,7 @@ export default function OnboardingWizard({ user, onComplete }) {
           </div>
         )}
 
-        <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 20 }}>
+        <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, textAlign: 'center', marginTop: 20 }}>
           Signed in as {user?.email}
         </p>
       </div>

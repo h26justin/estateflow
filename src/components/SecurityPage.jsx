@@ -1,6 +1,7 @@
 import { useTheme } from '../lib/ThemeContext'
+import { MONO } from '../lib/styles'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 // Public Security page at /security.
 //

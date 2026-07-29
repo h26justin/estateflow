@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SANS } from '../lib/styles'
+import { MONO, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 
 // Redesign palette (design/redesign-2026). SLATE = ink/text + dark brand panels.
@@ -156,11 +156,11 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             <div className="hide-mobile" style={{ display: 'flex', gap: 24 }}>
               {[['home','Home'],['features','Features'],['pricing','Pricing']].map(([id,label]) => (
                 <button key={id} onClick={()=>scrollTo(id)}
-                  style={{ background: 'none', border: 'none', fontFamily: "'DM Mono',monospace", fontSize: 12, color: activeNav===id ? SLATE : MUTED, cursor: 'pointer', fontWeight: activeNav===id ? 600 : 400, transition: 'color 0.15s' }}>
+                  style={{ background: 'none', border: 'none', fontFamily: MONO, fontSize: 12, color: activeNav===id ? SLATE : MUTED, cursor: 'pointer', fontWeight: activeNav===id ? 600 : 400, transition: 'color 0.15s' }}>
                   {label}
                 </button>
               ))}
-              <a href="/blog/" style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, textDecoration: 'none' }}>Guides</a>
+              <a href="/blog/" style={{ fontFamily: MONO, fontSize: 12, color: MUTED, textDecoration: 'none' }}>Guides</a>
             </div>
             <div className="nav-btns" style={{ display: 'flex', gap: 10 }}>
               <button onClick={onSignIn} className="mkt-btn-ghost" style={{ padding: '8px 18px', fontSize: 12 }}>Sign in</button>
@@ -172,20 +172,20 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
 
       <section id="home" style={{ background: `linear-gradient(160deg, ${DARK} 0%, ${SLATE} 100%)`, padding: '100px 24px 120px', textAlign: 'center' }}>
         <div style={{ maxWidth: 820, margin: '0 auto' }}>
-          <div style={{ display: 'inline-block', background: GOLD + '22', border: `1px solid ${GOLD}44`, borderRadius: 20, padding: '5px 16px', fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 28 }}>
+          <div style={{ display: 'inline-block', background: GOLD + '22', border: `1px solid ${GOLD}44`, borderRadius: 20, padding: '5px 16px', fontFamily: MONO, fontSize: 11, color: GOLD, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 28 }}>
             Built this decade · UK landlords
           </div>
           <h1 style={{ fontSize: 54, fontWeight: 600, color: WHITE, lineHeight: 1.13, letterSpacing: '-0.025em', marginBottom: 24 }}>
             Property software that<br/>doesn't feel like 2010
           </h1>
-          <p className="hero-sub" style={{ fontSize: 19, color: '#B0BEC5', lineHeight: 1.75, marginBottom: 40, fontFamily: "'DM Mono',monospace", fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
+          <p className="hero-sub" style={{ fontSize: 19, color: '#B0BEC5', lineHeight: 1.75, marginBottom: 40, fontFamily: MONO, fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
             Run your entire UK rental portfolio from one dashboard. Rent, compliance, tenant portal, reports and more from £2 per property a month (£10/mo minimum) — AI insights and the deals pipeline on the £5 Investor plan.
           </p>
           <div className="mkt-hero-btns" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={()=>scrollTo('features')} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff44', fontSize: 14, padding: '16px 36px' }}>See all features</button>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6A7D8E', marginTop: 20 }}>14-day free trial · Cancel anytime · No per-user fees, ever</p>
+          <p style={{ fontFamily: MONO, fontSize: 11, color: '#6A7D8E', marginTop: 20 }}>14-day free trial · Cancel anytime · No per-user fees, ever</p>
         </div>
       </section>
 
@@ -193,8 +193,8 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div className="stats-grid" style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, textAlign: 'center' }}>
           {[['From £2/mo','per property · £10/mo min'],['0','per-user fees'],['2 plans','Starter & Investor'],['14 days','free, no card']].map(([val,lab]) => (
             <div key={val}>
-              <div style={{ fontSize: 22, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', fontFamily: "'DM Mono',monospace" }}>{val}</div>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{lab}</div>
+              <div style={{ fontSize: 22, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', fontFamily: MONO }}>{val}</div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{lab}</div>
             </div>
           ))}
         </div>
@@ -203,9 +203,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ padding: '88px 24px 72px', background: WHITE }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Why Properly</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Why Properly</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>The landlord tool you'd actually choose</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 580, margin: '0 auto' }}>
+            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 580, margin: '0 auto' }}>
               Most property software was built before the iPhone. Ours wasn't. Here's what that means in practice.
             </p>
           </div>
@@ -233,10 +233,10 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               <div key={c.title} style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '28px 26px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                   <div style={{ width: 44, height: 44, borderRadius: 10, background: GOLD + '18', border: `1px solid ${GOLD}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={c.icon} size={22} color={GOLD}/></div>
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: GOLD, background: GOLD + '14', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 9, color: GOLD, background: GOLD + '14', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
                 </div>
                 <h3 style={{ fontSize: 17, fontWeight: 600, color: SLATE, marginBottom: 10, lineHeight: 1.3 }}>{c.title}</h3>
-                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, lineHeight: 1.8 }}>{c.desc}</p>
+                <p style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.8 }}>{c.desc}</p>
               </div>
             ))}
           </div>
@@ -246,15 +246,15 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ padding: '72px 24px 88px', background: CREAM }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How it works</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How it works</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Up and running in minutes</h2>
           </div>
           <div className="steps-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
             {steps.map(s => (
               <div key={s.n} style={{ textAlign: 'center' }}>
-                <div style={{ width: 52, height: 52, borderRadius: 26, background: SLATE, color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Mono',monospace", fontSize: 20, fontWeight: 700, margin: '0 auto 20px' }}>{s.n}</div>
+                <div style={{ width: 52, height: 52, borderRadius: 26, background: SLATE, color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 20, fontWeight: 700, margin: '0 auto 20px' }}>{s.n}</div>
                 <h3 style={{ fontSize: 18, fontWeight: 600, color: SLATE, marginBottom: 10 }}>{s.title}</h3>
-                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: MUTED, lineHeight: 1.75 }}>{s.desc}</p>
+                <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED, lineHeight: 1.75 }}>{s.desc}</p>
               </div>
             ))}
           </div>
@@ -264,9 +264,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section id="features" style={{ padding: '88px 24px 100px', background: WHITE }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Everything you need</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Everything you need</div>
             <h2 style={{ fontSize: 38, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Built for serious property investors</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.8, maxWidth: 560, margin: '0 auto' }}>
+            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.8, maxWidth: 560, margin: '0 auto' }}>
               Six fully built modules covering every part of running a property portfolio — from acquisition to tenant management.
             </p>
           </div>
@@ -284,7 +284,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                       <div style={{ width: 38, height: 38, borderRadius: 9, background: cat.color + '14', border: `1px solid ${cat.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={f.icon} size={18} color={cat.color}/></div>
                       <div>
                         <h4 style={{ fontSize: 14, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{f.title}</h4>
-                        <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED, lineHeight: 1.75 }}>{f.desc}</p>
+                        <p style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.75 }}>{f.desc}</p>
                       </div>
                     </div>
                   </div>
@@ -294,7 +294,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           ))}
 
           <div style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 16, padding: '28px 32px', marginTop: 16 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 18 }}>Also included</div>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 18 }}>Also included</div>
             <div className="feat-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {[
                 ['🌙','Dark & light mode','Easy on the eyes, day or night.'],
@@ -308,7 +308,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{icon}</span>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: SLATE, marginBottom: 3 }}>{title}</div>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, lineHeight: 1.65 }}>{desc}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, lineHeight: 1.65 }}>{desc}</div>
                   </div>
                 </div>
               ))}
@@ -320,22 +320,22 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ padding: '72px 24px', background: `linear-gradient(135deg, ${DARK} 0%, #1E3040 100%)` }}>
         <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI tools · on the Investor plan</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI tools · on the Investor plan</div>
             <h2 style={{ fontSize: 32, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16, lineHeight: 1.25 }}>Listings written for you in 10 seconds</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: '#9AAAB8', lineHeight: 1.8, marginBottom: 24 }}>
+            <p style={{ fontFamily: MONO, fontSize: 13, color: '#9AAAB8', lineHeight: 1.8, marginBottom: 24 }}>
               Generate Rightmove and Zoopla descriptions in your choice of tone — professional, warm or luxury. Plus AI that reads your uploaded gas certs, EICRs and tenancy agreements and fills in the data for you. All included in the £5/property Investor plan.
             </p>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 13, padding: '12px 24px' }}>Try it free</button>
           </div>
           <div style={{ flex: 1, minWidth: 280 }}>
             <div style={{ background: '#ffffff0D', border: '1px solid #ffffff18', borderRadius: 14, padding: '22px 24px' }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: '#7A8FA0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Generated listing · Zoopla · Warm tone</div>
-              <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#C8D5E0', lineHeight: 1.9 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: '#7A8FA0', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Generated listing · Zoopla · Warm tone</div>
+              <p style={{ fontFamily: MONO, fontSize: 12, color: '#C8D5E0', lineHeight: 1.9 }}>
                 "Tucked away in the heart of the city centre, this beautifully presented three-bedroom terraced home offers everything a modern family could wish for. The recently fitted kitchen floods the open-plan living space with natural light, while the south-facing garden provides a rare green retreat..."
               </p>
               <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {['Professional','Warm','Luxury'].map(t => (
-                  <span key={t} style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: '#6A7D8E', background: '#ffffff0A', border: '1px solid #ffffff14', borderRadius: 6, padding: '3px 8px' }}>{t}</span>
+                  <span key={t} style={{ fontFamily: MONO, fontSize: 10, color: '#6A7D8E', background: '#ffffff0A', border: '1px solid #ffffff14', borderRadius: 6, padding: '3px 8px' }}>{t}</span>
                 ))}
               </div>
             </div>
@@ -351,11 +351,11 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ padding: '72px 24px 80px', background: WHITE, borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How we compare</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How we compare</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Properly vs the alternatives</h2>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace", fontSize: 13, minWidth: 720 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: MONO, fontSize: 13, minWidth: 720 }}>
               <thead>
                 <tr style={{ borderBottom: `2px solid ${SLATE}` }}>
                   <th style={{ textAlign: 'left', padding: '14px 12px', color: MUTED, fontWeight: 600 }}></th>
@@ -388,7 +388,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               </tbody>
             </table>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 16 }}>
+          <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 16 }}>
             Competitor pricing from public websites, May 2026. Features change — check directly before deciding.
           </p>
         </div>
@@ -397,19 +397,19 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section id="pricing" style={{ padding: '88px 24px 100px', background: CREAM }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Honest pricing</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Honest pricing</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Simple per-property pricing.</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>Two plans: Starter at £2 a property and Investor at £5 a property, each with a £10/month minimum. No per-user fees, unlimited team members — whether you have one rental or a hundred.</p>
+            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>Two plans: Starter at £2 a property and Investor at £5 a property, each with a £10/month minimum. No per-user fees, unlimited team members — whether you have one rental or a hundred.</p>
           </div>
 
           <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
             <div style={{ background: SLATE, borderRadius: 20, padding: '36px 32px', color: WHITE }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Starter plan</div>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Starter plan</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
                 <span style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-0.03em', color: WHITE }}>£2</span>
-                <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: '#B0BEC5' }}>/property/month</span>
+                <span style={{ fontFamily: MONO, fontSize: 14, color: '#B0BEC5' }}>/property/month</span>
               </div>
-              <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#B0BEC5', marginBottom: 28, lineHeight: 1.7 }}>
+              <p style={{ fontFamily: MONO, fontSize: 12, color: '#B0BEC5', marginBottom: 28, lineHeight: 1.7 }}>
                 Billed monthly with a £10/month minimum. Add or remove properties anytime — you only pay for what you have.
               </p>
               <div style={{ display: 'grid', gap: 11, marginBottom: 24 }}>
@@ -425,13 +425,13 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                 ].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ color: GOLD, fontWeight: 700, fontSize: 14 }}>✓</span>
-                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#D0D8E0' }}>{item}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: '#D0D8E0' }}>{item}</span>
                   </div>
                 ))}
               </div>
               <div style={{ background: '#ffffff0D', border: `1px solid ${GOLD}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 24 }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 4 }}>Investor plan · £5/property/month</div>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#B0BEC5', lineHeight: 1.6 }}>
+                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 4 }}>Investor plan · £5/property/month</div>
+                <div style={{ fontFamily: MONO, fontSize: 11, color: '#B0BEC5', lineHeight: 1.6 }}>
                   Everything in Starter, plus AI portfolio insights, the AI listing writer and the deals pipeline. Same £10/month minimum.
                 </div>
               </div>
@@ -440,17 +440,17 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
 
             <div>
               <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px', marginBottom: 16 }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Example costs</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Example costs</div>
                 {[['1 property','£10/mo (minimum)'],['5 properties','£10/mo'],['10 properties','£20/mo'],['25 properties','£50/mo'],['50 properties','£100/mo'],['100 properties','£200/mo']].map(([props,cost]) => (
                   <div key={props} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${BORDER}` }}>
-                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: MUTED }}>{props}</span>
-                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 700, color: SLATE }}>{cost}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, color: MUTED }}>{props}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: SLATE }}>{cost}</span>
                   </div>
                 ))}
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, marginTop: 10 }}>Starter plan shown — Investor is £5/property. A £10/month minimum applies to both. Prices exclude VAT where applicable.</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 10 }}>Starter plan shown — Investor is £5/property. A £10/month minimum applies to both. Prices exclude VAT where applicable.</div>
               </div>
               <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px' }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Common questions</div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Common questions</div>
                 {[
                   ['What happens after the trial?', "You'll be prompted to add a card. If you don't, the account moves to read-only — your data is always safe."],
                   ['Can I cancel anytime?', 'Yes. Cancel from billing settings and keep access until the end of the billing period. No questions asked.'],
@@ -458,8 +458,8 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   ['Is the tenant portal included?', 'Yes. Every company gets a branded subdomain portal for tenants at no extra cost.'],
                 ].map(([q,a]) => (
                   <div key={q} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${BORDER}` }}>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{q}</div>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, lineHeight: 1.7 }}>{a}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{q}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, lineHeight: 1.7 }}>{a}</div>
                   </div>
                 ))}
               </div>
@@ -468,37 +468,35 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      {/* "Book an onboarding call" section. Embeds a Cal.com inline
-          link (no script load — keeps Core Web Vitals clean). Once
-          you have a Cal account, replace the URL placeholder.
+      {/* "Book an onboarding call" section. The CTA is a mailto for now —
+          the cal.com/ownproperly username was never registered, so the old
+          hardcoded booking link 404'd for every visitor (and it was also
+          the link in the day-13 trial email). When a Cal.com account
+          exists, swap the href back to the booking URL here AND set the
+          CAL_BOOKING_URL secret on the trial-emails edge function.
           Conversion lift on similar landing pages is typically 5-12%
           when offered alongside (not instead of) the self-serve CTA. */}
       <section style={{ background: WHITE, padding: '72px 24px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Prefer a real conversation?</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Prefer a real conversation?</div>
           <h2 style={{ fontSize: 32, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 16 }}>Book a 15-minute onboarding call</h2>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: MUTED, lineHeight: 1.7, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px' }}>
+          <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px' }}>
             Stuck on whether Properly fits your portfolio? Book a call with Justin (founder).
             We'll go through your setup live and answer any questions about MTD ITSA, Section 24,
             multi-company billing or compliance tracking. No pitch, no follow-up unless you ask.
           </p>
           <a
-            href="https://cal.com/ownproperly/onboarding"
-            target="_blank"
-            rel="noopener"
+            href="mailto:hello@ownproperly.com?subject=Onboarding%20call%20request&body=Hi%20Justin%2C%0A%0AI%27d%20like%20to%20book%20a%2015-minute%20onboarding%20call.%20A%20few%20times%20that%20work%20for%20me%3A%0A%0A"
             style={{
-              display: 'inline-block', fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 700,
+              display: 'inline-block', fontFamily: MONO, fontSize: 13, fontWeight: 700,
               padding: '14px 28px', borderRadius: 10, border: `1px solid ${SLATE}`,
               background: SLATE, color: WHITE, textDecoration: 'none',
             }}
-            data-cal-link="ownproperly/onboarding"
-            data-cal-namespace=""
-            data-cal-config='{"layout":"month_view"}'
           >
-            Book onboarding call →
+            Email to book a call →
           </a>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: MUTED, marginTop: 16 }}>
-            Free · 15 min · Zoom or Google Meet
+          <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 16 }}>
+            Free · 15 min · Zoom or Google Meet · usually same-day reply
           </p>
         </div>
       </section>
@@ -511,7 +509,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section id="faq" style={{ background: WHITE, padding: '80px 24px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Frequently asked questions</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Frequently asked questions</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Everything you might be wondering</h2>
           </div>
           <div style={{ display: 'grid', gap: 14 }}>
@@ -534,16 +532,16 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                'Yes. Each property has a branded tenant portal where tenants can see their tenancy details, payment history, request repairs with photos, and download shared documents (gas safety certificates, the How to Rent guide). The portal lives at your-company.ownproperly.com.'],
             ].map(([q, a]) => (
               <details key={q} style={{ background: '#FAFAF8', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '18px 22px' }}>
-                <summary style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 700, color: SLATE, cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <summary style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: SLATE, cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>{q}</span>
                   <span aria-hidden="true" style={{ color: GOLD, fontSize: 16, marginLeft: 12 }}>+</span>
                 </summary>
-                <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: MUTED, lineHeight: 1.75, marginTop: 14 }}>{a}</p>
+                <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED, lineHeight: 1.75, marginTop: 14 }}>{a}</p>
               </details>
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: 40 }}>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: MUTED }}>
+            <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED }}>
               Have a question we haven't answered? Email <a href="mailto:hello@ownproperly.com" style={{ color: GOLD }}>hello@ownproperly.com</a>
             </p>
           </div>
@@ -553,14 +551,14 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
       <section style={{ background: SLATE, padding: '80px 24px', textAlign: 'center' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <h2 style={{ fontSize: 34, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to switch to modern property software?</h2>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, color: '#B0BEC5', marginBottom: 32, lineHeight: 1.75 }}>
+          <p style={{ fontFamily: MONO, fontSize: 14, color: '#B0BEC5', marginBottom: 32, lineHeight: 1.75 }}>
             14 days free. No credit card. If it doesn't beat what you're using now, walk away.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={onSignIn} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff33', fontSize: 14, padding: '16px 36px' }}>Sign in</button>
           </div>
-          <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#5A6A7A', marginTop: 20 }}>14-day free trial · From £2/property/month after (£10/mo minimum) · Cancel anytime</p>
+          <p style={{ fontFamily: MONO, fontSize: 11, color: '#5A6A7A', marginTop: 20 }}>14-day free trial · From £2/property/month after (£10/mo minimum) · Cancel anytime</p>
         </div>
       </section>
 
@@ -568,17 +566,17 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <img src="/wordmark-dark.svg" alt="Properly" style={{ height: 44, marginBottom: 10 }}/>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#6B7899' }}>Property Portfolio Management · Built for UK Landlords</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: '#6B7899' }}>Property Portfolio Management · Built for UK Landlords</div>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {[['Features','features'],['Pricing','pricing']].map(([label,id]) => (
-              <button key={id} onClick={()=>scrollTo(id)} style={{ background: 'none', border: 'none', fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#6B7899', cursor: 'pointer' }}>{label}</button>
+              <button key={id} onClick={()=>scrollTo(id)} style={{ background: 'none', border: 'none', fontFamily: MONO, fontSize: 12, color: '#6B7899', cursor: 'pointer' }}>{label}</button>
             ))}
-            <a href="/blog/" style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: '#6B7899', textDecoration: 'none' }}>Guides</a>
+            <a href="/blog/" style={{ fontFamily: MONO, fontSize: 12, color: '#6B7899', textDecoration: 'none' }}>Guides</a>
           </div>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: '#4A5568' }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: '#4A5568' }}>
             © {new Date().getFullYear()} Properly ·{' '}
-            <button onClick={onPrivacy} style={{ background: 'none', border: 'none', color: '#7A8899', cursor: 'pointer', fontFamily: "'DM Mono',monospace", fontSize: 'inherit', textDecoration: 'underline' }}>Privacy Policy</button>
+            <button onClick={onPrivacy} style={{ background: 'none', border: 'none', color: '#7A8899', cursor: 'pointer', fontFamily: MONO, fontSize: 'inherit', textDecoration: 'underline' }}>Privacy Policy</button>
             {' '} · {' '}
             <a href="mailto:hello@ownproperly.com" style={{ color: '#7A8899', textDecoration: 'none' }}>hello@ownproperly.com</a>
           </div>

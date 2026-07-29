@@ -3,10 +3,10 @@ import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { Icon } from '../lib/icons'
-import { SANS } from '../lib/styles'
+import { MONO, SANS, statusColors } from '../lib/styles'
 const TenantRentCollectionConsent = lazy(() => import('./RentCollectionPanel').then(m => ({ default: m.TenantRentCollectionConsent })))
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
 // Tenant portal colour tokens. The previous hard-coded values were:
@@ -36,11 +36,16 @@ function buildBankReference(bankDetails, property) {
 }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+// AA status pairs from the shared palette (styles.js STATUS.light — text is
+// >=4.5:1 on its own tint). The portal is light-only, so darkMode=false.
+// The old raw hues (#2ECC8A / #C8A84B / #E05555 on 13%-alpha tints) sat at
+// ~1.8–3.8:1 — tenants could not read whether rent showed Paid or Overdue.
+const S = k => statusColors(k, false)
 const STATUS_COLORS = {
-  paid:    { bg:'#2ECC8A22', color:'#2ECC8A', label:'Paid' },
-  overdue: { bg:'#E0555522', color:'#E05555', label:'Overdue' },
-  pending: { bg:'#C8A84B22', color:'#C8A84B', label:'Pending' },
-  void:    { bg:'#88888822', color:'#888',    label:'Void' },
+  paid:    { bg:S('ok').bg,   color:S('ok').text,   label:'Paid' },
+  overdue: { bg:S('bad').bg,  color:S('bad').text,  label:'Overdue' },
+  pending: { bg:S('warn').bg, color:S('warn').text, label:'Pending' },
+  void:    { bg:S('void').bg, color:S('void').text, label:'Void' },
 }
 // When a month holds several rent segments, the worst one wins the square.
 const STATUS_PRIORITY = { overdue: 4, pending: 3, paid: 2, void: 1 }
@@ -57,13 +62,39 @@ function sumForStatus(payments, status, rentPcm) {
   return months * (rentPcm || 0)
 }
 const JOB_STATUS = {
-  open:          { bg:'#E0943A22', color:'#E0943A', label:'Open' },
-  'in-progress': { bg:'#4B8FE022', color:'#4B8FE0', label:'In progress' },
-  complete:      { bg:'#2ECC8A22', color:'#2ECC8A', label:'Complete' },
+  open:          { bg:S('warn').bg, color:S('warn').text, label:'Open' },
+  'in-progress': { bg:S('info').bg, color:S('info').text, label:'In progress' },
+  complete:      { bg:S('ok').bg,   color:S('ok').text,   label:'Complete' },
 }
 
 export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
-  const [tab, setTab]         = useState('home')
+  // Tab state is mirrored to the URL (#/portal/<tab>) so refresh keeps the
+  // tenant where they were, tabs are bookmarkable/shareable ("here's your
+  // rent statement" links), and the browser Back button moves between tabs
+  // instead of exiting the portal. Tenants are the least technical user
+  // group in the product — these three behaviours matter most here.
+  const TAB_KEYS = ['home','rent','maintenance','documents','messages','profile']
+  const parsePortalHash = () => {
+    const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
+    const key = parts[0] === 'portal' ? parts[1] : parts[0]
+    return TAB_KEYS.includes(key) ? key : 'home'
+  }
+  const [tab, setTabInternal] = useState(parsePortalHash)
+  const setTab = (k) => {
+    setTabInternal(k)
+    const target = `#/portal/${k}`
+    if (window.location.hash !== target) window.history.pushState({ portalTab: k }, '', target)
+  }
+  useEffect(() => {
+    const onPop = () => setTabInternal(parsePortalHash())
+    window.addEventListener('popstate', onPop)
+    window.addEventListener('hashchange', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('hashchange', onPop)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [profile, setProfile] = useState(null)
   const [company, setCompany] = useState(null)
   const [bankDetails, setBankDetails] = useState({})
@@ -71,25 +102,48 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   const [error, setError]     = useState(null)
 
   const [features, setFeatures] = useState({})
-  useEffect(() => { loadAll() }, [])
+  // Multi-tenancy: the RPC payload carries a `properties` array of every
+  // tenancy linked to this account; a tenant with more than one gets a
+  // switcher in the sub-header. The chosen property persists per browser.
+  const [tenancies, setTenancies] = useState([])
+  useEffect(() => {
+    let saved = null
+    try { saved = localStorage.getItem(`ownproperly_tenant_property_${user.id}`) } catch { /* ignore */ }
+    loadAll(saved)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  async function loadAll() {
+  async function loadAll(propertyId = null) {
     setLoading(true)
     try {
       // Load tenant's property profile. Bank details and feature flags ride
       // along in the same curated RPC payload — tenants have no direct read
       // access to company_settings.
-      const data = await api.fetchTenantProperty(user.id)
+      let data
+      try {
+        data = await api.fetchTenantProperty(user.id, propertyId)
+      } catch (inner) {
+        // A stale saved property id (tenancy since unlinked) yields no row —
+        // fall back to the default tenancy rather than erroring.
+        if (propertyId) data = await api.fetchTenantProperty(user.id)
+        else throw inner
+      }
       setProfile(data)
 
       const co = data?.property?.company
       setCompany(co)
       setBankDetails(data?.bank_details || {})
       setFeatures(data?.features || {})
+      setTenancies(Array.isArray(data?.properties) ? data.properties : [])
     } catch(e) {
       setError('Unable to load your tenancy. Please contact your landlord.')
     }
     setLoading(false)
+  }
+
+  function switchProperty(propertyId) {
+    try { localStorage.setItem(`ownproperly_tenant_property_${user.id}`, propertyId) } catch { /* ignore */ }
+    loadAll(propertyId)
   }
 
   if (loading) return (
@@ -144,6 +198,11 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
     ['profile', 'Profile',   'users'],
   ]
 
+  // A deep link can name a tab the company has switched off (repairs/docs/
+  // messages are feature-gated) — clamp to Home rather than rendering a
+  // gated panel with no tab highlighted.
+  const visibleTab = TABS.some(([k]) => k === tab) ? tab : 'home'
+
   return (
     <div style={{minHeight:'100vh',background:'#F4F3EF',fontFamily:SANS}}>
 
@@ -182,26 +241,43 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
         </div>
       </div>
 
-      {/* Sub-header: property address */}
+      {/* Sub-header: property address, with a switcher when this account is
+          linked to more than one tenancy (previously the portal silently
+          showed an arbitrary one with no way to reach the others). */}
       <div style={{background:'#364B5F',padding:'10px 24px'}}>
-        <div style={{maxWidth:860,margin:'0 auto',fontFamily:mono,fontSize:11,color:'#8A9BAB'}}>
-          {property?.address||property?.name||'Your property'}
+        <div style={{maxWidth:860,margin:'0 auto',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div style={{fontFamily:mono,fontSize:11,color:'#8A9BAB',flex:'1 1 auto',minWidth:0}}>
+            {property?.address||property?.name||'Your property'}
+          </div>
+          {tenancies.length > 1 && (
+            <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:mono,fontSize:10,color:'#8A9BAB'}}>
+              <span style={{textTransform:'uppercase',letterSpacing:'0.08em'}}>Property</span>
+              <select value={property?.id||''} onChange={e=>switchProperty(e.target.value)}
+                style={{fontFamily:mono,fontSize:11,background:'#2D3C4A',color:'#E7E4DC',border:'1px solid #ffffff22',borderRadius:6,padding:'5px 8px',maxWidth:260}}>
+                {tenancies.map(t=>(
+                  <option key={t.id} value={t.id}>
+                    {(t.address||t.name||'Property')}{t.company_name?` · ${t.company_name}`:''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div style={{maxWidth:860,margin:'0 auto',padding:'28px 24px'}}>
-        {tab==='home'        && <TenantHome property={property} company={company} user={user} contactInfo={contactInfo} brandColor={brandColor} bankDetails={bankDetails}/>}
-        {tab==='rent'        && <>
+        {visibleTab==='home'        && <TenantHome property={property} company={company} user={user} contactInfo={contactInfo} brandColor={brandColor} bankDetails={bankDetails}/>}
+        {visibleTab==='rent'        && <>
           <TenantRent property={property} user={user} bankDetails={bankDetails} brandColor={brandColor}/>
           {features?.rent_collection && (
             <Suspense fallback={null}><TenantRentCollectionConsent propertyId={property.id}/></Suspense>
           )}
         </>}
-        {tab==='maintenance' && <TenantMaintenance property={property} user={user} brandColor={brandColor}/>}
-        {tab==='documents'   && <TenantDocuments property={property} user={user} brandColor={brandColor}/>}
-        {tab==='messages'    && <TenantMessages property={property} user={user} contactInfo={contactInfo} brandColor={brandColor}/>}
-        {tab==='profile'     && <TenantProfile property={property} user={user} company={company}/>}
+        {visibleTab==='maintenance' && <TenantMaintenance property={property} user={user} brandColor={brandColor}/>}
+        {visibleTab==='documents'   && <TenantDocuments property={property} user={user} brandColor={brandColor}/>}
+        {visibleTab==='messages'    && <TenantMessages property={property} user={user} contactInfo={contactInfo} brandColor={brandColor}/>}
+        {visibleTab==='profile'     && <TenantProfile property={property} user={user} company={company}/>}
       </div>
     </div>
   )
@@ -245,7 +321,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
 
       {/* Alert banners */}
       {arrears > 0 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0555518',border:'1px solid #E0555544',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:'#E05555'}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0555518',border:'1px solid #E0555544',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('bad').text}}>
           <Icon name="alert-triangle" size={15} style={{flexShrink:0}}/><span>You have outstanding arrears of <strong>{fmt(arrears)}</strong> — please make payment as soon as possible.</span>
         </div>
       )}
@@ -255,7 +331,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
         </div>
       )}
       {endDays!=null && endDays<=90 && endDays>0 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0943A18',border:'1px solid #E0943A44',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:'#E0943A'}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0943A18',border:'1px solid #E0943A44',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('warn').text}}>
           <Icon name="calendar" size={15} style={{flexShrink:0}}/><span>Your tenancy expires in {endDays} days. Please contact your landlord about renewal.</span>
         </div>
       )}
@@ -269,7 +345,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
         </Card>
         <Card style={{borderLeft:`3px solid ${arrears>0?'#E05555':'#2ECC8A'}`}}>
           <SectionLabel>Current balance</SectionLabel>
-          <div style={{fontSize:28,fontWeight:700,color:arrears>0?'#E05555':'#2ECC8A'}}>{arrears>0?`-${fmt(arrears)}`:'All clear'}</div>
+          <div style={{fontSize:28,fontWeight:700,color:arrears>0?S('bad').text:S('ok').text}}>{arrears>0?`-${fmt(arrears)}`:'All clear'}</div>
           <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginTop:4}}>{arrears>0?'Arrears outstanding':'No arrears'}</div>
         </Card>
       </div>
@@ -321,8 +397,9 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
         {contactInfo ? (
           <>
             <div style={{fontSize:15,fontWeight:700,color:'#2D3C4A',marginBottom:10}}>{contactInfo.name||'—'}</div>
-            {contactInfo.phone&&<div style={{fontFamily:mono,fontSize:12,color:'#666',marginBottom:6}}>📞 <a href={`tel:${contactInfo.phone}`} style={{color:'#4B8FE0',textDecoration:'none'}}>{contactInfo.phone}</a></div>}
-            {contactInfo.email&&<div style={{fontFamily:mono,fontSize:12,color:'#666'}}>✉ <a href={`mailto:${contactInfo.email}`} style={{color:'#4B8FE0',textDecoration:'none'}}>{contactInfo.email}</a></div>}
+            {/* Link hue: old #4B8FE0 was 3.3:1 on white; info text is 4.6:1 (AA) */}
+            {contactInfo.phone&&<div style={{fontFamily:mono,fontSize:12,color:'#666',marginBottom:6}}>📞 <a href={`tel:${contactInfo.phone}`} style={{color:S('info').text,textDecoration:'none'}}>{contactInfo.phone}</a></div>}
+            {contactInfo.email&&<div style={{fontFamily:mono,fontSize:12,color:'#666'}}>✉ <a href={`mailto:${contactInfo.email}`} style={{color:S('info').text,textDecoration:'none'}}>{contactInfo.email}</a></div>}
           </>
         ) : (
           <div style={{fontFamily:mono,fontSize:12,color:'#666',lineHeight:1.7}}>Use the Messages tab to contact your landlord, or the Repairs tab to report a maintenance issue.</div>
@@ -362,9 +439,11 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
   })
 
   const statusConfig = {
-    paid:    { bg:'#2ECC8A22', color:'#2ECC8A', label:'✓' },
-    overdue: { bg:'#E0555522', color:'#E05555', label:'!' },
-    pending: { bg:'#C8A84B22', color:'#C8A84B', label:'~' },
+    paid:    { bg:S('ok').bg,   color:S('ok').text,   label:'✓' },
+    overdue: { bg:S('bad').bg,  color:S('bad').text,  label:'!' },
+    pending: { bg:S('warn').bg, color:S('warn').text, label:'~' },
+    // No shared-palette key for these two. future renders no text (GHOST is
+    // decorative only); unknown's FAINT #6A6764 is ~4.5:1 on #f4f4f4 (AA pass).
     future:  { bg:'#f4f4f4',   color:TENANT_GHOST,    label:'' },
     unknown: { bg:'#f4f4f4',   color:TENANT_FAINT,    label:'?' },
   }
@@ -376,8 +455,8 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
       {/* Arrears alert */}
       {totalArrears > 0 && (
         <div style={{background:'#E0555518',border:'1px solid #E0555544',borderRadius:12,padding:'14px 18px',marginBottom:20}}>
-          <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:'#E05555',marginBottom:4}}>Outstanding arrears: {fmt(totalArrears)}</div>
-          <div style={{fontFamily:mono,fontSize:11,color:'#E05555',lineHeight:1.6}}>Please make payment as soon as possible. See bank details below.</div>
+          <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:S('bad').text,marginBottom:4}}>Outstanding arrears: {fmt(totalArrears)}</div>
+          <div style={{fontFamily:mono,fontSize:11,color:S('bad').text,lineHeight:1.6}}>Please make payment as soon as possible. See bank details below.</div>
         </div>
       )}
 
@@ -385,8 +464,8 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:24}}>
         {[
           {label:'Monthly rent',    value:fmt(property?.rent_pcm), color:'#2D3C4A'},
-          {label:'Total paid',      value:fmt(totalPaid),          color:'#2ECC8A'},
-          {label:'Arrears',         value:totalArrears>0?fmt(totalArrears):'None', color:totalArrears>0?'#E05555':'#2ECC8A'},
+          {label:'Total paid',      value:fmt(totalPaid),          color:S('ok').text},
+          {label:'Arrears',         value:totalArrears>0?fmt(totalArrears):'None', color:totalArrears>0?S('bad').text:S('ok').text},
         ].map(k=>(
           <Card key={k.label}>
             <SectionLabel>{k.label}</SectionLabel>
@@ -398,7 +477,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
       {/* Monthly tracker */}
       <Card style={{marginBottom:20}}>
         <SectionLabel>Payment tracker — last 12 months</SectionLabel>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:8}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(44px,1fr))',gap:8}}>
           {monthTracker.map((m,i)=>{
             const sc = statusConfig[m.status]||statusConfig.unknown
             return (
@@ -413,9 +492,9 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
           })}
         </div>
         <div style={{display:'flex',gap:16,marginTop:16,flexWrap:'wrap'}}>
-          {[['paid','✓','#2ECC8A'],['overdue','!','#E05555'],['pending','~','#C8A84B'],['unknown','?','#bbb']].map(([k,s,c])=>(
+          {['paid','overdue','pending','unknown'].map(k=>(
             <div key={k} style={{display:'flex',alignItems:'center',gap:6,fontFamily:mono,fontSize:10,color:TENANT_MUTED}}>
-              <div style={{width:18,height:18,borderRadius:4,background:statusConfig[k]?.bg,display:'flex',alignItems:'center',justifyContent:'center',color:c,fontWeight:700,fontSize:11}}>{s}</div>
+              <div style={{width:18,height:18,borderRadius:4,background:statusConfig[k]?.bg,display:'flex',alignItems:'center',justifyContent:'center',color:statusConfig[k]?.color,fontWeight:700,fontSize:11}}>{statusConfig[k]?.label}</div>
               {k.charAt(0).toUpperCase()+k.slice(1)}
             </div>
           ))}
@@ -451,14 +530,17 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
         <SectionLabel>Full payment history</SectionLabel>
         {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,padding:24,textAlign:'center'}}>Loading…</div>
         : payments.length===0 ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:24}}>No payment records yet.</div>
-        : <div>
-            <div style={{display:'grid',gridTemplateColumns:'110px 1fr 110px 90px',gap:8,padding:'8px 0',borderBottom:'1px solid #f0f0f0'}}>
+        // Horizontal-scroll wrapper: the 4 fixed-ish columns need ~470px, which
+        // clips on a 375px phone without it. Inner minWidth keeps rows aligned.
+        : <div style={{overflowX:'auto'}}>
+           <div style={{minWidth:460}}>
+            <div style={{display:'grid',gridTemplateColumns:'110px minmax(120px,1fr) 110px 90px',gap:8,padding:'8px 0',borderBottom:'1px solid #f0f0f0'}}>
               {['Date','Period','Amount','Status'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:TENANT_FAINT,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
             {payments.map(p=>{
               const sc = STATUS_COLORS[p.status]||STATUS_COLORS.pending
               return (
-                <div key={p.id} style={{display:'grid',gridTemplateColumns:'110px 1fr 110px 90px',gap:8,padding:'10px 0',borderBottom:'1px solid #f8f8f8',alignItems:'center'}}>
+                <div key={p.id} style={{display:'grid',gridTemplateColumns:'110px minmax(120px,1fr) 110px 90px',gap:8,padding:'10px 0',borderBottom:'1px solid #f8f8f8',alignItems:'center'}}>
                   <div style={{fontFamily:mono,fontSize:11,color:'#888'}}>{p.period_start?new Date(p.period_start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}</div>
                   <div style={{fontFamily:mono,fontSize:11,color:'#2D3C4A'}}>{p.month_label||(p.year&&p.month?`${MONTHS[Number(p.month)-1]} ${p.year}`:'—')}</div>
                   <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:'#2D3C4A'}}>{fmt(p.amount||property?.rent_pcm)}</div>
@@ -466,6 +548,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
                 </div>
               )
             })}
+           </div>
           </div>
         }
       </Card>
@@ -564,7 +647,7 @@ function TenantMaintenance({ property, user, brandColor }) {
       </div>
 
       {success && (
-        <div style={{background:'#2ECC8A18',border:'1px solid #2ECC8A44',borderRadius:10,padding:'12px 16px',marginBottom:16,fontFamily:mono,fontSize:12,color:'#2ECC8A'}}>
+        <div style={{background:'#2ECC8A18',border:'1px solid #2ECC8A44',borderRadius:10,padding:'12px 16px',marginBottom:16,fontFamily:mono,fontSize:12,color:S('ok').text}}>
           Repair request submitted — your landlord has been notified.
         </div>
       )}
@@ -586,10 +669,11 @@ function TenantMaintenance({ property, user, brandColor }) {
           <div style={{marginBottom:14}}>
             <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:8}}>How urgent is this?</label>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              {[['normal','Normal','#4B8FE0'],['high','High priority','#E0943A'],['urgent','Urgent — safety risk','#E05555']].map(([k,l,c])=>(
+              {/* AA text hues (info/warn/bad) — the old raw hues failed 4.5:1 at 11px */}
+              {[['normal','Normal',S('info').text],['high','High priority',S('warn').text],['urgent','Urgent — safety risk',S('bad').text]].map(([k,l,c])=>(
                 <button key={k} onClick={()=>setPriority(k)} style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${priority===k?c:'#e0e0e0'}`,
-                  background:priority===k?c+'22':'transparent',color:priority===k?c:'#999'}}>
+                  background:priority===k?c+'22':'transparent',color:priority===k?c:TENANT_MUTED}}>
                   {l}
                 </button>
               ))}
@@ -610,8 +694,14 @@ function TenantMaintenance({ property, user, brandColor }) {
                 {photos.map((p,i)=>(
                   <div key={i} style={{position:'relative'}}>
                     <img src={p.url} alt="" style={{width:70,height:70,objectFit:'cover',borderRadius:8,border:'1px solid #e0e0e0'}}/>
+                    {/* 44x44 transparent hit area (a11y touch target); the visible
+                        18px circle is the inner span, kept at its original spot.
+                        Circle bg uses the AA 'bad' hue — white on #E05555 was 3.8:1. */}
                     <button onClick={()=>setPhotos(prev=>prev.filter((_,j)=>j!==i))}
-                      style={{position:'absolute',top:-6,right:-6,width:18,height:18,borderRadius:9,background:'#E05555',border:'none',color:'white',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</button>
+                      aria-label={`Remove photo ${p.name||i+1}`}
+                      style={{position:'absolute',top:-19,right:-19,width:44,height:44,padding:0,background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <span aria-hidden="true" style={{width:18,height:18,borderRadius:9,background:S('bad').text,color:'white',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -661,7 +751,7 @@ function TenantMaintenance({ property, user, brandColor }) {
                 )}
                 <div style={{display:'flex',gap:16,fontFamily:mono,fontSize:10,color:TENANT_FAINT,flexWrap:'wrap'}}>
                   <span>Reported {new Date(job.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
-                  {job.priority&&job.priority!=='normal'&&<span style={{color:job.priority==='urgent'?'#E05555':'#E0943A'}}>⚑ {job.priority}</span>}
+                  {job.priority&&job.priority!=='normal'&&<span style={{color:job.priority==='urgent'?S('bad').text:S('warn').text}}>⚑ {job.priority}</span>}
                 </div>
               </Card>
             )

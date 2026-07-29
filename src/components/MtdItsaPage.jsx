@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
@@ -145,7 +146,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 24px', marginBottom: 16 }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: MONO, fontSize: 12, color: T.muted }}>Loading MTD data…</div>
+  if (loading) return <div style={{ display: 'grid', gap: 16 }}><SkeletonTiles count={3}/><SkeletonRows rows={5}/></div>
 
   return (
     <div style={{ maxWidth: 920 }}>

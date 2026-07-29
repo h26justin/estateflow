@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { Icon, ICON_NAMES } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 
@@ -189,7 +190,7 @@ export default function CommandPalette({ open, commands, onClose }) {
                         borderLeft: `3px solid ${active ? T.gold : 'transparent'}`,
                         transition: 'background 0.1s',
                       }}>
-                      <span style={{ fontSize: 16, width: 22, textAlign: 'center' }} aria-hidden="true">{cmd.icon || '•'}</span>
+                      <span style={{ width: 22, display: 'flex', justifyContent: 'center' }} aria-hidden="true">{ICON_NAMES.includes(cmd.icon) ? <Icon name={cmd.icon} size={16}/> : <span style={{ fontSize: 16 }}>{cmd.icon || '•'}</span>}</span>
                       <span style={{ flex: 1, fontSize: 13, color: T.text, fontWeight: active ? 600 : 400 }}>
                         {cmd.label}
                       </span>

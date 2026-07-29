@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, lazy, Suspense, Fragment } from 'react'
+import { MONO } from '../lib/styles'
+import { SkeletonTiles, SkeletonList } from '../lib/Skeleton'
+import Modal from '../lib/Modal'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -11,7 +14,7 @@ import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TI
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 const STATUS_CFG = {
   analysing:  { label:'Analysing',   color:'#4B8FE0' },
@@ -157,10 +160,24 @@ function PortfolioModellerInDeals({ properties = [], T }) {
 export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set(), canUseInvestor = false, convertRefreshKey = 0 }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
+  // ── URL SYNC ───────────────────────────────────────────────────────────────
+  // DealsPage owns the #/deals/… URL segments (same pattern as SettingsPage
+  // with #/settings/<tab>): #/deals/pipeline|lettings|tools for sub-views,
+  // #/deals/deal/<id> for a deal. Previously all of this was un-addressable
+  // local state — refresh lost your place and Back exited Deals entirely.
+  const parseDealsHash = () => {
+    const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
+    if (parts[0] !== 'deals') return null
+    if (parts[1] === 'deal' && parts[2]) return { dealId: parts[2] }
+    return { sub: ['pipeline','lettings','tools'].includes(parts[1]) ? parts[1] : 'list' }
+  }
+  const initialHash = parseDealsHash()
   const [view, setView]       = useState('list')
-  const [dealView, setDealView] = useState('list') // list | pipeline | tools // list | deal
+  const [dealView, setDealView] = useState(initialHash?.sub || 'list') // list | pipeline | lettings | tools
   const [deals, setDeals]     = useState([])
   const [selectedDeal, setSelectedDeal] = useState(null)
+  // Deal id from a deep link — resolved once deals have loaded.
+  const pendingDealId = useRef(initialHash?.dealId || null)
   const [dealTab, setDealTab] = useState('calculator')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -172,6 +189,56 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [triggerNewLetting, setTriggerNewLetting] = useState(false)
 
   useEffect(() => { loadDeals() }, [])
+
+  // Keep the URL in step with where the user is. Entering/leaving a deal is
+  // a place change (pushState, so Back works); switching sub-view tabs
+  // replaces the current entry.
+  const dealsRef = useRef(deals)
+  useEffect(() => { dealsRef.current = deals }, [deals])
+  useEffect(() => {
+    const target = view === 'deal' && selectedDeal
+      ? `#/deals/deal/${selectedDeal.id}`
+      : (dealView !== 'list' ? `#/deals/${dealView}` : '#/deals')
+    if (window.location.hash === target) return
+    const enteringOrLeavingDeal = target.startsWith('#/deals/deal/') || window.location.hash.startsWith('#/deals/deal/')
+    if (enteringOrLeavingDeal) window.history.pushState({ dealsTarget: target }, '', target)
+    else window.history.replaceState({ dealsTarget: target }, '', target)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dealView, selectedDeal?.id])
+
+  // React to browser Back/Forward (and programmatic hash sets) while on
+  // Deals. App.jsx handles leaving the page; this handles movement within it.
+  useEffect(() => {
+    const onPop = () => {
+      const parsed = parseDealsHash()
+      if (!parsed) return
+      if (parsed.dealId) {
+        const d = dealsRef.current.find(x => String(x.id) === String(parsed.dealId))
+        if (d) { setSelectedDeal({ ...d }); setView('deal'); return }
+        pendingDealId.current = parsed.dealId
+        return
+      }
+      setSelectedDeal(null)
+      setView('list')
+      setDealView(parsed.sub)
+    }
+    window.addEventListener('popstate', onPop)
+    window.addEventListener('hashchange', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('hashchange', onPop)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Resolve a deep-linked deal once the list has loaded.
+  useEffect(() => {
+    if (!pendingDealId.current || !deals.length) return
+    const d = deals.find(x => String(x.id) === String(pendingDealId.current))
+    pendingDealId.current = null
+    if (d) { setSelectedDeal({ ...d }); setView('deal') }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deals])
   // App bumps convertRefreshKey after a completed deal has been converted to
   // a property and soft-deleted. Reload the list (the deal is now gone) and
   // drop back to the list view so the user isn't left staring at a deal that
@@ -411,7 +478,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       </div>
 
       {loading
-        ? <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading deals…</div>
+        ? <SkeletonList count={5}/>
         : loadError
           ? <div className="card" style={{padding:48,textAlign:'center'}}>
               <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="alert-triangle" size={34} color={T.red}/></div>
@@ -1586,7 +1653,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
   const isSdlt = (m) => m.milestone_key === 'sdlt_filed'
   const isInsurance = (m) => m.milestone_key === 'insurance_active'
 
-  if (loading) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading tracker…</div>
+  if (loading) return <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonList count={3}/></div>
 
   return (
     <div>
@@ -1959,14 +2026,18 @@ function CompareModal({ deals, companies, onClose }) {
   ]
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:400,padding:24}}>
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:18,width:'100%',maxWidth:900,maxHeight:'90vh',overflowY:'auto'}}>
-        <div style={{padding:'20px 28px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <h2 style={{fontSize:18,fontWeight:700,color:T.text}}>Deal Comparison</h2>
-          <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
-        </div>
-        <div style={{padding:'20px 28px'}}>
-          <div style={{display:'grid',gridTemplateColumns:`160px repeat(${deals.length},1fr)`,gap:0}}>
+    // Canonical Modal shell: previously a hand-rolled fixed overlay with no
+    // focus trap, no dialog role, an unlabelled ✕, and no mobile overrides.
+    <Modal onClose={onClose} size="xl" labelledBy="deal-compare-title">
+      <div style={{padding:'20px 28px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <h2 id="deal-compare-title" style={{fontSize:18,fontWeight:700,color:T.text}}>Deal Comparison</h2>
+        <button onClick={onClose} aria-label="Close comparison" style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px 8px',margin:'-4px -8px'}}>✕</button>
+      </div>
+      <div style={{padding:'20px 28px'}}>
+        {/* Horizontal scroll container: the comparison grid has a fixed
+            160px label column + one column per deal and clipped on mobile. */}
+        <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+          <div style={{display:'grid',gridTemplateColumns:`160px repeat(${deals.length},minmax(140px,1fr))`,gap:0,minWidth:160+deals.length*148}}>
             <div/>
             {deals.map(d=>{
               const co = companies.find(c=>c.id===d.company_id)
@@ -1978,8 +2049,8 @@ function CompareModal({ deals, companies, onClose }) {
               )
             })}
             {rows.map(row=>(
-              <>
-                <div key={row.label+'l'} style={{padding:'10px 0',fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center'}}>
+              <Fragment key={row.label}>
+                <div style={{padding:'10px 0',fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center'}}>
                   {row.label}
                 </div>
                 {deals.map(d=>(
@@ -1987,12 +2058,12 @@ function CompareModal({ deals, companies, onClose }) {
                     {row.fn(d)}
                   </div>
                 ))}
-              </>
+              </Fragment>
             ))}
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -2022,7 +2093,7 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
           { label:'Completed', value: byStage.complete?.length||0, color: '#2ECC8A' },
         ].map(k => (
           <div key={k.label} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 16px' }}>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
             <div style={{ fontSize:18, fontWeight:700, color:k.color }}>{k.value}</div>
           </div>
         ))}
@@ -2036,8 +2107,8 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
             <div key={stage.key} style={{ minWidth:180 }}>
               {/* Column header */}
               <div style={{ padding:'8px 12px', borderRadius:'8px 8px 0 0', background:stage.color+'22', border:`1px solid ${stage.color}44`, borderBottom:'none', marginBottom:0 }}>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, fontWeight:700, color:stage.color }}>{stage.label}</div>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted }}>{stagDeals.length} deal{stagDeals.length!==1?'s':''}</div>
+                <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:stage.color }}>{stage.label}</div>
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.muted }}>{stagDeals.length} deal{stagDeals.length!==1?'s':''}</div>
               </div>
 
               {/* Cards */}
@@ -2056,19 +2127,19 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
                       </div>
                       {/* Company badge */}
                       {co && (
-                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.gold, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
+                        <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.gold, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
                       )}
                       {/* Price */}
                       {deal.purchase_price > 0 && (
-                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:T.text, fontWeight:600, marginBottom:2 }}>{fmt(deal.purchase_price)}</div>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.text, fontWeight:600, marginBottom:2 }}>{fmt(deal.purchase_price)}</div>
                       )}
                       {/* Type badge */}
                       <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:4 }}>
                         {deal.deal_type && (
-                          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, padding:'2px 6px', borderRadius:4, background:T.blue+'22', color:T.blue }}>{deal.deal_type.toUpperCase()}</span>
+                          <span style={{ fontFamily:MONO, fontSize:9, padding:'2px 6px', borderRadius:4, background:T.blue+'22', color:T.blue }}>{deal.deal_type.toUpperCase()}</span>
                         )}
                         {deal.purchase_price > 0 && (
-                          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, padding:'2px 6px', borderRadius:4, background:T.bg, color:T.muted }}>
+                          <span style={{ fontFamily:MONO, fontSize:9, padding:'2px 6px', borderRadius:4, background:T.bg, color:T.muted }}>
                             {((deal.monthly_rent||deal.hmo_rooms*deal.hmo_rent_per_room||0)*12/(deal.purchase_price)*100).toFixed(1)}% yield
                           </span>
                         )}
@@ -2077,12 +2148,12 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
                   )
                 })}
                 {stagDeals.length === 0 && (
-                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted, textAlign:'center', padding:'20px 8px', opacity:0.5 }}>
+                  <div style={{ fontFamily:MONO, fontSize:10, color:T.muted, textAlign:'center', padding:'20px 8px', opacity:0.5 }}>
                     No deals
                   </div>
                 )}
                 {stage.key === 'analysing' && (
-                  <button onClick={onNew} style={{ width:'100%', fontFamily:"'DM Mono',monospace", fontSize:10, padding:'7px', borderRadius:6, border:`1px dashed ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer', marginTop:4 }}>
+                  <button onClick={onNew} style={{ width:'100%', fontFamily:MONO, fontSize:10, padding:'7px', borderRadius:6, border:`1px dashed ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer', marginTop:4 }}>
                     + Add deal
                   </button>
                 )}
@@ -2092,7 +2163,7 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
         })}
       </div>
 
-      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:T.muted, marginTop:12 }}>
+      <div style={{ fontFamily:MONO, fontSize:10, color:T.muted, marginTop:12 }}>
         Click any deal to open it. Change a deal's stage in the deal editor to move it between columns.
       </div>
     </div>

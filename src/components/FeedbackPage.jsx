@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 
 export default function FeedbackPage({ user, showToast }) {
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [type, setType] = useState('feature')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
@@ -12,7 +13,7 @@ export default function FeedbackPage({ user, showToast }) {
   const [sent, setSent] = useState(false)
 
   async function handleSubmit() {
-    if (!subject.trim() || !message.trim()) { showToast('Please fill in all fields'); return }
+    if (!subject.trim() || !message.trim()) { showToast('Please fill in all fields', 'error'); return }
     setSending(true)
     try {
       const typeLabel = type === 'feature' ? 'Feature Request' : type === 'bug' ? 'Bug Report' : 'General Feedback'
@@ -32,7 +33,7 @@ export default function FeedbackPage({ user, showToast }) {
       setSubject('')
       setMessage('')
     } catch(e) {
-      showToast('Failed to send — please email hello@ownproperly.com directly')
+      showToast('Failed to send — please email hello@ownproperly.com directly', 'error')
     }
     setSending(false)
   }

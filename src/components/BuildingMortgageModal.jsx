@@ -6,6 +6,7 @@ import * as api from '../lib/api'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import FocusTrap from '../lib/FocusTrap'
 import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { useConfirm } from '../lib/ConfirmContext'
 
 // ── BUILDING MORTGAGE EDITOR ─────────────────────────────────────────
 // Lets a user attach (or edit) ONE mortgage that covers ALL the units
@@ -38,6 +39,7 @@ function buildingsFor(properties) {
 }
 
 export default function BuildingMortgageModal({ properties, setProperties, onClose }) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const buildings = useMemo(() => buildingsFor(properties), [properties])
   const [selectedKey, setSelectedKey] = useState(buildings[0]?.key || null)
@@ -173,8 +175,8 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
   }).format(n || 0)
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
       <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="building-mortgage-title">
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="building-mortgage-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
@@ -189,7 +191,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
         <div style={{ padding: '14px 26px 22px' }}>
           {/* Building picker */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
+            <label htmlFor="bm-building" style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
               Building ({buildings.length} eligible)
             </label>
             {buildings.length === 0 ? (
@@ -197,7 +199,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                 No multi-unit buildings detected. Buildings are detected automatically when 2+ properties share an address (e.g. "Flat 1, X House" / "Flat 2, X House"). For a single property, edit the mortgage directly from the property's edit form.
               </div>
             ) : (
-              <select value={selectedKey || ''} onChange={e => pickBuilding(e.target.value)}
+              <select id="bm-building" value={selectedKey || ''} onChange={e => pickBuilding(e.target.value)}
                 style={{ width: '100%', fontFamily: MONO, fontSize: 13, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '10px 12px' }}>
                 {buildings.map(b => (
                   <option key={b.key} value={b.key}>
@@ -238,7 +240,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                 <input ref={fileInputRef} type="file" accept="application/pdf,image/*"
                   style={{ display: 'none' }}
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleScanPdf(f); e.target.value = '' }}/>
-                <button onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}
                   className="btn btn-ghost" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
                   {scanning ? 'Scanning…' : 'Upload PDF'}
                 </button>
@@ -256,31 +258,31 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
               )}
 
               {/* Form */}
-              <div style={{ display: 'grid', gap: 12, marginBottom: 14 }}>
+              <form id="bm-form" onSubmit={e => { e.preventDefault(); handleSave() }} style={{ display: 'grid', gap: 12, marginBottom: 14 }}>
                 <div className="g2">
                   <div>
-                    <label>Total Loan</label>
-                    <input value={totalLoan} onChange={e => setTotalLoan(e.target.value)} placeholder="e.g. 913068.75" />
+                    <label htmlFor="bm-total-loan">Total Loan</label>
+                    <input id="bm-total-loan" value={totalLoan} onChange={e => setTotalLoan(e.target.value)} placeholder="e.g. 913068.75" />
                   </div>
                   <div>
-                    <label>Total Monthly Payment</label>
-                    <input value={totalMonthly} onChange={e => setTotalMonthly(e.target.value)} placeholder="e.g. 4025.11" />
+                    <label htmlFor="bm-total-monthly">Total Monthly Payment</label>
+                    <input id="bm-total-monthly" value={totalMonthly} onChange={e => setTotalMonthly(e.target.value)} placeholder="e.g. 4025.11" />
                   </div>
                 </div>
                 <div className="g2">
                   <div>
-                    <label>Rate (%)</label>
-                    <input value={rate} onChange={e => setRate(e.target.value)} placeholder="e.g. 6.40" />
+                    <label htmlFor="bm-rate">Rate (%)</label>
+                    <input id="bm-rate" value={rate} onChange={e => setRate(e.target.value)} placeholder="e.g. 6.40" />
                   </div>
                   <div>
-                    <label>Term (years)</label>
-                    <input type="number" value={term} onChange={e => setTerm(e.target.value)} placeholder="25" />
+                    <label htmlFor="bm-term">Term (years)</label>
+                    <input id="bm-term" type="number" value={term} onChange={e => setTerm(e.target.value)} placeholder="25" />
                   </div>
                 </div>
                 <div className="g2">
                   <div>
-                    <label>Type</label>
-                    <select value={type} onChange={e => setType(e.target.value)}>
+                    <label htmlFor="bm-type">Type</label>
+                    <select id="bm-type" value={type} onChange={e => setType(e.target.value)}>
                       <option value="repayment">Repayment</option>
                       <option value="interest_only">Interest-only</option>
                       <option value="mixed">Mixed (IO + repayment)</option>
@@ -288,11 +290,11 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                     </select>
                   </div>
                   <div>
-                    <label>Setup / Arrangement Fees (total)</label>
-                    <input value={fees} onChange={e => setFees(e.target.value)} placeholder="e.g. 9375.00" />
+                    <label htmlFor="bm-fees">Setup / Arrangement Fees (total)</label>
+                    <input id="bm-fees" value={fees} onChange={e => setFees(e.target.value)} placeholder="e.g. 9375.00" />
                   </div>
                 </div>
-              </div>
+              </form>
 
               {/* Per-unit preview */}
               <div style={{ background: T.gold + '11', border: `1px solid ${T.gold}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
@@ -316,8 +318,8 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12 }}>Cancel</button>
-                <button onClick={handleSave} disabled={saving || unitCount === 0} className="btn btn-gold" style={{ fontSize: 12 }}>
+                <button type="button" onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12 }}>Cancel</button>
+                <button type="submit" form="bm-form" disabled={saving || unitCount === 0} className="btn btn-gold" style={{ fontSize: 12 }}>
                   {saving ? `Updating ${unitCount} units…` : `💾 Save across ${unitCount} units`}
                 </button>
               </div>

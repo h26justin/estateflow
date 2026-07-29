@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 const TYPE_CONFIG = {
   properties:         { icon: 'home', label: 'Property',    color: '#C8A84B' },
@@ -147,8 +148,8 @@ export default function TrashPage({ user, onRestored }) {
                 style={{
                   fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:20, cursor:'pointer',
                   border:`1px solid ${filter===tab.key?T.gold:T.border}`,
-                  background:filter===tab.key?T.gold+'22':'transparent',
-                  color:filter===tab.key?T.gold:T.muted,
+                  background:filter===tab.key?T.gold:'transparent',
+                  color:filter===tab.key?'#1C2830':T.muted,
                   fontWeight:filter===tab.key?700:400,
                 }}>
                 {tab.icon && <span style={{marginRight:4,display:'inline-flex',verticalAlign:'-2px'}}>{ICON_NAMES.includes(tab.icon)?<Icon name={tab.icon} size={13}/>:tab.icon}</span>}
@@ -157,8 +158,10 @@ export default function TrashPage({ user, onRestored }) {
             ))}
           </div>
 
-          {/* Items */}
+          {/* Items — horizontal scroll on narrow screens, same pattern as the compliance matrix */}
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
+            <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+            <div style={{minWidth:660}}>
             <div style={{display:'grid',gridTemplateColumns:'100px 1fr 140px 140px 200px',gap:12,padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
               {['Type','Item','Deleted','Auto-purge in','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
@@ -190,6 +193,8 @@ export default function TrashPage({ user, onRestored }) {
                 </div>
               )
             })}
+            </div>
+            </div>
           </div>
 
           <div style={{fontFamily:mono,fontSize:11,color:T.faint,marginTop:12,textAlign:'center'}}>

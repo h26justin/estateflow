@@ -1,6 +1,7 @@
 import { useTheme } from '../lib/ThemeContext'
+import { MONO } from '../lib/styles'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 // Terms of Service for OwnProperly Ltd.
 // Drafted to satisfy:

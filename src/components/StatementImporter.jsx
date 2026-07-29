@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react'
+import { MONO } from '../lib/styles'
 import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 import { safeOverlayClose } from '../lib/modalUtils'
+import { useConfirm } from '../lib/ConfirmContext'
 import FocusTrap from '../lib/FocusTrap'
 import MoneyInput from '../lib/MoneyInput'
 import { loadCdnScript } from '../lib/loadCdnScript'
@@ -57,7 +59,8 @@ async function extractPDFText(file) {
 // Parsers imported from lib/statementParser.js
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
-export function StatementImporter({properties, companies, showToast, onClose}) {
+export function StatementImporter({properties, companies, showToast, onClose, asPage = false}) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const [step, setStep] = useState('upload') // upload | preview | importing | done
   const [format, setFormat] = useState(null)
@@ -219,17 +222,17 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
   const unmatchedItems = items.filter(i => i.include && !i.propertyId)
   const totalToImport = includedItems.reduce((s,i) => s + (i.type==='rent' ? i.editAmount : 0), 0)
 
-  return (
-    <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose)}>
-      <FocusTrap onEscape={() => safeOverlayClose(step !== 'upload' && step !== 'done', onClose)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{maxWidth:720,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}} role="dialog" aria-modal="true" aria-labelledby="statement-importer-title">
+  // Header + steps + content, shared between the routed page (#/import) and
+  // the legacy modal shell.
+  const inner = (
+    <>
 
         {/* Header */}
         <div style={{padding:'20px 24px',borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div>
               <h2 id="statement-importer-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>Import Statement</h2>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+              <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                 {step==='upload'&&'Upload a PNE or RMS rental statement PDF'}
                 {step==='preview'&&`${format} Statement · ${parsed?.date} · ${items.length} items found`}
                 {step==='importing'&&'Importing data…'}
@@ -247,10 +250,10 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                   background:step===s?T.gold:['upload','preview','done'].indexOf(step)>i?T.green:T.surface,
                   border:`1px solid ${step===s?T.gold:['upload','preview','done'].indexOf(step)>i?T.green:T.border}`,
                   display:'flex',alignItems:'center',justifyContent:'center',
-                  fontFamily:"'DM Mono',monospace",fontSize:9,color:step===s?'black':'white',fontWeight:700}}>
+                  fontFamily:MONO,fontSize:9,color:step===s?'#1C2830':['upload','preview','done'].indexOf(step)>i?'#0E3B27':T.muted,fontWeight:700}}>
                   {['upload','preview','done'].indexOf(step)>i?'✓':i+1}
                 </div>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:step===s?T.gold:T.muted,textTransform:'uppercase'}}>
+                <span style={{fontFamily:MONO,fontSize:10,color:step===s?T.gold:T.muted,textTransform:'uppercase'}}>
                   {s}
                 </span>
                 {i<2&&<div style={{width:20,height:1,background:T.border}}/>}
@@ -272,10 +275,10 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                 onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
                 <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="file-text" size={36} color={T.faint}/></div>
                 <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:6}}>Drop your statement PDF here</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:16}}>or click to browse</div>
+                <div style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:16}}>or click to browse</div>
                 <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
                   {[{l:'PNE / Propertunity',c:T.gold},{l:'Rook Matthews Sayer',c:T.blue}].map(x=>(
-                    <span key={x.l} style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:x.c,background:x.c+'22',padding:'3px 10px',borderRadius:20,border:`1px solid ${x.c}44`}}>{x.l}</span>
+                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.c,background:x.c+'22',padding:'3px 10px',borderRadius:20,border:`1px solid ${x.c}44`}}>{x.l}</span>
                   ))}
                 </div>
               </div>
@@ -283,14 +286,14 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                 onChange={e=>e.target.files[0]&&handleFile(e.target.files[0])}/>
 
               {loading&&(
-                <div style={{textAlign:'center',padding:20,fontFamily:"'DM Mono',monospace",color:T.gold,fontSize:12}}>
+                <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.gold,fontSize:12}}>
                   <div style={{marginBottom:8}}>Reading PDF…</div>
                   <div style={{fontSize:10,color:T.muted}}>Extracting text and detecting format</div>
                 </div>
               )}
 
               <div style={{marginTop:20,padding:16,background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>How it works</div>
+                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>How it works</div>
                 <div style={{display:'grid',gap:6}}>
                   {[
                     '1. Upload your PNE or RMS statement PDF',
@@ -298,7 +301,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                     '3. Check property matches — fix any that didn\'t auto-match',
                     '4. Click Confirm Import — rent payments, fees and maintenance are logged instantly',
                   ].map((t,i)=>(
-                    <div key={i} style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.text}}>{t}</div>
+                    <div key={i} style={{fontFamily:MONO,fontSize:11,color:T.text}}>{t}</div>
                   ))}
                 </div>
               </div>
@@ -316,14 +319,14 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                   {l:'Items to Import', v:`${includedItems.length} of ${items.length}`, c:T.gold},
                 ].map((item,i)=>(
                   <div key={i} style={{background:T.bg,borderRadius:8,padding:'12px 14px'}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',marginBottom:4}}>{item.l}</div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:item.c}}>{item.v}</div>
+                    <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',marginBottom:4}}>{item.l}</div>
+                    <div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:item.c}}>{item.v}</div>
                   </div>
                 ))}
               </div>
 
               {unmatchedItems.length>0&&(
-                <div style={{background:'#2B1A0A',border:`1px solid ${T.amber}`,borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.amber}}>
+                <div style={{background:T.amber+'1A',border:`1px solid ${T.amber}`,borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:MONO,fontSize:11,color:T.amber}}>
                   ⚠ {unmatchedItems.length} item{unmatchedItems.length!==1?'s':''} couldn't be matched to a property automatically. Please assign them below or toggle them off.
                 </div>
               )}
@@ -349,7 +352,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                       <div style={{flex:1,minWidth:200}}>
                         {/* Type badge + property name */}
                         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginBottom:6}}>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:700,
+                          <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,
                             color:typeColor[item.type],background:typeColor[item.type]+'22',
                             padding:'1px 6px',borderRadius:20}}>
                             {typeIcon[item.type]} {typeLabel[item.type]}
@@ -357,17 +360,17 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
 
                           {/* Property match */}
                           {item.propertyId
-                            ? <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.green}}>✓ {item.matchedName}</span>
-                            : <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.amber}}>Unmatched</span>
+                            ? <span style={{fontFamily:MONO,fontSize:10,color:T.green}}>✓ {item.matchedName}</span>
+                            : <span style={{fontFamily:MONO,fontSize:10,color:T.amber}}>Unmatched</span>
                           }
                         </div>
 
                         {/* From statement */}
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:4}}>
+                        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:4}}>
                           From statement: <span style={{color:T.text}}>{item.propertyName}</span>
                         </div>
 
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>
+                        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>
                           {item.description}
                           {item.tenant&&<span style={{color:T.faint}}> · {item.tenant}</span>}
                         </div>
@@ -407,20 +410,20 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                                 <option key={p.id} value={p.id}>{p.name}</option>
                               ))}
                             </select>
-                            <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.faint,marginLeft:4}}>change if wrong</span>
+                            <span style={{fontFamily:MONO,fontSize:9,color:T.faint,marginLeft:4}}>change if wrong</span>
                           </div>
                         )}
                       </div>
 
                       {/* Amount editor */}
                       <div style={{textAlign:'right',flexShrink:0}}>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,marginBottom:3}}>AMOUNT</div>
+                        <div style={{fontFamily:MONO,fontSize:9,color:T.muted,marginBottom:3}}>AMOUNT</div>
                         <div style={{display:'flex',alignItems:'center',gap:4}}>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:T.muted}}>£</span>
+                          <span style={{fontFamily:MONO,fontSize:13,color:T.muted}}>£</span>
                           <MoneyInput allowDecimals
                             value={item.editAmount}
                             onChange={v=>updateItem(idx,'editAmount',v||0)}
-                            style={{width:90,textAlign:'right',fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,
+                            style={{width:90,textAlign:'right',fontFamily:MONO,fontSize:13,fontWeight:700,
                               color:typeColor[item.type],padding:'3px 6px'}}/>
                         </div>
                       </div>
@@ -436,7 +439,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
             <div style={{textAlign:'center',padding:40}}>
               <div style={{fontSize:40,marginBottom:16}}>⏳</div>
               <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:8}}>Importing data…</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
+              <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>
                 Logging rent payments, fees and maintenance jobs
               </div>
             </div>
@@ -454,16 +457,16 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
                   {l:'Maintenance jobs logged', v:importResults.maintenance, c:T.blue},
                 ].map((item,i)=>(
                   <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 14px',background:T.surface,borderRadius:8}}>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:item.c}}>{item.v}</span>
+                    <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
+                    <span style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:item.c}}>{item.v}</span>
                   </div>
                 ))}
               </div>
               {importResults.errors.length>0&&(
-                <div style={{background:'#2B1010',border:`1px solid ${T.red}`,borderRadius:8,padding:12,marginBottom:16,textAlign:'left'}}>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,marginBottom:6}}>ERRORS</div>
+                <div style={{background:T.red+'14',border:`1px solid ${T.red}`,borderRadius:8,padding:12,marginBottom:16,textAlign:'left'}}>
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.red,marginBottom:6}}>ERRORS</div>
                   {importResults.errors.map((e,i)=>(
-                    <div key={i} style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{e}</div>
+                    <div key={i} style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{e}</div>
                   ))}
                 </div>
               )}
@@ -475,7 +478,7 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
         {/* Footer */}
         {step==='preview'&&(
           <div style={{padding:'16px 24px',borderTop:`1px solid ${T.border}`,flexShrink:0,display:'flex',gap:10,alignItems:'center'}}>
-            <div style={{flex:1,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>
+            <div style={{flex:1,fontFamily:MONO,fontSize:11,color:T.muted}}>
               {includedItems.length} items selected · {fmt(totalToImport)} rent to log
               {unmatchedItems.length>0&&<span style={{color:T.amber}}> · {unmatchedItems.length} unmatched</span>}
             </div>
@@ -486,6 +489,24 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
             </button>
           </div>
         )}
+    </>
+  )
+
+  // Routed page mode (#/import): a multi-step reconcile workflow deserves a
+  // page, not a modal — no nested scroll box, no accidental backdrop close.
+  if (asPage) return (
+    <div className="fade" style={{maxWidth:760,margin:'0 auto'}}>
+      <div className="card" style={{padding:0,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+        {inner}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)}>
+      <FocusTrap onEscape={() => safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{maxWidth:720,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}} role="dialog" aria-modal="true" aria-labelledby="statement-importer-title">
+        {inner}
       </div>
       </FocusTrap>
     </div>

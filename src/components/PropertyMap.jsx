@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
@@ -36,7 +37,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   const [heatmapMetric, setHeatmapMetric] = useState('rent')  // 'rent' | 'yield' | 'arrears'
   const heatmapSourceId = 'ownproperly-heat-source'
   const heatmapLayerId  = 'ownproperly-heat-layer'
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
 
   // Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
   // status badges agree visually.
@@ -465,7 +466,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
             {searchQ && (
               <button onClick={() => setSearchQ('')}
                 aria-label="Clear search"
-                style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 4px' }}>×</button>
+                aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '8px' , margin: '-8px -4px'}}>×</button>
             )}
           </div>
         )}
@@ -495,7 +496,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                   {popupProp.company?.abbr || ''}
                 </div>
                 <button onClick={() => setPopupProp(null)} aria-label="Close"
-                  style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+                  aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{popupProp.name}</div>
               <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 4 }}>{popupProp.address}</div>
@@ -524,7 +525,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
               )}
             </div>
             <button onClick={() => onOpenProperty && onOpenProperty(popupProp.id)}
-              style={{ display: 'block', width: '100%', padding: '11px 16px', border: 'none', borderTop: `1px solid ${T.border}`, background: T.gold, color: 'white', fontFamily: mono, fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}>
+              style={{ display: 'block', width: '100%', padding: '11px 16px', border: 'none', borderTop: `1px solid ${T.border}`, background: T.gold, color: '#1C2830', fontFamily: mono, fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}>
               Open property →
             </button>
           </div>
@@ -552,7 +553,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                     Building · {sorted.length} {sorted.length === 1 ? 'property' : 'properties'}
                   </div>
                   <button onClick={() => setPopupGroup(null)} aria-label="Close"
-                    style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+                    aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{buildingLabel}</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
@@ -651,7 +652,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 function Row({ label, value, valueColor }) {
   const { T } = useTheme()
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 11 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11 }}>
       <span style={{ color: T.muted }}>{label}</span>
       <span style={{ color: valueColor || T.text, fontWeight: 600 }}>{value}</span>
     </div>

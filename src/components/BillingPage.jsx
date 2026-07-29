@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
@@ -7,7 +8,7 @@ import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [subs, setSubs]         = useState([])
   const [loading, setLoading]   = useState(true)
   const [loadError, setLoadError] = useState(null)
