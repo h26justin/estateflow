@@ -321,15 +321,24 @@ function getMonthlyRentStats(payments, year, rentPcm) {
     const key = `${p.year}-${p.month}`
     ;(byMonth[key] ||= []).push(p)
   }
-  let paid = 0, missed = 0, late = 0, refurb = 0, voidM = 0, income = 0
+  // Time-aware counts: future months are pre-created as voids
+  // (ensureFutureRentMonths) and STL bookings create future PAID months, so
+  // anything feeding a "how are we collecting" rate must only look at months
+  // up to the current one. voidM is past-months-only for the same reason —
+  // an empty August that hasn't happened yet isn't a void.
+  const _now = new Date()
+  const _curKey = _now.getFullYear() * 12 + _now.getMonth() + 1
+  let paid = 0, missed = 0, late = 0, refurb = 0, voidM = 0, income = 0, paidToDate = 0
   for (const key in byMonth) {
     const segs = byMonth[key]
     const dom = monthDominantStatus(segs)
-    if (dom === 'paid') paid++
+    const [ky, km] = key.split('-').map(Number)
+    const isFuture = (ky * 12 + km) > _curKey
+    if (dom === 'paid') { paid++; if (!isFuture) paidToDate++ }
     else if (dom === 'overdue' || dom === 'missed') missed++
     else if (dom === 'late' || dom === 'partial') late++   // partial = attention bucket
     else if (dom === 'refurb') refurb++
-    else if (dom === 'void') voidM++
+    else if (dom === 'void') { if (!isFuture) voidM++ }
     // Income credits actual amounts from paid AND partial segments (matching the
     // Reports module); the rent_pcm fallback only covers a legacy amount-less
     // PAID row, never a partial (a partial without an amount contributes £0).
@@ -338,7 +347,7 @@ function getMonthlyRentStats(payments, year, rentPcm) {
     const monthIncome = incomeSegs.reduce((s, p) => s + (Number(p.amount) || 0), 0)
     income += monthIncome > 0 ? monthIncome : (fullPaidSegs.length ? (rentPcm || 0) : 0)
   }
-  return { paid, missed, late, refurb, voidM, income }
+  return { paid, missed, late, refurb, voidM, income, paidToDate }
 }
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
@@ -4377,14 +4386,20 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
         const visProps = visCos.flatMap(c => properties.filter(p => p.company_id===c.id && (p.rent_payments?.length>0 || isPropertyEarningRent(p.status))))
         if (!visProps.length) return null
-        const agg = visProps.reduce((a,p)=>{ const s=getStats(p.rent_payments||[], globalYear, p.rent_pcm); a.paid+=s.paid; a.missed+=s.missed; a.late+=s.late; a.income+=s.income; return a }, {paid:0,missed:0,late:0,income:0})
-        const tracked = agg.paid + agg.missed + agg.late
-        const rate = tracked ? Math.round((agg.paid / tracked) * 100) : 0
+        const agg = visProps.reduce((a,p)=>{ const s=getStats(p.rent_payments||[], globalYear, p.rent_pcm); a.paid+=s.paid; a.paidToDate+=s.paidToDate; a.missed+=s.missed; a.late+=s.late; a.voidM+=s.voidM; a.income+=s.income; return a }, {paid:0,paidToDate:0,missed:0,late:0,voidM:0,income:0})
+        // Collection rate counts VOID months against the portfolio: of every
+        // month that has happened so far (paid / missed / late / void), how
+        // many actually paid. Future months are excluded on both sides —
+        // pre-created future voids aren't losses yet, and prepaid future STL
+        // bookings aren't collections yet. Refurb months are deliberately
+        // out (not lettable).
+        const tracked = agg.paidToDate + agg.missed + agg.late + agg.voidM
+        const rate = tracked ? Math.round((agg.paidToDate / tracked) * 100) : null
         const tiles = [
           { label: globalYear ? `Collected · ${globalYear}` : 'Collected · all years', value: fmt(agg.income), accent: T.green },
-          { label: 'Collection rate', value: `${rate}%`, accent: rate>=95?T.green:rate>=85?T.amber:T.red },
+          { label: 'Collection rate', value: rate === null ? '—' : `${rate}%`, accent: rate === null ? T.muted : rate>=95?T.green:rate>=85?T.amber:T.red },
           { label: 'Months paid', value: agg.paid, accent: T.text },
-          { label: 'Missed / late', value: `${agg.missed} / ${agg.late}`, accent: (agg.missed>0)?T.red:T.amber },
+          { label: 'Missed / late / void', value: `${agg.missed} / ${agg.late} / ${agg.voidM}`, accent: (agg.missed>0)?T.red:(agg.late>0)?T.amber:T.muted },
         ]
         return (
           <div className="summary-cards" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:isMobile?14:20}}>
