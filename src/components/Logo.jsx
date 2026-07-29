@@ -44,3 +44,16 @@ export function ChromeLogo({ height = 26, style }) {
   const { darkMode } = useTheme()
   return <Logo variant={darkMode ? 'sidebar' : 'short'} height={height} style={style} />
 }
+
+// Tile-only chrome mark (collapsed nav rail): solid signal tile on dark,
+// standard navy tile on light. The tile alone is the small-size mark.
+export function ChromeIcon({ size = 30, style }) {
+  const { darkMode } = useTheme()
+  return (
+    <img
+      src={darkMode ? '/brand/icon-signal.svg' : '/monogram-dark.svg'}
+      alt="Properly"
+      style={{ width: size, height: size, display: 'block', ...style }}
+    />
+  )
+}
