@@ -69,7 +69,7 @@ import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
-import { ChromeLogo } from './components/Logo'
+import { ChromeLogo, ChromeIcon } from './components/Logo'
 import { complianceStatusFor, complianceBadge, certTypeStatus } from './lib/complianceStatus'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
@@ -2040,12 +2040,10 @@ export default function App() {
           outer paddingLeft reserves. Mobile keeps the bottom tab bar instead. */}
       {!isMobile && (
         <aside style={{position:'fixed',left:0,top:0,bottom:0,width:railWidth,background:T.surface,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',zIndex:120}}>
-          {/* Brand block */}
-          <div style={{display:'flex',alignItems:'center',gap:10,padding:railCollapsed?'14px 0':'14px 16px',justifyContent:railCollapsed?'center':'flex-start',height:52,flexShrink:0,borderBottom:`1px solid ${T.border}`}}>
-            <div style={{width:32,height:32,borderRadius:9,background:'#14202A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <span style={{fontFamily:SANS,fontWeight:700,fontSize:17,letterSpacing:'-0.04em',color:'#F4F3EF'}}>P<span style={{color:'#CBA64E'}}>.</span></span>
-            </div>
-            {!railCollapsed && <span style={{fontSize:18,letterSpacing:'-0.02em',color:T.text,whiteSpace:'nowrap'}}><span style={{fontWeight:500}}>Own</span><span style={{fontWeight:700}}>Properly</span></span>}
+          {/* Brand block — Properly mark (design/properly-brand): tile only
+              when collapsed, sidebar/short lockup when expanded. */}
+          <div style={{display:'flex',alignItems:'center',padding:railCollapsed?'14px 0':'14px 16px',justifyContent:railCollapsed?'center':'flex-start',height:52,flexShrink:0,borderBottom:`1px solid ${T.border}`}}>
+            {railCollapsed ? <ChromeIcon size={30}/> : <ChromeLogo height={26}/>}
           </div>
           {/* Nav items */}
           <nav style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'10px 8px',display:'flex',flexDirection:'column',gap:2}}>
