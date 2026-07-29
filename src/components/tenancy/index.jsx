@@ -17,6 +17,8 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({})
   const [saving, setSaving]     = useState(false)
+  // Inline required-field highlighting once a save is tried with fields missing.
+  const [triedSave, setTriedSave] = useState(false)
 
   useEffect(() => {
     api.fetchRightToRent(propertyId).then(d => { setRecords(d); setLoading(false) }).catch(() => setLoading(false))
@@ -32,6 +34,13 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
   ]
 
   async function save() {
+    // Same required fields the save button used to gate on — surfaced
+    // inline + via toast instead of a silently disabled button.
+    if (!form.tenant_name || !form.check_date) {
+      setTriedSave(true)
+      showToast('Tenant name and check date are required', 'error')
+      return
+    }
     setSaving(true)
     try {
       const saved = await api.saveRightToRent({ ...form, property_id: propertyId, user_id: userId })
@@ -45,6 +54,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
 
   const inp = { fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%' }
   const lbl = { fontFamily:mono, fontSize:10, color:T.muted, display:'block', marginBottom:5 }
+  const errStyle = { fontFamily:mono, fontSize:10, color:T.red, display:'block', marginTop:4 }
 
   const isExpired = (date) => date && new Date(date) < new Date()
   const isExpiring = (date) => {
@@ -60,35 +70,49 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
         </div>
-        <button onClick={() => { setForm({}); setShowForm(true) }}
+        <button onClick={() => { setForm({}); setTriedSave(false); setShowForm(true) }}
           style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 14px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
           + Add check
         </button>
       </div>
 
       {showForm && (
-        <div style={{ background:T.card, border:`1px solid ${T.gold}44`, borderRadius:12, padding:'18px 20px', marginBottom:14 }}>
+        <form onSubmit={e=>{e.preventDefault(); save()}} style={{ background:T.card, border:`1px solid ${T.gold}44`, borderRadius:12, padding:'18px 20px', marginBottom:14 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
-            <div><label style={lbl}>Tenant name *</label><input value={form.tenant_name||''} onChange={e=>setForm(p=>({...p,tenant_name:e.target.value}))} placeholder="Full legal name" style={inp}/></div>
-            <div><label style={lbl}>Document type</label>
-              <select value={form.doc_type||'passport'} onChange={e=>setForm(p=>({...p,doc_type:e.target.value}))} style={inp}>
+            <div>
+              <label style={lbl} htmlFor="rtr-tenant-name">Tenant name *</label>
+              <input id="rtr-tenant-name" value={form.tenant_name||''} onChange={e=>setForm(p=>({...p,tenant_name:e.target.value}))} placeholder="Full legal name"
+                style={triedSave && !form.tenant_name ? {...inp, borderColor:T.red} : inp}
+                aria-invalid={triedSave && !form.tenant_name ? 'true' : undefined}
+                aria-describedby={triedSave && !form.tenant_name ? 'rtr-tenant-name-err' : undefined}/>
+              {triedSave && !form.tenant_name && <span id="rtr-tenant-name-err" style={errStyle}>Required</span>}
+            </div>
+            <div><label style={lbl} htmlFor="rtr-doc-type">Document type</label>
+              <select id="rtr-doc-type" value={form.doc_type||'passport'} onChange={e=>setForm(p=>({...p,doc_type:e.target.value}))} style={inp}>
                 {DOC_TYPES.map(d=><option key={d.key} value={d.key}>{d.label}</option>)}
               </select>
             </div>
-            <div><label style={lbl}>Document reference / number</label><input value={form.doc_reference||''} onChange={e=>setForm(p=>({...p,doc_reference:e.target.value}))} placeholder="Passport no. etc" style={inp}/></div>
-            <div><label style={lbl}>Check date *</label><input type="date" value={form.check_date||''} onChange={e=>setForm(p=>({...p,check_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Document expiry date</label><input type="date" value={form.expiry_date||''} onChange={e=>setForm(p=>({...p,expiry_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Follow-up check date</label><input type="date" value={form.follow_up_date||''} onChange={e=>setForm(p=>({...p,follow_up_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="rtr-doc-ref">Document reference / number</label><input id="rtr-doc-ref" value={form.doc_reference||''} onChange={e=>setForm(p=>({...p,doc_reference:e.target.value}))} placeholder="Passport no. etc" style={inp}/></div>
+            <div>
+              <label style={lbl} htmlFor="rtr-check-date">Check date *</label>
+              <input id="rtr-check-date" type="date" value={form.check_date||''} onChange={e=>setForm(p=>({...p,check_date:e.target.value}))}
+                style={triedSave && !form.check_date ? {...inp, borderColor:T.red} : inp}
+                aria-invalid={triedSave && !form.check_date ? 'true' : undefined}
+                aria-describedby={triedSave && !form.check_date ? 'rtr-check-date-err' : undefined}/>
+              {triedSave && !form.check_date && <span id="rtr-check-date-err" style={errStyle}>Required</span>}
+            </div>
+            <div><label style={lbl} htmlFor="rtr-expiry-date">Document expiry date</label><input id="rtr-expiry-date" type="date" value={form.expiry_date||''} onChange={e=>setForm(p=>({...p,expiry_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="rtr-follow-up">Follow-up check date</label><input id="rtr-follow-up" type="date" value={form.follow_up_date||''} onChange={e=>setForm(p=>({...p,follow_up_date:e.target.value}))} style={inp}/></div>
           </div>
-          <div style={{ marginBottom:10 }}><label style={lbl}>Notes</label><textarea value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
+          <div style={{ marginBottom:10 }}><label style={lbl} htmlFor="rtr-notes">Notes</label><textarea id="rtr-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={save} disabled={saving||!form.tenant_name||!form.check_date}
+            <button type="submit" disabled={saving}
               style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'8px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
               {saving?'Saving…':'Save record'}
             </button>
-            <button onClick={()=>setShowForm(false)} style={{ fontFamily:mono, fontSize:12, padding:'8px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Cancel</button>
+            <button type="button" onClick={()=>setShowForm(false)} style={{ fontFamily:mono, fontSize:12, padding:'8px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Cancel</button>
           </div>
-        </div>
+        </form>
       )}
 
       {loading ? <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>Loading…</div>
@@ -114,7 +138,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
                 {expired && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
                 {expiring && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
                 {followUpDue && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'#4B8FE022', color:'#4B8FE0' }}>Follow-up due</span>}
-                <button onClick={()=>{setForm(r);setShowForm(true)}} style={{ fontFamily:mono, fontSize:10, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
+                <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:mono, fontSize:10, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:16, marginTop:8, flexWrap:'wrap' }}>
@@ -182,33 +206,33 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
       </div>
 
       {showForm && (
-        <div style={{ background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
+        <form onSubmit={e=>{e.preventDefault(); save()}} style={{ background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-            <div><label style={lbl}>Tenant name</label><input value={form.tenant_name||''} onChange={e=>setForm(p=>({...p,tenant_name:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Deposit amount</label><MoneyInput prefix="£" value={form.amount} onChange={v=>setForm(p=>({...p,amount:v}))} style={inp}/></div>
-            <div><label style={lbl}>Protection scheme</label>
-              <select value={form.scheme||'dps'} onChange={e=>setForm(p=>({...p,scheme:e.target.value}))} style={inp}>
+            <div><label style={lbl} htmlFor="dp-tenant-name">Tenant name</label><input id="dp-tenant-name" value={form.tenant_name||''} onChange={e=>setForm(p=>({...p,tenant_name:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="dp-amount">Deposit amount</label><MoneyInput id="dp-amount" prefix="£" value={form.amount} onChange={v=>setForm(p=>({...p,amount:v}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="dp-scheme">Protection scheme</label>
+              <select id="dp-scheme" value={form.scheme||'dps'} onChange={e=>setForm(p=>({...p,scheme:e.target.value}))} style={inp}>
                 {SCHEMES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
             </div>
-            <div><label style={lbl}>Certificate / reference number</label><input value={form.reference||''} onChange={e=>setForm(p=>({...p,reference:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Date registered</label><input type="date" value={form.registered_date||''} onChange={e=>setForm(p=>({...p,registered_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Prescribed info sent to tenant</label>
-              <select value={form.prescribed_info_sent||'no'} onChange={e=>setForm(p=>({...p,prescribed_info_sent:e.target.value}))} style={inp}>
+            <div><label style={lbl} htmlFor="dp-reference">Certificate / reference number</label><input id="dp-reference" value={form.reference||''} onChange={e=>setForm(p=>({...p,reference:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="dp-registered">Date registered</label><input id="dp-registered" type="date" value={form.registered_date||''} onChange={e=>setForm(p=>({...p,registered_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="dp-info-sent">Prescribed info sent to tenant</label>
+              <select id="dp-info-sent" value={form.prescribed_info_sent||'no'} onChange={e=>setForm(p=>({...p,prescribed_info_sent:e.target.value}))} style={inp}>
                 <option value="yes">Yes — confirmed sent</option>
                 <option value="no">No — not yet sent</option>
               </select>
             </div>
-            <div style={{gridColumn:'span 2'}}><label style={lbl}>Notes</label><textarea value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
+            <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="dp-notes">Notes</label><textarea id="dp-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={save} disabled={saving}
+            <button type="submit" disabled={saving}
               style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1C2830', cursor: 'pointer' }}>
               {saving ? 'Saving…' : 'Save'}
             </button>
-            <button onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
           </div>
-        </div>
+        </form>
       )}
 
       {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
@@ -315,37 +339,37 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
       )}
 
       {showForm && (
-        <div style={{ background: T.card, border: `1px solid ${T.red}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
+        <form onSubmit={e=>{e.preventDefault(); save()}} style={{ background: T.card, border: `1px solid ${T.red}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-            <div><label style={lbl}>Notice type</label>
-              <select value={form.notice_type||'s21'} onChange={e=>setForm(p=>({...p,notice_type:e.target.value}))} style={inp}>
+            <div><label style={lbl} htmlFor="nt-type">Notice type</label>
+              <select id="nt-type" value={form.notice_type||'s21'} onChange={e=>setForm(p=>({...p,notice_type:e.target.value}))} style={inp}>
                 {NOTICE_TYPES.map(n => <option key={n.key} value={n.key}>{n.label}</option>)}
               </select>
             </div>
-            <div><label style={lbl}>Status</label>
-              <select value={form.status||'draft'} onChange={e=>setForm(p=>({...p,status:e.target.value}))} style={inp}>
+            <div><label style={lbl} htmlFor="nt-status">Status</label>
+              <select id="nt-status" value={form.status||'draft'} onChange={e=>setForm(p=>({...p,status:e.target.value}))} style={inp}>
                 {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
             </div>
             {form.notice_type === 's8' && (
-              <div style={{gridColumn:'span 2'}}><label style={lbl}>Ground(s)</label>
-                <select value={form.grounds||''} onChange={e=>setForm(p=>({...p,grounds:e.target.value}))} style={inp}>
+              <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="nt-grounds">Ground(s)</label>
+                <select id="nt-grounds" value={form.grounds||''} onChange={e=>setForm(p=>({...p,grounds:e.target.value}))} style={inp}>
                   <option value="">Select ground…</option>
                   {S8_GROUNDS.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
             )}
-            <div><label style={lbl}>Date served / issued</label><input type="date" value={form.served_date||''} onChange={e=>setForm(p=>({...p,served_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Expiry / possession date</label><input type="date" value={form.expiry_date||''} onChange={e=>setForm(p=>({...p,expiry_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Court hearing date</label><input type="date" value={form.court_date||''} onChange={e=>setForm(p=>({...p,court_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Solicitor / agent reference</label><input value={form.solicitor_ref||''} onChange={e=>setForm(p=>({...p,solicitor_ref:e.target.value}))} style={inp}/></div>
-            <div style={{gridColumn:'span 2'}}><label style={lbl}>Notes</label><textarea value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
+            <div><label style={lbl} htmlFor="nt-served">Date served / issued</label><input id="nt-served" type="date" value={form.served_date||''} onChange={e=>setForm(p=>({...p,served_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="nt-expiry">Expiry / possession date</label><input id="nt-expiry" type="date" value={form.expiry_date||''} onChange={e=>setForm(p=>({...p,expiry_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="nt-court">Court hearing date</label><input id="nt-court" type="date" value={form.court_date||''} onChange={e=>setForm(p=>({...p,court_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="nt-ref">Solicitor / agent reference</label><input id="nt-ref" value={form.solicitor_ref||''} onChange={e=>setForm(p=>({...p,solicitor_ref:e.target.value}))} style={inp}/></div>
+            <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="nt-notes">Notes</label><textarea id="nt-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={save} disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
-            <button onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
+            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
           </div>
-        </div>
+        </form>
       )}
 
       {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
@@ -422,33 +446,33 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
       </div>
 
       {showForm && (
-        <div style={{ background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
+        <form onSubmit={e=>{e.preventDefault(); save()}} style={{ background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-            <div><label style={lbl}>Change type</label>
-              <select value={form.change_type||'increase'} onChange={e=>setForm(p=>({...p,change_type:e.target.value}))} style={inp}>
+            <div><label style={lbl} htmlFor="rh-change-type">Change type</label>
+              <select id="rh-change-type" value={form.change_type||'increase'} onChange={e=>setForm(p=>({...p,change_type:e.target.value}))} style={inp}>
                 <option value="increase">Rent increase</option>
                 <option value="decrease">Rent decrease</option>
                 <option value="initial">Initial rent (at start)</option>
                 <option value="review">Scheduled review</option>
               </select>
             </div>
-            <div><label style={lbl}>Effective date</label><input type="date" value={form.effective_date||''} onChange={e=>setForm(p=>({...p,effective_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Previous rent</label><MoneyInput prefix="£" suffix="/mo" value={form.previous_rent} onChange={v=>setForm(p=>({...p,previous_rent:v}))} style={inp}/></div>
-            <div><label style={lbl}>New rent</label><MoneyInput prefix="£" suffix="/mo" value={form.new_rent} onChange={v=>setForm(p=>({...p,new_rent:v}))} style={inp}/></div>
-            <div><label style={lbl}>Next review date</label><input type="date" value={form.next_review_date||''} onChange={e=>setForm(p=>({...p,next_review_date:e.target.value}))} style={inp}/></div>
-            <div><label style={lbl}>Notice served to tenant</label>
-              <select value={form.notice_served||'no'} onChange={e=>setForm(p=>({...p,notice_served:e.target.value}))} style={inp}>
+            <div><label style={lbl} htmlFor="rh-effective">Effective date</label><input id="rh-effective" type="date" value={form.effective_date||''} onChange={e=>setForm(p=>({...p,effective_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="rh-prev-rent">Previous rent</label><MoneyInput id="rh-prev-rent" prefix="£" suffix="/mo" value={form.previous_rent} onChange={v=>setForm(p=>({...p,previous_rent:v}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="rh-new-rent">New rent</label><MoneyInput id="rh-new-rent" prefix="£" suffix="/mo" value={form.new_rent} onChange={v=>setForm(p=>({...p,new_rent:v}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="rh-review">Next review date</label><input id="rh-review" type="date" value={form.next_review_date||''} onChange={e=>setForm(p=>({...p,next_review_date:e.target.value}))} style={inp}/></div>
+            <div><label style={lbl} htmlFor="rh-notice-served">Notice served to tenant</label>
+              <select id="rh-notice-served" value={form.notice_served||'no'} onChange={e=>setForm(p=>({...p,notice_served:e.target.value}))} style={inp}>
                 <option value="yes">Yes</option>
                 <option value="no">No</option>
               </select>
             </div>
-            <div style={{gridColumn:'span 2'}}><label style={lbl}>Notes</label><input value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inp}/></div>
+            <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="rh-notes">Notes</label><input id="rh-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inp}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={save} disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
-            <button onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
+            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
           </div>
-        </div>
+        </form>
       )}
 
       {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
@@ -496,6 +520,8 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({})
   const [saving, setSaving]     = useState(false)
+  // Inline required-field highlighting once renewal is tried with no end date.
+  const [triedSave, setTriedSave] = useState(false)
 
   useEffect(() => {
     api.fetchTenancyDetails(propertyId)
@@ -515,7 +541,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
   const color = { expired:'#E05555', urgent:'#E0943A', soon:'#C8A84B', upcoming:'#4B8FE0' }[urgency]
 
   async function handleRenew() {
-    if (!form.new_end_date) { showToast('Enter new end date', 'error'); return }
+    if (!form.new_end_date) { setTriedSave(true); showToast('Enter new end date', 'error'); return }
     setSaving(true)
     try {
       await api.updateTenancyDetails(propertyId, { tenancy_end: form.new_end_date })
@@ -541,34 +567,37 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
           </div>
         </div>
         {!showForm && (
-          <button onClick={() => { setForm({ new_end_date: '', new_rent: rentPcm || '' }); setShowForm(true) }}
+          <button onClick={() => { setForm({ new_end_date: '', new_rent: rentPcm || '' }); setTriedSave(false); setShowForm(true) }}
             style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
             Renew tenancy
           </button>
         )}
       </div>
       {showForm && (
-        <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <form onSubmit={e => { e.preventDefault(); handleRenew() }} style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4 }}>New end date</div>
-            <input type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
-              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', outline: 'none' }}/>
+            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4, display: 'block' }}>New end date</label>
+            <input id="tr-end-date" type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
+              aria-invalid={triedSave && !form.new_end_date ? 'true' : undefined}
+              aria-describedby={triedSave && !form.new_end_date ? 'tr-end-date-err' : undefined}
+              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${triedSave && !form.new_end_date ? (T?.red || '#E05555') : (T?.border || '#ddd')}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', outline: 'none' }}/>
+            {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: 10, color: T?.red || '#E05555', display: 'block', marginTop: 4 }}>Required</span>}
           </div>
           <div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4 }}>New rent (optional)</div>
-            <MoneyInput prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
+            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4, display: 'block' }}>New rent (optional)</label>
+            <MoneyInput id="tr-new-rent" prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
               placeholder="Same as current"
               style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120, outline: 'none' }}/>
           </div>
-          <button onClick={handleRenew} disabled={saving || !form.new_end_date}
+          <button type="submit" disabled={saving}
             style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>
             {saving ? 'Saving…' : 'Confirm renewal'}
           </button>
-          <button onClick={() => setShowForm(false)}
+          <button type="button" onClick={() => setShowForm(false)}
             style={{ fontFamily: mono, fontSize: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T?.border || '#ddd'}`, background: 'transparent', color: T?.muted || '#888', cursor: 'pointer' }}>
             Cancel
           </button>
-        </div>
+        </form>
       )}
     </div>
   )

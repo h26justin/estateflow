@@ -1667,7 +1667,7 @@ export default function App() {
         action: () => { setSelectedId(null); setPortfolioTab('contractors'); setView('properties') } },
       { id:'nav:daytracker', icon:'calendar', label:'Go to Day Tracker', group:'navigate', keywords:'rent day tracker',
         action: () => { setSelectedId(null); setView('daytracker') } },
-      { id:'nav:feedback', icon:'💬', label:'Send Feedback', group:'navigate', keywords:'feedback bug feature',
+      { id:'nav:feedback', icon:'message', label:'Send Feedback', group:'navigate', keywords:'feedback bug feature',
         action: () => { setView('feedback'); setSelectedId(null) } },
     )
     // Settings sub-tabs — "Settings → Billing" etc., from the shared registry.
@@ -1691,7 +1691,7 @@ export default function App() {
     // Open property by name/address
     for (const p of properties) {
       cmds.push({
-        id: `prop:${p.id}`, icon: '🏠', label: p.name || p.address || 'Untitled property',
+        id: `prop:${p.id}`, icon: 'home', label: p.name || p.address || 'Untitled property',
         keywords: `${p.address || ''} ${p.company?.name || ''} ${p.company?.abbr || ''}`.trim(),
         group: 'open',
         hint: p.company?.abbr,
@@ -1701,7 +1701,7 @@ export default function App() {
     // Open company by name
     for (const c of companies) {
       cmds.push({
-        id: `co:${c.id}`, icon: '🏢', label: c.name,
+        id: `co:${c.id}`, icon: 'grid', label: c.name,
         keywords: c.abbr,
         group: 'open',
         hint: 'Company',
@@ -1710,14 +1710,14 @@ export default function App() {
     }
     // Quick actions (matches the "+ New" menu)
     cmds.push(
-      { id:'act:add-prop',   icon:'🏠', label:'Add Property',         group:'create', action:()=>{ setEditProp(null); setShowAddProp(true) } },
-      { id:'act:add-bulk',   icon:'🏘', label:'Add Block of Flats',   group:'create', action:()=>openWorkflow('bulk-add') },
-      { id:'act:add-co',     icon:'🏢', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
-      { id:'act:import',     icon:'📄', label:'Import Statement',     group:'create', action:()=>openWorkflow('import') },
-      { id:'act:scan-receipt', icon:'📷', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
-      { id:'act:dark',       icon:'🌙', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+      { id:'act:add-prop',   icon:'home', label:'Add Property',         group:'create', action:()=>{ setEditProp(null); setShowAddProp(true) } },
+      { id:'act:add-bulk',   icon:'building', label:'Add Block of Flats',   group:'create', action:()=>openWorkflow('bulk-add') },
+      { id:'act:add-co',     icon:'grid', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
+      { id:'act:import',     icon:'file-text', label:'Import Statement',     group:'create', action:()=>openWorkflow('import') },
+      { id:'act:scan-receipt', icon:'receipt', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
+      { id:'act:dark',       icon:'moon', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
         group:'action', keywords: 'theme toggle', action:()=>setDarkMode(!darkMode) },
-      { id:'act:signout',    icon:'↗', label:'Sign Out',              group:'action', action:()=>supabase.auth.signOut() },
+      { id:'act:signout',    icon:'log-out', label:'Sign Out',              group:'action', action:()=>supabase.auth.signOut() },
     )
     return cmds
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2358,25 +2358,25 @@ export default function App() {
                       background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                       padding:'6px',minWidth:210,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
-                        {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
-                        {icon:'🏘',label:'Add Block of Flats', action:()=>openWorkflow('bulk-add')},
-                        {icon:'🏢',label:'Add Company',     action:()=>setShowAddCo(true)},
-                        {icon:'📄',label:'Import Statement',action:()=>openWorkflow('import')},
-                        {icon:'📷',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
+                        {icon:'home',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
+                        {icon:'building',label:'Add Block of Flats', action:()=>openWorkflow('bulk-add')},
+                        {icon:'grid',label:'Add Company',     action:()=>setShowAddCo(true)},
+                        {icon:'file-text',label:'Import Statement',action:()=>openWorkflow('import')},
+                        {icon:'receipt',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
                         // For these three "drill into a property" actions:
                         // if the user has exactly one property, just open it on
                         // the right tab. If they have many, take them to the
                         // portfolio so they can pick. (Was previously a toast
                         // instruction with no action — looked broken.)
-                        {icon:'💰',label:'Log Expense',     action:()=>{
+                        {icon:'pound',label:'Log Expense',     action:()=>{
                           if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
                           else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log against' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                         }},
-                        {icon:'📋',label:'Add Compliance',  action:()=>{
+                        {icon:'clipboard-check',label:'Add Compliance',  action:()=>{
                           if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('compliance'); setView('detail') }
                           else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to add a certificate to' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                         }},
-                        {icon:'🔧',label:'Log Maintenance', action:()=>{
+                        {icon:'wrench',label:'Log Maintenance', action:()=>{
                           if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('maintenance'); setView('detail') }
                           else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                         }},
@@ -2388,7 +2388,7 @@ export default function App() {
                             transition:'background 0.15s'}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                           onMouseLeave={e=>e.currentTarget.style.background='none'}>
-                          <span style={{fontSize:16,width:22,textAlign:'center'}}>{item.icon}</span>
+                          <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={16}/>:<span style={{fontSize:16}}>{item.icon}</span>}</span>
                           <span style={{fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
                         </button>
                       ))}
@@ -2456,11 +2456,11 @@ export default function App() {
                       background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                       padding:'6px',minWidth:180,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
-                        {icon:'⌘', label:'Search & jump…', hint:'⌘K', action:()=>setShowPalette(true)},
-                        {icon:'❓',label:'Help & Guides', action:()=>openSettingsTab('help')},
-                        {icon:'🗑',label:'Trash', action:()=>openSettingsTab('trash')},
-                        {icon:'💬',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
-                        {icon:'↗', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
+                        {icon:'search', label:'Search & jump…', hint:'⌘K', action:()=>setShowPalette(true)},
+                        {icon:'sparkle',label:'Help & Guides', action:()=>openSettingsTab('help')},
+                        {icon:'trash',label:'Trash', action:()=>openSettingsTab('trash')},
+                        {icon:'message',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
+                        {icon:'log-out', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
                       ].map((item,i,arr)=>(
                         <button key={item.label} role="menuitem"
                           onClick={()=>{item.action();setShowMoreMenu(false)}}
@@ -2471,7 +2471,7 @@ export default function App() {
                             transition:'background 0.15s'}}
                           onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                           onMouseLeave={e=>e.currentTarget.style.background='none'}>
-                          <span style={{fontSize:14,width:22,textAlign:'center'}}>{item.icon}</span>
+                          <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={15}/>:<span style={{fontSize:14}}>{item.icon}</span>}</span>
                           <span style={{flex:1,fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
                           {item.hint && <span style={{fontFamily:MONO,fontSize:10,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
                         </button>
@@ -2544,17 +2544,17 @@ export default function App() {
             {/* Drawer footer */}
             <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
               {[
-                {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}},
-                {icon:'🏘',label:'Add Block of Flats', action:()=>{openWorkflow('bulk-add');setShowDrawer(false)}},
-                {icon:'🏢',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
-                {icon:'📄',label:'Import Statement',action:()=>{openWorkflow('import');setShowDrawer(false)}},
-                {icon:'📷',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
-                {icon:'💰',label:'Log Expense',     action:()=>{
+                {icon:'home',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}},
+                {icon:'building',label:'Add Block of Flats', action:()=>{openWorkflow('bulk-add');setShowDrawer(false)}},
+                {icon:'grid',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
+                {icon:'file-text',label:'Import Statement',action:()=>{openWorkflow('import');setShowDrawer(false)}},
+                {icon:'receipt',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
+                {icon:'pound',label:'Log Expense',     action:()=>{
                   if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
                   else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log against' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                   setShowDrawer(false)
                 }},
-                {icon:'🔧',label:'Log Maintenance', action:()=>{
+                {icon:'wrench',label:'Log Maintenance', action:()=>{
                   if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('maintenance'); setView('detail') }
                   else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                   setShowDrawer(false)
@@ -2563,7 +2563,7 @@ export default function App() {
                 <button key={item.label} onClick={item.action}
                   style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
                     background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',textAlign:'left'}}>
-                  <span style={{fontSize:15}}>{item.icon}</span>
+                  <span style={{display:'flex',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={15}/>:<span style={{fontSize:15}}>{item.icon}</span>}</span>
                   <span style={{fontFamily:MONO,fontSize:11,color:T.text,fontWeight:500}}>{item.label}</span>
                 </button>
               ))}
@@ -2733,13 +2733,13 @@ export default function App() {
 
               const SECTION_DEFS = {
                 kpi_grid: {
-                  icon: '📊',
+                  icon: 'pie-chart',
                   label: 'KPI cards',
                   description: 'Portfolio value, monthly rent, arrears, and other key metrics',
                   render: () => renderKpiGrid(),
                 },
                 by_company: {
-                  icon: '🏢',
+                  icon: 'grid',
                   label: 'By Company',
                   description: 'A card per company with its property/rent stats',
                   render: () => renderByCompany(),
@@ -3435,7 +3435,7 @@ export default function App() {
                                          handleArchiveProp(selected.id, true)
                                      }}]
                               ),
-                              { label: 'Delete property', icon: '🗑',
+                              { label: 'Delete property', icon: 'trash',
                                 destructive: true,
                                 onSelect: () => setShowDeleteConfirm(selected.id) },
                             ] : []),

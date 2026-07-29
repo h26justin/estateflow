@@ -458,7 +458,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
             background: 'transparent', border: `1px solid ${T.border}`, color: T.text }}>
           Edit
         </button>
-        <button onClick={onDelete}
+        <button onClick={onDelete} aria-label={`Delete policy ${policy.policy_name || ''}`.trim()}
           style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
             background: 'transparent', border: `1px solid ${T.red}44`, color: T.red }}>
           ✕
@@ -861,8 +861,13 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
     setPropertyIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id])
   }
 
+  // Inline required-field highlighting — set once the user has tried to
+  // save with something missing (same pattern as PropertyModal).
+  const [triedSave, setTriedSave] = useState(false)
+
   function handleSubmit() {
     if (!form.policy_name || !form.company_id || !form.start_date || !form.expiry_date) {
+      setTriedSave(true)
       showAppToast('Policy name, company, start date and expiry date are required.', 'error')
       return
     }
@@ -876,6 +881,10 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
 
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'block' }
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '8px 12px', width: '100%', outline: 'none' }
+  const errStyle = { fontFamily: mono, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }
+  // Merge the red required-border into the shared input style when a field
+  // failed the last save attempt.
+  const inpErr = (bad) => bad ? { ...inp, borderColor: T.red } : inp
 
   return (
     <div className="overlay" onClick={overlayClose}>
@@ -892,31 +901,37 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
           </p>
         </div>
 
-        <div style={{ padding: '0 28px 28px', display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
+        <form onSubmit={e => { e.preventDefault(); handleSubmit() }} style={{ padding: '0 28px 28px', display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl}>Policy Name *</label>
-              <input style={inp} value={form.policy_name} onChange={e => s('policy_name', e.target.value)}
-                placeholder="e.g. Buildings Insurance 2026" />
+              <label style={lbl} htmlFor="policy-name">Policy Name *</label>
+              <input id="policy-name" style={inpErr(triedSave && !form.policy_name)} value={form.policy_name} onChange={e => s('policy_name', e.target.value)}
+                placeholder="e.g. Buildings Insurance 2026"
+                aria-invalid={triedSave && !form.policy_name ? 'true' : undefined}
+                aria-describedby={triedSave && !form.policy_name ? 'policy-name-err' : undefined} />
+              {triedSave && !form.policy_name && <span id="policy-name-err" style={errStyle}>Required</span>}
             </div>
             <div>
-              <label style={lbl}>Company *</label>
-              <select style={inp} value={form.company_id} onChange={e => s('company_id', e.target.value)}>
+              <label style={lbl} htmlFor="policy-company">Company *</label>
+              <select id="policy-company" style={inpErr(triedSave && !form.company_id)} value={form.company_id} onChange={e => s('company_id', e.target.value)}
+                aria-invalid={triedSave && !form.company_id ? 'true' : undefined}
+                aria-describedby={triedSave && !form.company_id ? 'policy-company-err' : undefined}>
                 {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {triedSave && !form.company_id && <span id="policy-company-err" style={errStyle}>Required</span>}
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl}>Policy Type</label>
-              <select style={inp} value={form.policy_type} onChange={e => s('policy_type', e.target.value)}>
+              <label style={lbl} htmlFor="policy-type">Policy Type</label>
+              <select id="policy-type" style={inp} value={form.policy_type} onChange={e => s('policy_type', e.target.value)}>
                 {api.POLICY_TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
               </select>
             </div>
             <div>
-              <label style={lbl}>Payment Frequency</label>
-              <select style={inp} value={form.payment_freq} onChange={e => s('payment_freq', e.target.value)}>
+              <label style={lbl} htmlFor="policy-freq">Payment Frequency</label>
+              <select id="policy-freq" style={inp} value={form.payment_freq} onChange={e => s('payment_freq', e.target.value)}>
                 <option value="annual">Annual (one-off)</option>
                 <option value="monthly">Monthly</option>
               </select>
@@ -925,39 +940,45 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl}>Provider</label>
-              <input style={inp} value={form.provider} onChange={e => s('provider', e.target.value)}
+              <label style={lbl} htmlFor="policy-provider">Provider</label>
+              <input id="policy-provider" style={inp} value={form.provider} onChange={e => s('provider', e.target.value)}
                 placeholder="e.g. Direct Line, AXA" />
             </div>
             <div>
-              <label style={lbl}>Broker (optional)</label>
-              <input style={inp} value={form.broker} onChange={e => s('broker', e.target.value)} />
+              <label style={lbl} htmlFor="policy-broker">Broker (optional)</label>
+              <input id="policy-broker" style={inp} value={form.broker} onChange={e => s('broker', e.target.value)} />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl}>Policy Number</label>
-              <input style={inp} value={form.policy_number} onChange={e => s('policy_number', e.target.value)} />
+              <label style={lbl} htmlFor="policy-number">Policy Number</label>
+              <input id="policy-number" style={inp} value={form.policy_number} onChange={e => s('policy_number', e.target.value)} />
             </div>
             <div>
-              <label style={lbl}>Start Date *</label>
-              <input style={inp} type="date" value={form.start_date} onChange={e => s('start_date', e.target.value)} />
+              <label style={lbl} htmlFor="policy-start">Start Date *</label>
+              <input id="policy-start" style={inpErr(triedSave && !form.start_date)} type="date" value={form.start_date} onChange={e => s('start_date', e.target.value)}
+                aria-invalid={triedSave && !form.start_date ? 'true' : undefined}
+                aria-describedby={triedSave && !form.start_date ? 'policy-start-err' : undefined} />
+              {triedSave && !form.start_date && <span id="policy-start-err" style={errStyle}>Required</span>}
             </div>
             <div>
-              <label style={lbl}>Expiry Date *</label>
-              <input style={inp} type="date" value={form.expiry_date} onChange={e => s('expiry_date', e.target.value)} />
+              <label style={lbl} htmlFor="policy-expiry">Expiry Date *</label>
+              <input id="policy-expiry" style={inpErr(triedSave && !form.expiry_date)} type="date" value={form.expiry_date} onChange={e => s('expiry_date', e.target.value)}
+                aria-invalid={triedSave && !form.expiry_date ? 'true' : undefined}
+                aria-describedby={triedSave && !form.expiry_date ? 'policy-expiry-err' : undefined} />
+              {triedSave && !form.expiry_date && <span id="policy-expiry-err" style={errStyle}>Required</span>}
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl}>Annual Premium</label>
-              <MoneyInput prefix="£" value={form.premium} onChange={v => s('premium', v)} style={inp} />
+              <label style={lbl} htmlFor="policy-premium">Annual Premium</label>
+              <MoneyInput id="policy-premium" prefix="£" value={form.premium} onChange={v => s('premium', v)} style={inp} />
             </div>
             <div>
-              <label style={lbl}>Reminder (days before expiry)</label>
-              <input style={inp} type="number" min={0} value={form.reminder_days}
+              <label style={lbl} htmlFor="policy-reminder">Reminder (days before expiry)</label>
+              <input id="policy-reminder" style={inp} type="number" min={0} value={form.reminder_days}
                 onChange={e => s('reminder_days', e.target.value)} />
             </div>
           </div>
@@ -981,11 +1002,11 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
               }}>
                 {/* Select all / none */}
                 <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 6, paddingBottom: 6, borderBottom: `1px solid ${T.border}`, marginBottom: 4 }}>
-                  <button onClick={() => setPropertyIds(availableProps.map(p => p.id))}
+                  <button type="button" onClick={() => setPropertyIds(availableProps.map(p => p.id))}
                     style={{ fontFamily: mono, fontSize: 9, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
                     Select all
                   </button>
-                  <button onClick={() => setPropertyIds([])}
+                  <button type="button" onClick={() => setPropertyIds([])}
                     style={{ fontFamily: mono, fontSize: 9, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
                     Clear
                   </button>
@@ -1012,19 +1033,19 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
           </div>
 
           <div>
-            <label style={lbl}>Notes</label>
-            <textarea style={{ ...inp, minHeight: 60, resize: 'vertical' }}
+            <label style={lbl} htmlFor="policy-notes">Notes</label>
+            <textarea id="policy-notes" style={{ ...inp, minHeight: 60, resize: 'vertical' }}
               value={form.notes} onChange={e => s('notes', e.target.value)}
               placeholder="Excess, claim limits, other policy details…" />
           </div>
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
-            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onClose}>Cancel</button>
-            <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={handleSubmit}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-gold" style={{ fontSize: 12 }}>
               {isRenewal ? 'Save Renewal' : isNew ? 'Add Policy' : 'Save Changes'}
             </button>
           </div>
-        </div>
+        </form>
       </div>
       </FocusTrap>
     </div>

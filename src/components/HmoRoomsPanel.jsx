@@ -38,6 +38,9 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
   const [addingRoom, setAddingRoom] = useState(false)
   const [editingRoomId, setEditingRoomId] = useState(null)
   const [savingRoom, setSavingRoom] = useState(false)
+  // Inline required-field highlighting — set once a room save is tried with
+  // the name missing (same pattern as PropertyModal).
+  const [triedRoomSave, setTriedRoomSave] = useState(false)
 
   const blankLic = { licence_type: 'mandatory', authority: '', licence_number: '', issued_date: '', expiry_date: '', status: 'active', notes: '' }
   const [licForm, setLicForm]   = useState(blankLic)
@@ -59,19 +62,19 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
   const arrearsIds = new Set(roll.arrears.map(a => a.id))
 
   // ── Room handlers ──────────────────────────────────────────────────
-  function startAddRoom() { setRoomForm(blankRoom); setEditingRoomId(null); setAddingRoom(true) }
+  function startAddRoom() { setRoomForm(blankRoom); setEditingRoomId(null); setTriedRoomSave(false); setAddingRoom(true) }
   function startEditRoom(r) {
     setRoomForm({
       room_name: r.room_name || '', rent_pcm: r.rent_pcm ?? '', tenant_name: r.tenant_name || '',
       tenancy_start: r.tenancy_start || '', tenancy_end: r.tenancy_end || '',
       status: r.status || 'vacant', notes: r.notes || '',
     })
-    setEditingRoomId(r.id); setAddingRoom(true)
+    setEditingRoomId(r.id); setTriedRoomSave(false); setAddingRoom(true)
   }
-  function cancelRoom() { setAddingRoom(false); setEditingRoomId(null); setRoomForm(blankRoom) }
+  function cancelRoom() { setAddingRoom(false); setEditingRoomId(null); setRoomForm(blankRoom); setTriedRoomSave(false) }
 
   async function saveRoom() {
-    if (!roomForm.room_name.trim()) { showAppToast('Room name is required', 'error'); return }
+    if (!roomForm.room_name.trim()) { setTriedRoomSave(true); showAppToast('Room name is required', 'error'); return }
     setSavingRoom(true)
     try {
       if (editingRoomId) {
@@ -177,48 +180,54 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
           <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
             {editingRoomId ? 'Edit room' : 'New room'}
           </div>
+          <form onSubmit={e => { e.preventDefault(); saveRoom() }}>
           <div className="g2">
             <div>
-              <label>Room name</label>
-              <input value={roomForm.room_name} onChange={e => setRoomForm(f => ({ ...f, room_name: e.target.value }))} placeholder="e.g. Room 1 (en-suite)" />
+              <label htmlFor="room-name">Room name</label>
+              <input id="room-name" value={roomForm.room_name} onChange={e => setRoomForm(f => ({ ...f, room_name: e.target.value }))} placeholder="e.g. Room 1 (en-suite)"
+                style={triedRoomSave && !roomForm.room_name.trim() ? { borderColor: T.red } : undefined}
+                aria-invalid={triedRoomSave && !roomForm.room_name.trim() ? 'true' : undefined}
+                aria-describedby={triedRoomSave && !roomForm.room_name.trim() ? 'room-name-err' : undefined} />
+              {triedRoomSave && !roomForm.room_name.trim() && <span id="room-name-err" style={{ fontFamily: MONO, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
             </div>
             <div>
-              <label>Rent (PCM)</label>
-              <input type="number" inputMode="decimal" value={roomForm.rent_pcm} onChange={e => setRoomForm(f => ({ ...f, rent_pcm: e.target.value }))} placeholder="550" />
+              <label htmlFor="room-rent">Rent (PCM)</label>
+              <input id="room-rent" type="number" inputMode="decimal" value={roomForm.rent_pcm} onChange={e => setRoomForm(f => ({ ...f, rent_pcm: e.target.value }))} placeholder="550" />
             </div>
           </div>
           <div className="g2" style={{ marginTop: 10 }}>
             <div>
-              <label>Occupancy</label>
-              <select value={roomForm.status} onChange={e => setRoomForm(f => ({ ...f, status: e.target.value }))}>
+              <label htmlFor="room-status">Occupancy</label>
+              <select id="room-status" value={roomForm.status} onChange={e => setRoomForm(f => ({ ...f, status: e.target.value }))}>
                 {ROOM_STATUSES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
               </select>
             </div>
             <div>
-              <label>Tenant name</label>
-              <input value={roomForm.tenant_name} onChange={e => setRoomForm(f => ({ ...f, tenant_name: e.target.value }))} placeholder="(if occupied)" />
+              <label htmlFor="room-tenant">Tenant name</label>
+              <input id="room-tenant" value={roomForm.tenant_name} onChange={e => setRoomForm(f => ({ ...f, tenant_name: e.target.value }))} placeholder="(if occupied)" />
             </div>
           </div>
           <div className="g2" style={{ marginTop: 10 }}>
             <div>
-              <label>Tenancy start</label>
-              <input type="date" value={roomForm.tenancy_start} onChange={e => setRoomForm(f => ({ ...f, tenancy_start: e.target.value }))} />
+              <label htmlFor="room-start">Tenancy start</label>
+              <input id="room-start" type="date" value={roomForm.tenancy_start} onChange={e => setRoomForm(f => ({ ...f, tenancy_start: e.target.value }))} />
             </div>
             <div>
-              <label>Tenancy end</label>
-              <input type="date" value={roomForm.tenancy_end} onChange={e => setRoomForm(f => ({ ...f, tenancy_end: e.target.value }))} />
+              <label htmlFor="room-end">Tenancy end</label>
+              <input id="room-end" type="date" value={roomForm.tenancy_end} onChange={e => setRoomForm(f => ({ ...f, tenancy_end: e.target.value }))} />
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <label>Notes</label>
-            <textarea value={roomForm.notes} onChange={e => setRoomForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
+            <label htmlFor="room-notes">Notes</label>
+            <textarea id="room-notes" value={roomForm.notes} onChange={e => setRoomForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-            <button onClick={cancelRoom} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
-            <button onClick={saveRoom} disabled={savingRoom} className="btn btn-gold" style={{ fontSize: 11 }}>
+            <button type="button" onClick={cancelRoom} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
+            <button type="submit" disabled={savingRoom} className="btn btn-gold" style={{ fontSize: 11 }}>
               {savingRoom ? 'Saving…' : editingRoomId ? 'Save changes' : 'Add room'}
             </button>
           </div>
+          </form>
         </div>
       )}
 
@@ -252,50 +261,52 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
           <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
             {editingLicId ? 'Edit licence' : 'New licence'}
           </div>
+          <form onSubmit={e => { e.preventDefault(); saveLic() }}>
           <div className="g2">
             <div>
-              <label>Licence type</label>
-              <select value={licForm.licence_type} onChange={e => setLicForm(f => ({ ...f, licence_type: e.target.value }))}>
+              <label htmlFor="lic-type">Licence type</label>
+              <select id="lic-type" value={licForm.licence_type} onChange={e => setLicForm(f => ({ ...f, licence_type: e.target.value }))}>
                 {LICENCE_TYPES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
               </select>
             </div>
             <div>
-              <label>Status</label>
-              <select value={licForm.status} onChange={e => setLicForm(f => ({ ...f, status: e.target.value }))}>
+              <label htmlFor="lic-status">Status</label>
+              <select id="lic-status" value={licForm.status} onChange={e => setLicForm(f => ({ ...f, status: e.target.value }))}>
                 {LICENCE_STATUSES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
               </select>
             </div>
           </div>
           <div className="g2" style={{ marginTop: 10 }}>
             <div>
-              <label>Issuing authority</label>
-              <input value={licForm.authority} onChange={e => setLicForm(f => ({ ...f, authority: e.target.value }))} placeholder="e.g. Local Council" />
+              <label htmlFor="lic-authority">Issuing authority</label>
+              <input id="lic-authority" value={licForm.authority} onChange={e => setLicForm(f => ({ ...f, authority: e.target.value }))} placeholder="e.g. Local Council" />
             </div>
             <div>
-              <label>Licence number</label>
-              <input value={licForm.licence_number} onChange={e => setLicForm(f => ({ ...f, licence_number: e.target.value }))} />
+              <label htmlFor="lic-number">Licence number</label>
+              <input id="lic-number" value={licForm.licence_number} onChange={e => setLicForm(f => ({ ...f, licence_number: e.target.value }))} />
             </div>
           </div>
           <div className="g2" style={{ marginTop: 10 }}>
             <div>
-              <label>Issued date</label>
-              <input type="date" value={licForm.issued_date} onChange={e => setLicForm(f => ({ ...f, issued_date: e.target.value }))} />
+              <label htmlFor="lic-issued">Issued date</label>
+              <input id="lic-issued" type="date" value={licForm.issued_date} onChange={e => setLicForm(f => ({ ...f, issued_date: e.target.value }))} />
             </div>
             <div>
-              <label>Expiry date</label>
-              <input type="date" value={licForm.expiry_date} onChange={e => setLicForm(f => ({ ...f, expiry_date: e.target.value }))} />
+              <label htmlFor="lic-expiry">Expiry date</label>
+              <input id="lic-expiry" type="date" value={licForm.expiry_date} onChange={e => setLicForm(f => ({ ...f, expiry_date: e.target.value }))} />
             </div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <label>Notes</label>
-            <textarea value={licForm.notes} onChange={e => setLicForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
+            <label htmlFor="lic-notes">Notes</label>
+            <textarea id="lic-notes" value={licForm.notes} onChange={e => setLicForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-            <button onClick={cancelLic} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
-            <button onClick={saveLic} disabled={savingLic} className="btn btn-gold" style={{ fontSize: 11 }}>
+            <button type="button" onClick={cancelLic} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
+            <button type="submit" disabled={savingLic} className="btn btn-gold" style={{ fontSize: 11 }}>
               {savingLic ? 'Saving…' : editingLicId ? 'Save changes' : 'Add licence'}
             </button>
           </div>
+          </form>
         </div>
       )}
 
@@ -349,7 +360,7 @@ function RoomRow({ room, T, canEdit, flagged, onEdit, onRemove }) {
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
             <button onClick={() => onEdit(room)} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
-            <button onClick={() => onRemove(room)} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
+            <button onClick={() => onRemove(room)} aria-label={`Remove ${room.room_name}`} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}
       </div>
@@ -392,7 +403,7 @@ function LicenceCard({ licence, T, canEdit, onEdit, onRemove }) {
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
             <button onClick={() => onEdit(licence)} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
-            <button onClick={() => onRemove(licence)} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
+            <button onClick={() => onRemove(licence)} aria-label="Remove licence" style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}
       </div>

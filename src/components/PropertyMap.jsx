@@ -466,7 +466,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
             {searchQ && (
               <button onClick={() => setSearchQ('')}
                 aria-label="Clear search"
-                style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 4px' }}>×</button>
+                aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '8px' , margin: '-8px -4px'}}>×</button>
             )}
           </div>
         )}
@@ -496,7 +496,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                   {popupProp.company?.abbr || ''}
                 </div>
                 <button onClick={() => setPopupProp(null)} aria-label="Close"
-                  style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+                  aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{popupProp.name}</div>
               <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 4 }}>{popupProp.address}</div>
@@ -553,7 +553,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                     Building · {sorted.length} {sorted.length === 1 ? 'property' : 'properties'}
                   </div>
                   <button onClick={() => setPopupGroup(null)} aria-label="Close"
-                    style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+                    aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{buildingLabel}</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>

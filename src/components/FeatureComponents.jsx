@@ -814,13 +814,13 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{item.label}</div>
                 <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{item.desc}</div>
               </div>
-              <div onClick={()=>setNotifs(n=>({...n,[item.key]:!n[item.key]}))} style={{
+              <button role="switch" aria-checked={!!notifs[item.key]} aria-label={item.label} onClick={()=>setNotifs(n=>({...n,[item.key]:!n[item.key]}))} style={{border:'none',padding:0,
                 width:42,height:24,borderRadius:12,cursor:'pointer',transition:'background 0.2s',flexShrink:0,
                 background:notifs[item.key]?T.gold:T.border,position:'relative',marginLeft:16,
               }}>
                 <div style={{position:'absolute',top:3,left:notifs[item.key]?21:3,width:18,height:18,
                   borderRadius:9,background:'white',transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
-              </div>
+              </button>
             </div>
           ))}
           <button className="btn btn-gold" onClick={saveNotifications} disabled={notifSaving} style={{marginTop:20}}>
@@ -854,8 +854,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                       <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{feature.desc}</div>
                     </div>
                     {/* Toggle switch */}
-                    <div onClick={()=>!isSaving&&toggleFeature(company.id, feature.key, isOn)}
+                    <button role="switch" aria-checked={isOn} aria-label={feature.label} disabled={isSaving} onClick={()=>!isSaving&&toggleFeature(company.id, feature.key, isOn)}
                       style={{
+                        border:'none', padding:0,
                         width:44, height:24, borderRadius:12, cursor:'pointer',
                         background: isOn ? company.color : T.faint,
                         position:'relative', transition:'background 0.2s', flexShrink:0,
@@ -868,7 +869,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                         transition:'left 0.2s',
                         boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
                       }}/>
-                    </div>
+                    </button>
                     <span style={{fontFamily:MONO,fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                       {isSaving?'…':isOn?'ON':'OFF'}
                     </span>
@@ -893,8 +894,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                       <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{feature.desc}</div>
                       {disabled && <div style={{fontFamily:MONO,fontSize:9,color:T.muted,marginTop:3}}>Enable Tenant Portal first</div>}
                     </div>
-                    <div onClick={()=>!isSaving&&!disabled&&toggleFeature(company.id, feature.key, isOn)}
+                    <button role="switch" aria-checked={isOn} aria-label={feature.label} disabled={isSaving||disabled} onClick={()=>!isSaving&&!disabled&&toggleFeature(company.id, feature.key, isOn)}
                       style={{
+                        border:'none', padding:0,
                         width:44, height:24, borderRadius:12, cursor:disabled?'not-allowed':'pointer',
                         background: isOn && !disabled ? company.color : T.faint,
                         position:'relative', transition:'background 0.2s', flexShrink:0,
@@ -907,7 +909,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                         transition:'left 0.2s',
                         boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
                       }}/>
-                    </div>
+                    </button>
                     <span style={{fontFamily:MONO,fontSize:11,color:isOn&&!disabled?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                       {isSaving?'…':isOn&&!disabled?'ON':'OFF'}
                     </span>
@@ -948,10 +950,10 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     <span style={{display:'flex',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={18}/>:<span style={{fontSize:18}}>{item.icon}</span>}</span>
                     <span style={{fontFamily:mono,fontSize:13,color:T.text}}>{item.label}</span>
                   </div>
-                  <div onClick={()=>saveNavPref(item.key,!enabled)}
-                    style={{width:44,height:24,borderRadius:12,background:enabled?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                  <button role="switch" aria-checked={enabled} aria-label={item.label} onClick={()=>saveNavPref(item.key,!enabled)}
+                    style={{border:'none',padding:0,width:44,height:24,borderRadius:12,background:enabled?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:enabled?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
-                  </div>
+                  </button>
                 </div>
               )
             })}
@@ -2218,7 +2220,7 @@ function AccessModal({companies, onClose, showToast}) {
         <div style={{padding:'22px 26px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
             <h2 style={{fontSize:20,fontWeight:700,color:T.text}}>User Access Management</h2>
-            <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
+            <button onClick={onClose} aria-label="Close" style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'6px 10px',margin:'-6px -10px'}}>✕</button>
           </div>
           <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>
             Manage who can access your companies. Send invitations to new users.
@@ -2769,10 +2771,10 @@ function MilestoneSettingsPanel({ user, config, onChange, showToast, T }) {
               const enabled = config[m.key] !== false // default true
               return (
                 <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', borderBottom: `1px solid ${T.border}`, opacity: enabled ? 1 : 0.5 }}>
-                  <div onClick={() => toggle(m.key, enabled)}
-                    style={{ width: 36, height: 20, borderRadius: 10, background: enabled ? T.blue : T.border, cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <button role="switch" aria-checked={enabled} onClick={() => toggle(m.key, enabled)}
+                    style={{ border:'none', padding:0, width: 36, height: 20, borderRadius: 10, background: enabled ? T.blue : T.border, cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                     <div style={{ position: 'absolute', top: 2, left: enabled ? 18 : 2, width: 16, height: 16, borderRadius: 8, background: 'white', transition: 'left 0.2s' }}/>
-                  </div>
+                  </button>
                   <div style={{ flex: 1 }}>
                     <span style={{ fontFamily: mono, fontSize: 12, color: T.text }}>{m.label}</span>
                     {m.required && (
@@ -2973,10 +2975,10 @@ function AdminSettingsPanel({ user, T, showToast }) {
                       <div style={{ fontFamily: mono, fontSize: 12, color: monthlyRev > 0 ? T.green : T.muted }}>{monthlyRev > 0 ? fmt(monthlyRev) : '—'}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontFamily: mono, fontSize: 10, color: co.is_free_tier ? T.gold : T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
-                        <div onClick={() => saving !== co.id && toggleFreeTier(co.id, co.is_free_tier)}
-                          style={{ width: 38, height: 22, borderRadius: 11, background: co.is_free_tier ? T.gold : T.border, cursor: saving === co.id ? 'wait' : 'pointer', position: 'relative', transition: 'background 0.2s', opacity: saving === co.id ? 0.5 : 1, flexShrink: 0 }}>
+                        <button role="switch" aria-checked={!!co.is_free_tier} aria-label={`Free tier for ${co.name}`} disabled={saving === co.id} onClick={() => saving !== co.id && toggleFreeTier(co.id, co.is_free_tier)}
+                          style={{ border:'none', padding:0, width: 38, height: 22, borderRadius: 11, background: co.is_free_tier ? T.gold : T.border, cursor: saving === co.id ? 'wait' : 'pointer', position: 'relative', transition: 'background 0.2s', opacity: saving === co.id ? 0.5 : 1, flexShrink: 0 }}>
                           <div style={{ position: 'absolute', top: 3, left: co.is_free_tier ? 19 : 3, width: 16, height: 16, borderRadius: 8, background: 'white', transition: 'left 0.2s' }}/>
-                        </div>
+                        </button>
                       </div>
                     </div>
                   )
@@ -3279,7 +3281,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
             <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>🚩 {flag.name}</h2>
             <code style={{fontFamily:mono,fontSize:10,color:T.muted}}>{flag.key}</code>
           </div>
-          <button onClick={onClose} style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
+          <button onClick={onClose} aria-label="Close" style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'6px 10px',margin:'-6px -10px'}}>✕</button>
         </div>
         <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.6}}>
           Global: <strong style={{color:flag.enabled_globally?T.green:T.muted}}>{flag.enabled_globally ? 'ON' : 'OFF'}</strong>. Overrides below take priority.
@@ -3301,7 +3303,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                   <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
                     {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
                   </span>
-                  <button onClick={()=>removeUserOverride(o.user_id)} style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                  <button onClick={()=>removeUserOverride(o.user_id)} aria-label="Remove user override" style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
                 </div>
               </div>
             )
@@ -3324,7 +3326,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                   <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
                     {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
                   </span>
-                  <button onClick={()=>removeCompanyOverride(o.company_id)} style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                  <button onClick={()=>removeCompanyOverride(o.company_id)} aria-label="Remove company override" style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
                 </div>
               </div>
             )

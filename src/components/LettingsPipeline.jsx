@@ -95,6 +95,8 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   const [showNewForm, setShowNewForm] = useState(false)
   const [newForm, setNewForm] = useState({ property_id: '', company_id: '', agreed_rent: '', available_date: '', notes: '' })
   const [saving, setSaving] = useState(false)
+  // Inline required-field highlighting once a create is tried with no property.
+  const [triedSave, setTriedSave] = useState(false)
   const [detailTab, setDetailTab] = useState('details')
 
   useEffect(() => { load() }, [])
@@ -111,7 +113,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   }
 
   async function createLetting() {
-    if (!newForm.property_id) { showToast('Please select a property', 'error'); return }
+    if (!newForm.property_id) { setTriedSave(true); showToast('Please select a property', 'error'); return }
     setSaving(true)
     try {
       const prop = properties.find(p => p.id === newForm.property_id)
@@ -128,6 +130,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
       setSelected(rec)
       setShowNewForm(false)
       setNewForm({ property_id: '', company_id: '', agreed_rent: '', available_date: '', notes: '' })
+      setTriedSave(false)
       showToast('Letting progression started')
     } catch(e) { showToast(e.message, 'error') }
     setSaving(false)
@@ -213,12 +216,16 @@ export default function LettingsPipeline({ user, companies = [], properties = []
 
       {/* ── NEW LETTING FORM ── */}
       {showNewForm && (
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
+        <form onSubmit={e => { e.preventDefault(); createLetting() }} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Start new letting</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
-              <label style={lbl}>Property</label>
-              <select style={inp} value={newForm.property_id} onChange={e => {
+              <label style={lbl} htmlFor="lp-new-property">Property</label>
+              <select id="lp-new-property"
+                style={triedSave && !newForm.property_id ? { ...inp, borderColor: T.red } : inp}
+                aria-invalid={triedSave && !newForm.property_id ? 'true' : undefined}
+                aria-describedby={triedSave && !newForm.property_id ? 'lp-new-property-err' : undefined}
+                value={newForm.property_id} onChange={e => {
                 const prop = properties.find(p => p.id === e.target.value)
                 setNewForm(f => ({ ...f, property_id: e.target.value, company_id: prop?.company_id || '', agreed_rent: prop?.rent_pcm || '' }))
               }}>
@@ -231,31 +238,32 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <option key={p.id} value={p.id}>{p.name || p.address}</option>
                 ))}
               </select>
+              {triedSave && !newForm.property_id && <span id="lp-new-property-err" style={{ fontFamily: mono, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
             </div>
             <div>
-              <label style={lbl}>Expected rent</label>
-              <MoneyInput prefix="£" suffix="/mo" placeholder="e.g. 1,200" value={newForm.agreed_rent} onChange={v => setNewForm(f => ({ ...f, agreed_rent: v }))} style={inp} />
+              <label style={lbl} htmlFor="lp-new-rent">Expected rent</label>
+              <MoneyInput id="lp-new-rent" prefix="£" suffix="/mo" placeholder="e.g. 1,200" value={newForm.agreed_rent} onChange={v => setNewForm(f => ({ ...f, agreed_rent: v }))} style={inp} />
             </div>
             <div>
-              <label style={lbl}>Available from</label>
-              <input style={inp} type="date" value={newForm.available_date} onChange={e => setNewForm(f => ({ ...f, available_date: e.target.value }))} />
+              <label style={lbl} htmlFor="lp-new-available">Available from</label>
+              <input id="lp-new-available" style={inp} type="date" value={newForm.available_date} onChange={e => setNewForm(f => ({ ...f, available_date: e.target.value }))} />
             </div>
             <div>
-              <label style={lbl}>Notes</label>
-              <input style={inp} placeholder="Any initial notes…" value={newForm.notes} onChange={e => setNewForm(f => ({ ...f, notes: e.target.value }))} />
+              <label style={lbl} htmlFor="lp-new-notes">Notes</label>
+              <input id="lp-new-notes" style={inp} placeholder="Any initial notes…" value={newForm.notes} onChange={e => setNewForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={createLetting} disabled={saving}
+            <button type="submit" disabled={saving}
               style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1A2530', cursor: 'pointer' }}>
               {saving ? 'Creating…' : 'Start letting'}
             </button>
-            <button onClick={() => setShowNewForm(false)}
+            <button type="button" onClick={() => { setShowNewForm(false); setTriedSave(false) }}
               style={{ fontFamily: mono, fontSize: 12, padding: '8px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
               Cancel
             </button>
           </div>
-        </div>
+        </form>
       )}
 
       {loading ? (
@@ -346,7 +354,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         <StageTag stage={stage}/>
                       </span>
                     </div>
-                    <button onClick={() => setSelected(null)}
+                    <button onClick={() => setSelected(null)} aria-label="Close details"
                       style={{ fontFamily: mono, fontSize: 18, background: 'none', border: 'none', color: T.muted, cursor: 'pointer', lineHeight: 1 }}>×</button>
                   </div>
 
@@ -378,25 +386,25 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                       {/* Editable fields */}
                       <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
                         <div>
-                          <label style={lbl}>Agreed rent</label>
-                          <MoneyInput prefix="£" suffix="/mo" placeholder="e.g. 1,200"
+                          <label style={lbl} htmlFor="lp-agreed-rent">Agreed rent</label>
+                          <MoneyInput id="lp-agreed-rent" prefix="£" suffix="/mo" placeholder="e.g. 1,200"
                             value={selected.agreed_rent}
                             onChange={v => updateField(selected.id, { agreed_rent: v })}
                             style={inp} />
                         </div>
                         <div>
-                          <label style={lbl}>Available from</label>
-                          <input style={inp} type="date" value={selected.available_date || ''}
+                          <label style={lbl} htmlFor="lp-available-date">Available from</label>
+                          <input id="lp-available-date" style={inp} type="date" value={selected.available_date || ''}
                             onChange={e => updateField(selected.id, { available_date: e.target.value })} />
                         </div>
                         <div>
-                          <label style={lbl}>Proposed start date</label>
-                          <input style={inp} type="date" value={selected.proposed_start_date || ''}
+                          <label style={lbl} htmlFor="lp-proposed-start">Proposed start date</label>
+                          <input id="lp-proposed-start" style={inp} type="date" value={selected.proposed_start_date || ''}
                             onChange={e => updateField(selected.id, { proposed_start_date: e.target.value })} />
                         </div>
                         <div>
-                          <label style={lbl}>Listing URL</label>
-                          <input style={inp} type="url" placeholder="https://rightmove.co.uk/..." defaultValue={selected.listing_url || ''}
+                          <label style={lbl} htmlFor="lp-listing-url">Listing URL</label>
+                          <input id="lp-listing-url" style={inp} type="url" placeholder="https://rightmove.co.uk/..." defaultValue={selected.listing_url || ''}
                             onBlur={e => updateField(selected.id, { listing_url: e.target.value })} />
                         </div>
                       </div>
@@ -413,8 +421,8 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         { field: 'enquiry_count',   label: 'Enquiry count', type: 'number', placeholder: '0' },
                       ].map(f => (
                         <div key={f.field}>
-                          <label style={lbl}>{f.label}</label>
-                          <input style={inp} type={f.type} placeholder={f.placeholder} defaultValue={selected[f.field] || ''}
+                          <label style={lbl} htmlFor={`lp-${f.field}`}>{f.label}</label>
+                          <input id={`lp-${f.field}`} style={inp} type={f.type} placeholder={f.placeholder} defaultValue={selected[f.field] || ''}
                             onBlur={e => updateField(selected.id, { [f.field]: f.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value })} />
                         </div>
                       ))}
@@ -452,8 +460,8 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   {/* Notes tab */}
                   {detailTab === 'notes' && (
                     <div>
-                      <label style={lbl}>Notes</label>
-                      <textarea style={{ ...inp, height: 160, resize: 'vertical', lineHeight: 1.6 }}
+                      <label style={lbl} htmlFor="lp-detail-notes">Notes</label>
+                      <textarea id="lp-detail-notes" style={{ ...inp, height: 160, resize: 'vertical', lineHeight: 1.6 }}
                         defaultValue={selected.notes || ''}
                         placeholder="Any notes about this letting…"
                         onBlur={e => updateField(selected.id, { notes: e.target.value })} />
@@ -478,7 +486,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                       </button>
                     )}
                     {/* Move back */}
-                    <select onChange={e => { if (e.target.value) { moveStage(selected.id, e.target.value); e.target.value = '' } }}
+                    <select aria-label="Move to different stage" onChange={e => { if (e.target.value) { moveStage(selected.id, e.target.value); e.target.value = '' } }}
                       style={{ ...inp, fontSize: 11, color: T.muted }}>
                       <option value="">Move to different stage…</option>
                       {STAGES.filter(s => s.key !== selected.stage).map(s => (

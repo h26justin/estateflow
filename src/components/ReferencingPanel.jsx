@@ -172,7 +172,7 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
                       </span>
                       {canEdit && (it.status === 'draft' || it.status === 'cancelled' || it.status === 'failed') && (
                         <button onClick={() => remove(it)} title="Delete"
-                          style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                          aria-label="Remove" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
                       )}
                     </div>
                   </div>

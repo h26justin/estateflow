@@ -14,6 +14,8 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
   const [access, setAccess]     = useState({})
   const [loading, setLoading]   = useState(true)
   const [newEmail, setNewEmail] = useState('')
+  // Inline required-field highlighting once Add User is tried with no email.
+  const [triedAdd, setTriedAdd] = useState(false)
 
   useEffect(()=>{ loadData() },[])
 
@@ -65,7 +67,7 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
 
   async function addUser() {
     const email = newEmail.trim().toLowerCase()
-    if (!email) return
+    if (!email) { setTriedAdd(true); return }
     // Look up UUID from already-loaded allUsers list
     const match = allUsers.find(u => u.email?.toLowerCase() === email)
     const targetId = match ? match.id : email // fallback to email if not signed up yet
@@ -101,12 +103,16 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
 
           {/* Add new user */}
           <div style={{marginBottom:20,padding:'16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
-            <label>Add User by Email</label>
-            <div style={{display:'flex',gap:8,marginTop:6}}>
-              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)}
-                placeholder="user@example.com" style={{flex:1,fontSize:12}}/>
-              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={addUser}>Add User</button>
-            </div>
+            <label htmlFor="am-new-email">Add User by Email</label>
+            <form onSubmit={e=>{e.preventDefault(); addUser()}} style={{display:'flex',gap:8,marginTop:6}}>
+              <input id="am-new-email" value={newEmail} onChange={e=>setNewEmail(e.target.value)}
+                placeholder="user@example.com"
+                style={{flex:1,fontSize:12,...(triedAdd && !newEmail.trim() ? {borderColor:T.red} : {})}}
+                aria-invalid={triedAdd && !newEmail.trim() ? 'true' : undefined}
+                aria-describedby={triedAdd && !newEmail.trim() ? 'am-new-email-err' : undefined}/>
+              <button type="submit" className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}}>Add User</button>
+            </form>
+            {triedAdd && !newEmail.trim() && <span id="am-new-email-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
             <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginTop:8}}>
               Note: The user must first sign up at your app URL. Users with no restrictions here see nothing - add them and then tick their companies below.
             </div>

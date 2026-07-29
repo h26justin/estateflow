@@ -1170,7 +1170,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                     {overrides[r.p.id] !== undefined && (
                       <button onClick={() => clearOverride(r.p.id)}
                         style={{ fontFamily:mono, fontSize:10, padding:'2px 6px', cursor:'pointer', border:'none', background:'transparent', color:T.muted }}
-                        title="Reset to global">✕</button>
+                        title="Reset to global" aria-label="Reset to global">✕</button>
                     )}
                   </div>
                 )}

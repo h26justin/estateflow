@@ -296,7 +296,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                       <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>{propName}</div>
                     </div>
                     <button onClick={() => setSelectedId(null)}
-                      style={{ fontFamily: mono, fontSize: 18, background: 'none', border: 'none', color: T.muted, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                      aria-label="Close" style={{ fontFamily: mono, fontSize: 18, background: 'none', border: 'none', color: T.muted, cursor: 'pointer', lineHeight: 1, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
                   </div>
 
                   {selected.message && (
