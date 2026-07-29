@@ -1,3 +1,4 @@
+import { MONO } from '../lib/styles'
 // ── INSURANCE PAGE ────────────────────────────────────────────────────────
 // Top-level page for managing insurance policies. Three views:
 //   • Active   — current/upcoming-expiry policies (default)
@@ -24,7 +25,7 @@ import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
 import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 // Bucket each policy by how urgent its renewal is. Anything past today is
 // 'expired'; otherwise we look at days-to-go and classify.

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MONO } from '../lib/styles'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
@@ -195,7 +196,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             <h2 style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Welcome to Properly
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
               Let's get you set up. This takes about 30 seconds.
             </p>
 
@@ -235,12 +236,12 @@ export default function OnboardingWizard({ user, onComplete }) {
             <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Join an existing company
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
               Paste the invite code your colleague sent you. It looks like <code style={{ background: T.bg, padding: '2px 6px', borderRadius: 4 }}>ABC-XYZ</code>.
             </p>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
                 Invite Code
               </label>
               <input className="ob-input" value={inviteCode}
@@ -251,7 +252,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             </div>
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
                 {error}
               </div>
             )}
@@ -265,7 +266,7 @@ export default function OnboardingWizard({ user, onComplete }) {
               </button>
             </div>
 
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: T.muted, marginTop: 20, padding: '12px 14px', background: T.bg, borderRadius: 8, lineHeight: 1.6 }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginTop: 20, padding: '12px 14px', background: T.bg, borderRadius: 8, lineHeight: 1.6 }}>
               <strong style={{ color: T.text }}>No invite code yet?</strong> Ask your colleague to log in and go to <strong>Companies → Access</strong> to create one for you.
             </div>
           </div>
@@ -278,19 +279,19 @@ export default function OnboardingWizard({ user, onComplete }) {
             <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Name your company
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
               This is the wrapper your properties sit under. Most landlords use their trading name or family name — it's easy to rename later.
             </p>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Company Name</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Company Name</label>
               <input className="ob-input" value={companyName} onChange={e => handleNameChange(e.target.value)}
                 placeholder="e.g. Acme Property Group" autoFocus/>
             </div>
 
             {/* Duplicate warning */}
             {similarHits.length > 0 && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: T.amber, background: `${T.amber}1A`, border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.6 }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, color: T.amber, background: `${T.amber}1A`, border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.6 }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>A similar company already exists:</div>
                 <div style={{ marginBottom: 6 }}>
                   {similarHits.map(h => h.name).join(', ')}
@@ -306,16 +307,16 @@ export default function OnboardingWizard({ user, onComplete }) {
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Short Code (2–4 letters)</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Short Code (2–4 letters)</label>
               <input className="ob-input" value={companyAbbr} onChange={e => setCompanyAbbr(e.target.value.toUpperCase().slice(0,4))}
                 placeholder="APG" maxLength={4}/>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, marginTop: 5 }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 5 }}>
                 Shown as a badge on every property in this company
               </div>
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 10 }}>Brand Colour</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 10 }}>Brand Colour</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {COLOURS.map(col => (
                   <button key={col} type="button" onClick={() => setCompanyColor(col)}
@@ -330,7 +331,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             </div>
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
                 {error}
               </div>
             )}
@@ -358,7 +359,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               How do you hold your properties?
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24, lineHeight: 1.6 }}>
               We'll tailor your nav so you only see the tax features you actually need. You can change this any time in Settings.
             </p>
 
@@ -379,14 +380,14 @@ export default function OnboardingWizard({ user, onComplete }) {
             ))}
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginTop: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginTop: 12 }}>
                 {error}
               </div>
             )}
 
             <button onClick={() => setStep(createdCompanyId ? 'first_property' : 'done')}
               disabled={saving}
-              style={{ background: 'none', border: 'none', fontFamily: "'DM Mono',monospace", fontSize: 11, color: T.muted, cursor: 'pointer', marginTop: 14, padding: 6 }}>
+              style={{ background: 'none', border: 'none', fontFamily: MONO, fontSize: 11, color: T.muted, cursor: 'pointer', marginTop: 14, padding: 6 }}>
               Skip for now — I'll set this up later
             </button>
           </div>
@@ -399,31 +400,31 @@ export default function OnboardingWizard({ user, onComplete }) {
             <h2 style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>
               Add your first property?
             </h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 22, lineHeight: 1.6 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 22, lineHeight: 1.6 }}>
               <strong style={{ color: T.text }}>{successCo}</strong> is set up. Add one property now to see what the dashboard looks like with real data — just the basics, you can fill in the rest later.
             </p>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Property Name</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Property Name</label>
               <input className="ob-input" value={propName} onChange={e => setPropName(e.target.value)}
                 placeholder="e.g. Flat 1, Station Road" autoFocus/>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Address</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Address</label>
               <input className="ob-input" value={propAddress} onChange={e => setPropAddress(e.target.value)}
                 placeholder="Full UK address"/>
             </div>
 
             <div style={{ marginBottom: 22 }}>
-              <label style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Monthly Rent (optional)</label>
+              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Monthly Rent (optional)</label>
               <input className="ob-input" value={propRent}
                 onChange={e => setPropRent(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="£" inputMode="decimal"/>
             </div>
 
             {error && (
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, background: `${T.red}1A`, border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
                 {error}
               </div>
             )}
@@ -445,10 +446,10 @@ export default function OnboardingWizard({ user, onComplete }) {
           <div style={{ background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 20, padding: '36px 32px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', textAlign: 'center' }}>
             <div style={{ display:'flex', justifyContent:'center', marginBottom: 16 }}><Icon name="sparkle" size={44}/></div>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 10 }}>You're all set</h2>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 8, lineHeight: 1.7 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 8, lineHeight: 1.7 }}>
               You're now part of <strong style={{ color: T.text }}>{successCo}</strong>.
             </p>
-            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 32, lineHeight: 1.7 }}>
+            <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 32, lineHeight: 1.7 }}>
               Head to the dashboard whenever you're ready.
             </p>
             <button className="ob-btn" onClick={handleFinish}>
@@ -457,7 +458,7 @@ export default function OnboardingWizard({ user, onComplete }) {
           </div>
         )}
 
-        <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: T.muted, textAlign: 'center', marginTop: 20 }}>
+        <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, textAlign: 'center', marginTop: 20 }}>
           Signed in as {user?.email}
         </p>
       </div>

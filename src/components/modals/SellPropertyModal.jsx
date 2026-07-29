@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MONO } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { safeOverlayClose } from '../../lib/modalUtils'
@@ -32,7 +33,7 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
       <div className="modal" style={{maxWidth:460}} role="dialog" aria-modal="true" aria-labelledby="sell-property-modal-title">
         <div style={{padding:'28px 28px'}}>
           <h2 id="sell-property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as Sold</h2>
-          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12,marginBottom:20}}>{property?.name}</p>
+          <p style={{fontFamily:MONO,color:T.muted,fontSize:12,marginBottom:20}}>{property?.name}</p>
           <div style={{marginBottom:14}}>
             <label>Sale Price</label>
             <MoneyInput prefix="£" value={price} onChange={v=>setPrice(v)}
@@ -45,7 +46,7 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
           </div>
           {numPrice > 0 && totalInvested > 0 && (
             <div style={{
-              fontFamily:"'DM Mono',monospace",fontSize:11,
+              fontFamily:MONO,fontSize:11,
               padding:'10px 12px',marginBottom:18,
               background:T.bg,borderRadius:8,
               border:`1px solid ${T.border}`}}>
@@ -69,7 +70,7 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
           <div style={{display:'flex',gap:10}}>
             <button className="btn btn-ghost" style={{flex:1}} onClick={onClose}>Cancel</button>
             <button disabled={busy||!numPrice||!date} onClick={handleConfirm}
-              style={{flex:1,fontFamily:"'DM Mono',monospace",fontWeight:600,background:T.gold,color:'white',border:'none',borderRadius:8,padding:'10px',fontSize:13,cursor:busy?'wait':'pointer',opacity:(!numPrice||!date)?0.5:1}}>
+              style={{flex:1,fontFamily:MONO,fontWeight:600,background:T.gold,color:'#1C2830',border:'none',borderRadius:8,padding:'10px',fontSize:13,cursor:busy?'wait':'pointer',opacity:(!numPrice||!date)?0.5:1}}>
               {busy?'Saving…':'Mark as sold'}
             </button>
           </div>

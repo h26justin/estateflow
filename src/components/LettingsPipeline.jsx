@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { Icon } from '../lib/icons'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
 
 const STAGES = [
@@ -472,7 +473,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                     )}
                     {selected.stage === 'movein' && (
                       <button onClick={() => moveStage(selected.id, null)}
-                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer', textAlign: 'left' }}>
                         Mark as let agreed — archive
                       </button>
                     )}

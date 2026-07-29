@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment } from '../lib/api/epc'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 const DEADLINE_ISO = '2030-12-31'
 

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
+import { SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 function formatBytes(bytes) {
   if (!bytes) return '—'
@@ -145,7 +147,7 @@ export default function BackupsPage({ user, showToast }) {
 
       {/* Backup list */}
       {loading ? (
-        <div style={{textAlign:'center',padding:40,fontFamily:mono,fontSize:12,color:T.muted}}>Loading backups...</div>
+        <SkeletonRows rows={4}/>
       ) : backups.length === 0 ? (
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'60px 20px',textAlign:'center'}}>
           <div style={{fontSize:48,marginBottom:12}}>📦</div>

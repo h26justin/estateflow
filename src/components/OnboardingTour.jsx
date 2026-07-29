@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MONO } from '../lib/styles'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
@@ -102,7 +103,7 @@ export default function OnboardingTour({ user, onComplete }) {
               <ChromeLogo height={26}/>
               <button onClick={skip} disabled={saving} style={{
                 background: 'none', border: 'none', color: T.muted,
-                fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer',
+                fontFamily: MONO, fontSize: 11, cursor: 'pointer',
                 letterSpacing: '0.05em',
               }}>Skip tour ✕</button>
             </div>
@@ -116,12 +117,12 @@ export default function OnboardingTour({ user, onComplete }) {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, letterSpacing: '0.1em' }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, letterSpacing: '0.1em' }}>
                 {step + 1} / {STEPS.length}
               </div>
               {current.tag && (
                 <span style={{
-                  fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 700,
+                  fontFamily: MONO, fontSize: 10, fontWeight: 700,
                   padding: '2px 10px', borderRadius: 20,
                   background: (tagColor || T.gold) + '28', color: tagColor || T.gold,
                   letterSpacing: '0.06em',
@@ -141,7 +142,7 @@ export default function OnboardingTour({ user, onComplete }) {
               {current.title}
             </h2>
             <p style={{
-              fontFamily: "'DM Mono',monospace", fontSize: 12.5,
+              fontFamily: MONO, fontSize: 12.5,
               color: T.muted, lineHeight: 1.85, marginBottom: current.tip ? 18 : 0,
             }}>
               {current.desc}
@@ -151,7 +152,7 @@ export default function OnboardingTour({ user, onComplete }) {
               <div style={{
                 background: T.gold + '14', border: `1px solid ${T.gold}33`,
                 borderRadius: 10, padding: '11px 15px',
-                fontFamily: "'DM Mono',monospace", fontSize: 11.5,
+                fontFamily: MONO, fontSize: 11.5,
                 color: T.text, lineHeight: 1.75,
               }}>
                 <span style={{ fontWeight: 700, color: T.gold }}>💡 </span>
@@ -178,7 +179,7 @@ export default function OnboardingTour({ user, onComplete }) {
           <div style={{ padding: '18px 32px 28px', display: 'flex', gap: 10 }}>
             {!isFirst && (
               <button onClick={() => setStep(s => s - 1)} style={{
-                flex: 1, fontFamily: "'DM Mono',monospace", fontWeight: 600,
+                flex: 1, fontFamily: MONO, fontWeight: 600,
                 fontSize: 13, padding: '12px 20px', borderRadius: 10,
                 border: `1.5px solid ${T.border}`, background: 'transparent',
                 color: T.text, cursor: 'pointer',
@@ -189,7 +190,7 @@ export default function OnboardingTour({ user, onComplete }) {
               disabled={saving}
               style={{
                 flex: isFirst ? 1 : 2,
-                fontFamily: "'DM Mono',monospace", fontWeight: 700,
+                fontFamily: MONO, fontWeight: 700,
                 fontSize: 13, padding: '12px 20px', borderRadius: 10,
                 border: 'none',
                 background: T.gold,

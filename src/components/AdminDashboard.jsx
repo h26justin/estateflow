@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
@@ -8,7 +9,7 @@ import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 // Helper: get a user's display name from their profile

@@ -1,6 +1,7 @@
 import { useTheme } from '../lib/ThemeContext'
+import { MONO } from '../lib/styles'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 // Privacy Policy — UK GDPR / Data Protection Act 2018 compliant.
 // Updated 24 May 2026 to cover:

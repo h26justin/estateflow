@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 
 export default function FeedbackPage({ user, showToast }) {
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [type, setType] = useState('feature')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')

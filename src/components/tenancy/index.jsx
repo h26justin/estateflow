@@ -1,3 +1,4 @@
+import { MONO } from '../../lib/styles'
 // Tenancy sub-tabs: extracted from FeatureComponents.jsx for maintainability.
 // All five components accept `T` (theme tokens) as a prop and use the shared
 // api module — no theme-context dependency, no other cross-cutting state.
@@ -10,7 +11,7 @@ import NoticeGenerator from '../NoticeGenerator'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
 export function RightToRentTab({ propertyId, userId, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [records, setRecords]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -60,7 +61,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
         </div>
         <button onClick={() => { setForm({}); setShowForm(true) }}
-          style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 14px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer', flexShrink:0 }}>
+          style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 14px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
           + Add check
         </button>
       </div>
@@ -82,7 +83,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
           <div style={{ marginBottom:10 }}><label style={lbl}>Notes</label><textarea value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={save} disabled={saving||!form.tenant_name||!form.check_date}
-              style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'8px 18px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
+              style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'8px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
               {saving?'Saving…':'Save record'}
             </button>
             <button onClick={()=>setShowForm(false)} style={{ fontFamily:mono, fontSize:12, padding:'8px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Cancel</button>
@@ -131,7 +132,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
 
 // ── DEPOSIT PROTECTION TAB ────────────────────────────────────────────────────
 export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -175,7 +176,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>You must protect deposits within 30 days of receipt and provide prescribed information to tenants.</div>
         </div>
         <button onClick={() => { setForm({}); setShowForm(true) }}
-          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.gold, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
+          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.gold, color: '#1C2830', cursor: 'pointer', flexShrink: 0 }}>
           + Add record
         </button>
       </div>
@@ -202,7 +203,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={save} disabled={saving}
-              style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: 'white', cursor: 'pointer' }}>
+              style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1C2830', cursor: 'pointer' }}>
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
@@ -238,7 +239,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
 
 // ── NOTICE TRACKER (S21 / S8) ─────────────────────────────────────────────────
 export function NoticeTrackerTab({ propertyId, userId, showToast, T, property }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [notices, setNotices] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -381,7 +382,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
 
 // ── RENT INCREASE TRACKER ─────────────────────────────────────────────────────
 export function RentHistoryTab({ propertyId, userId, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -415,7 +416,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track every rent change with dates and review schedules.</div>
         </div>
         <button onClick={() => { setForm({ change_type: 'increase' }); setShowForm(true) }}
-          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: 'white', cursor: 'pointer', flexShrink: 0 }}>
+          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer', flexShrink: 0 }}>
           + Log change
         </button>
       </div>
@@ -444,7 +445,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
             <div style={{gridColumn:'span 2'}}><label style={lbl}>Notes</label><input value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inp}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={save} disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: 'white', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
+            <button onClick={save} disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
             <button onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
@@ -490,7 +491,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
 
 // ── TENANCY RENEWAL ALERT ─────────────────────────────────────────────────────
 export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [tenancy, setTenancy]   = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({})
@@ -560,7 +561,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
               style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120, outline: 'none' }}/>
           </div>
           <button onClick={handleRenew} disabled={saving || !form.new_end_date}
-            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: 'white', cursor: 'pointer' }}>
+            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>
             {saving ? 'Saving…' : 'Confirm renewal'}
           </button>
           <button onClick={() => setShowForm(false)}

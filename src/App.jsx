@@ -76,7 +76,8 @@ import { complianceStatusFor, complianceBadge, certTypeStatus } from './lib/comp
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
-import { MONO, SANS } from './lib/styles'
+import { MONO, SANS, statusColors } from './lib/styles'
+import { Skeleton } from './lib/Skeleton'
 import { Icon, ICON_NAMES } from './lib/icons'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
@@ -291,6 +292,17 @@ function getStatusColor(status) {
   return '#888EA8' // void - visible in both themes
 }
 
+// AA text/tint pair for a rent status — the month grid renders the label in
+// the status TEXT colour on the status TINT (the old raw-hue fill with white
+// text sat at ~1.8:1 on paid-green). STL/pending keep their purple identity
+// via a matching hand-tuned pair (purple isn't in the shared STATUS set).
+const STL_PAIR = { light: { text:'#6E44B8', bg:'#F0EAFB' }, dark: { text:'#B89BEF', bg:'#241A38' } }
+function rentStatusPair(status, darkMode) {
+  if (status === 'pending') return darkMode ? STL_PAIR.dark : STL_PAIR.light
+  const key = { paid:'ok', overdue:'bad', missed:'bad', late:'warn', partial:'warn', refurb:'info' }[status] || 'void'
+  return statusColors(key, darkMode)
+}
+
 // Short-term-let revenue keeps its own colour so STL and long-term income
 // read differently at a glance even though both are status 'paid'. A paid
 // segment is "STL" when a Lodgify booking links to it (stl_bookings join
@@ -369,7 +381,7 @@ function getMonthlyRentStats(payments, year, rentPcm) {
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
 function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
-  const { T } = useTheme()
+  const { T, darkMode } = useTheme()
   const mono = MONO
   const year = payment.year, month = payment.month
   const days = new Date(year, month, 0).getDate()
@@ -394,7 +406,11 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
     return 'void'
   }
 
-  const COLOR = { paid:'#2ECC8A', stl:STL_COLOR, pending:'#9B6FDE', partial:'#E0943A', overdue:'#E05555', missed:'#E05555', late:'#E0943A', refurb:'#4B8FE0', void:'#888EA8', future:'transparent' }
+  // Day cells share the month grid's AA tint/text pairs (this map used to
+  // restate the legacy raw hues with white labels).
+  const pairFor = (status) => status === 'stl'
+    ? (darkMode ? STL_PAIR.dark : STL_PAIR.light)
+    : rentStatusPair(status, darkMode)
   const monthName = new Date(year, month-1).toLocaleString('en-GB', {month:'long', year:'numeric'})
   const cells = []
   for (let i = 0; i < firstDow; i++) cells.push(null)
@@ -411,7 +427,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
         onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
           <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{monthName}</div>
-          <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1}}>×</button>
+          <button onClick={onClose} aria-label="Close day view" style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1,padding:'6px 8px',margin:'-6px -8px'}}>×</button>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:4}}>
           {['M','T','W','T','F','S','S'].map((d,i)=>(
@@ -422,22 +438,22 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
           {cells.map((d,i)=>{
             if (!d) return <div key={`b${i}`}/>
             const status = statuses[d-1]
-            const col = COLOR[status]
             const isFuture = status==='future'
+            const pair = isFuture ? null : pairFor(status)
             return (
               <div key={d} title={`${d}: ${status}`} style={{
                 aspectRatio:'1',borderRadius:3,
-                background:isFuture?'transparent':col,
-                border:isFuture?`1px dashed ${T.border}`:'none',
+                background:isFuture?'transparent':pair.bg,
+                border:isFuture?`1px dashed ${T.border}`:`1px solid ${pair.text}44`,
                 display:'flex',alignItems:'center',justifyContent:'center',
               }}>
-                <span style={{fontFamily:mono,fontSize:8,color:isFuture?T.muted:'rgba(255,255,255,0.85)',fontWeight:700}}>{d}</span>
+                <span style={{fontFamily:mono,fontSize:8,color:isFuture?T.muted:pair.text,fontWeight:700}}>{d}</span>
               </div>
             )
           })}
         </div>
         <div style={{display:'flex',gap:14,marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${T.border}`,flexWrap:'wrap'}}>
-          {[[paidDays,'#2ECC8A','paid'],[voidDays,'#888EA8','void'],[missedDays,'#E05555','missed']].map(([v,c,l])=>(
+          {[[paidDays,rentStatusPair('paid',darkMode).text,'paid'],[voidDays,rentStatusPair('void',darkMode).text,'void'],[missedDays,rentStatusPair('missed',darkMode).text,'missed']].map(([v,c,l])=>(
             <div key={l} style={{fontFamily:mono,fontSize:10}}>
               <span style={{color:c,fontWeight:700}}>{v}</span>
               <span style={{color:T.muted}}> {l}</span>
@@ -447,7 +463,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
         </div>
         <button onClick={()=>{onClose();if(onDayTracker)onDayTracker()}}
           style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
-            border:'none',background:'#C8A84B',color:'#1A2530',cursor:'pointer'}}>
+            border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>
           View full day tracker →
         </button>
       </div>
@@ -457,6 +473,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
 
 const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
   if (!payments?.length) return null
+  const { darkMode } = useTheme()
   const [popover, setPopover] = useState(null)
   const scoped = filterYear ? payments.filter(m=>m.year===filterYear) : payments
   // Collapse multiple segments per month into one representative dot.
@@ -479,28 +496,35 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
         const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
         const isCurrent = m.year === currentYear && m.month === currentMonth
         const isStlPaid = m.isStl && m.status === 'paid'
-        const col = isStlPaid ? STL_COLOR : getStatusColor(m.status)
-        // Redesign: full 3-letter month name in the cell (no single-letter
-        // squares), status colour as fill, gold outline for the current month,
-        // hatched fill for future months.
+        // Redesign: full 3-letter month name in the cell, STATUS TINT as the
+        // fill with the AA text colour for the label (the previous raw-hue
+        // fill + white label read at ~1.8:1 on paid-green), gold outline for
+        // the current month, hatched fill for future months.
+        const pair = isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : rentStatusPair(m.status, darkMode)
         const name = MONTH_NAMES[(m.month||1)-1]
+        const statusLabel = isFuture ? 'future' : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
         const boxStyle = isFuture
           ? { background:'repeating-linear-gradient(135deg, rgba(128,128,128,0.10) 0 5px, transparent 5px 10px)', border:'1px dashed rgba(128,128,128,0.40)', cursor:'default' }
           : isCurrent
-            ? { background:col, border:`2px solid #B8902F`, cursor:'pointer' }
-            : { background:col, border:'1px solid transparent', cursor:'pointer' }
-        const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : '#fff'
+            ? { background:pair.bg, border:`2px solid #B8902F`, cursor:'pointer' }
+            : { background:pair.bg, border:`1px solid ${pair.text}55`, cursor:'pointer' }
+        const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : pair.text
         return (
-          <div key={m.id}
+          // A real <button>: these cells are the primary interaction on the
+          // Rent Tracker and were mouse-only divs whose title tooltip never
+          // appeared on touch.
+          <button key={m.id} type="button"
+            aria-label={`${m.month_label || `${name} ${m.year}`}: ${statusLabel}${isFuture ? '' : ' — open day view'}`}
             title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL booked (paid)' : m.status} — click for day view`}
+            disabled={isFuture}
             onClick={!isFuture ? (e)=>{e.stopPropagation();setPopover(m)} : undefined}
-            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',
+            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',padding:0,
               display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
-            onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
+            onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${pair.text}55`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:500,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
-          </div>
+            <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
+          </button>
         )
       })}
     </div>
@@ -526,10 +550,8 @@ function PageLoadingSpinner({ T }) {
   )
 }
 
-// Shimmer skeleton primitive (redesign Loading state). Add the `.skeleton`
-// class (defined in the global CSS) plus a size.
-const Skeleton = ({ w = '100%', h = 14, r = 8, style }) =>
-  <div className="skeleton" style={{ width: w, height: h, borderRadius: r, ...style }} />
+// Skeleton primitives live in lib/Skeleton.jsx (shared with page-level
+// loading states across components).
 
 // Dashboard loading state — greeting + health ring, 4 KPI tiles, two widget
 // columns — mirrors the real layout so the page doesn't jump on load.
@@ -679,7 +701,6 @@ export default function App() {
   const [showArchived,setShowArchived] = useState(false)
   const [activeCoTab, setActiveCoTab]  = useState(null)
   const [showAddProp, setShowAddProp]  = useState(false)
-  const [showAddBulk, setShowAddBulk]  = useState(false)
   const [showBuildingMortgage, setShowBuildingMortgage] = useState(false)
   const [showReceiptScan, setShowReceiptScan] = useState(false)
   const [showAddCo,   setShowAddCo]    = useState(false)
@@ -705,7 +726,6 @@ export default function App() {
   const [showDeleteConfirm,  setShowDeleteConfirm]  = useState(null)
   const [showSellModal,      setShowSellModal]      = useState(null) // property id
   const [propertyActionBusy, setPropertyActionBusy] = useState(false)
-  const [showImporter,       setShowImporter]       = useState(false)
   const [isAdmin,     setIsAdmin]     = useState(false)
   const [isTenant, setIsTenant] = useState(false)
   // /privacy and /terms render their own static pages, even when the
@@ -858,7 +878,7 @@ export default function App() {
   .btn{font-family:${SANS};font-weight:600;border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;transition:all 0.18s;letter-spacing:0;}
   .btn-gold{background:${T.gold};color:#1C2830;}.btn-gold:hover{background:${T.gold}dd;}
   .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.gold};}
-  .btn-danger{background:#2B1010;color:#E05555;border:1px solid #3D1A1A;}.btn-danger:hover{background:#3D1A1A;}
+  .btn-danger{background:${T.red};color:#fff;border:1px solid ${T.red};}.btn-danger:hover{filter:brightness(0.92);}
   .card{background:${T.card};border:1px solid ${T.border};border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
   @media(max-width:768px){
@@ -965,6 +985,8 @@ export default function App() {
       if (parts[0] === 'admin') {
         return { view: 'admin', adminTab: parts[1] || null }
       }
+      if (parts[0] === 'import') return { view: 'import' }
+      if (parts[0] === 'properties' && parts[1] === 'bulk') return { view: 'bulk-add' }
       // All portfolio sub-tabs are addressable: #/properties/<tab>
       const PORTFOLIO_TABS = ['properties','companies','compliance','map','contractors']
       if (parts[0] === 'properties') {
@@ -985,7 +1007,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','insurance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','insurance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -1056,6 +1078,8 @@ export default function App() {
       target = `#/properties/${portfolioTab}`
     } else if (view === 'daytracker') {
       target = '#/rent/day'
+    } else if (view === 'bulk-add') {
+      target = '#/properties/bulk'
     } else if (view === 'reports' && selectedReportId) {
       // When drilled into a specific report, encode its id so browser
       // back returns to the catalogue (the bare /reports URL).
@@ -1687,9 +1711,9 @@ export default function App() {
     // Quick actions (matches the "+ New" menu)
     cmds.push(
       { id:'act:add-prop',   icon:'🏠', label:'Add Property',         group:'create', action:()=>{ setEditProp(null); setShowAddProp(true) } },
-      { id:'act:add-bulk',   icon:'🏘', label:'Add Block of Flats',   group:'create', action:()=>setShowAddBulk(true) },
+      { id:'act:add-bulk',   icon:'🏘', label:'Add Block of Flats',   group:'create', action:()=>openWorkflow('bulk-add') },
       { id:'act:add-co',     icon:'🏢', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
-      { id:'act:import',     icon:'📄', label:'Import Statement',     group:'create', action:()=>setShowImporter(true) },
+      { id:'act:import',     icon:'📄', label:'Import Statement',     group:'create', action:()=>openWorkflow('import') },
       { id:'act:scan-receipt', icon:'📷', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
       { id:'act:dark',       icon:'🌙', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
         group:'action', keywords: 'theme toggle', action:()=>setDarkMode(!darkMode) },
@@ -1814,6 +1838,17 @@ export default function App() {
     } else {
       setView('properties')
     }
+  }
+  // Full-page workflows (statement import, bulk add) record where the user
+  // came from so closing them returns there.
+  const workflowOrigin = useRef('dashboard')
+  function openWorkflow(key){
+    workflowOrigin.current = (view === 'import' || view === 'bulk-add') ? 'dashboard' : view
+    setSelectedId(null)
+    setView(key)
+  }
+  function closeWorkflow(){
+    setView(workflowOrigin.current || 'dashboard')
   }
   // Settings sub-tabs are owned by SettingsPage (it reads its initial tab
   // from the hash at mount and listens for this event when already open).
@@ -2324,9 +2359,9 @@ export default function App() {
                       padding:'6px',minWidth:210,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                       {[
                         {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
-                        {icon:'🏘',label:'Add Block of Flats', action:()=>setShowAddBulk(true)},
+                        {icon:'🏘',label:'Add Block of Flats', action:()=>openWorkflow('bulk-add')},
                         {icon:'🏢',label:'Add Company',     action:()=>setShowAddCo(true)},
-                        {icon:'📄',label:'Import Statement',action:()=>setShowImporter(true)},
+                        {icon:'📄',label:'Import Statement',action:()=>openWorkflow('import')},
                         {icon:'📷',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
                         // For these three "drill into a property" actions:
                         // if the user has exactly one property, just open it on
@@ -2510,9 +2545,9 @@ export default function App() {
             <div style={{padding:'16px 20px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
               {[
                 {icon:'🏠',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true);setShowDrawer(false)}},
-                {icon:'🏘',label:'Add Block of Flats', action:()=>{setShowAddBulk(true);setShowDrawer(false)}},
+                {icon:'🏘',label:'Add Block of Flats', action:()=>{openWorkflow('bulk-add');setShowDrawer(false)}},
                 {icon:'🏢',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
-                {icon:'📄',label:'Import Statement',action:()=>{setShowImporter(true);setShowDrawer(false)}},
+                {icon:'📄',label:'Import Statement',action:()=>{openWorkflow('import');setShowDrawer(false)}},
                 {icon:'📷',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
                 {icon:'💰',label:'Log Expense',     action:()=>{
                   if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
@@ -2650,8 +2685,8 @@ export default function App() {
                     onClick={()=>setDashCoFilter([])}
                     style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                       border:`1px solid ${dashCoFilter.length===0?T.gold:T.border}`,
-                      background:dashCoFilter.length===0?T.gold+'22':'transparent',
-                      color:dashCoFilter.length===0?T.gold:T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
+                      background:dashCoFilter.length===0?T.gold:'transparent',
+                      color:dashCoFilter.length===0?'#1C2830':T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
                     All companies
                   </button>
                   {companies.map(c=>{
@@ -3206,8 +3241,8 @@ export default function App() {
                   <button key={k} onClick={()=>setPortfolioTab(k)}
                     style={{display:'inline-flex',alignItems:'center',gap:6,fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                       border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
-                      background:portfolioTab===k?T.gold+'22':'transparent',
-                      color:portfolioTab===k?T.gold:T.muted,fontWeight:portfolioTab===k?700:400}}>
+                      background:portfolioTab===k?T.gold:'transparent',
+                      color:portfolioTab===k?'#1C2830':T.muted,fontWeight:portfolioTab===k?700:400}}>
                     <Icon name={ic} size={14}/>{l}
                   </button>
                 ))}
@@ -3239,7 +3274,7 @@ export default function App() {
                 onClick={()=>setShowBuildingMortgage(true)}
                 disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive}
                 title="Update a mortgage across all units in a building in one go"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="landmark" size={14}/>Building Mortgage</span></button>
-              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>setShowAddBulk(true)} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="building" size={14}/>+ Add Block</span></button>
+              <button className="btn btn-ghost" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>openWorkflow('bulk-add')} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title="Add a block of flats (multiple units in one building)"><span style={{display:'inline-flex',alignItems:'center',gap:6}}><Icon name="building" size={14}/>+ Add Block</span></button>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
@@ -3250,7 +3285,7 @@ export default function App() {
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
                 {['all', ...PROPERTY_STATUSES].map(f=>(
-                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold+'22':'transparent',color:statusFilter===f?T.gold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
+                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
                 ))}
                 {archivedCount > 0 && (
                   <>
@@ -3283,8 +3318,8 @@ export default function App() {
                 <button key={opt.v} onClick={()=>setSortBy(opt.v)}
                   style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
-                    background:sortBy===opt.v?T.gold+'22':'transparent',
-                    color:sortBy===opt.v?T.gold:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
+                    background:sortBy===opt.v?T.gold:'transparent',
+                    color:sortBy===opt.v?'#1C2830':T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
                   {opt.l}
                 </button>
               ))}
@@ -3293,7 +3328,7 @@ export default function App() {
                 {[['list','list','List'],['grid','grid-2','Grid']].map(([k,ic,lbl])=>(
                   <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-pressed={propLayout===k}
                     style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,cursor:'pointer',border:'none',
-                      background:propLayout===k?T.gold+'22':'transparent',color:propLayout===k?T.gold:T.muted,
+                      background:propLayout===k?T.gold:'transparent',color:propLayout===k?'#1C2830':T.muted,
                       fontFamily:MONO,fontSize:10,fontWeight:propLayout===k?700:400}}>
                     <Icon name={ic} size={14}/>{!isMobile&&lbl}
                   </button>
@@ -3316,6 +3351,17 @@ export default function App() {
           {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
           {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
+          {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
+          {view==='bulk-add'&&<BulkAddPropertyModal asPage
+            companies={companies}
+            onClose={closeWorkflow}
+            onSaved={(created)=>{
+              setProperties(prev => [...prev, ...created])
+              setPortfolioTab('properties')
+              setView('properties')
+            }}
+            showToast={showToast}
+          />}
           {view==='autopilot'&&activeFlags.has('portfolio_autopilot')&&<div className="fade"><AutopilotPage companyId={activeCoTab||null}/></div>}
           {view==='renters-rights'&&activeFlags.has('renters_rights')&&<div className="fade"><RentersRightsCopilot companyId={activeCoTab||null}/></div>}
           {/* A bookmark/shared link can name a flag-gated view the account
@@ -3731,15 +3777,6 @@ export default function App() {
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
       {showReferencing && selected && <TenantReferenceModal property={selected} onClose={()=>setShowReferencing(false)}/>}
       {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null);setConvertSourceDealId(null)}} onSave={handleSaveProp}/>}
-      {showAddBulk&&<Suspense fallback={null}><BulkAddPropertyModal
-        companies={companies}
-        onClose={()=>setShowAddBulk(false)}
-        onSaved={(created)=>{
-          setProperties(prev => [...prev, ...created])
-          setShowAddBulk(false)
-        }}
-        showToast={showToast}
-      /></Suspense>}
       {showBuildingMortgage && <BuildingMortgageModal
         properties={activeCoTab ? activeProperties.filter(p => p.company_id === activeCoTab) : activeProperties}
         setProperties={setProperties}
@@ -3821,7 +3858,6 @@ export default function App() {
       )}
       {editingPayment&&<PaymentModal payment={editingPayment.payment} onClose={()=>setEditingPayment(null)} onSave={handleUpdatePayment}/>}
       {/* Access modal now lives inside Settings page */}
-      {showImporter&&<Suspense fallback={null}><StatementImporter properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{setShowImporter(false); refreshData()}}/></Suspense>}
       {showDeleteConfirm&&<DeleteConfirmModal propName={properties.find(p=>p.id===showDeleteConfirm)?.name||''} onClose={()=>setShowDeleteConfirm(null)} onConfirm={pwd=>handleDeleteProp(showDeleteConfirm,pwd)}/>}
       {showSellModal&&<SellPropertyModal
         property={properties.find(p=>p.id===showSellModal)}
@@ -4496,8 +4532,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <button key={yr||'all'} onClick={()=>setGlobalYear(yr)}
                 style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${globalYear===yr?T.gold:T.border}`,
-                  background:globalYear===yr?T.gold+'22':'transparent',
-                  color:globalYear===yr?T.gold:T.muted,transition:'all 0.18s'}}>
+                  background:globalYear===yr?T.gold:'transparent',
+                  color:globalYear===yr?'#1C2830':T.muted,transition:'all 0.18s'}}>
                 {yr||'All'}
               </button>
             ))}
@@ -4582,8 +4618,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           <button onClick={()=>setCoFilter([])}
             style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
               border:`1px solid ${coFilter.length===0?T.gold:T.border}`,
-              background:coFilter.length===0?T.gold+'22':'transparent',
-              color:coFilter.length===0?T.gold:T.muted,fontWeight:coFilter.length===0?700:400}}>
+              background:coFilter.length===0?T.gold:'transparent',
+              color:coFilter.length===0?'#1C2830':T.muted,fontWeight:coFilter.length===0?700:400}}>
             All companies
           </button>
           {companies.map(c => {
@@ -4846,14 +4882,14 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
             <button onClick={()=>setFilterYear(null)}
               style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${filterYear===null?T.gold:T.border}`,
-                background:filterYear===null?T.gold+'22':'transparent',
-                color:filterYear===null?T.gold:T.muted}}>All</button>
+                background:filterYear===null?T.gold:'transparent',
+                color:filterYear===null?'#1C2830':T.muted}}>All</button>
             {years.map(yr=>(
               <button key={yr} onClick={()=>setFilterYear(yr)}
                 style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${filterYear===yr?T.gold:T.border}`,
-                  background:filterYear===yr?T.gold+'22':'transparent',
-                  color:filterYear===yr?T.gold:T.muted}}>{yr}</button>
+                  background:filterYear===yr?T.gold:'transparent',
+                  color:filterYear===yr?'#1C2830':T.muted}}>{yr}</button>
             ))}
           </div>
         </div>

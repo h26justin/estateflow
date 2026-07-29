@@ -1,3 +1,4 @@
+import { MONO } from '../../lib/styles'
 // AI Maintenance Triage button + result card.
 //
 // Drops into a maintenance job view. Shows an "AI triage" button; on click it
@@ -27,7 +28,7 @@ const TRADE_LABEL = {
   pest_control: 'Pest control', drainage: 'Drainage', other: 'General trade',
 }
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 export default function TriageButton({ job, canTriage = true, onTriaged, onApplyPriority, showToast }) {
   const { T } = useTheme()

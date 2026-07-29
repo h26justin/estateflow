@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
@@ -130,7 +131,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em'}}>
           Needs Attention
-          {alerts.length>0&&<span style={{marginLeft:8,background:T.red,color:'white',borderRadius:20,fontSize:11,fontFamily:"'DM Mono',monospace",padding:'2px 8px',fontWeight:700}}>{alerts.length}</span>}
+          {alerts.length>0&&<span style={{marginLeft:8,background:T.red,color:'white',borderRadius:20,fontSize:11,fontFamily:MONO,padding:'2px 8px',fontWeight:700}}>{alerts.length}</span>}
         </h2>
       </div>
       <div style={{display:'grid',gap:8,maxHeight:520,overflowY:'auto',paddingRight:4}}>
@@ -140,13 +141,13 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
             <span style={{flexShrink:0,display:'flex',color:alert.color}}>{ICON_NAMES.includes(alert.icon)?<Icon name={alert.icon} size={17}/>:<span style={{fontSize:16}}>{alert.icon}</span>}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{alert.title}</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{alert.detail}</div>
+              <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{alert.detail}</div>
             </div>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,fontWeight:700,color:badgeColor(alert.badge),background:badgeColor(alert.badge)+'22',padding:'2px 6px',borderRadius:20,flexShrink:0}}>{alert.badge}</span>
+            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:badgeColor(alert.badge),background:badgeColor(alert.badge)+'22',padding:'2px 6px',borderRadius:20,flexShrink:0}}>{alert.badge}</span>
           </div>
         ))}
         {alerts.length===0&&(
-          <div style={{fontFamily:"'DM Mono',monospace",color:T.green,fontSize:12,textAlign:'center',padding:32,background:T.card,borderRadius:12}}>
+          <div style={{fontFamily:MONO,color:T.green,fontSize:12,textAlign:'center',padding:32,background:T.card,borderRadius:12}}>
             All properties healthy — no alerts
           </div>
         )}
@@ -513,7 +514,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Reports & Analytics</h1>
-          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>Portfolio performance and P&L analysis</p>
+          <p style={{fontFamily:MONO,color:T.muted,fontSize:12}}>Portfolio performance and P&L analysis</p>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} style={{fontSize:11}}>
@@ -548,9 +549,9 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           {l:'Average Gross Yield',  v:avgYield.toFixed(2)+'%', c:T.blue, sub:'By estimated value'},
         ].map((item,i)=>(
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:20,fontWeight:700,color:item.c,marginBottom:2}}>{item.v}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>{item.sub}</div>
+            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:20,fontWeight:700,color:item.c,marginBottom:2}}>{item.v}</div>
+            <div style={{fontFamily:MONO,fontSize:10,color:T.faint}}>{item.sub}</div>
           </div>
         ))}
       </div>
@@ -558,9 +559,9 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:20}}>
         {/* Per property P&L table */}
         <div className="card" style={{padding:'18px 20px'}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Property P&L — {selectedYear}</div>
+          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Property P&L — {selectedYear}</div>
           <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontFamily:"'DM Mono',monospace",fontSize:11}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontFamily:MONO,fontSize:11}}>
               <thead>
                 <tr style={{borderBottom:`1px solid ${T.border}`}}>
                   {['Property','Rent','Expenses','Net','Yield'].map(h=>(
@@ -585,14 +586,14 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
 
         {/* Expense breakdown */}
         <div className="card" style={{padding:'18px 20px'}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Expenses by Category</div>
+          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Expenses by Category</div>
           {Object.keys(expByCategory).length===0
-            ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>No expenses recorded for {selectedYear}</div>
+            ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>No expenses recorded for {selectedYear}</div>
             : Object.entries(expByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>(
               <div key={cat} style={{marginBottom:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.text}}>{CATEGORY_LABELS[cat]||cat}</span>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:T.red}}>{fmt(amt)}</span>
+                  <span style={{fontFamily:MONO,fontSize:11,color:T.text}}>{CATEGORY_LABELS[cat]||cat}</span>
+                  <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.red}}>{fmt(amt)}</span>
                 </div>
                 <div style={{height:4,background:T.bg,borderRadius:2}}>
                   <div style={{height:4,background:T.red,borderRadius:2,width:`${Math.min(100,(amt/totalExpenses)*100)}%`,opacity:0.7}}/>
@@ -601,15 +602,15 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
             ))
           }
           {totalExpenses>0&&<div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between'}}>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Total</span>
-            <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:T.red}}>{fmt(totalExpenses)}</span>
+            <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Total</span>
+            <span style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.red}}>{fmt(totalExpenses)}</span>
           </div>}
         </div>
       </div>
 
       {/* Yield chart - simple bar chart per company */}
       <div className="card" style={{padding:'18px 20px',marginBottom:20}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Income vs Expenses by Company</div>
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Income vs Expenses by Company</div>
         <div style={{display:'grid',gap:12}}>
           {companies.filter(c=>selectedCompany==='all'||c.id===selectedCompany).map(c=>{
             const cProps = properties.filter(p=>p.company_id===c.id)
@@ -620,23 +621,23 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
             return (
               <div key={c.id}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:600,color:c.color}}>{c.abbr} {c.name}</span>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:cRent-cExp>=0?T.green:T.red,fontWeight:700}}>Net {fmt(cRent-cExp)}</span>
+                  <span style={{fontFamily:MONO,fontSize:11,fontWeight:600,color:c.color}}>{c.abbr} {c.name}</span>
+                  <span style={{fontFamily:MONO,fontSize:11,color:cRent-cExp>=0?T.green:T.red,fontWeight:700}}>Net {fmt(cRent-cExp)}</span>
                 </div>
                 <div style={{display:'grid',gap:4}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,width:50,flexShrink:0}}>INCOME</span>
+                    <span style={{fontFamily:MONO,fontSize:9,color:T.muted,width:50,flexShrink:0}}>INCOME</span>
                     <div style={{flex:1,height:12,background:T.bg,borderRadius:3}}>
                       <div style={{height:12,background:T.green,borderRadius:3,width:`${(cRent/maxVal)*100}%`,transition:'width 0.5s'}}/>
                     </div>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.green,width:70,textAlign:'right'}}>{fmt(cRent)}</span>
+                    <span style={{fontFamily:MONO,fontSize:10,color:T.green,width:70,textAlign:'right'}}>{fmt(cRent)}</span>
                   </div>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,width:50,flexShrink:0}}>EXPENSES</span>
+                    <span style={{fontFamily:MONO,fontSize:9,color:T.muted,width:50,flexShrink:0}}>EXPENSES</span>
                     <div style={{flex:1,height:12,background:T.bg,borderRadius:3}}>
                       <div style={{height:12,background:T.red,borderRadius:3,width:`${(cExp/maxVal)*100}%`,opacity:0.7,transition:'width 0.5s'}}/>
                     </div>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,width:70,textAlign:'right'}}>{cExp>0?fmt(cExp):'—'}</span>
+                    <span style={{fontFamily:MONO,fontSize:10,color:T.red,width:70,textAlign:'right'}}>{cExp>0?fmt(cExp):'—'}</span>
                   </div>
                 </div>
               </div>
@@ -716,7 +717,7 @@ export function ContractorsPage({companies, showToast}) {
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Contractor Directory</h1>
-          <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:12}}>{contractors.length} contacts across {Object.keys(byTrade).length} trades</p>
+          <p style={{fontFamily:MONO,color:T.muted,fontSize:12}}>{contractors.length} contacts across {Object.keys(byTrade).length} trades</p>
         </div>
         <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Contractor</button>
       </div>
@@ -737,7 +738,7 @@ export function ContractorsPage({companies, showToast}) {
               const selected = form.company_ids.includes(co.id)
               return (
                 <button key={co.id} type="button" onClick={()=>toggleCompany(co.id)}
-                  style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                  style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${selected?co.color:T.border}`,
                     background:selected?co.color+'22':'transparent',
                     color:selected?co.color:T.muted,transition:'all 0.18s'}}>
@@ -759,12 +760,12 @@ export function ContractorsPage({companies, showToast}) {
       </div>}
 
       {loading
-        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
         : contractors.length===0
-          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.faint,textAlign:'center',padding:40,background:T.card,borderRadius:12}}>No contractors added yet. Add your plumber, electrician and other regular trades here.</div>
+          ? <div style={{fontFamily:MONO,fontSize:12,color:T.faint,textAlign:'center',padding:40,background:T.card,borderRadius:12}}>No contractors added yet. Add your plumber, electrician and other regular trades here.</div>
           : Object.entries(byTrade).sort().map(([trade,list])=>(
             <div key={trade} style={{marginBottom:20}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{trade}</div>
+              <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{trade}</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
                 {list.map(c=>(
                   <div key={c.id} className="card" style={{padding:'14px 16px',borderLeft:c.preferred?`3px solid ${T.gold}`:`3px solid ${T.border}`}}>
@@ -773,20 +774,20 @@ export function ContractorsPage({companies, showToast}) {
                         <div style={{fontSize:13,fontWeight:700,marginBottom:1}}>
                           {c.preferred&&<span style={{marginRight:4}}>⭐</span>}{c.name}
                         </div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{c.trade}</div>
+                        <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{c.trade}</div>
                       </div>
-                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
+                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
                     </div>
-                    {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:"'DM Mono',monospace",fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}>📞 {c.phone}</a>}
-                    {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}>✉ {c.email}</a>}
-                    {c.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
+                    {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:MONO,fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}>📞 {c.phone}</a>}
+                    {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}>✉ {c.email}</a>}
+                    {c.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
                     {(()=>{
                       const ids = c.company_ids_json ? JSON.parse(c.company_ids_json) : (c.company_id ? [c.company_id] : [])
                       return ids.length>0&&(
                         <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6}}>
                           {ids.map(id=>{
                             const co = companies.find(x=>x.id===id)
-                            return co ? <span key={id} style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:co.color,background:co.color+'22',padding:'2px 6px',borderRadius:4,border:`1px solid ${co.color}44`}}>{co.abbr}</span> : null
+                            return co ? <span key={id} style={{fontFamily:MONO,fontSize:9,color:co.color,background:co.color+'22',padding:'2px 6px',borderRadius:4,border:`1px solid ${co.color}44`}}>{co.abbr}</span> : null
                           })}
                         </div>
                       )
@@ -818,7 +819,7 @@ export function PortfolioChart({properties, companies}) {
 
   return (
     <div className="card" style={{padding:'18px 20px',marginBottom:20}}>
-      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Portfolio at a Glance</div>
+      <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Portfolio at a Glance</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
         {[
           {l:'Total Properties', v:properties.length, c:T.gold},
@@ -826,8 +827,8 @@ export function PortfolioChart({properties, companies}) {
           {l:'Est. Portfolio Value', v:`£${(properties.reduce((s,p)=>s+(p.est_value||0),0)/1000000).toFixed(1)}m`, c:T.gold},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px',textAlign:'center'}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.l}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:24,fontWeight:700,color:item.c}}>{item.v}</div>
+            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:24,fontWeight:700,color:item.c}}>{item.v}</div>
           </div>
         ))}
       </div>
@@ -838,7 +839,7 @@ export function PortfolioChart({properties, companies}) {
 // ── RENT REVIEW MODAL ────────────────────────────────────────────────────────
 export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClose }) {
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
 
   // Only include rented properties with a rent figure
   const eligible = properties.filter(p => (p.rent_pcm || 0) > 0)

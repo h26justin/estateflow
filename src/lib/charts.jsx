@@ -1,3 +1,4 @@
+import { MONO } from './styles'
 // Tiny inline-SVG chart library — zero dependencies.
 //
 // We deliberately don't pull in d3, recharts, victory or chart.js. They
@@ -17,7 +18,6 @@
 
 import React from 'react'
 
-const MONO = "'DM Mono',monospace"
 
 // Shared util — nicest "round" max for Y-axis given the data max.
 function niceMax(v) {

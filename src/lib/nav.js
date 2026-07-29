@@ -81,4 +81,6 @@ export const VIEW_LABELS = {
   daytracker: 'Day Tracker',
   feedback: 'Feedback',
   detail: 'Property',
+  'import': 'Import Statement',
+  'bulk-add': 'Add Block of Flats',
 }

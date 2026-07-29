@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
@@ -70,11 +70,20 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const mono = MONO
-  const [step, setStep] = useState('disclaimer')
-  const [type, setType] = useState('s21')
-  const [checklist, setChecklist] = useState({})  // { itemId: 'yes' | 'na' }
+  // Draft persistence — this is a legally consequential form spread over
+  // three steps, and a blocked print pop-up or accidental close used to
+  // lose every entered field. Drafts are per-property, restored on reopen,
+  // and cleared when the notice is logged.
+  const draftKey = `ownproperly_notice_draft_${property?.id || 'unknown'}`
+  const draft = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(draftKey) || 'null') } catch { return null }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const [step, setStep] = useState(draft?.step || 'disclaimer')
+  const [type, setType] = useState(draft?.type || 's21')
+  const [checklist, setChecklist] = useState(draft?.checklist || {})  // { itemId: 'yes' | 'na' }
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(draft?.form || {
     landlord_name:    '',
     landlord_address: '',
     tenant_names:     '',
@@ -86,6 +95,13 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
     grounds:          [],
     grounds_details:  '',
   })
+
+  // Autosave the draft on every change past the disclaimer.
+  useEffect(() => {
+    if (step === 'disclaimer' && Object.keys(checklist).length === 0) return
+    try { localStorage.setItem(draftKey, JSON.stringify({ step, type, checklist, form })) } catch { /* storage full/blocked — draft is best-effort */ }
+  }, [step, type, checklist, form, draftKey])
+  const clearDraft = () => { try { localStorage.removeItem(draftKey) } catch { /* ignore */ } }
 
   // Dirty check — a stray backdrop click or Escape must not silently wipe
   // the checklist answers or a half-completed legal form.
@@ -137,6 +153,9 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
         notes: 'Generated via Notice Generator. Verify with solicitor before serving.',
       })
       if (showToast) showToast('Draft notice logged')
+      // The notice is printed + logged — the autosaved draft has served
+      // its purpose.
+      clearDraft()
     } catch (e) {
       // Non-fatal — the printed document is the important part.
     }

@@ -1,3 +1,4 @@
+import { MONO } from '../lib/styles'
 // Two-factor authentication enrol / disable panel.
 //
 // Rendered inside Settings → Security & Data. Uses Supabase Auth's
@@ -28,7 +29,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { getStoredDevice, clearStoredDevice } from '../lib/trustedDevice'
 
 export default function TwoFactorPanel({ T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const confirmDialog = useConfirm()
 
   const [loading, setLoading]       = useState(true)

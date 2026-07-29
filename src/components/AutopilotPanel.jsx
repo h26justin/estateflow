@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -53,7 +54,7 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
         <h2 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
           Portfolio Autopilot
           {actions.length > 0 && (
-            <span style={{ background: highCount > 0 ? T.red : T.amber, color: 'white', borderRadius: 20, fontSize: 11, fontFamily: "'DM Mono',monospace", padding: '2px 8px', fontWeight: 700 }}>
+            <span style={{ background: highCount > 0 ? T.red : T.amber, color: 'white', borderRadius: 20, fontSize: 11, fontFamily: MONO, padding: '2px 8px', fontWeight: 700 }}>
               {actions.length}
             </span>
           )}
@@ -64,9 +65,9 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
       </div>
 
       {loading ? (
-        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, padding: 12 }}>Loading…</div>
+        <div style={{ fontFamily: MONO, fontSize: 12, color: T.muted, padding: 12 }}>Loading…</div>
       ) : actions.length === 0 ? (
-        <div style={{ fontFamily: "'DM Mono',monospace", color: T.green, fontSize: 12, padding: 16 }}>
+        <div style={{ fontFamily: MONO, color: T.green, fontSize: 12, padding: 16 }}>
           No actions awaiting review
         </div>
       ) : (
@@ -83,7 +84,7 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
               )
             })}
           </div>
-          <div style={{ marginTop: 10, fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted }}>
+          <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 10, color: T.muted }}>
             AI-drafted suggestions — review before acting. Nothing is sent automatically.
           </div>
         </>
@@ -158,14 +159,14 @@ export function AutopilotPage({ companyId = null }) {
         </h1>
         <button className="btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
       </div>
-      <p style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: T.muted, marginBottom: 24 }}>
+      <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24 }}>
         Daily AI-drafted action list. Every item is a suggestion for you to review — approving an item never sends or books anything automatically.
       </p>
 
       {loading ? (
-        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
+        <div style={{ fontFamily: MONO, fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
       ) : actions.length === 0 ? (
-        <div className="card" style={{ fontFamily: "'DM Mono',monospace", color: T.green, fontSize: 13, textAlign: 'center', padding: 48 }}>
+        <div className="card" style={{ fontFamily: MONO, color: T.green, fontSize: 13, textAlign: 'center', padding: 48 }}>
           Nothing needs your attention — Autopilot found no open actions.
         </div>
       ) : (
@@ -173,7 +174,7 @@ export function AutopilotPage({ companyId = null }) {
           <div key={group.sev} style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: sevColor(group.sev) }} />
-              <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: "'DM Mono',monospace" }}>
+              <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: MONO }}>
                 {sevLabel(group.sev)} <span style={{ color: T.muted }}>({group.items.length})</span>
               </h2>
             </div>
@@ -187,7 +188,7 @@ export function AutopilotPage({ companyId = null }) {
                       <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={18}/>:meta.icon}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{a.title}</div>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                           <span>{meta.label}</span>
                           {a.property?.name && <span>· {a.property.name}</span>}
                           {due && <span>· due {due}</span>}
@@ -275,7 +276,7 @@ function DraftModal({ action, onClose }) {
           <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
             {action.draft_body}
           </div>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, marginBottom: 16 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 16 }}>
             AI-generated draft. Review and edit before sending — Properly does not send this for you.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

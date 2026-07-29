@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
+import { MONO } from '../lib/styles'
 import { REPORT_CATALOGUE } from '../lib/reportCatalogue'
+import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
@@ -24,7 +26,7 @@ function fmtCompact(n) {
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = (n,d=1) => (n||0).toFixed(d)+'%'
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 // Natural sort: company name first, then property name with numeric ordering (Flat 1, Flat 2, Flat 10)
@@ -366,7 +368,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
       </div>
 
       {errorBanner}
-      {loading && <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading report data…</div>}
+      {loading && <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonRows rows={6}/></div>}
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}/>}
     </div>
   )

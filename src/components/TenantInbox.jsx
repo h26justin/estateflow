@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const PRIORITY_CFG = {
   urgent: { color:'#E05555', label:'Urgent' },
   high:   { color:'#E0943A', label:'High' },
@@ -424,7 +425,7 @@ function MessageThread({ thread, loading, replyText, setReplyText, replying, onR
           style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 14px', outline:'none' }}/>
         <button onClick={onReply} disabled={replying||!replyText.trim()}
           style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 20px', borderRadius:8, border:'none',
-            background:replying||!replyText.trim()?T.border:T.gold, color:'white', cursor:'pointer', flexShrink:0 }}>
+            background:replying||!replyText.trim()?T.border:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
           {replying?'…':'Send'}
         </button>
       </div>

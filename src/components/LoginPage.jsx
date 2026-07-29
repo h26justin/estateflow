@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import * as api from '../lib/api'
 import { looksLikeCompanyInviteCode } from '../lib/inviteUtils'
 import { logError } from '../lib/logError'
-import { SANS } from '../lib/styles'
+import { MONO, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import { setStoredDevice, clearStoredDevice, deviceLabel } from '../lib/trustedDevice'
 
@@ -55,7 +55,7 @@ function BrandPanel({ branding, brandAccent }) {
       </div>
 
       <div style={{ maxWidth:440 }}>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:12, letterSpacing:'0.18em', textTransform:'uppercase', color:GOLD_D, marginBottom:22 }}>
+        <div style={{ fontFamily:MONO, fontSize:12, letterSpacing:'0.18em', textTransform:'uppercase', color:GOLD_D, marginBottom:22 }}>
           {branding ? 'Tenant portal' : 'Property portfolio software'}
         </div>
         {/* Decorative strapline — kept as a div (not <h1>) so the form's
@@ -80,7 +80,7 @@ function BrandPanel({ branding, brandAccent }) {
         )}
       </div>
 
-      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:'#6E7A84' }}>
+      <div style={{ fontFamily:MONO, fontSize:11, color:'#6E7A84' }}>
         {branding ? `Powered by Properly` : 'Trusted by UK landlords from 1 to 200+ properties'}
       </div>
     </div>
@@ -294,8 +294,8 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 
           {/* aria-live so screen readers announce auth errors / success
               messages as they appear; without this they were silent. */}
-          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#C5483B', background:'#FAEAE8', border:'1px solid #C5483B33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-          {success&&<div role="status" aria-live="polite" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#1F9D63', background:'#E8F4EC', border:'1px solid #1F9D6333', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
+          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#C5483B', background:'#FAEAE8', border:'1px solid #C5483B33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+          {success&&<div role="status" aria-live="polite" style={{ fontFamily:MONO, fontSize:12, color:'#1F9D63', background:'#E8F4EC', border:'1px solid #1F9D6333', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
 
           <button type="submit" className="lp-btn" disabled={loading}
             style={{ marginTop:6, ...(branding ? { background: brandAccent } : null) }}>
@@ -310,7 +310,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
           </button>
         </div>
 
-        <p style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:MUTED, textAlign:'center', marginTop:22 }}>
+        <p style={{ fontFamily:MONO, fontSize:11, color:MUTED, textAlign:'center', marginTop:22 }}>
           Your data is private and secure.
         </p>
       </div>
@@ -415,7 +415,7 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
       <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
         Two-factor authentication
       </h1>
-      <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:24 }}>
+      <p style={{ fontFamily:MONO, fontSize:12, color:MUTED, marginBottom:24 }}>
         Enter the 6-digit code from your authenticator app to finish signing in.
       </p>
       <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -427,8 +427,8 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
             onChange={e=>setCode(e.target.value.replace(/\D/g, ''))}
             style={{ textAlign:'center', fontSize:18, letterSpacing:'0.2em' }}/>
         </div>
-        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-        <label htmlFor="lp-mfa-remember" style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginTop:2 }}>
+        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        <label htmlFor="lp-mfa-remember" style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', fontFamily:MONO, fontSize:12, color:MUTED, marginTop:2 }}>
           <input id="lp-mfa-remember" type="checkbox" checked={remember}
             onChange={e=>setRemember(e.target.checked)}
             style={{ width:16, height:16, marginTop:1, accentColor:SLATE, flexShrink:0 }}/>
@@ -476,7 +476,7 @@ export function SetNewPasswordScreen({ onDone }) {
       <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
         Set a new password
       </h1>
-      <p style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:MUTED, marginBottom:24 }}>
+      <p style={{ fontFamily:MONO, fontSize:12, color:MUTED, marginBottom:24 }}>
         You followed a password-reset link. Choose a new password to finish.
       </p>
       <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -492,7 +492,7 @@ export function SetNewPasswordScreen({ onDone }) {
             required minLength={8} aria-required="true" autoComplete="new-password"
             onChange={e=>setConfirmPw(e.target.value)} placeholder="••••••••"/>
         </div>
-        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:"'DM Mono',monospace", fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
         <button type="submit" className="lp-btn" disabled={busy} style={{ marginTop:4 }}>
           {busy ? 'Saving…' : 'Save new password'}
         </button>

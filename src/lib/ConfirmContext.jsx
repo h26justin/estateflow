@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
+import { MONO } from './styles'
 import { useTheme } from './ThemeContext'
 import FocusTrap from './FocusTrap'
 
@@ -81,7 +82,7 @@ export function useConfirm() {
 function ConfirmDialog({ state, onConfirm, onCancel }) {
   const { T } = useTheme()
   const [value, setValue] = useState(state.defaultValue)
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   return (
     <div className="overlay" onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
       <FocusTrap onEscape={onCancel}>

@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { useIsMobile } from '../lib/useWindowSize'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
-import { statusPill } from '../lib/styles'
+import { MONO, statusPill } from '../lib/styles'
 import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_TABS } from '../lib/nav'
 import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
@@ -106,7 +106,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
   return (
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
+        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
         {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Certificate</button>}
       </div>
 
@@ -135,8 +135,8 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
         </div>
       </div>}
 
-      {loading ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
-       : sorted.length===0 ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'20px 0'}}>No certificates added yet.</div>
+      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
+       : sorted.length===0 ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No certificates added yet.</div>
        : <div style={{display:'grid',gap:10}}>
           {sorted.map(item=>{
             const ct = CERT_TYPES.find(t=>t.value===item.cert_type)
@@ -145,13 +145,13 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
                 <span style={{width:38,height:38,borderRadius:9,background:T.gold+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={ICON_NAMES.includes(ct?.icon)?ct.icon:'file-text'} size={19} color={T.gold}/></span>
                 <div style={{flex:1,minWidth:150}}>
                   <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{item.cert_name}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                     Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}
                   </div>
-                  {item.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
+                  {item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
                 </div>
                 <ExpiryBadge dateStr={item.expiry_date}/>
-                {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
+                {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
               </div>
             )
           })}
@@ -205,17 +205,17 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
   return (
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Tenancy Details</div>
+        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Tenancy Details</div>
         {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setEditing(v=>!v)}>{editing?'Cancel':'Edit Details'}</button>}
       </div>
 
       {renewalDays!==null && renewalDays<=60 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:T.amber+'1A',border:`1px solid ${T.amber}44`,borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:"'DM Mono',monospace",fontSize:12,color:T.amber}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:T.amber+'1A',border:`1px solid ${T.amber}44`,borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:MONO,fontSize:12,color:T.amber}}>
           <Icon name="alert-triangle" size={15}/> Tenancy {renewalDays<0?`expired ${Math.abs(renewalDays)} days ago`:`expires in ${renewalDays} days`} — consider renewal action
         </div>
       )}
 
-      {loading ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
        : editing ? (
         <div className="card" style={{padding:'18px 20px'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
@@ -255,20 +255,20 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
             {l:'Break Clause',    v:details.break_clause||'—'},
           ].map((item,i)=>(
             <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'10px 14px',background:T.bg,borderRadius:8}}>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,flexShrink:0,marginRight:16}}>{item.l}</span>
+              <span style={{fontFamily:MONO,fontSize:11,color:T.muted,flexShrink:0,marginRight:16}}>{item.l}</span>
               <div style={{textAlign:'right'}}>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:600,color:item.alert?T.amber:T.text}}>{item.v}</span>
-                {item.sub&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{item.sub}</div>}
+                <span style={{fontFamily:MONO,fontSize:11,fontWeight:600,color:item.alert?T.amber:T.text}}>{item.v}</span>
+                {item.sub&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{item.sub}</div>}
               </div>
             </div>
           ))}
           {details.notes&&<div className="card" style={{padding:'12px 14px'}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:6}}>Notes</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text}}>{details.notes}</div>
+            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>Notes</div>
+            <div style={{fontFamily:MONO,fontSize:12,color:T.text}}>{details.notes}</div>
           </div>}
         </div>
        ) : (
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'20px 0'}}>No tenancy details recorded. Click Edit Details to add them.</div>
+        <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No tenancy details recorded. Click Edit Details to add them.</div>
        )
       }
     </div>
@@ -343,14 +343,14 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
           {l:'Net Profit (Est.)',   v:fmt(netProfit),     c:netProfit>0?T.green:T.red},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'12px 14px'}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
+            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
           </div>
         ))}
       </div>
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Expense Log</div>
+        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Expense Log</div>
         {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Expense</button>}
       </div>
 
@@ -382,8 +382,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
         </div>
       </div>}
 
-      {loading ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
-       : expenses.length===0 ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,padding:'20px 0'}}>No expenses logged yet.</div>
+      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
+       : expenses.length===0 ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No expenses logged yet.</div>
        : <div style={{display:'grid',gap:8}}>
           {expenses.map(exp=>{
             const cat = CATEGORIES.find(c=>c.v===exp.category)
@@ -391,13 +391,13 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
               <div key={exp.id} className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                 <div style={{flex:1,minWidth:150}}>
                   <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{exp.description}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                     {cat?.l} · {formatDate(exp.date)}
                     {exp.recurring&&<span style={{marginLeft:6,color:T.blue}}>↻ {exp.recurring_freq}</span>}
                   </div>
                 </div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:T.red}}>{fmt(exp.amount)}</div>
-                {canEdit && <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
+                <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:T.red}}>{fmt(exp.amount)}</div>
+                {canEdit && <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
               </div>
             )
           })}
@@ -577,7 +577,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     setSaving(null)
   }
 
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const sectionStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }
   const fieldStyle = { marginBottom: 14 }
   const labelStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
@@ -639,14 +639,14 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                   <button key={t.key} onClick={()=>setSettingsTab(t.key)} aria-current={active?'page':undefined} style={{
                     fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${active?accent:T.border}`,
-                    background:active?accent+'22':'transparent',
-                    color:active?accent:T.muted,fontWeight:active?700:400,
+                    background:active?accent:'transparent',
+                    color:active?(t.key==='admin'?'#fff':'#1C2830'):T.muted,fontWeight:active?700:400,
                   }}>{t.label}</button>
                 ) : (
                   <button key={t.key} onClick={()=>setSettingsTab(t.key)} aria-current={active?'page':undefined} style={{
                     fontFamily:mono,fontSize:12,padding:'8px 11px',borderRadius:8,cursor:'pointer',textAlign:'left',width:'100%',
-                    border:'none',background:active?accent+'18':'transparent',
-                    color:active?accent:T.muted,fontWeight:active?700:400,transition:'background 0.15s,color 0.15s',
+                    border:'none',borderLeft:`3px solid ${active?accent:'transparent'}`,background:active?accent+'18':'transparent',
+                    color:active?T.text:T.muted,fontWeight:active?700:400,transition:'background 0.15s,color 0.15s',
                   }}
                   onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
                   onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>{t.label}</button>
@@ -836,13 +836,13 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         return (
           <div key={company.id} className="card" style={{padding:'22px 26px',marginBottom:16,borderLeft:`3px solid ${company.color}`}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:700,color:company.color,background:company.color+'22',padding:'3px 10px',borderRadius:4}}>{company.abbr}</div>
+              <div style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:company.color,background:company.color+'22',padding:'3px 10px',borderRadius:4}}>{company.abbr}</div>
               <h2 style={{fontSize:17,fontWeight:700}}>{company.name}</h2>
             </div>
 
             <div style={{display:'grid',gap:12}}>
               {/* Core features */}
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6,marginTop:4}}>Core features</div>
+            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6,marginTop:4}}>Core features</div>
             {FEATURES.filter(f=>!f.section).map(feature=>{
                 const isOn = settings[feature.key] !== false
                 const isSaving = saving===`${company.id}-${feature.key}`
@@ -851,7 +851,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(feature.icon)?<Icon name={feature.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{feature.icon}</span>}</span>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{feature.desc}</div>
+                      <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{feature.desc}</div>
                     </div>
                     {/* Toggle switch */}
                     <div onClick={()=>!isSaving&&toggleFeature(company.id, feature.key, isOn)}
@@ -869,7 +869,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                         boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
                       }}/>
                     </div>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                    <span style={{fontFamily:MONO,fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                       {isSaving?'…':isOn?'ON':'OFF'}
                     </span>
                   </div>
@@ -877,8 +877,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               })}
 
             {/* Tenant portal features */}
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6,marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>Tenant portal features</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted,marginBottom:10,lineHeight:1.6}}>Control what tenants can do when they log into their portal for this company.</div>
+            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6,marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>Tenant portal features</div>
+            <div style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:10,lineHeight:1.6}}>Control what tenants can do when they log into their portal for this company.</div>
             {FEATURES.filter(f=>f.section==='tenant').map(feature=>{
                 const isOn = settings[feature.key] !== false
                 const isSaving = saving===`${company.id}-${feature.key}`
@@ -890,8 +890,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(feature.icon)?<Icon name={feature.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{feature.icon}</span>}</span>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{feature.desc}</div>
-                      {disabled && <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,marginTop:3}}>Enable Tenant Portal first</div>}
+                      <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{feature.desc}</div>
+                      {disabled && <div style={{fontFamily:MONO,fontSize:9,color:T.muted,marginTop:3}}>Enable Tenant Portal first</div>}
                     </div>
                     <div onClick={()=>!isSaving&&!disabled&&toggleFeature(company.id, feature.key, isOn)}
                       style={{
@@ -908,7 +908,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                         boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
                       }}/>
                     </div>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:isOn&&!disabled?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                    <span style={{fontFamily:MONO,fontSize:11,color:isOn&&!disabled?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                       {isSaving?'…':isOn&&!disabled?'ON':'OFF'}
                     </span>
                   </div>
@@ -1157,7 +1157,7 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperti
 
   return (
     <div style={{background:T.card,borderRadius:12,padding:'16px 20px',border:`1px solid ${T.border}`}}>
-      {!compact&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>
+      {!compact&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>
         {category ? category.charAt(0).toUpperCase()+category.slice(1)+' Notes' : 'Notes Timeline'}
       </div>}
       {isAdmin&&<>
@@ -1169,23 +1169,23 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperti
         </button>
       </>}
       {loading
-        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading...</div>
+        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
         : notes.length===0
-          ? <div style={{fontFamily:"'DM Mono',monospace",color:T.faint,fontSize:11}}>No notes yet.</div>
+          ? <div style={{fontFamily:MONO,color:T.faint,fontSize:11}}>No notes yet.</div>
           : <div style={{display:'grid',gap:10}}>
               {notes.map(n=>(
                 <div key={n.id} style={{background:T.bg,borderRadius:8,padding:'10px 14px'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,flexWrap:'wrap',gap:6}}>
                     <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.gold}}>{n.user_email}</span>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                      <span style={{fontFamily:MONO,fontSize:10,color:T.gold}}>{n.user_email}</span>
+                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
                     </div>
                     {isAdmin&&<button onClick={()=>handleDelete(n.id)}
-                      style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
+                      style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
                       Delete
                     </button>}
                   </div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                  <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
                 </div>
               ))}
             </div>
@@ -1371,7 +1371,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>
           {uploading?'Uploading...':'Drop files here or click to browse'}
         </div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,marginBottom:12}}>
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:12}}>
           PDF, images, Word docs — any file type accepted
         </div>
         <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
@@ -1392,7 +1392,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
       {/* Filter bar */}
       {docs.length>0&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
         <button onClick={()=>setFilterCategory('all')}
-          style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+          style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
             border:`1px solid ${filterCategory==='all'?T.gold:T.border}`,
             background:filterCategory==='all'?T.gold+'22':'transparent',
             color:filterCategory==='all'?T.gold:T.muted}}>
@@ -1400,7 +1400,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         </button>
         {DOC_CATEGORIES.filter(c=>docs.some(d=>d.category===c.value)).map(c=>(
           <button key={c.value} onClick={()=>setFilterCategory(c.value)}
-            style={{fontFamily:"'DM Mono',monospace",fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+            style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${filterCategory===c.value?T.gold:T.border}`,
               background:filterCategory===c.value?T.gold+'22':'transparent',
               color:filterCategory===c.value?T.gold:T.muted}}>
@@ -1411,9 +1411,9 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
       {/* Document list */}
       {loading
-        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading...</div>
+        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
         : filtered.length===0
-          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',padding:32,
+          ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',padding:32,
               background:T.bg,borderRadius:12}}>
               No documents yet. Upload tenancy agreements, certificates and other files here.
             </div>
@@ -1461,27 +1461,27 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                       <div style={{flex:1,minWidth:150}}>
                         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.gold,
+                          <span style={{fontFamily:MONO,fontSize:9,color:T.gold,
                             background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
                             {cat.icon} {cat.label}
                           </span>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                             {formatDate(doc.created_at)}
                           </span>
-                          {doc.file_size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
+                          {doc.file_size&&<span style={{fontFamily:MONO,fontSize:10,color:T.faint}}>
                             {formatSize(doc.file_size)}
                           </span>}
                           {/* OCR status badge */}
-                          {status === 'processing' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.blue,background:T.blue+'22',padding:'1px 6px',borderRadius:20}}>Extracting…</span>}
-                          {status === 'completed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.green,background:T.green+'22',padding:'1px 6px',borderRadius:20}}>AI-extracted</span>}
-                          {status === 'failed' && <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.red,background:T.red+'22',padding:'1px 6px',borderRadius:20}} title={doc.extraction_error}>Extraction failed</span>}
+                          {status === 'processing' && <span style={{fontFamily:MONO,fontSize:9,color:T.blue,background:T.blue+'22',padding:'1px 6px',borderRadius:20}}>Extracting…</span>}
+                          {status === 'completed' && <span style={{fontFamily:MONO,fontSize:9,color:T.green,background:T.green+'22',padding:'1px 6px',borderRadius:20}}>AI-extracted</span>}
+                          {status === 'failed' && <span style={{fontFamily:MONO,fontSize:9,color:T.red,background:T.red+'22',padding:'1px 6px',borderRadius:20}} title={doc.extraction_error}>Extraction failed</span>}
                         </div>
                       </div>
                       {/* Actions */}
                       <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap'}}>
                         {ocrEligible && isAdmin && status !== 'processing' && (
                           <button onClick={runOcr} disabled={ocrRunning === doc.id}
-                            style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                            style={{fontFamily:MONO,fontSize:11,padding:'5px 10px',
                               background: status === 'completed' ? T.surface : T.gold+'22',
                               color: status === 'completed' ? T.muted : T.gold,
                               border: `1px solid ${T.gold}44`,
@@ -1491,7 +1491,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                         )}
                         {status === 'completed' && (
                           <button onClick={()=>setExpandedOcrId(isExpanded ? null : doc.id)}
-                            style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                            style={{fontFamily:MONO,fontSize:11,padding:'5px 10px',
                               background:T.surface,color:T.text,border:`1px solid ${T.border}`,
                               borderRadius:8,cursor:'pointer'}}>
                             {isExpanded ? '▲ Hide' : '▼ View fields'}
@@ -1504,13 +1504,13 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                             else showToast('Could not generate view link', 'error')
                           } catch(e) { showToast('Could not view: ' + (e.message||'unknown'), 'error') }
                         }}
-                          style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
+                          style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',
                             background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
                             borderRadius:8,cursor:'pointer'}}>
                           View
                         </button>
                         {isAdmin&&<button onClick={()=>handleDelete(doc)}
-                          style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                          style={{fontFamily:MONO,fontSize:11,padding:'5px 10px',
                             background:T.surface,color:T.muted,border:`1px solid ${T.border}`,
                             borderRadius:8,cursor:'pointer',transition:'color 0.15s, border-color 0.15s'}}
                           onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
@@ -1524,12 +1524,12 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                     {isExpanded && status === 'completed' && extractedFields && (
                       <div style={{background:T.surface,borderRadius:8,padding:'12px 16px',border:`1px dashed ${T.green}44`,marginTop:4}}>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                             AI-extracted fields {doc.extracted_at && <span style={{color:T.faint,textTransform:'none',letterSpacing:0,marginLeft:6}}>— extracted {formatDate(doc.extracted_at)}</span>}
                           </div>
                         </div>
                         {extractedFields._parse_error ? (
-                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.amber,lineHeight:1.6}}>
+                          <div style={{fontFamily:MONO,fontSize:11,color:T.amber,lineHeight:1.6}}>
                             <strong>Raw AI response (couldn't parse as JSON):</strong>
                             <div style={{background:T.bg,padding:10,borderRadius:6,marginTop:6,whiteSpace:'pre-wrap',maxHeight:280,overflow:'auto'}}>{extractedFields._raw_response}</div>
                           </div>
@@ -1564,8 +1564,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                               else displayValue = String(value)
                               return (
                                 <div key={key} style={{display:'flex',gap:10,padding:'6px 10px',background:T.bg,borderRadius:6,alignItems:'flex-start'}}>
-                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,minWidth:140,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
-                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,wordBreak:'break-word',whiteSpace:'pre-line'}}>{displayValue}</div>
+                                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,minWidth:140,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
+                                  <div style={{fontFamily:MONO,fontSize:12,color:T.text,wordBreak:'break-word',whiteSpace:'pre-line'}}>{displayValue}</div>
                                 </div>
                               )
                             })}
@@ -1584,26 +1584,26 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                           const linked = complianceLinks[doc.id]
                           if (linked) {
                             return (
-                              <div style={{marginTop:10,padding:'10px 12px',background:T.green+'11',border:`1px solid ${T.green}44`,borderRadius:8,fontFamily:"'DM Mono',monospace",fontSize:11,color:T.green,display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{marginTop:10,padding:'10px 12px',background:T.green+'11',border:`1px solid ${T.green}44`,borderRadius:8,fontFamily:MONO,fontSize:11,color:T.green,display:'flex',alignItems:'center',gap:8}}>
                                 <span>Linked to Compliance — {candidate.cert_name} expires {candidate.expiry_date}</span>
                               </div>
                             )
                           }
                           return (
                             <div style={{marginTop:10,padding:'10px 12px',background:T.gold+'11',border:`1px dashed ${T.gold}66`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-                              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.text,lineHeight:1.5}}>
+                              <div style={{fontFamily:MONO,fontSize:11,color:T.text,lineHeight:1.5}}>
                                 Looks like a <strong>{candidate.cert_name}</strong> expiring <strong>{candidate.expiry_date}</strong>.
                               </div>
                               <button onClick={()=>addToCompliance(doc)} disabled={complianceBusy===doc.id}
-                                style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'6px 14px',
-                                  background:T.gold,color:'white',border:'none',borderRadius:8,
+                                style={{fontFamily:MONO,fontSize:11,padding:'6px 14px',
+                                  background:T.gold,color:'#1C2830',border:'none',borderRadius:8,
                                   cursor:complianceBusy===doc.id?'wait':'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
                                 {complianceBusy===doc.id ? 'Adding…' : '+ Add to Compliance'}
                               </button>
                             </div>
                           )
                         })()}
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.faint,marginTop:10,lineHeight:1.5}}>
+                        <div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:10,lineHeight:1.5}}>
                           AI extraction is best-effort. Always verify critical values against the original document.
                         </div>
                       </div>
@@ -1611,7 +1611,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
                     {/* Failed extraction details */}
                     {status === 'failed' && doc.extraction_error && (
-                      <div style={{background:T.red+'11',borderRadius:6,padding:'8px 12px',border:`1px solid ${T.red}44`,fontFamily:"'DM Mono',monospace",fontSize:10,color:T.red,lineHeight:1.5}}>
+                      <div style={{background:T.red+'11',borderRadius:6,padding:'8px 12px',border:`1px solid ${T.red}44`,fontFamily:MONO,fontSize:10,color:T.red,lineHeight:1.5}}>
                         <strong>Extraction error:</strong> {doc.extraction_error.slice(0,200)}
                       </div>
                     )}
@@ -1684,28 +1684,28 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
           {l:'Arrears',          v:fmt(selected.arrears||0),                                  c:(selected.arrears||0)>0?'#E05555':'#2ECC8A'},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
+            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
           </div>
         ))}
       </div>
 
       {/* Property notes */}
       {selected.notes&&<div className="card" style={{padding:'14px 18px',marginBottom:16,borderLeft:`3px solid ${T.gold}`}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Property Description</div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
+        <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Property Description</div>
+        <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
       </div>}
 
       {/* All notes timeline */}
       <div className="card" style={{padding:'16px 20px'}}>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>
           All Notes — {allNotes.length} total
         </div>
 
         {loading
-          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading…</div>
+          ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
           : allNotes.length===0
-            ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint}}>No notes yet. Add notes from any tab.</div>
+            ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>No notes yet. Add notes from any tab.</div>
             : <div style={{display:'grid',gap:10}}>
                 {allNotes.map(n=>{
                   const cat = CATEGORIES[n.category||'general'] || CATEGORIES.general
@@ -1714,20 +1714,20 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
                       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:8,flexWrap:'wrap'}}>
                         <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
                           {/* Category tag */}
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,fontWeight:700,
+                          <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,
                             color:cat.color,background:cat.color+'22',
                             padding:'2px 8px',borderRadius:20,display:'flex',alignItems:'center',gap:3}}>
                             {cat.icon} {cat.label}
                           </span>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.gold,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                          <span style={{fontFamily:MONO,fontSize:10,color:T.gold,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
+                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
                         </div>
                         {isAdmin&&<button onClick={()=>deleteNote(n.id)}
-                          style={{fontFamily:"'DM Mono',monospace",fontSize:10,background:'#2B1010',color:'#E05555',border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
+                          style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:'#E05555',border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
                           Delete
                         </button>}
                       </div>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                      <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
                     </div>
                   )
                 })}
@@ -1751,8 +1751,8 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
     return (
       <div style={{padding:40, textAlign:'center'}}>
         <div style={{fontSize:48, marginBottom:12}}>🔒</div>
-        <div style={{fontFamily:"'DM Mono',monospace", fontSize:12, color:T.muted, marginBottom:8}}>Financial data is hidden</div>
-        <div style={{fontFamily:"'DM Mono',monospace", fontSize:11, color:T.faint, maxWidth:420, margin:'0 auto', lineHeight:1.6}}>
+        <div style={{fontFamily:MONO, fontSize:12, color:T.muted, marginBottom:8}}>Financial data is hidden</div>
+        <div style={{fontFamily:MONO, fontSize:11, color:T.faint, maxWidth:420, margin:'0 auto', lineHeight:1.6}}>
           You don't have permission to view financial information for this property. Ask the company owner to grant you the "View financial data" permission.
         </div>
       </div>
@@ -1867,12 +1867,12 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
       <div style={{display:'grid',gap:12,marginBottom:20}}>
         {sections.map((section,si)=>(
           <div key={si} className="card" style={{padding:'18px 22px'}}>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
+            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
               {section.items.map((item,i)=>(
                 <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>{item.l}</span>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:item.bold?700:600,color:item.color||T.text,display:'inline-flex',alignItems:'center',gap:2}}>
+                  <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
+                  <span style={{fontFamily:MONO,fontSize:11,fontWeight:item.bold?700:600,color:item.color||T.text,display:'inline-flex',alignItems:'center',gap:2}}>
                     {item.v||'—'}
                     {item.explain && <CalcExplain {...item.explain}/>}
                   </span>
@@ -2007,9 +2007,9 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
       </div>}
 
       {loading
-        ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.muted}}>Loading...</div>
+        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
         : docs.length===0
-          ? <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:T.faint,textAlign:'center',
+          ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',
               padding:24,background:T.bg,borderRadius:10}}>
               No company documents yet.
             </div>
@@ -2023,14 +2023,14 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
                     <div style={{flex:1,minWidth:150}}>
                       <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:T.gold,
+                        <span style={{fontFamily:MONO,fontSize:9,color:T.gold,
                           background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
                           {cat.icon} {cat.label}
                         </span>
-                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.muted}}>
+                        <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                           {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                         </span>
-                        {doc.size&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:T.faint}}>
+                        {doc.size&&<span style={{fontFamily:MONO,fontSize:10,color:T.faint}}>
                           {formatSize(doc.size)}
                         </span>}
                       </div>
@@ -2043,13 +2043,13 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
                           else showToast('Could not generate view link', 'error')
                         } catch(e) { showToast('Could not view: ' + (e.message||'unknown'), 'error') }
                       }}
-                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 12px',
+                        style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',
                           background:T.surface,color:T.gold,border:`1px solid ${T.gold}44`,
                           borderRadius:8,cursor:'pointer'}}>
                         View
                       </button>
                       {isAdmin&&<button onClick={()=>handleDelete(doc)}
-                        style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'5px 10px',
+                        style={{fontFamily:MONO,fontSize:11,padding:'5px 10px',
                           background:T.surface,color:T.muted,border:`1px solid ${T.border}`,
                           borderRadius:8,cursor:'pointer'}}
                         onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
@@ -2074,7 +2074,7 @@ function AccessModal({companies, onClose, showToast}) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const confirmDialog = useConfirm()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [users, setUsers]           = useState([])
   const [access, setAccess]         = useState({})
   const [invites, setInvites]       = useState([])
@@ -2396,7 +2396,7 @@ function AccessModal({companies, onClose, showToast}) {
 // with copy-to-clipboard + revoke. Revoked invites stay in DB for audit but
 // disappear from this list.
 function ShareableLinksTab({ companies, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   // Group invites by company for the active list
   const [invitesByCompany, setInvitesByCompany] = useState({})
   const [loading, setLoading] = useState(true)
@@ -2692,7 +2692,7 @@ function ShareableLinksTab({ companies, showToast, T }) {
 
 // ── MASTER MILESTONE SETTINGS PANEL ──────────────────────────────────────────
 function MilestoneSettingsPanel({ user, config, onChange, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [saving, setSaving] = useState(false)
 
   // Get all milestone definitions from api (imported at top)
@@ -2798,7 +2798,7 @@ function MilestoneSettingsPanel({ user, config, onChange, showToast, T }) {
 
 // ── ADMIN SETTINGS PANEL ──────────────────────────────────────────────────────
 function AdminSettingsPanel({ user, T, showToast }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [tab, setTab]           = useState('accounts')
   const [companies, setCompanies] = useState([])
   const [users, setUsers]       = useState([])
@@ -3103,7 +3103,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
 
 // ── FEATURE FLAGS PANEL (Developer only) ─────────────────────────────────────
 function FeatureFlagsPanel({ users, companies, T, showToast }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const confirmDialog = useConfirm()
   const [flags, setFlags] = useState([])
   const [loading, setLoading] = useState(true)
@@ -3233,7 +3233,7 @@ function FeatureFlagsPanel({ users, companies, T, showToast }) {
 }
 
 function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [userOverrides, setUserOverrides] = useState([])
   const [companyOverrides, setCompanyOverrides] = useState([])
   const [loading, setLoading] = useState(true)
@@ -3369,7 +3369,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
 
 // ── REVENUE ANALYTICS PANEL (Developer only) ────────────────────────────────
 function RevenueAnalyticsPanel({ companies, T, showToast }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0, totalCompanies: 0, totalProperties: 0, mrr: 0, signupsLast30: 0, signupsLast7: 0, cohorts: [] })
 
@@ -3484,7 +3484,7 @@ function RevenueAnalyticsPanel({ companies, T, showToast }) {
 
 // ── COMPANY BRANDING SETTINGS PANEL ──────────────────────────────────────────
 function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCompanySettings, user, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [selectedCo, setSelectedCo] = useState(companies[0]?.id || '')
   const [uploading, setUploading]   = useState(false)
   const [logoPreview, setLogoPreview] = useState(null)
@@ -3664,7 +3664,7 @@ function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCo
 
 // ── BRANDING PANEL ────────────────────────────────────────────────────────────
 function BrandingPanel({ companies, companySettings, setCompanySettings, user, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [uploading, setUploading] = useState(null)
 
   async function handleLogoUpload(companyId, file) {
@@ -3756,7 +3756,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
 
 // ── TENANT PORTAL SETTINGS ────────────────────────────────────────────────────
 function TenantPortalSettings({ companies, companySettings, setCompanySettings, showToast, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [selectedCo, setSelectedCo] = useState(companies[0]?.id || '')
   const [mode, setMode]           = useState('landlord')
   const [agentName, setAgentName] = useState('')
@@ -3915,7 +3915,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
             </div>
           </div>
         )}
-        <button onClick={saveContact} disabled={saving} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
+        <button onClick={saveContact} disabled={saving} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
           {saving?'Saving…':'Save contact & subdomain settings'}
         </button>
       </div>
@@ -3939,7 +3939,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
             </div>
           </div>
         </div>
-        <button onClick={saveBank} disabled={savingBank} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
+        <button onClick={saveBank} disabled={savingBank} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
           {savingBank?'Saving…':'Save bank details'}
         </button>
       </div>
@@ -3955,7 +3955,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
             placeholder="e.g. justin@jvhammond.com"
             style={{...inp, flex:1}}/>
           <button onClick={saveNotifyEmail} disabled={savingNotify}
-            style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer', flexShrink:0 }}>
+            style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
             {savingNotify?'Saving…':'Save'}
           </button>
         </div>
@@ -3974,7 +3974,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
           </select>
         </div>
         <div style={{ display:'flex', gap:10, marginBottom: inviteLink ? 14 : 0, flexWrap:'wrap' }}>
-          <button onClick={generateInviteLink} disabled={!inviteProperty} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'white', cursor:'pointer' }}>
+          <button onClick={generateInviteLink} disabled={!inviteProperty} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
             Generate invite link
           </button>
           {inviteLink && (
@@ -4026,7 +4026,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
 
 // ── SECURITY & DATA PANEL ─────────────────────────────────────────────────────
 function SecurityDataPanel({ user, T, showToast }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [exporting, setExporting] = useState(false)
   const [deletedProps, setDeletedProps] = useState([])
   const [loadingTrash, setLoadingTrash] = useState(true)
@@ -4140,7 +4140,7 @@ function SecurityDataPanel({ user, T, showToast }) {
 
 // ── AUDIT LOG PANEL ───────────────────────────────────────────────────────────
 function AuditLogPanel({ user, companies, T }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [logs, setLogs]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [companyFilter, setCompanyFilter] = useState('')
@@ -4286,7 +4286,7 @@ function AuditLogPanel({ user, companies, T }) {
 
 // ── REFERRAL PANEL ────────────────────────────────────────────────────────────
 function ReferralPanel({ user, T, showToast }) {
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [code, setCode]         = useState('')
   const [referrals, setReferrals] = useState([])
   const [loading, setLoading]   = useState(true)
@@ -4328,7 +4328,7 @@ function ReferralPanel({ user, T, showToast }) {
               <input readOnly value={referralUrl}
                 style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.gold, borderRadius:8, padding:'9px 12px', outline:'none' }}/>
               <button onClick={copy}
-                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:'white', cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
+                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:'#1C2830', cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
                 {copied ? 'Copied!' : 'Copy link'}
               </button>
             </div>

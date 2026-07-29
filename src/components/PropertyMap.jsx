@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
@@ -36,7 +37,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   const [heatmapMetric, setHeatmapMetric] = useState('rent')  // 'rent' | 'yield' | 'arrears'
   const heatmapSourceId = 'ownproperly-heat-source'
   const heatmapLayerId  = 'ownproperly-heat-layer'
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
 
   // Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
   // status badges agree visually.
@@ -524,7 +525,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
               )}
             </div>
             <button onClick={() => onOpenProperty && onOpenProperty(popupProp.id)}
-              style={{ display: 'block', width: '100%', padding: '11px 16px', border: 'none', borderTop: `1px solid ${T.border}`, background: T.gold, color: 'white', fontFamily: mono, fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}>
+              style={{ display: 'block', width: '100%', padding: '11px 16px', border: 'none', borderTop: `1px solid ${T.border}`, background: T.gold, color: '#1C2830', fontFamily: mono, fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}>
               Open property →
             </button>
           </div>
@@ -651,7 +652,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 function Row({ label, value, valueColor }) {
   const { T } = useTheme()
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 11 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11 }}>
       <span style={{ color: T.muted }}>{label}</span>
       <span style={{ color: valueColor || T.text, fontWeight: 600 }}>{value}</span>
     </div>

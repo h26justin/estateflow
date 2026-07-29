@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
@@ -18,7 +19,7 @@ function PreviewRow({ label, value, T, mono }) {
 export default function DeleteCompanyModal({ company, userId, onClose, onDeleted }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
   const [preview, setPreview] = useState(null)        // { properties, tenancies, documents, company_documents }
   const [confirmText, setConfirmText] = useState('')
   const [busy, setBusy] = useState(false)

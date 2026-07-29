@@ -160,7 +160,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="property-modal-title">
       <div style={{padding:'24px 28px 0'}}>
         <h2 id="property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit Property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>
-        <p style={{fontFamily:"'DM Mono',monospace",color:T.muted,fontSize:11,marginBottom:20}}>{prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}</p>
+        <p style={{fontFamily:MONO,color:T.muted,fontSize:11,marginBottom:20}}>{prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}</p>
       </div>
       <div style={{padding:'0 28px 20px',display:'flex',flexDirection:'column',gap:14}}>
 
@@ -189,7 +189,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             otherwise to avoid clutter. */}
         {Number(form.refurb_cost) > 0 && (
           <div style={{padding:'8px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,marginTop:-4}}>
-            <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontFamily:"'DM Mono',monospace",fontSize:11,color:T.text}}>
+            <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontFamily:MONO,fontSize:11,color:T.text}}>
               <input type="checkbox" checked={!!form.refurb_cost_unpaid} onChange={e=>s('refurb_cost_unpaid',e.target.checked)} style={{width:'auto',margin:0,marginTop:2}}/>
               <span>
                 <strong>Refurb cost is unpaid (still owed)</strong>
@@ -298,11 +298,11 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             collapses by default so the form doesn't feel longer for
             users who don't care about compliance. */}
         <details style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px' }}>
-          <summary style={{ cursor: 'pointer', fontFamily: "'DM Mono',monospace", fontSize: 11, color: T.text, fontWeight: 700, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <summary style={{ cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: T.text, fontWeight: 700, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>Compliance dates (optional)</span>
             <span style={{ fontSize: 10, color: T.muted, fontWeight: 400 }}>tap to expand</span>
           </summary>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>
             Add what you know now — leave the rest blank. We'll remind you in the bell as expiries approach. You can also upload certificates later on the Compliance tab and we'll auto-fill the dates.
           </div>
           <div className="g2">

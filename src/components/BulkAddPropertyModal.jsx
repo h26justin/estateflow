@@ -1,3 +1,4 @@
+import { MONO } from '../lib/styles'
 // BulkAddPropertyModal — wizard for adding many flats in a building at once.
 //
 // Three step flow:
@@ -19,7 +20,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 // Pre-set unit prefixes the wizard offers. Custom is just a free text field.
 const PREFIXES = [
@@ -43,7 +44,7 @@ const STATUSES = [
   { v: 'vacant',       l: 'Vacant' },
 ]
 
-export default function BulkAddPropertyModal({ companies = [], onClose, onSaved, showToast }) {
+export default function BulkAddPropertyModal({ companies = [], onClose, onSaved, showToast, asPage = false }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const [step, setStep] = useState(1)
@@ -228,10 +229,9 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
     || Object.keys(rowOverrides).length > 0)
 
   // ── Render ───────────────────────────────────────────────────────────
-  return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{ maxWidth: step === 3 ? 920 : 640 }} role="dialog" aria-modal="true" aria-labelledby="bulk-add-property-modal-title">
+  // Shared between the routed page (#/properties/bulk) and the legacy modal.
+  const inner = (
+    <>
         <div style={{ padding: '24px 28px 0' }}>
           <h2 id="bulk-add-property-modal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
             Add a block of flats
@@ -323,6 +323,24 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
             </div>
           </div>
         </div>
+      </>
+  )
+
+  // Routed page mode: a 3-step wizard with an editable spreadsheet on step 3
+  // is a page, not a modal that resizes itself mid-flow.
+  if (asPage) return (
+    <div className="fade" style={{maxWidth: step === 3 ? 960 : 680, margin:'0 auto', transition:'max-width 0.2s'}}>
+      <div className="card" style={{padding:0, overflow:'hidden'}}>
+        {inner}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
+      <div className="modal" style={{ maxWidth: step === 3 ? 920 : 640 }} role="dialog" aria-modal="true" aria-labelledby="bulk-add-property-modal-title">
+        {inner}
       </div>
       </FocusTrap>
     </div>

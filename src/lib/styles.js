@@ -237,3 +237,23 @@ export const statusPill = (key, darkMode) => {
     whiteSpace: 'nowrap',
   }
 }
+
+// ── Z-INDEX LADDER ───────────────────────────────────────────────────────────
+// The app had 21 distinct ad-hoc z-index values with no scale. New code takes
+// its layer from here; existing values are being migrated opportunistically.
+// Ladder (low → high):
+//   header 100 · rail 120 · menuBackdrop 199 · menu/overlay 200 · drawer 300
+//   popover 500 · adminOverlay 800 · banner 900 · toast 999 · topmost 2000
+export const Z = {
+  header: 100,
+  rail: 120,
+  menuBackdrop: 199,
+  menu: 200,
+  overlay: 200,   // matches the .overlay class in App.jsx's stylesheet
+  drawer: 300,
+  popover: 500,
+  adminOverlay: 800,
+  banner: 900,
+  toast: 999,
+  topmost: 2000,
+}

@@ -3,10 +3,10 @@ import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { Icon } from '../lib/icons'
-import { SANS, statusColors } from '../lib/styles'
+import { MONO, SANS, statusColors } from '../lib/styles'
 const TenantRentCollectionConsent = lazy(() => import('./RentCollectionPanel').then(m => ({ default: m.TenantRentCollectionConsent })))
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
 // Tenant portal colour tokens. The previous hard-coded values were:

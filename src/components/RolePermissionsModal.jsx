@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
 
-const mono = "'DM Mono',monospace"
+const mono = MONO
 
 const ROLE_INFO = {
   admin: {

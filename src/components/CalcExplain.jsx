@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 
 /**
@@ -26,7 +27,7 @@ export default function CalcExplain({ title, formula, inputs = [], result, note 
   const { T } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
-  const mono = "'DM Mono',monospace"
+  const mono = MONO
 
   useEffect(() => {
     if (!open) return
