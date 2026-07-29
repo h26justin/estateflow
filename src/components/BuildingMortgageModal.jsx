@@ -6,6 +6,7 @@ import * as api from '../lib/api'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import FocusTrap from '../lib/FocusTrap'
 import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { useConfirm } from '../lib/ConfirmContext'
 
 // ── BUILDING MORTGAGE EDITOR ─────────────────────────────────────────
 // Lets a user attach (or edit) ONE mortgage that covers ALL the units
@@ -38,6 +39,7 @@ function buildingsFor(properties) {
 }
 
 export default function BuildingMortgageModal({ properties, setProperties, onClose }) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const buildings = useMemo(() => buildingsFor(properties), [properties])
   const [selectedKey, setSelectedKey] = useState(buildings[0]?.key || null)
@@ -173,8 +175,8 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
   }).format(n || 0)
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
       <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="building-mortgage-title">
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="building-mortgage-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>

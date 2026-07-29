@@ -1,8 +1,9 @@
 
-import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, memo, lazy, Suspense } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
+import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS } from './lib/nav'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -195,19 +196,33 @@ const CompanyPill = memo(({company}) => {
   return <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||'#C8A84B')+'22',color:company.color||'#C8A84B',border:`1px solid ${(company.color||'#C8A84B')}44`}}>{company.abbr}</span>
 })
 
-const StatCard = memo(({icon,label,value,sub,accent,breakdown}) => {
+const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
   const { T } = useTheme()
+  // Cards with a breakdown keep click = expand; navigation gets its own
+  // explicit link so the two affordances never fight. Cards without a
+  // breakdown navigate on click directly.
+  const clickable = breakdown || onNavigate
   return (
-    <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:breakdown?'pointer':'default'}}
-      onClick={breakdown?()=>setOpen(o=>!o):undefined}>
+    <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
+      onClick={breakdown?()=>setOpen(o=>!o):(onNavigate||undefined)}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         {/* Redesign: a known icon name renders the hairline glyph in a tinted
             accent tile; legacy emoji strings still render as-is. */}
         {ICON_NAMES.includes(icon)
           ? <div style={{width:34,height:34,borderRadius:9,background:(accent||T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><Icon name={icon} size={18} color={accent||T.gold}/></div>
           : <div style={{fontSize:20,marginBottom:8}}>{icon}</div>}
-        {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',marginTop:2,display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
+        <span style={{display:'inline-flex',alignItems:'center',gap:10,marginTop:2}}>
+          {onNavigate&&(
+            <button onClick={e=>{e.stopPropagation();onNavigate()}}
+              aria-label={navLabel||`Open ${label}`}
+              style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:9,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
+              onMouseEnter={e=>e.currentTarget.style.color=T.gold} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
+              {(navLabel||'VIEW').toUpperCase()}<Icon name="arrow-right" size={11}/>
+            </button>
+          )}
+          {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
+        </span>
       </div>
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
@@ -477,7 +492,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
         return (
           <div key={m.id}
             title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL booked (paid)' : m.status} — click for day view`}
-            onClick={!isFuture ? ()=>setPopover(m) : undefined}
+            onClick={!isFuture ? (e)=>{e.stopPropagation();setPopover(m)} : undefined}
             style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',
               display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
             onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${col}88`}}}
@@ -796,7 +811,7 @@ export default function App() {
   const [impersonatingUser, setImpersonatingUser] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
   })
-  const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
+  const [userNavPrefs, setUserNavPrefs] = useState(DEFAULT_NAV_KEYS)
   // Tenant-portal branding for the current subdomain (<sub>.ownproperly.com).
   // Looked up once on mount via a public RPC so a logged-OUT visitor sees the
   // company's branded login instead of the generic marketing site. null = no
@@ -911,6 +926,10 @@ export default function App() {
     return () => window.removeEventListener('ownproperly:restart-tour', handler)
   }, [])
 
+  // Last place we synced to the URL — used to decide pushState vs
+  // replaceState (see the sync effect below).
+  const lastSyncedNav = useRef(null)
+
   // ── BROWSER HISTORY INTEGRATION ────────────────────────────────────────────
   // URLs map to state:
   //   #/dashboard                         → view=dashboard
@@ -928,9 +947,16 @@ export default function App() {
     const parseHash = () => {
       const h = window.location.hash.replace(/^#\/?/, '')
       if (!h) return { view: 'dashboard' }
-      const parts = h.split('/').filter(Boolean)
+      // Hash segments come back percent-encoded from window.location.hash
+      // (e.g. a legacy '#/detail/<id>/epc%20plan' bookmark), so decode each
+      // part before matching. Legacy space-keyed tabs map onto their slugs.
+      const parts = h.split('/').filter(Boolean).map(p => {
+        try { return decodeURIComponent(p) } catch { return p }
+      })
+      const LEGACY_TABS = { 'epc plan': 'epc-plan', 'right to rent': 'right-to-rent', 'rent history': 'rent-history' }
       if (parts[0] === 'detail' && parts[1]) {
-        return { view: 'detail', selectedId: parts[1], detailTab: parts[2] || 'overview' }
+        const rawTab = parts[2] || 'overview'
+        return { view: 'detail', selectedId: parts[1], detailTab: LEGACY_TABS[rawTab] || rawTab }
       }
       if (parts[0] === 'settings') {
         return { view: 'settings', settingsTab: parts[1] || null }
@@ -988,7 +1014,16 @@ export default function App() {
       if (parsed.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: parsed.settingsTab } }))
     }
     window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
+    // Programmatic `window.location.hash = …` navigations (notification
+    // links, insight actions, the error boundary's "go home") fire
+    // `hashchange`, NOT `popstate` — without this listener they change the
+    // URL but never the screen, and the sync effect then rewrites the URL
+    // back to the stale view.
+    window.addEventListener('hashchange', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('hashchange', handlePopState)
+    }
   }, [])
 
   // Sync to URL whenever navigation state changes
@@ -1022,11 +1057,30 @@ export default function App() {
     // SettingsPage mounts, landing the user on the Account tab instead.
     if (view === 'settings' && /^#\/settings(\/|$)/.test(window.location.hash)) return
     if (window.location.hash !== target) {
-      window.history.pushState({ view, selectedId, detailTab, portfolioTab, selectedReportId }, '', target)
+      // Push a history entry only when the *place* changes (view, property,
+      // report). Intra-page tab flips (detailTab, portfolioTab) REPLACE the
+      // current entry — otherwise browsing a property's 9 tabs means
+      // pressing Back 9 times to leave it.
+      const prev = lastSyncedNav.current
+      const placeChanged = !prev || prev.view !== view || prev.selectedId !== selectedId || prev.selectedReportId !== selectedReportId
+      const historyState = { view, selectedId, detailTab, portfolioTab, selectedReportId }
+      if (placeChanged) window.history.pushState(historyState, '', target)
+      else window.history.replaceState(historyState, '', target)
     }
+    lastSyncedNav.current = { view, selectedId, selectedReportId }
   // user.id only — see the note on the loadData useEffect below for why.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedId, detailTab, portfolioTab, selectedReportId, user?.id])
+
+  // Per-view document titles so history entries, bookmarks and the browser
+  // tab strip are tellable apart (index.html's marketing title otherwise
+  // labels every page identically). Restored on sign-out via cleanup.
+  const titleName = view === 'detail' ? (properties.find(p => p.id === selectedId)?.name || null) : null
+  useEffect(() => {
+    const label = titleName || VIEW_LABELS[view] || null
+    document.title = label ? `${label} · Properly` : 'Properly — Property Portfolio Management Software for UK Landlords'
+    return () => { document.title = 'Properly — Property Portfolio Management Software for UK Landlords' }
+  }, [view, titleName])
 
   useEffect(()=>{
     if (!user) return
@@ -1484,7 +1538,15 @@ export default function App() {
   }),[dashCos, dashProps])
 
 
-  const showToast = useCallback((msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),3500)},[])
+  // Success/info toasts auto-dismiss; ERROR toasts stay until dismissed —
+  // a 3.5s window is not enough to read a failure, and the toast is the
+  // only feedback channel most forms have.
+  const toastTimer = useRef(null)
+  const showToast = useCallback((msg,type='success')=>{
+    if (toastTimer.current) { clearTimeout(toastTimer.current); toastTimer.current = null }
+    setToast({msg,type})
+    if (type !== 'error') toastTimer.current = setTimeout(()=>setToast(null),3500)
+  },[])
 
   // Listen for global toast events so deep-tree components can trigger a
   // toast without receiving showToast as a prop. See src/lib/toast.js.
@@ -1911,25 +1973,10 @@ export default function App() {
     }catch(e){showToast(e.message,'error')}
   }
 
-  // Top-level navigation tabs. Feedback used to live here as a required tab,
-  // but it's not a daily-use page — moved to the "⋯ More" menu in the
-  // top-right so it doesn't clutter the primary navigation. Settings stays
-  // as a tab because its sub-pages (billing, branding, team, notifications,
-  // etc.) are deep and benefit from a dedicated landmark.
-  const ALL_NAV=[
-    {key:'dashboard',  label:'Dashboard',    icon:'home',         short:'Home',     required:true},
-    {key:'properties', label:'Portfolio',    icon:'building',      short:'Portfolio',required:true},
-    {key:'companies',  label:'Companies',    icon:'grid',         short:'Cos',      required:false},
-    {key:'rent',       label:'Rent Tracker', icon:'pound',        short:'Rent',     required:false},
-    {key:'deals',      label:'Deals',        icon:'target',       short:'Deals',    required:false},
-    {key:'insurance',  label:'Insurance',    icon:'shield-check', short:'Insurance',required:false},
-    {key:'contractors',label:'Contractors',  icon:'wrench',       short:'Trades',   required:false},
-    {key:'reports',    label:'Reports',      icon:'pie-chart',    short:'Reports',  required:false},
-    {key:'mtd',        label:'MTD Tax',      icon:'landmark',     short:'MTD',      required:false},
-    {key:'autopilot',  label:'Autopilot',    icon:'robot',        short:'Autopilot',required:false, flag:'portfolio_autopilot'},
-    {key:'renters-rights', label:'Renters Rights', icon:'scale',  short:'RRA', required:false, flag:'renters_rights'},
-    {key:'settings',   label:'Settings',     icon:'settings',     short:'Settings', required:true},
-  ]
+  // Top-level navigation tabs — the registry lives in lib/nav.js (shared with
+  // the Settings → Navigation toggles so the two can never disagree again).
+  // Feedback used to live here as a required tab, but it's not a daily-use
+  // page — moved to the "⋯ More" menu / drawer instead.
   // MTD ITSA only applies to individuals/sole-traders. Limited-company landlords
   // file Corporation Tax, not Self Assessment — hide the page from their nav so
   // their UI isn't cluttered with an irrelevant feature.
@@ -2397,21 +2444,28 @@ export default function App() {
                 <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
               </div>
             )}
-            {/* First-run zero-state. Brand new accounts land here with no
-                properties and no companies — instead of seeing a wall of £0
-                KPIs, give them a friendly hero CTA pointing at the next
-                step. Once they have at least one property/company, the
-                regular header takes over. */}
-            {!loadError && activeProperties.length === 0 && companies.length === 0 && (
+            {/* First-run zero-state. Accounts with no properties land here —
+                including the most common post-onboarding state (a company
+                created by the wizard but no property yet, which previously
+                skipped this hero and dumped the user on a wall of £0 KPIs).
+                While this shows, the dashboard sections below are skipped
+                entirely. */}
+            {!loadError && activeProperties.length === 0 && (
               <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
                 <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="home" size={isMobile?30:38} color={T.gold}/></div>
                 <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to Properly</h1>
                 <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
-                  You're on a 14-day free trial. The fastest way to see what the app does is to add your first company and one property — takes about 2 minutes.
+                  {companies.length === 0
+                    ? "You're on a 14-day free trial. The fastest way to see what the app does is to add your first company and one property — takes about 2 minutes."
+                    : 'Your company is set up — now add your first property to bring the dashboard to life. Takes about a minute.'}
                 </p>
                 <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                  <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>1. Add a Company</button>
-                  <button className="btn btn-ghost" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={companies.length===0} title={companies.length===0 ? 'Add a company first' : ''}>2. Add a Property</button>
+                  {companies.length === 0
+                    ? <>
+                        <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>1. Add a Company</button>
+                        <button className="btn btn-ghost" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled title="Add a company first">2. Add a Property</button>
+                      </>
+                    : <button className="btn btn-gold" onClick={()=>{setEditProp(null);setShowAddProp(true)}}>Add your first property</button>}
                 </div>
               </div>
             )}
@@ -2428,7 +2482,7 @@ export default function App() {
                       </h1>
                     )
                   })()}
-                  <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
+                  {activeProperties.length > 0 && <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
                     {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                     {dashProps.some(p=>p.current_value>0) && <>
                       {/* On mobile drop to a new line so the value/equity pair has its own row */}
@@ -2443,7 +2497,7 @@ export default function App() {
                         {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0)-(p.mortgage_amount||0),0))}
                       </span>
                     </>}
-                  </p>
+                  </p>}
                 </div>
                 {/* Portfolio health ring — average of per-property health
                     scores, consistent with the per-card HealthBadge. */}
@@ -2495,6 +2549,10 @@ export default function App() {
               )}
             </div>
             {(() => {
+              // First-run: the welcome hero above is the whole dashboard.
+              // Rendering the sections under it would just be a wall of £0
+              // KPIs and empty widgets.
+              if (!loadError && activeProperties.length === 0) return null
               // ───────────────────────────────────────────────────────────────
               // Dashboard sections registry — each section is a labelled chunk
               // that the user can reorder and show/hide. Section content is
@@ -2650,7 +2708,7 @@ export default function App() {
                 // Widget definitions — each returns a StatCard JSX element
                 const WIDGET_DEFS = {
                   portfolio_value: { icon:'home', label:'Portfolio Value', render: () => (
-                    <StatCard icon="home" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`}
+                    <StatCard icon="home" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
                         {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
@@ -2664,7 +2722,7 @@ export default function App() {
                     />
                   )},
                   monthly_rent: { icon:'pound', label:'Monthly Rental Income', render: () => (
-                    <StatCard icon="pound" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green}
+                    <StatCard icon="pound" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                       breakdown={[
                         ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
                         {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
@@ -2674,7 +2732,7 @@ export default function App() {
                     />
                   )},
                   arrears: { icon:'alert-triangle', label:'Total Arrears', render: () => (
-                    <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green}
+                    <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                       breakdown={[
                         ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
                         ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
@@ -2683,7 +2741,7 @@ export default function App() {
                     />
                   )},
                   refurb: { icon:'hammer', label:'In Refurbishment', render: () => (
-                    <StatCard icon="hammer" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue}
+                    <StatCard icon="hammer" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue} onNavigate={()=>{setStatusFilter('refurb');setPortfolioTab('properties');setView('properties')}} navLabel="View"
                       breakdown={[
                         ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
                         ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
@@ -2693,7 +2751,7 @@ export default function App() {
                     />
                   )},
                   mortgages: { icon:'landmark', label:'Mortgages Outstanding', render: () => (
-                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6"
+                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6" onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
                         {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
@@ -2745,7 +2803,7 @@ export default function App() {
                       ? 'No live deals or properties'
                       : `${fmt(next90)} due in 90d · ${fmt(pipelineCash)} in pipeline`
                     return (
-                      <StatCard icon="wallet" label="Cash Committed" value={fmt(cashAgg.totalCashOut)} sub={sub} accent={accent}
+                      <StatCard icon="wallet" label="Cash Committed" value={fmt(cashAgg.totalCashOut)} sub={sub} accent={accent} onNavigate={()=>setView('deals')} navLabel="Deals"
                         breakdown={[
                           ...(overdueCash > 0 ? [{label:`Overdue (${overdueCount} ${overdueCount===1?'item':'items'})`, value:fmt(overdueCash), color:T.red, separator:true}] : []),
                           {label:'Next 30 days', value:fmt(cashAgg.byBucket['0-30']?.cashOut || 0), color:(cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber : T.muted, note:`${cashAgg.byBucket['0-30']?.count || 0} item(s) needing cash this month`},
@@ -2808,7 +2866,7 @@ export default function App() {
                           ? `${bucketed.d30.length} renewing in 30 days · ${activeCount} active`
                           : `${activeCount} active ${activeCount === 1 ? 'policy' : 'policies'}`
                     return (
-                      <StatCard icon="shield-check" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent}
+                      <StatCard icon="shield-check" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent} onNavigate={()=>setView('insurance')} navLabel="Insurance"
                         breakdown={[
                           ...(bucketed.expired.length > 0 ? [{label:`Expired (${bucketed.expired.length})`, value:fmt(sumP(bucketed.expired)), color:T.red, separator:true, note:'Policies past their expiry date. Renew immediately.'}] : []),
                           {label:'Next 30 days', value:fmt(sumP(bucketed.d30)), color:bucketed.d30.length > 0 ? T.amber : T.muted, note:`${bucketed.d30.length} ${bucketed.d30.length === 1 ? 'policy' : 'policies'} renewing this month`},
@@ -2821,7 +2879,7 @@ export default function App() {
                     )
                   }},
                   property_count: { icon:'home', label:'Property Count', render: () => (
-                    <StatCard icon="home" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold}
+                    <StatCard icon="home" label="Property Count" value={stats.total} sub={`${stats.rented} rented · ${stats.vacant} vacant`} accent={T.gold} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Total properties', value:stats.total},
                         {label:'Rented', value:stats.rented, color:T.green},
@@ -2834,7 +2892,7 @@ export default function App() {
                   occupancy_rate: { icon:'pie-chart', label:'Occupancy Rate', render: () => {
                     const rate = stats.total > 0 ? Math.round((stats.rented/stats.total)*100) : 0
                     return (
-                      <StatCard icon="pie-chart" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red}
+                      <StatCard icon="pie-chart" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red} onNavigate={()=>{setStatusFilter('vacant');setPortfolioTab('properties');setView('properties')}} navLabel="Vacant"
                         breakdown={[
                           {label:'Occupied', value:stats.rented, color:T.green},
                           {label:'Vacant', value:stats.vacant, color:T.amber},
@@ -3271,14 +3329,19 @@ export default function App() {
                   if(cs.feature_documents)   tabs.push('documents')
                   if(cs.feature_expenses)    tabs.push('expenses')
                   if(selected.is_hmo || activeFlags.has('hmo_rooms')) tabs.push('rooms')
-                  if(activeFlags.has('epc_planner')) tabs.push('epc plan')
+                  if(activeFlags.has('epc_planner')) tabs.push('epc-plan')
+                  // Tab keys are URL slugs (they form the #/detail/<id>/<tab>
+                  // segment — keys with spaces came back percent-encoded on
+                  // refresh and matched nothing, rendering a blank pane).
+                  // Multi-word keys need explicit display labels.
+                  const TAB_LABELS = { 'epc-plan': 'EPC Plan' }
                   // Treat tenancy sub-tab URLs as if "tenancy" is the active top-level tab
-                  const TENANCY_SUB = ['right to rent','deposit','notices','rent history']
+                  const TENANCY_SUB = ['right-to-rent','deposit','notices','rent-history']
                   const activeTop = TENANCY_SUB.includes(detailTab) ? 'tenancy' : detailTab
                   return (
                     <div style={{display:'flex',gap:4,marginBottom:14,flexWrap:'wrap'}}>
                       {tabs.map(t=>(
-                        <button key={t} className={`tab ${activeTop===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:'capitalize'}}>{t}</button>
+                        <button key={t} className={`tab ${activeTop===t?'active':''}`} onClick={()=>setDetailTab(t)} style={{textTransform:TAB_LABELS[t]?'none':'capitalize'}}>{TAB_LABELS[t]||t}</button>
                       ))}
                     </div>
                   )
@@ -3441,17 +3504,17 @@ export default function App() {
                   ))}
                 </div>}
                 {detailTab==='contractors'&&<ContractorsPage propertyFilter={selected.id} showToast={showToast} user={user} compact={true}/>}
-                {(detailTab==='overview'||detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T}/>}
+                {(detailTab==='overview'||detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T}/>}
                 {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} showToast={showToast} isAdmin={isAdmin} user={user} category="compliance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_compliance') || devModeActive}/>}
-                {(detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&(()=>{
+                {(detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&(()=>{
                   // The four legacy values map to themselves as sub-tabs; "tenancy" => "details".
                   const subTab = detailTab==='tenancy' ? 'details' : detailTab
                   const SUBS = [
                     ['details',       'Details'],
-                    ['right to rent', 'Right to Rent'],
+                    ['right-to-rent', 'Right to Rent'],
                     ['deposit',       'Deposit'],
                     ['notices',       'Notices'],
-                    ['rent history',  'Rent History'],
+                    ['rent-history',  'Rent History'],
                   ]
                   return (
                     <div>
@@ -3484,10 +3547,10 @@ export default function App() {
                         </button>
                       </div>
                       {subTab==='details'      &&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
-                      {subTab==='right to rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
+                      {subTab==='right-to-rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='deposit'      &&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='notices'      &&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T} property={selected}/>}
-                      {subTab==='rent history' &&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast} T={T}/>}
+                      {subTab==='rent-history' &&<RentHistoryTab propertyId={selected.id} userId={user?.id} currentRent={selected.rent_pcm} showToast={showToast} T={T}/>}
                     </div>
                   )
                 })()}
@@ -3495,10 +3558,10 @@ export default function App() {
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses" canEdit={canDo(permissionsMap, selected.company_id, 'edit_expenses') || devModeActive} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive}/>}
                 {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
                 {detailTab==='rooms'&&(selected.is_hmo||activeFlags.has('hmo_rooms'))&&<HmoRoomsPanel propertyId={selected.id} canEdit={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
-                {detailTab==='epc plan'&&activeFlags.has('epc_planner')&&<EpcPlanner property={selected} T={T} canWrite={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
-                {activeFlags.has('rent_collection')&&(detailTab==='rent'||detailTab==='rent history')&&<RentCollectionPanel property={selected} companyId={selected.company_id} tenantUserId={null}/>}
+                {detailTab==='epc-plan'&&activeFlags.has('epc_planner')&&<EpcPlanner property={selected} T={T} canWrite={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
+                {activeFlags.has('rent_collection')&&(detailTab==='rent'||detailTab==='rent-history')&&<RentCollectionPanel property={selected} companyId={selected.company_id} tenantUserId={null}/>}
                 {detailTab==='documents'&&activeFlags.has('esign')&&<ESignPanel propertyId={selected.id} companyId={selected.company_id} documents={[]} T={T}/>}
-                {(detailTab==='tenancy'||['right to rent','deposit','notices','rent history'].includes(detailTab))&&activeFlags.has('referencing')&&<ReferencingPanel propertyId={selected.id} canEdit={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
+                {(detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&activeFlags.has('referencing')&&<ReferencingPanel propertyId={selected.id} canEdit={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
               </div>
               <div style={{display:'grid',gap:12}}>
                 <div className="card" style={{padding:'18px 20px'}}>
@@ -3691,11 +3754,22 @@ export default function App() {
       {/* Toast: role=alert + aria-live=assertive for errors (so screen readers
           interrupt and announce), role=status + aria-live=polite for success
           notices (so they're announced without interrupting the user). */}
-      {toast&&<div
-        role={toast.type==='error'?'alert':'status'}
-        aria-live={toast.type==='error'?'assertive':'polite'}
-        aria-atomic="true"
-        style={{position:'fixed',bottom:24,right:24,zIndex:999,background:toast.type==='error'?'#2B1010':'#0D2B1F',border:`1px solid ${toast.type==='error'?T.red:T.green}`,color:toast.type==='error'?T.red:T.green,fontFamily:MONO,fontSize:13,fontWeight:500,padding:'12px 20px',borderRadius:10,animation:'fadeIn 0.2s ease'}}>{toast.msg}</div>}
+      {toast&&(()=>{
+        // Theme-aware surface (the old hardcoded dark panels failed AA in
+        // light mode, the shipped default) + clear of the mobile bottom bar
+        // and iPhone safe area. Errors persist (no auto-dismiss), so always
+        // offer an explicit close.
+        const tint = toast.type==='error'?T.red:T.green
+        return <div
+          role={toast.type==='error'?'alert':'status'}
+          aria-live={toast.type==='error'?'assertive':'polite'}
+          aria-atomic="true"
+          style={{position:'fixed',bottom:isMobile?'calc(env(safe-area-inset-bottom) + 76px)':24,right:isMobile?12:24,left:isMobile?12:'auto',zIndex:999,background:T.card,border:`1px solid ${tint}`,borderLeft:`3px solid ${tint}`,color:T.text,fontFamily:MONO,fontSize:13,fontWeight:500,padding:'12px 16px',borderRadius:10,animation:'fadeIn 0.2s ease',boxShadow:'0 6px 24px rgba(0,0,0,0.18)',display:'flex',alignItems:'center',gap:12,maxWidth:isMobile?'none':420}}>
+          <span style={{flex:1}}>{toast.msg}</span>
+          <button onClick={()=>setToast(null)} aria-label="Dismiss notification"
+            style={{background:'none',border:'none',cursor:'pointer',color:T.muted,padding:'4px 6px',margin:'-4px -6px',fontSize:14,lineHeight:1,flexShrink:0}}>✕</button>
+        </div>
+      })()}
 
       {/* Mobile bottom nav - consistent icons, + More opens drawer */}
       <nav className="mobile-nav" style={{display:'flex',justifyContent:'space-around',alignItems:'center'}}>

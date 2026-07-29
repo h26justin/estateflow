@@ -110,7 +110,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   }
 
   async function createLetting() {
-    if (!newForm.property_id) { showToast('Please select a property'); return }
+    if (!newForm.property_id) { showToast('Please select a property', 'error'); return }
     setSaving(true)
     try {
       const prop = properties.find(p => p.id === newForm.property_id)

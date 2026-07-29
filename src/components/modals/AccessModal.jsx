@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { safeOverlayClose } from '../../lib/modalUtils'
+import { useConfirm } from '../../lib/ConfirmContext'
 import { supabase } from '../../lib/supabase'
 import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
 
 export default function AccessModal({ companies, userId, onClose, showToast }) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const [allUsers, setAllUsers] = useState([])
   const [access, setAccess]     = useState({})
@@ -87,8 +89,8 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose)}>
-      <FocusTrap onEscape={() => safeOverlayClose(newEmail.trim().length > 0, onClose)({ target: null, currentTarget: null })}>
+    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)}>
+      <FocusTrap onEscape={() => safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
       <div className="modal" style={{maxWidth:580}} role="dialog" aria-modal="true" aria-labelledby="access-modal-title">
         <div style={{padding:'24px 28px 0'}}>
           <h2 id="access-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Company Access Control</h2>

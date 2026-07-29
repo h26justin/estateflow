@@ -1,0 +1,50 @@
+// ── NAVIGATION REGISTRY — single source of truth ────────────────────────────
+// Previously App.jsx (runtime rail), FeatureComponents.jsx (Settings toggle
+// list + seed default) and the mobile bottom bar each carried their own copy
+// of the nav model, and they disagreed: the Settings list had no Insurance
+// row and its seed default swapped `insurance` for `mtd`, so toggling any
+// item could silently strip Insurance from a user's nav with no way to
+// re-enable it. Everything now derives from ALL_NAV.
+//
+// Fields:
+//   key       — view key (also the URL hash segment)
+//   label     — rail / drawer label
+//   icon      — name in lib/icons.jsx ICON_NAMES
+//   short     — mobile bottom-bar label
+//   required  — always visible, not toggleable
+//   flag      — feature flag that must be active for the item to appear
+//   group     — rail section header (rendered when the group changes)
+//   mobileRank— priority for the 3 middle bottom-bar slots (lower = first)
+
+export const ALL_NAV = [
+  { key: 'dashboard',      label: 'Dashboard',      icon: 'home',         short: 'Home',      required: true,  group: 'Overview',    mobileRank: 0 },
+  { key: 'properties',     label: 'Portfolio',      icon: 'building',     short: 'Portfolio', required: true,  group: 'Portfolio',   mobileRank: 0 },
+  { key: 'companies',      label: 'Companies',      icon: 'grid',         short: 'Cos',       required: false, group: 'Portfolio',   mobileRank: 4 },
+  { key: 'contractors',    label: 'Contractors',    icon: 'wrench',       short: 'Trades',    required: false, group: 'Portfolio',   mobileRank: 5 },
+  { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
+  { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
+  { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 6 },
+  { key: 'insurance',      label: 'Insurance',      icon: 'shield-check', short: 'Insurance', required: false, group: 'Money',       mobileRank: 7 },
+  { key: 'deals',          label: 'Deals',          icon: 'target',       short: 'Deals',     required: false, group: 'Growth & AI', mobileRank: 2 },
+  { key: 'autopilot',      label: 'Autopilot',      icon: 'robot',        short: 'Autopilot', required: false, group: 'Growth & AI', mobileRank: 8, flag: 'portfolio_autopilot' },
+  { key: 'renters-rights', label: 'Renters Rights', icon: 'scale',        short: 'RRA',       required: false, group: 'Growth & AI', mobileRank: 9, flag: 'renters_rights' },
+  { key: 'settings',       label: 'Settings',       icon: 'settings',     short: 'Settings',  required: true,  group: 'System',      mobileRank: 0 },
+]
+
+// The one default list, used both as the runtime pref fallback and as the
+// seed when the first toggle is saved. Flag-gated items are excluded — the
+// flag itself governs their visibility.
+export const DEFAULT_NAV_KEYS = ALL_NAV.filter(n => !n.flag).map(n => n.key)
+
+// Everything a user may switch on/off in Settings → Navigation.
+export const NAV_TOGGLE_OPTIONS = ALL_NAV.filter(n => !n.required && !n.flag)
+
+// Labels for views that have no nav entry (or whose entry may be hidden by
+// prefs/flags) so headers and document.title never fall back to "Dashboard"
+// while a different page is on screen.
+export const VIEW_LABELS = {
+  ...Object.fromEntries(ALL_NAV.map(n => [n.key, n.label])),
+  daytracker: 'Day Tracker',
+  feedback: 'Feedback',
+  detail: 'Property',
+}

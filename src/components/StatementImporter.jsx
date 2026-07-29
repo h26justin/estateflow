@@ -4,6 +4,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
 import { safeOverlayClose } from '../lib/modalUtils'
+import { useConfirm } from '../lib/ConfirmContext'
 import FocusTrap from '../lib/FocusTrap'
 import MoneyInput from '../lib/MoneyInput'
 import { loadCdnScript } from '../lib/loadCdnScript'
@@ -58,6 +59,7 @@ async function extractPDFText(file) {
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export function StatementImporter({properties, companies, showToast, onClose}) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const [step, setStep] = useState('upload') // upload | preview | importing | done
   const [format, setFormat] = useState(null)
@@ -220,8 +222,8 @@ export function StatementImporter({properties, companies, showToast, onClose}) {
   const totalToImport = includedItems.reduce((s,i) => s + (i.type==='rent' ? i.editAmount : 0), 0)
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose)}>
-      <FocusTrap onEscape={() => safeOverlayClose(step !== 'upload' && step !== 'done', onClose)({ target: null, currentTarget: null })}>
+    <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)}>
+      <FocusTrap onEscape={() => safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)({ target: null, currentTarget: null })}>
       <div className="modal" style={{maxWidth:720,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}} role="dialog" aria-modal="true" aria-labelledby="statement-importer-title">
 
         {/* Header */}

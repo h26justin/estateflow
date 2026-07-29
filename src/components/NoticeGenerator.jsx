@@ -5,6 +5,7 @@ import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
 import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { useConfirm } from '../lib/ConfirmContext'
 
 // ── S21 / S8 NOTICE GENERATOR ───────────────────────────────────────────
 //
@@ -66,6 +67,7 @@ const PREFLIGHT_ITEMS = [
 ]
 
 export default function NoticeGenerator({ property, userId, onClose, showToast }) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const mono = MONO
   const [step, setStep] = useState('disclaimer')
@@ -89,7 +91,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
   // the checklist answers or a half-completed legal form.
   const [initialForm] = useState(form)
   const isDirty = step !== 'disclaimer' && (Object.keys(checklist).length > 0 || isFormDirty(initialForm, form))
-  const overlayClose = safeOverlayClose(isDirty, onClose)
+  const overlayClose = safeOverlayClose(isDirty, onClose, confirmDiscard)
   const escapeClose  = () => overlayClose({ target: null, currentTarget: null })
 
   function update(patch) { setForm(f => ({ ...f, ...patch })) }

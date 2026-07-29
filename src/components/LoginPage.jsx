@@ -111,6 +111,16 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
     else setMode(initialMode)
   }, [initialMode])
 
+  // Modal mode: Escape closes. Without this (and the ✕ below) the only way
+  // out of the sign-in overlay was clicking the dimmed backdrop — which on
+  // mobile is a few pixels wide, effectively trapping the user.
+  useEffect(() => {
+    if (!onClose) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   async function handleForgot() {
     if (!email) { setError('Enter your email first'); return }
     setError(''); setSuccess(''); setResetBusy(true)
@@ -320,7 +330,11 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 
   // Modal version — just the form, no brand panel or full-page wrapper.
   return (
-    <div className="lp-scope" style={{ padding:24, fontFamily:SANS, width:'100%', maxWidth:440, background:PAPER }}>
+    <div className="lp-scope" style={{ padding:24, fontFamily:SANS, width:'100%', maxWidth:440, background:PAPER, position:'relative' }}>
+      <button onClick={onClose} aria-label="Close sign in"
+        style={{ position:'absolute', top:10, right:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', background:'none', border:'none', cursor:'pointer', color:MUTED, fontSize:18, lineHeight:1, borderRadius:8 }}>
+        ✕
+      </button>
       {inner}
     </div>
   )

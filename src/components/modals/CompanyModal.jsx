@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
+import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
 
 export default function CompanyModal({ onClose, onSave }) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const initialForm = { name:'', abbr:'', color:'#C8A84B' }
   const [form, setForm] = useState(initialForm)
@@ -33,8 +35,8 @@ export default function CompanyModal({ onClose, onSave }) {
     return () => { cancelled = true; clearTimeout(handle) }
   }, [form.name])
 
-  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
+    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
     <div className="modal" style={{maxWidth:480}} role="dialog" aria-modal="true" aria-labelledby="company-modal-title">
       <div style={{padding:'24px 28px 0'}}>
         <h2 id="company-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add Company</h2>

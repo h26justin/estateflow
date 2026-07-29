@@ -91,7 +91,12 @@ export default function FocusTrap({ children, onEscape, initialFocusRef }) {
   }, [])
 
   return (
-    <div ref={containerRef} tabIndex={-1} style={{ outline: 'none' }}>
+    // width:100% + flex-center: this wrapper sits between the flex `.overlay`
+    // and the `.modal` (width:100%; max-width:…). Left unstyled it becomes a
+    // shrink-to-fit flex item, so `.modal`'s width:100% resolved against
+    // content instead of the overlay — short-content modals rendered
+    // narrower than their intended size.
+    <div ref={containerRef} tabIndex={-1} style={{ outline: 'none', width: '100%', display: 'flex', justifyContent: 'center' }}>
       {children}
     </div>
   )

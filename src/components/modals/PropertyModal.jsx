@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
+import { useConfirm } from '../../lib/ConfirmContext'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
 import { showAppToast } from '../../lib/toast'
 import FocusTrap from '../../lib/FocusTrap'
@@ -38,6 +39,7 @@ export const COMPLIANCE_PROMPTS = [
 ]
 
 export default function PropertyModal({ prop, companies, onClose, onSave }) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',mortgage_product_end_date:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',
     // Compliance dates (form-only — extracted into compliance_items rows
@@ -153,8 +155,8 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       ...cashOverride,
     })
   }
-  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
+    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="property-modal-title">
       <div style={{padding:'24px 28px 0'}}>
         <h2 id="property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit Property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>

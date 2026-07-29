@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { statusPill } from '../lib/styles'
+import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS } from '../lib/nav'
 import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
@@ -576,18 +577,12 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   const fieldStyle = { marginBottom: 14 }
   const labelStyle = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
 
-  const ALL_NAV_OPTIONS = [
-    {key:'companies',   label:'Companies',    icon:'grid'},
-    {key:'rent',        label:'Rent Tracker', icon:'pound'},
-    {key:'deals',       label:'Deals',        icon:'target'},
-    {key:'reports',     label:'Reports',      icon:'pie-chart'},
-    {key:'mtd',         label:'MTD Tax',      icon:'landmark'},
-    {key:'contractors', label:'Contractors',  icon:'wrench'},
-  ]
-
-  const ALL_DEFAULT_NAV = ['dashboard','properties','companies','rent','deals','reports','mtd','contractors','settings']
+  // Toggle list + seed default both come from lib/nav.js — the previous
+  // local copies disagreed with the runtime rail (no Insurance row here, and
+  // a seed default that dropped `insurance`), so a single toggle save could
+  // permanently strip Insurance from a user's nav.
   async function saveNavPref(key, enabled) {
-    const current = (userNavPrefs||[]).length > 0 ? userNavPrefs : ALL_DEFAULT_NAV
+    const current = (userNavPrefs||[]).length > 0 ? userNavPrefs : DEFAULT_NAV_KEYS
     const next = enabled
       ? [...current, key].filter((v,i,a)=>a.indexOf(v)===i)
       : current.filter(k=>k!==key)
@@ -963,7 +958,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Navigation bar</div>
           <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:16}}>Choose which sections appear in your navigation. Dashboard, Properties and Settings are always shown.</div>
           <div style={{display:'grid',gap:10}}>
-            {ALL_NAV_OPTIONS.map(item=>{
+            {NAV_TOGGLE_OPTIONS.map(item=>{
               const enabled = (userNavPrefs||[]).includes(item.key)
               return (
                 <div key={item.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:T.bg,borderRadius:10,border:`1px solid ${T.border}`}}>
@@ -2091,6 +2086,7 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
 
 // ── USER ACCESS MANAGEMENT ────────────────────────────────────────────────────
 function AccessModal({companies, onClose, showToast}) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const mono = "'DM Mono',monospace"
@@ -2232,7 +2228,7 @@ function AccessModal({companies, onClose, showToast}) {
   })
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose)}>
+    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)}>
       <div className="modal" style={{maxWidth:660}}>
         <div style={{padding:'22px 26px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>

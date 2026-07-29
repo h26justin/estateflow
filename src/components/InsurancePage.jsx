@@ -814,6 +814,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
 // ── Editor modal ──────────────────────────────────────────────────────────
 function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   const { T } = useTheme()
+  const confirmDiscard = useConfirm()
   const isNew = !policy.id
   const isRenewal = policy._isRenewal
 
@@ -844,7 +845,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   const [snapshot] = useState(form)
   const isDirty = isFormDirty(snapshot, form)
     || [...propertyIds].sort().join(',') !== [...initialIds].sort().join(',')
-  const overlayClose = safeOverlayClose(isDirty, onClose)
+  const overlayClose = safeOverlayClose(isDirty, onClose, confirmDiscard)
 
   const s = (k, v) => setForm(f => ({ ...f, [k]: v }))
 

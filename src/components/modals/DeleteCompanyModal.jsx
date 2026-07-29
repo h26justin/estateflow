@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { safeOverlayClose } from '../../lib/modalUtils'
+import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
 
@@ -15,6 +16,7 @@ function PreviewRow({ label, value, T, mono }) {
 }
 
 export default function DeleteCompanyModal({ company, userId, onClose, onDeleted }) {
+  const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const mono = "'DM Mono',monospace"
   const [preview, setPreview] = useState(null)        // { properties, tenancies, documents, company_documents }
@@ -52,8 +54,8 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose)({ target: null, currentTarget: null })}>
+    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
+      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
       <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="delete-company-modal-title">
         <div style={{ padding: '24px 28px 0' }}>
           <div style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>🗑️</div>
