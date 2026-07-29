@@ -1134,13 +1134,18 @@ export default function App() {
 
   // Per-view document titles so history entries, bookmarks and the browser
   // tab strip are tellable apart (index.html's marketing title otherwise
-  // labels every page identically). Restored on sign-out via cleanup.
+  // labels every page identically). Signed-in sessions only: hooks run
+  // before the auth early-returns, so without the guard the logged-out
+  // marketing page was titled "Dashboard · Properly" instead of the SEO
+  // title. Restored on sign-out via the user-flip + cleanup.
   const titleName = view === 'detail' ? (properties.find(p => p.id === selectedId)?.name || null) : null
   useEffect(() => {
+    const MARKETING_TITLE = 'Properly — Property Portfolio Management Software for UK Landlords'
+    if (!user) { document.title = MARKETING_TITLE; return }
     const label = titleName || VIEW_LABELS[view] || null
-    document.title = label ? `${label} · Properly` : 'Properly — Property Portfolio Management Software for UK Landlords'
-    return () => { document.title = 'Properly — Property Portfolio Management Software for UK Landlords' }
-  }, [view, titleName])
+    document.title = label ? `${label} · Properly` : MARKETING_TITLE
+    return () => { document.title = MARKETING_TITLE }
+  }, [view, titleName, user])
 
   useEffect(()=>{
     if (!user) return
