@@ -231,7 +231,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     if (!selectedDeal) return
     setSaving(true)
     try {
-      const updated = await api.updateDeal(selectedDeal.id, fields)
+      // target_completion_date is owned by the Purchase Tracker's own input
+      // (saved on blur there). Strip it from full-form saves so a Save click
+      // racing that write can't clobber the date with a stale value.
+      const { target_completion_date, ...rest } = fields
+      const updated = await api.updateDeal(selectedDeal.id, rest)
       setSelectedDeal(updated)
       setDeals(prev => prev.map(d => d.id === updated.id ? updated : d))
       if (!opts.silent) showToast('Deal saved')
@@ -1519,6 +1523,28 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
   const [milestones, setMilestones] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // Target-completion date is drafted locally and persisted on blur. Saving
+  // on every change event wrote each half-typed keystroke to the DB (native
+  // date inputs fire change per segment, so years like "0002" — and finally
+  // null — were being saved while the user was still typing).
+  const [targetDraft, setTargetDraft] = useState(deal.target_completion_date || '')
+  useEffect(() => { setTargetDraft(deal.target_completion_date || '') }, [deal.id])
+
+  async function saveTargetDate() {
+    const v = targetDraft || null
+    // A blur mid-edit can still carry a partial year ("0002-11-07"). Reject
+    // obviously-wrong years instead of persisting garbage.
+    if (v && v < '1970-01-01') {
+      showToast('Target completion year looks wrong — please re-enter the date', 'error')
+      return
+    }
+    if (v === (deal.target_completion_date || null)) return
+    try {
+      await api.updateDeal(deal.id, { target_completion_date: v })
+      onUpdate({ target_completion_date: v })
+    } catch(e) { showToast(e.message || 'Failed to save target completion date', 'error') }
+  }
+
   useEffect(() => { load() }, [deal.id])
 
   async function load() {
@@ -1576,10 +1602,10 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
         <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
           <div>
             <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Target completion</span>
-            <input type="date" value={deal.target_completion_date||''} onChange={async e=>{
-              await api.updateDeal(deal.id,{target_completion_date:e.target.value||null})
-              onUpdate({target_completion_date:e.target.value||null})
-            }} style={{display:'block',fontFamily:mono,fontSize:12,marginTop:4,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px'}}/>
+            <input type="date" value={targetDraft} min="1970-01-01" max="2100-12-31"
+              onChange={e=>setTargetDraft(e.target.value)}
+              onBlur={saveTargetDate}
+              style={{display:'block',fontFamily:mono,fontSize:12,marginTop:4,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px'}}/>
           </div>
           {deal.target_completion_date && (
             <div>

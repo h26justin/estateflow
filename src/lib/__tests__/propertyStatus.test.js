@@ -33,13 +33,22 @@ describe('isPropertyEarningRent', () => {
       expect(isPropertyEarningRent(s)).toBe(false)
     }
   })
+
+  it('short_term_let does NOT earn monthly rent (income is booking actuals)', () => {
+    expect(isPropertyEarningRent('short_term_let')).toBe(false)
+  })
 })
 
 describe('isPropertyOccupied', () => {
-  it('matches isPropertyEarningRent today (let_agreed still excluded)', () => {
+  it('matches isPropertyEarningRent except short_term_let (occupied, not monthly-earning)', () => {
     for (const s of PROPERTY_STATUSES) {
+      if (s === 'short_term_let') continue
       expect(isPropertyOccupied(s)).toBe(isPropertyEarningRent(s))
     }
+  })
+
+  it('short_term_let counts as occupied so it never shows as vacant', () => {
+    expect(isPropertyOccupied('short_term_let')).toBe(true)
   })
 })
 

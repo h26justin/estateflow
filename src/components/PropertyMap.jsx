@@ -41,8 +41,9 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   // Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
   // status badges agree visually.
   const STATUS_COLOR = {
-    rented:       '#2ECC8A',
-    notice_given: '#F0B850',  // amber — still rented but vacancy looming
+    rented:         '#2ECC8A',
+    short_term_let: '#9B6FDE',  // purple — matches the STL booking colour
+    notice_given:   '#F0B850',  // amber — still rented but vacancy looming
     let_agreed:   '#C8A84B',  // gold — contracts being signed
     vacant:       '#E05555',
     purchased:    '#E0943A',

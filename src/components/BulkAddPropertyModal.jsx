@@ -37,6 +37,7 @@ const STATUSES = [
   { v: 'refurb',       l: 'In Refurb' },
   { v: 'let_agreed',   l: 'Let agreed' },
   { v: 'rented',       l: 'Rented' },
+  { v: 'short_term_let', l: 'Short-Term Let' },
   { v: 'notice_given', l: 'Notice given' },
   { v: 'vacant',       l: 'Vacant' },
 ]
