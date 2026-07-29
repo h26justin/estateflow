@@ -9,6 +9,8 @@
 //   refurb        — actively undergoing renovation
 //   let_agreed    — tenant found, contracts being signed, no rent yet
 //   rented        — actively tenanted, rent flowing
+//   short_term_let— operated as short-term accommodation (Airbnb/Lodgify);
+//                   income arrives as booking payments, not monthly rent
 //   notice_given  — tenant has given notice, still paying rent for now
 //   vacant        — empty, no tenant lined up
 //   sold          — disposed of, not in the active portfolio
@@ -20,6 +22,7 @@ export const PROPERTY_STATUSES = [
   'refurb',
   'let_agreed',
   'rented',
+  'short_term_let',
   'notice_given',
   'vacant',
   'sold',
@@ -30,9 +33,10 @@ export const PROPERTY_STATUSES = [
 export const PROPERTY_STATUS_LABELS = {
   purchased:    'Purchased',
   refurb:       'Refurb',
-  let_agreed:   'Let agreed',
-  rented:       'Rented',
-  notice_given: 'Notice given',
+  let_agreed:     'Let agreed',
+  rented:         'Rented',
+  short_term_let: 'Short-Term Let',
+  notice_given:   'Notice given',
   vacant:       'Vacant',
   sold:         'Sold',
 }
@@ -44,9 +48,10 @@ export const PROPERTY_STATUS_LABELS = {
 export const PROPERTY_STATUS_TONE = {
   purchased:    'neutral',
   refurb:       'neutral',
-  let_agreed:   'caution',   // imminent rent — heads-up signal, not yet positive
-  rented:       'positive',
-  notice_given: 'caution',   // still rented but vacancy looming
+  let_agreed:     'caution',   // imminent rent — heads-up signal, not yet positive
+  rented:         'positive',
+  short_term_let: 'positive',  // operating and earning via bookings
+  notice_given:   'caution',   // still rented but vacancy looming
   vacant:       'negative',
   sold:         'inactive',
 }
@@ -58,6 +63,11 @@ export const PROPERTY_STATUS_TONE = {
  * through their notice period. let_agreed does NOT earn: no tenant has
  * actually moved in yet.
  *
+ * short_term_let does NOT count here on purpose: its income arrives as
+ * actual booking payments (Lodgify sync marks months paid), not as a
+ * monthly rent_pcm expectation — counting it would project phantom rent
+ * and flag unbooked months as overdue.
+ *
  * Used by: monthly/annual rent income calculations, rent roll, arrears.
  */
 export function isPropertyEarningRent(status) {
@@ -67,16 +77,15 @@ export function isPropertyEarningRent(status) {
 /**
  * Is this property currently occupied?
  *
- * Same answer as isPropertyEarningRent today, but kept as a separate
- * function because the concepts could diverge — e.g. if we ever add a
- * "squatter" or "uncontracted occupier" status, that's occupied but
- * not earning. For now they're identical; callers should pick the one
- * whose intent matches their use case.
+ * Diverges from isPropertyEarningRent for short_term_let: an STL property
+ * is in use (guests, not tenants) so it counts as occupied for occupancy
+ * KPIs and never as vacant — but it doesn't earn a monthly rent_pcm, so
+ * it stays out of rent-roll projections.
  *
  * Used by: occupancy %, "rented count" pills, dashboard widgets.
  */
 export function isPropertyOccupied(status) {
-  return status === 'rented' || status === 'notice_given'
+  return status === 'rented' || status === 'notice_given' || status === 'short_term_let'
 }
 
 /**
