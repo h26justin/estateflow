@@ -468,9 +468,12 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      {/* "Book an onboarding call" section. Embeds a Cal.com inline
-          link (no script load — keeps Core Web Vitals clean). Once
-          you have a Cal account, replace the URL placeholder.
+      {/* "Book an onboarding call" section. The CTA is a mailto for now —
+          the cal.com/ownproperly username was never registered, so the old
+          hardcoded booking link 404'd for every visitor (and it was also
+          the link in the day-13 trial email). When a Cal.com account
+          exists, swap the href back to the booking URL here AND set the
+          CAL_BOOKING_URL secret on the trial-emails edge function.
           Conversion lift on similar landing pages is typically 5-12%
           when offered alongside (not instead of) the self-serve CTA. */}
       <section style={{ background: WHITE, padding: '72px 24px', borderTop: `1px solid ${BORDER}` }}>
@@ -483,22 +486,17 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             multi-company billing or compliance tracking. No pitch, no follow-up unless you ask.
           </p>
           <a
-            href="https://cal.com/ownproperly/onboarding"
-            target="_blank"
-            rel="noopener"
+            href="mailto:hello@ownproperly.com?subject=Onboarding%20call%20request&body=Hi%20Justin%2C%0A%0AI%27d%20like%20to%20book%20a%2015-minute%20onboarding%20call.%20A%20few%20times%20that%20work%20for%20me%3A%0A%0A"
             style={{
               display: 'inline-block', fontFamily: MONO, fontSize: 13, fontWeight: 700,
               padding: '14px 28px', borderRadius: 10, border: `1px solid ${SLATE}`,
               background: SLATE, color: WHITE, textDecoration: 'none',
             }}
-            data-cal-link="ownproperly/onboarding"
-            data-cal-namespace=""
-            data-cal-config='{"layout":"month_view"}'
           >
-            Book onboarding call →
+            Email to book a call →
           </a>
           <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 16 }}>
-            Free · 15 min · Zoom or Google Meet
+            Free · 15 min · Zoom or Google Meet · usually same-day reply
           </p>
         </div>
       </section>

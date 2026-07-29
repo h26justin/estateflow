@@ -102,25 +102,48 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   const [error, setError]     = useState(null)
 
   const [features, setFeatures] = useState({})
-  useEffect(() => { loadAll() }, [])
+  // Multi-tenancy: the RPC payload carries a `properties` array of every
+  // tenancy linked to this account; a tenant with more than one gets a
+  // switcher in the sub-header. The chosen property persists per browser.
+  const [tenancies, setTenancies] = useState([])
+  useEffect(() => {
+    let saved = null
+    try { saved = localStorage.getItem(`ownproperly_tenant_property_${user.id}`) } catch { /* ignore */ }
+    loadAll(saved)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  async function loadAll() {
+  async function loadAll(propertyId = null) {
     setLoading(true)
     try {
       // Load tenant's property profile. Bank details and feature flags ride
       // along in the same curated RPC payload — tenants have no direct read
       // access to company_settings.
-      const data = await api.fetchTenantProperty(user.id)
+      let data
+      try {
+        data = await api.fetchTenantProperty(user.id, propertyId)
+      } catch (inner) {
+        // A stale saved property id (tenancy since unlinked) yields no row —
+        // fall back to the default tenancy rather than erroring.
+        if (propertyId) data = await api.fetchTenantProperty(user.id)
+        else throw inner
+      }
       setProfile(data)
 
       const co = data?.property?.company
       setCompany(co)
       setBankDetails(data?.bank_details || {})
       setFeatures(data?.features || {})
+      setTenancies(Array.isArray(data?.properties) ? data.properties : [])
     } catch(e) {
       setError('Unable to load your tenancy. Please contact your landlord.')
     }
     setLoading(false)
+  }
+
+  function switchProperty(propertyId) {
+    try { localStorage.setItem(`ownproperly_tenant_property_${user.id}`, propertyId) } catch { /* ignore */ }
+    loadAll(propertyId)
   }
 
   if (loading) return (
@@ -218,10 +241,27 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
         </div>
       </div>
 
-      {/* Sub-header: property address */}
+      {/* Sub-header: property address, with a switcher when this account is
+          linked to more than one tenancy (previously the portal silently
+          showed an arbitrary one with no way to reach the others). */}
       <div style={{background:'#364B5F',padding:'10px 24px'}}>
-        <div style={{maxWidth:860,margin:'0 auto',fontFamily:mono,fontSize:11,color:'#8A9BAB'}}>
-          {property?.address||property?.name||'Your property'}
+        <div style={{maxWidth:860,margin:'0 auto',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div style={{fontFamily:mono,fontSize:11,color:'#8A9BAB',flex:'1 1 auto',minWidth:0}}>
+            {property?.address||property?.name||'Your property'}
+          </div>
+          {tenancies.length > 1 && (
+            <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:mono,fontSize:10,color:'#8A9BAB'}}>
+              <span style={{textTransform:'uppercase',letterSpacing:'0.08em'}}>Property</span>
+              <select value={property?.id||''} onChange={e=>switchProperty(e.target.value)}
+                style={{fontFamily:mono,fontSize:11,background:'#2D3C4A',color:'#E7E4DC',border:'1px solid #ffffff22',borderRadius:6,padding:'5px 8px',maxWidth:260}}>
+                {tenancies.map(t=>(
+                  <option key={t.id} value={t.id}>
+                    {(t.address||t.name||'Property')}{t.company_name?` · ${t.company_name}`:''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
 

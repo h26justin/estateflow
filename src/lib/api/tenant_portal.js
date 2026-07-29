@@ -42,12 +42,16 @@ export async function registerTenantProfile(userId, propertyId, inviteToken) {
   return data
 }
 
-export async function fetchTenantProperty(userId) {
+export async function fetchTenantProperty(userId, propertyId = null) {
   // Tenants deliberately have no row-level SELECT on properties/companies
   // (full rows would leak landlord financials). The portal payload comes
   // from a curated SECURITY DEFINER RPC instead: profile + property basics
-  // + company contact/branding + bank details + tenant feature flags.
-  const { data, error } = await supabase.rpc('get_tenant_portal_context')
+  // + company contact/branding + bank details + tenant feature flags +
+  // a `properties` array of every tenancy (for the portal's switcher).
+  // Pass propertyId to get the context for a specific tenancy; null keeps
+  // the original earliest-linked behaviour.
+  const { data, error } = await supabase.rpc('get_tenant_portal_context',
+    propertyId ? { p_property_id: propertyId } : {})
   if (error) throw error
   if (!data) throw new Error('No tenancy is linked to this account yet')
   return data

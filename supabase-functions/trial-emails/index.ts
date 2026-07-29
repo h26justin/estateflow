@@ -42,7 +42,11 @@ const SERVICE_ROLE    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY  = Deno.env.get('RESEND_API_KEY') || ''
 const CRON_SECRET     = Deno.env.get('CRON_SECRET') || ''
 const APP_BASE_URL    = Deno.env.get('APP_BASE_URL') || 'https://www.ownproperly.com'
-const CAL_URL         = Deno.env.get('CAL_BOOKING_URL') || 'https://cal.com/ownproperly/onboarding'
+// The old fallback (cal.com/ownproperly/onboarding) 404'd — that Cal.com
+// username was never registered — so the day-13 "last day" email sent every
+// trialling user to a dead page. Fall back to a plain email ask; set the
+// CAL_BOOKING_URL secret once a real booking page exists.
+const CAL_URL         = Deno.env.get('CAL_BOOKING_URL') || 'hello@ownproperly.com (just reply to this email)'
 const FROM_EMAIL      = Deno.env.get('FROM_EMAIL') || 'Justin at Properly <justin@ownproperly.com>'
 
 // Day-offset → template-key lookup. Keep these in sync with EMAIL_SEQUENCES.md.
@@ -253,8 +257,10 @@ serve(async (req) => {
     const ids = candidates.map(u => u.id)
     const [profilesRes, subsRes, logRes, companiesRes] = await Promise.all([
       admin.from('user_profiles').select('user_id, first_name, email_unsubscribed').in('user_id', ids),
-      // Has-paid lookup: any company they own where subscriptions.status='active'
-      admin.from('companies').select('id, owner_id, subscriptions!subscriptions_company_id_fkey(status)').in('owner_id', ids),
+      // Has-paid lookup straight off subscriptions.owner_id — checks every
+      // subscription row rather than only the first of a joined array (this
+      // is also the variant that was live in prod).
+      admin.from('subscriptions').select('owner_id, status').in('owner_id', ids),
       admin.from('trial_email_log').select('user_id').in('user_id', ids).eq('day_offset', dayOffset),
       admin.from('companies').select('id, owner_id').in('owner_id', ids),
     ])
@@ -263,10 +269,8 @@ serve(async (req) => {
     for (const p of (profilesRes.data || [])) profileMap[p.user_id] = p
     const alreadySent = new Set((logRes.data || []).map((r: any) => r.user_id))
     const hasPaidUserIds = new Set<string>()
-    for (const co of (subsRes.data || [])) {
-      const subs = (co as any).subscriptions
-      const sub = Array.isArray(subs) ? subs[0] : subs
-      if (sub?.status === 'active') hasPaidUserIds.add((co as any).owner_id)
+    for (const s of (subsRes.data || [])) {
+      if ((s as any).status === 'active') hasPaidUserIds.add((s as any).owner_id)
     }
     const ownedCompaniesByUser = new Set<string>()
     for (const co of (companiesRes.data || [])) ownedCompaniesByUser.add((co as any).owner_id)
