@@ -622,7 +622,10 @@ function PortfolioModellerWidget({ properties = [] }) {
 export default function App() {
   const {session,user,loading: authLoading} = useAuth()
   const confirmDialog = useConfirm()
-  const [properties,  setProperties]  = useState([])
+  // Raw store, written by loadData/refreshData and local mutations. Render
+  // paths read the scoped `properties` memo below (defined after the dev
+  // mode and impersonation state it depends on), never this directly.
+  const [propertiesRaw, setProperties] = useState([])
   // Deals loaded at App level so the Dashboard cashflow widget can read them.
   // DealsPage still owns its OWN local deals state for its own list/CRUD —
   // it pushes updates back here via onDealsChange so the dashboard stays
@@ -796,6 +799,18 @@ export default function App() {
   const [impersonatingUser, setImpersonatingUser] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
   })
+  // The scoped property list every render path reads. Defence in depth for
+  // dev-flagged accounts: outside explicit dev mode, a property renders only
+  // if its company is in the visible companies list, so cross-tenant rows
+  // can never reach the UI regardless of which code path filled the raw
+  // store. Dev mode (banner shown) passes the raw list through; so does
+  // impersonation, where loadData already scopes the raw store to the
+  // impersonated user's companies rather than the admin's own.
+  const properties = useMemo(() => {
+    if (devModeActive || impersonatingUser) return propertiesRaw
+    const visibleCoIds = new Set(companies.map(c => c.id))
+    return propertiesRaw.filter(p => visibleCoIds.has(p.company_id))
+  }, [propertiesRaw, companies, devModeActive, impersonatingUser])
   const [userNavPrefs, setUserNavPrefs] = useState(['dashboard','properties','companies','rent','deals','insurance','reports','contractors','settings'])
   // Tenant-portal branding for the current subdomain (<sub>.ownproperly.com).
   // Looked up once on mount via a public RPC so a logged-OUT visitor sees the
@@ -1369,7 +1384,13 @@ export default function App() {
       const { data: ownedCos } = await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)
       const ownedIds = (ownedCos || []).map(c => c.id)
       const accessibleIds = new Set([...ownedIds, ...userAccess])
-      if (isPlatformAdmin) {
+      // Cross-tenant data may only enter state under devModeActive (the
+      // explicit per-session toggle with its banner), never on the account
+      // flag alone. Gating on isPlatformAdmin here used to swap the full
+      // platform dataset into a dev-flagged account's portfolio on any
+      // refresh (importer close, company delete, rent-tracker refresh)
+      // with dev mode OFF and no banner shown.
+      if (devModeActive) {
         setProperties(props)
         setCompanies(cos)
       } else {
@@ -1389,7 +1410,7 @@ export default function App() {
       showToast('Refresh failed — showing last loaded data', 'error')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userAccess, isPlatformAdmin, user?.id])
+  }, [userAccess, devModeActive, user?.id])
 
   const filtered = useMemo(()=>{
     const f = properties.filter(p=>{
