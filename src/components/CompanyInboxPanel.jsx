@@ -22,7 +22,8 @@ import * as api from '../lib/api'
 const INBOX_DOMAIN = 'inbox.ownproperly.com'
 
 export default function CompanyInboxPanel({ companies, T }) {
-  const theme = T || useTheme().T
+  const themeContext = useTheme()
+  const theme = T || themeContext.T
   const confirmDialog = useConfirm()
   const [tokens, setTokens]   = useState({})   // companyId → token
   const [loading, setLoading] = useState(true)

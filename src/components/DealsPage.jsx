@@ -888,6 +888,18 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   // capture an out-of-date `form`. Reading from a ref avoids that.
   const formRef = useRef(form)
   useEffect(() => { formRef.current = form }, [form])
+  // Track when we last successfully saved, for the "Saved ✓" indicator.
+  const [savedAt, setSavedAt] = useState(0)
+  // showJustSaved is true for ~2s after each save, then auto-clears.
+  // We use a separate boolean state (rather than checking savedAt against
+  // a clock) so the UI doesn't need to re-render on a timer.
+  const [showJustSaved, setShowJustSaved] = useState(false)
+  useEffect(() => {
+    if (!savedAt) return
+    setShowJustSaved(true)
+    const t = setTimeout(() => setShowJustSaved(false), 2000)
+    return () => clearTimeout(t)
+  }, [savedAt])
 
   if (!deal) return null
 
@@ -939,19 +951,6 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const brrrNewRepayment = api.calcMonthlyRepayment(brrrNewLoan, num('brrr_new_rate'), num('brrr_new_term') || 25, isInterestOnly)
   const brrrMoneyLeft = cashIn - (brrrNewLoan - loanAmount)
   const brrrCashOnCash = brrrMoneyLeft > 0 ? (annualProfit / brrrMoneyLeft) * 100 : 0
-
-  // Track when we last successfully saved, for the "Saved ✓" indicator.
-  const [savedAt, setSavedAt] = useState(0)
-  // showJustSaved is true for ~2s after each save, then auto-clears.
-  // We use a separate boolean state (rather than checking savedAt against
-  // a clock) so the UI doesn't need to re-render on a timer.
-  const [showJustSaved, setShowJustSaved] = useState(false)
-  useEffect(() => {
-    if (!savedAt) return
-    setShowJustSaved(true)
-    const t = setTimeout(() => setShowJustSaved(false), 2000)
-    return () => clearTimeout(t)
-  }, [savedAt])
 
   async function handleSave() {
     setSaving(true)
