@@ -36,7 +36,8 @@ const STATUS_META = {
 }
 
 export default function ESignPanel({ propertyId, companyId, documents = [], T }) {
-  const theme = T || useTheme().T
+  const themeContext = useTheme()
+  const theme = T || themeContext.T
   const confirmDialog = useConfirm()
   const [envelopes, setEnvelopes] = useState([])
   const [loading, setLoading]     = useState(true)

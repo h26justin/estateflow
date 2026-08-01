@@ -472,9 +472,9 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
 }
 
 const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
-  if (!payments?.length) return null
   const { darkMode } = useTheme()
   const [popover, setPopover] = useState(null)
+  if (!payments?.length) return null
   const scoped = filterYear ? payments.filter(m=>m.year===filterYear) : payments
   // Collapse multiple segments per month into one representative dot.
   const byMonth = new Map()
@@ -1728,7 +1728,17 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties, companies, darkMode, navItems])
 
-  // Early returns AFTER all hooks
+  // Record where the user came from so the property page's Back returns
+  // there (Portfolio sub-tab, Rent Tracker, Dashboard…) instead of always
+  // dumping them on the Properties tab.
+  const detailOrigin = useRef(null)
+  // Full-page workflows (statement import, bulk add) record where the user
+  // came from so closing them returns there.
+  const workflowOrigin = useRef('dashboard')
+
+  // Early returns AFTER all hooks — nothing below this line may call a hook.
+  // (A hook after these returns crashes with React #300 the moment a gate
+  // flips, e.g. a fresh signup being routed into the onboarding wizard.)
   // Privacy & Terms render at /privacy and /terms even when unauthenticated.
   // HMRC requires the URLs to be publicly reachable for production approval.
   // These checks sit BEFORE the auth gate.
@@ -1825,10 +1835,6 @@ export default function App() {
 
   const selected = properties.find(p=>p.id===selectedId)
 
-  // Record where the user came from so the property page's Back returns
-  // there (Portfolio sub-tab, Rent Tracker, Dashboard…) instead of always
-  // dumping them on the Properties tab.
-  const detailOrigin = useRef(null)
   function openDetail(p, tab='overview'){
     detailOrigin.current = { view, portfolioTab }
     setSelectedId(p.id);setDetailTab(tab);setView('detail')
@@ -1844,9 +1850,6 @@ export default function App() {
       setView('properties')
     }
   }
-  // Full-page workflows (statement import, bulk add) record where the user
-  // came from so closing them returns there.
-  const workflowOrigin = useRef('dashboard')
   function openWorkflow(key){
     workflowOrigin.current = (view === 'import' || view === 'bulk-add') ? 'dashboard' : view
     setSelectedId(null)
