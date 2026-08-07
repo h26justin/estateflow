@@ -8,7 +8,6 @@ import FocusTrap from '../lib/FocusTrap'
 import { safeOverlayClose } from '../lib/modalUtils'
 import {
   listAutopilotActions,
-  countOpenAutopilotActions,
   actOnAutopilotAction,
   dismissAutopilotAction,
 } from '../lib/api/autopilot'
@@ -103,24 +102,19 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
   const [viewing, setViewing] = useState(null)
-  const [coFilter, setCoFilter] = useState('all')
-  // When scoped to a company tab, the count of open actions across ALL
-  // companies — so an empty scoped view can say "N open elsewhere" instead of
-  // looking like the all-clear.
-  const [totalOpen, setTotalOpen] = useState(null)
+  // Company tabs on the page are the scoping control: we always load open
+  // actions across ALL companies and filter client-side, seeding the selected
+  // tab from the app-level company tab (if any).
+  const [coFilter, setCoFilter] = useState(companyId || 'all')
+  useEffect(() => { setCoFilter(companyId || 'all') }, [companyId])
 
   const load = useCallback(() => {
     setLoading(true)
-    listAutopilotActions({ status: 'open', companyId, limit: 300 })
+    listAutopilotActions({ status: 'open', companyId: null, limit: 300 })
       .then(setActions)
       .catch(() => showAppToast('Could not load Autopilot actions', 'error'))
       .finally(() => setLoading(false))
-    if (companyId) {
-      countOpenAutopilotActions(null).then(setTotalOpen).catch(() => setTotalOpen(null))
-    } else {
-      setTotalOpen(null)
-    }
-  }, [companyId])
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -154,10 +148,8 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
     }
   }
 
-  // In-page company filter (client-side; the panel is already scoped to
-  // companyId when a global company tab is active, so pills only show unscoped).
-  const showCoFilter = !companyId && companies.length > 1
-  const filtered = showCoFilter && coFilter !== 'all'
+  const showCoFilter = companies.length > 1
+  const filtered = coFilter !== 'all'
     ? actions.filter(a => a.company_id === coFilter)
     : actions
 
@@ -184,30 +176,31 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
       {showCoFilter && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
           <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
-          {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => (
-            <button key={c.id} onClick={() => setCoFilter(c.id)}
-              style={{
-                fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
-                border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
-                background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
-                color: coFilter === c.id ? (c.color || T.gold) : T.muted,
-                transition: 'all 0.18s',
-              }}>
-              {c.abbr || c.name}
-            </button>
-          ))}
+          {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => {
+            const n = c.id === 'all' ? actions.length : actions.filter(a => a.company_id === c.id).length
+            return (
+              <button key={c.id} onClick={() => setCoFilter(c.id)}
+                style={{
+                  fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                  border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
+                  background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
+                  color: coFilter === c.id ? (c.color || T.gold) : T.muted,
+                  transition: 'all 0.18s',
+                }}>
+                {c.abbr || c.name}{n > 0 ? ` (${n})` : ''}
+              </button>
+            )
+          })}
         </div>
       )}
 
       {loading ? (
         <div style={{ fontFamily: MONO, fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="card" style={{ fontFamily: MONO, color: actions.length === 0 && !(companyId && totalOpen > 0) ? T.green : T.muted, fontSize: 13, textAlign: 'center', padding: 48 }}>
-          {actions.length > 0
-            ? 'No open actions for this company.'
-            : companyId && totalOpen > 0
-              ? `No open actions for this company — ${totalOpen} open across your other companies. Switch the company tab to All to review them.`
-              : 'Nothing needs your attention — Autopilot found no open actions.'}
+        <div className="card" style={{ fontFamily: MONO, color: actions.length === 0 ? T.green : T.muted, fontSize: 13, textAlign: 'center', padding: 48 }}>
+          {actions.length === 0
+            ? 'Nothing needs your attention — Autopilot found no open actions.'
+            : `No open actions for this company — ${actions.length} open across your other companies.`}
         </div>
       ) : (
         grouped.map(group => (
