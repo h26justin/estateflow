@@ -59,7 +59,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
   const [policies, setPolicies] = useState([])
   const [loading, setLoading]   = useState(true)
   const [coFilter, setCoFilter] = useState('all')
-  const [view, setView]         = useState('by_property')  // 'by_property' | 'active' | 'all' | 'history'
+  const [view, setView]         = useState('by_property')  // 'by_property' | 'active' | 'expiring' | 'expired' | 'all' | 'history'
   const [historyChainId, setHistoryChainId] = useState(null)
   const [editing, setEditing]   = useState(null)          // policy being edited, or {} for new
   const [renewing, setRenewing] = useState(null)          // policy being renewed (snapshot for the modal)
@@ -90,6 +90,11 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       // so a just-expired one stays visible for renewal prompts).
       const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30)
       f = f.filter(p => new Date(p.expiry_date) >= cutoff)
+    } else if (view === 'expiring') {
+      // Not yet expired but renewal is due within 90 days.
+      f = f.filter(p => ['urgent', 'soon'].includes(expiryBucket(p.expiry_date)))
+    } else if (view === 'expired') {
+      f = f.filter(p => expiryBucket(p.expiry_date) === 'expired')
     }
     return f
   }, [policies, coFilter, view])
@@ -236,8 +241,8 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       )}
 
       {/* View toggle */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {[['by_property', 'By Property'], ['active', 'Active'], ['all', 'All'], ['history', 'History']].map(([k, l]) => (
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[['by_property', 'By Property'], ['active', 'Active'], ['expiring', 'Expiring Soon'], ['expired', 'Expired'], ['all', 'All'], ['history', 'History']].map(([k, l]) => (
           <button key={k} onClick={() => setView(k)}
             style={{
               fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
@@ -276,10 +281,20 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       ) : filtered.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
           <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon name="shield-check" size={30} color={T.gold}/></div>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 12 }}>
-            No policies yet. Add your first insurance policy to start tracking renewals.
-          </div>
-          <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setEditing({})}>+ Add Policy</button>
+          {policies.length === 0 ? (
+            <>
+              <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 12 }}>
+                No policies yet. Add your first insurance policy to start tracking renewals.
+              </div>
+              <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setEditing({})}>+ Add Policy</button>
+            </>
+          ) : (
+            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
+              {view === 'expiring' ? 'No policies expiring in the next 90 days.'
+                : view === 'expired' ? 'No expired policies.'
+                : 'No policies match the current filters.'}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 10 }}>
