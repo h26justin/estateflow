@@ -1021,7 +1021,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
                         background: checked ? T.gold + '11' : 'transparent',
                         color: T.text,
                       }}>
-                      <input type="checkbox" checked={checked} onChange={() => toggleProperty(p.id)} style={{ margin: 0 }} />
+                      <input type="checkbox" checked={checked} onChange={() => toggleProperty(p.id)} style={{ margin: 0, width: 'auto', flexShrink: 0 }} />
                       <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
                         {p.name || p.address || 'Untitled'}
                       </span>
