@@ -8,6 +8,7 @@ import FocusTrap from '../lib/FocusTrap'
 import { safeOverlayClose } from '../lib/modalUtils'
 import {
   listAutopilotActions,
+  countOpenAutopilotActions,
   actOnAutopilotAction,
   dismissAutopilotAction,
 } from '../lib/api/autopilot'
@@ -103,6 +104,10 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
   const [busyId, setBusyId] = useState(null)
   const [viewing, setViewing] = useState(null)
   const [coFilter, setCoFilter] = useState('all')
+  // When scoped to a company tab, the count of open actions across ALL
+  // companies — so an empty scoped view can say "N open elsewhere" instead of
+  // looking like the all-clear.
+  const [totalOpen, setTotalOpen] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -110,6 +115,11 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
       .then(setActions)
       .catch(() => showAppToast('Could not load Autopilot actions', 'error'))
       .finally(() => setLoading(false))
+    if (companyId) {
+      countOpenAutopilotActions(null).then(setTotalOpen).catch(() => setTotalOpen(null))
+    } else {
+      setTotalOpen(null)
+    }
   }, [companyId])
 
   useEffect(() => { load() }, [load])
@@ -192,10 +202,12 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
       {loading ? (
         <div style={{ fontFamily: MONO, fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="card" style={{ fontFamily: MONO, color: actions.length === 0 ? T.green : T.muted, fontSize: 13, textAlign: 'center', padding: 48 }}>
-          {actions.length === 0
-            ? 'Nothing needs your attention — Autopilot found no open actions.'
-            : 'No open actions for this company.'}
+        <div className="card" style={{ fontFamily: MONO, color: actions.length === 0 && !(companyId && totalOpen > 0) ? T.green : T.muted, fontSize: 13, textAlign: 'center', padding: 48 }}>
+          {actions.length > 0
+            ? 'No open actions for this company.'
+            : companyId && totalOpen > 0
+              ? `No open actions for this company — ${totalOpen} open across your other companies. Switch the company tab to All to review them.`
+              : 'Nothing needs your attention — Autopilot found no open actions.'}
         </div>
       ) : (
         grouped.map(group => (
