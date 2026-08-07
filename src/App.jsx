@@ -3370,7 +3370,7 @@ export default function App() {
             }}
             showToast={showToast}
           />}
-          {view==='autopilot'&&activeFlags.has('portfolio_autopilot')&&<div className="fade"><AutopilotPage companyId={activeCoTab||null}/></div>}
+          {view==='autopilot'&&activeFlags.has('portfolio_autopilot')&&<div className="fade"><AutopilotPage companyId={activeCoTab||null} companies={companies}/></div>}
           {view==='renters-rights'&&activeFlags.has('renters_rights')&&<div className="fade"><RentersRightsCopilot companyId={activeCoTab||null}/></div>}
           {/* A bookmark/shared link can name a flag-gated view the account
               doesn't have — say so instead of rendering an empty pane. */}
