@@ -254,7 +254,7 @@ serve(async (req) => {
       // leaving every company with zero properties and no autopilot actions.
       const { data: properties, error: propErr } = await admin
         .from('properties')
-        .select('id, name, address, rent_pcm, status, arrears, mortgage_product_end_date, user_id, deleted_at, has_gas_supply, is_hmo, licensing_scheme')
+        .select('id, name, address, rent_pcm, status, arrears, mortgage_product_end_date, user_id, deleted_at, has_gas_supply, is_hmo, licensing_scheme, compliance_optout')
         .eq('company_id', companyId)
         .is('deleted_at', null)
       if (propErr) {
@@ -394,16 +394,18 @@ serve(async (req) => {
       // (see src/lib/complianceCatalogue.js). appliesTo uses the property's
       // applicability flags — unset flags default to "required" so nothing
       // silently stops being chased on properties that predate the columns.
-      type RequiredCert = { type: string; aliases: string[]; label: string; note: string; appliesTo?: (p: any) => boolean }
+      // optKey: the catalogue key checked against properties.compliance_optout
+      // (a per-property "don't track this" toggle from the Compliance tab).
+      type RequiredCert = { type: string; aliases: string[]; optKey: string; label: string; note: string; appliesTo?: (p: any) => boolean }
       const isHmoProp = (p: any) => !!p.is_hmo || ['mandatory_hmo', 'additional_hmo'].includes(p.licensing_scheme || '')
       const REQUIRED_CERTS: RequiredCert[] = [
-        { type: 'gas', aliases: ['gas_safety', 'gas_cert'], label: 'Gas Safety Certificate (CP12)', note: 'an annual gas safety inspection is a legal requirement if the property has gas appliances',
+        { type: 'gas', aliases: ['gas_safety', 'gas_cert'], optKey: 'gas_safety', label: 'Gas Safety Certificate (CP12)', note: 'an annual gas safety inspection is a legal requirement if the property has gas appliances',
           appliesTo: (p) => p.has_gas_supply !== false },
-        { type: 'eicr', aliases: [], label: 'Electrical Safety Report (EICR)', note: 'an EICR is legally required at least every 5 years' },
-        { type: 'epc', aliases: [], label: 'Energy Performance Certificate (EPC)', note: 'a valid EPC (minimum rating E) is required to let the property' },
-        { type: 'hmo', aliases: ['hmo_licence'], label: 'HMO Licence', note: 'letting a licensable HMO without a licence is an offence with unlimited fines and rent repayment orders',
+        { type: 'eicr', aliases: [], optKey: 'eicr', label: 'Electrical Safety Report (EICR)', note: 'an EICR is legally required at least every 5 years' },
+        { type: 'epc', aliases: [], optKey: 'epc', label: 'Energy Performance Certificate (EPC)', note: 'a valid EPC (minimum rating E) is required to let the property' },
+        { type: 'hmo', aliases: ['hmo_licence'], optKey: 'hmo', label: 'HMO Licence', note: 'letting a licensable HMO without a licence is an offence with unlimited fines and rent repayment orders',
           appliesTo: isHmoProp },
-        { type: 'selective_licence', aliases: [], label: 'Selective Licence', note: 'this property is flagged as being in a selective-licensing area, where letting without a licence is an offence',
+        { type: 'selective_licence', aliases: [], optKey: 'selective_licence', label: 'Selective Licence', note: 'this property is flagged as being in a selective-licensing area, where letting without a licence is an offence',
           appliesTo: (p) => (p.licensing_scheme || '') === 'selective' },
       ]
       const certTypesByProp: Record<string, Set<string>> = {}
@@ -415,6 +417,7 @@ serve(async (req) => {
         const have = certTypesByProp[p.id] || new Set()
         for (const rc of REQUIRED_CERTS) {
           if (rc.appliesTo && !rc.appliesTo(p)) continue
+          if ((p.compliance_optout || {})[rc.optKey] === true) continue
           if (have.has(rc.type) || rc.aliases.some(a => have.has(a))) continue
           candidates.push({
             company_id: companyId,

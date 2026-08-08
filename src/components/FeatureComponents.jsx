@@ -4,7 +4,8 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO, statusPill } from '../lib/styles'
 import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_TABS } from '../lib/nav'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, canonicalCertType } from '../lib/complianceCatalogue'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, canonicalCertType, requirementsForProperty, canOptOut, isOptedOut } from '../lib/complianceCatalogue'
+import { requirementStatus } from '../lib/complianceStatus'
 import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
@@ -55,12 +56,20 @@ function ExpiryBadge({dateStr}) {
 }
 
 // ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
-export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = true}) {
-  const { T } = useTheme()
+// Per-property home of the requirement checklist: every certificate /
+// document the portfolio Compliance overview tracks for this property is
+// listed here whether or not anything is on file, editable in place — no
+// hunting through "+ Add Certificate" for the standard items. Optional
+// (tier 2/3) requirements can be switched off per property; they persist to
+// properties.compliance_optout and render dimmed here AND on the overview.
+export function ComplianceTab({propertyId, property = null, companySettings = {}, onPropertyChange, showToast, isAdmin, user, canEdit = true}) {
+  const { T, darkMode } = useTheme()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({cert_type:'gas_safety',cert_name:'Gas Safety (CP12)',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
+  const [editingId, setEditingId] = useState(null)   // compliance_items.id being edited, null = adding
+  const EMPTY_FORM = {cert_type:'gas_safety',cert_name:'Gas Safety (CP12)',issue_date:'',expiry_date:'',reminder_days:30,notes:''}
+  const [form, setForm] = useState(EMPTY_FORM)
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
 
   // Full requirement catalogue (insurance lives on its own register, not
@@ -80,36 +89,104 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
     setLoading(false)
   }
 
-  async function handleAdd() {
+  function openForm(prefill, id = null) {
+    setForm({ ...EMPTY_FORM, ...prefill })
+    setEditingId(id)
+    setShowForm(true)
+  }
+  function closeForm() { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM) }
+
+  async function handleSave() {
     if (!form.cert_name) return
+    const payload = {
+      cert_type: form.cert_type, cert_name: form.cert_name,
+      issue_date: form.issue_date || null, expiry_date: form.expiry_date || null,
+      reminder_days: form.reminder_days, notes: form.notes,
+    }
     try {
-      const created = await api.createCompliance(propertyId, form)
-      setItems(prev=>[...prev, created])
-      setShowForm(false)
-      setForm({cert_type:'gas_safety',cert_name:'Gas Safety (CP12)',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
-      showToast('Certificate added')
+      if (editingId) {
+        const updated = await api.updateCompliance(editingId, payload)
+        setItems(prev=>prev.map(i=>i.id===editingId ? updated : i))
+        showToast('Certificate updated')
+      } else {
+        const created = await api.createCompliance(propertyId, payload)
+        setItems(prev=>[...prev, created])
+        showToast('Certificate added')
+      }
+      closeForm()
     } catch(e) { showToast(e.message,'error') }
   }
 
   async function handleDelete(id) {
-    try { await api.deleteCompliance(id); setItems(prev=>prev.filter(i=>i.id!==id)); showToast('Removed') }
-    catch(e) { showToast(e.message,'error') }
+    try {
+      await api.deleteCompliance(id)
+      setItems(prev=>prev.filter(i=>i.id!==id))
+      if (editingId === id) closeForm()
+      showToast('Removed')
+    } catch(e) { showToast(e.message,'error') }
   }
 
-  const sorted = [...items].sort((a,b)=>{
-    const da = daysUntil(a.expiry_date) ?? 9999
-    const db = daysUntil(b.expiry_date) ?? 9999
-    return da - db
+  // Per-property opt-out (tier 2/3 requirements only — tier 1 legal items
+  // stay on; applicability flags are the only way those go away).
+  // onPropertyChange keeps App state in sync so the portfolio overview
+  // dims the item immediately without a full reload.
+  async function toggleOptout(key, off) {
+    const next = { ...(property?.compliance_optout || {}) }
+    if (off) next[key] = true
+    else delete next[key]
+    try {
+      await api.updateProperty(propertyId, { compliance_optout: next })
+      onPropertyChange?.({ compliance_optout: next })
+      showToast(off ? 'Switched off for this property' : 'Tracking again')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  // Requirement checklist rows — same tracked+applicable set as the
+  // portfolio overview card. Insurance is excluded (it lives on the policy
+  // register under Compliance → Insurance, not in compliance_items).
+  const activeItems = items.filter(i=>!i.deleted_at)
+  const reqs = property ? requirementsForProperty(property, companySettings).filter(r => r.group !== 'insurance') : []
+  const reqKeys = new Set(reqs.map(r=>r.key))
+  const shim = { ...(property||{}), compliance_items: activeItems }
+  const reqRows = reqs.map(req => {
+    const matching = activeItems.filter(i => canonicalCertType(i.cert_type) === req.key)
+      .sort((a,b)=> new Date(b.expiry_date||b.issue_date||0) - new Date(a.expiry_date||a.issue_date||0))
+    const off = isOptedOut(property, req.key)
+    return { req, item: matching[0] || null, count: matching.length, off,
+      status: off ? { state:'off' } : requirementStatus(shim, req) }
   })
+  // Anything that doesn't map to a tracked requirement (custom "other"
+  // certs, or types switched off at company level) keeps its own list.
+  const otherItems = activeItems.filter(i => !reqKeys.has(canonicalCertType(i.cert_type)))
+    .sort((a,b)=>{ const da=daysUntil(a.expiry_date)??9999, db=daysUntil(b.expiry_date)??9999; return da-db })
+
+  const pill = (key, txt) => <span style={{...statusPill(key, darkMode), fontSize:10, whiteSpace:'nowrap'}}>{txt}</span>
+  const statusFor = ({ status, req }) => {
+    if (status.state === 'off')      return pill('void','Off')
+    if (status.state === 'valid')    return status.days == null ? pill('ok','On file') : pill('ok', `${status.days}d remaining`)
+    if (status.state === 'expiring') return pill('warn', `Expires in ${status.days}d`)
+    if (status.state === 'expired')  return pill('bad', `Expired ${Math.abs(status.days)}d ago`)
+    return req.tier <= 2 ? pill('bad','Missing') : pill('void','Not on file')
+  }
+  const editPrefill = (row) => ({
+    cert_type: canonicalCertType(row.item.cert_type),
+    cert_name: row.item.cert_name || row.req.label,
+    issue_date: row.item.issue_date || '',
+    expiry_date: row.item.expiry_date || '',
+    reminder_days: row.item.reminder_days ?? 30,
+    notes: row.item.notes || '',
+  })
+  const smallBtnStyle = { fontFamily:MONO, fontSize:10, padding:'4px 10px', borderRadius:6, cursor:'pointer', background:'transparent', border:`1px solid ${T.border}`, color:T.muted, whiteSpace:'nowrap' }
 
   return (
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
-        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Certificate</button>}
+        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{ showForm ? closeForm() : openForm({}) }}>+ Add Certificate</button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{editingId ? 'Edit certificate' : 'Add certificate'}</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
           <div>
             <label>Certificate Type</label>
@@ -128,34 +205,82 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
           <div><label>Remind (days before)</label><input type="number" value={form.reminder_days} onChange={e=>s('reminder_days',+e.target.value)}/></div>
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="Optional notes"/></div>
-        <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleAdd}>Save</button>
-          <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowForm(false)}>Cancel</button>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>{editingId ? 'Update' : 'Save'}</button>
+          <button className="btn btn-ghost" style={{fontSize:11}} onClick={closeForm}>Cancel</button>
+          {editingId && canEdit && (
+            <button onClick={()=>handleDelete(editingId)} style={{marginLeft:'auto',fontFamily:MONO,fontSize:10,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>Remove</button>
+          )}
         </div>
       </div>}
 
       {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
-       : sorted.length===0 ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No certificates added yet.</div>
-       : <div style={{display:'grid',gap:10}}>
-          {sorted.map(item=>{
-            const ct = CERT_TYPES.find(t=>t.value===canonicalCertType(item.cert_type))
-            return (
-              <div key={item.id} className="card" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
-                <span style={{width:38,height:38,borderRadius:9,background:T.gold+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={ICON_NAMES.includes(ct?.icon)?ct.icon:'file-text'} size={19} color={T.gold}/></span>
-                <div style={{flex:1,minWidth:150}}>
-                  <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{item.cert_name}</div>
-                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
-                    Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}
+       : <>
+        {/* Requirement checklist — mirrors the portfolio overview card */}
+        {reqRows.length > 0 && (
+          <div style={{display:'grid',gap:8,marginBottom:18}}>
+            {reqRows.map(row=>{
+              const { req, item, count, off } = row
+              return (
+                <div key={req.key} className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',opacity:off?0.5:1,borderStyle:off?'dashed':'solid'}}>
+                  <span style={{width:34,height:34,borderRadius:9,background:(off?T.faint:T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <Icon name={ICON_NAMES.includes(req.icon)?req.icon:'file-text'} size={17} color={off?T.faint:T.gold}/>
+                  </span>
+                  <div style={{flex:1,minWidth:170}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{req.label}</div>
+                    <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+                      {off ? 'Switched off for this property'
+                        : item ? <>Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}{count>1 && ` · ${count} on file (latest shown)`}</>
+                        : 'Nothing on file yet'}
+                    </div>
                   </div>
-                  {item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
+                  {statusFor(row)}
+                  {canEdit && !off && (item
+                    ? <button style={smallBtnStyle} onClick={()=>openForm(editPrefill(row), item.id)}
+                        onMouseEnter={e=>{e.currentTarget.style.color=T.gold;e.currentTarget.style.borderColor=T.gold+'66'}}
+                        onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>Edit</button>
+                    : <button style={{...smallBtnStyle,color:T.gold,borderColor:T.gold+'66'}} onClick={()=>openForm({cert_type:req.key,cert_name:req.label})}>+ Add</button>)}
+                  {canEdit && property && canOptOut(req) && (
+                    <button style={smallBtnStyle} title={off ? 'Track this requirement again' : "Don't track this on this property — shows dimmed on the overview"}
+                      onClick={()=>toggleOptout(req.key, !off)}>{off ? 'Turn on' : 'Turn off'}</button>
+                  )}
                 </div>
-                <ExpiryBadge dateStr={item.expiry_date}/>
-                {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
-              </div>
-            )
-          })}
-        </div>
-      }
+              )
+            })}
+          </div>
+        )}
+
+        {/* Custom / untracked certificates */}
+        {otherItems.length > 0 && (
+          <>
+            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',margin:'4px 0 10px'}}>Other certificates</div>
+            <div style={{display:'grid',gap:10,marginBottom:18}}>
+              {otherItems.map(item=>{
+                const ct = CERT_TYPES.find(t=>t.value===canonicalCertType(item.cert_type))
+                return (
+                  <div key={item.id} className="card" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+                    <span style={{width:38,height:38,borderRadius:9,background:T.gold+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={ICON_NAMES.includes(ct?.icon)?ct.icon:'file-text'} size={19} color={T.gold}/></span>
+                    <div style={{flex:1,minWidth:150}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{item.cert_name}</div>
+                      <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+                        Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}
+                      </div>
+                      {item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
+                    </div>
+                    <ExpiryBadge dateStr={item.expiry_date}/>
+                    {canEdit && <button style={smallBtnStyle} onClick={()=>openForm({cert_type:canonicalCertType(item.cert_type),cert_name:item.cert_name||'',issue_date:item.issue_date||'',expiry_date:item.expiry_date||'',reminder_days:item.reminder_days??30,notes:item.notes||''}, item.id)}>Edit</button>}
+                    {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>Remove</button>}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {reqRows.length===0 && otherItems.length===0 && (
+          <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No certificates added yet.</div>
+        )}
+      </>}
       {/* Property inspections — scheduled mid-tenancy / check-in / check-out
           with photo evidence. Lives in the Compliance tab because that's
           where landlords already think about compliance + risk in one place. */}

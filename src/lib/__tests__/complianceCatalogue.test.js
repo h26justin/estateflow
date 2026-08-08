@@ -5,6 +5,8 @@ import {
   canonicalCertType,
   trackedRequirements,
   requirementsForProperty,
+  canOptOut,
+  isOptedOut,
 } from '../complianceCatalogue'
 import {
   certTypeStatus,
@@ -135,6 +137,38 @@ describe('propertyComplianceSummary', () => {
     expect(s.held).toBe(1)
     expect(s.expired).toBe(1)
     expect(s.missing).toBe(1)
+  })
+})
+
+describe('per-property opt-outs', () => {
+  it('tier 1 legal requirements cannot be opted out; tier 2/3 can', () => {
+    expect(canOptOut(CATALOGUE_BY_KEY.gas_safety)).toBe(false)
+    expect(canOptOut(CATALOGUE_BY_KEY.eicr)).toBe(false)
+    expect(canOptOut(CATALOGUE_BY_KEY.legionella)).toBe(true)
+    expect(canOptOut(CATALOGUE_BY_KEY.pat)).toBe(true)
+  })
+  it('isOptedOut reads properties.compliance_optout with safe defaults', () => {
+    expect(isOptedOut({ compliance_optout: { pat: true } }, 'pat')).toBe(true)
+    expect(isOptedOut({ compliance_optout: { pat: true } }, 'legionella')).toBe(false)
+    expect(isOptedOut({}, 'pat')).toBe(false)
+    expect(isOptedOut(null, 'pat')).toBe(false)
+  })
+  it('opted-out requirements come back as dimmed rows, excluded from counts', () => {
+    const p = {
+      id: 'p1', company_id: 'c1', status: 'rented', has_gas_supply: false, heating_type: 'electric',
+      compliance_optout: { pat: true },
+      compliance_items: [cert('eicr', inDays(300))],
+    }
+    const settings = { compliance_tracked: Object.fromEntries(
+      COMPLIANCE_CATALOGUE.map(r => [r.key, ['eicr', 'pat'].includes(r.key)])
+    ) }
+    const s = propertyComplianceSummary(p, settings, [])
+    const patRow = s.rows.find(r => r.req.key === 'pat')
+    expect(patRow.status.state).toBe('off')
+    expect(s.off).toBe(1)
+    expect(s.total).toBe(1)     // only eicr counts
+    expect(s.held).toBe(1)
+    expect(s.missing).toBe(0)   // pat no longer reads as missing
   })
 })
 

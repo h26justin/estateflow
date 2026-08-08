@@ -19,7 +19,7 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { MONO } from '../lib/styles'
 import InsurancePage from './InsurancePage'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements } from '../lib/complianceCatalogue'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements, isOptedOut } from '../lib/complianceCatalogue'
 import { requirementStatus, propertyComplianceSummary, certTypeStatus, insuranceStatusFor } from '../lib/complianceStatus'
 
 const mono = MONO
@@ -39,6 +39,19 @@ function CoPill({ company, T }) {
 function ReqRow({ req, status, T, onClick }) {
   const days = status.days
   let color, iconName, detail
+  if (status.state === 'off') {
+    // Switched off for this property (per-property toggle on the
+    // Compliance tab) — visible but dimmed, so the card still shows what's
+    // deliberately not tracked without shouting about it.
+    return (
+      <button onClick={onClick} title={`${req.label} — switched off for this property`}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', textAlign: 'left', width: '100%', background: 'transparent', border: `1px dashed ${T.border}`, opacity: 0.45 }}>
+        <Icon name="bell-off" size={14} color={T.faint} />
+        <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.short}</span>
+        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.faint, whiteSpace: 'nowrap' }}>Off</span>
+      </button>
+    )
+  }
   if (status.state === 'valid') {
     color = T.green; iconName = 'check-circle'
     detail = days === null ? 'On file' : `${days}d`
@@ -118,6 +131,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
   const cellFor = (p, req) => {
     if (req.applies && !req.applies(p)) return { state: 'na' }
     if (!trackedRequirements(settingsFor(p.company_id)).some(r => r.key === req.key)) return { state: 'na' }
+    if (isOptedOut(p, req.key)) return { state: 'off' }
     return req.group === 'insurance' ? insuranceStatusFor(p, policies) : certTypeStatus(p, req.key)
   }
 
@@ -130,6 +144,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
 
   const cellPill = (c) => {
     if (c.state === 'na') return <span style={{ color: T.faint, fontFamily: mono, fontSize: 9 }}>n/a</span>
+    if (c.state === 'off') return <span style={{ color: T.faint, fontFamily: mono, fontSize: 9, opacity: 0.6 }}>off</span>
     if (c.state === 'missing') return <span style={{ color: T.faint, fontFamily: mono, fontSize: 12 }}>—</span>
     const map = { expired: [T.red, 'Expired'], expiring: [T.amber, `${c.days}d`], valid: [T.green, 'Valid'] }
     const [col, txt] = map[c.state]
