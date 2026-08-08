@@ -33,7 +33,7 @@ function fmtDueDate(dateStr) {
 // ── DASHBOARD WIDGET ─────────────────────────────────────────────────────────
 // Compact card for the dashboard. Shows the open-action count and the top few
 // items; "Review all" opens the full panel.
-export function AutopilotWidget({ companyId = null, onOpenFull }) {
+export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }) {
   const { T } = useTheme()
   const [actions, setActions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,11 +41,16 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
   useEffect(() => {
     let alive = true
     listAutopilotActions({ status: 'open', companyId, limit: 50 })
-      .then((rows) => { if (alive) setActions(rows) })
+      .then((rows) => {
+        if (!alive) return
+        // Match the full page: hide actions from companies with no tab
+        // (e.g. suspended) so the widget count agrees with the page.
+        setActions(companyId || !companies.length ? rows : rows.filter(r => companies.some(c => c.id === r.company_id)))
+      })
       .catch(() => {})
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [companyId])
+  }, [companyId, companies])
 
   const highCount = actions.filter(a => a.severity === 'high').length
   const top = actions.slice(0, 4)
@@ -114,10 +119,13 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
   const load = useCallback(() => {
     setLoading(true)
     listAutopilotActions({ status: 'open', companyId: null, limit: 1000 })
-      .then(setActions)
+      // Only show actions for companies visible in the app (the tabs). RLS
+      // also returns rows for suspended companies, which have no tab here
+      // and whose act/dismiss updates the live-company policy would block.
+      .then(rows => setActions(companies.length ? rows.filter(r => companies.some(c => c.id === r.company_id)) : rows))
       .catch(() => showAppToast('Could not load Autopilot actions', 'error'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [companies])
 
   useEffect(() => { load() }, [load])
 

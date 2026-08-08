@@ -108,15 +108,29 @@ type Candidate = {
 // short, professional draft message per action. PII is minimised — tenant
 // names are passed only where the action is a direct tenant communication
 // (arrears chase / renewal) and the landlord will review before sending.
+//
+// Calls are chunked: ~15 two-to-four-sentence drafts fit comfortably in the
+// 1800-token response budget, whereas one big call truncates mid-JSON and
+// silently loses the whole batch to template fallbacks.
+const POLISH_CHUNK = 15
+
 async function polishDrafts(candidates: Candidate[]): Promise<void> {
   if (!ANTHROPIC_API_KEY || candidates.length === 0) return
+  for (let start = 0; start < candidates.length; start += POLISH_CHUNK) {
+    await polishChunk(candidates, start, Math.min(start + POLISH_CHUNK, candidates.length))
+  }
+}
 
-  const items = candidates.map((c, i) => ({
-    i,
-    kind: c.kind,
-    context: c.title,
-    facts: c.metadata,
-  }))
+async function polishChunk(candidates: Candidate[], start: number, end: number): Promise<void> {
+  const items = []
+  for (let i = start; i < end; i++) {
+    items.push({
+      i,
+      kind: candidates[i].kind,
+      context: candidates[i].title,
+      facts: candidates[i].metadata,
+    })
+  }
 
   const prompt = `You are drafting short, professional messages a UK landlord can review and send. For each action below, write a concise draft (2-4 sentences, British English, polite, no placeholders like [NAME] unless a fact is genuinely missing). Arrears = a reminder to the tenant. Compliance = an internal note on booking the inspection (facts with missing:true mean no certificate is on file at all — the note is about booking the inspection and uploading the certificate). Tenancy renewal = a note proposing terms. Mortgage = an internal note to review remortgage options. Insurance = an internal note on renewing cover before it lapses. Void = an internal note on getting a vacant property re-let (or preparing a re-let after notice).
 
@@ -139,8 +153,14 @@ ${JSON.stringify(items, null, 2)}`
         messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
       }),
     })
-    if (!res.ok) return // keep template drafts on any API issue
+    if (!res.ok) {
+      console.warn(`polishDrafts: API ${res.status} — keeping template drafts for items ${start}-${end - 1}`)
+      return
+    }
     const data = await res.json()
+    if (data.stop_reason === 'max_tokens') {
+      console.warn(`polishDrafts: response truncated at max_tokens for items ${start}-${end - 1}`)
+    }
     const text: string = data.content?.[0]?.text || ''
     const clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
     const parsed = JSON.parse(clean)
@@ -150,9 +170,28 @@ ${JSON.stringify(items, null, 2)}`
         candidates[row.i].draft_body = row.draft.trim()
       }
     }
-  } catch (_) {
+  } catch (e) {
     // Non-fatal — deterministic template drafts remain in place.
+    console.warn(`polishDrafts: keeping template drafts for items ${start}-${end - 1}: ${(e as Error).message}`)
   }
+}
+
+// Page through a PostgREST query in 1000-row chunks so large result sets are
+// never silently truncated by the server's max-rows cap, and surface errors
+// instead of treating a failed query as an empty result. The builder must
+// apply a stable .order() for paging to be deterministic.
+const PAGE_SIZE = 1000
+async function fetchAllRows(
+  build: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
+): Promise<any[]> {
+  const rows: any[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await build(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    rows.push(...(data || []))
+    if (!data || data.length < PAGE_SIZE) break
+  }
+  return rows
 }
 
 serve(async (req) => {
@@ -196,11 +235,15 @@ serve(async (req) => {
       // 2. Pull this company's portfolio data.
       // properties has no postcode column — selecting it errors the query,
       // leaving every company with zero properties and no autopilot actions.
-      const { data: properties } = await admin
+      const { data: properties, error: propErr } = await admin
         .from('properties')
         .select('id, name, address, rent_pcm, status, arrears, mortgage_product_end_date, user_id, deleted_at')
         .eq('company_id', companyId)
         .is('deleted_at', null)
+      if (propErr) {
+        console.error(`autopilot: properties query failed for company ${companyId} — skipping this run: ${propErr.message}`)
+        continue
+      }
 
       const props = (properties || []).filter((p: any) => p.status !== 'sold')
       if (props.length === 0) continue
@@ -208,23 +251,38 @@ serve(async (req) => {
       const propById: Record<string, any> = {}
       for (const p of props) propById[p.id] = p
 
-      const [{ data: compliance }, { data: tenancies }, { data: rents }, { data: policies }] = await Promise.all([
-        // No expiry filter here: items without an expiry date still count as
-        // "on file" for the missing-certificate check (3b2); the expiring
-        // check (3b) skips null expiries itself.
-        admin.from('compliance_items')
-          .select('id, property_id, cert_type, cert_name, expiry_date, deleted_at')
-          .in('property_id', propIds).is('deleted_at', null),
-        admin.from('tenancy_details')
-          .select('id, property_id, tenant_names, tenancy_end, rent_review_date')
-          .in('property_id', propIds),
-        admin.from('rent_payments')
-          .select('id, property_id, status, amount, year, month, month_label')
-          .in('property_id', propIds).in('status', ['overdue', 'late', 'partial']),
-        admin.from('insurance_policies')
-          .select('id, policy_name, policy_type, provider, expiry_date, premium, previous_policy_id, insurance_policy_properties(property_id)')
-          .eq('company_id', companyId).is('deleted_at', null),
-      ])
+      // Every query is error-checked and paged (fetchAllRows): a transient
+      // failure or a silently capped result must NOT read as "nothing on
+      // file" — the missing-certificate detector (3b2) infers from absence,
+      // so a bad read here would mass-flag compliant properties. On any
+      // failure, skip the company this run and try again tomorrow.
+      let compliance: any[], tenancies: any[], rents: any[], policies: any[]
+      try {
+        ;[compliance, tenancies, rents, policies] = await Promise.all([
+          // No expiry filter here: items without an expiry date still count as
+          // "on file" for the missing-certificate check (3b2); the expiring
+          // check (3b) skips null expiries itself.
+          fetchAllRows((from, to) => admin.from('compliance_items')
+            .select('id, property_id, cert_type, cert_name, expiry_date, deleted_at')
+            .in('property_id', propIds).is('deleted_at', null)
+            .order('id').range(from, to)),
+          fetchAllRows((from, to) => admin.from('tenancy_details')
+            .select('id, property_id, tenant_names, tenancy_end, rent_review_date')
+            .in('property_id', propIds)
+            .order('id').range(from, to)),
+          fetchAllRows((from, to) => admin.from('rent_payments')
+            .select('id, property_id, status, amount, year, month, month_label')
+            .in('property_id', propIds).in('status', ['overdue', 'late', 'partial'])
+            .order('id').range(from, to)),
+          fetchAllRows((from, to) => admin.from('insurance_policies')
+            .select('id, policy_name, policy_type, provider, expiry_date, premium, previous_policy_id, insurance_policy_properties(property_id)')
+            .eq('company_id', companyId).is('deleted_at', null)
+            .order('id').range(from, to)),
+        ])
+      } catch (e) {
+        console.error(`autopilot: portfolio queries failed for company ${companyId} — skipping this run: ${(e as Error).message}`)
+        continue
+      }
 
       const candidates: Candidate[] = []
       const ownerOf = (p: any) => (p?.user_id as string) || ownerId
@@ -232,6 +290,14 @@ serve(async (req) => {
       // 3a. Arrears — property-level arrears field and overdue rent rows.
       for (const p of props) {
         if (Number(p.arrears) > 0) {
+          // The dedupe key encodes how much is owed (months of rent, or a
+          // £100 bucket when rent is unknown): acting on last month's arrears
+          // must not suppress a NEW missed month or a severity escalation
+          // via the 30-day rule in 3g. Unchanged facts keep the same key.
+          const rent = Number(p.rent_pcm || 0)
+          const owedBucket = rent > 0
+            ? `${Math.max(1, Math.ceil(Number(p.arrears) / rent))}m`
+            : `£${Math.round(Number(p.arrears) / 100) * 100}`
           candidates.push({
             company_id: companyId,
             user_id: ownerOf(p),
@@ -241,7 +307,7 @@ serve(async (req) => {
             title: `Rent arrears on ${p.name || p.address || 'a property'}`,
             draft_body: `Our records show outstanding rent of ${fmtGBP(Number(p.arrears))} on ${p.name || p.address}. Please arrange payment at your earliest convenience, or get in touch if you would like to discuss a payment plan.`,
             due_date: null,
-            dedupe_key: `arrears:${p.id}`,
+            dedupe_key: `arrears:${p.id}:${owedBucket}`,
             metadata: { arrears: Number(p.arrears), rent_pcm: Number(p.rent_pcm || 0), property: p.name || p.address },
           })
         }
@@ -267,7 +333,9 @@ serve(async (req) => {
           title: `${agg.count} unpaid rent ${agg.count === 1 ? 'period' : 'periods'} on ${p.name || p.address || 'a property'}`,
           draft_body: `We have ${agg.count} unpaid rent ${agg.count === 1 ? 'period' : 'periods'}${agg.labels.length ? ` (${agg.labels.slice(0, 4).join(', ')})` : ''} totalling ${fmtGBP(agg.total)}. Please arrange payment, or contact us to agree a way forward.`,
           due_date: null,
-          dedupe_key: `arrears_rows:${pid}`,
+          // Count in the key: a decision on "1 unpaid period" doesn't
+          // suppress the escalated "2 unpaid periods" item (see 3g).
+          dedupe_key: `arrears_rows:${pid}:${agg.count}`,
           metadata: { unpaid_periods: agg.count, total: agg.total, property: p.name || p.address },
         })
       }
@@ -464,9 +532,9 @@ serve(async (req) => {
       if (active.length === 0) continue
 
       // 4. Optionally polish the human-readable drafts with Claude (modest
-      //    tokens). Large batches would blow the response budget and fall
-      //    back to templates wholesale, so polish the high-severity items
-      //    first, capped at 40; the rest keep their deterministic templates.
+      //    tokens). polishDrafts chunks its API calls so a big batch degrades
+      //    per-chunk rather than wholesale; still cap the total and polish
+      //    high-severity items first — the rest keep deterministic templates.
       const toPolish = [...active]
         .sort((a, b) => (a.severity === 'high' ? 0 : 1) - (b.severity === 'high' ? 0 : 1))
         .slice(0, 40)
@@ -493,12 +561,28 @@ serve(async (req) => {
       // (status='open'), so we manually clear prior open rows for these keys
       // then insert fresh. This keeps acted/dismissed history intact.
       for (const uid of [...new Set(active.map((c) => c.user_id))]) {
-        const userKeys = active.filter((c) => c.user_id === uid).map((c) => c.dedupe_key)
+        const userCands = active.filter((c) => c.user_id === uid)
+        const userKeys = userCands.map((c) => c.dedupe_key)
         await admin.from('autopilot_actions')
           .delete()
           .eq('user_id', uid)
           .eq('status', 'open')
           .in('dedupe_key', userKeys)
+        // Arrears keys encode the amount owed and change as the facts change
+        // (and were fact-free before 2026-08-08), so also clear this user's
+        // open arrears rows on the same properties — otherwise stale
+        // variants of the same debt would pile up alongside the fresh one.
+        const arrearsPropIds = [...new Set(
+          userCands.filter((c) => c.kind === 'arrears' && c.property_id).map((c) => c.property_id as string),
+        )]
+        if (arrearsPropIds.length > 0) {
+          await admin.from('autopilot_actions')
+            .delete()
+            .eq('user_id', uid)
+            .eq('status', 'open')
+            .eq('kind', 'arrears')
+            .in('property_id', arrearsPropIds)
+        }
       }
       const { error: insErr } = await admin.from('autopilot_actions').insert(rows)
       if (insErr) throw insErr

@@ -956,7 +956,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       </>}
 
       {settingsTab==='billing' && (
-        <BillingPage companies={scopedCompanies} user={user} isPlatformAdmin={isPlatformAdmin}/>
+        <BillingPage key={coFilter} companies={scopedCompanies} user={user} isPlatformAdmin={isPlatformAdmin}/>
       )}
 
       {settingsTab==='integrations' && (
@@ -1018,7 +1018,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {settingsTab==='inbox' && (
-        <CompanyInboxPanel companies={scopedCompanies} T={T}/>
+        <CompanyInboxPanel key={coFilter} companies={scopedCompanies} T={T}/>
       )}
 
       {settingsTab==='milestones' && (
