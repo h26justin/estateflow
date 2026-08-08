@@ -17,6 +17,8 @@ const KIND_META = {
   compliance:      { icon: 'shield-check', label: 'Compliance' },
   tenancy_renewal: { icon: 'calendar', label: 'Tenancy renewal' },
   mortgage:        { icon: 'landmark', label: 'Mortgage' },
+  insurance:       { icon: 'file-text', label: 'Insurance' },
+  void:            { icon: 'door', label: 'Vacant / re-let' },
 }
 
 const SEVERITY_ORDER = ['high', 'medium', 'low']
@@ -60,7 +62,7 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
           )}
         </h2>
         {actions.length > 0 && (
-          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
         )}
       </div>
 
@@ -106,11 +108,12 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
   // actions across ALL companies and filter client-side, seeding the selected
   // tab from the app-level company tab (if any).
   const [coFilter, setCoFilter] = useState(companyId || 'all')
+  const [kindFilter, setKindFilter] = useState('all')
   useEffect(() => { setCoFilter(companyId || 'all') }, [companyId])
 
   const load = useCallback(() => {
     setLoading(true)
-    listAutopilotActions({ status: 'open', companyId: null, limit: 300 })
+    listAutopilotActions({ status: 'open', companyId: null, limit: 1000 })
       .then(setActions)
       .catch(() => showAppToast('Could not load Autopilot actions', 'error'))
       .finally(() => setLoading(false))
@@ -149,9 +152,22 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
   }
 
   const showCoFilter = companies.length > 1
-  const filtered = coFilter !== 'all'
+  const companyFiltered = coFilter !== 'all'
     ? actions.filter(a => a.company_id === coFilter)
     : actions
+  // Task-type filter: work through one kind of job at a time (e.g. all the
+  // missing gas certificates), scoped within the selected company.
+  const kindsPresent = [...new Set(companyFiltered.map(a => a.kind))]
+  const filtered = kindFilter !== 'all'
+    ? companyFiltered.filter(a => a.kind === kindFilter)
+    : companyFiltered
+  // If the selected task type no longer exists here (company switched, or the
+  // last item of that type was actioned), fall back to All.
+  const kindsKey = kindsPresent.sort().join(',')
+  useEffect(() => {
+    if (kindFilter !== 'all' && !kindsPresent.includes(kindFilter) && !loading) setKindFilter('all')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kindFilter, kindsKey, loading])
 
   const grouped = SEVERITY_ORDER.map(sev => ({
     sev,
@@ -167,7 +183,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
           Portfolio Autopilot
         </h1>
-        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
       </div>
       <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24 }}>
         Daily AI-drafted action list. Every item is a suggestion for you to review — approving an item never sends or books anything automatically.
@@ -175,7 +191,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
 
       {showCoFilter && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Company:</span>
           {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => {
             const n = c.id === 'all' ? actions.length : actions.filter(a => a.company_id === c.id).length
             return (
@@ -194,13 +210,39 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         </div>
       )}
 
+      {/* Task-type filter — pick one job (e.g. missing gas certificates) and
+          work through the whole list, then move to the next type. */}
+      {kindsPresent.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Task:</span>
+          {['all', ...kindsPresent].map(k => {
+            const n = k === 'all' ? companyFiltered.length : companyFiltered.filter(a => a.kind === k).length
+            const label = k === 'all' ? 'All' : (KIND_META[k]?.label || k)
+            return (
+              <button key={k} onClick={() => setKindFilter(k)}
+                style={{
+                  fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                  border: `1px solid ${kindFilter === k ? T.gold : T.border}`,
+                  background: kindFilter === k ? T.gold + '22' : 'transparent',
+                  color: kindFilter === k ? T.gold : T.muted,
+                  transition: 'all 0.18s',
+                }}>
+                {label}{n > 0 ? ` (${n})` : ''}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ fontFamily: MONO, fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ fontFamily: MONO, color: actions.length === 0 ? T.green : T.muted, fontSize: 13, textAlign: 'center', padding: 48 }}>
           {actions.length === 0
             ? 'Nothing needs your attention — Autopilot found no open actions.'
-            : `No open actions for this company — ${actions.length} open across your other companies.`}
+            : companyFiltered.length === 0
+              ? `No open actions for this company — ${actions.length} open across your other companies.`
+              : 'No open actions of this type here — pick another task above.'}
         </div>
       ) : (
         grouped.map(group => (
@@ -233,7 +275,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                         )}
                         <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button
-                            className="btn-gold"
+                            className="btn btn-gold"
                             style={{ fontSize: 12 }}
                             disabled={busyId === a.id}
                             onClick={() => handleAct(a)}
@@ -242,7 +284,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                           </button>
                           {a.draft_body && (
                             <button
-                              className="btn-ghost"
+                              className="btn btn-ghost"
                               style={{ fontSize: 12 }}
                               disabled={busyId === a.id}
                               onClick={() => setViewing(a)}
@@ -251,7 +293,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                             </button>
                           )}
                           <button
-                            className="btn-ghost"
+                            className="btn btn-ghost"
                             style={{ fontSize: 12, color: T.muted }}
                             disabled={busyId === a.id}
                             onClick={() => handleDismiss(a)}
@@ -304,7 +346,7 @@ function DraftModal({ action, onClose }) {
         <div className="card" style={{ maxWidth: 540, width: '100%', padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700 }}>{action.title}</h3>
-            <button ref={initialRef} className="btn-ghost" aria-label="Close" onClick={onClose} style={{ fontSize: 18, lineHeight: 1 }}>×</button>
+            <button ref={initialRef} aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 10px', margin: '-6px -10px' }}>×</button>
           </div>
           <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
             {action.draft_body}
@@ -313,8 +355,8 @@ function DraftModal({ action, onClose }) {
             AI-generated draft. Review and edit before sending — Properly does not send this for you.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
-            <button className="btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
+            <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
+            <button className="btn btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
           </div>
         </div>
       </FocusTrap>

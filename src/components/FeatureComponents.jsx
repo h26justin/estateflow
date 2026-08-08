@@ -432,7 +432,7 @@ function BookkeepingTabBody({ companies, properties = [], T, mono }) {
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = [], activeFlags = new Set(), companySubs = []}) {
+export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = [], activeFlags = new Set(), companySubs = [], activeCompanyId = null}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
   const [saving, setSaving] = useState(null)
@@ -465,6 +465,16 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     window.addEventListener('ownproperly:set-settings-tab', handler)
     return () => window.removeEventListener('ownproperly:set-settings-tab', handler)
   }, [])
+
+  // Page-level company filter shared by every company-scoped tab (same pill
+  // UI as the Autopilot/Insurance pages). Previously each tab rolled its own
+  // selector (Branding pills, Tenant Portal dropdown, Features stacked all
+  // companies), so the selection never carried between tabs. Seeded from the
+  // app-level company tab so Settings opens scoped to the company being viewed.
+  const [settingsCoFilter, setSettingsCoFilter] = useState(activeCompanyId || 'all')
+  const coFilter = settingsCoFilter !== 'all' && companies.some(c => c.id === settingsCoFilter) ? settingsCoFilter : 'all'
+  const scopedCompanies = coFilter === 'all' ? companies : companies.filter(c => c.id === coFilter)
+  const companyScopedTabs = ['branding', 'tenant', 'features', 'inbox', 'reporting', 'integrations', 'bookkeeping', 'billing']
 
   // ── Account state ──────────────────────────────────────────────────────────
   const [fullName, setFullName]             = useState('')
@@ -657,6 +667,28 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         ))}
       </nav>
       <div style={{flex:1,minWidth:0,width:'100%'}}>
+      {/* Company switcher — only on tabs whose content is per-company */}
+      {companies.length > 1 && companyScopedTabs.includes(settingsTab) && (
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center',marginBottom:18}}>
+          <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Company:</span>
+          {[{id:'all',name:'All companies',color:T.gold},...companies].map(c=>{
+            const active = coFilter===c.id
+            const accent = c.color || T.gold
+            return (
+              <button key={c.id} onClick={()=>setSettingsCoFilter(c.id)}
+                style={{
+                  fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                  border:`1px solid ${active?accent:T.border}`,
+                  background:active?accent+'22':'transparent',
+                  color:active?accent:T.muted,fontWeight:active?700:400,
+                  transition:'all 0.18s',
+                }}>
+                {c.id==='all' ? c.name : `${c.abbr?c.abbr+' ':''}${c.name}`}
+              </button>
+            )
+          })}
+        </div>
+      )}
       {/* ── ACCOUNT TAB ── */}
       {settingsTab==='account' && (
         profileLoading
@@ -831,7 +863,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {/* ── FEATURES TAB ── */}
       {settingsTab==='features' && <>
-      {companies.map(company=>{
+      {scopedCompanies.map(company=>{
         const settings = companySettings[company.id] || {}
         return (
           <div key={company.id} className="card" style={{padding:'22px 26px',marginBottom:16,borderLeft:`3px solid ${company.color}`}}>
@@ -924,16 +956,18 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       </>}
 
       {settingsTab==='billing' && (
-        <BillingPage companies={companies} user={user} isPlatformAdmin={isPlatformAdmin}/>
+        <BillingPage companies={scopedCompanies} user={user} isPlatformAdmin={isPlatformAdmin}/>
       )}
 
       {settingsTab==='integrations' && (
-        <IntegrationsPanel T={T} mono={mono} companies={companies} properties={properties}/>
+        <IntegrationsPanel T={T} mono={mono} companies={scopedCompanies} properties={properties}/>
       )}
 
       {settingsTab==='bookkeeping' && activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin }) && (
         <Suspense fallback={null}>
-          <BookkeepingTabBody companies={companies} properties={properties} T={T} mono={mono}/>
+          {/* Keyed by filter so the panel's internal company selection resets
+              to the newly scoped company when the page-level filter changes */}
+          <BookkeepingTabBody key={coFilter} companies={scopedCompanies} properties={properties} T={T} mono={mono}/>
         </Suspense>
       )}
 
@@ -968,7 +1002,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {settingsTab==='branding' && (
         <BrandingSettingsPanel
-          companies={companies}
+          key={coFilter}
+          companies={scopedCompanies}
           setCompanies={setCompanies}
           companySettings={companySettings}
           setCompanySettings={setCompanySettings}
@@ -979,11 +1014,11 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {settingsTab==='tenant' && (
-        <TenantPortalSettings companies={companies} companySettings={companySettings} setCompanySettings={setCompanySettings} showToast={showToast} T={T}/>
+        <TenantPortalSettings key={coFilter} companies={scopedCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} showToast={showToast} T={T}/>
       )}
 
       {settingsTab==='inbox' && (
-        <CompanyInboxPanel companies={companies} T={T}/>
+        <CompanyInboxPanel companies={scopedCompanies} T={T}/>
       )}
 
       {settingsTab==='milestones' && (
@@ -1022,7 +1057,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20,lineHeight:1.7}}>
             Choose whether reports default to the UK tax year (6 Apr — 5 Apr), the calendar year (1 Jan — 31 Dec), or a custom date range you set yourself. You can always override this when running individual reports.
           </div>
-          {companies.map(company => {
+          {scopedCompanies.map(company => {
             const cs = companySettings[company.id] || {}
             // Normalise legacy short forms ('tax'/'calendar') to the canonical keys.
             const rawType = cs.year_type || 'tax_year'
