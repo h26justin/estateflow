@@ -7,6 +7,8 @@ import {
   requirementsForProperty,
   canOptOut,
   isOptedOut,
+  epcBand,
+  epcNeedsUpgrade,
 } from '../complianceCatalogue'
 import {
   certTypeStatus,
@@ -169,6 +171,23 @@ describe('per-property opt-outs', () => {
     expect(s.total).toBe(1)     // only eicr counts
     expect(s.held).toBe(1)
     expect(s.missing).toBe(0)   // pat no longer reads as missing
+  })
+})
+
+describe('EPC / MEES helpers', () => {
+  it('normalises the register-synced band and rejects junk', () => {
+    expect(epcBand({ epc_rating: 'd' })).toBe('D')
+    expect(epcBand({ epc_rating: ' C ' })).toBe('C')
+    expect(epcBand({ epc_rating: 'X' })).toBe(null)
+    expect(epcBand({})).toBe(null)
+    expect(epcBand(null)).toBe(null)
+  })
+  it('flags bands below C as needing upgrade', () => {
+    expect(epcNeedsUpgrade('D')).toBe(true)
+    expect(epcNeedsUpgrade('G')).toBe(true)
+    expect(epcNeedsUpgrade('C')).toBe(false)
+    expect(epcNeedsUpgrade('A')).toBe(false)
+    expect(epcNeedsUpgrade(null)).toBe(false)
   })
 })
 

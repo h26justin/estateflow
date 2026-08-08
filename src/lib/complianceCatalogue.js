@@ -162,3 +162,22 @@ export function requirementsForProperty(property, companySettings) {
 // legal item goes away.
 export const canOptOut = (req) => req.tier >= 2
 export const isOptedOut = (property, key) => (property?.compliance_optout || {})[key] === true
+
+// ── EPC / MEES helpers ───────────────────────────────────────────────────────
+// properties.epc_rating is the register-synced band (epc-sync edge function,
+// 2026-08-08_epc_register_sync.sql). MEES: the proposed minimum for the PRS
+// rises to band C by end of 2030 — the same target/deadline EpcPlanner and
+// the epc-planner edge function use. Band colours mirror the certificate.
+export const EPC_BAND_COLOR = {
+  A: '#1a8a3c', B: '#3aa655', C: '#8dc63f',
+  D: '#f0c419', E: '#f39c12', F: '#e8770c', G: '#d0021b',
+}
+export const MEES_TARGET_BAND = 'C'
+export const MEES_DEADLINE_ISO = '2030-12-31'
+// Normalised band letter for a property, or null when unknown/unsynced.
+export function epcBand(property) {
+  const r = String(property?.epc_rating || '').trim().toUpperCase()
+  return EPC_BAND_COLOR[r] ? r : null
+}
+// Below the MEES target? (Letters compare alphabetically: D > C.)
+export const epcNeedsUpgrade = (band) => !!band && band > MEES_TARGET_BAND
