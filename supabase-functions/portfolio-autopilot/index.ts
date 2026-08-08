@@ -7,6 +7,12 @@
 //   - book gas / EICR / EPC (and other certs) before they expire
 //   - flag tenancy renewals with a proposed rent
 //   - flag mortgage product end dates (remortgage prompt)
+//   - flag insurance policies that have expired or expire within 60 days
+//   - flag vacant properties (lost rent) and given-notice re-let prep
+//   - flag let properties with no gas / EICR / EPC certificate on file at all
+//
+// Human decisions stick: a dedupe key acted-on or dismissed within the last
+// 30 days is not resurfaced by subsequent runs.
 //
 // Every action is written to autopilot_actions with status 'open'. NOTHING is
 // auto-sent or auto-executed — the landlord reviews/approves/dismisses each
@@ -88,7 +94,7 @@ type Candidate = {
   company_id: string
   user_id: string
   property_id: string | null
-  kind: 'arrears' | 'compliance' | 'tenancy_renewal' | 'mortgage'
+  kind: 'arrears' | 'compliance' | 'tenancy_renewal' | 'mortgage' | 'insurance' | 'void'
   severity: 'high' | 'medium' | 'low'
   title: string
   draft_body: string
@@ -112,7 +118,7 @@ async function polishDrafts(candidates: Candidate[]): Promise<void> {
     facts: c.metadata,
   }))
 
-  const prompt = `You are drafting short, professional messages a UK landlord can review and send. For each action below, write a concise draft (2-4 sentences, British English, polite, no placeholders like [NAME] unless a fact is genuinely missing). Arrears = a reminder to the tenant. Compliance = an internal note on booking the inspection. Tenancy renewal = a note proposing terms. Mortgage = an internal note to review remortgage options.
+  const prompt = `You are drafting short, professional messages a UK landlord can review and send. For each action below, write a concise draft (2-4 sentences, British English, polite, no placeholders like [NAME] unless a fact is genuinely missing). Arrears = a reminder to the tenant. Compliance = an internal note on booking the inspection (facts with missing:true mean no certificate is on file at all — the note is about booking the inspection and uploading the certificate). Tenancy renewal = a note proposing terms. Mortgage = an internal note to review remortgage options. Insurance = an internal note on renewing cover before it lapses. Void = an internal note on getting a vacant property re-let (or preparing a re-let after notice).
 
 Return ONLY a JSON array of objects {"i": number, "draft": string} — no markdown, no commentary.
 
@@ -202,16 +208,22 @@ serve(async (req) => {
       const propById: Record<string, any> = {}
       for (const p of props) propById[p.id] = p
 
-      const [{ data: compliance }, { data: tenancies }, { data: rents }] = await Promise.all([
+      const [{ data: compliance }, { data: tenancies }, { data: rents }, { data: policies }] = await Promise.all([
+        // No expiry filter here: items without an expiry date still count as
+        // "on file" for the missing-certificate check (3b2); the expiring
+        // check (3b) skips null expiries itself.
         admin.from('compliance_items')
           .select('id, property_id, cert_type, cert_name, expiry_date, deleted_at')
-          .in('property_id', propIds).is('deleted_at', null).not('expiry_date', 'is', null),
+          .in('property_id', propIds).is('deleted_at', null),
         admin.from('tenancy_details')
           .select('id, property_id, tenant_names, tenancy_end, rent_review_date')
           .in('property_id', propIds),
         admin.from('rent_payments')
           .select('id, property_id, status, amount, year, month, month_label')
           .in('property_id', propIds).in('status', ['overdue', 'late', 'partial']),
+        admin.from('insurance_policies')
+          .select('id, policy_name, policy_type, provider, expiry_date, premium, previous_policy_id, insurance_policy_properties(property_id)')
+          .eq('company_id', companyId).is('deleted_at', null),
       ])
 
       const candidates: Candidate[] = []
@@ -286,6 +298,42 @@ serve(async (req) => {
         })
       }
 
+      // 3b2. Missing core certificates — gas / EICR / EPC are legal
+      //      requirements for let property in England & Wales. Flag let
+      //      properties with no certificate of each type on file at all, so
+      //      the landlord can book the inspection and upload the document.
+      //      Short-term-let listings are skipped (often per-room/per-listing
+      //      rows that would duplicate one building's certificates).
+      const LET_STATUSES = new Set(['rented', 'notice_given', 'let_agreed'])
+      const REQUIRED_CERTS: Array<{ type: string; label: string; note: string }> = [
+        { type: 'gas',  label: 'Gas Safety Certificate (CP12)', note: 'an annual gas safety inspection is a legal requirement if the property has gas appliances' },
+        { type: 'eicr', label: 'Electrical Safety Report (EICR)', note: 'an EICR is legally required at least every 5 years' },
+        { type: 'epc',  label: 'Energy Performance Certificate (EPC)', note: 'a valid EPC (minimum rating E) is required to let the property' },
+      ]
+      const certTypesByProp: Record<string, Set<string>> = {}
+      for (const c of (compliance || [])) {
+        (certTypesByProp[c.property_id] ||= new Set()).add((c.cert_type || '').toLowerCase())
+      }
+      for (const p of props) {
+        if (!LET_STATUSES.has(p.status)) continue
+        const have = certTypesByProp[p.id] || new Set()
+        for (const rc of REQUIRED_CERTS) {
+          if (have.has(rc.type) || (rc.type === 'gas' && have.has('gas_safety'))) continue
+          candidates.push({
+            company_id: companyId,
+            user_id: ownerOf(p),
+            property_id: p.id,
+            kind: 'compliance',
+            severity: 'medium',
+            title: `No ${rc.label} on file for ${p.name || p.address || 'a property'}`,
+            draft_body: `There is no ${rc.label} recorded for ${p.name || p.address} — ${rc.note}. If you hold a valid certificate, upload it to the property's compliance tab so expiry reminders can track it; otherwise book the inspection now.`,
+            due_date: null,
+            dedupe_key: `compliance_missing:${rc.type}:${p.id}`,
+            metadata: { cert_type: rc.type, missing: true, property: p.name || p.address },
+          })
+        }
+      }
+
       // 3c. Tenancy renewals — tenancy ending within 90 days, with a proposed
       //     rent (+3% rounded to nearest £5, a conservative default the
       //     landlord can override).
@@ -330,14 +378,103 @@ serve(async (req) => {
         })
       }
 
+      // 3e. Insurance — policies expired or expiring within 60 days. A policy
+      //     that has been superseded by a renewal (another policy pointing at
+      //     it via previous_policy_id) is skipped.
+      const supersededPolicyIds = new Set((policies || []).map((pl: any) => pl.previous_policy_id).filter(Boolean))
+      for (const pl of (policies || [])) {
+        if (supersededPolicyIds.has(pl.id)) continue
+        const d = daysUntil(pl.expiry_date)
+        if (d === null || d > 60) continue
+        const linkIds = (pl.insurance_policy_properties || [])
+          .map((l: any) => l.property_id)
+          .filter((id: string) => propById[id])
+        const single = linkIds.length === 1 ? propById[linkIds[0]] : null
+        const label = pl.policy_name || [pl.provider, pl.policy_type].filter(Boolean).join(' — ') || 'Insurance policy'
+        const scope = single
+          ? (single.name || single.address)
+          : linkIds.length > 1 ? `${linkIds.length} properties` : (co.name || 'the company')
+        const expired = d < 0
+        candidates.push({
+          company_id: companyId,
+          user_id: single ? ownerOf(single) : ownerId,
+          property_id: single ? single.id : null,
+          kind: 'insurance',
+          severity: expired || d <= 14 ? 'high' : 'medium',
+          title: expired
+            ? `Insurance EXPIRED: ${label}`
+            : `Insurance expires in ${d}d: ${label}`,
+          draft_body: expired
+            ? `The policy "${label}"${pl.provider ? ` with ${pl.provider}` : ''} covering ${scope} expired ${Math.abs(d)} day(s) ago — cover may have lapsed. Contact the provider or broker today to renew or arrange replacement cover, then record the new policy on the Insurance page.`
+            : `The policy "${label}"${pl.provider ? ` with ${pl.provider}` : ''} covering ${scope} expires on ${fmtDate(pl.expiry_date)}. Request renewal terms now and compare quotes so cover continues without a gap, then record the renewal on the Insurance page.`,
+          due_date: pl.expiry_date,
+          dedupe_key: `insurance:${pl.id}`,
+          metadata: { provider: pl.provider, policy_type: pl.policy_type, days: d, premium: Number(pl.premium || 0), scope },
+        })
+      }
+
+      // 3f. Voids — vacant properties (lost rent every month) and given-notice
+      //     tenancies (get the re-let moving before the void starts).
+      for (const p of props) {
+        const rent = Number(p.rent_pcm || 0)
+        if (p.status === 'vacant') {
+          candidates.push({
+            company_id: companyId,
+            user_id: ownerOf(p),
+            property_id: p.id,
+            kind: 'void',
+            severity: 'medium',
+            title: `${p.name || p.address || 'A property'} is sitting vacant`,
+            draft_body: rent > 0
+              ? `${p.name || p.address} is vacant and generating no income — roughly ${fmtGBP(rent)} of rent is lost for each month it stays empty. Get it listed for let (or review the asking rent if it is already marketed), and use the void to clear any outstanding compliance or refurb work.`
+              : `${p.name || p.address} is vacant. Get it listed for let, and use the void period to clear any outstanding compliance or refurb work.`,
+            due_date: null,
+            dedupe_key: `void:${p.id}`,
+            metadata: { rent_pcm: rent, status: p.status, property: p.name || p.address },
+          })
+        } else if (p.status === 'notice_given') {
+          candidates.push({
+            company_id: companyId,
+            user_id: ownerOf(p),
+            property_id: p.id,
+            kind: 'void',
+            severity: 'medium',
+            title: `Notice given at ${p.name || p.address || 'a property'} — plan the re-let`,
+            draft_body: `The tenant at ${p.name || p.address} has given notice. Start marketing now to minimise the void: prepare the listing, book the check-out inspection, and line up any works or certificate renewals for the changeover.`,
+            due_date: null,
+            dedupe_key: `void_notice:${p.id}`,
+            metadata: { rent_pcm: rent, status: p.status, property: p.name || p.address },
+          })
+        }
+      }
+
       if (candidates.length === 0) continue
 
-      // 4. Optionally polish the human-readable drafts with Claude (modest tokens).
-      await polishDrafts(candidates)
+      // 3g. Human decisions stick: drop any candidate whose dedupe key was
+      //     acted on or dismissed in the last 30 days, so daily re-runs don't
+      //     resurface items the landlord has already dealt with.
+      const cutoff = new Date(Date.now() - 30 * DAY_MS).toISOString()
+      const { data: recentClosed } = await admin.from('autopilot_actions')
+        .select('user_id, dedupe_key')
+        .in('user_id', [...new Set(candidates.map((c) => c.user_id))])
+        .neq('status', 'open')
+        .gte('updated_at', cutoff)
+      const closedKeys = new Set((recentClosed || []).map((r: any) => `${r.user_id}:${r.dedupe_key}`))
+      const active = candidates.filter((c) => !closedKeys.has(`${c.user_id}:${c.dedupe_key}`))
+      if (active.length === 0) continue
+
+      // 4. Optionally polish the human-readable drafts with Claude (modest
+      //    tokens). Large batches would blow the response budget and fall
+      //    back to templates wholesale, so polish the high-severity items
+      //    first, capped at 40; the rest keep their deterministic templates.
+      const toPolish = [...active]
+        .sort((a, b) => (a.severity === 'high' ? 0 : 1) - (b.severity === 'high' ? 0 : 1))
+        .slice(0, 40)
+      await polishDrafts(toPolish)
 
       // 5. Upsert candidates. The partial unique index on (user_id, dedupe_key)
       //    where status='open' lets us refresh existing open rows in place.
-      const rows = candidates.map((c) => ({
+      const rows = active.map((c) => ({
         company_id: c.company_id,
         user_id: c.user_id,
         property_id: c.property_id,
@@ -355,9 +492,8 @@ serve(async (req) => {
       // upsert by (user_id, dedupe_key) — but the unique index is partial
       // (status='open'), so we manually clear prior open rows for these keys
       // then insert fresh. This keeps acted/dismissed history intact.
-      const keys = candidates.map((c) => c.dedupe_key)
-      for (const uid of [...new Set(candidates.map((c) => c.user_id))]) {
-        const userKeys = candidates.filter((c) => c.user_id === uid).map((c) => c.dedupe_key)
+      for (const uid of [...new Set(active.map((c) => c.user_id))]) {
+        const userKeys = active.filter((c) => c.user_id === uid).map((c) => c.dedupe_key)
         await admin.from('autopilot_actions')
           .delete()
           .eq('user_id', uid)
@@ -370,14 +506,14 @@ serve(async (req) => {
 
       // 6. One summary notification per user (group candidates by user).
       const byUser: Record<string, Candidate[]> = {}
-      for (const c of candidates) {
+      for (const c of active) {
         (byUser[c.user_id] ||= []).push(c)
       }
       for (const [uid, list] of Object.entries(byUser)) {
         const high = list.filter((c) => c.severity === 'high').length
         const title = `Autopilot: ${list.length} action${list.length === 1 ? '' : 's'} need your review`
         const body = high > 0
-          ? `${high} high-priority — arrears, compliance and renewals across ${co.name || 'your portfolio'}. All items are drafted for your approval; nothing has been sent.`
+          ? `${high} high-priority — arrears, compliance, insurance and lettings across ${co.name || 'your portfolio'}. All items are drafted for your approval; nothing has been sent.`
           : `${list.length} drafted action${list.length === 1 ? '' : 's'} across ${co.name || 'your portfolio'}, ready for your review and approval.`
         await admin.from('notifications').insert({
           user_id: uid,

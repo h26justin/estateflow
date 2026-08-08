@@ -17,6 +17,8 @@ const KIND_META = {
   compliance:      { icon: 'shield-check', label: 'Compliance' },
   tenancy_renewal: { icon: 'calendar', label: 'Tenancy renewal' },
   mortgage:        { icon: 'landmark', label: 'Mortgage' },
+  insurance:       { icon: 'file-text', label: 'Insurance' },
+  void:            { icon: 'door', label: 'Vacant / re-let' },
 }
 
 const SEVERITY_ORDER = ['high', 'medium', 'low']
@@ -106,11 +108,12 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
   // actions across ALL companies and filter client-side, seeding the selected
   // tab from the app-level company tab (if any).
   const [coFilter, setCoFilter] = useState(companyId || 'all')
+  const [kindFilter, setKindFilter] = useState('all')
   useEffect(() => { setCoFilter(companyId || 'all') }, [companyId])
 
   const load = useCallback(() => {
     setLoading(true)
-    listAutopilotActions({ status: 'open', companyId: null, limit: 300 })
+    listAutopilotActions({ status: 'open', companyId: null, limit: 1000 })
       .then(setActions)
       .catch(() => showAppToast('Could not load Autopilot actions', 'error'))
       .finally(() => setLoading(false))
@@ -149,9 +152,22 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
   }
 
   const showCoFilter = companies.length > 1
-  const filtered = coFilter !== 'all'
+  const companyFiltered = coFilter !== 'all'
     ? actions.filter(a => a.company_id === coFilter)
     : actions
+  // Task-type filter: work through one kind of job at a time (e.g. all the
+  // missing gas certificates), scoped within the selected company.
+  const kindsPresent = [...new Set(companyFiltered.map(a => a.kind))]
+  const filtered = kindFilter !== 'all'
+    ? companyFiltered.filter(a => a.kind === kindFilter)
+    : companyFiltered
+  // If the selected task type no longer exists here (company switched, or the
+  // last item of that type was actioned), fall back to All.
+  const kindsKey = kindsPresent.sort().join(',')
+  useEffect(() => {
+    if (kindFilter !== 'all' && !kindsPresent.includes(kindFilter) && !loading) setKindFilter('all')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kindFilter, kindsKey, loading])
 
   const grouped = SEVERITY_ORDER.map(sev => ({
     sev,
@@ -175,7 +191,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
 
       {showCoFilter && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Company:</span>
           {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => {
             const n = c.id === 'all' ? actions.length : actions.filter(a => a.company_id === c.id).length
             return (
@@ -194,13 +210,39 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         </div>
       )}
 
+      {/* Task-type filter — pick one job (e.g. missing gas certificates) and
+          work through the whole list, then move to the next type. */}
+      {kindsPresent.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
+          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Task:</span>
+          {['all', ...kindsPresent].map(k => {
+            const n = k === 'all' ? companyFiltered.length : companyFiltered.filter(a => a.kind === k).length
+            const label = k === 'all' ? 'All' : (KIND_META[k]?.label || k)
+            return (
+              <button key={k} onClick={() => setKindFilter(k)}
+                style={{
+                  fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                  border: `1px solid ${kindFilter === k ? T.gold : T.border}`,
+                  background: kindFilter === k ? T.gold + '22' : 'transparent',
+                  color: kindFilter === k ? T.gold : T.muted,
+                  transition: 'all 0.18s',
+                }}>
+                {label}{n > 0 ? ` (${n})` : ''}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ fontFamily: MONO, fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ fontFamily: MONO, color: actions.length === 0 ? T.green : T.muted, fontSize: 13, textAlign: 'center', padding: 48 }}>
           {actions.length === 0
             ? 'Nothing needs your attention — Autopilot found no open actions.'
-            : `No open actions for this company — ${actions.length} open across your other companies.`}
+            : companyFiltered.length === 0
+              ? `No open actions for this company — ${actions.length} open across your other companies.`
+              : 'No open actions of this type here — pick another task above.'}
         </div>
       ) : (
         grouped.map(group => (
