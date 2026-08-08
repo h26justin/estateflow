@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon, ICON_NAMES } from '../lib/icons'
 
 /**
  * ActionMenu — a "..." button that opens a dropdown of actions.
@@ -8,13 +9,16 @@ import { useTheme } from '../lib/ThemeContext'
  *
  * Items can be plain or destructive (highlighted in red).
  *
+ * `icon` accepts either a name from the SVG icon set (lib/icons.jsx, e.g.
+ * 'trash') or a literal glyph string (e.g. '£').
+ *
  * Usage:
  *   <ActionMenu items={[
  *     { label: 'Duplicate',    icon: '⊕', onSelect: handleDup },
  *     { label: 'Mark as sold', icon: '£', onSelect: handleMarkSold },
  *     { divider: true },
  *     { label: 'Archive',      icon: '📦', onSelect: handleArchive },
- *     { label: 'Delete',       icon: '🗑', onSelect: handleDelete, destructive: true },
+ *     { label: 'Delete',       icon: 'trash', onSelect: handleDelete, destructive: true },
  *   ]}/>
  *
  * Disabled items: pass `disabled: true` and they won't trigger.
@@ -88,7 +92,13 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
                 }}
                 onMouseEnter={e => { if (!item.disabled) e.currentTarget.style.background = T.bg }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
-                {item.icon && <span style={{ width: 16, textAlign: 'center', flexShrink: 0, opacity: item.disabled ? 0.5 : 1 }}>{item.icon}</span>}
+                {item.icon && (
+                  <span style={{ width: 16, textAlign: 'center', flexShrink: 0, opacity: item.disabled ? 0.5 : 1 }}>
+                    {typeof item.icon === 'string' && ICON_NAMES.includes(item.icon)
+                      ? <Icon name={item.icon} size={15} style={{ margin: '0 auto' }}/>
+                      : item.icon}
+                  </span>
+                )}
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {item.shortcut && (
                   <span style={{ fontSize: 10, color: T.faint }}>{item.shortcut}</span>
