@@ -10,7 +10,7 @@
 //   - Zero non-deleted compliance_items on a rented property     → missing
 //   - Otherwise                                                  → ok
 
-import { CATALOGUE_BY_KEY, canonicalCertType, requirementsForProperty } from './complianceCatalogue'
+import { CATALOGUE_BY_KEY, canonicalCertType, requirementsForProperty, isOptedOut } from './complianceCatalogue'
 
 // The "expiring soon" window (days). Exported so every compliance surface
 // (cards, matrix, dashboard alerts, reports) shares one threshold rather than
@@ -103,17 +103,23 @@ export function requirementStatus(property, req, policies) {
 // Full rollup for an overview card: every tracked+applicable requirement
 // with its status, plus summary counts. `held` counts valid + expiring
 // (still in date today), so a score like "7/9 held" reads naturally.
+// Requirements the landlord has switched off for this property come back
+// with state 'off' — rendered dimmed by callers, excluded from every count.
 export function propertyComplianceSummary(property, companySettings, policies) {
   const reqs = requirementsForProperty(property, companySettings)
-  const rows = reqs.map(req => ({ req, status: requirementStatus(property, req, policies) }))
-  let held = 0, expired = 0, expiring = 0, missing = 0
+  const rows = reqs.map(req => ({
+    req,
+    status: isOptedOut(property, req.key) ? { state: 'off' } : requirementStatus(property, req, policies),
+  }))
+  let held = 0, expired = 0, expiring = 0, missing = 0, off = 0
   for (const r of rows) {
-    if (r.status.state === 'valid') held++
+    if (r.status.state === 'off') off++
+    else if (r.status.state === 'valid') held++
     else if (r.status.state === 'expiring') { held++; expiring++ }
     else if (r.status.state === 'expired') expired++
     else missing++
   }
-  return { rows, total: rows.length, held, expired, expiring, missing }
+  return { rows, total: rows.length - off, held, expired, expiring, missing, off }
 }
 
 export function complianceStatusFor(property) {

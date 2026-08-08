@@ -153,3 +153,12 @@ export function trackedRequirements(companySettings) {
 export function requirementsForProperty(property, companySettings) {
   return trackedRequirements(companySettings).filter(r => !r.applies || r.applies(property))
 }
+
+// ── Per-property opt-outs ────────────────────────────────────────────────────
+// properties.compliance_optout jsonb {key: true} — the landlord has switched
+// this requirement off for THIS property. Opted-out items render dimmed on
+// the overview (not as missing) and don't count toward scores. Tier 1 legal
+// requirements can't be opted out — applicability flags are the only way a
+// legal item goes away.
+export const canOptOut = (req) => req.tier >= 2
+export const isOptedOut = (property, key) => (property?.compliance_optout || {})[key] === true
