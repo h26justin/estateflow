@@ -9,29 +9,39 @@ import { naturalCompare } from '../lib/addressUtils'
 import {
   fetchRooms, createRoom, updateRoom, deleteRoom,
   fetchLicences, createLicence, updateLicence, deleteLicence,
-  rollupRooms, daysUntilExpiry,
+  rollupRooms, daysUntilExpiry, setPropertyHmo,
   ROOM_STATUSES, LICENCE_TYPES, LICENCE_STATUSES,
 } from '../lib/api/hmoRooms'
 
 // ── HMO ROOMS PANEL ──────────────────────────────────────────────────
-// Embedded on a property's Rooms tab (shown when property.is_hmo). Lets the
-// landlord break the property into individually-let rooms — each with its own
-// tenancy, rent and occupancy — surfaces a portfolio-style rent rollup and
-// per-room "lapsed tenancy" arrears flags, and tracks the property's HMO
-// licence(s) with an expiry reminder.
+// Embedded on a property's Rooms tab (shown when property.is_hmo or the
+// hmo_rooms feature flag is active). Lets the landlord break the property into
+// individually-let rooms — each with its own tenancy, rent and occupancy —
+// surfaces a portfolio-style rent rollup and per-room "lapsed tenancy" arrears
+// flags, and tracks the property's HMO licence(s) with an expiry reminder.
+//
+// A per-property "Let by the room" switch (properties.is_hmo) heads the panel:
+// most properties are single lets, so the rooms/licence sections sit dimmed
+// and read-only until the landlord flips it on. Turning it off keeps any
+// existing room data — nothing is deleted.
 
 const roomLabel = (s) => ROOM_STATUSES.find(x => x.v === s)?.l || s
 const licTypeLabel = (s) => LICENCE_TYPES.find(x => x.v === s)?.l || s
 const licStatusLabel = (s) => LICENCE_STATUSES.find(x => x.v === s)?.l || s
 const dateGB = (d) => d ? new Date(d).toLocaleDateString('en-GB') : ''
 
-export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
+export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, canEdit = true }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
 
   const [rooms, setRooms]       = useState([])
   const [licences, setLicences] = useState([])
   const [loading, setLoading]   = useState(true)
+  const [savingHmo, setSavingHmo] = useState(false)
+
+  // Everything below the switch is edit-locked while the property is a
+  // single let — the sections stay visible (dimmed) so nothing looks lost.
+  const editable = canEdit && isHmo
 
   const blankRoom = { room_name: '', rent_pcm: '', tenant_name: '', tenancy_start: '', tenancy_end: '', status: 'vacant', notes: '' }
   const [roomForm, setRoomForm]   = useState(blankRoom)
@@ -60,6 +70,20 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
 
   const roll = rollupRooms(rooms)
   const arrearsIds = new Set(roll.arrears.map(a => a.id))
+
+  // ── HMO switch ─────────────────────────────────────────────────────
+  async function toggleHmo() {
+    if (!canEdit || savingHmo) return
+    const next = !isHmo
+    setSavingHmo(true)
+    try {
+      await setPropertyHmo(propertyId, next)
+      if (!next) { cancelRoom(); cancelLic() }
+      onHmoChange?.(next)
+      showAppToast(next ? 'Room-by-room letting turned on' : 'Marked as a single let — room data kept')
+    } catch (e) { showAppToast(e.message || 'Update failed', 'error') }
+    setSavingHmo(false)
+  }
 
   // ── Room handlers ──────────────────────────────────────────────────
   function startAddRoom() { setRoomForm(blankRoom); setEditingRoomId(null); setTriedRoomSave(false); setAddingRoom(true) }
@@ -140,6 +164,45 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
 
   return (
     <div style={{ marginTop: 18 }}>
+      {/* ── Let-by-the-room switch ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>Let by the room (HMO)</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+            {isHmo
+              ? 'Rooms are let individually — manage each room and the HMO licence below.'
+              : 'This property is let as a whole, not room by room.'}
+          </div>
+        </div>
+        <button role="switch" aria-checked={isHmo} aria-label="Let by the room (HMO)" disabled={!canEdit || savingHmo}
+          onClick={toggleHmo}
+          style={{
+            border: 'none', padding: 0,
+            width: 44, height: 24, borderRadius: 12, cursor: canEdit ? 'pointer' : 'not-allowed',
+            background: isHmo ? T.gold : T.faint,
+            position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+            opacity: savingHmo ? 0.6 : 1,
+          }}>
+          <div style={{
+            width: 18, height: 18, borderRadius: '50%', background: 'white',
+            position: 'absolute', top: 3,
+            left: isHmo ? 23 : 3,
+            transition: 'left 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+          }}/>
+        </button>
+      </div>
+
+      {!isHmo && (
+        <div style={{ background: T.bg, border: `1px dashed ${T.border}`, borderRadius: 10, padding: '12px 16px', marginBottom: 16, textAlign: 'center', fontFamily: MONO, fontSize: 11, color: T.muted }}>
+          Not an HMO — this property isn't let by the room.
+          {(rooms.length > 0 || licences.length > 0) && ' Existing room and licence records are kept below.'}
+          {canEdit && ' Turn the switch on to manage rooms and HMO licences.'}
+        </div>
+      )}
+
+      {/* Dimmed + read-only while the property is a single let */}
+      <div aria-disabled={!isHmo} style={!isHmo ? { opacity: 0.45, pointerEvents: 'none', userSelect: 'none' } : undefined}>
       {/* ── Rollup ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 16 }}>
         <Stat T={T} label="Rooms" value={roll.totalRooms} />
@@ -170,7 +233,7 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
             {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
           </span>
         </h3>
-        {canEdit && !addingRoom && (
+        {editable && !addingRoom && (
           <button onClick={startAddRoom} className="btn btn-ghost" style={{ fontSize: 11 }}>+ Add room</button>
         )}
       </div>
@@ -233,12 +296,12 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
 
       {rooms.length === 0 && !addingRoom ? (
         <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', fontFamily: MONO, fontSize: 11, color: T.muted }}>
-          No rooms yet. {canEdit && 'Add one above to start letting by the room.'}
+          No rooms yet. {editable && 'Add one above to start letting by the room.'}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
           {rooms.map(r => (
-            <RoomRow key={r.id} room={r} T={T} canEdit={canEdit} flagged={arrearsIds.has(r.id)} onEdit={startEditRoom} onRemove={removeRoom} />
+            <RoomRow key={r.id} room={r} T={T} canEdit={editable} flagged={arrearsIds.has(r.id)} onEdit={startEditRoom} onRemove={removeRoom} />
           ))}
         </div>
       )}
@@ -251,7 +314,7 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
             {licences.length} {licences.length === 1 ? 'record' : 'records'}
           </span>
         </h3>
-        {canEdit && !addingLic && (
+        {editable && !addingLic && (
           <button onClick={startAddLic} className="btn btn-ghost" style={{ fontSize: 11 }}>+ Add licence</button>
         )}
       </div>
@@ -312,15 +375,16 @@ export default function HmoRoomsPanel({ propertyId, canEdit = true }) {
 
       {licences.length === 0 && !addingLic ? (
         <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', fontFamily: MONO, fontSize: 11, color: T.muted }}>
-          No HMO licence on record. {canEdit && 'Add one to track its expiry.'}
+          No HMO licence on record. {editable && 'Add one to track its expiry.'}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
           {licences.map(l => (
-            <LicenceCard key={l.id} licence={l} T={T} canEdit={canEdit} onEdit={startEditLic} onRemove={removeLic} />
+            <LicenceCard key={l.id} licence={l} T={T} canEdit={editable} onEdit={startEditLic} onRemove={removeLic} />
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }
