@@ -254,7 +254,7 @@ serve(async (req) => {
       // leaving every company with zero properties and no autopilot actions.
       const { data: properties, error: propErr } = await admin
         .from('properties')
-        .select('id, name, address, rent_pcm, status, arrears, mortgage_product_end_date, user_id, deleted_at, has_gas_supply, is_hmo, licensing_scheme, compliance_optout')
+        .select('id, name, address, rent_pcm, status, arrears, mortgage_product_end_date, user_id, deleted_at, has_gas_supply, is_hmo, licensing_scheme, compliance_optout, epc_rating')
         .eq('company_id', companyId)
         .is('deleted_at', null)
       if (propErr) {
@@ -280,11 +280,11 @@ serve(async (req) => {
           // "on file" for the missing-certificate check (3b2); the expiring
           // check (3b) skips null expiries itself.
           fetchAllRows((from, to) => admin.from('compliance_items')
-            .select('id, property_id, cert_type, cert_name, expiry_date, deleted_at')
+            .select('id, property_id, cert_type, cert_name, issue_date, expiry_date, created_at, deleted_at')
             .in('property_id', propIds).is('deleted_at', null)
             .order('id').range(from, to)),
           fetchAllRows((from, to) => admin.from('tenancy_details')
-            .select('id, property_id, tenant_names, tenancy_end, rent_review_date')
+            .select('id, property_id, tenant_names, tenancy_start, tenancy_end, rent_review_date')
             .in('property_id', propIds)
             .order('id').range(from, to)),
           fetchAllRows((from, to) => admin.from('rent_payments')
@@ -432,6 +432,64 @@ serve(async (req) => {
             metadata: { cert_type: rc.type, missing: true, property: p.name || p.address },
           })
         }
+      }
+
+      // 3b3. MEES floor breach — band E has been the legal minimum to let
+      //      since April 2020, so a let property at F or G is a LIVE breach
+      //      (fines up to £5,000 per property), not a future problem.
+      //      epc_rating is the register-synced band written by epc-sync.
+      for (const p of props) {
+        if (!LET_STATUSES.has(p.status)) continue
+        const band = String(p.epc_rating || '').trim().toUpperCase()
+        if (band !== 'F' && band !== 'G') continue
+        candidates.push({
+          company_id: companyId,
+          user_id: ownerOf(p),
+          property_id: p.id,
+          kind: 'compliance',
+          severity: 'high',
+          title: `EPC band ${band} — below the legal minimum at ${p.name || p.address || 'a property'}`,
+          draft_body: `${p.name || p.address} has an EPC of band ${band}, below the MEES legal minimum of E for let property — penalties run up to £5,000 per property. Book improvement works to reach at least band E (the EPC Planner has a costed plan), or register a valid exemption on the PRS Exemptions Register.`,
+          due_date: null,
+          dedupe_key: `epc_mees_floor:${p.id}:${band}`,
+          metadata: { epc_rating: band, property: p.name || p.address },
+        })
+      }
+
+      // 3b4. Stale tenancy paperwork — deposit protection, Right to Rent,
+      //      the agreement, the RRA info sheet and the inventory are
+      //      per-tenancy. A row recorded before the CURRENT tenancy started
+      //      reads as "held" but belongs to the last tenant. One action per
+      //      tenancy listing what needs re-serving. Respects per-property
+      //      opt-outs (properties.compliance_optout).
+      const TENANCY_PAPERWORK = new Set(['tenancy_agreement', 'deposit_protection', 'right_to_rent', 'rra_info_sheet', 'inventory'])
+      for (const t of (tenancies || [])) {
+        const p = propById[t.property_id]
+        if (!p || !LET_STATUSES.has(p.status) || !t.tenancy_start) continue
+        const start = new Date(t.tenancy_start)
+        if (isNaN(start.getTime()) || start > new Date()) continue
+        const optout = (p.compliance_optout || {}) as Record<string, boolean>
+        const stale = (compliance || []).filter((c: any) => {
+          if (c.property_id !== t.property_id) return false
+          const key = (c.cert_type || '').toLowerCase()
+          if (!TENANCY_PAPERWORK.has(key) || optout[key] === true) return false
+          const ref = c.issue_date || c.created_at
+          return ref && new Date(ref) < start
+        })
+        if (stale.length === 0) continue
+        const labels = [...new Set(stale.map((c: any) => c.cert_name || certLabel(c.cert_type)))]
+        candidates.push({
+          company_id: companyId,
+          user_id: ownerOf(p),
+          property_id: t.property_id,
+          kind: 'compliance',
+          severity: 'medium',
+          title: `Tenancy paperwork pre-dates the current tenancy at ${p.name || p.address || 'a property'}`,
+          draft_body: `The current tenancy at ${p.name || p.address} started on ${fmtDate(t.tenancy_start)}, but ${labels.join(', ')} on file ${stale.length === 1 ? 'was' : 'were'} recorded before that date and belong${stale.length === 1 ? 's' : ''} to the previous tenancy. Re-serve and re-record them on the property's Compliance tab — deposit protection and its Prescribed Information in particular block possession if not done.`,
+          due_date: null,
+          dedupe_key: `tenancy_paperwork_stale:${t.id}`,
+          metadata: { tenancy_start: t.tenancy_start, stale_items: labels, property: p.name || p.address },
+        })
       }
 
       // 3c. Tenancy renewals — tenancy ending within 90 days, with a proposed

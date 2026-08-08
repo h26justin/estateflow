@@ -19,8 +19,8 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { MONO } from '../lib/styles'
 import InsurancePage from './InsurancePage'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade } from '../lib/complianceCatalogue'
-import { requirementStatus, propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate } from '../lib/complianceStatus'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
+import { requirementStatus, propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -71,10 +71,18 @@ function ReqRow({ req, status, T, onClick, property }) {
     iconName = 'x'
     detail = required ? 'Missing' : (req.key === 'insurance' ? 'None on file' : 'Not on file')
   }
-  // EPC upgrade countdown: only when the certificate itself is fine —
-  // an expiring/expired/missing cert is the more urgent message.
+  // EPC MEES messaging. An F/G band on a let property is a LIVE breach
+  // (band E is the legal minimum to let today) — red, and it outranks even
+  // certificate problems. Otherwise the amber 2030 band-C countdown shows
+  // only when the certificate itself is fine — an expiring/expired/missing
+  // cert is the more urgent message.
   let title = `${req.label} — ${TIER_LABELS[req.tier]}`
-  if (band && epcNeedsUpgrade(band) && status.state === 'valid') {
+  if (band && epcBelowLegalMinimum(band)) {
+    color = T.red
+    iconName = 'alert-triangle'
+    detail = isLetProperty(property) ? 'below min E' : 'below legal min E'
+    title = `${req.label} — band ${band} is below the current legal minimum of E (MEES)${isLetProperty(property) ? '; this property cannot legally be let' : ''}.`
+  } else if (band && epcNeedsUpgrade(band) && status.state === 'valid') {
     const meesDays = daysUntilDate(MEES_DEADLINE_ISO)
     if (meesDays !== null) {
       color = T.amber
@@ -97,6 +105,22 @@ function ReqRow({ req, status, T, onClick, property }) {
   )
 }
 
+// PRS database readiness pill — the Renters' Rights Act database (late
+// 2026) will require registering each let property with its compliance
+// record. Green when the statutory set is in date, amber with a gap count
+// (tooltip lists them) otherwise. Hidden for non-let properties.
+function PrsPill({ property, T }) {
+  const prs = prsReadiness(property)
+  if (!prs) return null
+  const color = prs.ready ? T.green : T.amber
+  return (
+    <span title={prs.ready ? 'Gas, EICR, EPC and licensing all in date — ready for PRS database registration' : `PRS database gaps:\n• ${prs.gaps.join('\n• ')}`}
+      style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color, background: color + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+      {prs.ready ? 'PRS ready' : `PRS: ${prs.gaps.length} gap${prs.gaps.length === 1 ? '' : 's'}`}
+    </span>
+  )
+}
+
 // One property's compliance card: header (name / company / score) + a
 // responsive grid of every tracked requirement that applies to it.
 function PropertyCard({ property, company, settings, policies, T, openDetail, gotoInsurance }) {
@@ -114,6 +138,7 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
         <CoPill company={company} T={T} />
         {property.prop_type && <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{property.prop_type}</span>}
         <span style={{ flex: 1 }} />
+        <PrsPill property={property} T={T} />
         {allGood && <Icon name="check-circle" size={15} color={T.green} />}
         <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
           {summary.held}/{summary.total} in date

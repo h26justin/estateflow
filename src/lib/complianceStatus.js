@@ -10,7 +10,7 @@
 //   - Zero non-deleted compliance_items on a rented property     → missing
 //   - Otherwise                                                  → ok
 
-import { CATALOGUE_BY_KEY, canonicalCertType, requirementsForProperty, isOptedOut } from './complianceCatalogue'
+import { CATALOGUE_BY_KEY, canonicalCertType, requirementsForProperty, isOptedOut, isLetProperty, epcBand, epcBelowLegalMinimum } from './complianceCatalogue'
 
 // The "expiring soon" window (days). Exported so every compliance surface
 // (cards, matrix, dashboard alerts, reports) shares one threshold rather than
@@ -148,6 +148,46 @@ export function complianceStatusFor(property) {
   }
 
   return { state: 'ok', count: 0 }
+}
+
+// ── PRS database readiness ───────────────────────────────────────────────────
+// The Renters' Rights Act PRS database (rolling out from late 2026) will
+// require every registered property to carry its core compliance record.
+// Until the government publishes the exact field list, "ready" means the
+// statutory property-level items are in date: gas (where applicable), EICR,
+// EPC at band E or better, and any required licence. Deliberately ignores
+// per-property opt-outs and company tracking toggles — the law doesn't.
+// Returns null for non-let properties (nothing to register yet), else
+// { ready, gaps: [labels] }.
+export function prsReadiness(property) {
+  if (!isLetProperty(property)) return null
+  const gaps = []
+  const check = (key, label) => {
+    const req = CATALOGUE_BY_KEY[key]
+    if (req.applies && !req.applies(property)) return
+    const s = certTypeStatus(property, key)
+    if (s.state === 'missing') gaps.push(`${label} missing`)
+    else if (s.state === 'expired') gaps.push(`${label} expired`)
+  }
+  check('gas_safety', 'Gas Safety (CP12)')
+  check('eicr', 'EICR')
+  check('epc', 'EPC')
+  check('hmo', 'HMO licence')
+  check('selective_licence', 'Selective licence')
+  const band = epcBand(property)
+  if (epcBelowLegalMinimum(band)) gaps.push(`EPC band ${band} — below the legal minimum E`)
+  return { ready: gaps.length === 0, gaps }
+}
+
+// Does this compliance row pre-date the current tenancy? Deposit
+// protection, Right to Rent, the agreement etc. are per-tenancy — a row
+// served for the LAST tenant reads as "held" but isn't. issue_date is the
+// served date; created_at is the fallback for undated paperwork rows.
+export function itemPredatesTenancy(item, tenancyStart) {
+  if (!tenancyStart || !item) return false
+  const ref = item.issue_date || item.created_at
+  if (!ref) return false
+  return new Date(ref).getTime() < new Date(tenancyStart).getTime()
 }
 
 // Returns the right colour + label for a status. Caller picks the layout.

@@ -1,11 +1,11 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useIsMobile } from '../lib/useWindowSize'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO, statusPill } from '../lib/styles'
 import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_TABS } from '../lib/nav'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, canonicalCertType, requirementsForProperty, canOptOut, isOptedOut } from '../lib/complianceCatalogue'
-import { requirementStatus } from '../lib/complianceStatus'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, canonicalCertType, requirementsForProperty, canOptOut, isOptedOut, RENEWAL_BOOKING, DOC_CATEGORY_FOR_CERT, TENANCY_PAPERWORK_KEYS } from '../lib/complianceCatalogue'
+import { requirementStatus, itemPredatesTenancy } from '../lib/complianceStatus'
 import EpcBadge from './EpcBadge'
 import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
@@ -72,6 +72,13 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
   const EMPTY_FORM = {cert_type:'gas_safety',cert_name:'Gas Safety (CP12)',issue_date:'',expiry_date:'',reminder_days:30,notes:''}
   const [form, setForm] = useState(EMPTY_FORM)
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
+  // Current tenancy (for the "paperwork pre-dates this tenancy" warning).
+  const [tenancy, setTenancy] = useState(null)
+  // Certificate file attach: one hidden input shared by every row;
+  // attachTarget remembers which compliance item the chosen file belongs to.
+  const fileRef = useRef(null)
+  const [attachTarget, setAttachTarget] = useState(null)
+  const [attaching, setAttaching] = useState(false)
 
   // Full requirement catalogue (insurance lives on its own register, not
   // here) plus a free-text Other. Legacy rows written under alias keys
@@ -81,13 +88,59 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
     {value:'other', label:'Other Certificate', icon:'file-text'},
   ]
 
-  useEffect(()=>{ loadItems() },[propertyId])
+  useEffect(()=>{
+    loadItems()
+    api.fetchTenancyDetails(propertyId).then(setTenancy).catch(()=>setTenancy(null))
+  },[propertyId])
 
   async function loadItems() {
     setLoading(true)
     try { setItems(await api.fetchCompliance(propertyId)) }
     catch(e) { showToast(e.message || 'Failed to load compliance certificates', 'error') }
     setLoading(false)
+  }
+
+  // ── Certificate documents ────────────────────────────────────────────────
+  function startAttach(item, reqKey) {
+    setAttachTarget({ itemId: item.id, category: DOC_CATEGORY_FOR_CERT[reqKey || canonicalCertType(item.cert_type)] || 'other' })
+    fileRef.current?.click()
+  }
+  async function handleAttachFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !attachTarget) return
+    setAttaching(true)
+    try {
+      const doc = await api.attachComplianceDocument(propertyId, property?.name || '', file, attachTarget.category)
+      const updated = await api.updateCompliance(attachTarget.itemId, { document_id: doc.id })
+      setItems(prev=>prev.map(i=>i.id===attachTarget.itemId ? updated : i))
+      showToast('Certificate file attached')
+    } catch(err) { showToast(err.message,'error') }
+    setAttaching(false)
+    setAttachTarget(null)
+  }
+  async function viewDocument(documentId) {
+    try {
+      const url = await api.getDocumentSignedUrlById(documentId)
+      if (url) window.open(url, '_blank', 'noopener')
+      else showToast('Document not found', 'error')
+    } catch(e) { showToast(e.message,'error') }
+  }
+
+  // ── Renewal prefill ──────────────────────────────────────────────────────
+  // "Renew" creates a NEW row (editingId stays null) so the old certificate
+  // remains as history; new expiry = cycle on from the old expiry (or from
+  // today if the old one has already lapsed).
+  function renewPrefill(row) {
+    const { req, item } = row
+    const today = new Date().toISOString().slice(0,10)
+    let expiry = ''
+    if (req.cycleMonths) {
+      const base = item?.expiry_date && new Date(item.expiry_date) > new Date() ? new Date(item.expiry_date) : new Date()
+      base.setMonth(base.getMonth() + req.cycleMonths)
+      expiry = base.toISOString().slice(0,10)
+    }
+    return { cert_type: req.key, cert_name: item?.cert_name || req.label, issue_date: today, expiry_date: expiry, reminder_days: item?.reminder_days ?? 30 }
   }
 
   function openForm(prefill, id = null) {
@@ -181,6 +234,8 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
 
   return (
     <div>
+      {/* Shared hidden picker for per-row certificate attach */}
+      <input ref={fileRef} type="file" accept="application/pdf,image/*" style={{display:'none'}} onChange={handleAttachFile}/>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
         {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{ showForm ? closeForm() : openForm({}) }}>+ Add Certificate</button>}
@@ -221,7 +276,10 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
         {reqRows.length > 0 && (
           <div style={{display:'grid',gap:8,marginBottom:18}}>
             {reqRows.map(row=>{
-              const { req, item, count, off } = row
+              const { req, item, count, off, status } = row
+              const needsAction = !off && ['expired','expiring','missing'].includes(status.state)
+              const booking = needsAction ? RENEWAL_BOOKING[req.key] : null
+              const stale = !off && item && TENANCY_PAPERWORK_KEYS.includes(req.key) && itemPredatesTenancy(item, tenancy?.tenancy_start)
               return (
                 <div key={req.key} className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',opacity:off?0.5:1,borderStyle:off?'dashed':'solid'}}>
                   <span style={{width:34,height:34,borderRadius:9,background:(off?T.faint:T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -230,18 +288,34 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                   <div style={{flex:1,minWidth:170}}>
                     <div style={{fontSize:13,fontWeight:600,marginBottom:2,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                       {req.label}
-                      {/* EPC row: register-synced band + days left to reach
-                          the 2030 MEES band-C target, right where the
-                          landlord is looking at the certificate. */}
+                      {/* EPC row: register-synced band + MEES messaging,
+                          right where the landlord is looking at the cert. */}
                       {req.key==='epc' && !off && <EpcBadge property={property} T={T}/>}
                     </div>
                     <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                       {off ? 'Switched off for this property'
                         : item ? <>Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}{count>1 && ` · ${count} on file (latest shown)`}</>
                         : 'Nothing on file yet'}
+                      {/* Per-tenancy paperwork served before the current
+                          tenancy started reads as held but isn't. */}
+                      {stale && <span style={{color:T.amber,fontWeight:700}}> · pre-dates current tenancy (started {formatDate(tenancy.tenancy_start)}) — re-serve & update</span>}
                     </div>
+                    {booking && (
+                      <a href={booking.url} target="_blank" rel="noreferrer"
+                        style={{fontFamily:MONO,fontSize:10,color:T.gold,textDecoration:'underline'}}>{booking.label} →</a>
+                    )}
                   </div>
                   {statusFor(row)}
+                  {canEdit && !off && item?.document_id && (
+                    <button style={smallBtnStyle} title="View the attached certificate file" onClick={()=>viewDocument(item.document_id)}>View</button>
+                  )}
+                  {canEdit && !off && item && !item.document_id && (
+                    <button style={smallBtnStyle} disabled={attaching} title="Attach the certificate file (PDF or photo)" onClick={()=>startAttach(item, req.key)}>{attaching && attachTarget?.itemId===item.id ? '…' : 'Attach'}</button>
+                  )}
+                  {canEdit && !off && item && ['expired','expiring'].includes(status.state) && (
+                    <button style={{...smallBtnStyle,color:T.amber,borderColor:T.amber+'66'}} title="Record the renewal as a new certificate (keeps this one as history)"
+                      onClick={()=>openForm(renewPrefill(row))}>Renew</button>
+                  )}
                   {canEdit && !off && (item
                     ? <button style={smallBtnStyle} onClick={()=>openForm(editPrefill(row), item.id)}
                         onMouseEnter={e=>{e.currentTarget.style.color=T.gold;e.currentTarget.style.borderColor=T.gold+'66'}}
@@ -275,6 +349,8 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                       {item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
                     </div>
                     <ExpiryBadge dateStr={item.expiry_date}/>
+                    {canEdit && item.document_id && <button style={smallBtnStyle} title="View the attached certificate file" onClick={()=>viewDocument(item.document_id)}>View</button>}
+                    {canEdit && !item.document_id && <button style={smallBtnStyle} disabled={attaching} title="Attach the certificate file (PDF or photo)" onClick={()=>startAttach(item, null)}>Attach</button>}
                     {canEdit && <button style={smallBtnStyle} onClick={()=>openForm({cert_type:canonicalCertType(item.cert_type),cert_name:item.cert_name||'',issue_date:item.issue_date||'',expiry_date:item.expiry_date||'',reminder_days:item.reminder_days??30,notes:item.notes||''}, item.id)}>Edit</button>}
                     {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>Remove</button>}
                   </div>
