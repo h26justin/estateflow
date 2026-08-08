@@ -174,6 +174,10 @@ export const EPC_BAND_COLOR = {
 }
 export const MEES_TARGET_BAND = 'C'
 export const MEES_DEADLINE_ISO = '2030-12-31'
+// The CURRENT legal minimum to let (MEES, in force since April 2020): band E.
+// F/G properties cannot legally be let today — that's a live breach, not a
+// 2030 problem, so surfaces treat it as red rather than an amber countdown.
+export const MEES_MIN_LEGAL_BAND = 'E'
 // Normalised band letter for a property, or null when unknown/unsynced.
 export function epcBand(property) {
   const r = String(property?.epc_rating || '').trim().toUpperCase()
@@ -181,3 +185,43 @@ export function epcBand(property) {
 }
 // Below the MEES target? (Letters compare alphabetically: D > C.)
 export const epcNeedsUpgrade = (band) => !!band && band > MEES_TARGET_BAND
+// Below the CURRENT legal floor (F or G)?
+export const epcBelowLegalMinimum = (band) => !!band && band > MEES_MIN_LEGAL_BAND
+// Is the property let (or as good as)? Exported for the MEES-breach and
+// PRS-readiness checks, which only bite on let properties.
+export const isLetProperty = isLet
+
+// ── Renewal booking links ────────────────────────────────────────────────────
+// Where to send the landlord to book each renewal — the same authoritative
+// trade-body links the compliance-reminders emails use (keep the two in
+// sync). Shown on expired / expiring / missing checklist rows.
+export const RENEWAL_BOOKING = {
+  gas_safety:         { label: 'Find a Gas Safe engineer',    url: 'https://www.gassaferegister.co.uk/find-an-engineer-or-check-the-register/' },
+  eicr:               { label: 'Find an NICEIC electrician',  url: 'https://www.niceic.com/find-a-contractor' },
+  epc:                { label: 'Find an EPC assessor',        url: 'https://www.gov.uk/get-new-energy-certificate' },
+  smoke_alarm:        { label: 'Find an electrician',         url: 'https://www.niceic.com/find-a-contractor' },
+  co_alarm:           { label: 'Find an electrician',         url: 'https://www.niceic.com/find-a-contractor' },
+  legionella:         { label: 'Find a legionella assessor',  url: 'https://www.legionellacontrol.org.uk/' },
+  hmo:                { label: 'Apply on your council site',  url: 'https://www.gov.uk/house-in-multiple-occupation-licence' },
+  selective_licence:  { label: 'Find your council',           url: 'https://www.gov.uk/find-local-council' },
+  fire:               { label: 'Find a fire risk assessor',   url: 'https://www.ifsm.org.uk/' },
+  fire_alarm_service: { label: 'Find a fire alarm engineer',  url: 'https://www.niceic.com/find-a-contractor' },
+  emergency_lighting: { label: 'Find an electrician',         url: 'https://www.niceic.com/find-a-contractor' },
+  pat:                { label: 'Find a PAT tester',           url: 'https://search.napit.org.uk/' },
+  boiler_service:     { label: 'Find a Gas Safe engineer',    url: 'https://www.gassaferegister.co.uk/find-an-engineer-or-check-the-register/' },
+  chimney_sweep:      { label: 'Find a chimney sweep',        url: 'https://www.findachimneysweep.co.uk/' },
+  insurance:          { label: 'Compare landlord insurance',  url: 'https://www.simplybusiness.co.uk/landlord-insurance/' },
+}
+
+// Document category (DocumentsTab's DOC_CATEGORIES) a certificate upload
+// should be filed under, per catalogue key. Anything unlisted → 'other'.
+export const DOC_CATEGORY_FOR_CERT = {
+  gas_safety: 'gas', eicr: 'eicr', epc: 'epc', insurance: 'insurance',
+  inventory: 'inventory',
+  tenancy_agreement: 'tenancy', deposit_protection: 'tenancy',
+  right_to_rent: 'tenancy', rra_info_sheet: 'tenancy',
+}
+
+// The per-tenancy paperwork set — used by the staleness check ("this row
+// pre-dates the current tenancy") in the UI and the autopilot detector.
+export const TENANCY_PAPERWORK_KEYS = ['tenancy_agreement', 'deposit_protection', 'right_to_rent', 'rra_info_sheet', 'inventory']

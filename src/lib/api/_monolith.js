@@ -893,6 +893,36 @@ export async function updateCompliance(id, updates) {
   if (error) throw error
   return data
 }
+
+// Upload a certificate file and register it as a property document in one
+// step (Compliance tab row attach). Unlike uploadDocument, returns the full
+// inserted row so the caller can link property_documents.id onto the
+// compliance item (compliance_items.document_id).
+export async function attachComplianceDocument(propertyId, propertyName, file, category = 'other') {
+  validateUpload(file)
+  const userId = await uid()
+  const ext = file.name.split('.').pop()
+  const path = `${userId}/properties/${propertyId}/${Date.now()}.${ext}`
+  const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
+  if (uploadErr) throw uploadErr
+  const { data, error } = await supabase.from('property_documents').insert({
+    property_id: propertyId, property_name: propertyName,
+    name: file.name, file_path: path,
+    size: file.size, type: file.type, category, user_id: userId,
+  }).select().single()
+  if (error) throw error
+  return data
+}
+
+// Open-a-certificate helper: resolve a property_documents id to a fresh
+// signed URL (private bucket — never cache).
+export async function getDocumentSignedUrlById(documentId) {
+  if (!documentId) return null
+  const { data, error } = await supabase.from('property_documents')
+    .select('file_path').eq('id', documentId).single()
+  if (error || !data?.file_path) return null
+  return getDocumentSignedUrl(data.file_path)
+}
 // Soft-delete. compliance_items has a deleted_at column; the Trash page
 // expects rows to live for 30 days post-deletion so users can recover.
 // Previously this did a hard .delete() which bypassed that guarantee.
@@ -1234,6 +1264,32 @@ export async function fetchCompanyDocuments(companyId) {
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
+}
+
+// Attach an insurance policy schedule (etc.) as a company document,
+// returning the inserted row so insurance_policies.document_id can link it.
+export async function attachPolicyDocument(companyId, file) {
+  validateUpload(file)
+  const userId = await uid()
+  const ext = file.name.split('.').pop()
+  const path = `${userId}/company_documents/${companyId}/${Date.now()}.${ext}`
+  const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
+  if (uploadErr) throw uploadErr
+  const { data, error } = await supabase.from('company_documents').insert({
+    company_id: companyId, name: file.name, file_path: path,
+    size: file.size, type: file.type, category: 'insurance', user_id: userId,
+  }).select().single()
+  if (error) throw error
+  return data
+}
+
+// Resolve a company_documents id to a fresh signed URL (same private bucket).
+export async function getCompanyDocumentSignedUrlById(documentId) {
+  if (!documentId) return null
+  const { data, error } = await supabase.from('company_documents')
+    .select('file_path').eq('id', documentId).single()
+  if (error || !data?.file_path) return null
+  return getDocumentSignedUrl(data.file_path)
 }
 
 export async function uploadCompanyDocument(companyId, file, userId) {

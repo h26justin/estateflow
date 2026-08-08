@@ -72,7 +72,7 @@ import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
-import { complianceStatusFor, complianceBadge } from './lib/complianceStatus'
+import { complianceStatusFor, complianceBadge, propertyComplianceSummary } from './lib/complianceStatus'
 import { canonicalCertType } from './lib/complianceCatalogue'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
@@ -793,11 +793,12 @@ export default function App() {
     mortgages:          { icon:'landmark', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
     cashflow_forecast:  { icon:'wallet', label:'Cash Committed', description:'Total cash out across deals + properties, with 90-day urgency split' },
     insurance_renewals: { icon:'shield-check', label:'Insurance Renewals',      description:'Policies expiring soon with annual premium totals' },
+    compliance_status:  { icon:'clipboard-check', label:'Portfolio Compliance', description:'Certificates, licences and paperwork in date across the portfolio' },
     property_count:     { icon:'home', label:'Property Count',          description:'Total properties with rented/vacant split' },
     occupancy_rate:     { icon:'pie-chart', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
-  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','property_count','occupancy_rate']
-  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, property_count:false, occupancy_rate:false }
+  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
 
   // Developer mode toggle — lets a platform admin choose to "see everything"
   // (bypasses per-company permissions). Default OFF on every login: more
@@ -3101,6 +3102,38 @@ export default function App() {
                       />
                     )
                   }},
+                  compliance_status: { icon:'clipboard-check', label:'Portfolio Compliance', render: () => {
+                    // Same rollup as the Compliance overview cards: every
+                    // tracked+applicable requirement per property, with
+                    // insurance status pulled from the policy register.
+                    const tracked = dashProps.filter(p => p.status !== 'sold' && !p.archived_at)
+                    let expired = 0, expiring = 0, missingReq = 0, fully = 0, scored = 0
+                    tracked.forEach(p => {
+                      const s = propertyComplianceSummary(p, companySettings[p.company_id] || {}, insurancePolicies)
+                      if (s.total === 0) return
+                      scored++
+                      expired += s.expired
+                      expiring += s.expiring
+                      missingReq += s.rows.filter(r => r.status.state === 'missing' && r.req.tier <= 2).length
+                      if (s.expired === 0 && s.expiring === 0 && s.missing === 0) fully++
+                    })
+                    const accent = (expired > 0 || missingReq > 0) ? T.red : expiring > 0 ? T.amber : T.green
+                    const sub = expired > 0 ? `${expired} expired · ${missingReq} missing required`
+                      : missingReq > 0 ? `${missingReq} missing required`
+                      : expiring > 0 ? `${expiring} expiring soon`
+                      : 'All tracked items in date'
+                    return (
+                      <StatCard icon="clipboard-check" label="Portfolio Compliance" value={`${fully}/${scored}`} sub={sub} accent={accent}
+                        onNavigate={()=>setView('compliance')} navLabel="Compliance"
+                        breakdown={[
+                          {label:'Properties fully in date', value:String(fully), color:T.green},
+                          {label:'Expired items', value:String(expired), color:expired>0?T.red:T.muted},
+                          {label:'Expiring within 60 days', value:String(expiring), color:expiring>0?T.amber:T.muted},
+                          {label:'Missing required items', value:String(missingReq), color:missingReq>0?T.red:T.muted, note:'Legal certificates, licences and tenancy paperwork with nothing on file'},
+                        ]}
+                      />
+                    )
+                  }},
                 }
                 // Default widget config
                 const DEFAULT_WIDGETS = [
@@ -3111,6 +3144,7 @@ export default function App() {
                   { key:'mortgages', enabled:true },
                   { key:'cashflow_forecast', enabled:true },
                   { key:'insurance_renewals', enabled:true },
+                  { key:'compliance_status', enabled:true },
                   { key:'property_count', enabled:false },
                   { key:'occupancy_rate', enabled:false },
                 ]
