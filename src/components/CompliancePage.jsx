@@ -19,6 +19,7 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { MONO } from '../lib/styles'
 import InsurancePage from './InsurancePage'
+import EpcBadge from './EpcBadge'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements, isOptedOut } from '../lib/complianceCatalogue'
 import { requirementStatus, propertyComplianceSummary, certTypeStatus, insuranceStatusFor } from '../lib/complianceStatus'
 
@@ -95,6 +96,7 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
         </button>
         <CoPill company={company} T={T} />
         {property.prop_type && <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{property.prop_type}</span>}
+        <EpcBadge property={property} T={T} />
         <span style={{ flex: 1 }} />
         {allGood && <Icon name="check-circle" size={15} color={T.green} />}
         <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>

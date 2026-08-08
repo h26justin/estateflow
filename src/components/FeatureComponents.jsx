@@ -6,6 +6,7 @@ import { MONO, statusPill } from '../lib/styles'
 import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_TABS } from '../lib/nav'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, canonicalCertType, requirementsForProperty, canOptOut, isOptedOut } from '../lib/complianceCatalogue'
 import { requirementStatus } from '../lib/complianceStatus'
+import EpcBadge from './EpcBadge'
 import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
@@ -227,7 +228,13 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                     <Icon name={ICON_NAMES.includes(req.icon)?req.icon:'file-text'} size={17} color={off?T.faint:T.gold}/>
                   </span>
                   <div style={{flex:1,minWidth:170}}>
-                    <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{req.label}</div>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:2,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                      {req.label}
+                      {/* EPC row: register-synced band + days left to reach
+                          the 2030 MEES band-C target, right where the
+                          landlord is looking at the certificate. */}
+                      {req.key==='epc' && !off && <EpcBadge property={property} T={T}/>}
+                    </div>
                     <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                       {off ? 'Switched off for this property'
                         : item ? <>Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}{count>1 && ` · ${count} on file (latest shown)`}</>
