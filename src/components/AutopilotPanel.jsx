@@ -60,7 +60,7 @@ export function AutopilotWidget({ companyId = null, onOpenFull }) {
           )}
         </h2>
         {actions.length > 0 && (
-          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
         )}
       </div>
 
@@ -167,7 +167,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
           Portfolio Autopilot
         </h1>
-        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
       </div>
       <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24 }}>
         Daily AI-drafted action list. Every item is a suggestion for you to review — approving an item never sends or books anything automatically.
@@ -233,7 +233,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                         )}
                         <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button
-                            className="btn-gold"
+                            className="btn btn-gold"
                             style={{ fontSize: 12 }}
                             disabled={busyId === a.id}
                             onClick={() => handleAct(a)}
@@ -242,7 +242,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                           </button>
                           {a.draft_body && (
                             <button
-                              className="btn-ghost"
+                              className="btn btn-ghost"
                               style={{ fontSize: 12 }}
                               disabled={busyId === a.id}
                               onClick={() => setViewing(a)}
@@ -251,7 +251,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                             </button>
                           )}
                           <button
-                            className="btn-ghost"
+                            className="btn btn-ghost"
                             style={{ fontSize: 12, color: T.muted }}
                             disabled={busyId === a.id}
                             onClick={() => handleDismiss(a)}
@@ -304,7 +304,7 @@ function DraftModal({ action, onClose }) {
         <div className="card" style={{ maxWidth: 540, width: '100%', padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700 }}>{action.title}</h3>
-            <button ref={initialRef} className="btn-ghost" aria-label="Close" onClick={onClose} style={{ fontSize: 18, lineHeight: 1 }}>×</button>
+            <button ref={initialRef} aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 10px', margin: '-6px -10px' }}>×</button>
           </div>
           <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
             {action.draft_body}
@@ -313,8 +313,8 @@ function DraftModal({ action, onClose }) {
             AI-generated draft. Review and edit before sending — Properly does not send this for you.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
-            <button className="btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
+            <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
+            <button className="btn btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
           </div>
         </div>
       </FocusTrap>
