@@ -102,31 +102,58 @@ function candidateAddress(row: Record<string, unknown>): string {
     .filter(Boolean).join(', ')
 }
 
-// Score a register row against the property address. Returns -1 when the
-// candidate must be rejected (no shared number token).
-function scoreCandidate(propTokens: string[], candTokens: string[]): number {
-  const propNums = propTokens.filter(t => /\d/.test(t))
-  const candNums = new Set(candTokens.filter(t => /\d/.test(t)))
-  const candSet = new Set(candTokens)
+// Address lines only — the post town is scored separately (weakly) so that
+// "Sunderland" matching every Sunderland candidate can't carry a match.
+function candidateLineText(row: Record<string, unknown>): string {
+  return [row.addressLine1, row.addressLine2, row.addressLine3, row.addressLine4]
+    .filter(Boolean).join(', ')
+}
 
-  if (propNums.length > 0) {
-    // House / flat number must agree. "5" must appear in the candidate, and
-    // ideally the candidate has no extra leading number we don't have.
-    if (!propNums.some(n => candNums.has(n))) return -1
+const isNum = (t: string) => /\d/.test(t)
+
+// Score a register row against the property address. Returns -1 when the
+// candidate must be rejected.
+//
+// Two acceptance regimes:
+//   • Candidate HAS a number ("5 Thomas Street"): the house/flat number must
+//     agree with one of ours.
+//   • Candidate has NO number (building-level EPC — "Piers View", "Watts
+//     Moses House", "The Cloisters"): accept only on ≥2 distinct name-token
+//     matches, or when every name token the candidate has is contained in
+//     the property address (so "The Cloisters" matches "Flat 6, The
+//     Cloisters" but "Thomas Street Community Centre" never matches
+//     "5 Thomas Street").
+function scoreCandidate(propTokens: string[], candLineTokens: string[], candTownTokens: string[]): number {
+  const propSet = new Set(propTokens)
+  const propNums = propTokens.filter(isNum)
+  const candNums = candLineTokens.filter(isNum)
+  const candReal = [...new Set(candLineTokens.filter(t => !isNum(t) && !NOISE_TOKENS.has(t)))]
+
+  if (candNums.length > 0) {
+    if (propNums.length > 0 && !propNums.some(n => candNums.includes(n))) return -1
+  } else {
+    const matchedReal = candReal.filter(t => propSet.has(t))
+    const fullyContained = matchedReal.length >= 1 && matchedReal.length === candReal.length
+    if (!(matchedReal.length >= 2 || fullyContained)) return -1
   }
 
+  const candLineSet = new Set(candLineTokens)
+  const candTownSet = new Set(candTownTokens)
   let score = 0
-  for (const t of propTokens) {
-    if (!candSet.has(t)) continue
-    if (/\d/.test(t)) score += 5            // number agreement is strong
-    else if (NOISE_TOKENS.has(t)) score += 1 // "street"/"road" is weak signal
-    else score += 3                          // real name token
+  for (const t of propSet) {
+    if (candLineSet.has(t)) {
+      if (isNum(t)) score += 5              // number agreement is strong
+      else if (NOISE_TOKENS.has(t)) score += 1 // "street"/"road" is weak signal
+      else score += 3                        // real name token
+    } else if (candTownSet.has(t)) {
+      score += 1                             // town match is weak signal
+    }
   }
   // Penalise candidates whose numbers we don't have (e.g. "Flat 2, 5 Thomas
   // St" when the property is just "5 Thomas St") so the plain house match
   // outranks the flats within it.
-  for (const n of candNums) {
-    if (!propTokens.includes(n)) score -= 2
+  for (const n of new Set(candNums)) {
+    if (!propSet.has(n)) score -= 2
   }
   return score
 }
@@ -246,7 +273,7 @@ async function syncProperty(admin: any, prop: PropertyRow, postcodeCache: Map<st
   let bestScore = 0
   let best: Record<string, unknown> | null = null
   for (const row of rows) {
-    const score = scoreCandidate(propTokens, tokenise(candidateAddress(row)))
+    const score = scoreCandidate(propTokens, tokenise(candidateLineText(row)), tokenise(String(row.postTown || '')))
     if (score > bestScore) { bestScore = score; best = row }
   }
   // A postcode with exactly one address is safe to accept even on a weak
@@ -411,11 +438,15 @@ serve(async (req) => {
     // ── User mode: JWT + per-property write check ────────────────────────────
     const authHeader = req.headers.get('Authorization') || ''
     if (!authHeader.startsWith('Bearer ')) return jsonError(401, 'Missing Authorization header')
+    // Verify the token explicitly (the pattern proven by lodgify-sync et al —
+    // no-arg getUser() on a session-less server client is unreliable); the
+    // caller-scoped client is still what runs RLS-scoped reads and RPCs.
+    const token = authHeader.replace('Bearer ', '')
+    const { data: userData, error: userErr } = await admin.auth.getUser(token)
+    if (userErr || !userData?.user) return jsonError(401, 'Invalid or expired session')
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     })
-    const { data: userData, error: userErr } = await userClient.auth.getUser()
-    if (userErr || !userData?.user) return jsonError(401, 'Invalid or expired session')
 
     const body = await req.json().catch(() => ({}))
     const action: string = body.action || 'sync_property'
