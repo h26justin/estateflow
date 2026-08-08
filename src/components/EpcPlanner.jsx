@@ -4,7 +4,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
-import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment } from '../lib/api/epc'
+import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment, fetchEpcCertificate, syncEpcFromRegister, syncAllEpcFromRegister } from '../lib/api/epc'
 
 const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -14,6 +14,13 @@ const DEADLINE_ISO = '2030-12-31'
 const BAND_COLOR = {
   A: '#1a8a3c', B: '#3aa655', C: '#8dc63f',
   D: '#f0c419', E: '#f39c12', F: '#e8770c', G: '#d0021b',
+}
+
+function fmtDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function countdownToDeadline() {
@@ -54,6 +61,10 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
   const [manualRating, setManualRating] = useState(property?.epc_rating || '')
   const [propertyType, setPropertyType] = useState('')
   const [region, setRegion] = useState('')
+  const [cert, setCert] = useState(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncingAll, setSyncingAll] = useState(false)
+  const [syncNote, setSyncNote] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -64,6 +75,66 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [property.id])
+
+  // Certificate from the official register. If this property has never been
+  // checked, quietly check it the first time the tab opens.
+  useEffect(() => {
+    let alive = true
+    setCert(null)
+    setSyncNote('')
+    fetchEpcCertificate(property.id)
+      .then(row => {
+        if (!alive) return
+        setCert(row)
+        if (row?.current_rating) setManualRating(m => m || row.current_rating)
+        if (!row && canWrite && !property?.epc_last_checked_at) runSync(true)
+      })
+      .catch(() => { /* table may predate feature rollout */ })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [property.id])
+
+  async function refreshCert() {
+    const row = await fetchEpcCertificate(property.id)
+    setCert(row)
+    if (row?.current_rating) setManualRating(m => m || row.current_rating)
+    return row
+  }
+
+  async function runSync(silent = false) {
+    setSyncing(true)
+    setSyncNote('')
+    try {
+      const res = await syncEpcFromRegister(property.id)
+      await refreshCert()
+      if (res?.status === 'found') {
+        if (!silent) showAppToast(`EPC found — band ${res.rating || '?'}`)
+      } else if (res?.status === 'no_postcode') {
+        setSyncNote('No postcode found in the property address — add one to enable the register lookup.')
+      } else if (res?.status === 'not_found') {
+        setSyncNote('No EPC found on the register for this address (England & Wales only).')
+      } else if (res?.error) {
+        setSyncNote(res.error)
+      }
+    } catch (e) {
+      setSyncNote(e.message || 'EPC register lookup failed')
+      if (!silent) showAppToast(e.message || 'EPC register lookup failed', 'error')
+    }
+    setSyncing(false)
+  }
+
+  async function runSyncAll() {
+    setSyncingAll(true)
+    setSyncNote('')
+    try {
+      const res = await syncAllEpcFromRegister()
+      await refreshCert()
+      showAppToast(`EPC register: checked ${res?.checked ?? 0} properties, found ${res?.found ?? 0} certificates`)
+    } catch (e) {
+      showAppToast(e.message || 'EPC register sync failed', 'error')
+    }
+    setSyncingAll(false)
+  }
 
   async function runGenerate(save) {
     setGenerating(true)
@@ -103,8 +174,9 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
   const total = plan?.est_total_cost != null
     ? plan.est_total_cost
     : measures.reduce((s, m) => s + (Number(m?.rough_cost_gbp) || 0), 0)
-  const currentRating = plan?.current_rating || manualRating
+  const currentRating = plan?.current_rating || manualRating || cert?.current_rating
   const targetRating = plan?.target_rating || 'C'
+  const certExpired = cert?.expiry_date && new Date(cert.expiry_date + 'T00:00:00') < new Date()
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
@@ -138,12 +210,67 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
         </div>
       </div>
 
+      {/* Official certificate from the EPC register */}
+      <div style={card}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, letterSpacing: 1 }}>EPC REGISTER</div>
+            {cert ? (
+              <>
+                <div style={{ fontFamily: mono, fontSize: 13, color: T.text, marginTop: 6 }}>
+                  Band {cert.current_rating || '?'}
+                  {cert.potential_rating ? ` (potential ${cert.potential_rating})` : ''}
+                  {' · certificate '}{cert.certificate_number}
+                </div>
+                <div style={{ fontFamily: mono, fontSize: 10, color: certExpired ? '#d0021b' : T.muted, marginTop: 4 }}>
+                  {cert.lodgement_date ? `Assessed ${fmtDate(cert.lodgement_date)}` : ''}
+                  {cert.lodgement_date && cert.expiry_date ? ' · ' : ''}
+                  {cert.expiry_date ? (certExpired ? `Expired ${fmtDate(cert.expiry_date)}` : `Valid until ${fmtDate(cert.expiry_date)}`) : ''}
+                </div>
+                {cert.register_address && (
+                  <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, marginTop: 4 }}>
+                    Register address: {cert.register_address}{cert.fetched_at ? ` · last checked ${fmtDate(cert.fetched_at)}` : ''}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginTop: 6 }}>
+                {syncing ? 'Checking the EPC register…' : 'No certificate logged yet.'}
+              </div>
+            )}
+            {syncNote && (
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginTop: 6 }}>{syncNote}</div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {cert?.certificate_url && (
+              <a className="btn" href={cert.certificate_url} target="_blank" rel="noopener noreferrer">
+                View certificate ↗
+              </a>
+            )}
+            {canWrite && (
+              <button className="btn" disabled={syncing || syncingAll} onClick={() => runSync(false)}>
+                {syncing ? 'Checking…' : (cert ? 'Re-check register' : 'Check register')}
+              </button>
+            )}
+            {canWrite && (
+              <button className="btn btn-ghost" disabled={syncing || syncingAll} onClick={runSyncAll}>
+                {syncingAll ? 'Syncing portfolio…' : 'Sync all properties'}
+              </button>
+            )}
+          </div>
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, marginTop: 10 }}>
+          Data from the official EPC register (England &amp; Wales). Certificates open on find-energy-certificate.service.gov.uk; found EPCs are also logged on the Compliance tab with expiry reminders.
+        </div>
+      </div>
+
       {/* Inputs + generate */}
       {canWrite && (
         <div style={card}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 14 }}>
             <div>
-              <label style={lbl}>Current rating {plan?.source === 'epc_register' ? '(from EPC register)' : '(manual)'}</label>
+              <label style={lbl}>Current rating {(cert?.current_rating || plan?.source === 'epc_register') ? '(from EPC register)' : '(manual)'}</label>
               <select style={inp} value={manualRating} onChange={e => setManualRating(e.target.value)}>
                 <option value="">Unknown</option>
                 {RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
