@@ -9,9 +9,9 @@
 // Flow:
 //   1. Authenticate caller (JWT) and confirm write access to the property via
 //      the has_property_permission RPC (a viewer can read but not generate/save).
-//   2. If EPC_API_KEY is set, try to look the property's current rating up from
-//      the public EPC register by postcode. Inert-but-graceful when unset or on
-//      any failure — falls back to the caller-supplied manual current_rating.
+//   2. Prefer the property's register-synced rating (properties.epc_rating,
+//      populated by the epc-sync edge function from the official register).
+//      Falls back to the caller-supplied manual current_rating when absent.
 //   3. Ask Claude for a prioritised retrofit plan (measures, rough costs,
 //      expected SAP uplift) to reach the target rating. AI DRAFTS guidance only.
 //   4. Optionally persist the result to epc_assessments (save:true) using a
@@ -25,9 +25,6 @@ const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
 const ANON_KEY          = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
-// Optional. When set, we look up the live EPC rating from the public register.
-// Apply for a key at https://epc.opendatacommunities.org/. Inert when unset.
-const EPC_API_KEY       = Deno.env.get('EPC_API_KEY') || ''
 
 // Reuse the same model constants as extract-document for consistency.
 const MODEL_PRIMARY  = 'claude-sonnet-4-5'
@@ -57,46 +54,6 @@ function normaliseRating(r: unknown): string | null {
   if (typeof r !== 'string') return null
   const up = r.trim().toUpperCase()
   return RATINGS.includes(up) ? up : null
-}
-
-// ── EPC register lookup (optional) ────────────────────────────────────────────
-// The Open Data Communities EPC API returns the most recent lodged certificate
-// for a postcode/address. We only need the headline rating here. Returns null
-// (never throws) so an unset key or any API hiccup transparently falls back to
-// the manually supplied rating.
-async function lookupEpcRating(postcode: string | null, address: string | null): Promise<string | null> {
-  if (!EPC_API_KEY || !postcode) return null
-  try {
-    const url = new URL('https://epc.opendatacommunities.org/api/v1/domestic/search')
-    url.searchParams.set('postcode', postcode)
-    url.searchParams.set('size', '5')
-    const res = await fetch(url.toString(), {
-      headers: {
-        // The register expects HTTP Basic with the API key as the password and
-        // the account email as the username; users provide a "email:key" token.
-        'Authorization': 'Basic ' + btoa(EPC_API_KEY),
-        'Accept': 'application/json',
-      },
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const rows: any[] = data?.rows || []
-    if (rows.length === 0) return null
-    // Prefer a row whose address line shares a token with the property address.
-    let best = rows[0]
-    if (address) {
-      const want = address.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t.length >= 3)
-      let bestScore = -1
-      for (const row of rows) {
-        const hay = `${row['address'] || ''}`.toLowerCase()
-        const score = want.filter(t => hay.includes(t)).length
-        if (score > bestScore) { bestScore = score; best = row }
-      }
-    }
-    return normaliseRating(best['current-energy-rating'])
-  } catch {
-    return null
-  }
 }
 
 function buildPrompt(rating: string | null, propertyType: string, region: string, floorArea: number | null): string {
@@ -198,11 +155,11 @@ serve(async (req) => {
     if (permErr) throw new Error('Access check failed: ' + permErr.message)
     if (canWrite !== true) return jsonError(403, 'Forbidden')
 
-    // Load the property for postcode/address/rating context (service role;
-    // access already checked). Stick to columns known to exist on properties.
+    // Load the property for rating context (service role; access already
+    // checked). epc_rating is the register-synced band written by epc-sync.
     const { data: prop } = await admin
       .from('properties')
-      .select('id, company_id, postcode, address')
+      .select('id, company_id, address, epc_rating')
       .eq('id', propertyId)
       .single()
 
@@ -212,10 +169,10 @@ serve(async (req) => {
     const floorArea: number | null =
       typeof body.floor_area_sqm === 'number' ? body.floor_area_sqm : null
 
-    // Optional register lookup; transparently falls back to the manual rating.
+    // Register-synced rating wins; transparently falls back to the manual one.
     let source: 'epc_register' | 'manual' | 'unknown' = manualRating ? 'manual' : 'unknown'
     let currentRating = manualRating
-    const registerRating = await lookupEpcRating(prop?.postcode || null, prop?.address || null)
+    const registerRating = normaliseRating(prop?.epc_rating)
     if (registerRating) {
       currentRating = registerRating
       source = 'epc_register'
