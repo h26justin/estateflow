@@ -456,6 +456,20 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        {policy.document_id && (
+          <button title="View the attached policy document"
+            onClick={async () => {
+              try {
+                const url = await api.getCompanyDocumentSignedUrlById(policy.document_id)
+                if (url) window.open(url, '_blank', 'noopener')
+                else showAppToast('Document not found', 'error')
+              } catch (e) { showAppToast(e.message, 'error') }
+            }}
+            style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+              background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
+            Doc
+          </button>
+        )}
         {policy.previous_policy_id && (
           <button onClick={onShowHistory} title="View history chain"
             style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
@@ -852,7 +866,13 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
     previous_policy_id: policy.previous_policy_id || null,
     reminder_days:      policy.reminder_days != null ? policy.reminder_days : 30,
     notes:              policy.notes || '',
+    // Attached policy schedule (company_documents id). A renewal starts
+    // fresh — the new year gets its own document.
+    document_id:        policy.document_id || null,
   })
+  // File picked in the modal — uploaded on save, not immediately, so
+  // cancelling the modal never leaves an orphaned upload.
+  const [docFile, setDocFile] = useState(null)
   // Property links — array of property IDs covered by this policy. Empty
   // array means "whole company / no specific properties".
   const initialIds = policy._propertyIds || (policy.properties || []).map(p => p.id)
@@ -882,7 +902,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   // save with something missing (same pattern as PropertyModal).
   const [triedSave, setTriedSave] = useState(false)
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!form.policy_name || !form.company_id || !form.start_date || !form.expiry_date) {
       setTriedSave(true)
       showAppToast('Policy name, company, start date and expiry date are required.', 'error')
@@ -892,6 +912,18 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
       ...form,
       premium: parseFloat(form.premium) || 0,
       reminder_days: parseInt(form.reminder_days) || 30,
+    }
+    // Upload the chosen schedule first so the policy row saves with its
+    // document link in one write. A failed upload blocks the save rather
+    // than silently dropping the file.
+    if (docFile) {
+      try {
+        const doc = await api.attachPolicyDocument(form.company_id, docFile)
+        data.document_id = doc.id
+      } catch (e) {
+        showAppToast(`Document upload failed: ${e.message}`, 'error')
+        return
+      }
     }
     onSave(data, propertyIds)
   }
@@ -998,6 +1030,27 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
               <input id="policy-reminder" style={inp} type="number" min={0} value={form.reminder_days}
                 onChange={e => s('reminder_days', e.target.value)} />
             </div>
+          </div>
+
+          {/* Policy document — schedule / certificate PDF */}
+          <div>
+            <label style={lbl} htmlFor="policy-doc">Policy document (schedule / certificate)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {form.document_id && (
+                <button type="button" className="btn btn-ghost" style={{ fontSize: 11 }}
+                  onClick={async () => {
+                    try {
+                      const url = await api.getCompanyDocumentSignedUrlById(form.document_id)
+                      if (url) window.open(url, '_blank', 'noopener')
+                      else showAppToast('Document not found', 'error')
+                    } catch (e) { showAppToast(e.message, 'error') }
+                  }}>View attached document</button>
+              )}
+              <input id="policy-doc" type="file" accept="application/pdf,image/*"
+                onChange={e => setDocFile(e.target.files?.[0] || null)}
+                style={{ fontFamily: mono, fontSize: 11, color: T.muted }} />
+            </div>
+            {docFile && <div style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginTop: 4 }}>{docFile.name} will be attached on save{form.document_id ? ' (replaces the current document)' : ''}</div>}
           </div>
 
           {/* Property picker */}

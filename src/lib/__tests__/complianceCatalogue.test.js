@@ -9,11 +9,14 @@ import {
   isOptedOut,
   epcBand,
   epcNeedsUpgrade,
+  epcBelowLegalMinimum,
 } from '../complianceCatalogue'
 import {
   certTypeStatus,
   insuranceStatusFor,
   propertyComplianceSummary,
+  prsReadiness,
+  itemPredatesTenancy,
 } from '../complianceStatus'
 
 const inDays = (n) => new Date(Date.now() + n * 86_400_000).toISOString()
@@ -188,6 +191,58 @@ describe('EPC / MEES helpers', () => {
     expect(epcNeedsUpgrade('C')).toBe(false)
     expect(epcNeedsUpgrade('A')).toBe(false)
     expect(epcNeedsUpgrade(null)).toBe(false)
+  })
+  it('flags only F and G as below the current legal minimum (E)', () => {
+    expect(epcBelowLegalMinimum('F')).toBe(true)
+    expect(epcBelowLegalMinimum('G')).toBe(true)
+    expect(epcBelowLegalMinimum('E')).toBe(false)
+    expect(epcBelowLegalMinimum('D')).toBe(false)
+    expect(epcBelowLegalMinimum(null)).toBe(false)
+  })
+})
+
+describe('prsReadiness', () => {
+  it('is null for non-let properties', () => {
+    expect(prsReadiness({ status: 'vacant' })).toBe(null)
+    expect(prsReadiness({ status: 'sold' })).toBe(null)
+  })
+  it('ready when the statutory set is in date', () => {
+    const p = {
+      status: 'rented', has_gas_supply: false, heating_type: 'electric', epc_rating: 'C',
+      compliance_items: [cert('eicr', inDays(300)), cert('epc', inDays(500))],
+    }
+    const r = prsReadiness(p)
+    expect(r.ready).toBe(true)
+    expect(r.gaps).toEqual([])
+  })
+  it('lists gaps for missing/expired statutory items and sub-E bands', () => {
+    const p = {
+      status: 'rented', is_hmo: true, epc_rating: 'F',
+      compliance_items: [cert('gas_safety', inDays(-5)), cert('epc', inDays(500))],
+    }
+    const r = prsReadiness(p)
+    expect(r.ready).toBe(false)
+    expect(r.gaps).toEqual(expect.arrayContaining([
+      'Gas Safety (CP12) expired',
+      'EICR missing',
+      'HMO licence missing',
+      'EPC band F — below the legal minimum E',
+    ]))
+  })
+  it('ignores per-property opt-outs — the law does too', () => {
+    const p = { status: 'rented', is_hmo: true, compliance_optout: { hmo: true }, compliance_items: [] }
+    const r = prsReadiness(p)
+    expect(r.gaps).toEqual(expect.arrayContaining(['HMO licence missing']))
+  })
+})
+
+describe('itemPredatesTenancy', () => {
+  it('compares issue_date (or created_at fallback) against tenancy start', () => {
+    expect(itemPredatesTenancy({ issue_date: '2025-01-01' }, '2026-01-01')).toBe(true)
+    expect(itemPredatesTenancy({ issue_date: '2026-06-01' }, '2026-01-01')).toBe(false)
+    expect(itemPredatesTenancy({ created_at: '2025-12-31T10:00:00Z' }, '2026-01-01')).toBe(true)
+    expect(itemPredatesTenancy({}, '2026-01-01')).toBe(false)
+    expect(itemPredatesTenancy({ issue_date: '2025-01-01' }, null)).toBe(false)
   })
 })
 
