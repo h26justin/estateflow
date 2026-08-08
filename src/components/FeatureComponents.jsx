@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense, Fragment } from 'react'
 import { useIsMobile } from '../lib/useWindowSize'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
@@ -69,6 +69,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)   // compliance_items.id being edited, null = adding
+  const [formAnchor, setFormAnchor] = useState('top') // 'top' | req.key | `other:${item.id}` — which row the form renders under
   const EMPTY_FORM = {cert_type:'gas_safety',cert_name:'Gas Safety (CP12)',issue_date:'',expiry_date:'',reminder_days:30,notes:''}
   const [form, setForm] = useState(EMPTY_FORM)
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
@@ -90,12 +91,13 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
     setLoading(false)
   }
 
-  function openForm(prefill, id = null) {
+  function openForm(prefill, id = null, anchor = 'top') {
     setForm({ ...EMPTY_FORM, ...prefill })
     setEditingId(id)
+    setFormAnchor(anchor)
     setShowForm(true)
   }
-  function closeForm() { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM) }
+  function closeForm() { setShowForm(false); setEditingId(null); setFormAnchor('top'); setForm(EMPTY_FORM) }
 
   async function handleSave() {
     if (!form.cert_name) return
@@ -179,14 +181,10 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
   })
   const smallBtnStyle = { fontFamily:MONO, fontSize:10, padding:'4px 10px', borderRadius:6, cursor:'pointer', background:'transparent', border:`1px solid ${T.border}`, color:T.muted, whiteSpace:'nowrap' }
 
-  return (
-    <div>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
-        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{ showForm ? closeForm() : openForm({}) }}>+ Add Certificate</button>}
-      </div>
-
-      {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
+  // One shared form card, rendered wherever formAnchor points — under the
+  // header for the top-level "+ Add Certificate" button, or inline beneath
+  // the row whose Add/Edit was clicked, so the user isn't bounced to the top.
+  const formCard = showForm && <div className="card" style={{padding:'16px 18px',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{editingId ? 'Edit certificate' : 'Add certificate'}</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
           <div>
@@ -213,7 +211,16 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
             <button onClick={()=>handleDelete(editingId)} style={{marginLeft:'auto',fontFamily:MONO,fontSize:10,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>Remove</button>
           )}
         </div>
-      </div>}
+      </div>
+
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
+        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{ (showForm && formAnchor==='top') ? closeForm() : openForm({}) }}>+ Add Certificate</button>}
+      </div>
+
+      {formAnchor==='top' && formCard}
 
       {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
        : <>
@@ -223,7 +230,8 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
             {reqRows.map(row=>{
               const { req, item, count, off } = row
               return (
-                <div key={req.key} className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',opacity:off?0.5:1,borderStyle:off?'dashed':'solid'}}>
+                <Fragment key={req.key}>
+                <div className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',opacity:off?0.5:1,borderStyle:off?'dashed':'solid'}}>
                   <span style={{width:34,height:34,borderRadius:9,background:(off?T.faint:T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                     <Icon name={ICON_NAMES.includes(req.icon)?req.icon:'file-text'} size={17} color={off?T.faint:T.gold}/>
                   </span>
@@ -243,15 +251,17 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                   </div>
                   {statusFor(row)}
                   {canEdit && !off && (item
-                    ? <button style={smallBtnStyle} onClick={()=>openForm(editPrefill(row), item.id)}
+                    ? <button style={smallBtnStyle} onClick={()=>{ (showForm && formAnchor===req.key && editingId===item.id) ? closeForm() : openForm(editPrefill(row), item.id, req.key) }}
                         onMouseEnter={e=>{e.currentTarget.style.color=T.gold;e.currentTarget.style.borderColor=T.gold+'66'}}
                         onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>Edit</button>
-                    : <button style={{...smallBtnStyle,color:T.gold,borderColor:T.gold+'66'}} onClick={()=>openForm({cert_type:req.key,cert_name:req.label})}>+ Add</button>)}
+                    : <button style={{...smallBtnStyle,color:T.gold,borderColor:T.gold+'66'}} onClick={()=>{ (showForm && formAnchor===req.key && !editingId) ? closeForm() : openForm({cert_type:req.key,cert_name:req.label}, null, req.key) }}>+ Add</button>)}
                   {canEdit && property && canOptOut(req) && (
                     <button style={smallBtnStyle} title={off ? 'Track this requirement again' : "Don't track this on this property — shows dimmed on the overview"}
                       onClick={()=>toggleOptout(req.key, !off)}>{off ? 'Turn on' : 'Turn off'}</button>
                   )}
                 </div>
+                {formAnchor===req.key && formCard}
+                </Fragment>
               )
             })}
           </div>
@@ -265,7 +275,8 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
               {otherItems.map(item=>{
                 const ct = CERT_TYPES.find(t=>t.value===canonicalCertType(item.cert_type))
                 return (
-                  <div key={item.id} className="card" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+                  <Fragment key={item.id}>
+                  <div className="card" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
                     <span style={{width:38,height:38,borderRadius:9,background:T.gold+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={ICON_NAMES.includes(ct?.icon)?ct.icon:'file-text'} size={19} color={T.gold}/></span>
                     <div style={{flex:1,minWidth:150}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{item.cert_name}</div>
@@ -275,9 +286,11 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                       {item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
                     </div>
                     <ExpiryBadge dateStr={item.expiry_date}/>
-                    {canEdit && <button style={smallBtnStyle} onClick={()=>openForm({cert_type:canonicalCertType(item.cert_type),cert_name:item.cert_name||'',issue_date:item.issue_date||'',expiry_date:item.expiry_date||'',reminder_days:item.reminder_days??30,notes:item.notes||''}, item.id)}>Edit</button>}
+                    {canEdit && <button style={smallBtnStyle} onClick={()=>{ (showForm && formAnchor===`other:${item.id}`) ? closeForm() : openForm({cert_type:canonicalCertType(item.cert_type),cert_name:item.cert_name||'',issue_date:item.issue_date||'',expiry_date:item.expiry_date||'',reminder_days:item.reminder_days??30,notes:item.notes||''}, item.id, `other:${item.id}`) }}>Edit</button>}
                     {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>Remove</button>}
                   </div>
+                  {formAnchor===`other:${item.id}` && formCard}
+                  </Fragment>
                 )
               })}
             </div>
