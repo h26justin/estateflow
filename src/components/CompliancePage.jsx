@@ -19,9 +19,8 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { MONO } from '../lib/styles'
 import InsurancePage from './InsurancePage'
-import EpcBadge from './EpcBadge'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements, isOptedOut } from '../lib/complianceCatalogue'
-import { requirementStatus, propertyComplianceSummary, certTypeStatus, insuranceStatusFor } from '../lib/complianceStatus'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade } from '../lib/complianceCatalogue'
+import { requirementStatus, propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate } from '../lib/complianceStatus'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -36,9 +35,13 @@ function CoPill({ company, T }) {
 
 // One requirement line on a property card: status glyph + label + detail.
 // tick = in date, amber = due soon, red cross = expired or missing-required,
-// muted cross = recommended-but-absent (tier 3).
-function ReqRow({ req, status, T, onClick }) {
+// muted cross = recommended-but-absent (tier 3). The EPC chip additionally
+// carries the register-synced band letter and, when the band is below the
+// 2030 MEES target of C, swaps its detail for the "Nd to C" upgrade
+// countdown (certificate expiry/missing problems still take precedence).
+function ReqRow({ req, status, T, onClick, property }) {
   const days = status.days
+  const band = req.key === 'epc' ? epcBand(property) : null
   let color, iconName, detail
   if (status.state === 'off') {
     // Switched off for this property (per-property toggle on the
@@ -68,13 +71,27 @@ function ReqRow({ req, status, T, onClick }) {
     iconName = 'x'
     detail = required ? 'Missing' : (req.key === 'insurance' ? 'None on file' : 'Not on file')
   }
+  // EPC upgrade countdown: only when the certificate itself is fine —
+  // an expiring/expired/missing cert is the more urgent message.
+  let title = `${req.label} — ${TIER_LABELS[req.tier]}`
+  if (band && epcNeedsUpgrade(band) && status.state === 'valid') {
+    const meesDays = daysUntilDate(MEES_DEADLINE_ISO)
+    if (meesDays !== null) {
+      color = T.amber
+      detail = meesDays > 0 ? `${meesDays.toLocaleString('en-GB')}d to C` : 'below band C'
+      title = `${req.label} — band ${band}, below the 2030 MEES target of C. Certificate valid ${days}d.`
+    }
+  }
   return (
-    <button onClick={onClick} title={`${req.label} — ${TIER_LABELS[req.tier]}`}
+    <button onClick={onClick} title={title}
       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', textAlign: 'left', width: '100%', background: 'transparent', border: `1px solid ${T.border}`, transition: 'border-color 0.15s' }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = color + '88' }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = T.border }}>
       <Icon name={iconName} size={14} color={color} />
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.short}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, fontSize: 12, color: T.text, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+        {req.short}
+        {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
+      </span>
       <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{detail}</span>
     </button>
   )
@@ -96,7 +113,6 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
         </button>
         <CoPill company={company} T={T} />
         {property.prop_type && <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{property.prop_type}</span>}
-        <EpcBadge property={property} T={T} />
         <span style={{ flex: 1 }} />
         {allGood && <Icon name="check-circle" size={15} color={T.green} />}
         <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
@@ -107,7 +123,7 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
         ? <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Nothing tracked for this property — check Settings → Compliance Tracking.</div>
         : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
             {summary.rows.map(({ req, status }) => (
-              <ReqRow key={req.key} req={req} status={status} T={T}
+              <ReqRow key={req.key} req={req} status={status} T={T} property={property}
                 onClick={() => req.group === 'insurance' ? gotoInsurance() : openDetail(property)} />
             ))}
           </div>}
