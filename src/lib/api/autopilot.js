@@ -40,19 +40,25 @@ export async function countOpenAutopilotActions(companyId = null) {
 // a status flip only — the actual send/booking happens outside Autopilot, by
 // the human. Nothing is auto-executed.
 export async function actOnAutopilotAction(id) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('autopilot_actions')
     .update({ status: 'acted', updated_at: new Date().toISOString() })
     .eq('id', id)
+    .select('id')
   if (error) throw error
+  // RLS silently filters rows the caller can't update (e.g. the company's
+  // billing has lapsed) — a 0-row update must not read as success.
+  if (!data?.length) throw new Error('Could not update this action — its company may be suspended.')
 }
 
 // Dismiss an action (not relevant / handled elsewhere). Soft status flip so
 // the cron's partial-unique dedupe doesn't immediately resurface it as open.
 export async function dismissAutopilotAction(id) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('autopilot_actions')
     .update({ status: 'dismissed', updated_at: new Date().toISOString() })
     .eq('id', id)
+    .select('id')
   if (error) throw error
+  if (!data?.length) throw new Error('Could not dismiss this action — its company may be suspended.')
 }

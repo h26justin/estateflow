@@ -2767,7 +2767,7 @@ export default function App() {
                     const scopedId = dashCoFilter.length === 1 ? dashCoFilter[0] : null
                     return (
                       <div style={{ marginTop: 28 }}>
-                        <AutopilotWidget companyId={scopedId} onOpenFull={() => { window.location.hash = '#/autopilot' }}/>
+                        <AutopilotWidget companyId={scopedId} companies={companies} onOpenFull={() => { window.location.hash = '#/autopilot' }}/>
                       </div>
                     )
                   },
