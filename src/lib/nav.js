@@ -27,7 +27,11 @@ export const ALL_NAV = [
   { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
   { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
   { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 4 },
-  { key: 'insurance',      label: 'Insurance',      icon: 'shield-check', short: 'Insurance', required: false, group: 'Money',       mobileRank: 5 },
+  // 'compliance' replaced the old top-level 'insurance' entry (2026-08) —
+  // insurance is now a sub-view of Compliance. Stored user nav prefs may
+  // still carry 'insurance'; App.jsx maps it to 'compliance' on load, and
+  // parseHash maps the legacy '#/insurance' route.
+  { key: 'compliance',     label: 'Compliance',     icon: 'shield-check', short: 'Comply',    required: false, group: 'Compliance',  mobileRank: 5 },
   { key: 'deals',          label: 'Deals',          icon: 'target',       short: 'Deals',     required: false, group: 'Growth & AI', mobileRank: 2 },
   { key: 'autopilot',      label: 'Autopilot',      icon: 'robot',        short: 'Autopilot', required: false, group: 'Growth & AI', mobileRank: 6, flag: 'portfolio_autopilot' },
   { key: 'renters-rights', label: 'Renters Rights', icon: 'scale',        short: 'RRA',       required: false, group: 'Growth & AI', mobileRank: 7, flag: 'renters_rights' },
@@ -61,6 +65,7 @@ export const SETTINGS_TABS = {
     { key: 'branding',      label: 'Branding & Logos' },
     { key: 'tenant',        label: 'Tenant Portal' },
     { key: 'features',      label: 'Features' },
+    { key: 'compliance',    label: 'Compliance Tracking' },
     { key: 'inbox',         label: 'Statement Inbox' },
     { key: 'notifications', label: 'Notifications' },
     { key: 'milestones',    label: 'Deal Milestones' },

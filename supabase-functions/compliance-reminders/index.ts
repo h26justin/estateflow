@@ -37,16 +37,34 @@ function daysUntil(dateStr: string): number {
 }
 
 function certTypeLabel(type: string): string {
+  // Keep in sync with src/lib/complianceCatalogue.js (canonical keys plus
+  // legacy aliases — rows exist under both spellings).
   const labels: Record<string, string> = {
     gas: 'Gas Safety Certificate (CP12)',
+    gas_safety: 'Gas Safety Certificate (CP12)',
+    gas_cert: 'Gas Safety Certificate (CP12)',
     eicr: 'Electrical Installation Condition Report (EICR)',
     epc: 'Energy Performance Certificate (EPC)',
     pat: 'PAT Test',
     fire: 'Fire Risk Assessment',
+    fire_risk_assessment: 'Fire Risk Assessment',
+    fire_alarm_service: 'Fire Alarm Service',
+    emergency_lighting: 'Emergency Lighting Test',
     hmo: 'HMO Licence',
+    hmo_licence: 'HMO Licence',
+    selective_licence: 'Selective Licence',
     legionella: 'Legionella Risk Assessment',
     alarm: 'Smoke/CO Alarm Test',
+    smoke_alarm: 'Smoke Alarm Check',
+    co_alarm: 'Carbon Monoxide Alarm Check',
+    boiler_service: 'Boiler / Heating Service',
+    chimney_sweep: 'Chimney Sweep',
     insurance: 'Landlord Insurance',
+    tenancy_agreement: 'Tenancy Agreement',
+    deposit_protection: 'Deposit Protection Certificate',
+    right_to_rent: 'Right to Rent Check',
+    rra_info_sheet: "Renters' Rights Information Sheet",
+    inventory: 'Inventory / Check-in Report',
   }
   return labels[type?.toLowerCase()] || type || 'Certificate'
 }
@@ -73,7 +91,21 @@ function renewalBookingUrl(type: string, postcode?: string | null): { label: str
     insurance:   { label: 'Compare landlord insurance',   url: 'https://www.simplybusiness.co.uk/landlord-insurance/' },
     hmo:         { label: 'Apply on your council site',   url: 'https://www.gov.uk/house-in-multiple-occupation-licence' },
   }
-  return renewalMap[t] || null
+  // Canonical / expanded catalogue keys reuse the closest trade body above.
+  const aliasMap: Record<string, string> = {
+    gas_safety: 'gas', gas_cert: 'gas',
+    hmo_licence: 'hmo',
+    fire_risk_assessment: 'fire',
+    smoke_alarm: 'alarm', co_alarm: 'alarm',
+    fire_alarm_service: 'eicr',       // serviced by fire/electrical contractors
+    emergency_lighting: 'eicr',
+    boiler_service: 'gas',
+  }
+  const extras: Record<string, { label: string; url: string }> = {
+    selective_licence: { label: 'Check your council’s licensing pages', url: 'https://www.gov.uk/find-local-council' },
+    chimney_sweep:     { label: 'Find a registered chimney sweep',      url: 'https://www.findachimneysweep.co.uk/' },
+  }
+  return renewalMap[t] || renewalMap[aliasMap[t]] || extras[t] || null
 }
 
 serve(async (req) => {
