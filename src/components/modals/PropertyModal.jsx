@@ -4,6 +4,7 @@ import MoneyInput from '../../lib/MoneyInput'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
+import { HEATING_TYPES, LICENSING_SCHEMES, canonicalCertType } from '../../lib/complianceCatalogue'
 import { showAppToast } from '../../lib/toast'
 import FocusTrap from '../../lib/FocusTrap'
 import { MONO } from '../../lib/styles'
@@ -47,12 +48,17 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     // from any compliance_items rows that already exist for the matching
     // cert_type.
     gas_safety_expiry:'', eicr_expiry:'', epc_expiry:'', smoke_alarm_checked:'',
+    // Compliance applicability flags (real columns) — they decide which
+    // requirements the Compliance page expects this property to hold
+    // (no gas = no CP12 chase; licensing scheme = licence expected).
+    has_gas_supply:true, heating_type:'', licensing_scheme:'', is_hmo:false,
   }
   // Pre-fill compliance dates from existing items (edit mode).
   const existingCompliance = prop?.compliance_items || []
   const compPrefill = {}
   for (const p of COMPLIANCE_PROMPTS) {
-    const match = existingCompliance.find(c => c.cert_type === p.cert_type && !c.deleted_at)
+    // Canonical compare so a legacy 'gas' row prefills the 'gas_safety' field.
+    const match = existingCompliance.find(c => canonicalCertType(c.cert_type) === p.cert_type && !c.deleted_at)
     if (match) {
       compPrefill[p.key] = p.isCheckDate ? (match.issue_date || '') : (match.expiry_date || '')
     }
@@ -122,6 +128,9 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     const compliancePayload = COMPLIANCE_PROMPTS
       .map(p => ({ ...p, value: form[p.key]?.trim() }))
       .filter(p => !!p.value)
+      // No gas supply → don't create a gas cert row even if a stale date
+      // was entered before the flag was unticked.
+      .filter(p => p.cert_type !== 'gas_safety' || form.has_gas_supply !== false)
       .map(p => ({
         cert_type: p.cert_type,
         cert_name: p.cert_name,
@@ -151,6 +160,10 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       mortgage_product_end_date: clean.mortgage_product_end_date || null,
       insurance:parseFloat(clean.insurance)||0,
       arrears:parseFloat(clean.arrears)||0,
+      has_gas_supply: form.has_gas_supply !== false,
+      heating_type: clean.heating_type || null,
+      licensing_scheme: clean.licensing_scheme || null,
+      is_hmo: !!clean.is_hmo,
       _compliance: compliancePayload,
       ...cashOverride,
     })
@@ -291,6 +304,25 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
 
         <Section title="Compliance & notes" T={T} />
 
+        {/* Applicability flags — these drive which certificates the
+            Compliance page expects for this property (a gas-free flat
+            shouldn't show a missing CP12; an HMO needs its licence and
+            fire paperwork). */}
+        <div className="g2">
+          <div><label htmlFor="pm-heating-type">Heating</label><select id="pm-heating-type" value={form.heating_type||''} onChange={e=>s('heating_type',e.target.value)}>{HEATING_TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
+          <div><label htmlFor="pm-licensing">Licensing</label><select id="pm-licensing" value={form.licensing_scheme||''} onChange={e=>s('licensing_scheme',e.target.value)}>{LICENSING_SCHEMES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
+        </div>
+        <div style={{display:'flex',gap:18,flexWrap:'wrap',padding:'8px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8}}>
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:MONO,fontSize:11,color:T.text}}>
+            <input type="checkbox" checked={form.has_gas_supply!==false} onChange={e=>s('has_gas_supply',e.target.checked)} style={{width:'auto',margin:0}}/>
+            <span>Has gas supply</span>
+          </label>
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:MONO,fontSize:11,color:T.text}}>
+            <input type="checkbox" checked={!!form.is_hmo} onChange={e=>s('is_hmo',e.target.checked)} style={{width:'auto',margin:0}}/>
+            <span>HMO (house in multiple occupation)</span>
+          </label>
+        </div>
+
         {/* ── COMPLIANCE PROMPTS ──────────────────────────────────
             Four optional date fields covering the legally-required
             UK landlord compliance certificates. Empty = skip; a date
@@ -307,10 +339,10 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             Add what you know now — leave the rest blank. We'll remind you in the bell as expiries approach. You can also upload certificates later on the Compliance tab and we'll auto-fill the dates.
           </div>
           <div className="g2">
-            <div>
+            {form.has_gas_supply!==false && <div>
               <label htmlFor="pm-gas-safety">Gas Safety expiry</label>
               <input id="pm-gas-safety" type="date" value={form.gas_safety_expiry || ''} onChange={e=>s('gas_safety_expiry', e.target.value)}/>
-            </div>
+            </div>}
             <div>
               <label htmlFor="pm-eicr">EICR expiry</label>
               <input id="pm-eicr" type="date" value={form.eicr_expiry || ''} onChange={e=>s('eicr_expiry', e.target.value)}/>

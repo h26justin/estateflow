@@ -1,0 +1,148 @@
+import { describe, it, expect } from 'vitest'
+import {
+  COMPLIANCE_CATALOGUE,
+  CATALOGUE_BY_KEY,
+  canonicalCertType,
+  trackedRequirements,
+  requirementsForProperty,
+} from '../complianceCatalogue'
+import {
+  certTypeStatus,
+  insuranceStatusFor,
+  propertyComplianceSummary,
+} from '../complianceStatus'
+
+const inDays = (n) => new Date(Date.now() + n * 86_400_000).toISOString()
+const cert = (cert_type, expiry_date, extra = {}) => ({ cert_type, expiry_date, ...extra })
+
+describe('canonicalCertType', () => {
+  it('maps legacy aliases onto canonical keys', () => {
+    expect(canonicalCertType('gas')).toBe('gas_safety')
+    expect(canonicalCertType('gas_cert')).toBe('gas_safety')
+    expect(canonicalCertType('alarm')).toBe('smoke_alarm')
+    expect(canonicalCertType('hmo_licence')).toBe('hmo')
+  })
+  it('passes canonical and unknown types through unchanged', () => {
+    expect(canonicalCertType('eicr')).toBe('eicr')
+    expect(canonicalCertType('my_custom_cert')).toBe('my_custom_cert')
+    expect(canonicalCertType('')).toBe('')
+  })
+})
+
+describe('alias-aware certTypeStatus', () => {
+  it("a legacy 'gas' row satisfies a 'gas_safety' query and vice versa", () => {
+    const p = { compliance_items: [cert('gas', inDays(200))] }
+    expect(certTypeStatus(p, 'gas_safety').state).toBe('valid')
+    const p2 = { compliance_items: [cert('gas_safety', inDays(200))] }
+    expect(certTypeStatus(p2, 'gas').state).toBe('valid')
+  })
+  it('derives a due date for check-date items from issue_date + cycle', () => {
+    // Smoke alarm checked 2 months ago, 12-month cycle → valid, due in ~10mo
+    const recent = { compliance_items: [cert('smoke_alarm', null, { issue_date: inDays(-60) })] }
+    expect(certTypeStatus(recent, 'smoke_alarm').state).toBe('valid')
+    // Checked 13 months ago → overdue
+    const stale = { compliance_items: [cert('smoke_alarm', null, { issue_date: inDays(-400) })] }
+    expect(certTypeStatus(stale, 'smoke_alarm').state).toBe('expired')
+  })
+  it('treats undated rows as held for expiry-optional paperwork only', () => {
+    const p = { compliance_items: [cert('deposit_protection', null), cert('eicr', null)] }
+    expect(certTypeStatus(p, 'deposit_protection').state).toBe('valid')
+    expect(certTypeStatus(p, 'eicr').state).toBe('missing')
+  })
+})
+
+describe('applicability rules', () => {
+  const settings = {} // all tracked (default)
+  it('skips gas certs for properties without a gas supply', () => {
+    const gasFree = { status: 'rented', has_gas_supply: false, heating_type: 'electric' }
+    const keys = requirementsForProperty(gasFree, settings).map(r => r.key)
+    expect(keys).not.toContain('gas_safety')
+    expect(keys).not.toContain('co_alarm')
+    expect(keys).toContain('eicr')
+    expect(keys).toContain('epc')
+  })
+  it('defaults to requiring gas certs when flags are unset (legacy rows)', () => {
+    const keys = requirementsForProperty({ status: 'rented' }, settings).map(r => r.key)
+    expect(keys).toContain('gas_safety')
+  })
+  it('adds licence + fire paperwork for HMOs', () => {
+    const hmo = { status: 'rented', is_hmo: true }
+    const keys = requirementsForProperty(hmo, settings).map(r => r.key)
+    expect(keys).toEqual(expect.arrayContaining(['hmo', 'fire', 'fire_alarm_service', 'emergency_lighting']))
+    const nonHmo = requirementsForProperty({ status: 'rented' }, settings).map(r => r.key)
+    expect(nonHmo).not.toContain('hmo')
+  })
+  it('adds the selective licence only in selective areas', () => {
+    const sel = requirementsForProperty({ status: 'rented', licensing_scheme: 'selective' }, settings).map(r => r.key)
+    expect(sel).toContain('selective_licence')
+  })
+  it('drops tenancy paperwork for non-let properties', () => {
+    const vacant = requirementsForProperty({ status: 'vacant' }, settings).map(r => r.key)
+    expect(vacant).not.toContain('deposit_protection')
+    expect(vacant).not.toContain('tenancy_agreement')
+    const let_ = requirementsForProperty({ status: 'rented' }, settings).map(r => r.key)
+    expect(let_).toEqual(expect.arrayContaining(['deposit_protection', 'tenancy_agreement', 'right_to_rent', 'rra_info_sheet']))
+  })
+})
+
+describe('trackedRequirements', () => {
+  it('tracks everything by default and honours explicit off-switches', () => {
+    expect(trackedRequirements({}).length).toBe(COMPLIANCE_CATALOGUE.length)
+    expect(trackedRequirements(null).length).toBe(COMPLIANCE_CATALOGUE.length)
+    const keys = trackedRequirements({ compliance_tracked: { pat: false, inventory: false } }).map(r => r.key)
+    expect(keys).not.toContain('pat')
+    expect(keys).not.toContain('inventory')
+    expect(keys).toContain('gas_safety')
+  })
+})
+
+describe('insuranceStatusFor', () => {
+  const prop = { id: 'p1', company_id: 'c1' }
+  it('is missing with no covering policies', () => {
+    expect(insuranceStatusFor(prop, []).state).toBe('missing')
+    // Other company's policy doesn't cover it
+    expect(insuranceStatusFor(prop, [{ id: 'x', company_id: 'c2', expiry_date: inDays(200), properties: [] }]).state).toBe('missing')
+  })
+  it('company-wide policies (no property links) cover every property', () => {
+    const r = insuranceStatusFor(prop, [{ id: 'x', company_id: 'c1', expiry_date: inDays(200), properties: [] }])
+    expect(r.state).toBe('valid')
+  })
+  it('property-linked policies cover only their properties', () => {
+    const pol = { id: 'x', company_id: 'c1', expiry_date: inDays(200), properties: [{ id: 'p2' }] }
+    expect(insuranceStatusFor(prop, [pol]).state).toBe('missing')
+    expect(insuranceStatusFor({ id: 'p2', company_id: 'c1' }, [pol]).state).toBe('valid')
+  })
+  it('ignores superseded policies in a renewal chain', () => {
+    const old = { id: 'old', company_id: 'c1', expiry_date: inDays(-30), properties: [] }
+    const renewed = { id: 'new', company_id: 'c1', expiry_date: inDays(300), previous_policy_id: 'old', properties: [] }
+    expect(insuranceStatusFor(prop, [old, renewed]).state).toBe('valid')
+  })
+})
+
+describe('propertyComplianceSummary', () => {
+  it('rolls up held / expired / missing across the applicable set', () => {
+    const p = {
+      id: 'p1', company_id: 'c1', status: 'rented', has_gas_supply: false, heating_type: 'electric',
+      compliance_items: [cert('eicr', inDays(300)), cert('epc', inDays(-10))],
+    }
+    // Track a small set so the assertion is stable as the catalogue grows.
+    const settings = { compliance_tracked: Object.fromEntries(
+      COMPLIANCE_CATALOGUE.map(r => [r.key, ['eicr', 'epc', 'gas_safety', 'insurance'].includes(r.key)])
+    ) }
+    const s = propertyComplianceSummary(p, settings, [])
+    // gas is n/a (no gas supply) → eicr valid, epc expired, insurance missing
+    expect(s.total).toBe(3)
+    expect(s.held).toBe(1)
+    expect(s.expired).toBe(1)
+    expect(s.missing).toBe(1)
+  })
+})
+
+describe('catalogue integrity', () => {
+  it('keys are unique and aliases never collide with keys', () => {
+    const keys = COMPLIANCE_CATALOGUE.map(r => r.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    const aliases = COMPLIANCE_CATALOGUE.flatMap(r => r.aliases || [])
+    for (const a of aliases) expect(CATALOGUE_BY_KEY[a]).toBeUndefined()
+  })
+})

@@ -4,6 +4,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO, statusPill } from '../lib/styles'
 import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_TABS } from '../lib/nav'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, canonicalCertType } from '../lib/complianceCatalogue'
 import { naturalCompare } from '../lib/addressUtils'
 import BillingPage from './BillingPage'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
@@ -59,17 +60,15 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({cert_type:'gas',cert_name:'Gas Safety Certificate',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
+  const [form, setForm] = useState({cert_type:'gas_safety',cert_name:'Gas Safety (CP12)',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
 
+  // Full requirement catalogue (insurance lives on its own register, not
+  // here) plus a free-text Other. Legacy rows written under alias keys
+  // ('gas', 'alarm') resolve via canonicalCertType below.
   const CERT_TYPES = [
-    {value:'gas',     label:'Gas Safety Certificate',    icon:'flame'},
-    {value:'eicr',    label:'Electrical Safety (EICR)',   icon:'zap'},
-    {value:'epc',     label:'EPC Rating',                 icon:'leaf'},
-    {value:'hmo',     label:'HMO Licence',                icon:'home'},
-    {value:'fire',    label:'Fire Risk Assessment',        icon:'alert-triangle'},
-    {value:'pat',     label:'PAT Testing',                 icon:'plug'},
-    {value:'other',   label:'Other Certificate',           icon:'file-text'},
+    ...COMPLIANCE_CATALOGUE.filter(r=>r.group!=='insurance').map(r=>({value:r.key,label:r.label,icon:r.icon})),
+    {value:'other', label:'Other Certificate', icon:'file-text'},
   ]
 
   useEffect(()=>{ loadItems() },[propertyId])
@@ -87,7 +86,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
       const created = await api.createCompliance(propertyId, form)
       setItems(prev=>[...prev, created])
       setShowForm(false)
-      setForm({cert_type:'gas',cert_name:'Gas Safety Certificate',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
+      setForm({cert_type:'gas_safety',cert_name:'Gas Safety (CP12)',issue_date:'',expiry_date:'',reminder_days:30,notes:''})
       showToast('Certificate added')
     } catch(e) { showToast(e.message,'error') }
   }
@@ -139,7 +138,7 @@ export function ComplianceTab({propertyId, showToast, isAdmin, user, canEdit = t
        : sorted.length===0 ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No certificates added yet.</div>
        : <div style={{display:'grid',gap:10}}>
           {sorted.map(item=>{
-            const ct = CERT_TYPES.find(t=>t.value===item.cert_type)
+            const ct = CERT_TYPES.find(t=>t.value===canonicalCertType(item.cert_type))
             return (
               <div key={item.id} className="card" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
                 <span style={{width:38,height:38,borderRadius:9,background:T.gold+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={ICON_NAMES.includes(ct?.icon)?ct.icon:'file-text'} size={19} color={T.gold}/></span>
@@ -587,6 +586,20 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     setSaving(null)
   }
 
+  // Settings → Compliance Tracking: flip one catalogue key in the
+  // company's compliance_tracked JSONB. Missing key = tracked (default on).
+  async function toggleComplianceTracked(companyId, certKey, currentOn) {
+    setSaving(`${companyId}-ct-${certKey}`)
+    try {
+      const current = companySettings[companyId] || {}
+      const tracked = { ...(current.compliance_tracked || {}), [certKey]: !currentOn }
+      const saved = await api.upsertCompanySettings(companyId, { compliance_tracked: tracked })
+      setCompanySettings(prev=>({...prev, [companyId]: saved || { ...current, compliance_tracked: tracked }}))
+      showToast('Settings saved')
+    } catch(e) { showToast(e.message,'error') }
+    setSaving(null)
+  }
+
   const mono = MONO
   const sectionStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }
   const fieldStyle = { marginBottom: 14 }
@@ -953,6 +966,70 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         )
       })}
 
+      </>}
+
+      {/* ── COMPLIANCE TRACKING TAB ── which requirements the Compliance
+          page chases per company. Everything defaults ON; property-level
+          applicability flags (gas supply, HMO, licensing) do the fine-grain
+          filtering, so these toggles are for "we never want to track X". */}
+      {settingsTab==='compliance' && <>
+      <div style={{...sectionStyle,paddingBottom:18}}>
+        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Compliance tracking</div>
+        <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6}}>
+          Choose which certificates, licences and paperwork the Compliance page tracks for each company.
+          Items that don't apply to a property (no gas supply, not an HMO) are skipped automatically —
+          set those flags on each property's edit form.
+        </div>
+      </div>
+      {scopedCompanies.map(company=>{
+        const settings = companySettings[company.id] || {}
+        const tracked = settings.compliance_tracked || {}
+        return (
+          <div key={company.id} className="card" style={{padding:'22px 26px',marginBottom:16,borderLeft:`3px solid ${company.color}`}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+              <div style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:company.color,background:company.color+'22',padding:'3px 10px',borderRadius:4}}>{company.abbr}</div>
+              <h2 style={{fontSize:17,fontWeight:700}}>{company.name}</h2>
+            </div>
+            <div style={{display:'grid',gap:12}}>
+              {[1,2,3].map(tier=>(<div key={tier} style={{display:'grid',gap:12}}>
+                <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:-4,marginTop:tier===1?4:12}}>{TIER_LABELS[tier]}</div>
+                {COMPLIANCE_CATALOGUE.filter(r=>r.tier===tier).map(req=>{
+                  const isOn = tracked[req.key] !== false
+                  const isSaving = saving===`${company.id}-ct-${req.key}`
+                  return (
+                    <div key={req.key} style={{display:'flex',alignItems:'center',gap:16,padding:'14px 16px',background:T.bg,borderRadius:10,flexWrap:'wrap'}}>
+                      <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(req.icon)?<Icon name={req.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{req.icon}</span>}</span>
+                      <div style={{flex:1,minWidth:200}}>
+                        <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{req.label}{req.cycleMonths ? <span style={{fontFamily:MONO,fontSize:9,color:T.muted,fontWeight:400,marginLeft:8}}>{req.cycleMonths>=12?`every ${req.cycleMonths/12}yr${req.cycleMonths>12?'s':''}`:`every ${req.cycleMonths}mo`}</span> : null}</div>
+                        <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{req.desc}</div>
+                      </div>
+                      <button role="switch" aria-checked={isOn} aria-label={req.label} disabled={isSaving} onClick={()=>!isSaving&&toggleComplianceTracked(company.id, req.key, isOn)}
+                        style={{
+                          border:'none', padding:0,
+                          width:44, height:24, borderRadius:12, cursor:'pointer',
+                          background: isOn ? company.color : T.faint,
+                          position:'relative', transition:'background 0.2s', flexShrink:0,
+                          opacity: isSaving ? 0.6 : 1,
+                        }}>
+                        <div style={{
+                          width:18, height:18, borderRadius:'50%', background:'white',
+                          position:'absolute', top:3,
+                          left: isOn ? 23 : 3,
+                          transition:'left 0.2s',
+                          boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
+                        }}/>
+                      </button>
+                      <span style={{fontFamily:MONO,fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                        {isSaving?'…':isOn?'ON':'OFF'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>))}
+            </div>
+          </div>
+        )
+      })}
       </>}
 
       {settingsTab==='billing' && (

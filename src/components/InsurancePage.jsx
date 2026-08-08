@@ -53,7 +53,9 @@ function daysUntil(expiryDate) {
 
 const TYPE_LABEL = Object.fromEntries(api.POLICY_TYPES.map(t => [t.v, t.l]))
 
-export default function InsurancePage({ user, companies = [], properties = [], showToast }) {
+// `embedded` — rendered as the Insurance sub-view of CompliancePage, which
+// already draws the page h1; suppress ours but keep the count + actions row.
+export default function InsurancePage({ user, companies = [], properties = [], showToast, embedded = false }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const [policies, setPolicies] = useState([])
@@ -211,7 +213,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>Insurance</h1>
+          {!embedded && <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>Insurance</h1>}
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
             {policies.length} {policies.length === 1 ? 'policy' : 'policies'} · {filtered.length} shown
           </div>

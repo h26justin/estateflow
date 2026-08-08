@@ -43,7 +43,7 @@ const TenantPortal    = lazy(() => import('./components/TenantPortal'))
 const DealsPage       = lazy(() => import('./components/DealsPage'))
 const DayTrackerPage  = lazy(() => import('./components/DayTrackerPage'))
 const PropertyMap     = lazy(() => import('./components/PropertyMap'))
-const InsurancePage   = lazy(() => import('./components/InsurancePage'))
+const CompliancePage  = lazy(() => import('./components/CompliancePage'))
 const MtdItsaPage     = lazy(() => import('./components/MtdItsaPage'))
 const AutopilotWidget = lazyNamed(() => import('./components/AutopilotPanel'), 'AutopilotWidget')
 const AutopilotPage   = lazyNamed(() => import('./components/AutopilotPanel'), 'AutopilotPage')
@@ -72,7 +72,8 @@ import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
-import { complianceStatusFor, complianceBadge, certTypeStatus } from './lib/complianceStatus'
+import { complianceStatusFor, complianceBadge } from './lib/complianceStatus'
+import { canonicalCertType } from './lib/complianceCatalogue'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
@@ -987,8 +988,15 @@ export default function App() {
       }
       if (parts[0] === 'import') return { view: 'import' }
       if (parts[0] === 'properties' && parts[1] === 'bulk') return { view: 'bulk-add' }
+      // Compliance is the renamed top-level Insurance page (2026-08).
+      // Sub-views are addressable (#/compliance/<sub>); the legacy
+      // '#/insurance' route and the old Portfolio → Compliance sub-tab both
+      // fold into it so old bookmarks and notification links keep working.
+      if (parts[0] === 'compliance') return { view: 'compliance', complianceTab: parts[1] || null }
+      if (parts[0] === 'insurance')  return { view: 'compliance', complianceTab: 'insurance' }
+      if (parts[0] === 'properties' && parts[1] === 'compliance') return { view: 'compliance' }
       // All portfolio sub-tabs are addressable: #/properties/<tab>
-      const PORTFOLIO_TABS = ['properties','companies','compliance','map','contractors']
+      const PORTFOLIO_TABS = ['properties','companies','map','contractors']
       if (parts[0] === 'properties') {
         return { view: 'properties', portfolioTab: PORTFOLIO_TABS.includes(parts[1]) ? parts[1] : 'properties' }
       }
@@ -1007,7 +1015,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','insurance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -1023,6 +1031,8 @@ export default function App() {
       if (initial.adminTab) window.dispatchEvent(new CustomEvent('ownproperly:set-admin-tab', { detail: { tab: initial.adminTab } }))
     }
     if (initial.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: initial.settingsTab } }))
+    // (CompliancePage reads its initial sub-view from the hash at mount, so
+    // no event needed on first load — only on later hash navigations below.)
 
     // Listen for browser back/forward
     const handlePopState = () => {
@@ -1044,6 +1054,9 @@ export default function App() {
       // the tab, not leave it stale.
       if (parsed.view === 'properties') setPortfolioTab(parsed.portfolioTab || 'properties')
       if (parsed.settingsTab) window.dispatchEvent(new CustomEvent('ownproperly:set-settings-tab', { detail: { tab: parsed.settingsTab } }))
+      // Mounted CompliancePage tracks its sub-view from this event (e.g. a
+      // dashboard widget navigating #/compliance → #/compliance/insurance).
+      if (parsed.complianceTab) window.dispatchEvent(new CustomEvent('ownproperly:set-compliance-tab', { detail: { tab: parsed.complianceTab } }))
     }
     window.addEventListener('popstate', handlePopState)
     // Programmatic `window.location.hash = …` navigations (notification
@@ -1093,6 +1106,9 @@ export default function App() {
     // sub-tab (e.g. the upgrade CTA's '#/settings/billing') before
     // SettingsPage mounts, landing the user on the Account tab instead.
     if (view === 'settings' && /^#\/settings(\/|$)/.test(window.location.hash)) return
+    // CompliancePage owns its sub-view URL segment the same way
+    // (#/compliance/matrix, #/compliance/insurance).
+    if (view === 'compliance' && /^#\/compliance(\/|$)/.test(window.location.hash)) return
     // DealsPage owns its sub-view / deal-detail URL segments the same way
     // (#/deals/pipeline, #/deals/deal/<id>).
     if (view === 'deals' && /^#\/deals(\/|$)/.test(window.location.hash)) return
@@ -1221,7 +1237,9 @@ export default function App() {
         const isPlatformAdminFlag = prof?.is_developer === true || prof?.platform_admin === true
         setIsPlatformAdmin(isPlatformAdminFlag)
         // Nav / yield / account prefs from the same row.
-        if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items)
+        // Stored prefs may predate the Insurance → Compliance rename (2026-08);
+        // map the old key so nobody loses the entry from their rail.
+        if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items.map(k => k === 'insurance' ? 'compliance' : k))
         else setUserNavPrefs(DEFAULT_NAV_KEYS)
         if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
         setAccountType(prof?.account_type || null)
@@ -1666,8 +1684,8 @@ export default function App() {
     cmds.push(
       { id:'nav:portfolio-companies', icon:'grid', label:'Go to Companies', group:'navigate', keywords:'companies portfolio',
         action: () => { setSelectedId(null); setPortfolioTab('companies'); setView('properties') } },
-      { id:'nav:portfolio-compliance', icon:'shield-check', label:'Go to Compliance', group:'navigate', keywords:'certificates gas eicr epc',
-        action: () => { setSelectedId(null); setPortfolioTab('compliance'); setView('properties') } },
+      { id:'nav:compliance', icon:'shield-check', label:'Go to Compliance', group:'navigate', keywords:'certificates gas eicr epc insurance licences',
+        action: () => { setSelectedId(null); setView('compliance') } },
       { id:'nav:portfolio-contractors', icon:'wrench', label:'Go to Contractors', group:'navigate', keywords:'trades contractors',
         action: () => { setSelectedId(null); setPortfolioTab('contractors'); setView('properties') } },
       { id:'nav:daytracker', icon:'calendar', label:'Go to Day Tracker', group:'navigate', keywords:'rent day tracker',
@@ -1908,11 +1926,13 @@ export default function App() {
       if (propId && Array.isArray(_compliance) && _compliance.length > 0) {
         try {
           // Load existing items so we update-not-duplicate when the user
-          // edits a property and changes dates. Match on cert_type.
+          // edits a property and changes dates. Match on CANONICAL cert_type
+          // so a legacy 'gas' row is updated by the modal's 'gas_safety'
+          // prompt instead of gaining a duplicate.
           const existing = await api.fetchCompliance(propId).catch(() => [])
-          const byType = new Map(existing.map(e => [e.cert_type, e]))
+          const byType = new Map(existing.map(e => [canonicalCertType(e.cert_type), e]))
           for (const item of _compliance) {
-            const match = byType.get(item.cert_type)
+            const match = byType.get(canonicalCertType(item.cert_type))
             if (match) {
               // In-place update via Supabase client — no dedicated update
               // helper exists yet so use the raw client.
@@ -3045,7 +3065,7 @@ export default function App() {
                           ? `${bucketed.d30.length} renewing in 30 days · ${activeCount} active`
                           : `${activeCount} active ${activeCount === 1 ? 'policy' : 'policies'}`
                     return (
-                      <StatCard icon="shield-check" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent} onNavigate={()=>setView('insurance')} navLabel="Insurance"
+                      <StatCard icon="shield-check" label="Insurance Renewals" value={fmt(totalAnnual)} sub={sub} accent={accent} onNavigate={()=>{window.location.hash='#/compliance/insurance'}} navLabel="Insurance"
                         breakdown={[
                           ...(bucketed.expired.length > 0 ? [{label:`Expired (${bucketed.expired.length})`, value:fmt(sumP(bucketed.expired)), color:T.red, separator:true, note:'Policies past their expiry date. Renew immediately.'}] : []),
                           {label:'Next 30 days', value:fmt(sumP(bucketed.d30)), color:bucketed.d30.length > 0 ? T.amber : T.muted, note:`${bucketed.d30.length} ${bucketed.d30.length === 1 ? 'policy' : 'policies'} renewing this month`},
@@ -3245,7 +3265,7 @@ export default function App() {
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
               </div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                {[['properties','building','Properties'],['companies','grid','Companies'],['compliance','shield-check','Compliance'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
+                {[['properties','building','Properties'],['companies','grid','Companies'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
                   <button key={k} onClick={()=>setPortfolioTab(k)}
                     style={{display:'inline-flex',alignItems:'center',gap:6,fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                       border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
@@ -3257,7 +3277,9 @@ export default function App() {
               </div>
             </div>
             {portfolioTab==='companies'&&<CompaniesPanel companies={companies} setCompanies={setCompanies} user={user} showToast={showToast} companySettings={companySettings} setCompanySettings={setCompanySettings} T={T}/>}
-            {portfolioTab==='compliance'&&<ComplianceMatrix properties={properties} companies={companies} openDetail={(p)=>openDetail(p,'compliance')}/>}
+            {/* The Compliance matrix moved to the top-level Compliance page
+                (#/compliance/matrix); legacy #/properties/compliance links
+                are mapped across in parseHash. */}
             {portfolioTab==='contractors'&&<ContractorsPage user={user} companies={companies} showToast={showToast}/>}
             {portfolioTab==='map'&&<>
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
@@ -3357,7 +3379,7 @@ export default function App() {
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags} selectedReportId={selectedReportId} onSelectReport={setSelectedReportId}/></div>}
           {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
-          {view==='insurance'&&<div className="fade"><InsurancePage user={user} companies={companies} properties={activeProperties} showToast={showToast}/></div>}
+          {view==='compliance'&&<div className="fade"><CompliancePage user={user} companies={companies} properties={activeProperties} companySettings={companySettings} showToast={showToast} openDetail={(p)=>openDetail(p,'compliance')}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
           {view==='bulk-add'&&<BulkAddPropertyModal asPage
@@ -3566,7 +3588,7 @@ export default function App() {
                           <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Insurance</div>
                           <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>No policies cover this property yet.</div>
                         </div>
-                        <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setView('insurance')}>Add policy →</button>
+                        <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Add policy →</button>
                       </div>
                     )
                   }
@@ -3580,7 +3602,7 @@ export default function App() {
                         <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                           Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
                         </div>
-                        <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>setView('insurance')}>Manage →</button>
+                        <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Manage →</button>
                       </div>
                       <div style={{display:'grid',gap:6}}>
                         {sorted.map(pol => {
@@ -4100,99 +4122,8 @@ function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpda
     </div>
   </div>
 }
-// ─── COMPLIANCE MATRIX ───────────────────────────────────────────────────────
-// Portfolio-wide certificate matrix (redesign): RAG summary tiles + a
-// needs-attention list + a properties × cert-type grid. Reads each property's
-// compliance_items (same data as the per-property Compliance tab).
-const CERT_COLS = [['gas','Gas'],['eicr','EICR'],['epc','EPC'],['hmo','HMO'],['fire','Fire'],['pat','PAT']]
-// Matrix cell status — delegates to the shared classifier in complianceStatus.js
-// so the matrix and per-property surfaces can't diverge.
-const complianceCell = (p, key) => certTypeStatus(p, key)
-function ComplianceMatrix({ properties, companies, openDetail }) {
-  const { T } = useTheme()
-  const active = (properties || []).filter(p => p.status !== 'sold' && !p.archived_at)
-  let expired = 0, expiring = 0, valid = 0
-  active.forEach(p => CERT_COLS.forEach(([k]) => { const c = complianceCell(p, k); if (c.state === 'expired') expired++; else if (c.state === 'expiring') expiring++; else if (c.state === 'valid') valid++ }))
-  const attention = active.map(p => ({ p, issues: CERT_COLS.map(([k, lbl]) => ({ lbl, ...complianceCell(p, k) })).filter(c => c.state === 'expired' || c.state === 'expiring') }))
-    .filter(x => x.issues.length)
-    .sort((a, b) => Math.min(...a.issues.map(i => i.days)) - Math.min(...b.issues.map(i => i.days)))
-  const tiles = [{ l: 'Expired', v: expired, c: T.red }, { l: 'Expiring soon', v: expiring, c: T.amber }, { l: 'Valid', v: valid, c: T.green }]
-  const cellPill = (c) => {
-    if (c.state === 'missing') return <span style={{ color: T.faint, fontFamily: MONO, fontSize: 12 }}>—</span>
-    const map = { expired: [T.red, 'Expired'], expiring: [T.amber, `${c.days}d`], valid: [T.green, 'Valid'] }
-    const [col, txt] = map[c.state]
-    return <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 8px', borderRadius: 999, background: col + '1A', color: col, fontFamily: MONO, fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap' }}>{txt}</span>
-  }
-  const GRID = 'minmax(150px,1.4fr) repeat(6, minmax(58px,1fr))'
-  if (!active.length) return <div style={{ fontFamily: MONO, color: T.muted, fontSize: 12, padding: 32, textAlign: 'center' }}>No properties to track compliance for yet.</div>
-  const ordered = [...companies, { id: null }].flatMap(co => active.filter(p => p.company_id === co.id).map(p => ({ ...p, _co: co })))
-  return (
-    <div className="fade">
-      {/* RAG summary tiles */}
-      <div className="summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 18 }}>
-        {tiles.map(t => (
-          <div key={t.l} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '16px 18px' }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t.l}</div>
-            <div style={{ fontFamily: MONO, fontSize: 24, fontWeight: 500, color: t.c }}>{t.v}</div>
-          </div>
-        ))}
-      </div>
-      {/* Needs attention */}
-      {attention.length > 0 && (
-        <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>Needs attention</h2>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {attention.slice(0, 8).map(({ p, issues }) => (
-              <div key={p.id} className="card pcard" onClick={() => openDetail(p)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{p.name}</span>
-                <CompanyPill company={p.company} />
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
-                  {issues.map(i => (
-                    <span key={i.lbl} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: (i.state === 'expired' ? T.red : T.amber) + '1A', color: i.state === 'expired' ? T.red : T.amber, fontFamily: MONO, fontSize: 9, fontWeight: 700 }}>
-                      {i.lbl} {i.state === 'expired' ? 'expired' : `${i.days}d`}
-                    </span>
-                  ))}
-                </div>
-                <span style={{ fontFamily: MONO, fontSize: 11, color: T.gold, whiteSpace: 'nowrap' }}>Review →</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {/* Certificate matrix */}
-      <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 14, background: T.card }}>
-        <div style={{ minWidth: 640 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${T.border}`, position: 'sticky', top: 0, background: T.card }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Property</div>
-            {CERT_COLS.map(([k, l]) => <div key={k} style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>{l}</div>)}
-          </div>
-          {ordered.map((p, i) => {
-            const prev = i > 0 ? ordered[i - 1] : null
-            const showCo = !prev || prev.company_id !== p.company_id
-            return (
-              <div key={p.id}>
-                {showCo && p._co?.id && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
-                    <span style={{ width: 3, height: 14, borderRadius: 2, background: p._co.color || T.gold }} />
-                    <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: p._co.color || T.gold }}>{p._co.abbr}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{p._co.name}</span>
-                  </div>
-                )}
-                <div onClick={() => openDetail(p)} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
-                  <div style={{ minWidth: 0, paddingRight: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>
-                  </div>
-                  {CERT_COLS.map(([k]) => <div key={k} style={{ textAlign: 'center' }}>{cellPill(complianceCell(p, k))}</div>)}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
+// (ComplianceMatrix moved to components/CompliancePage.jsx — the matrix is
+// now a sub-view of the top-level Compliance page.)
 
 // ─── PROPERTY CARD GRID ──────────────────────────────────────────────────────
 // Redesign card grid (design/redesign-2026). An optional browse layout alongside

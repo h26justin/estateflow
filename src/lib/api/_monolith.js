@@ -40,7 +40,7 @@ export async function fetchProperties() {
   // without an extra round-trip per row.
   const { data, error } = await supabase
     .from('properties')
-    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,expiry_date,deleted_at), stl_bookings(id,rent_payment_id)')
+    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,issue_date,expiry_date,deleted_at), stl_bookings(id,rent_payment_id)')
     .is('deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
@@ -838,10 +838,13 @@ export function ukDateToISO(s) {
  * compliance_items row. Returns null if the doc isn't a recognisable cert
  * (no doc_type / no expiry_date).
  *
- * Maps DocumentsTab category codes to compliance cert types:
- *   gas      -> 'gas'   (Gas Safety Certificate)
- *   eicr     -> 'eicr'  (Electrical Installation Condition Report)
- *   epc      -> 'epc'   (Energy Performance Certificate)
+ * Maps DocumentsTab category codes to CANONICAL compliance cert types
+ * (see lib/complianceCatalogue.js — 'gas' the doc category becomes
+ * 'gas_safety' the cert_type; historical rows written as 'gas' still
+ * match via the catalogue's alias map):
+ *   gas      -> 'gas_safety' (Gas Safety Certificate)
+ *   eicr     -> 'eicr'       (Electrical Installation Condition Report)
+ *   epc      -> 'epc'        (Energy Performance Certificate)
  *   insurance-> 'insurance'
  */
 export function buildComplianceFromDoc(doc) {
@@ -850,15 +853,15 @@ export function buildComplianceFromDoc(doc) {
   const expiry = ukDateToISO(f.expiry_date || f.cover_end || f.valid_to)
   if (!expiry) return null
 
-  const certNames = {
-    gas:       'Gas Safety Certificate',
-    eicr:      'EICR',
-    epc:       'EPC',
-    insurance: 'Landlord Insurance',
+  const certByCategory = {
+    gas:       { cert_type: 'gas_safety', cert_name: 'Gas Safety (CP12)' },
+    eicr:      { cert_type: 'eicr',       cert_name: 'EICR' },
+    epc:       { cert_type: 'epc',        cert_name: 'EPC' },
+    insurance: { cert_type: 'insurance',  cert_name: 'Landlord Insurance' },
   }
-  const cert_type = doc.category
-  const cert_name = certNames[cert_type]
-  if (!cert_name) return null
+  const mapped = certByCategory[doc.category]
+  if (!mapped) return null
+  const { cert_type, cert_name } = mapped
 
   const issue = ukDateToISO(f.inspection_date || f.valid_from || f.cover_start)
   return {

@@ -10,6 +10,8 @@
 //   - Zero non-deleted compliance_items on a rented property     → missing
 //   - Otherwise                                                  → ok
 
+import { CATALOGUE_BY_KEY, canonicalCertType, requirementsForProperty } from './complianceCatalogue'
+
 // The "expiring soon" window (days). Exported so every compliance surface
 // (cards, matrix, dashboard alerts, reports) shares one threshold rather than
 // re-hardcoding 60 and silently drifting.
@@ -23,18 +25,95 @@ export function daysUntilDate(dateStr) {
   return Math.ceil((t - Date.now()) / 86_400_000)
 }
 
-// Status of ONE cert type for a property: the matrix-cell classifier. Shared so
-// the portfolio matrix and any future surface can't diverge from this logic.
-// Returns { state: 'missing' | 'expired' | 'expiring' | 'valid', days? }.
-export function certTypeStatus(property, certType) {
-  const items = (property?.compliance_items || []).filter(c => !c.deleted_at && c.cert_type === certType && c.expiry_date)
-  if (!items.length) return { state: 'missing' }
-  const latest = items.reduce((a, b) => new Date(b.expiry_date).getTime() > new Date(a.expiry_date).getTime() ? b : a)
-  const days = daysUntilDate(latest.expiry_date)
-  if (days === null) return { state: 'missing' }
+const addMonths = (dateStr, months) => {
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return null
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().slice(0, 10)
+}
+
+const classifyDays = (days) => {
   if (days <= 0) return { state: 'expired', days }      // expired today counts as expired
   if (days <= SOON_DAYS) return { state: 'expiring', days }
   return { state: 'valid', days }
+}
+
+// The date a compliance_items row is judged on. Usually expiry_date; for
+// check-date requirements (smoke/CO alarms — the row records when it was
+// last checked, not when it "expires") we derive a due date from issue_date
+// plus the requirement's cycle, so an old check goes red instead of the row
+// counting as missing forever.
+function effectiveExpiry(item, req) {
+  if (item.expiry_date) return item.expiry_date
+  if (req?.isCheck && req.cycleMonths && item.issue_date) return addMonths(item.issue_date, req.cycleMonths)
+  return null
+}
+
+// Status of ONE cert type for a property: the matrix-cell classifier. Shared so
+// the portfolio matrix and any future surface can't diverge from this logic.
+// Alias-aware: 'gas' rows satisfy a 'gas_safety' query and vice versa.
+// Returns { state: 'missing' | 'expired' | 'expiring' | 'valid', days? }.
+export function certTypeStatus(property, certType) {
+  const key = canonicalCertType(certType)
+  const req = CATALOGUE_BY_KEY[key] || { key }
+  const items = (property?.compliance_items || []).filter(c => !c.deleted_at && canonicalCertType(c.cert_type) === key)
+  if (!items.length) return { state: 'missing' }
+  const dates = items.map(c => effectiveExpiry(c, req)).filter(Boolean)
+  if (!dates.length) {
+    // Rows exist but carry no usable date — paperwork that doesn't expire
+    // (tenancy agreement, deposit certificate) counts as held; dated
+    // requirements without a date still read as missing.
+    return req.expiryOptional ? { state: 'valid', days: null } : { state: 'missing' }
+  }
+  const latest = dates.reduce((a, b) => new Date(b).getTime() > new Date(a).getTime() ? b : a)
+  const days = daysUntilDate(latest)
+  if (days === null) return { state: 'missing' }
+  return classifyDays(days)
+}
+
+// Insurance status for a property, from the insurance_policies register.
+// A policy covers a property when it belongs to the same company AND either
+// links to the property explicitly or has no property links (= company-wide).
+// Policies superseded by a renewal (another policy's previous_policy_id)
+// are ignored so an old expired year doesn't drag a renewed property red.
+export function insuranceStatusFor(property, policies) {
+  const all = policies || []
+  const superseded = new Set(all.map(p => p.previous_policy_id).filter(Boolean))
+  const covering = all.filter(pol => {
+    if (superseded.has(pol.id)) return false
+    if (pol.company_id !== property?.company_id) return false
+    const links = pol.properties || []
+    return links.length === 0 || links.some(l => l.id === property.id)
+  })
+  const dates = covering.map(p => p.expiry_date).filter(Boolean)
+  if (!dates.length) return { state: 'missing' }
+  const latest = dates.reduce((a, b) => new Date(b).getTime() > new Date(a).getTime() ? b : a)
+  const days = daysUntilDate(latest)
+  if (days === null) return { state: 'missing' }
+  return classifyDays(days)
+}
+
+// Status of one catalogue requirement for a property — routes insurance to
+// the policy register, everything else to compliance_items.
+export function requirementStatus(property, req, policies) {
+  if (req.group === 'insurance') return insuranceStatusFor(property, policies)
+  return certTypeStatus(property, req.key)
+}
+
+// Full rollup for an overview card: every tracked+applicable requirement
+// with its status, plus summary counts. `held` counts valid + expiring
+// (still in date today), so a score like "7/9 held" reads naturally.
+export function propertyComplianceSummary(property, companySettings, policies) {
+  const reqs = requirementsForProperty(property, companySettings)
+  const rows = reqs.map(req => ({ req, status: requirementStatus(property, req, policies) }))
+  let held = 0, expired = 0, expiring = 0, missing = 0
+  for (const r of rows) {
+    if (r.status.state === 'valid') held++
+    else if (r.status.state === 'expiring') { held++; expiring++ }
+    else if (r.status.state === 'expired') expired++
+    else missing++
+  }
+  return { rows, total: rows.length, held, expired, expiring, missing }
 }
 
 export function complianceStatusFor(property) {
