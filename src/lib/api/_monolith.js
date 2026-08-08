@@ -2229,18 +2229,12 @@ export async function fetchCompanyInboxToken(companyId) {
 }
 
 // Rotate the token (in case the address leaks / spam starts coming in).
-// Uses gen_random_bytes via a tiny RPC; falls back to client-side
-// random if the RPC isn't available.
+// Server-side RPC only: it owns the address format (<company-slug>-<key>)
+// and the owner/admin permission check. Returns the new token.
 export async function rotateCompanyInboxToken(companyId) {
-  // Generate 16 hex chars client-side — matches what the DB trigger
-  // does on insert. crypto.getRandomValues is good enough entropy.
-  const bytes = new Uint8Array(8)
-  crypto.getRandomValues(bytes)
-  const token = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
-  const { error } = await supabase.from('companies')
-    .update({ statement_email_token: token }).eq('id', companyId)
+  const { data, error } = await supabase.rpc('regenerate_statement_email_token', { p_company_id: companyId })
   if (error) throw error
-  return token
+  return data
 }
 
 export async function extendTrial(companyId, days) {
