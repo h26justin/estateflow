@@ -420,6 +420,93 @@ describe('buildPortfolioPnl', () => {
     expect(r.companies[0].rows[0].monthly).toEqual([0, 950])
   })
 
+  it('honours the include switches for fees, expenses, mortgage, and corporation tax', () => {
+    const args = {
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', managed_by_agent_id: 'ag1' }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 10_000 }],
+      expenses: [
+        { property_id: 'p1', category: 'repairs', amount: 1_000 },
+        { property_id: 'p1', category: 'mortgage', amount: 3_000 },
+        { property_id: 'p1', category: 'agent_fees', amount: 500 },
+      ],
+      agents: [{ id: 'ag1', name: 'LetCo', fee_percent: 10, vat_treatment: 'inc_vat' }],
+      months: 12,
+    }
+    // Fees off: no calculated fee AND the logged agent_fees cost is dropped.
+    const noFees = buildPortfolioPnl({ ...args, include: { managementFees: false } }).companies[0]
+    expect(noFees.rows[0].fees).toBe(0)
+    expect(noFees.rows[0].expenses).toBe(4_000)
+    expect(noFees.excludedAgentFeeExpenses).toBe(0)
+    // Mortgage off: only the mortgage category goes.
+    const noMortgage = buildPortfolioPnl({ ...args, include: { mortgage: false } }).companies[0]
+    expect(noMortgage.rows[0].expenses).toBe(1_000)
+    // Expenses off: everything logged goes, calculated fee stays.
+    const noExp = buildPortfolioPnl({ ...args, include: { expenses: false } }).companies[0]
+    expect(noExp.rows[0].expenses).toBe(0)
+    expect(noExp.rows[0].fees).toBe(1_000)
+    // CT off: post-tax equals pre-tax.
+    const noCt = buildPortfolioPnl({ ...args, include: { corporationTax: false } }).companies[0]
+    expect(noCt.totals.ct).toBe(0)
+    expect(noCt.corporationTax).toBeNull()
+    expect(noCt.totals.posttax).toBe(noCt.totals.pretax)
+  })
+
+  it('fills every void month to contract rent under fullOccupancy', () => {
+    const monthKeys = [{ m: 0, y: 2026 }, { m: 1, y: 2026 }, { m: 2, y: 2026 }]
+    const args = {
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [
+        // Rented but with gaps: Jan collected above contract, Feb short, Mar void.
+        { id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1_000 },
+        // Vacant all period — pure void.
+        { id: 'p2', name: 'Flat 2', company_id: 'cA', status: 'vacant', rent_pcm: 800 },
+      ],
+      payments: [
+        { property_id: 'p1', status: 'paid', amount: 1_200, year: 2026, month: 1 },
+        { property_id: 'p1', status: 'paid', amount: 400, year: 2026, month: 2 },
+      ],
+      months: 3, monthKeys,
+    }
+    const r = buildPortfolioPnl({ ...args, fullOccupancy: true })
+    const [p1, p2] = r.companies[0].rows
+    // Above-contract Jan kept; short Feb and void Mar floored to 1,000.
+    expect(p1.monthly).toEqual([1_200, 1_000, 1_000])
+    expect(p1.income).toBe(3_200)
+    // Vacant property earns its contract rent every month.
+    expect(p2.monthly).toEqual([800, 800, 800])
+    expect(p2.income).toBe(2_400)
+    expect(r.fullOccupancy).toBe(true)
+
+    // Off (default): actuals only, vacant earns nothing.
+    const off = buildPortfolioPnl(args)
+    expect(off.companies[0].rows[0].income).toBe(1_600)
+    expect(off.companies[0].rows[1].income).toBe(0)
+    expect(off.fullOccupancy).toBe(false)
+
+    // Ignored without monthKeys, like forecast.
+    const noKeys = buildPortfolioPnl({ ...args, monthKeys: null, fullOccupancy: true })
+    expect(noKeys.fullOccupancy).toBe(false)
+    expect(noKeys.companies[0].rows[0].income).toBe(1_600)
+  })
+
+  it('composes fullOccupancy with forecast (floor applies after future months fill)', () => {
+    const monthKeys = [{ m: 4, y: 2026 }, { m: 5, y: 2026 }, { m: 6, y: 2026 }]
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      // Vacant: plain forecast would give £0 in every month.
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'vacant', rent_pcm: 900 }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 100, year: 2026, month: 5 }],
+      months: 3, monthKeys,
+      forecast: { now: new Date('2026-06-15') },
+      fullOccupancy: true,
+    })
+    // May actual 100 → floored to 900; Jun/Jul forecast 0 (vacant) → floored.
+    expect(r.companies[0].rows[0].monthly).toEqual([900, 900, 900])
+    expect(r.forecast).toBe(true)
+    expect(r.fullOccupancy).toBe(true)
+  })
+
   it('uses expected rent in every month bucket when falling back', () => {
     const monthKeys = [{ m: 3, y: 2026 }, { m: 4, y: 2026 }]
     const r = buildPortfolioPnl({
@@ -491,6 +578,25 @@ describe('scalePortfolioPnl', () => {
     // Pass-through fields survive the reshape.
     expect(r.months).toBe(2)
     expect(r.monthFlags).toEqual([false, false])
+  })
+
+  it('applies dividend tax per company when bands are supplied', () => {
+    // Alpha whole-company posttax 8,100 → 50% share = 4,050; higher band
+    // 33.75% → 1,366.88 dividend tax → net 2,683.12.
+    const r = scalePortfolioPnl(base(), { cA: 50 }, { dividendTaxBands: { cA: 'higher' } })
+    const alpha = r.companies[0]
+    expect(alpha.totals.dividendTax).toBeCloseTo(1_366.88, 2)
+    expect(alpha.totals.posttax).toBeCloseTo(2_683.12, 2)
+    expect(alpha.rows[0].dividendTax).toBeCloseTo(1_366.88, 2)
+    expect(alpha.rows[0].posttax).toBeCloseTo(2_683.12, 2)
+    // Personal bucket untouched by dividend tax.
+    expect(r.companies[1].totals.dividendTax).toBe(0)
+    expect(r.grand.dividendTax).toBeCloseTo(1_366.88, 2)
+    expect(r.grand.posttax).toBeCloseTo(2_683.12 + 6_000, 2)
+    // No band map → no dividend tax (previous behaviour).
+    const plain = scalePortfolioPnl(base(), { cA: 50 })
+    expect(plain.companies[0].totals.dividendTax).toBe(0)
+    expect(plain.grand.dividendTax).toBe(0)
   })
 
   it('returns no blocks when the holder has no shares anywhere', () => {

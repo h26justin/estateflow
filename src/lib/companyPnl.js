@@ -166,6 +166,22 @@ export function aggregateShareholdersAcrossCompanies(entries = []) {
 // calculated fee config exists for the company (excludedAgentFeeExpenses
 // reports what was dropped).
 //
+// include — assumption switches, all default true:
+//   managementFees — calculated agent fees AND logged 'agent_fees' expenses
+//   expenses       — all logged property expenses
+//   mortgage       — the 'mortgage' expense category (subset of expenses)
+//   corporationTax — the per-company CT estimate (off → post-tax = pre-tax)
+//
+// fullOccupancy — assume no voids. Requires monthKeys (silently ignored
+// without). Every property's rent for every month bucket is raised to at
+// least its expected rent (rent_pcm) — vacant properties, void months,
+// and under-collected months are all filled to contract level, answering
+// "what would a full rental year bring in". Status is ignored on purpose
+// (a vacant property's missing rent is exactly the void being modelled);
+// months already collected above contract keep the higher actual.
+// Composes with forecast: forecast fills future months first, then the
+// occupancy floor applies to every bucket.
+//
 // forecast — { now: Date }, requires monthKeys (silently ignored without).
 // Projects the position to the end of the period: month buckets before
 // `now`'s month keep actuals, buckets after it use each earning property's
@@ -180,12 +196,16 @@ export function buildPortfolioPnl({
   months = 12, monthKeys = null, associatedCompanies = 1,
   isEarningRent = (p) => p?.status === 'rented',
   forecast = null,
+  include = {},
+  fullOccupancy = false,
 } = {}) {
   const round2 = n => Math.round(n * 100) / 100
   const agentById = new Map(agents.map(a => [a.id, a]))
   const nMonths = monthKeys ? monthKeys.length : months
   const forecastOn = !!(forecast?.now && monthKeys)
+  const fullOccOn = !!(fullOccupancy && monthKeys)
   const nowKey = forecastOn ? forecast.now.getFullYear() * 12 + forecast.now.getMonth() : 0
+  const inc = { managementFees: true, expenses: true, mortgage: true, corporationTax: true, ...include }
 
   const entries = companies.map(c => ({ id: c.id, name: c.name || 'Company', personal: false }))
   if (properties.some(p => !p.company_id)) {
@@ -202,6 +222,7 @@ export function buildPortfolioPnl({
 
     const hasPaid = cPays.some(r => r?.status === 'paid')
     const feeRateFor = (p) => {
+      if (!inc.managementFees) return 0
       const a = p.managed_by_agent_id && agentById.get(p.managed_by_agent_id)
       if (!a || !(Number(a.fee_percent) > 0)) return 0
       return (Number(a.fee_percent) / 100) * ((a.vat_treatment || 'ex_vat') === 'ex_vat' ? 1.2 : 1)
@@ -232,8 +253,15 @@ export function buildPortfolioPnl({
     const expByProp = new Map(), expByPropMonth = new Map()
     for (const e of cExps) {
       const amt = Number(e?.amount) || 0
-      if (!amt) continue
-      if (hasCalcFees && (e?.category || 'other') === 'agent_fees') { excludedAgentFeeExpenses += amt; continue }
+      if (!amt || !inc.expenses) continue
+      const cat = e?.category || 'other'
+      if (!inc.mortgage && cat === 'mortgage') continue
+      if (cat === 'agent_fees') {
+        // Fees toggled off drops logged agent-fee costs too; fees on keeps
+        // the existing rule (calculated fee lines replace logged ones).
+        if (!inc.managementFees) continue
+        if (hasCalcFees) { excludedAgentFeeExpenses += amt; continue }
+      }
       expByProp.set(e.property_id, (expByProp.get(e.property_id) || 0) + amt)
       if (monthKeys && e.date) {
         const d = new Date(e.date)
@@ -252,21 +280,27 @@ export function buildPortfolioPnl({
       if (monthKeys) {
         const rents = monthKeys.map(({ m, y }) => {
           const actual = hasPaid ? (paidByPropMonth.get(`${p.id}|${y}-${m}`) || 0) : fallbackRent
-          if (!forecastOn) return actual
-          const k = y * 12 + m
-          if (k > nowKey) return fallbackRent
-          if (k === nowKey) return Math.max(actual, fallbackRent)
-          return actual
+          let rent = actual
+          if (forecastOn) {
+            const k = y * 12 + m
+            if (k > nowKey) rent = fallbackRent
+            else if (k === nowKey) rent = Math.max(actual, fallbackRent)
+          }
+          // No-voids floor: every bucket earns at least the contract rent,
+          // regardless of status — see fullOccupancy doc above.
+          if (fullOccOn) rent = Math.max(rent, Number(p.rent_pcm) || 0)
+          return rent
         })
         monthly = rents.map((rent, i) => {
           const { m, y } = monthKeys[i]
           const mExp = expByPropMonth.get(`${p.id}|${y}-${m}`) || 0
           return round2(rent - mExp - rent * feeRate)
         })
-        // Forecast totals MUST be the sum of the buckets (that's the whole
-        // projection); actuals keep the raw period total so legacy payment
-        // rows that can't be month-bucketed still count.
-        income = forecastOn
+        // Projected totals MUST be the sum of the buckets (that's the whole
+        // point of forecast / full-occupancy); actuals keep the raw period
+        // total so legacy payment rows that can't be month-bucketed still
+        // count.
+        income = (forecastOn || fullOccOn)
           ? rents.reduce((s, v) => s + v, 0)
           : (hasPaid ? (paidByProp.get(p.id) || 0) : fallbackRent * nMonths)
       } else {
@@ -281,7 +315,7 @@ export function buildPortfolioPnl({
     const tExp = rows.reduce((s, r) => s + r.expenses, 0)
     const tFees = rows.reduce((s, r) => s + r.fees, 0)
     const tPretax = tIncome - tExp - tFees
-    const ct = entry.personal ? null : ukCorporationTax(Math.max(0, tPretax), { associatedCompanies })
+    const ct = (entry.personal || !inc.corporationTax) ? null : ukCorporationTax(Math.max(0, tPretax), { associatedCompanies })
     const ctTax = ct ? ct.tax : 0
 
     // Apportion CT to properties pro-rata on positive pre-tax profit.
@@ -321,6 +355,7 @@ export function buildPortfolioPnl({
   return {
     months: nMonths, companies: blocks, grand,
     forecast: forecastOn,
+    fullOccupancy: fullOccOn,
     // Which month buckets contain forecast (not purely actual) figures —
     // the current month and everything after it.
     monthFlags: monthKeys ? monthKeys.map(({ m, y }) => forecastOn && (y * 12 + m) >= nowKey) : null,
@@ -334,35 +369,52 @@ export function buildPortfolioPnl({
 // points (e.g. { cA: 75 }); companies with no entry (or 0%) are DROPPED,
 // the personally-held bucket is kept at personalPercent (default 100).
 // The scaled ct is the holder's share of the company's corporation tax.
-// Dividend tax is NOT applied — post-tax figures are the profit share
-// before personal dividend tax (the Company P&L report models that).
 // Grand totals are recomputed over the surviving blocks. Pure reshape:
 // months / forecast / monthFlags pass through untouched.
-export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent = 100 } = {}) {
+//
+// dividendTaxBands — optional company_id → tax band ('basic' | 'higher' |
+// 'additional') for the holder. When given, dividend tax is estimated on
+// each company's positive scaled post-tax share (flat band rate, same
+// caveats as the Company P&L report), apportioned to properties pro-rata
+// on positive post-tax, and subtracted from posttax; the amounts surface
+// as row.dividendTax / totals.dividendTax / grand.dividendTax. Companies
+// with no band entry (and the personally-held bucket) are left untaxed.
+// Without the option, post-tax figures are before personal dividend tax.
+export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent = 100, dividendTaxBands = null } = {}) {
   const round2 = n => Math.round(n * 100) / 100
   const companies = []
   for (const b of result.companies) {
     const pct = b.personal ? personalPercent : (Number(pctByCompanyId[b.id]) || 0)
     if (!(pct > 0)) continue
     const f = pct / 100
-    companies.push({
-      ...b,
-      sharePercent: pct,
-      excludedAgentFeeExpenses: round2(b.excludedAgentFeeExpenses * f),
-      rows: b.rows.map(r => ({
-        ...r,
-        income: round2(r.income * f), expenses: round2(r.expenses * f),
-        fees: round2(r.fees * f), pretax: round2(r.pretax * f),
-        ctShare: round2(r.ctShare * f), posttax: round2(r.posttax * f),
-        monthly: r.monthly ? r.monthly.map(v => round2(v * f)) : null,
-      })),
-      totals: {
-        income: round2(b.totals.income * f), expenses: round2(b.totals.expenses * f),
-        fees: round2(b.totals.fees * f), pretax: round2(b.totals.pretax * f),
-        ct: round2(b.totals.ct * f), posttax: round2(b.totals.posttax * f),
-        monthly: b.totals.monthly ? b.totals.monthly.map(v => round2(v * f)) : null,
-      },
-    })
+    const rows = b.rows.map(r => ({
+      ...r,
+      income: round2(r.income * f), expenses: round2(r.expenses * f),
+      fees: round2(r.fees * f), pretax: round2(r.pretax * f),
+      ctShare: round2(r.ctShare * f), posttax: round2(r.posttax * f),
+      dividendTax: 0,
+      monthly: r.monthly ? r.monthly.map(v => round2(v * f)) : null,
+    }))
+    const totals = {
+      income: round2(b.totals.income * f), expenses: round2(b.totals.expenses * f),
+      fees: round2(b.totals.fees * f), pretax: round2(b.totals.pretax * f),
+      ct: round2(b.totals.ct * f), posttax: round2(b.totals.posttax * f),
+      dividendTax: 0,
+      monthly: b.totals.monthly ? b.totals.monthly.map(v => round2(v * f)) : null,
+    }
+    const band = !b.personal && dividendTaxBands ? dividendTaxBands[b.id] : null
+    const dt = band ? dividendTax(Math.max(0, totals.posttax), band) : 0
+    if (dt > 0) {
+      const pos = rows.reduce((s, r) => s + Math.max(0, r.posttax), 0)
+      for (const r of rows) {
+        const share = pos > 0 ? round2(dt * (Math.max(0, r.posttax) / pos)) : 0
+        r.dividendTax = share
+        r.posttax = round2(r.posttax - share)
+      }
+      totals.dividendTax = dt
+      totals.posttax = round2(totals.posttax - dt)
+    }
+    companies.push({ ...b, sharePercent: pct, excludedAgentFeeExpenses: round2(b.excludedAgentFeeExpenses * f), rows, totals })
   }
   const sum = k => round2(companies.reduce((s, b) => s + b.totals[k], 0))
   return {
@@ -372,6 +424,7 @@ export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent
     grand: {
       income: sum('income'), expenses: sum('expenses'), fees: sum('fees'),
       pretax: sum('pretax'), ct: sum('ct'), posttax: sum('posttax'),
+      dividendTax: sum('dividendTax'),
       monthly: result.grand.monthly
         ? result.grand.monthly.map((_, i) => round2(companies.reduce((s, b) => s + (b.totals.monthly?.[i] || 0), 0)))
         : null,
