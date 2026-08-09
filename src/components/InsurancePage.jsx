@@ -63,8 +63,9 @@ export default function InsurancePage({ user, companies = [], properties = [], s
   const [coFilter, setCoFilter] = useState('all')
   const [view, setView]         = useState('by_property')  // 'by_property' | 'active' | 'expiring' | 'expired' | 'all' | 'history'
   const [historyChainId, setHistoryChainId] = useState(null)
+  // Renewals reuse `editing` — handleRenew pre-fills it with the next year's
+  // dates and an _isRenewal flag, so there is no separate renewal state.
   const [editing, setEditing]   = useState(null)          // policy being edited, or {} for new
-  const [renewing, setRenewing] = useState(null)          // policy being renewed (snapshot for the modal)
   // When the user clicks a property with multiple policies, we show a small
   // picker rather than opening one of them by guesswork. Tracks the property
   // whose picker is open; null means no picker showing.
@@ -125,7 +126,6 @@ export default function InsurancePage({ user, companies = [], properties = [], s
         showToast('Policy created')
       }
       setEditing(null)
-      setRenewing(null)
       await reload()
     } catch (e) {
       showToast(e.message || 'Save failed', 'error')

@@ -19,8 +19,8 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { MONO } from '../lib/styles'
 import InsurancePage from './InsurancePage'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, requirementsForProperty, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
-import { requirementStatus, propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
+import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -295,7 +295,6 @@ export default function CompliancePage({ user, companies = [], properties = [], 
   // Portfolio matrix behaviour).
   const active = useMemo(() => (properties || []).filter(p => p.status !== 'sold' && !p.archived_at), [properties])
   const filtered = coFilter === 'all' ? active : active.filter(p => p.company_id === coFilter)
-  const coById = Object.fromEntries(companies.map(c => [c.id, c]))
 
   // Portfolio-level summary tiles for the overview.
   const totals = useMemo(() => {

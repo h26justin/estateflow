@@ -425,10 +425,14 @@ serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
   const authHeader = req.headers.get('Authorization') || ''
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: { user } } = await userClient.auth.getUser()
+
+  // Verify the token explicitly (the pattern proven by lodgify-sync et al —
+  // no-arg getUser() on a session-less server client is unreliable). The
+  // per-action helpers below build their own service-role clients.
+  const token = authHeader.replace('Bearer ', '')
+  const { data: userData } = await createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+    .auth.getUser(token)
+  const user = userData?.user
   if (!user) return json({ error: 'Unauthorised' }, 401)
 
   let body: any = {}

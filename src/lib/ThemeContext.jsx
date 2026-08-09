@@ -21,11 +21,19 @@ import { supabase } from './supabase'
 //   LIGHT  gold  is an accent / button-fill, never body text (2.7:1 — as before)
 //   DARK   text  #E8E5DD on #0E141A → 14.7:1  ✓ AAA
 //   DARK   muted #9AA6B0 on #0E141A →  7.5:1  ✓ AA
-//   DARK   faint #6E7681 on #0E141A →  4.0:1  ✓ AA Large only — keep faint
-//                                              reserved for >=18pt copy
+//   DARK   faint #8A939E on #0E141A →  6.0:1  ✓ AA  (was #6E7681 → 4.0:1 on bg but
+//                                              only 3.4:1 on card — and it is used
+//                                              at 9–12px throughout, so the "large
+//                                              text" 3:1 allowance never applied)
+//
+// Dark neutrals are quoted against the *worst* background, card #1B242D, not bg —
+// bg flatters by ~0.6:1 and card is what most panels actually sit on:
+//   DARK   text  #E8E5DD on #1B242D → 12.5:1  ✓ AAA
+//   DARK   muted #9AA6B0 on #1B242D →  6.3:1  ✓ AA
+//   DARK   faint #8A939E on #1B242D →  5.1:1  ✓ AA
 export const DARK = {
   bg:'#0E141A', surface:'#151D25', card:'#1B242D', border:'#28333D',
-  text:'#E8E5DD', muted:'#9AA6B0', faint:'#6E7681',
+  text:'#E8E5DD', muted:'#9AA6B0', faint:'#8A939E',
   gold:'#CBA64E', green:'#34C281', red:'#E06A5E', blue:'#5B9BD8', amber:'#E2A24A', purple:'#9B59B6',
 }
 

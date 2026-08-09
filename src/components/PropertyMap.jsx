@@ -465,8 +465,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
               style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: T.text, fontFamily: mono, fontSize: 12, padding: '6px 0', minWidth: 0 }}/>
             {searchQ && (
               <button onClick={() => setSearchQ('')}
-                aria-label="Clear search"
-                aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '8px' , margin: '-8px -4px'}}>×</button>
+                aria-label="Clear search" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '8px' , margin: '-8px -4px'}}>×</button>
             )}
           </div>
         )}
@@ -495,7 +494,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                 <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                   {popupProp.company?.abbr || ''}
                 </div>
-                <button onClick={() => setPopupProp(null)} aria-label="Close"
+                <button onClick={() => setPopupProp(null)}
                   aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{popupProp.name}</div>
@@ -552,7 +551,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                   <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                     Building · {sorted.length} {sorted.length === 1 ? 'property' : 'properties'}
                   </div>
-                  <button onClick={() => setPopupGroup(null)} aria-label="Close"
+                  <button onClick={() => setPopupGroup(null)}
                     aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{buildingLabel}</div>

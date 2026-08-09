@@ -234,7 +234,6 @@ export default function TenantReferenceModal({ property, onClose }) {
                     }}>{STATUS_LABEL[r.status] || r.status}</span>
                   </div>
                   <button onClick={() => remove(r.id)}
-                    aria-label="Delete"
                     aria-label="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 14, padding: 8, margin: -4 }}>×</button>
                 </div>
               ))}
