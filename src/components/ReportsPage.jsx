@@ -114,7 +114,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [rentPayments, setRentPayments] = useState([])
   const [expenses, setExpenses]       = useState([])
   const [shareholders, setShareholders] = useState([])
-  const [agentFees, setAgentFees]     = useState([])
+  const [agents, setAgents]           = useState([])
   const [loading, setLoading]         = useState(false)
   const [dataLoaded, setDataLoaded]   = useState(false)
   const [loadErrors, setLoadErrors]   = useState([])
@@ -133,7 +133,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
       { label: 'rent payments', fetch: () => api.fetchAllRentPayments(user.id),    set: setRentPayments },
       { label: 'expenses',      fetch: () => api.fetchAllExpenses(user.id),        set: setExpenses },
       { label: 'shareholders',  fetch: () => api.fetchAllShareholders(),           set: setShareholders },
-      { label: 'agent fees',    fetch: () => api.fetchAllAgentFees(),              set: setAgentFees },
+      { label: 'agents',        fetch: () => api.fetchEstateAgents(),              set: setAgents },
     ]
     const results = await Promise.allSettled(sources.map(s => s.fetch()))
     const failed = []
@@ -361,7 +361,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             </select>
           )}
           <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}
-            extras={{ shareholders, agentFees, companies, selectedCompany, user }}/>
+            extras={{ shareholders, agents, companies, selectedCompany, user }}/>
         </div>
       </div>
 
@@ -376,14 +376,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
       {errorBanner}
       {loading && <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonRows rows={6}/></div>}
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
-        shareholders={shareholders} agentFees={agentFees} companies={companies} selectedCompany={selectedCompany} user={user}/>}
+        shareholders={shareholders} agents={agents} companies={companies} selectedCompany={selectedCompany} user={user}/>}
     </div>
   )
 }
 
 // ── REPORT BODY ROUTER ────────────────────────────────────────────────────────
-function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }) {
-  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }
+function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user }) {
+  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user }
   const map = {
     pnl: <ReportPnL {...props}/>,
     company_pnl: <ReportCompanyPnL {...props}/>,
@@ -575,12 +575,12 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
 // is a no-op when a single company is selected and does the per-company
 // scoping when called from the all-companies view.
 function computeCompanyPnl(companyId, filtProps, filtExp, filtRent, range, extras) {
-  const { shareholders = [], agentFees = [], companies = [] } = extras || {}
+  const { shareholders = [], agents = [], companies = [] } = extras || {}
   return buildCompanyPnl({
     properties: filtProps.filter(p => p.company_id === companyId),
     payments: filtRent.filter(r => r.property?.company_id === companyId),
     expenses: filtExp.filter(e => e.property?.company_id === companyId),
-    feeConfigs: agentFees.filter(f => f.company_id === companyId),
+    agents,
     shareholders: shareholders.filter(s => s.company_id === companyId),
     months: monthsInRange(range.start, range.end),
     // Companies under one login are treated as associated for the CT
@@ -633,7 +633,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const rows = [
         ['Rental income' + (pnl.income.usedFallback ? ' (expected — no payment data)' : ' (collected)'), fmt(pnl.income.rentCollected)],
         ...pnl.expenseCategories.map(c => [c.label, fmt(-c.amount)]),
-        ...pnl.managementFees.map(f => [`Management fee — ${f.agentName} (${f.feePercent}%${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''})`, fmt(-f.amount)]),
+        ...pnl.managementFees.map(f => [`Management fee — ${f.agentName} (${f.feePercent}%${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''}, ${f.propertyCount} ${f.propertyCount === 1 ? 'property' : 'properties'})`, fmt(-f.amount)]),
         ['Total expenses', fmt(-pnl.totalExpenses)],
         ['Operating profit', fmt(pnl.operatingProfit)],
         [`Corporation tax (est., ${(pnl.corporationTax.effectiveRate * 100).toFixed(1)}%)`, fmt(-pnl.corporationTax.tax)],
@@ -1366,8 +1366,8 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
 // "All companies" selected it becomes a personal-income summary: your net
 // share of every company, side by side, with the monthly total that answers
 // "what do I actually take home each month".
-function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }) {
-  const extras = { shareholders, agentFees, companies, selectedCompany, user }
+function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user }) {
+  const extras = { shareholders, agents, companies, selectedCompany, user }
   const months = monthsInRange(range.start, range.end)
 
   const disclaimer = (
@@ -1457,7 +1457,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
     [{v:'Less operating expenses', bold:true}, ''],
     ...pnl.expenseCategories.map(c => [c.label, {v:fmt(-c.amount), color:T.red}]),
     ...pnl.managementFees.map(f => [
-      `Management fee — ${f.agentName} (${f.feePercent}% of rent${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''})`,
+      `Management fee — ${f.agentName} (${f.feePercent}% of rent${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''}, ${f.propertyCount} ${f.propertyCount === 1 ? 'property' : 'properties'})`,
       {v:fmt(-f.amount), color:T.red},
     ]),
     ['Total expenses', {v:fmt(-pnl.totalExpenses), color:T.red, bold:true}],

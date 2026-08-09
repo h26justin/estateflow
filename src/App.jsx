@@ -2221,7 +2221,7 @@ export default function App() {
               ))}
               {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
             </div>
-            <CompanyOwnershipSection company={c} user={user} T={T} showToast={showToast}
+            <CompanyOwnershipSection company={c} properties={cProps} user={user} T={T} showToast={showToast}
               canEdit={canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive}/>
           </div>
         })}

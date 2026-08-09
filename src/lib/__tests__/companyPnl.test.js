@@ -74,56 +74,84 @@ describe('buildCompanyPnl', () => {
     { id: 's2', name: 'Partner', percentage: 25, tax_band: null },
   ]
 
-  it('computes the full pipeline with calculated management fees', () => {
+  const agents = [
+    { id: 'a1', name: 'Propertunity', fee_percent: 10, vat_treatment: 'ex_vat' },
+    { id: 'a2', name: 'RMS Letting', fee_percent: 7, vat_treatment: 'inc_vat' },
+    { id: 'a3', name: 'No Fee Agent', fee_percent: null, vat_treatment: 'ex_vat' },
+  ]
+
+  it('computes the full pipeline with per-agency management fees', () => {
     const r = buildCompanyPnl({
+      properties: [
+        { id: 'p1', status: 'rented', rent_pcm: 3_000, managed_by_agent_id: 'a1' },
+        { id: 'p2', status: 'rented', rent_pcm: 1_500, managed_by_agent_id: 'a2' },
+        { id: 'p3', status: 'rented', rent_pcm: 1_000 }, // self-managed — no fee
+        { id: 'p4', status: 'rented', rent_pcm: 500, managed_by_agent_id: 'a3' }, // agent without a fee set
+      ],
       payments: [
-        { status: 'paid', amount: 60_000 },
-        { status: 'overdue', amount: 5_000 }, // ignored
+        { property_id: 'p1', status: 'paid', amount: 40_000 },
+        { property_id: 'p2', status: 'paid', amount: 20_000 },
+        { property_id: 'p1', status: 'overdue', amount: 5_000 }, // ignored
       ],
       expenses: [
         { category: 'repairs', amount: 4_000 },
         { category: 'insurance', amount: 1_000 },
         { category: 'agent_fees', amount: 3_000 }, // excluded — calculated fee replaces it
       ],
-      feeConfigs: [
-        { fee_percent: 10, vat_treatment: 'inc_vat', agent: { name: 'Acme Lettings' } },
-        { fee_percent: 5, vat_treatment: 'ex_vat', agent: { name: 'Other Agent' } },
-      ],
-      shareholders, months: 12,
+      agents, shareholders, months: 12,
     })
 
     expect(r.income.rentCollected).toBe(60_000)
     expect(r.income.usedFallback).toBe(false)
-    // 10% inc VAT = 6,000; 5% ex VAT = 3,000 × 1.2 = 3,600
-    expect(r.totalManagementFees).toBe(9_600)
+    // Propertunity: 10% of p1's £40k + 20% VAT = £4,800.
+    // RMS: 7% of p2's £20k, VAT-inclusive = £1,400. p3/p4 contribute nothing.
+    const prop = r.managementFees.find(f => f.agentName === 'Propertunity')
+    expect(prop.amount).toBe(4_800)
+    expect(prop.propertyCount).toBe(1)
+    expect(r.managementFees.find(f => f.agentName === 'RMS Letting').amount).toBe(1_400)
+    expect(r.managementFees).toHaveLength(2)
+    expect(r.totalManagementFees).toBe(6_200)
     expect(r.excludedAgentFeeExpenses).toBe(3_000)
     expect(r.totalOperatingExpenses).toBe(5_000)
-    expect(r.totalExpenses).toBe(14_600)
-    expect(r.operatingProfit).toBe(45_400)
+    expect(r.totalExpenses).toBe(11_200)
+    expect(r.operatingProfit).toBe(48_800)
     // Below £50k → 19%
-    expect(r.corporationTax.tax).toBeCloseTo(8_626, 2)
-    expect(r.profitAfterTax).toBeCloseTo(36_774, 2)
+    expect(r.corporationTax.tax).toBeCloseTo(9_272, 2)
+    expect(r.profitAfterTax).toBeCloseTo(39_528, 2)
 
     const justin = r.shareholders.find(s => s.name === 'Justin')
-    expect(justin.share).toBeCloseTo(27_580.5, 2)
-    expect(justin.dividendTax).toBeCloseTo(9_308.42, 2)
-    expect(justin.net).toBeCloseTo(18_272.08, 2)
-    expect(justin.netMonthly).toBeCloseTo(1_522.67, 2)
+    expect(justin.share).toBeCloseTo(29_646, 2)
+    expect(justin.dividendTax).toBeCloseTo(10_005.53, 1)
+    expect(justin.net).toBeCloseTo(19_640.47, 1)
+    expect(justin.netMonthly).toBeCloseTo(1_636.71, 1)
 
     const partner = r.shareholders.find(s => s.name === 'Partner')
     expect(partner.dividendTax).toBeNull()
-    expect(partner.net).toBeCloseTo(9_193.5, 2)
+    expect(partner.net).toBeCloseTo(9_882, 2)
 
     expect(r.ownershipTotal).toBe(100)
   })
 
-  it('keeps logged agent_fees expenses when no fee configs exist', () => {
+  it('applies agency fees to expected rent when no payments exist', () => {
     const r = buildCompanyPnl({
-      payments: [{ status: 'paid', amount: 10_000 }],
+      properties: [{ id: 'p1', status: 'rented', rent_pcm: 1_000, managed_by_agent_id: 'a1' }],
+      payments: [], agents, shareholders: [], months: 12,
+    })
+    expect(r.income.rentCollected).toBe(12_000)
+    expect(r.income.usedFallback).toBe(true)
+    // 10% of £12k + VAT = £1,440
+    expect(r.totalManagementFees).toBe(1_440)
+  })
+
+  it('keeps logged agent_fees expenses when no property has a fee-bearing agent', () => {
+    const r = buildCompanyPnl({
+      properties: [{ id: 'p1', status: 'rented', rent_pcm: 1_000 }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 10_000 }],
       expenses: [{ category: 'agent_fees', amount: 1_000 }],
-      feeConfigs: [], shareholders: [], months: 12,
+      agents, shareholders: [], months: 12,
     })
     expect(r.excludedAgentFeeExpenses).toBe(0)
+    expect(r.totalManagementFees).toBe(0)
     expect(r.totalOperatingExpenses).toBe(1_000)
     expect(r.expenseCategories[0].label).toBe('Agent / Management Fees')
   })
