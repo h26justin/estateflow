@@ -327,6 +327,58 @@ export function buildPortfolioPnl({
   }
 }
 
+// ── Scale a portfolio P&L to one shareholder's slice ───────────────────────
+// Takes a buildPortfolioPnl result and multiplies every figure in each
+// company block by that shareholder's percentage — "what's MY position",
+// not the whole company's. pctByCompanyId maps company_id → percentage
+// points (e.g. { cA: 75 }); companies with no entry (or 0%) are DROPPED,
+// the personally-held bucket is kept at personalPercent (default 100).
+// The scaled ct is the holder's share of the company's corporation tax.
+// Dividend tax is NOT applied — post-tax figures are the profit share
+// before personal dividend tax (the Company P&L report models that).
+// Grand totals are recomputed over the surviving blocks. Pure reshape:
+// months / forecast / monthFlags pass through untouched.
+export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent = 100 } = {}) {
+  const round2 = n => Math.round(n * 100) / 100
+  const companies = []
+  for (const b of result.companies) {
+    const pct = b.personal ? personalPercent : (Number(pctByCompanyId[b.id]) || 0)
+    if (!(pct > 0)) continue
+    const f = pct / 100
+    companies.push({
+      ...b,
+      sharePercent: pct,
+      excludedAgentFeeExpenses: round2(b.excludedAgentFeeExpenses * f),
+      rows: b.rows.map(r => ({
+        ...r,
+        income: round2(r.income * f), expenses: round2(r.expenses * f),
+        fees: round2(r.fees * f), pretax: round2(r.pretax * f),
+        ctShare: round2(r.ctShare * f), posttax: round2(r.posttax * f),
+        monthly: r.monthly ? r.monthly.map(v => round2(v * f)) : null,
+      })),
+      totals: {
+        income: round2(b.totals.income * f), expenses: round2(b.totals.expenses * f),
+        fees: round2(b.totals.fees * f), pretax: round2(b.totals.pretax * f),
+        ct: round2(b.totals.ct * f), posttax: round2(b.totals.posttax * f),
+        monthly: b.totals.monthly ? b.totals.monthly.map(v => round2(v * f)) : null,
+      },
+    })
+  }
+  const sum = k => round2(companies.reduce((s, b) => s + b.totals[k], 0))
+  return {
+    ...result,
+    scaled: true,
+    companies,
+    grand: {
+      income: sum('income'), expenses: sum('expenses'), fees: sum('fees'),
+      pretax: sum('pretax'), ct: sum('ct'), posttax: sum('posttax'),
+      monthly: result.grand.monthly
+        ? result.grand.monthly.map((_, i) => round2(companies.reduce((s, b) => s + (b.totals.monthly?.[i] || 0), 0)))
+        : null,
+    },
+  }
+}
+
 // ── Main aggregator ────────────────────────────────────────────────────────
 
 // Inputs (all pre-filtered to ONE company and the reporting period):
