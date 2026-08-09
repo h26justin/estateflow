@@ -143,6 +143,190 @@ export function aggregateShareholdersAcrossCompanies(entries = []) {
   return groups.sort((a, b) => b.totalNet - a.totalNet)
 }
 
+// ── Full portfolio P&L (per company → per property) ───────────────────────
+// Xero-style long-list P&L: every company, then every property under it,
+// each with income − expenses − management fee = pre-tax profit. The
+// company's corporation tax estimate is apportioned back to properties
+// pro-rata on their share of POSITIVE pre-tax profit (loss-makers carry no
+// tax), giving a per-unit post-tax figure. Properties with no company_id
+// group under a "personally held" bucket with no CT (personal income tax
+// is not modelled).
+//
+// Attribution is by property_id membership (not the payment/expense's own
+// company join) so property rows always sum exactly to their company block.
+//
+// monthKeys — optional ordered [{m,y}] calendar buckets (0-based month).
+// When given, every property/company/grand row also carries a `monthly`
+// array of pre-tax net per bucket, and `months` should equal
+// monthKeys.length so the expected-rent fallback stays consistent.
+//
+// Same income posture as buildCompanyPnl: actually-collected rent, with the
+// expected-rent fallback applied PER COMPANY when that company has no paid
+// payment rows at all. Logged 'agent_fees' expenses are excluded wherever a
+// calculated fee config exists for the company (excludedAgentFeeExpenses
+// reports what was dropped).
+//
+// forecast — { now: Date }, requires monthKeys (silently ignored without).
+// Projects the position to the end of the period: month buckets before
+// `now`'s month keep actuals, buckets after it use each earning property's
+// expected rent (rent_pcm), and `now`'s own month takes whichever is
+// higher (rent may simply not have landed yet — but an above-contract
+// collection is never discarded). Management fees follow the forecast rent;
+// expenses stay as logged (future costs aren't invented). Result rows sum
+// their monthly buckets so totals and cells always reconcile, and the root
+// carries monthFlags marking which buckets contain forecast figures.
+export function buildPortfolioPnl({
+  companies = [], properties = [], payments = [], expenses = [], agents = [],
+  months = 12, monthKeys = null, associatedCompanies = 1,
+  isEarningRent = (p) => p?.status === 'rented',
+  forecast = null,
+} = {}) {
+  const round2 = n => Math.round(n * 100) / 100
+  const agentById = new Map(agents.map(a => [a.id, a]))
+  const nMonths = monthKeys ? monthKeys.length : months
+  const forecastOn = !!(forecast?.now && monthKeys)
+  const nowKey = forecastOn ? forecast.now.getFullYear() * 12 + forecast.now.getMonth() : 0
+
+  const entries = companies.map(c => ({ id: c.id, name: c.name || 'Company', personal: false }))
+  if (properties.some(p => !p.company_id)) {
+    entries.push({ id: null, name: 'Personally held (no company)', personal: true })
+  }
+
+  const blocks = []
+  for (const entry of entries) {
+    const cProps = properties.filter(p => (p.company_id || null) === entry.id)
+    if (!cProps.length) continue
+    const propIds = new Set(cProps.map(p => p.id))
+    const cPays = payments.filter(r => propIds.has(r.property_id))
+    const cExps = expenses.filter(e => propIds.has(e.property_id))
+
+    const hasPaid = cPays.some(r => r?.status === 'paid')
+    const feeRateFor = (p) => {
+      const a = p.managed_by_agent_id && agentById.get(p.managed_by_agent_id)
+      if (!a || !(Number(a.fee_percent) > 0)) return 0
+      return (Number(a.fee_percent) / 100) * ((a.vat_treatment || 'ex_vat') === 'ex_vat' ? 1.2 : 1)
+    }
+    const hasCalcFees = cProps.some(p => feeRateFor(p) > 0)
+
+    // Pre-bucket paid rent and included expenses by property (and month).
+    // Month comes from the year/month columns, falling back to
+    // period_start for legacy rows that predate them.
+    const paidByProp = new Map(), paidByPropMonth = new Map()
+    for (const r of cPays) {
+      if (r?.status !== 'paid') continue
+      const amt = Number(r.amount) || 0
+      paidByProp.set(r.property_id, (paidByProp.get(r.property_id) || 0) + amt)
+      if (monthKeys) {
+        let y = r.year, m0 = r.month ? r.month - 1 : null
+        if ((y == null || m0 == null) && r.period_start) {
+          const d = new Date(r.period_start)
+          if (!isNaN(d)) { y = d.getFullYear(); m0 = d.getMonth() }
+        }
+        if (y != null && m0 != null) {
+          const k = `${r.property_id}|${y}-${m0}`
+          paidByPropMonth.set(k, (paidByPropMonth.get(k) || 0) + amt)
+        }
+      }
+    }
+    let excludedAgentFeeExpenses = 0
+    const expByProp = new Map(), expByPropMonth = new Map()
+    for (const e of cExps) {
+      const amt = Number(e?.amount) || 0
+      if (!amt) continue
+      if (hasCalcFees && (e?.category || 'other') === 'agent_fees') { excludedAgentFeeExpenses += amt; continue }
+      expByProp.set(e.property_id, (expByProp.get(e.property_id) || 0) + amt)
+      if (monthKeys && e.date) {
+        const d = new Date(e.date)
+        if (!isNaN(d)) {
+          const k = `${e.property_id}|${d.getFullYear()}-${d.getMonth()}`
+          expByPropMonth.set(k, (expByPropMonth.get(k) || 0) + amt)
+        }
+      }
+    }
+
+    const rows = cProps.map(p => {
+      const fallbackRent = isEarningRent(p) ? (Number(p.rent_pcm) || 0) : 0
+      const exp = expByProp.get(p.id) || 0
+      const feeRate = feeRateFor(p)
+      let income, monthly = null
+      if (monthKeys) {
+        const rents = monthKeys.map(({ m, y }) => {
+          const actual = hasPaid ? (paidByPropMonth.get(`${p.id}|${y}-${m}`) || 0) : fallbackRent
+          if (!forecastOn) return actual
+          const k = y * 12 + m
+          if (k > nowKey) return fallbackRent
+          if (k === nowKey) return Math.max(actual, fallbackRent)
+          return actual
+        })
+        monthly = rents.map((rent, i) => {
+          const { m, y } = monthKeys[i]
+          const mExp = expByPropMonth.get(`${p.id}|${y}-${m}`) || 0
+          return round2(rent - mExp - rent * feeRate)
+        })
+        // Forecast totals MUST be the sum of the buckets (that's the whole
+        // projection); actuals keep the raw period total so legacy payment
+        // rows that can't be month-bucketed still count.
+        income = forecastOn
+          ? rents.reduce((s, v) => s + v, 0)
+          : (hasPaid ? (paidByProp.get(p.id) || 0) : fallbackRent * nMonths)
+      } else {
+        income = hasPaid ? (paidByProp.get(p.id) || 0) : fallbackRent * nMonths
+      }
+      const fees = income * feeRate
+      const pretax = income - exp - fees
+      return { id: p.id, name: p.name, income, expenses: exp, fees, pretax, monthly }
+    })
+
+    const tIncome = rows.reduce((s, r) => s + r.income, 0)
+    const tExp = rows.reduce((s, r) => s + r.expenses, 0)
+    const tFees = rows.reduce((s, r) => s + r.fees, 0)
+    const tPretax = tIncome - tExp - tFees
+    const ct = entry.personal ? null : ukCorporationTax(Math.max(0, tPretax), { associatedCompanies })
+    const ctTax = ct ? ct.tax : 0
+
+    // Apportion CT to properties pro-rata on positive pre-tax profit.
+    const sumPositive = rows.reduce((s, r) => s + Math.max(0, r.pretax), 0)
+    for (const r of rows) {
+      r.ctShare = round2(sumPositive > 0 ? ctTax * (Math.max(0, r.pretax) / sumPositive) : 0)
+      r.posttax = round2(r.pretax - r.ctShare)
+      r.income = round2(r.income); r.expenses = round2(r.expenses)
+      r.fees = round2(r.fees); r.pretax = round2(r.pretax)
+    }
+
+    blocks.push({
+      id: entry.id, name: entry.name, personal: entry.personal,
+      usedFallback: !hasPaid, excludedAgentFeeExpenses: round2(excludedAgentFeeExpenses),
+      rows,
+      totals: {
+        income: round2(tIncome), expenses: round2(tExp), fees: round2(tFees),
+        pretax: round2(tPretax), ct: round2(ctTax), posttax: round2(tPretax - ctTax),
+        monthly: monthKeys ? monthKeys.map((_, i) => round2(rows.reduce((s, r) => s + r.monthly[i], 0))) : null,
+      },
+      corporationTax: ct,
+    })
+  }
+
+  const grand = {
+    income: round2(blocks.reduce((s, b) => s + b.totals.income, 0)),
+    expenses: round2(blocks.reduce((s, b) => s + b.totals.expenses, 0)),
+    fees: round2(blocks.reduce((s, b) => s + b.totals.fees, 0)),
+    pretax: round2(blocks.reduce((s, b) => s + b.totals.pretax, 0)),
+    ct: round2(blocks.reduce((s, b) => s + b.totals.ct, 0)),
+    posttax: round2(blocks.reduce((s, b) => s + b.totals.posttax, 0)),
+    monthly: monthKeys
+      ? monthKeys.map((_, i) => round2(blocks.reduce((s, b) => s + (b.totals.monthly?.[i] || 0), 0)))
+      : null,
+  }
+
+  return {
+    months: nMonths, companies: blocks, grand,
+    forecast: forecastOn,
+    // Which month buckets contain forecast (not purely actual) figures —
+    // the current month and everything after it.
+    monthFlags: monthKeys ? monthKeys.map(({ m, y }) => forecastOn && (y * 12 + m) >= nowKey) : null,
+  }
+}
+
 // ── Main aggregator ────────────────────────────────────────────────────────
 
 // Inputs (all pre-filtered to ONE company and the reporting period):
