@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
@@ -6,6 +6,7 @@ import { useConfirm } from '../../lib/ConfirmContext'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
 import { HEATING_TYPES, LICENSING_SCHEMES, canonicalCertType } from '../../lib/complianceCatalogue'
 import { showAppToast } from '../../lib/toast'
+import { fetchEstateAgents } from '../../lib/api/ownership'
 import FocusTrap from '../../lib/FocusTrap'
 import { MONO } from '../../lib/styles'
 
@@ -42,7 +43,7 @@ export const COMPLIANCE_PROMPTS = [
 export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
-  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',mortgage_product_end_date:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',
+  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',mortgage_product_end_date:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',managed_by_agent_id:'',
     // Compliance dates (form-only — extracted into compliance_items rows
     // by handleSaveProp). When editing an existing property we pre-fill
     // from any compliance_items rows that already exist for the matching
@@ -74,6 +75,11 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     ? { ...blank, ...prop, ...compPrefill, company_id: prop.company_id || prop.company?.id || '', mortgage_rate: prop.mortgage_rate ? (prop.mortgage_rate*100).toFixed(2) : '' }
     : (prop ? { ...blank, ...prop } : blank)
   const [form, setForm] = useState(initialForm)
+  // Managing-agent directory for the "Managed By" picker. Fees live on the
+  // agency (Companies tab), so picking the agent here is all a property
+  // needs for the Company P&L fee calculation.
+  const [agents, setAgents] = useState([])
+  useEffect(() => { fetchEstateAgents().then(setAgents).catch(() => {}) }, [])
   const [snapshot] = useState(initialForm)
   const isDirty = isFormDirty(snapshot, form)
   const s = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -164,6 +170,8 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       heating_type: clean.heating_type || null,
       licensing_scheme: clean.licensing_scheme || null,
       is_hmo: !!clean.is_hmo,
+      managed_by_agent_id: clean.managed_by_agent_id || null,
+      managed_by: clean.managed_by_agent_id ? (agents.find(a=>a.id===clean.managed_by_agent_id)?.name || clean.managed_by || null) : (clean.managed_by || null),
       _compliance: compliancePayload,
       ...cashOverride,
     })
@@ -193,7 +201,16 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           {triedSave && !form.address && <span id="pm-address-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
         </div>
         <div className="g2"><div><label htmlFor="pm-prop-type">Property Type</label><input id="pm-prop-type" value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label htmlFor="pm-status">Status</label><select id="pm-status" value={form.status} onChange={e=>s('status',e.target.value)}>{PROPERTY_STATUSES.map(x=><option key={x} value={x}>{PROPERTY_STATUS_LABELS[x]}</option>)}</select></div></div>
-        <div><label htmlFor="pm-managed-by">Managed By</label><input id="pm-managed-by" value={form.managed_by||''} onChange={e=>s('managed_by',e.target.value)} placeholder="e.g. Propertunity, Rook Matthews Sayer"/></div>
+        <div><label htmlFor="pm-managed-by">Managed By</label>
+          <select id="pm-managed-by" value={form.managed_by_agent_id||''} onChange={e=>{
+            const agent = agents.find(a=>a.id===e.target.value)
+            setForm(f=>({ ...f, managed_by_agent_id: e.target.value, managed_by: agent ? agent.name : f.managed_by }))
+          }}>
+            <option value="">Self-managed / none</option>
+            {agents.map(a=><option key={a.id} value={a.id}>{a.name}{a.fee_percent!=null?` — ${Number(a.fee_percent)}%${a.vat_treatment==='ex_vat'?' + VAT':''}`:''}</option>)}
+          </select>
+          {!form.managed_by_agent_id && form.managed_by && <div style={{fontFamily:MONO,fontSize:10,opacity:0.7,marginTop:4}}>Previously: “{form.managed_by}” — pick the agent above to link fees.</div>}
+        </div>
 
         <Section title="Purchase & costs" T={T} />
         <div className="g2"><div><label htmlFor="pm-purchase-price">Purchase Price</label><MoneyInput id="pm-purchase-price" prefix="£" value={form.purchase_price} onChange={v=>s('purchase_price',v)}/></div><div><label htmlFor="pm-est-value">Estimated Value</label><MoneyInput id="pm-est-value" prefix="£" value={form.est_value} onChange={v=>s('est_value',v)}/></div></div>

@@ -1,10 +1,14 @@
 // Company ownership + estate-agent management fees.
 //
-// Three small tables (2026-08-09_company_ownership_agents.sql):
+// Two tables (2026-08-09_company_ownership_agents.sql, reshaped by
+// 2026-08-09_agent_fees_on_agents.sql):
 //   company_shareholders — name-based cap table per company; optional soft
 //                          link to an auth user via user_id/email
-//   estate_agents        — per-account directory of letting/managing agents
-//   company_agent_fees   — % of rent collected each company pays each agent
+//   estate_agents        — directory of letting/managing agents carrying the
+//                          agency's standard fee (fee_percent + vat_treatment).
+//                          Properties link to their agent via
+//                          properties.managed_by_agent_id, so changing an
+//                          agency's fee updates every property it manages.
 //
 // RLS scopes reads to companies the caller can access, so the fetchAll*
 // variants need no explicit filter — they return rows for every accessible
@@ -65,10 +69,10 @@ export async function fetchEstateAgents() {
   return data || []
 }
 
-export async function addEstateAgent({ name, contactName = null, email = null, phone = null, notes = null }) {
+export async function addEstateAgent({ name, feePercent = null, vatTreatment = 'ex_vat', contactName = null, email = null, phone = null, notes = null }) {
   const me = (await supabase.auth.getUser()).data.user
   const { data, error } = await supabase.from('estate_agents')
-    .insert({ user_id: me.id, name, contact_name: contactName, email, phone, notes })
+    .insert({ user_id: me.id, name, fee_percent: feePercent, vat_treatment: vatTreatment, contact_name: contactName, email, phone, notes })
     .select().single()
   if (error) throw error
   return data
@@ -86,38 +90,15 @@ export async function deleteEstateAgent(id) {
   if (error) throw error
 }
 
-// ── Company ↔ agent fees ─────────────────────────────────────────────────
+// ── Property ↔ managing agent ────────────────────────────────────────────
 
-export async function fetchAgentFees(companyId) {
-  const { data, error } = await supabase.from('company_agent_fees')
-    .select('*, agent:estate_agents(id,name,email,phone)')
-    .eq('company_id', companyId)
-    .order('created_at')
-  if (error) throw error
-  return data || []
-}
-
-export async function fetchAllAgentFees() {
-  const { data, error } = await supabase.from('company_agent_fees')
-    .select('*, agent:estate_agents(id,name,email,phone)')
-    .order('created_at')
-  if (error) throw error
-  return data || []
-}
-
-export async function upsertAgentFee({ companyId, agentId, feePercent, vatTreatment = 'inc_vat', notes = null }) {
-  const me = (await supabase.auth.getUser()).data.user
-  const { data, error } = await supabase.from('company_agent_fees')
-    .upsert(
-      { company_id: companyId, agent_id: agentId, fee_percent: feePercent, vat_treatment: vatTreatment, notes, created_by: me?.id || null },
-      { onConflict: 'company_id,agent_id' }
-    )
-    .select('*, agent:estate_agents(id,name,email,phone)').single()
+export async function setPropertyManagingAgent(propertyId, agentId, agentName = null) {
+  // Keeps the legacy free-text managed_by in step with the FK so older
+  // screens still show the right name.
+  const patch = { managed_by_agent_id: agentId || null }
+  if (agentName != null) patch.managed_by = agentName || null
+  const { data, error } = await supabase.from('properties')
+    .update(patch).eq('id', propertyId).select('id, managed_by, managed_by_agent_id').single()
   if (error) throw error
   return data
-}
-
-export async function deleteAgentFee(id) {
-  const { error } = await supabase.from('company_agent_fees').delete().eq('id', id)
-  if (error) throw error
 }

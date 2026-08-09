@@ -93,19 +93,72 @@ export function findViewerShareholder(shareholders, user) {
     || null
 }
 
+// ── Cross-company shareholder aggregation ─────────────────────────────────
+// Links the same person's shareholder rows across companies and totals
+// their holdings. Rows are considered the same person when they share a
+// linked user account, an email (case-insensitive), or failing both an
+// exact name (case-insensitive) — identifiers accumulate as rows join a
+// group, so a row with user_id+email links a later email-only row.
+//
+// entries: [{ companyName, shareholders }] where shareholders is the
+// buildCompanyPnl output (camelCase: userId, email, name, percentage,
+// net, netMonthly).
+//
+// Returns one row per person, sorted by total net income:
+//   { name, userId, email, holdings: [{ company, percentage, net,
+//     netMonthly }], companiesCount, totalPercent, totalNet, totalMonthly }
+// totalPercent is the SUM of percentage points across companies (e.g.
+// 75% + 50% + 100% = 225 points over 3 companies) — a size-of-footprint
+// figure, not a weighted average.
+export function aggregateShareholdersAcrossCompanies(entries = []) {
+  const index = new Map()
+  const groups = []
+  for (const { companyName, shareholders = [] } of entries) {
+    for (const s of shareholders) {
+      const ids = [
+        s.userId ? `u:${s.userId}` : null,
+        s.email ? `e:${String(s.email).toLowerCase().trim()}` : null,
+        s.name ? `n:${String(s.name).toLowerCase().trim()}` : null,
+      ].filter(Boolean)
+      let g = ids.map(i => index.get(i)).find(Boolean)
+      if (!g) {
+        g = { name: s.name, userId: null, email: null, holdings: [], totalPercent: 0, totalNet: 0, totalMonthly: 0 }
+        groups.push(g)
+      }
+      ids.forEach(i => index.set(i, g))
+      if (!g.userId && s.userId) g.userId = s.userId
+      if (!g.email && s.email) g.email = s.email
+      g.holdings.push({ company: companyName, percentage: s.percentage, net: s.net, netMonthly: s.netMonthly })
+      g.totalPercent += Number(s.percentage) || 0
+      g.totalNet += Number(s.net) || 0
+      g.totalMonthly += Number(s.netMonthly) || 0
+    }
+  }
+  for (const g of groups) {
+    g.companiesCount = g.holdings.length
+    g.totalPercent = Math.round(g.totalPercent * 100) / 100
+    g.totalNet = Math.round(g.totalNet * 100) / 100
+    g.totalMonthly = Math.round(g.totalMonthly * 100) / 100
+  }
+  return groups.sort((a, b) => b.totalNet - a.totalNet)
+}
+
 // ── Main aggregator ────────────────────────────────────────────────────────
 
 // Inputs (all pre-filtered to ONE company and the reporting period):
-//   properties   — the company's properties (for the expected-rent fallback)
-//   payments     — rent_payments rows in range
+//   properties   — the company's properties (fallback rent + agent links
+//                  via managed_by_agent_id)
+//   payments     — rent_payments rows in range (property_id attributes rent
+//                  to the right managing agent)
 //   expenses     — property_expenses rows in range
-//   feeConfigs   — company_agent_fees rows (joined agent name on .agent.name)
+//   agents       — estate_agents rows (fee_percent + vat_treatment live on
+//                  the AGENCY, so one change flows portfolio-wide)
 //   shareholders — company_shareholders rows
 //   months       — months the period spans (for monthly averages)
 //   associatedCompanies — total companies under common control (CT limits)
 //   isEarningRent — predicate for the fallback (defaults to status check)
 export function buildCompanyPnl({
-  properties = [], payments = [], expenses = [], feeConfigs = [],
+  properties = [], payments = [], expenses = [], agents = [],
   shareholders = [], months = 12, associatedCompanies = 1,
   isEarningRent = (p) => p?.status === 'rented',
 } = {}) {
@@ -116,24 +169,44 @@ export function buildCompanyPnl({
     ? payments.filter(r => r?.status === 'paid').reduce((s, r) => s + (Number(r.amount) || 0), 0)
     : properties.filter(p => isEarningRent(p)).reduce((s, p) => s + (Number(p.rent_pcm) || 0) * months, 0)
 
-  // Management fees — calculated from each agent's % of rent collected.
-  // 'ex_vat' adds 20% VAT on top (fee %s quoted ex VAT cost more in cash).
-  const managementFees = feeConfigs.map(f => {
-    const pct = Number(f.fee_percent) || 0
-    const gross = rentCollected * (pct / 100) * (f.vat_treatment === 'ex_vat' ? 1.2 : 1)
-    return {
-      agentName: f.agent?.name || 'Agent',
-      feePercent: pct,
-      vatTreatment: f.vat_treatment || 'inc_vat',
-      amount: Math.round(gross * 100) / 100,
+  // Per-property rent, for attributing income to each managing agent.
+  const paidByProperty = {}
+  if (hasPaid) {
+    for (const r of payments) {
+      if (r?.status !== 'paid') continue
+      paidByProperty[r.property_id] = (paidByProperty[r.property_id] || 0) + (Number(r.amount) || 0)
     }
-  })
+  }
+  const rentForProperty = (p) => hasPaid
+    ? (paidByProperty[p.id] || 0)
+    : (isEarningRent(p) ? (Number(p.rent_pcm) || 0) * months : 0)
+
+  // Management fees — each agency's fee % applied to the rent of the
+  // properties it manages. 'ex_vat' adds 20% VAT on top (fees quoted
+  // "X% plus VAT" cost more in cash).
+  const agentById = new Map(agents.map(a => [a.id, a]))
+  const byAgent = new Map()
+  for (const p of properties) {
+    const a = p.managed_by_agent_id && agentById.get(p.managed_by_agent_id)
+    if (!a || !(Number(a.fee_percent) > 0)) continue
+    let g = byAgent.get(a.id)
+    if (!g) {
+      g = { agentName: a.name || 'Agent', feePercent: Number(a.fee_percent), vatTreatment: a.vat_treatment || 'ex_vat', rentBase: 0, propertyCount: 0 }
+      byAgent.set(a.id, g)
+    }
+    g.rentBase += rentForProperty(p)
+    g.propertyCount++
+  }
+  const managementFees = [...byAgent.values()].map(g => ({
+    ...g,
+    amount: Math.round(g.rentBase * (g.feePercent / 100) * (g.vatTreatment === 'ex_vat' ? 1.2 : 1) * 100) / 100,
+  })).sort((a, b) => b.amount - a.amount)
   const totalManagementFees = managementFees.reduce((s, f) => s + f.amount, 0)
 
-  // Operating expenses by category. When calculated fee configs exist,
-  // logged 'agent_fees' expenses are excluded (the calculated line replaces
+  // Operating expenses by category. When calculated fees exist, logged
+  // 'agent_fees' expenses are excluded (the calculated line replaces
   // them) — surfaced via excludedAgentFeeExpenses so the UI can say so.
-  const hasCalculatedFees = feeConfigs.length > 0
+  const hasCalculatedFees = managementFees.length > 0
   let excludedAgentFeeExpenses = 0
   const byCategory = {}
   for (const e of expenses) {

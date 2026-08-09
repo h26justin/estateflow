@@ -7,7 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
-import { buildCompanyPnl, monthsInRange, findViewerShareholder } from '../lib/companyPnl'
+import { buildCompanyPnl, monthsInRange, findViewerShareholder, aggregateShareholdersAcrossCompanies } from '../lib/companyPnl'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
@@ -114,7 +114,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [rentPayments, setRentPayments] = useState([])
   const [expenses, setExpenses]       = useState([])
   const [shareholders, setShareholders] = useState([])
-  const [agentFees, setAgentFees]     = useState([])
+  const [agents, setAgents]           = useState([])
   const [loading, setLoading]         = useState(false)
   const [dataLoaded, setDataLoaded]   = useState(false)
   const [loadErrors, setLoadErrors]   = useState([])
@@ -133,7 +133,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
       { label: 'rent payments', fetch: () => api.fetchAllRentPayments(user.id),    set: setRentPayments },
       { label: 'expenses',      fetch: () => api.fetchAllExpenses(user.id),        set: setExpenses },
       { label: 'shareholders',  fetch: () => api.fetchAllShareholders(),           set: setShareholders },
-      { label: 'agent fees',    fetch: () => api.fetchAllAgentFees(),              set: setAgentFees },
+      { label: 'agents',        fetch: () => api.fetchEstateAgents(),              set: setAgents },
     ]
     const results = await Promise.allSettled(sources.map(s => s.fetch()))
     const failed = []
@@ -361,7 +361,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             </select>
           )}
           <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}
-            extras={{ shareholders, agentFees, companies, selectedCompany, user }}/>
+            extras={{ shareholders, agents, companies, selectedCompany, user }}/>
         </div>
       </div>
 
@@ -376,14 +376,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
       {errorBanner}
       {loading && <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonRows rows={6}/></div>}
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
-        shareholders={shareholders} agentFees={agentFees} companies={companies} selectedCompany={selectedCompany} user={user}/>}
+        shareholders={shareholders} agents={agents} companies={companies} selectedCompany={selectedCompany} user={user}/>}
     </div>
   )
 }
 
 // ── REPORT BODY ROUTER ────────────────────────────────────────────────────────
-function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }) {
-  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }
+function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user }) {
+  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user }
   const map = {
     pnl: <ReportPnL {...props}/>,
     company_pnl: <ReportCompanyPnL {...props}/>,
@@ -575,12 +575,12 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
 // is a no-op when a single company is selected and does the per-company
 // scoping when called from the all-companies view.
 function computeCompanyPnl(companyId, filtProps, filtExp, filtRent, range, extras) {
-  const { shareholders = [], agentFees = [], companies = [] } = extras || {}
+  const { shareholders = [], agents = [], companies = [] } = extras || {}
   return buildCompanyPnl({
     properties: filtProps.filter(p => p.company_id === companyId),
     payments: filtRent.filter(r => r.property?.company_id === companyId),
     expenses: filtExp.filter(e => e.property?.company_id === companyId),
-    feeConfigs: agentFees.filter(f => f.company_id === companyId),
+    agents,
     shareholders: shareholders.filter(s => s.company_id === companyId),
     months: monthsInRange(range.start, range.end),
     // Companies under one login are treated as associated for the CT
@@ -606,12 +606,26 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
           return { name: c.name, pat: pnl.profitAfterTax, pct: viewer?.percentage || 0, net: viewer?.net || 0, monthly: viewer?.netMonthly || 0 }
         })
         const tNet = rows.reduce((s, r) => s + r.net, 0), tMonthly = rows.reduce((s, r) => s + r.monthly, 0)
+        // Cross-company portfolio totals per shareholder, appended below the
+        // per-company rows (the PDF/CSV renderers take a single table).
+        const portfolio = aggregateShareholdersAcrossCompanies(companies.map(c => ({
+          companyName: c.name,
+          shareholders: computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras).shareholders,
+        })))
         return {
           title: 'Company P&L & Profit Share', note: COMPANY_PNL_NOTE,
           kpis: [['Your income (period, after tax)', fmt(tNet)], ['Your monthly average', fmt(tMonthly)], ['Companies', companies.length.toString()]],
           headers: ['Company', 'Profit after tax', 'Your %', 'Your share (net)', 'Your monthly'],
-          rows: rows.map(r => [r.name, fmt(r.pat), r.pct ? fmtPct(r.pct, 2) : '—', fmt(r.net), fmt(r.monthly)]),
-          totals: ['Total', '', '', fmt(tNet), fmt(tMonthly)],
+          rows: [
+            ...rows.map(r => [r.name, fmt(r.pat), r.pct ? fmtPct(r.pct, 2) : '—', fmt(r.net), fmt(r.monthly)]),
+            ...(portfolio.length ? [['— Shareholder portfolio totals —', '', '', '', '']] : []),
+            ...portfolio.map(g => [
+              `${g.name} (${g.companiesCount} ${g.companiesCount === 1 ? 'company' : 'companies'})`,
+              g.holdings.map(h => `${h.company} ${h.percentage}%`).join(' · '),
+              `${g.totalPercent.toFixed(2)} pts`, fmt(g.totalNet), fmt(g.totalMonthly),
+            ]),
+          ],
+          totals: ['Total (you)', '', '', fmt(tNet), fmt(tMonthly)],
         }
       }
       const pnl = computeCompanyPnl(selectedCompany, filtProps, filtExp, filtRent, range, extras)
@@ -619,7 +633,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const rows = [
         ['Rental income' + (pnl.income.usedFallback ? ' (expected — no payment data)' : ' (collected)'), fmt(pnl.income.rentCollected)],
         ...pnl.expenseCategories.map(c => [c.label, fmt(-c.amount)]),
-        ...pnl.managementFees.map(f => [`Management fee — ${f.agentName} (${f.feePercent}%${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''})`, fmt(-f.amount)]),
+        ...pnl.managementFees.map(f => [`Management fee — ${f.agentName} (${f.feePercent}%${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''}, ${f.propertyCount} ${f.propertyCount === 1 ? 'property' : 'properties'})`, fmt(-f.amount)]),
         ['Total expenses', fmt(-pnl.totalExpenses)],
         ['Operating profit', fmt(pnl.operatingProfit)],
         [`Corporation tax (est., ${(pnl.corporationTax.effectiveRate * 100).toFixed(1)}%)`, fmt(-pnl.corporationTax.tax)],
@@ -1352,8 +1366,8 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
 // "All companies" selected it becomes a personal-income summary: your net
 // share of every company, side by side, with the monthly total that answers
 // "what do I actually take home each month".
-function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }) {
-  const extras = { shareholders, agentFees, companies, selectedCompany, user }
+function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user }) {
+  const extras = { shareholders, agents, companies, selectedCompany, user }
   const months = monthsInRange(range.start, range.end)
 
   const disclaimer = (
@@ -1399,6 +1413,31 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           ])}
           totals={['Total', '', '', {v:fmt(tNet),color:tNet>=0?T.green:T.red}, {v:fmt(tMonthly),color:accent}]}
         />
+        {(() => {
+          const portfolio = aggregateShareholdersAcrossCompanies(rows.map(({c, pnl}) => ({ companyName: c.name, shareholders: pnl.shareholders })))
+          if (!portfolio.length) return null
+          const isViewer = g => g.userId === user?.id || (g.email && user?.email && g.email.toLowerCase() === user.email.toLowerCase())
+          return (
+            <>
+              <SectionTitle title="Shareholder portfolio overview — all companies" T={T}/>
+              <ReportTable T={T} accent={accent}
+                headers={[{label:'Shareholder'},{label:'Holdings'},{label:'Combined %',right:true,width:'110px'},{label:'Net income (period)',right:true,width:'150px'},{label:'Per month',right:true,width:'110px'}]}
+                rows={portfolio.map(g => [
+                  isViewer(g) ? {v:`${g.name} (you)`, bold:true} : g.name,
+                  {v:g.holdings.map(h => `${h.company} ${Number(h.percentage).toFixed(h.percentage % 1 ? 2 : 0)}%`).join(' · '), color:T.muted},
+                  {v:`${g.totalPercent.toFixed(2)} pts`, color:accent, bold:true},
+                  {v:fmt(g.totalNet), color:g.totalNet>=0?T.green:T.red, bold:true},
+                  {v:fmt(g.totalMonthly), color:accent, bold:true},
+                ])}
+              />
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.7}}>
+                Rows link the same person across companies by linked login, then email, then exact name — use the
+                same email on each company's shareholder entry to keep holdings connected. "Combined %" sums
+                percentage points across companies (e.g. 75% + 50% = 125 pts), so it can exceed 100.
+              </div>
+            </>
+          )
+        })()}
         <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:12}}>
           Select a single company above for its full P&L and every shareholder's split.
         </div>
@@ -1418,7 +1457,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
     [{v:'Less operating expenses', bold:true}, ''],
     ...pnl.expenseCategories.map(c => [c.label, {v:fmt(-c.amount), color:T.red}]),
     ...pnl.managementFees.map(f => [
-      `Management fee — ${f.agentName} (${f.feePercent}% of rent${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''})`,
+      `Management fee — ${f.agentName} (${f.feePercent}% of rent${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''}, ${f.propertyCount} ${f.propertyCount === 1 ? 'property' : 'properties'})`,
       {v:fmt(-f.amount), color:T.red},
     ]),
     ['Total expenses', {v:fmt(-pnl.totalExpenses), color:T.red, bold:true}],

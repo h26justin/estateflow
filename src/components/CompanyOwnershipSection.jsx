@@ -1,13 +1,16 @@
-// Ownership & management fees — rendered per company inside the
+// Ownership & managing agents — rendered per company inside the
 // Portfolio → Companies tab (CompaniesPanel in App.jsx).
 //
 // Two cards:
 //   1. Shareholders — the company's cap table. Name-based (shareholders
 //      don't need an app account), optional email + dividend tax band.
-//      Warns when percentages don't sum to 100.
-//   2. Management fees — which estate agents this company pays, and the
-//      fee % of rent collected. Agents live in a per-account directory
-//      shared across companies; the fee % is per (company, agent).
+//      Name/email/% all edit inline. Warns when percentages don't sum
+//      to 100.
+//   2. Managing Agents — the estate-agent directory with each agency's
+//      standard fee (% of rent collected, inc/ex VAT). Fees live on the
+//      AGENCY: change once here and it applies to every property that
+//      agency manages, across the whole portfolio. Properties pick their
+//      agent in the property form ("Managed By").
 //
 // Data feeds the "Company P&L & Profit Share" report (ReportsPage).
 
@@ -27,7 +30,7 @@ function CardShell({ title, sub, T, children, action }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{title}</div>
-          {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2 }}>{sub}</div>}
+          {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2, maxWidth: 560, lineHeight: 1.6 }}>{sub}</div>}
         </div>
         {action}
       </div>
@@ -36,18 +39,17 @@ function CardShell({ title, sub, T, children, action }) {
   )
 }
 
-export default function CompanyOwnershipSection({ company, user, canEdit, T, showToast }) {
+export default function CompanyOwnershipSection({ company, properties = [], user, canEdit, T, showToast }) {
   const [shareholders, setShareholders] = useState([])
   const [agents, setAgents] = useState([])
-  const [fees, setFees] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Add-shareholder form
   const [showShForm, setShowShForm] = useState(false)
   const [shForm, setShForm] = useState({ name: '', email: '', percentage: '', taxBand: '' })
-  // Add-fee form
-  const [showFeeForm, setShowFeeForm] = useState(false)
-  const [feeForm, setFeeForm] = useState({ agentId: '', newAgentName: '', feePercent: '', vatTreatment: 'inc_vat' })
+  // Add-agent form
+  const [showAgForm, setShowAgForm] = useState(false)
+  const [agForm, setAgForm] = useState({ name: '', feePercent: '', vatTreatment: 'ex_vat' })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { load() }, [company.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -55,15 +57,12 @@ export default function CompanyOwnershipSection({ company, user, canEdit, T, sho
   async function load() {
     setLoading(true)
     try {
-      const [sh, ag, fe] = await Promise.all([
+      const [sh, ag] = await Promise.all([
         api.fetchShareholders(company.id),
         api.fetchEstateAgents(),
-        api.fetchAgentFees(company.id),
       ])
-      setShareholders(sh); setAgents(ag); setFees(fe)
+      setShareholders(sh); setAgents(ag)
     } catch (e) {
-      // Table-missing (migration not yet applied) reads as a load failure —
-      // show the section empty rather than crashing the Companies tab.
       console.error('Ownership section load failed', e)
       showToast?.(e.message || 'Could not load ownership data', 'error')
     }
@@ -73,6 +72,7 @@ export default function CompanyOwnershipSection({ company, user, canEdit, T, sho
   const ownershipTotal = shareholders.reduce((s, r) => s + (Number(r.percentage) || 0), 0)
   const totalOk = Math.abs(ownershipTotal - 100) < 0.01
 
+  // ── Shareholders ──
   async function addShareholder() {
     const pct = Number(shForm.percentage)
     if (!shForm.name.trim()) return showToast?.('Shareholder name is required', 'error')
@@ -108,42 +108,35 @@ export default function CompanyOwnershipSection({ company, user, canEdit, T, sho
     } catch (e) { showToast?.(e.message || 'Could not remove shareholder', 'error') }
   }
 
-  async function addFee() {
-    const pct = Number(feeForm.feePercent)
-    if (!(pct >= 0 && pct <= 100)) return showToast?.('Fee % must be between 0 and 100', 'error')
-    if (!feeForm.agentId && !feeForm.newAgentName.trim()) return showToast?.('Pick an agent or enter a new agent name', 'error')
+  // ── Agents ──
+  async function addAgent() {
+    if (!agForm.name.trim()) return showToast?.('Agent name is required', 'error')
+    const pct = agForm.feePercent === '' ? null : Number(agForm.feePercent)
+    if (pct != null && !(pct >= 0 && pct <= 100)) return showToast?.('Fee % must be between 0 and 100', 'error')
     setSaving(true)
     try {
-      let agentId = feeForm.agentId
-      if (!agentId) {
-        const agent = await api.addEstateAgent({ name: feeForm.newAgentName.trim() })
-        agentId = agent.id
-        setAgents(a => [...a, agent].sort((x, y) => x.name.localeCompare(y.name)))
-      }
-      const row = await api.upsertAgentFee({ companyId: company.id, agentId, feePercent: pct, vatTreatment: feeForm.vatTreatment })
-      setFees(f => [...f.filter(x => x.agent_id !== agentId), row])
-      setFeeForm({ agentId: '', newAgentName: '', feePercent: '', vatTreatment: 'inc_vat' })
-      setShowFeeForm(false)
-    } catch (e) { showToast?.(e.message || 'Could not save management fee', 'error') }
+      const agent = await api.addEstateAgent({ name: agForm.name.trim(), feePercent: pct, vatTreatment: agForm.vatTreatment })
+      setAgents(a => [...a, agent].sort((x, y) => x.name.localeCompare(y.name)))
+      setAgForm({ name: '', feePercent: '', vatTreatment: 'ex_vat' })
+      setShowAgForm(false)
+    } catch (e) { showToast?.(e.message || 'Could not add agent', 'error') }
     setSaving(false)
   }
 
-  async function patchFee(row, patch) {
+  async function patchAgent(id, patch) {
     try {
-      const updated = await api.upsertAgentFee({
-        companyId: company.id, agentId: row.agent_id,
-        feePercent: patch.fee_percent ?? row.fee_percent,
-        vatTreatment: patch.vat_treatment ?? row.vat_treatment,
-      })
-      setFees(f => f.map(x => x.id === updated.id || x.agent_id === row.agent_id ? updated : x))
-    } catch (e) { showToast?.(e.message || 'Could not update fee', 'error') }
+      const row = await api.updateEstateAgent(id, patch)
+      setAgents(a => a.map(x => x.id === id ? row : x))
+    } catch (e) { showToast?.(e.message || 'Could not update agent', 'error') }
   }
 
-  async function removeFee(id) {
+  async function removeAgent(agent) {
+    const managedHere = properties.filter(p => p.managed_by_agent_id === agent.id).length
+    if (managedHere > 0 && !window.confirm(`${agent.name} manages ${managedHere} of this company's properties — remove anyway? Properties keep their data but lose the agent link.`)) return
     try {
-      await api.deleteAgentFee(id)
-      setFees(f => f.filter(x => x.id !== id))
-    } catch (e) { showToast?.(e.message || 'Could not remove fee', 'error') }
+      await api.deleteEstateAgent(agent.id)
+      setAgents(a => a.filter(x => x.id !== agent.id))
+    } catch (e) { showToast?.(e.message || 'Could not remove agent', 'error') }
   }
 
   if (loading) return <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: '14px 4px' }}>Loading ownership…</div>
@@ -165,11 +158,34 @@ export default function CompanyOwnershipSection({ company, user, canEdit, T, sho
           <div style={{ display: 'grid', gap: 8 }}>
             {shareholders.map(s => (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 10px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
-                <div style={{ flex: 1, minWidth: 140 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{s.name}</span>
+                <div style={{ flex: 1, minWidth: 220, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {canEdit ? (
+                    <>
+                      <input value={s.name} aria-label="Shareholder name"
+                        onChange={e => setShareholders(list => list.map(x => x.id === s.id ? { ...x, name: e.target.value } : x))}
+                        onBlur={e => {
+                          const name = e.target.value.trim()
+                          if (name && name !== '') patchShareholder(s.id, { name })
+                          else load()
+                        }}
+                        style={{ ...inp, fontWeight: 600, minWidth: 130, flex: 1 }} />
+                      <input value={s.email || ''} placeholder="email (links across companies)" type="email" aria-label="Shareholder email"
+                        onChange={e => setShareholders(list => list.map(x => x.id === s.id ? { ...x, email: e.target.value } : x))}
+                        onBlur={e => {
+                          const email = e.target.value.trim()
+                          const isSelf = email && user?.email && email.toLowerCase() === user.email.toLowerCase()
+                          patchShareholder(s.id, { email: email || null, ...(isSelf && !s.user_id ? { user_id: user.id } : {}) })
+                        }}
+                        style={{ ...inp, fontSize: 10, minWidth: 170, flex: 1 }} />
+                    </>
+                  ) : (
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{s.name}</span>
+                      {s.email && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{s.email}</div>}
+                    </div>
+                  )}
                   {(s.user_id === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase())) &&
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.gold, background: T.gold + '22', padding: '1px 7px', borderRadius: 4, marginLeft: 8 }}>YOU</span>}
-                  {s.email && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{s.email}</div>}
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.gold, background: T.gold + '22', padding: '1px 7px', borderRadius: 4 }}>YOU</span>}
                 </div>
                 {canEdit ? (
                   <select value={s.tax_band || ''} onChange={e => patchShareholder(s.id, { tax_band: e.target.value || null })}
@@ -228,70 +244,75 @@ export default function CompanyOwnershipSection({ company, user, canEdit, T, sho
         )}
       </CardShell>
 
-      {/* ── Management fees ── */}
-      <CardShell T={T} title="Management Fees"
-        sub="What this company pays each estate agent, as % of rent collected"
+      {/* ── Managing agents ── */}
+      <CardShell T={T} title="Managing Agents"
+        sub="Each agency's standard fee (% of rent collected). Fees are portfolio-wide — change a fee here and it updates every property that agency manages. Assign an agent to a property in the property form."
         action={canEdit && (
-          <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setShowFeeForm(v => !v)}>
-            {showFeeForm ? 'Cancel' : '+ Add Agent Fee'}
+          <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setShowAgForm(v => !v)}>
+            {showAgForm ? 'Cancel' : '+ Add Agent'}
           </button>
         )}>
-        {fees.length > 0 && (
+        {agents.length > 0 && (
           <div style={{ display: 'grid', gap: 8 }}>
-            {fees.map(f => (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 10px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
-                <div style={{ flex: 1, minWidth: 140 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{f.agent?.name || 'Agent'}</span>
-                  {f.agent?.email && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{f.agent.email}</div>}
+            {agents.map(a => {
+              const managedHere = properties.filter(p => p.managed_by_agent_id === a.id).length
+              return (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 10px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
+                  <div style={{ flex: 1, minWidth: 160, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {canEdit ? (
+                      <input value={a.name} aria-label="Agent name"
+                        onChange={e => setAgents(list => list.map(x => x.id === a.id ? { ...x, name: e.target.value } : x))}
+                        onBlur={e => { const name = e.target.value.trim(); if (name) patchAgent(a.id, { name }); else load() }}
+                        style={{ ...inp, fontWeight: 600, minWidth: 140, flex: 1 }} />
+                    ) : <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</span>}
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                      {managedHere} {managedHere === 1 ? 'property' : 'properties'} in {company.abbr || company.name}
+                    </span>
+                  </div>
+                  {canEdit ? (
+                    <>
+                      <input type="number" min="0" max="100" step="0.01" value={a.fee_percent ?? ''}
+                        placeholder="fee %" aria-label={`${a.name} fee percentage`}
+                        onChange={e => setAgents(list => list.map(x => x.id === a.id ? { ...x, fee_percent: e.target.value } : x))}
+                        onBlur={e => {
+                          if (e.target.value === '') return patchAgent(a.id, { fee_percent: null })
+                          const pct = Number(e.target.value)
+                          if (pct >= 0 && pct <= 100) patchAgent(a.id, { fee_percent: pct })
+                          else load()
+                        }}
+                        style={{ ...inp, width: 76, textAlign: 'right' }} />
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>%</span>
+                      <select value={a.vat_treatment || 'ex_vat'} onChange={e => patchAgent(a.id, { vat_treatment: e.target.value })} style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
+                        <option value="ex_vat">+ VAT (20%)</option>
+                        <option value="inc_vat">inc. VAT</option>
+                      </select>
+                      <button onClick={() => removeAgent(a)} aria-label={`Remove ${a.name}`}
+                        style={{ ...smallBtn, color: T.red, borderColor: T.red + '33', padding: '4px 9px' }}>✕</button>
+                    </>
+                  ) : (
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.gold }}>
+                      {a.fee_percent != null ? `${Number(a.fee_percent).toFixed(2)}% ${a.vat_treatment === 'ex_vat' ? '+ VAT' : 'inc. VAT'}` : 'no fee set'}
+                    </span>
+                  )}
                 </div>
-                {canEdit ? (
-                  <>
-                    <input type="number" min="0" max="100" step="0.01" value={f.fee_percent}
-                      aria-label={`${f.agent?.name || 'Agent'} fee percentage`}
-                      onChange={e => setFees(list => list.map(x => x.id === f.id ? { ...x, fee_percent: e.target.value } : x))}
-                      onBlur={e => {
-                        const pct = Number(e.target.value)
-                        if (pct >= 0 && pct <= 100) patchFee(f, { fee_percent: pct })
-                        else load()
-                      }}
-                      style={{ ...inp, width: 76, textAlign: 'right' }} />
-                    <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>%</span>
-                    <select value={f.vat_treatment} onChange={e => patchFee(f, { vat_treatment: e.target.value })} style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
-                      <option value="inc_vat">inc. VAT</option>
-                      <option value="ex_vat">+ VAT (20%)</option>
-                    </select>
-                    <button onClick={() => removeFee(f.id)} aria-label={`Remove ${f.agent?.name || 'agent'} fee`}
-                      style={{ ...smallBtn, color: T.red, borderColor: T.red + '33', padding: '4px 9px' }}>✕</button>
-                  </>
-                ) : (
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.gold }}>
-                    {Number(f.fee_percent).toFixed(2)}% {f.vat_treatment === 'ex_vat' ? '+ VAT' : 'inc. VAT'}
-                  </span>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
-        {fees.length === 0 && !showFeeForm && (
+        {agents.length === 0 && !showAgForm && (
           <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: '10px 0' }}>
-            No agent fees set.{canEdit ? ' Add each agent this company pays — the Company P&L calculates the fee from rent collected.' : ''}
+            No agents yet.{canEdit ? ' Add each agency and its fee % — then pick the agent on each property it manages.' : ''}
           </div>
         )}
-        {showFeeForm && canEdit && (
+        {showAgForm && canEdit && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
-            <select value={feeForm.agentId} onChange={e => setFeeForm(f => ({ ...f, agentId: e.target.value }))} style={{ ...inp, minWidth: 150 }}>
-              <option value="">New agent…</option>
-              {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-            {!feeForm.agentId && (
-              <input placeholder="Agent name" value={feeForm.newAgentName} onChange={e => setFeeForm(f => ({ ...f, newAgentName: e.target.value }))} style={{ ...inp, flex: 1, minWidth: 140 }} />
-            )}
-            <input placeholder="Fee %" type="number" min="0" max="100" step="0.01" value={feeForm.feePercent} onChange={e => setFeeForm(f => ({ ...f, feePercent: e.target.value }))} style={{ ...inp, width: 84 }} />
-            <select value={feeForm.vatTreatment} onChange={e => setFeeForm(f => ({ ...f, vatTreatment: e.target.value }))} style={{ ...inp }}>
-              <option value="inc_vat">inc. VAT</option>
+            <input placeholder="Agency name" value={agForm.name} onChange={e => setAgForm(f => ({ ...f, name: e.target.value }))} style={{ ...inp, flex: 1, minWidth: 150 }} />
+            <input placeholder="Fee %" type="number" min="0" max="100" step="0.01" value={agForm.feePercent} onChange={e => setAgForm(f => ({ ...f, feePercent: e.target.value }))} style={{ ...inp, width: 84 }} />
+            <select value={agForm.vatTreatment} onChange={e => setAgForm(f => ({ ...f, vatTreatment: e.target.value }))} style={{ ...inp }}>
               <option value="ex_vat">+ VAT (20%)</option>
+              <option value="inc_vat">inc. VAT</option>
             </select>
-            <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving} onClick={addFee}>{saving ? 'Saving…' : 'Save'}</button>
+            <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving} onClick={addAgent}>{saving ? 'Saving…' : 'Add'}</button>
           </div>
         )}
       </CardShell>
