@@ -280,7 +280,6 @@ export default function BankConnectionsModal({ onClose }) {
                     )}
                   </div>
                   <button onClick={() => remove(r.id)}
-                    aria-label="Remove"
                     aria-label="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 14, padding: 8, margin: -4 }}>×</button>
                 </div>
               ))}

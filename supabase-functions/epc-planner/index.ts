@@ -133,16 +133,20 @@ serve(async (req) => {
   const authHeader = req.headers.get('Authorization') || ''
   if (!authHeader.startsWith('Bearer ')) return jsonError(401, 'Missing Authorization header')
 
-  // Caller-scoped client: verifies the JWT AND lets us run access-check RPCs
-  // as the caller (has_property_permission reads auth.uid()).
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: userData, error: userErr } = await userClient.auth.getUser()
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  // Verify the token explicitly (the pattern proven by lodgify-sync et al —
+  // no-arg getUser() on a session-less server client is unreliable).
+  const token = authHeader.replace('Bearer ', '')
+  const { data: userData, error: userErr } = await admin.auth.getUser(token)
   const caller = userData?.user
   if (userErr || !caller) return jsonError(401, 'Invalid or expired session')
 
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+  // Caller-scoped client lets us run access-check RPCs as the caller
+  // (has_property_permission reads auth.uid()).
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  })
 
   try {
     const body = await req.json().catch(() => ({}))

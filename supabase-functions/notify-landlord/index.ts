@@ -44,10 +44,13 @@ serve(async (req) => {
   // Without that check any logged-in user could push arbitrary
   // notifications into any landlord's bell via this service-role insert.
   const authHeader = req.headers.get('Authorization') || ''
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: { user } } = await userClient.auth.getUser()
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  // Verify the token explicitly (the pattern proven by lodgify-sync et al —
+  // no-arg getUser() on a session-less server client is unreliable).
+  const token = authHeader.replace('Bearer ', '')
+  const { data: userData } = await admin.auth.getUser(token)
+  const user = userData?.user
   if (!user) return json({ error: 'Unauthorised' }, 401)
 
   let body: any = {}
@@ -60,8 +63,6 @@ serve(async (req) => {
   if (type !== 'maintenance' && type !== 'message') {
     return json({ error: 'type must be maintenance or message' }, 400)
   }
-
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
   // Caller must be a registered tenant of this property.
   const { data: tenantLink } = await admin

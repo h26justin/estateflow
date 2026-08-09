@@ -144,11 +144,18 @@ serve(async (req) => {
 
   // Authenticate the caller.
   const authHeader = req.headers.get('Authorization') || ''
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  // Verify the token explicitly (the pattern proven by lodgify-sync et al —
+  // no-arg getUser() on a session-less server client is unreliable).
+  const token = authHeader.replace('Bearer ', '')
+  const { data: userData } = await admin.auth.getUser(token)
+  const user = userData?.user
+  if (!user) return json({ error: 'Unauthorised' }, 401)
+
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   })
-  const { data: { user } } = await userClient.auth.getUser()
-  if (!user) return json({ error: 'Unauthorised' }, 401)
 
   let body: any = {}
   try { body = await req.json() } catch { return json({ error: 'Bad JSON' }, 400) }
@@ -156,8 +163,6 @@ serve(async (req) => {
   const enquiryId = body.enquiry_id
   const criteria = body.criteria && typeof body.criteria === 'object' ? body.criteria : {}
   if (!enquiryId) return json({ error: 'enquiry_id required' }, 400)
-
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
   // Load the enquiry.
   const { data: enquiry, error: enqErr } = await admin

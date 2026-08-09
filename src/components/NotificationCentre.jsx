@@ -230,7 +230,6 @@ export default function NotificationCentre() {
                       )}
                     </div>
                     <button onClick={e => handleDismiss(n.id, e)}
-                      aria-label="Dismiss"
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer',
                         color: T.faint, fontSize: 14, lineHeight: 1, padding: 4,
