@@ -21,7 +21,7 @@ vi.mock('../../lib/api', () => ({
   ]),
   fetchAllShareholders: vi.fn().mockResolvedValue([
     // Viewer (u1) holds 50% of Alpha; someone else owns Beta outright.
-    { id: 's1', company_id: 'cA', name: 'Justin', user_id: 'u1', percentage: 50 },
+    { id: 's1', company_id: 'cA', name: 'Justin', user_id: 'u1', percentage: 50, tax_band: 'higher' },
     { id: 's2', company_id: 'cA', name: 'Partner', percentage: 50 },
     { id: 's3', company_id: 'cB', name: 'Someone Else', percentage: 100 },
   ]),
@@ -121,5 +121,27 @@ describe('Full Portfolio P&L report', () => {
     // Back to whole portfolio.
     fireEvent.click(screen.getByText('Whole portfolio'))
     expect(await screen.findByText('Beta Ltd — total')).toBeInTheDocument()
+  })
+
+  it('strips costs via the Include chips and applies dividend tax in My share mode', async () => {
+    renderReport()
+    await screen.findByText('Alpha Ltd — total')
+    // Dividend tax chip is disabled outside My share mode.
+    expect(screen.getByText('Dividend tax')).toBeDisabled()
+    // Untick corporation tax → exclusion note appears.
+    fireEvent.click(screen.getByText('✓ Corporation tax'))
+    expect(await screen.findByText(/Excluded from this view: corporation tax/)).toBeInTheDocument()
+    // Untick management fees too — both listed.
+    fireEvent.click(screen.getByText('✓ Management fees'))
+    expect(await screen.findByText(/Excluded from this view: management fees, corporation tax/)).toBeInTheDocument()
+    // Re-tick CT, switch to My share, tick dividend tax (band = higher on
+    // the viewer's Alpha entry) → dividend note + combined tax label.
+    fireEvent.click(screen.getByText('Corporation tax'))
+    fireEvent.click(screen.getByText('My share'))
+    const divChip = screen.getByText('Dividend tax')
+    expect(divChip).not.toBeDisabled()
+    fireEvent.click(divChip)
+    expect(await screen.findByText(/Dividend tax is estimated from the tax band/)).toBeInTheDocument()
+    expect(screen.getByText('Your tax (CT + dividend, est.)')).toBeInTheDocument()
   })
 })
