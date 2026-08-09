@@ -7,6 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
+import { buildCompanyPnl, monthsInRange, findViewerShareholder } from '../lib/companyPnl'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
@@ -112,6 +113,8 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [tenancies, setTenancies]     = useState([])
   const [rentPayments, setRentPayments] = useState([])
   const [expenses, setExpenses]       = useState([])
+  const [shareholders, setShareholders] = useState([])
+  const [agentFees, setAgentFees]     = useState([])
   const [loading, setLoading]         = useState(false)
   const [dataLoaded, setDataLoaded]   = useState(false)
   const [loadErrors, setLoadErrors]   = useState([])
@@ -129,6 +132,8 @@ export default function ReportsPage({ properties, companies, companySettings, us
       { label: 'tenancies',     fetch: () => api.fetchAllTenancies(user.id),       set: setTenancies },
       { label: 'rent payments', fetch: () => api.fetchAllRentPayments(user.id),    set: setRentPayments },
       { label: 'expenses',      fetch: () => api.fetchAllExpenses(user.id),        set: setExpenses },
+      { label: 'shareholders',  fetch: () => api.fetchAllShareholders(),           set: setShareholders },
+      { label: 'agent fees',    fetch: () => api.fetchAllAgentFees(),              set: setAgentFees },
     ]
     const results = await Promise.allSettled(sources.map(s => s.fetch()))
     const failed = []
@@ -355,7 +360,8 @@ export default function ReportsPage({ properties, companies, companySettings, us
               {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
           )}
-          <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}/>
+          <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}
+            extras={{ shareholders, agentFees, companies, selectedCompany, user }}/>
         </div>
       </div>
 
@@ -369,16 +375,18 @@ export default function ReportsPage({ properties, companies, companySettings, us
 
       {errorBanner}
       {loading && <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonRows rows={6}/></div>}
-      {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}/>}
+      {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
+        shareholders={shareholders} agentFees={agentFees} companies={companies} selectedCompany={selectedCompany} user={user}/>}
     </div>
   )
 }
 
 // ── REPORT BODY ROUTER ────────────────────────────────────────────────────────
-function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct }) {
-  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct }
+function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }) {
+  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }
   const map = {
     pnl: <ReportPnL {...props}/>,
+    company_pnl: <ReportCompanyPnL {...props}/>,
     income_sched: <ReportIncomeSchedule {...props}/>,
     expense_breakdown: <ReportExpenseBreakdown {...props}/>,
     mortgage_interest: <ReportMortgageInterest {...props}/>,
@@ -477,10 +485,10 @@ function csvSafe(v) {
   return s
 }
 
-function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, companies, co, cs, T, accent, reportName }) {
+function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, companies, co, cs, T, accent, reportName, extras }) {
   const [exporting, setExporting] = useState(false)
   function exportCSV() {
-    const rows = buildCSVRows(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
+    const rows = buildCSVRows(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras)
     if (!rows) return
     const csv = rows.map(r=>r.map(v=>`"${csvSafe(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
     const blob = new Blob([csv],{type:'text/csv'})
@@ -491,7 +499,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
   async function exportPDF() {
     setExporting(true)
     try {
-      const data = buildReportData(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
+      const data = buildReportData(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras)
       await renderReportPDF({
         ...data,
         reportName: reportName || data.title,
@@ -560,9 +568,74 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
   )
 }
 
+// ── COMPANY P&L (shared compute) ─────────────────────────────────────────────
+// One company's P&L + shareholder split for the current period. Used by the
+// in-app report component and the PDF/CSV builders so all three agree.
+// filtRent/filtExp are already period-filtered; the company_id filter here
+// is a no-op when a single company is selected and does the per-company
+// scoping when called from the all-companies view.
+function computeCompanyPnl(companyId, filtProps, filtExp, filtRent, range, extras) {
+  const { shareholders = [], agentFees = [], companies = [] } = extras || {}
+  return buildCompanyPnl({
+    properties: filtProps.filter(p => p.company_id === companyId),
+    payments: filtRent.filter(r => r.property?.company_id === companyId),
+    expenses: filtExp.filter(e => e.property?.company_id === companyId),
+    feeConfigs: agentFees.filter(f => f.company_id === companyId),
+    shareholders: shareholders.filter(s => s.company_id === companyId),
+    months: monthsInRange(range.start, range.end),
+    // Companies under one login are treated as associated for the CT
+    // threshold split — see the report's disclaimer note.
+    associatedCompanies: Math.max(1, companies.length),
+    isEarningRent: p => isPropertyEarningRent(p.status),
+  })
+}
+
+const COMPANY_PNL_NOTE = 'Estimates for planning, not tax advice. Corporation tax thresholds are split across your companies (associated-company rule); dividend tax applies the band rate flat, ignoring the £500 allowance.'
+
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
-function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
+function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   switch(id) {
+    case 'company_pnl': {
+      const { shareholders = [], companies = [], selectedCompany = 'all', user } = extras || {}
+      const months = monthsInRange(range.start, range.end)
+      if (selectedCompany === 'all') {
+        // Cross-company personal income summary — one row per company.
+        const rows = companies.map(c => {
+          const pnl = computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras)
+          const viewer = findViewerShareholder(pnl.shareholders.map(s => ({ ...s, user_id: s.userId })), user)
+          return { name: c.name, pat: pnl.profitAfterTax, pct: viewer?.percentage || 0, net: viewer?.net || 0, monthly: viewer?.netMonthly || 0 }
+        })
+        const tNet = rows.reduce((s, r) => s + r.net, 0), tMonthly = rows.reduce((s, r) => s + r.monthly, 0)
+        return {
+          title: 'Company P&L & Profit Share', note: COMPANY_PNL_NOTE,
+          kpis: [['Your income (period, after tax)', fmt(tNet)], ['Your monthly average', fmt(tMonthly)], ['Companies', companies.length.toString()]],
+          headers: ['Company', 'Profit after tax', 'Your %', 'Your share (net)', 'Your monthly'],
+          rows: rows.map(r => [r.name, fmt(r.pat), r.pct ? fmtPct(r.pct, 2) : '—', fmt(r.net), fmt(r.monthly)]),
+          totals: ['Total', '', '', fmt(tNet), fmt(tMonthly)],
+        }
+      }
+      const pnl = computeCompanyPnl(selectedCompany, filtProps, filtExp, filtRent, range, extras)
+      const co = companies.find(c => c.id === selectedCompany)
+      const rows = [
+        ['Rental income' + (pnl.income.usedFallback ? ' (expected — no payment data)' : ' (collected)'), fmt(pnl.income.rentCollected)],
+        ...pnl.expenseCategories.map(c => [c.label, fmt(-c.amount)]),
+        ...pnl.managementFees.map(f => [`Management fee — ${f.agentName} (${f.feePercent}%${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''})`, fmt(-f.amount)]),
+        ['Total expenses', fmt(-pnl.totalExpenses)],
+        ['Operating profit', fmt(pnl.operatingProfit)],
+        [`Corporation tax (est., ${(pnl.corporationTax.effectiveRate * 100).toFixed(1)}%)`, fmt(-pnl.corporationTax.tax)],
+        ['Profit after tax', fmt(pnl.profitAfterTax)],
+        ...(pnl.shareholders.length ? [['— Shareholder split —', '']] : []),
+        ...pnl.shareholders.map(s => [
+          `${s.name} (${s.percentage}%${s.taxBand ? ', ' + s.taxBand + ' rate div. tax' : ''})`,
+          fmt(s.net) + ` · ${fmt(s.netMonthly)}/mo`,
+        ]),
+      ]
+      return {
+        title: `Company P&L — ${co?.name || ''}`, note: COMPANY_PNL_NOTE,
+        kpis: [['Operating profit', fmt(pnl.operatingProfit)], ['Corporation tax (est.)', fmt(pnl.corporationTax.tax)], ['Profit after tax', fmt(pnl.profitAfterTax)], ['Months in period', months.toString()]],
+        headers: ['Line item', 'Amount'], rows, totals: null,
+      }
+    }
     case 'pnl': {
       const hasPaid = filtRent.some(r => r.status === 'paid')
       const rows = filtProps.map(p => {
@@ -1119,7 +1192,7 @@ async function renderYearEndPackPDF({ reports, company, companyColor, logoUrl, p
   doc.save(`year-end-tax-pack-${company.replace(/[^a-zA-Z0-9]/g,'-').toLowerCase()}-${period.replace(/[^a-zA-Z0-9]/g,'-')}.pdf`)
 }
 
-function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range) {
+function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   // Default: drive CSV off the same buildReportData() shape used for PDF
   // — headers row + each data row + an optional totals row. Strips
   // currency formatting so the CSV opens cleanly in Excel/Sheets.
@@ -1198,7 +1271,7 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     default: {
       // Generic path — use buildReportData's headers+rows shape, strip
       // currency formatting on data cells (objects use .v, strings stay).
-      const data = buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range)
+      const data = buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras)
       if (!data || !data.headers) return [['Report', id], ['Period', range.label]]
       const out = [data.headers]
       for (const row of (data.rows || [])) {
@@ -1269,6 +1342,152 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
           '',
         ]}
       />
+    </>
+  )
+}
+
+// ── COMPANY P&L & PROFIT SHARE ───────────────────────────────────────────────
+// Xero-style single-company P&L (income → expenses → operating profit →
+// corporation tax → profit after tax) with a shareholder split table. With
+// "All companies" selected it becomes a personal-income summary: your net
+// share of every company, side by side, with the monthly total that answers
+// "what do I actually take home each month".
+function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt, fmtPct, shareholders, agentFees, companies, selectedCompany, user }) {
+  const extras = { shareholders, agentFees, companies, selectedCompany, user }
+  const months = monthsInRange(range.start, range.end)
+
+  const disclaimer = (
+    <div style={{fontFamily:mono,fontSize:10,color:T.muted,lineHeight:1.7,marginTop:18,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
+      Estimates for planning, not tax advice. Corporation tax uses the 19% small-profits / 25% main rate with marginal
+      relief, thresholds split across your {companies.length} {companies.length===1?'company':'companies'} (associated-company rule).
+      Dividend tax applies the shareholder's band rate flat and ignores the £500 dividend allowance. Capital allowances,
+      disallowables and director salaries are not modelled — confirm figures with your accountant.
+    </div>
+  )
+
+  // ── All companies → personal income summary ──
+  if (selectedCompany === 'all') {
+    const rows = companies.map(c => {
+      const pnl = computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras)
+      const viewer = findViewerShareholder(pnl.shareholders.map(s => ({ ...s, user_id: s.userId })), user)
+      return { c, pnl, viewer }
+    })
+    const tNet = rows.reduce((s, r) => s + (r.viewer?.net || 0), 0)
+    const tMonthly = rows.reduce((s, r) => s + (r.viewer?.netMonthly || 0), 0)
+    const holdings = rows.filter(r => r.viewer).length
+    return (
+      <>
+        <StatCards T={T} items={[
+          {label:'Your income (period, after tax)', value:fmt(tNet), color:tNet>=0?T.green:T.red},
+          {label:'Your monthly average', value:fmt(tMonthly), color:tMonthly>=0?T.green:T.red},
+          {label:'Companies you hold shares in', value:`${holdings} of ${companies.length}`, color:accent},
+        ]}/>
+        {holdings === 0 && (
+          <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:16,lineHeight:1.7}}>
+            None of your companies has a shareholder entry linked to you yet. Add yourself (with your login email)
+            under Portfolio → Companies → Shareholders and your personal income will appear here.
+          </div>
+        )}
+        <ReportTable T={T} accent={accent}
+          headers={[{label:'Company'},{label:'Profit after tax',right:true,width:'140px'},{label:'Your %',right:true,width:'90px'},{label:'Your share (net)',right:true,width:'140px'},{label:'Your monthly',right:true,width:'120px'}]}
+          rows={rows.map(({c, pnl, viewer}) => [
+            c.name,
+            {v:fmt(pnl.profitAfterTax), color:pnl.profitAfterTax>=0?T.green:T.red, right:true},
+            viewer ? fmtPct(viewer.percentage, 2) : '—',
+            {v:viewer?fmt(viewer.net):'—', color:(viewer?.net||0)>=0?T.green:T.red, bold:true},
+            {v:viewer?fmt(viewer.netMonthly):'—', color:accent, bold:true},
+          ])}
+          totals={['Total', '', '', {v:fmt(tNet),color:tNet>=0?T.green:T.red}, {v:fmt(tMonthly),color:accent}]}
+        />
+        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:12}}>
+          Select a single company above for its full P&L and every shareholder's split.
+        </div>
+        {disclaimer}
+      </>
+    )
+  }
+
+  // ── Single company → full P&L ──
+  const pnl = computeCompanyPnl(selectedCompany, filtProps, filtExp, filtRent, range, extras)
+  const viewer = findViewerShareholder(pnl.shareholders.map(s => ({ ...s, user_id: s.userId })), user)
+  const totalOk = Math.abs(pnl.ownershipTotal - 100) < 0.01
+
+  const lineRows = [
+    [{v:'Income', bold:true}, ''],
+    [`Rental income${pnl.income.usedFallback ? ' (expected — no payment data yet)' : ' (collected)'}`, {v:fmt(pnl.income.rentCollected), color:T.green, bold:true}],
+    [{v:'Less operating expenses', bold:true}, ''],
+    ...pnl.expenseCategories.map(c => [c.label, {v:fmt(-c.amount), color:T.red}]),
+    ...pnl.managementFees.map(f => [
+      `Management fee — ${f.agentName} (${f.feePercent}% of rent${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''})`,
+      {v:fmt(-f.amount), color:T.red},
+    ]),
+    ['Total expenses', {v:fmt(-pnl.totalExpenses), color:T.red, bold:true}],
+    [{v:'Operating profit', bold:true}, {v:fmt(pnl.operatingProfit), color:pnl.operatingProfit>=0?T.green:T.red, bold:true}],
+    [`Corporation tax (estimated, effective ${(pnl.corporationTax.effectiveRate*100).toFixed(1)}%)`, {v:fmt(-pnl.corporationTax.tax), color:T.red}],
+    [{v:'Profit after tax', bold:true}, {v:fmt(pnl.profitAfterTax), color:pnl.profitAfterTax>=0?T.green:T.red, bold:true}],
+  ]
+
+  return (
+    <>
+      <StatCards T={T} items={[
+        {label:'Operating profit', value:fmt(pnl.operatingProfit), color:pnl.operatingProfit>=0?T.green:T.red},
+        {label:'Corporation tax (est.)', value:fmt(pnl.corporationTax.tax), color:T.amber},
+        {label:'Profit after tax', value:fmt(pnl.profitAfterTax), color:pnl.profitAfterTax>=0?T.green:T.red},
+        viewer
+          ? {label:'Your monthly income (est.)', value:fmt(viewer.netMonthly), color:accent, sub:`${fmtPct(viewer.percentage,2)} shareholding${viewer.taxBand ? ' · after dividend tax' : ''}`}
+          : {label:'Months in period', value:String(months), color:accent},
+      ]}/>
+
+      {pnl.income.usedFallback && (
+        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginBottom:12}}>
+          No rent payments recorded for this period — income shown is expected rent from tenancy settings.
+        </div>
+      )}
+      {pnl.excludedAgentFeeExpenses > 0 && (
+        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12}}>
+          {fmt(pnl.excludedAgentFeeExpenses)} of logged "Agent / Management Fees" expenses are excluded — the
+          calculated fee lines below replace them so fees aren't counted twice.
+        </div>
+      )}
+
+      <SectionTitle title="Profit & Loss" T={T}/>
+      <ReportTable T={T} accent={accent}
+        headers={[{label:'Line item'},{label:'Amount',right:true,width:'160px'}]}
+        rows={lineRows}
+      />
+
+      <SectionTitle title="Shareholder split" T={T}/>
+      {pnl.shareholders.length === 0 ? (
+        <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
+          No shareholders recorded for this company. Add them under Portfolio → Companies → Shareholders to see
+          each owner's share of the profit here.
+        </div>
+      ) : (
+        <>
+          {!totalOk && (
+            <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginBottom:10}}>
+              Shareholdings sum to {pnl.ownershipTotal.toFixed(2)}% — the split below covers only the allocated share.
+            </div>
+          )}
+          <ReportTable T={T} accent={accent}
+            headers={[{label:'Shareholder'},{label:'Holding',right:true,width:'90px'},{label:'Share of profit',right:true,width:'130px'},{label:'Est. dividend tax',right:true,width:'130px'},{label:'Net',right:true,width:'120px'},{label:'Per month',right:true,width:'110px'}]}
+            rows={pnl.shareholders.map(s => [
+              s.userId === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ? {v:`${s.name} (you)`, bold:true} : s.name,
+              fmtPct(s.percentage, 2),
+              {v:fmt(s.share), color:s.share>=0?T.green:T.red},
+              s.dividendTax != null ? {v:fmt(-s.dividendTax), color:T.red} : {v:'—', color:T.muted},
+              {v:fmt(s.net), color:s.net>=0?T.green:T.red, bold:true},
+              {v:fmt(s.netMonthly), color:accent, bold:true},
+            ])}
+          />
+          {pnl.shareholders.some(s => s.dividendTax == null) && (
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8}}>
+              "—" = no dividend tax band set for that shareholder (Portfolio → Companies → Shareholders).
+            </div>
+          )}
+        </>
+      )}
+      {disclaimer}
     </>
   )
 }
