@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ukCorporationTax, dividendTax, monthsInRange, buildCompanyPnl,
   findViewerShareholder, aggregateShareholdersAcrossCompanies,
+  buildPortfolioPnl,
 } from '../companyPnl'
 
 describe('ukCorporationTax', () => {
@@ -225,6 +226,137 @@ describe('aggregateShareholdersAcrossCompanies', () => {
       { companyName: 'B', shareholders: [{ name: 'Ann Other', email: 'other@x.com', percentage: 50, net: 100, netMonthly: 8.33 }] },
     ])
     expect(rows).toHaveLength(2)
+  })
+})
+
+describe('buildPortfolioPnl', () => {
+  it('groups by company with property rows summing to company totals and CT apportioned pro-rata on positive profit', () => {
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }, { id: 'cB', name: 'Beta Ltd' }],
+      properties: [
+        { id: 'p1', name: 'Flat 1', company_id: 'cA' },
+        { id: 'p2', name: 'Flat 2', company_id: 'cA' },
+        { id: 'p3', name: 'House 3', company_id: 'cB' },
+      ],
+      payments: [
+        { property_id: 'p1', status: 'paid', amount: 12_000 },
+        { property_id: 'p2', status: 'paid', amount: 8_000 },
+        { property_id: 'p3', status: 'paid', amount: 20_000 },
+      ],
+      expenses: [
+        { property_id: 'p1', category: 'repairs', amount: 2_000 },
+        { property_id: 'p2', category: 'insurance', amount: 10_000 },
+      ],
+      months: 12, associatedCompanies: 1,
+    })
+
+    expect(r.companies).toHaveLength(2)
+    const alpha = r.companies[0]
+    expect(alpha.name).toBe('Alpha Ltd')
+    const [p1, p2] = alpha.rows
+    expect(p1.pretax).toBe(10_000)
+    expect(p2.pretax).toBe(-2_000)
+    expect(alpha.totals.pretax).toBe(8_000)
+    // CT on 8,000 at 19% = 1,520 — all carried by the profitable property.
+    expect(alpha.totals.ct).toBe(1_520)
+    expect(p1.ctShare).toBe(1_520)
+    expect(p2.ctShare).toBe(0)
+    expect(p1.posttax).toBe(8_480)
+    expect(p2.posttax).toBe(-2_000)
+    expect(alpha.totals.posttax).toBe(6_480)
+    // Rows reconcile exactly to the block totals.
+    expect(p1.income + p2.income).toBe(alpha.totals.income)
+    expect(p1.posttax + p2.posttax).toBe(alpha.totals.posttax)
+
+    // Grand totals span both companies.
+    expect(r.grand.income).toBe(40_000)
+    expect(r.grand.pretax).toBe(28_000)
+    expect(r.grand.ct).toBe(1_520 + 3_800)
+    expect(r.grand.posttax).toBe(28_000 - 5_320)
+  })
+
+  it('calculates management fees per property and excludes logged agent_fees expenses', () => {
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', managed_by_agent_id: 'ag1' }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 10_000 }],
+      expenses: [{ property_id: 'p1', category: 'agent_fees', amount: 500 }],
+      agents: [{ id: 'ag1', name: 'LetCo', fee_percent: 10, vat_treatment: 'ex_vat' }],
+      months: 12,
+    })
+    const block = r.companies[0]
+    // 10% + VAT = 12% of £10,000; the logged fee expense is dropped.
+    expect(block.rows[0].fees).toBe(1_200)
+    expect(block.rows[0].expenses).toBe(0)
+    expect(block.excludedAgentFeeExpenses).toBe(500)
+    expect(block.rows[0].pretax).toBe(8_800)
+  })
+
+  it('falls back to expected rent per company when it has no paid payments', () => {
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [
+        { id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1_000 },
+        { id: 'p2', name: 'Flat 2', company_id: 'cA', status: 'vacant', rent_pcm: 800 },
+      ],
+      payments: [], months: 12,
+    })
+    const block = r.companies[0]
+    expect(block.usedFallback).toBe(true)
+    expect(block.rows[0].income).toBe(12_000)
+    expect(block.rows[1].income).toBe(0)
+  })
+
+  it('puts properties without a company in a personally-held bucket with no corporation tax', () => {
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [
+        { id: 'p1', name: 'Flat 1', company_id: 'cA' },
+        { id: 'p9', name: 'Own house', company_id: null },
+      ],
+      payments: [
+        { property_id: 'p1', status: 'paid', amount: 10_000 },
+        { property_id: 'p9', status: 'paid', amount: 6_000 },
+      ],
+      months: 12,
+    })
+    const personal = r.companies.find(b => b.personal)
+    expect(personal.name).toMatch(/Personally held/)
+    expect(personal.corporationTax).toBeNull()
+    expect(personal.totals.ct).toBe(0)
+    expect(personal.totals.posttax).toBe(personal.totals.pretax)
+  })
+
+  it('produces month-by-month pre-tax nets that reconcile to the period totals', () => {
+    const monthKeys = [{ m: 0, y: 2026 }, { m: 1, y: 2026 }, { m: 2, y: 2026 }]
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', managed_by_agent_id: 'ag1' }],
+      payments: [
+        { property_id: 'p1', status: 'paid', amount: 1_000, year: 2026, month: 1 },
+        { property_id: 'p1', status: 'paid', amount: 1_000, year: 2026, month: 3 },
+      ],
+      expenses: [{ property_id: 'p1', category: 'repairs', amount: 300, date: '2026-02-14' }],
+      agents: [{ id: 'ag1', name: 'LetCo', fee_percent: 10, vat_treatment: 'inc_vat' }],
+      months: 3, monthKeys,
+    })
+    const row = r.companies[0].rows[0]
+    // Jan: 1,000 − 100 fee; Feb: −300 expense; Mar: 1,000 − 100 fee.
+    expect(row.monthly).toEqual([900, -300, 900])
+    expect(row.monthly.reduce((s, v) => s + v, 0)).toBeCloseTo(row.pretax, 2)
+    expect(r.companies[0].totals.monthly).toEqual([900, -300, 900])
+    expect(r.grand.monthly).toEqual([900, -300, 900])
+  })
+
+  it('uses expected rent in every month bucket when falling back', () => {
+    const monthKeys = [{ m: 3, y: 2026 }, { m: 4, y: 2026 }]
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 750 }],
+      payments: [], months: 2, monthKeys,
+    })
+    expect(r.companies[0].rows[0].monthly).toEqual([750, 750])
+    expect(r.companies[0].rows[0].income).toBe(1_500)
   })
 })
 

@@ -12,6 +12,7 @@
 export const REPORT_CATALOGUE = [
   { id:'pnl',          cat:'tax',         icon:'pie-chart', name:'Annual P&L',                  desc:'Collected rent vs expenses, net profit per property — HMRC-ready' },
   { id:'company_pnl',  cat:'tax',         icon:'building', name:'Company P&L & Profit Share',   desc:'Xero-style company P&L — management fees, corporation tax estimate, and each shareholder\'s cut' },
+  { id:'full_pnl',     cat:'tax',         icon:'list', name:'Full Portfolio P&L',           desc:'Every company and property in one long P&L — income per unit, pre and post-tax profit, per month, with a month-by-month view' },
   { id:'income_sched', cat:'tax',         icon:'calendar', name:'Rental income schedule',       desc:'Month-by-month rent received — ideal for SA105' },
   { id:'expense_breakdown', cat:'tax',    icon:'receipt', name:'Expense breakdown',            desc:'All expenses by category, ready for your accountant' },
   { id:'mortgage_interest', cat:'tax',    icon:'landmark', name:'Mortgage interest summary',    desc:'Total interest paid per property — Section 24 tax credit' },
