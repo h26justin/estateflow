@@ -166,6 +166,25 @@ export default function ReportsPage({ properties, companies, companySettings, us
   }
   const STORE_TYPE = { tax: 'tax_year', calendar: 'calendar_year', custom: 'custom' }
 
+  // "All companies" has no settings row of its own, so its default period
+  // type comes from what the companies themselves are set to: the majority
+  // of saved year_type values (custom ranges are per-company dates, so they
+  // don't vote). Null when no company has a saved type — leave the default.
+  function consensusYearType() {
+    const votes = { tax: 0, calendar: 0 }
+    companies.forEach(c => {
+      const t = companySettings?.[c.id]?.year_type
+      if (!t) return
+      const n = normType(t)
+      if (n !== 'custom') votes[n]++
+    })
+    if (!votes.tax && !votes.calendar) return null
+    return votes.calendar > votes.tax ? 'calendar' : 'tax'
+  }
+  // A manual period pick while on "All companies" can't be persisted
+  // anywhere, so remember it in-session and stop re-applying the consensus.
+  const [allPeriodTouched, setAllPeriodTouched] = useState(false)
+
   // Load the saved reporting period from company settings when company changes.
   useEffect(() => {
     if (selectedCompany !== 'all') {
@@ -175,8 +194,11 @@ export default function ReportsPage({ properties, companies, companySettings, us
         setCustomStart(cs.custom_period_start || '')
         setCustomEnd(cs.custom_period_end || '')
       }
+    } else if (!allPeriodTouched) {
+      const t = consensusYearType()
+      if (t) setYearType(t)
     }
-  }, [selectedCompany, companySettings])
+  }, [selectedCompany, companySettings, allPeriodTouched])
 
   // Persist the current selection back to the company (no-op for "all").
   async function persistPeriod(internalType, start, end) {
@@ -195,11 +217,13 @@ export default function ReportsPage({ properties, companies, companySettings, us
 
   function saveYearType(type) {
     setYearType(type)
+    if (selectedCompany === 'all') setAllPeriodTouched(true)
     persistPeriod(type, customStart, customEnd)
   }
 
   function saveCustomDates(start, end) {
     setCustomStart(start); setCustomEnd(end); setYearType('custom')
+    if (selectedCompany === 'all') setAllPeriodTouched(true)
     persistPeriod('custom', start, end)
   }
 
