@@ -509,7 +509,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
         // report category's accent (gold for tax, green for performance,
         // etc) — matches the in-app catalogue card colour.
         companyColor: co?.color,
-        categoryAccent: accent,
+        categoryAccent: data.useBrandAccent ? undefined : accent,
         logoUrl: cs?.logo_url,
       })
     } catch(e) { console.error('PDF export failed', e); showAppToast('PDF export failed — ' + (e?.message || 'unknown'), 'error') }
@@ -596,41 +596,47 @@ const COMPANY_PNL_NOTE = 'Estimates for planning, not tax advice. Corporation ta
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   switch(id) {
     case 'company_pnl': {
-      const { shareholders = [], companies = [], selectedCompany = 'all', user } = extras || {}
+      const { companies = [], selectedCompany = 'all', user } = extras || {}
       const months = monthsInRange(range.start, range.end)
       if (selectedCompany === 'all') {
-        // Cross-company personal income summary — one row per company.
-        const rows = companies.map(c => {
+        // One row per company + cross-company portfolio totals per person.
+        const perCo = companies.map(c => {
           const pnl = computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras)
           const viewer = findViewerShareholder(pnl.shareholders.map(s => ({ ...s, user_id: s.userId })), user)
-          return { name: c.name, pat: pnl.profitAfterTax, pct: viewer?.percentage || 0, net: viewer?.net || 0, monthly: viewer?.netMonthly || 0 }
+          return { c, pnl, viewer }
         })
-        const tNet = rows.reduce((s, r) => s + r.net, 0), tMonthly = rows.reduce((s, r) => s + r.monthly, 0)
-        // Cross-company portfolio totals per shareholder, appended below the
-        // per-company rows (the PDF/CSV renderers take a single table).
-        const portfolio = aggregateShareholdersAcrossCompanies(companies.map(c => ({
-          companyName: c.name,
-          shareholders: computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras).shareholders,
+        const tNet = perCo.reduce((s, r) => s + (r.viewer?.net || 0), 0)
+        const tMonthly = perCo.reduce((s, r) => s + (r.viewer?.netMonthly || 0), 0)
+        const portfolio = aggregateShareholdersAcrossCompanies(perCo.map(({ c, pnl }) => ({
+          companyName: c.abbr || c.name, shareholders: pnl.shareholders,
         })))
+        const companyHeaders = ['Company', 'Profit after tax', 'Your %', 'Your share (net)', 'Your monthly']
+        const companyRows = perCo.map(({ c, pnl, viewer }) => [
+          c.name, fmt(pnl.profitAfterTax), viewer ? fmtPct(viewer.percentage, 2) : '—',
+          viewer ? fmt(viewer.net) : '—', viewer ? fmt(viewer.netMonthly) : '—',
+        ])
+        const companyTotals = ['Total (you)', '', '', fmt(tNet), fmt(tMonthly)]
         return {
-          title: 'Company P&L & Profit Share', note: COMPANY_PNL_NOTE,
+          title: 'Company P&L & Profit Share', note: COMPANY_PNL_NOTE, useBrandAccent: true,
           kpis: [['Your income (period, after tax)', fmt(tNet)], ['Your monthly average', fmt(tMonthly)], ['Companies', companies.length.toString()]],
-          headers: ['Company', 'Profit after tax', 'Your %', 'Your share (net)', 'Your monthly'],
-          rows: [
-            ...rows.map(r => [r.name, fmt(r.pat), r.pct ? fmtPct(r.pct, 2) : '—', fmt(r.net), fmt(r.monthly)]),
-            ...(portfolio.length ? [['— Shareholder portfolio totals —', '', '', '', '']] : []),
-            ...portfolio.map(g => [
-              `${g.name} (${g.companiesCount} ${g.companiesCount === 1 ? 'company' : 'companies'})`,
-              g.holdings.map(h => `${h.company} ${h.percentage}%`).join(' · '),
-              `${g.totalPercent.toFixed(2)} pts`, fmt(g.totalNet), fmt(g.totalMonthly),
-            ]),
+          headers: companyHeaders, rows: companyRows, totals: companyTotals,
+          sections: [
+            { title: 'Your share by company', headers: companyHeaders, rows: companyRows, totals: companyTotals },
+            ...(portfolio.length ? [{
+              title: 'Shareholder portfolio totals — all companies',
+              headers: ['Shareholder', 'Holdings', 'Combined %', 'Net income (period)', 'Per month'],
+              rows: portfolio.map(g => [
+                `${g.name} (${g.companiesCount} ${g.companiesCount === 1 ? 'company' : 'companies'})`,
+                g.holdings.map(h => `${h.company} ${h.percentage}%`).join(' · '),
+                `${g.totalPercent.toFixed(2)} pts`, fmt(g.totalNet), fmt(g.totalMonthly),
+              ]),
+            }] : []),
           ],
-          totals: ['Total (you)', '', '', fmt(tNet), fmt(tMonthly)],
         }
       }
       const pnl = computeCompanyPnl(selectedCompany, filtProps, filtExp, filtRent, range, extras)
       const co = companies.find(c => c.id === selectedCompany)
-      const rows = [
+      const plRows = [
         ['Rental income' + (pnl.income.usedFallback ? ' (expected — no payment data)' : ' (collected)'), fmt(pnl.income.rentCollected)],
         ...pnl.expenseCategories.map(c => [c.label, fmt(-c.amount)]),
         ...pnl.managementFees.map(f => [`Management fee — ${f.agentName} (${f.feePercent}%${f.vatTreatment === 'ex_vat' ? ' + VAT' : ''}, ${f.propertyCount} ${f.propertyCount === 1 ? 'property' : 'properties'})`, fmt(-f.amount)]),
@@ -638,16 +644,23 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         ['Operating profit', fmt(pnl.operatingProfit)],
         [`Corporation tax (est., ${(pnl.corporationTax.effectiveRate * 100).toFixed(1)}%)`, fmt(-pnl.corporationTax.tax)],
         ['Profit after tax', fmt(pnl.profitAfterTax)],
-        ...(pnl.shareholders.length ? [['— Shareholder split —', '']] : []),
-        ...pnl.shareholders.map(s => [
-          `${s.name} (${s.percentage}%${s.taxBand ? ', ' + s.taxBand + ' rate div. tax' : ''})`,
-          fmt(s.net) + ` · ${fmt(s.netMonthly)}/mo`,
-        ]),
       ]
+      const splitRows = pnl.shareholders.map(s => [
+        s.name, fmtPct(s.percentage, 2), fmt(s.share),
+        s.dividendTax != null ? fmt(-s.dividendTax) : '—', fmt(s.net), fmt(s.netMonthly),
+      ])
       return {
         title: `Company P&L — ${co?.name || ''}`, note: COMPANY_PNL_NOTE,
         kpis: [['Operating profit', fmt(pnl.operatingProfit)], ['Corporation tax (est.)', fmt(pnl.corporationTax.tax)], ['Profit after tax', fmt(pnl.profitAfterTax)], ['Months in period', months.toString()]],
-        headers: ['Line item', 'Amount'], rows, totals: null,
+        headers: ['Line item', 'Amount'], rows: plRows, totals: null,
+        sections: [
+          { title: 'Profit & Loss', headers: ['Line item', 'Amount'], rows: plRows },
+          ...(splitRows.length ? [{
+            title: 'Shareholder split',
+            headers: ['Shareholder', 'Holding', 'Share of profit', 'Est. dividend tax', 'Net', 'Per month'],
+            rows: splitRows,
+          }] : []),
+        ],
       }
     }
     case 'pnl': {
@@ -785,7 +798,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
 }
 
 // ── RENDER PDF ─────────────────────────────────────────────────────────────────
-async function renderReportPDF({ title, kpis, headers, rows, totals, note, reportName, company, period, companyColor, categoryAccent, logoUrl }) {
+async function renderReportPDF({ title, kpis, headers, rows, totals, note, sections, reportName, company, period, companyColor, categoryAccent, logoUrl }) {
   await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
   const { jsPDF } = window.jspdf
   const isLandscape = headers.length > 5
@@ -844,6 +857,9 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
   let tx = margin + 8
   if (coLogo) {
     try { doc.addImage(coLogo, 'PNG', margin + 5, 12, 22, 11); tx = margin + 32 } catch(e) {}
+  } else if (opLogo) {
+    // No company logo (e.g. "All companies") — brand with the Properly mark.
+    try { doc.addImage(opLogo, 'PNG', margin + 6, 13, 11, 11); tx = margin + 22 } catch(e) {}
   }
   // Company name + report title
   doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
@@ -861,11 +877,14 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
 
   // ── NOTE ─────────────────────────────────────────────────────────────────
   if (note) {
-    card(margin, y, cW, 10)
-    doc.setFillColor(...accent); doc.rect(margin, y, 1.5, 10, 'F')
-    doc.setFontSize(7.5); doc.setTextColor(...slate); doc.setFont('helvetica', 'italic')
-    doc.text(note.length > 130 ? note.slice(0, 127) + '...' : note, margin + 6, y + 6.5)
-    y += 15
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
+    const noteLines = doc.splitTextToSize(note, cW - 14)
+    const nh = 4 + noteLines.length * 3.6
+    card(margin, y, cW, nh)
+    doc.setFillColor(...accent); doc.rect(margin, y, 1.5, nh, 'F')
+    doc.setTextColor(...slate)
+    doc.text(noteLines, margin + 6, y + 5)
+    y += nh + 5
   }
 
   // ── KPI CARDS ────────────────────────────────────────────────────────────
@@ -892,74 +911,95 @@ async function renderReportPDF({ title, kpis, headers, rows, totals, note, repor
     y += 2
   }
 
-  // ── TABLE CARD ───────────────────────────────────────────────────────────
-  const colCount = headers.length
-  const firstW = Math.min(cW * 0.3, 65)
-  const otherW = (cW - firstW) / Math.max(colCount - 1, 1)
-  function colX(ci) { return ci === 0 ? margin : margin + firstW + (ci - 1) * otherW }
-  function colWid(ci) { return ci === 0 ? firstW : otherW }
+  // ── TABLE CARD(S) ────────────────────────────────────────────────────────
+  // One report can carry several titled tables (data.sections) — e.g. the
+  // Company P&L's "P&L lines" + "Shareholder split". Reports without
+  // sections render their single headers/rows table exactly as before.
 
-  // Table header
-  card(margin, y, cW, 8)
-  doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
-  headers.forEach((h, ci) => {
-    if (ci === 0) doc.text(String(h).toUpperCase(), colX(ci) + 4, y + 5.5)
-    else doc.text(String(h).toUpperCase(), colX(ci) + colWid(ci) - 4, y + 5.5, { align: 'right' })
-  })
-  y += 9
+  function drawSectionHeading(text) {
+    if (y > H - 45) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
+    doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
+    doc.text(text, margin, y + 4)
+    doc.setFillColor(...accent); doc.rect(margin, y + 6.5, 26, 0.9, 'F')
+    y += 12
+  }
 
-  // Table rows. Wrap long cells (typically property addresses) to up to 2
-  // lines rather than truncating with "..." — looks far more professional
-  // on Greenwich Park, Coatham House, 12 Branstone Park type names.
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
-  rows.forEach((row, ri) => {
-    // Measure each cell's wrapped height; row height = max line count × 4.
-    const wraps = row.map((cell, ci) => {
-      const val = String(cell != null ? cell : '')
-      const w = colWid(ci) - 8
-      // jsPDF.splitTextToSize returns an array of lines that fit within `w`
-      return doc.splitTextToSize(val, w).slice(0, 2)
+  function drawTable(tHeaders, tRows, tTotals) {
+    const colCount = tHeaders.length
+    // Two-column tables (P&L line items) give the label column most of the
+    // width; wider tables cap the first column like before.
+    const firstW = colCount <= 2 ? cW * 0.62 : Math.min(cW * 0.3, 65)
+    const otherW = (cW - firstW) / Math.max(colCount - 1, 1)
+    const colX = ci => ci === 0 ? margin : margin + firstW + (ci - 1) * otherW
+    const colWid = ci => ci === 0 ? firstW : otherW
+
+    // Table header
+    card(margin, y, cW, 8)
+    doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
+    tHeaders.forEach((h, ci) => {
+      if (ci === 0) doc.text(String(h).toUpperCase(), colX(ci) + 4, y + 5.5)
+      else doc.text(String(h).toUpperCase(), colX(ci) + colWid(ci) - 4, y + 5.5, { align: 'right' })
     })
-    const lineCount = Math.max(1, ...wraps.map(w => w.length))
-    const rowH = Math.max(6.5, lineCount * 4.5)
+    y += 9
 
-    if (y + rowH > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
+    // Rows — wrap long cells to up to 3 lines rather than truncating.
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
+    tRows.forEach((row, ri) => {
+      const wraps = row.map((cell, ci) => {
+        const val = String(cell != null ? cell : '')
+        const w = colWid(ci) - 8
+        return doc.splitTextToSize(val, w).slice(0, 3)
+      })
+      const lineCount = Math.max(1, ...wraps.map(w => w.length))
+      const rowH = Math.max(6.5, lineCount * 4.5)
 
-    if (ri % 2 === 0) { doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, rowH, 'F') }
-    doc.setDrawColor(...border); doc.setLineWidth(0.15)
-    doc.line(margin + 2, y + rowH - 1.5, margin + cW - 2, y + rowH - 1.5)
+      if (y + rowH > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
 
-    row.forEach((cell, ci) => {
-      const val = String(cell != null ? cell : '')
-      // Colour logic matching dashboard
-      if (ci > 0) {
-        if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue') || val.includes('overdue')) doc.setTextColor(...red)
-        else if (val === 'Valid' || val === 'Yes' || val === 'Rented' || val === 'All clear') doc.setTextColor(...green)
-        else if (val.includes('Expiring')) doc.setTextColor(...amber)
-        else doc.setTextColor(...slate)
-      } else { doc.setTextColor(...dark) }
+      if (ri % 2 === 0) { doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, rowH, 'F') }
+      doc.setDrawColor(...border); doc.setLineWidth(0.15)
+      doc.line(margin + 2, y + rowH - 1.5, margin + cW - 2, y + rowH - 1.5)
 
-      doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal')
-      const lines = wraps[ci]
-      if (ci === 0) doc.text(lines, colX(ci) + 4, y + 3.5)
-      else doc.text(lines, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
+      row.forEach((cell, ci) => {
+        const val = String(cell != null ? cell : '')
+        if (ci > 0) {
+          if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue') || val.includes('overdue')) doc.setTextColor(...red)
+          else if (val === 'Valid' || val === 'Yes' || val === 'Rented' || val === 'All clear') doc.setTextColor(...green)
+          else if (val.includes('Expiring')) doc.setTextColor(...amber)
+          else doc.setTextColor(...slate)
+        } else { doc.setTextColor(...dark) }
+
+        doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal')
+        const lines = wraps[ci]
+        if (ci === 0) doc.text(lines, colX(ci) + 4, y + 3.5)
+        else doc.text(lines, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
+      })
+      y += rowH
     })
-    y += rowH
-  })
 
-  // Totals row
-  if (totals && totals.length > 0) {
-    if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
-    y += 1
-    // Gold top line + card background
-    doc.setFillColor(...accent); doc.rect(margin, y - 2, cW, 0.8, 'F')
-    card(margin, y - 0.5, cW, 8)
-    doc.setFontSize(8.5); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
-    totals.forEach((val, ci) => {
-      if (!val) return
-      if (ci === 0) doc.text(String(val), colX(ci) + 4, y + 4.5)
-      else doc.text(String(val), colX(ci) + colWid(ci) - 4, y + 4.5, { align: 'right' })
-    })
+    // Totals row
+    if (tTotals && tTotals.length > 0) {
+      if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
+      y += 1
+      doc.setFillColor(...accent); doc.rect(margin, y - 2, cW, 0.8, 'F')
+      card(margin, y - 0.5, cW, 8)
+      doc.setFontSize(8.5); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
+      tTotals.forEach((val, ci) => {
+        if (!val) return
+        if (ci === 0) doc.text(String(val), colX(ci) + 4, y + 4.5)
+        else doc.text(String(val), colX(ci) + colWid(ci) - 4, y + 4.5, { align: 'right' })
+      })
+      y += 10
+    }
+  }
+
+  if (sections && sections.length) {
+    for (const sec of sections) {
+      drawSectionHeading(sec.title)
+      drawTable(sec.headers, sec.rows, sec.totals)
+      y += 5
+    }
+  } else {
+    drawTable(headers, rows, totals)
   }
 
   // Footer on all pages
@@ -1215,6 +1255,20 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
   const stripCurrency = (s) => typeof s === 'string' ? s.replace(/[£,]/g, '').trim() : s
 
   switch(id) {
+    case 'company_pnl': {
+      // Emit each section (per-company summary / portfolio totals, or P&L
+      // lines / shareholder split) as its own titled block.
+      const data = buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras)
+      const out = []
+      for (const sec of (data.sections || [])) {
+        out.push([sec.title])
+        out.push(sec.headers)
+        for (const row of (sec.rows || [])) out.push(row.map(stripCurrency))
+        if (sec.totals) out.push(sec.totals.map(stripCurrency))
+        out.push([''])
+      }
+      return out.length ? out : [['Report', id], ['Period', range.label]]
+    }
     case 'pnl': {
       const hasPaid = filtRent.some(r => r.status === 'paid')
       return [
@@ -1414,7 +1468,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           totals={['Total', '', '', {v:fmt(tNet),color:tNet>=0?T.green:T.red}, {v:fmt(tMonthly),color:accent}]}
         />
         {(() => {
-          const portfolio = aggregateShareholdersAcrossCompanies(rows.map(({c, pnl}) => ({ companyName: c.name, shareholders: pnl.shareholders })))
+          const portfolio = aggregateShareholdersAcrossCompanies(rows.map(({c, pnl}) => ({ companyName: c.abbr || c.name, shareholders: pnl.shareholders })))
           if (!portfolio.length) return null
           const isViewer = g => g.userId === user?.id || (g.email && user?.email && g.email.toLowerCase() === user.email.toLowerCase())
           return (
