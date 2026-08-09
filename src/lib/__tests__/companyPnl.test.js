@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ukCorporationTax, dividendTax, monthsInRange, buildCompanyPnl,
   findViewerShareholder, aggregateShareholdersAcrossCompanies,
-  buildPortfolioPnl,
+  buildPortfolioPnl, scalePortfolioPnl,
 } from '../companyPnl'
 
 describe('ukCorporationTax', () => {
@@ -429,6 +429,81 @@ describe('buildPortfolioPnl', () => {
     })
     expect(r.companies[0].rows[0].monthly).toEqual([750, 750])
     expect(r.companies[0].rows[0].income).toBe(1_500)
+  })
+})
+
+describe('scalePortfolioPnl', () => {
+  // Base result: Alpha (viewer holds 50%), Beta (no holding), and a
+  // personally-held property.
+  const base = () => buildPortfolioPnl({
+    companies: [{ id: 'cA', name: 'Alpha Ltd' }, { id: 'cB', name: 'Beta Ltd' }],
+    properties: [
+      { id: 'p1', name: 'Flat 1', company_id: 'cA' },
+      { id: 'p3', name: 'House 3', company_id: 'cB' },
+      { id: 'p9', name: 'Own house', company_id: null },
+    ],
+    payments: [
+      { property_id: 'p1', status: 'paid', amount: 12_000 },
+      { property_id: 'p3', status: 'paid', amount: 20_000 },
+      { property_id: 'p9', status: 'paid', amount: 6_000 },
+    ],
+    expenses: [{ property_id: 'p1', category: 'repairs', amount: 2_000 }],
+    months: 12,
+  })
+
+  it('scales each block by the holder percentage and drops companies with no holding', () => {
+    const r = scalePortfolioPnl(base(), { cA: 50 })
+    expect(r.scaled).toBe(true)
+    // Beta dropped; Alpha + personal survive.
+    expect(r.companies.map(b => b.name)).toEqual(['Alpha Ltd', 'Personally held (no company)'])
+    const alpha = r.companies[0]
+    expect(alpha.sharePercent).toBe(50)
+    // Alpha whole-company: income 12,000, pretax 10,000, CT 1,900 (19%),
+    // posttax 8,100 → halved.
+    expect(alpha.rows[0].income).toBe(6_000)
+    expect(alpha.totals.pretax).toBe(5_000)
+    expect(alpha.totals.ct).toBe(950)
+    expect(alpha.totals.posttax).toBe(4_050)
+    // Personal bucket kept at 100%.
+    const personal = r.companies[1]
+    expect(personal.sharePercent).toBe(100)
+    expect(personal.totals.income).toBe(6_000)
+    // Grand recomputed over surviving blocks only.
+    expect(r.grand.income).toBe(12_000)
+    expect(r.grand.posttax).toBe(4_050 + 6_000)
+  })
+
+  it('scales monthly buckets and recomputes grand monthly columns', () => {
+    const monthKeys = [{ m: 0, y: 2026 }, { m: 1, y: 2026 }]
+    const raw = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA' }],
+      payments: [
+        { property_id: 'p1', status: 'paid', amount: 1_000, year: 2026, month: 1 },
+        { property_id: 'p1', status: 'paid', amount: 1_000, year: 2026, month: 2 },
+      ],
+      months: 2, monthKeys,
+    })
+    const r = scalePortfolioPnl(raw, { cA: 25 })
+    expect(r.companies[0].rows[0].monthly).toEqual([250, 250])
+    expect(r.companies[0].totals.monthly).toEqual([250, 250])
+    expect(r.grand.monthly).toEqual([250, 250])
+    // Pass-through fields survive the reshape.
+    expect(r.months).toBe(2)
+    expect(r.monthFlags).toEqual([false, false])
+  })
+
+  it('returns no blocks when the holder has no shares anywhere', () => {
+    const raw = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA' }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 1_000 }],
+      months: 12,
+    })
+    const r = scalePortfolioPnl(raw, {})
+    expect(r.companies).toEqual([])
+    expect(r.grand.income).toBe(0)
+    expect(r.grand.posttax).toBe(0)
   })
 })
 

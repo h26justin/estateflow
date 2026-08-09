@@ -19,7 +19,12 @@ vi.mock('../../lib/api', () => ({
   fetchAllExpenses: vi.fn().mockResolvedValue([
     { id: 'e1', property_id: 'p1', category: 'repairs', amount: 200, date: '2026-06-10', property: { company_id: 'cA' } },
   ]),
-  fetchAllShareholders: vi.fn().mockResolvedValue([]),
+  fetchAllShareholders: vi.fn().mockResolvedValue([
+    // Viewer (u1) holds 50% of Alpha; someone else owns Beta outright.
+    { id: 's1', company_id: 'cA', name: 'Justin', user_id: 'u1', percentage: 50 },
+    { id: 's2', company_id: 'cA', name: 'Partner', percentage: 50 },
+    { id: 's3', company_id: 'cB', name: 'Someone Else', percentage: 100 },
+  ]),
   fetchEstateAgents: vi.fn().mockResolvedValue([]),
 }))
 
@@ -99,5 +104,22 @@ describe('Full Portfolio P&L report', () => {
     // Toggling back to actuals removes the forecast card.
     fireEvent.click(screen.getByText('Actuals'))
     expect(screen.queryByText('Post-tax position at year end')).not.toBeInTheDocument()
+  })
+
+  it('scales to the viewer\'s shareholding via the My share toggle', async () => {
+    renderReport()
+    await screen.findByText('Alpha Ltd — total')
+    fireEvent.click(screen.getByText('My share'))
+    // Viewer holds 50% of Alpha: Flat 1's £800 pre-tax halves to £400.
+    expect(await screen.findByText('· your 50%')).toBeInTheDocument()
+    expect(screen.getAllByText('£400').length).toBeGreaterThan(0)
+    // No holding in Beta → the whole block is hidden, with a note.
+    expect(screen.queryByText('Beta Ltd — total')).not.toBeInTheDocument()
+    expect(screen.getByText(/1 company where you hold no shares is hidden/)).toBeInTheDocument()
+    // Stat cards switch to "your" labels.
+    expect(screen.getByText('Your income')).toBeInTheDocument()
+    // Back to whole portfolio.
+    fireEvent.click(screen.getByText('Whole portfolio'))
+    expect(await screen.findByText('Beta Ltd — total')).toBeInTheDocument()
   })
 })
