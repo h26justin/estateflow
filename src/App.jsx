@@ -92,6 +92,7 @@ import SuspendedAccessBanner from './components/SuspendedAccessBanner'
 import BuildingMortgageModal from './components/BuildingMortgageModal'
 const ReceiptScanModal = lazy(() => import('./components/ReceiptScanModal'))
 import { canUseInvestorFeatures } from './lib/tierGating'
+import CompanyOwnershipSection from './components/CompanyOwnershipSection'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -2220,6 +2221,8 @@ export default function App() {
               ))}
               {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
             </div>
+            <CompanyOwnershipSection company={c} user={user} T={T} showToast={showToast}
+              canEdit={canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive}/>
           </div>
         })}
 
