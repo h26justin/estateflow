@@ -31,6 +31,10 @@ vi.mock('../../lib/api', () => ({
 const properties = [
   { id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1000, company: { name: 'Alpha Ltd' } },
   { id: 'p2', name: 'House 2', company_id: 'cB', status: 'rented', rent_pcm: 2000, company: { name: 'Beta Ltd' } },
+  // Sibling pair for the estimate-missing-rents chip: same building, one
+  // with rent, one without.
+  { id: 'p3', name: 'Flat 1, Kings Court', company_id: 'cB', status: 'rented', rent_pcm: 750, company: { name: 'Beta Ltd' } },
+  { id: 'p4', name: 'Flat 2, Kings Court', company_id: 'cB', status: 'vacant', rent_pcm: 0, company: { name: 'Beta Ltd' } },
 ]
 const companies = [
   { id: 'cA', name: 'Alpha Ltd' },
@@ -158,5 +162,21 @@ describe('Full Portfolio P&L report', () => {
     // Untick → back to actuals (Flat 1 collected £1,000 in the period).
     fireEvent.click(screen.getByText('✓ Full occupancy'))
     expect(screen.queryByText(/Full occupancy: income assumes/)).not.toBeInTheDocument()
+  })
+
+  it('borrows sibling rents via the Estimate missing rents chip without touching real data', async () => {
+    renderReport()
+    await screen.findByText('Alpha Ltd — total')
+    // Flat 2 Kings Court has no rent — with full occupancy alone it stays £0.
+    fireEvent.click(screen.getByText('Full occupancy'))
+    fireEvent.click(screen.getByText('Estimate missing rents'))
+    // Note reports one property estimated, and the row is badged.
+    expect(await screen.findByText(/Estimated rents applied to 1 property /)).toBeInTheDocument()
+    expect(screen.getByText('est. rent')).toBeInTheDocument()
+    // Sibling median (£750) × 12 months appears as the estimated income.
+    expect(screen.getAllByText('£9,000').length).toBeGreaterThan(0)
+    // Untick → estimate note and badge disappear.
+    fireEvent.click(screen.getByText('✓ Estimate missing rents'))
+    expect(screen.queryByText('est. rent')).not.toBeInTheDocument()
   })
 })

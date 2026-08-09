@@ -172,6 +172,13 @@ export function aggregateShareholdersAcrossCompanies(entries = []) {
 //   mortgage       — the 'mortgage' expense category (subset of expenses)
 //   corporationTax — the per-company CT estimate (off → post-tax = pre-tax)
 //
+// rentEstimates — optional { propertyId: rent } map (see
+// estimateMissingRents). Used ONLY where a property's own rent_pcm is
+// missing/0, as the effective contract rent for the expected-rent
+// fallback, forecast months, and the full-occupancy floor. Rows built on
+// an estimate carry rentEstimated: true so the UI can badge them.
+// Actually-collected rent is never altered.
+//
 // fullOccupancy — assume no voids. Requires monthKeys (silently ignored
 // without). Every property's rent for every month bucket is raised to at
 // least its expected rent (rent_pcm) — vacant properties, void months,
@@ -198,6 +205,7 @@ export function buildPortfolioPnl({
   forecast = null,
   include = {},
   fullOccupancy = false,
+  rentEstimates = null,
 } = {}) {
   const round2 = n => Math.round(n * 100) / 100
   const agentById = new Map(agents.map(a => [a.id, a]))
@@ -273,7 +281,12 @@ export function buildPortfolioPnl({
     }
 
     const rows = cProps.map(p => {
-      const fallbackRent = isEarningRent(p) ? (Number(p.rent_pcm) || 0) : 0
+      const ownRent = Number(p.rent_pcm) || 0
+      const estRent = !ownRent && rentEstimates ? (Number(rentEstimates[p.id]) || 0) : 0
+      // Effective contract rent: the property's own figure, else the
+      // sibling-building estimate (display-only assumption).
+      const rentPcm = ownRent || estRent
+      const fallbackRent = isEarningRent(p) ? rentPcm : 0
       const exp = expByProp.get(p.id) || 0
       const feeRate = feeRateFor(p)
       let income, monthly = null
@@ -288,7 +301,7 @@ export function buildPortfolioPnl({
           }
           // No-voids floor: every bucket earns at least the contract rent,
           // regardless of status — see fullOccupancy doc above.
-          if (fullOccOn) rent = Math.max(rent, Number(p.rent_pcm) || 0)
+          if (fullOccOn) rent = Math.max(rent, rentPcm)
           return rent
         })
         monthly = rents.map((rent, i) => {
@@ -308,7 +321,7 @@ export function buildPortfolioPnl({
       }
       const fees = income * feeRate
       const pretax = income - exp - fees
-      return { id: p.id, name: p.name, income, expenses: exp, fees, pretax, monthly }
+      return { id: p.id, name: p.name, income, expenses: exp, fees, pretax, monthly, rentEstimated: estRent > 0 }
     })
 
     const tIncome = rows.reduce((s, r) => s + r.income, 0)
@@ -360,6 +373,56 @@ export function buildPortfolioPnl({
     // the current month and everything after it.
     monthFlags: monthKeys ? monthKeys.map(({ m, y }) => forecastOn && (y * 12 + m) >= nowKey) : null,
   }
+}
+
+// ── Sibling-rent estimation ────────────────────────────────────────────────
+// For properties with no rent recorded, borrow an estimate from the other
+// units in the same building — "Flat 5, Park Place East" takes the going
+// rate of the Park Place East flats. DISPLAY-ONLY by design: the caller
+// feeds the result into buildPortfolioPnl's rentEstimates option; nothing
+// is ever written back to the portfolio.
+//
+// Buildings are matched by stripping the unit designator from the name
+// (leading or trailing "Flat 5" / "Room 2A" / "Apt 3" / "Unit 1" /
+// "Studio 2", and the letter on a leading house number so 47A and 47B
+// Somerset Street pair up), scoped to one company so identically-named
+// streets in different companies never mix. The estimate is the MEDIAN of
+// the building's known rents — robust to one outlier unit.
+function buildingKeyForName(name) {
+  const s = String(name || '').toLowerCase().replace(/[.,'']/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!s) return null
+  const unit = '(?:flat|apartment|apt|room|unit|studio)\\s+[0-9]+[a-z]?'
+  let key = s.replace(new RegExp(`^${unit}\\s+`), '')
+  key = key.replace(new RegExp(`\\s+${unit}$`), '')
+  key = key.replace(/^(\d+)[a-z]\s+/, '$1 ')
+  key = key.trim()
+  return key || null
+}
+
+// properties → { [propertyId]: estimatedRent } for every property whose
+// rent_pcm is missing/0 and whose building has at least one unit with a
+// known rent.
+export function estimateMissingRents(properties = []) {
+  const groups = new Map()
+  for (const p of properties) {
+    const key = buildingKeyForName(p.name)
+    if (!key) continue
+    const gk = `${p.company_id || ''}|${key}`
+    let g = groups.get(gk)
+    if (!g) { g = { rents: [], missing: [] }; groups.set(gk, g) }
+    const rent = Number(p.rent_pcm) || 0
+    if (rent > 0) g.rents.push(rent)
+    else g.missing.push(p.id)
+  }
+  const estimates = {}
+  for (const g of groups.values()) {
+    if (!g.rents.length || !g.missing.length) continue
+    const sorted = [...g.rents].sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+    for (const id of g.missing) estimates[id] = Math.round(median * 100) / 100
+  }
+  return estimates
 }
 
 // ── Scale a portfolio P&L to one shareholder's slice ───────────────────────

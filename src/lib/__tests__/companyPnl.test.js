@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ukCorporationTax, dividendTax, monthsInRange, buildCompanyPnl,
   findViewerShareholder, aggregateShareholdersAcrossCompanies,
-  buildPortfolioPnl, scalePortfolioPnl,
+  buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents,
 } from '../companyPnl'
 
 describe('ukCorporationTax', () => {
@@ -507,6 +507,35 @@ describe('buildPortfolioPnl', () => {
     expect(r.fullOccupancy).toBe(true)
   })
 
+  it('uses rentEstimates for fallback, forecast, and the full-occupancy floor — never overriding a real rent', () => {
+    const monthKeys = [{ m: 0, y: 2026 }, { m: 1, y: 2026 }]
+    const args = {
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [
+        { id: 'p1', name: 'Flat 1, Kings Court', company_id: 'cA', status: 'rented', rent_pcm: 700 },
+        { id: 'p2', name: 'Flat 2, Kings Court', company_id: 'cA', status: 'rented', rent_pcm: 0 },
+      ],
+      payments: [], months: 2, monthKeys,
+      rentEstimates: { p2: 700 },
+    }
+    // Fallback (no payments): the estimated rent projects like a real one.
+    const r = buildPortfolioPnl(args)
+    expect(r.companies[0].rows[1].income).toBe(1_400)
+    expect(r.companies[0].rows[1].rentEstimated).toBe(true)
+    expect(r.companies[0].rows[0].rentEstimated).toBe(false)
+    // Full occupancy floors a vacant £0-rent unit to its estimate.
+    const occ = buildPortfolioPnl({
+      ...args,
+      properties: [{ id: 'p2', name: 'Flat 2, Kings Court', company_id: 'cA', status: 'vacant', rent_pcm: 0 }],
+      payments: [{ property_id: 'p2', status: 'paid', amount: 100, year: 2026, month: 1 }],
+      fullOccupancy: true,
+    })
+    expect(occ.companies[0].rows[0].monthly).toEqual([700, 700])
+    // A property with its own rent never takes the estimate.
+    const own = buildPortfolioPnl({ ...args, rentEstimates: { p1: 9_999, p2: 700 } })
+    expect(own.companies[0].rows[0].income).toBe(1_400)
+  })
+
   it('uses expected rent in every month bucket when falling back', () => {
     const monthKeys = [{ m: 3, y: 2026 }, { m: 4, y: 2026 }]
     const r = buildPortfolioPnl({
@@ -516,6 +545,44 @@ describe('buildPortfolioPnl', () => {
     })
     expect(r.companies[0].rows[0].monthly).toEqual([750, 750])
     expect(r.companies[0].rows[0].income).toBe(1_500)
+  })
+})
+
+describe('estimateMissingRents', () => {
+  it('estimates a missing rent from the median of sibling units in the same building', () => {
+    const est = estimateMissingRents([
+      { id: 'p1', name: 'Flat 1, Park Place East', company_id: 'cN', rent_pcm: 500 },
+      { id: 'p2', name: 'Flat 2, Park Place East', company_id: 'cN', rent_pcm: 550 },
+      { id: 'p3', name: 'Flat 3, Park Place East', company_id: 'cN', rent_pcm: 550 },
+      { id: 'p4', name: 'Flat 4, Park Place East', company_id: 'cN', rent_pcm: 600 },
+      { id: 'p5', name: 'Flat 5, Park Place East', company_id: 'cN', rent_pcm: 0 },
+    ])
+    // Median of 500/550/550/600 = 550.
+    expect(est).toEqual({ p5: 550 })
+  })
+
+  it('matches trailing unit designators and lettered house numbers', () => {
+    const est = estimateMissingRents([
+      { id: 'e1', name: 'Esplanade West Flat 1', company_id: 'cV', rent_pcm: 550 },
+      { id: 'e2', name: 'Esplanade West Flat 2', company_id: 'cV', rent_pcm: null },
+      { id: 's1', name: '47A Somerset Street', company_id: 'cE', rent_pcm: 484 },
+      { id: 's2', name: '47B Somerset Street', company_id: 'cE', rent_pcm: 0 },
+      { id: 'r1', name: 'Room 2A, 10 Elms West', company_id: 'cV', rent_pcm: 600 },
+      { id: 'r2', name: 'Room 3B, 10 Elms West', company_id: 'cV', rent_pcm: 0 },
+    ])
+    expect(est).toEqual({ e2: 550, s2: 484, r2: 600 })
+  })
+
+  it('never crosses companies and gives nothing when no sibling has a rent', () => {
+    const est = estimateMissingRents([
+      // Same building name, different companies — must not mix.
+      { id: 'a1', name: 'Flat 1, High Street', company_id: 'cA', rent_pcm: 900 },
+      { id: 'b1', name: 'Flat 2, High Street', company_id: 'cB', rent_pcm: 0 },
+      // All-zero building: no basis for an estimate.
+      { id: 'd1', name: 'Flat 1 Douro Terrace', company_id: 'cW', rent_pcm: 0 },
+      { id: 'd2', name: 'Flat 2 Douro Terrace', company_id: 'cW', rent_pcm: 0 },
+    ])
+    expect(est).toEqual({})
   })
 })
 
