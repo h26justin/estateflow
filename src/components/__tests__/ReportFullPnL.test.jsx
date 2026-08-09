@@ -144,4 +144,19 @@ describe('Full Portfolio P&L report', () => {
     expect(await screen.findByText(/Dividend tax is estimated from the tax band/)).toBeInTheDocument()
     expect(screen.getByText('Your tax (CT + dividend, est.)')).toBeInTheDocument()
   })
+
+  it('fills voids to contract rent via the Full occupancy chip', async () => {
+    renderReport()
+    await screen.findByText('Alpha Ltd — total')
+    fireEvent.click(screen.getByText('Full occupancy'))
+    expect(await screen.findByText(/Full occupancy: income assumes every property/)).toBeInTheDocument()
+    // Flat 1 (rent £1,000 pcm, only one month actually collected) fills to
+    // a full 12-month year: £12,000.
+    expect((await screen.findAllByText('£12,000')).length).toBeGreaterThan(0)
+    // House 2 fills to £24,000.
+    expect(screen.getAllByText('£24,000').length).toBeGreaterThan(0)
+    // Untick → back to actuals (Flat 1 collected £1,000 in the period).
+    fireEvent.click(screen.getByText('✓ Full occupancy'))
+    expect(screen.queryByText(/Full occupancy: income assumes/)).not.toBeInTheDocument()
+  })
 })

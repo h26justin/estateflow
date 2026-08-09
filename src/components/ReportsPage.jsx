@@ -114,7 +114,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [pnlMyShare, setPnlMyShare]   = useState(false)
   // Assumption switches: management fees / expenses / mortgage costs /
   // corporation tax / dividend tax (the last only bites in My share mode).
-  const [pnlInc, setPnlInc] = useState({ fees: true, expenses: true, mortgage: true, ct: true, divTax: false })
+  const [pnlInc, setPnlInc] = useState({ fees: true, expenses: true, mortgage: true, ct: true, divTax: false, fullOcc: false })
 
   // All data
   const [compliance, setCompliance]   = useState([])
@@ -608,7 +608,7 @@ const COMPANY_PNL_NOTE = 'Estimates for planning, not tax advice. Corporation ta
 // report and the PDF/CSV builders so all three agree. Pass monthKeys for
 // the month-by-month variant and forecastNow (a Date) to project expected
 // rent over the period's remaining months.
-function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthKeys, forecastNow, include) {
+function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthKeys, forecastNow, include, fullOccupancy) {
   const { agents = [], companies = [], selectedCompany = 'all' } = extras || {}
   const nat = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' })
   const active = (selectedCompany === 'all' ? companies : companies.filter(c => c.id === selectedCompany))
@@ -622,6 +622,7 @@ function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthK
     isEarningRent: p => isPropertyEarningRent(p.status),
     forecast: forecastNow ? { now: forecastNow } : null,
     include,
+    fullOccupancy,
   })
 }
 
@@ -719,11 +720,11 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const { year, yearType, pnlMonthly, pnlForecast, pnlMyShare, shareholders = [], companies = [], user } = extras || {}
       const pnlInc = { fees: true, expenses: true, mortgage: true, ct: true, divTax: false, ...(extras?.pnlInc || {}) }
       // Forecast needs month buckets even for the summary export.
-      const wantMonths = (pnlMonthly || pnlForecast) && year != null && yearType ? periodMonths(year, yearType, range) : null
+      const wantMonths = (pnlMonthly || pnlForecast || pnlInc.fullOcc) && year != null && yearType ? periodMonths(year, yearType, range) : null
       const bucketKeys = wantMonths && wantMonths.length <= MAX_GRID_MONTHS ? wantMonths : null
       const monthKeys = pnlMonthly ? bucketKeys : null
       let data = computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, bucketKeys, pnlForecast && bucketKeys ? new Date() : null,
-        { managementFees: pnlInc.fees, expenses: pnlInc.expenses, mortgage: pnlInc.mortgage, corporationTax: pnlInc.ct })
+        { managementFees: pnlInc.fees, expenses: pnlInc.expenses, mortgage: pnlInc.mortgage, corporationTax: pnlInc.ct }, pnlInc.fullOcc)
       if (pnlMyShare) {
         const vs = viewerShareByCompany(shareholders, companies, user)
         data = scalePortfolioPnl(data, vs.pct, { dividendTaxBands: pnlInc.divTax ? vs.bands : null })
@@ -738,7 +739,8 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         !pnlInc.expenses ? 'all expenses' : (!pnlInc.mortgage && 'mortgage costs'),
         !pnlInc.ct && 'corporation tax',
       ].filter(Boolean)
-      const note = (excludedBits.length ? `Excluded by assumption switches: ${excludedBits.join(', ')}. ` : '')
+      const note = (data.fullOccupancy ? 'Full occupancy assumed: every property earns at least its expected rent every month (voids filled). ' : '')
+        + (excludedBits.length ? `Excluded by assumption switches: ${excludedBits.join(', ')}. ` : '')
         + (mine ? `Figures are scaled to your recorded shareholding per company${pnlInc.divTax ? ' (dividend tax estimated from your shareholder tax band)' : ' (before dividend tax)'}; companies where you hold no shares are omitted. ` : '')
         + (data.forecast ? FULL_PNL_FORECAST_NOTE : '') + FULL_PNL_NOTE
       const coName = b => b.name + (mine && !b.personal && b.sharePercent != null ? ` — your ${b.sharePercent}%` : '')
@@ -1710,11 +1712,11 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
 function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T, accent, fmt, agents, companies, selectedCompany, shareholders, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc }) {
   // Forecasting needs month buckets even in summary view (actual past +
   // expected future months are combined per bucket).
-  const wantMonths = (pnlMonthly || pnlForecast) ? periodMonths(year, yearType, range) : null
+  const wantMonths = (pnlMonthly || pnlForecast || pnlInc.fullOcc) ? periodMonths(year, yearType, range) : null
   const tooWide = !!wantMonths && wantMonths.length > MAX_GRID_MONTHS
   const bucketKeys = tooWide ? null : wantMonths
   const raw = computePortfolioPnl(filtProps, filtExp, filtRent, range, { agents, companies, selectedCompany }, bucketKeys, pnlForecast && bucketKeys ? new Date() : null,
-    { managementFees: pnlInc.fees, expenses: pnlInc.expenses, mortgage: pnlInc.mortgage, corporationTax: pnlInc.ct })
+    { managementFees: pnlInc.fees, expenses: pnlInc.expenses, mortgage: pnlInc.mortgage, corporationTax: pnlInc.ct }, pnlInc.fullOcc)
   // "My share" scales every company block by the viewer's shareholding;
   // dividend tax (if switched on) uses the band on their shareholder entry.
   const mine = pnlMyShare
@@ -1741,6 +1743,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
     ['mortgage', 'Mortgage costs', { disabled: !pnlInc.expenses, title: 'Part of expenses' }],
     ['ct', 'Corporation tax'],
     ['divTax', 'Dividend tax', { disabled: !mine, title: mine ? 'Uses the tax band on your shareholder entry per company' : 'Switch to "My share" — dividend tax is personal to each shareholder' }],
+    ['fullOcc', 'Full occupancy', { title: 'No voids: every property earns at least its expected rent every month' }],
   ]
   const controls = (
     <>
@@ -1750,7 +1753,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
         {pillGroup(pnlMonthly, setPnlMonthly, [[false,'Summary'],[true,'Month by month']])}
       </div>
       <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:14}}>
-        <span style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Include</span>
+        <span style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Assumptions</span>
         {chipDefs.map(([k, l, o = {}]) => {
           const on = !!pnlInc[k]
           return (
@@ -1811,9 +1814,15 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
             : ' Post-tax figures are your profit share before dividend tax — tick "Dividend tax" to estimate it from your shareholder tax band.'}
         </div>
       )}
-      {pnlForecast && tooWide && (
+      {data.fullOccupancy && (
         <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
-          Forecast unavailable — the custom range spans more than {MAX_GRID_MONTHS} months (or both dates aren't set). Showing actuals.
+          Full occupancy: income assumes every property earns at least its expected rent in every month — voids,
+          vacant periods, and under-collected months are filled to contract level.
+        </div>
+      )}
+      {(pnlForecast || pnlInc.fullOcc) && tooWide && (
+        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
+          Forecast / full-occupancy unavailable — the custom range spans more than {MAX_GRID_MONTHS} months (or both dates aren't set). Showing actuals.
         </div>
       )}
       {fc && (

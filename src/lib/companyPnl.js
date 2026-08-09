@@ -172,6 +172,16 @@ export function aggregateShareholdersAcrossCompanies(entries = []) {
 //   mortgage       — the 'mortgage' expense category (subset of expenses)
 //   corporationTax — the per-company CT estimate (off → post-tax = pre-tax)
 //
+// fullOccupancy — assume no voids. Requires monthKeys (silently ignored
+// without). Every property's rent for every month bucket is raised to at
+// least its expected rent (rent_pcm) — vacant properties, void months,
+// and under-collected months are all filled to contract level, answering
+// "what would a full rental year bring in". Status is ignored on purpose
+// (a vacant property's missing rent is exactly the void being modelled);
+// months already collected above contract keep the higher actual.
+// Composes with forecast: forecast fills future months first, then the
+// occupancy floor applies to every bucket.
+//
 // forecast — { now: Date }, requires monthKeys (silently ignored without).
 // Projects the position to the end of the period: month buckets before
 // `now`'s month keep actuals, buckets after it use each earning property's
@@ -187,11 +197,13 @@ export function buildPortfolioPnl({
   isEarningRent = (p) => p?.status === 'rented',
   forecast = null,
   include = {},
+  fullOccupancy = false,
 } = {}) {
   const round2 = n => Math.round(n * 100) / 100
   const agentById = new Map(agents.map(a => [a.id, a]))
   const nMonths = monthKeys ? monthKeys.length : months
   const forecastOn = !!(forecast?.now && monthKeys)
+  const fullOccOn = !!(fullOccupancy && monthKeys)
   const nowKey = forecastOn ? forecast.now.getFullYear() * 12 + forecast.now.getMonth() : 0
   const inc = { managementFees: true, expenses: true, mortgage: true, corporationTax: true, ...include }
 
@@ -268,21 +280,27 @@ export function buildPortfolioPnl({
       if (monthKeys) {
         const rents = monthKeys.map(({ m, y }) => {
           const actual = hasPaid ? (paidByPropMonth.get(`${p.id}|${y}-${m}`) || 0) : fallbackRent
-          if (!forecastOn) return actual
-          const k = y * 12 + m
-          if (k > nowKey) return fallbackRent
-          if (k === nowKey) return Math.max(actual, fallbackRent)
-          return actual
+          let rent = actual
+          if (forecastOn) {
+            const k = y * 12 + m
+            if (k > nowKey) rent = fallbackRent
+            else if (k === nowKey) rent = Math.max(actual, fallbackRent)
+          }
+          // No-voids floor: every bucket earns at least the contract rent,
+          // regardless of status — see fullOccupancy doc above.
+          if (fullOccOn) rent = Math.max(rent, Number(p.rent_pcm) || 0)
+          return rent
         })
         monthly = rents.map((rent, i) => {
           const { m, y } = monthKeys[i]
           const mExp = expByPropMonth.get(`${p.id}|${y}-${m}`) || 0
           return round2(rent - mExp - rent * feeRate)
         })
-        // Forecast totals MUST be the sum of the buckets (that's the whole
-        // projection); actuals keep the raw period total so legacy payment
-        // rows that can't be month-bucketed still count.
-        income = forecastOn
+        // Projected totals MUST be the sum of the buckets (that's the whole
+        // point of forecast / full-occupancy); actuals keep the raw period
+        // total so legacy payment rows that can't be month-bucketed still
+        // count.
+        income = (forecastOn || fullOccOn)
           ? rents.reduce((s, v) => s + v, 0)
           : (hasPaid ? (paidByProp.get(p.id) || 0) : fallbackRent * nMonths)
       } else {
@@ -337,6 +355,7 @@ export function buildPortfolioPnl({
   return {
     months: nMonths, companies: blocks, grand,
     forecast: forecastOn,
+    fullOccupancy: fullOccOn,
     // Which month buckets contain forecast (not purely actual) figures —
     // the current month and everything after it.
     monthFlags: monthKeys ? monthKeys.map(({ m, y }) => forecastOn && (y * 12 + m) >= nowKey) : null,

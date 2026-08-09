@@ -452,6 +452,61 @@ describe('buildPortfolioPnl', () => {
     expect(noCt.totals.posttax).toBe(noCt.totals.pretax)
   })
 
+  it('fills every void month to contract rent under fullOccupancy', () => {
+    const monthKeys = [{ m: 0, y: 2026 }, { m: 1, y: 2026 }, { m: 2, y: 2026 }]
+    const args = {
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [
+        // Rented but with gaps: Jan collected above contract, Feb short, Mar void.
+        { id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1_000 },
+        // Vacant all period — pure void.
+        { id: 'p2', name: 'Flat 2', company_id: 'cA', status: 'vacant', rent_pcm: 800 },
+      ],
+      payments: [
+        { property_id: 'p1', status: 'paid', amount: 1_200, year: 2026, month: 1 },
+        { property_id: 'p1', status: 'paid', amount: 400, year: 2026, month: 2 },
+      ],
+      months: 3, monthKeys,
+    }
+    const r = buildPortfolioPnl({ ...args, fullOccupancy: true })
+    const [p1, p2] = r.companies[0].rows
+    // Above-contract Jan kept; short Feb and void Mar floored to 1,000.
+    expect(p1.monthly).toEqual([1_200, 1_000, 1_000])
+    expect(p1.income).toBe(3_200)
+    // Vacant property earns its contract rent every month.
+    expect(p2.monthly).toEqual([800, 800, 800])
+    expect(p2.income).toBe(2_400)
+    expect(r.fullOccupancy).toBe(true)
+
+    // Off (default): actuals only, vacant earns nothing.
+    const off = buildPortfolioPnl(args)
+    expect(off.companies[0].rows[0].income).toBe(1_600)
+    expect(off.companies[0].rows[1].income).toBe(0)
+    expect(off.fullOccupancy).toBe(false)
+
+    // Ignored without monthKeys, like forecast.
+    const noKeys = buildPortfolioPnl({ ...args, monthKeys: null, fullOccupancy: true })
+    expect(noKeys.fullOccupancy).toBe(false)
+    expect(noKeys.companies[0].rows[0].income).toBe(1_600)
+  })
+
+  it('composes fullOccupancy with forecast (floor applies after future months fill)', () => {
+    const monthKeys = [{ m: 4, y: 2026 }, { m: 5, y: 2026 }, { m: 6, y: 2026 }]
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      // Vacant: plain forecast would give £0 in every month.
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'vacant', rent_pcm: 900 }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 100, year: 2026, month: 5 }],
+      months: 3, monthKeys,
+      forecast: { now: new Date('2026-06-15') },
+      fullOccupancy: true,
+    })
+    // May actual 100 → floored to 900; Jun/Jul forecast 0 (vacant) → floored.
+    expect(r.companies[0].rows[0].monthly).toEqual([900, 900, 900])
+    expect(r.forecast).toBe(true)
+    expect(r.fullOccupancy).toBe(true)
+  })
+
   it('uses expected rent in every month bucket when falling back', () => {
     const monthKeys = [{ m: 3, y: 2026 }, { m: 4, y: 2026 }]
     const r = buildPortfolioPnl({
