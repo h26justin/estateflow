@@ -81,4 +81,23 @@ describe('Full Portfolio P&L report', () => {
     fireEvent.click(screen.getByText('Summary'))
     expect((await screen.findAllByText('Tax (est.)')).length).toBeGreaterThan(0)
   })
+
+  it('forecasts to year end via the toggle, starring forecast months in the grid', async () => {
+    renderReport()
+    await screen.findByText('Alpha Ltd — total')
+    fireEvent.click(screen.getByText('Forecast to year end'))
+    // Forecast-specific stat card + methodology note appear.
+    expect(await screen.findByText('Post-tax position at year end')).toBeInTheDocument()
+    expect(screen.getByText(/Forecast mode:/)).toBeInTheDocument()
+    // The month grid stars the current-and-later (forecast) columns. The
+    // default period always contains today, so at least one column is
+    // forecast whenever this runs.
+    fireEvent.click(screen.getByText('Month by month'))
+    const starred = await screen.findAllByText(/^[A-Z][a-z]{2}\*$/)
+    expect(starred.length).toBeGreaterThan(0)
+    expect(screen.getByText(/Columns marked/)).toBeInTheDocument()
+    // Toggling back to actuals removes the forecast card.
+    fireEvent.click(screen.getByText('Actuals'))
+    expect(screen.queryByText('Post-tax position at year end')).not.toBeInTheDocument()
+  })
 })

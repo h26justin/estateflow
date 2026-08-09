@@ -348,6 +348,78 @@ describe('buildPortfolioPnl', () => {
     expect(r.grand.monthly).toEqual([900, -300, 900])
   })
 
+  it('forecasts future months with expected rent while keeping past actuals', () => {
+    const monthKeys = [{ m: 3, y: 2026 }, { m: 4, y: 2026 }, { m: 5, y: 2026 }, { m: 6, y: 2026 }]
+    const args = {
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [
+        { id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1_000, managed_by_agent_id: 'ag1' },
+        { id: 'p2', name: 'Flat 2', company_id: 'cA', status: 'vacant', rent_pcm: 900 },
+      ],
+      payments: [
+        // April collected under contract; May missed; June (current) not yet in.
+        { property_id: 'p1', status: 'paid', amount: 800, year: 2026, month: 4 },
+      ],
+      expenses: [{ property_id: 'p1', category: 'repairs', amount: 100, date: '2026-05-20' }],
+      agents: [{ id: 'ag1', name: 'LetCo', fee_percent: 10, vat_treatment: 'inc_vat' }],
+      months: 4, monthKeys,
+      forecast: { now: new Date('2026-06-15') },
+    }
+    const r = buildPortfolioPnl(args)
+    const flat1 = r.companies[0].rows[0]
+    // Apr actual £800; May actual £0 (missed, in the past — not re-forecast);
+    // Jun = max(0, expected £1,000); Jul = expected £1,000. Fee 10% on rent.
+    expect(flat1.monthly).toEqual([720, -100, 900, 900])
+    expect(flat1.income).toBe(2_800)
+    expect(flat1.fees).toBe(280)
+    expect(flat1.pretax).toBe(2_420)
+    // Vacant property forecasts nothing.
+    expect(r.companies[0].rows[1].income).toBe(0)
+    // Current + future buckets are flagged as forecast.
+    expect(r.monthFlags).toEqual([false, false, true, true])
+    expect(r.forecast).toBe(true)
+
+    // Same inputs without forecast: only the April actual counts.
+    const actuals = buildPortfolioPnl({ ...args, forecast: null })
+    expect(actuals.companies[0].rows[0].income).toBe(800)
+    expect(actuals.forecast).toBe(false)
+  })
+
+  it('keeps an above-contract collection in the current month when forecasting', () => {
+    const monthKeys = [{ m: 5, y: 2026 }]
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1_000 }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 1_500, year: 2026, month: 6 }],
+      months: 1, monthKeys,
+      forecast: { now: new Date('2026-06-15') },
+    })
+    expect(r.companies[0].rows[0].income).toBe(1_500)
+  })
+
+  it('ignores forecast when monthKeys are not supplied', () => {
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1_000 }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 800 }],
+      months: 12,
+      forecast: { now: new Date('2026-06-15') },
+    })
+    expect(r.forecast).toBe(false)
+    expect(r.companies[0].rows[0].income).toBe(800)
+  })
+
+  it('buckets legacy payments by period_start when year/month are missing', () => {
+    const monthKeys = [{ m: 0, y: 2026 }, { m: 1, y: 2026 }]
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA' }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 950, period_start: '2026-02-01' }],
+      months: 2, monthKeys,
+    })
+    expect(r.companies[0].rows[0].monthly).toEqual([0, 950])
+  })
+
   it('uses expected rent in every month bucket when falling back', () => {
     const monthKeys = [{ m: 3, y: 2026 }, { m: 4, y: 2026 }]
     const r = buildPortfolioPnl({

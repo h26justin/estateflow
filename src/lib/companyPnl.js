@@ -165,14 +165,27 @@ export function aggregateShareholdersAcrossCompanies(entries = []) {
 // payment rows at all. Logged 'agent_fees' expenses are excluded wherever a
 // calculated fee config exists for the company (excludedAgentFeeExpenses
 // reports what was dropped).
+//
+// forecast — { now: Date }, requires monthKeys (silently ignored without).
+// Projects the position to the end of the period: month buckets before
+// `now`'s month keep actuals, buckets after it use each earning property's
+// expected rent (rent_pcm), and `now`'s own month takes whichever is
+// higher (rent may simply not have landed yet — but an above-contract
+// collection is never discarded). Management fees follow the forecast rent;
+// expenses stay as logged (future costs aren't invented). Result rows sum
+// their monthly buckets so totals and cells always reconcile, and the root
+// carries monthFlags marking which buckets contain forecast figures.
 export function buildPortfolioPnl({
   companies = [], properties = [], payments = [], expenses = [], agents = [],
   months = 12, monthKeys = null, associatedCompanies = 1,
   isEarningRent = (p) => p?.status === 'rented',
+  forecast = null,
 } = {}) {
   const round2 = n => Math.round(n * 100) / 100
   const agentById = new Map(agents.map(a => [a.id, a]))
   const nMonths = monthKeys ? monthKeys.length : months
+  const forecastOn = !!(forecast?.now && monthKeys)
+  const nowKey = forecastOn ? forecast.now.getFullYear() * 12 + forecast.now.getMonth() : 0
 
   const entries = companies.map(c => ({ id: c.id, name: c.name || 'Company', personal: false }))
   if (properties.some(p => !p.company_id)) {
@@ -196,14 +209,23 @@ export function buildPortfolioPnl({
     const hasCalcFees = cProps.some(p => feeRateFor(p) > 0)
 
     // Pre-bucket paid rent and included expenses by property (and month).
+    // Month comes from the year/month columns, falling back to
+    // period_start for legacy rows that predate them.
     const paidByProp = new Map(), paidByPropMonth = new Map()
     for (const r of cPays) {
       if (r?.status !== 'paid') continue
       const amt = Number(r.amount) || 0
       paidByProp.set(r.property_id, (paidByProp.get(r.property_id) || 0) + amt)
-      if (monthKeys && r.year && r.month) {
-        const k = `${r.property_id}|${r.year}-${r.month - 1}`
-        paidByPropMonth.set(k, (paidByPropMonth.get(k) || 0) + amt)
+      if (monthKeys) {
+        let y = r.year, m0 = r.month ? r.month - 1 : null
+        if ((y == null || m0 == null) && r.period_start) {
+          const d = new Date(r.period_start)
+          if (!isNaN(d)) { y = d.getFullYear(); m0 = d.getMonth() }
+        }
+        if (y != null && m0 != null) {
+          const k = `${r.property_id}|${y}-${m0}`
+          paidByPropMonth.set(k, (paidByPropMonth.get(k) || 0) + amt)
+        }
       }
     }
     let excludedAgentFeeExpenses = 0
@@ -224,19 +246,34 @@ export function buildPortfolioPnl({
 
     const rows = cProps.map(p => {
       const fallbackRent = isEarningRent(p) ? (Number(p.rent_pcm) || 0) : 0
-      const income = hasPaid ? (paidByProp.get(p.id) || 0) : fallbackRent * nMonths
       const exp = expByProp.get(p.id) || 0
       const feeRate = feeRateFor(p)
-      const fees = income * feeRate
-      const pretax = income - exp - fees
-      let monthly = null
+      let income, monthly = null
       if (monthKeys) {
-        monthly = monthKeys.map(({ m, y }) => {
-          const rent = hasPaid ? (paidByPropMonth.get(`${p.id}|${y}-${m}`) || 0) : fallbackRent
+        const rents = monthKeys.map(({ m, y }) => {
+          const actual = hasPaid ? (paidByPropMonth.get(`${p.id}|${y}-${m}`) || 0) : fallbackRent
+          if (!forecastOn) return actual
+          const k = y * 12 + m
+          if (k > nowKey) return fallbackRent
+          if (k === nowKey) return Math.max(actual, fallbackRent)
+          return actual
+        })
+        monthly = rents.map((rent, i) => {
+          const { m, y } = monthKeys[i]
           const mExp = expByPropMonth.get(`${p.id}|${y}-${m}`) || 0
           return round2(rent - mExp - rent * feeRate)
         })
+        // Forecast totals MUST be the sum of the buckets (that's the whole
+        // projection); actuals keep the raw period total so legacy payment
+        // rows that can't be month-bucketed still count.
+        income = forecastOn
+          ? rents.reduce((s, v) => s + v, 0)
+          : (hasPaid ? (paidByProp.get(p.id) || 0) : fallbackRent * nMonths)
+      } else {
+        income = hasPaid ? (paidByProp.get(p.id) || 0) : fallbackRent * nMonths
       }
+      const fees = income * feeRate
+      const pretax = income - exp - fees
       return { id: p.id, name: p.name, income, expenses: exp, fees, pretax, monthly }
     })
 
@@ -281,7 +318,13 @@ export function buildPortfolioPnl({
       : null,
   }
 
-  return { months: nMonths, companies: blocks, grand }
+  return {
+    months: nMonths, companies: blocks, grand,
+    forecast: forecastOn,
+    // Which month buckets contain forecast (not purely actual) figures —
+    // the current month and everything after it.
+    monthFlags: monthKeys ? monthKeys.map(({ m, y }) => forecastOn && (y * 12 + m) >= nowKey) : null,
+  }
 }
 
 // ── Main aggregator ────────────────────────────────────────────────────────

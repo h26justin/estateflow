@@ -106,9 +106,11 @@ export default function ReportsPage({ properties, companies, companySettings, us
   // Custom reporting period (ISO yyyy-mm-dd). Only used when yearType==='custom'.
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd]     = useState('')
-  // Full Portfolio P&L: month-by-month column toggle. Lives here (not in
-  // the report component) so the PDF/CSV exports see the same mode.
+  // Full Portfolio P&L: month-by-month column toggle and year-end forecast
+  // toggle. Live here (not in the report component) so the PDF/CSV exports
+  // see the same mode.
   const [pnlMonthly, setPnlMonthly]   = useState(false)
+  const [pnlForecast, setPnlForecast] = useState(false)
 
   // All data
   const [compliance, setCompliance]   = useState([])
@@ -364,7 +366,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             </select>
           )}
           <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}
-            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly }}/>
+            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly, pnlForecast }}/>
         </div>
       </div>
 
@@ -380,14 +382,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
       {loading && <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonRows rows={6}/></div>}
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
         shareholders={shareholders} agents={agents} companies={companies} selectedCompany={selectedCompany} user={user}
-        pnlMonthly={pnlMonthly} setPnlMonthly={setPnlMonthly}/>}
+        pnlMonthly={pnlMonthly} setPnlMonthly={setPnlMonthly} pnlForecast={pnlForecast} setPnlForecast={setPnlForecast}/>}
     </div>
   )
 }
 
 // ── REPORT BODY ROUTER ────────────────────────────────────────────────────────
-function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly }) {
-  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly }
+function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast }) {
+  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast }
   const map = {
     pnl: <ReportPnL {...props}/>,
     company_pnl: <ReportCompanyPnL {...props}/>,
@@ -600,8 +602,9 @@ const COMPANY_PNL_NOTE = 'Estimates for planning, not tax advice. Corporation ta
 // ── FULL PORTFOLIO P&L (shared compute) ──────────────────────────────────────
 // Whole-portfolio P&L grouped company → property. Shared by the in-app
 // report and the PDF/CSV builders so all three agree. Pass monthKeys for
-// the month-by-month variant.
-function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthKeys) {
+// the month-by-month variant and forecastNow (a Date) to project expected
+// rent over the period's remaining months.
+function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthKeys, forecastNow) {
   const { agents = [], companies = [], selectedCompany = 'all' } = extras || {}
   const nat = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' })
   const active = (selectedCompany === 'all' ? companies : companies.filter(c => c.id === selectedCompany))
@@ -613,10 +616,12 @@ function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthK
     // Same associated-companies posture as the Company P&L report.
     associatedCompanies: Math.max(1, companies.length),
     isEarningRent: p => isPropertyEarningRent(p.status),
+    forecast: forecastNow ? { now: forecastNow } : null,
   })
 }
 
 const FULL_PNL_NOTE = 'Estimates for planning, not tax advice. Costs = logged expenses + calculated management fees. Corporation tax is estimated per company (thresholds split under the associated-company rule) and apportioned to properties by their share of positive profit. Personally-held properties show no tax — personal income tax is not modelled.'
+const FULL_PNL_FORECAST_NOTE = 'Forecast: past months keep collected rent; the current month and later use each property\'s expected rent (management fees follow it). Expenses stay as logged — future costs are not projected. '
 
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
@@ -677,20 +682,25 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       }
     }
     case 'full_pnl': {
-      const { year, yearType, pnlMonthly } = extras || {}
-      const wantMonths = pnlMonthly && year != null && yearType ? periodMonths(year, yearType, range) : null
-      const monthKeys = wantMonths && wantMonths.length <= MAX_GRID_MONTHS ? wantMonths : null
-      const data = computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthKeys)
+      const { year, yearType, pnlMonthly, pnlForecast } = extras || {}
+      // Forecast needs month buckets even for the summary export.
+      const wantMonths = (pnlMonthly || pnlForecast) && year != null && yearType ? periodMonths(year, yearType, range) : null
+      const bucketKeys = wantMonths && wantMonths.length <= MAX_GRID_MONTHS ? wantMonths : null
+      const monthKeys = pnlMonthly ? bucketKeys : null
+      const data = computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, bucketKeys, pnlForecast && bucketKeys ? new Date() : null)
       const months = data.months
+      const fc = data.forecast ? ' (forecast)' : ''
+      const note = (data.forecast ? FULL_PNL_FORECAST_NOTE : '') + FULL_PNL_NOTE
       const kpis = [
-        ['Income', fmt(data.grand.income)],
-        ['Pre-tax profit', fmt(data.grand.pretax)],
+        ['Income' + fc, fmt(data.grand.income)],
+        ['Pre-tax profit' + fc, fmt(data.grand.pretax)],
         ['Post-tax profit (est.)', fmt(data.grand.posttax)],
         ['Post-tax per month', fmt(data.grand.posttax / months)],
       ]
       if (monthKeys) {
         // Month-by-month: pre-tax net per calendar month per property.
-        const labels = monthKeys.map(({ m, y }) => `${MONTHS[m]} ${String(y).slice(2)}`)
+        // Forecast buckets are starred.
+        const labels = monthKeys.map(({ m, y }, i) => `${MONTHS[m]} ${String(y).slice(2)}${data.monthFlags?.[i] ? '*' : ''}`)
         const rows = []
         for (const b of data.companies) {
           rows.push([b.name, ...labels.map(() => ''), '', ''])
@@ -698,7 +708,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
           rows.push([`${b.name} — total`, ...b.totals.monthly.map(v => fmt(v)), fmt(b.totals.pretax), fmt(b.totals.posttax)])
         }
         return {
-          title: 'Full Portfolio P&L — by month', note: FULL_PNL_NOTE, kpis,
+          title: 'Full Portfolio P&L — by month' + (data.forecast ? ' (forecast)' : ''), note, kpis,
           headers: ['Company / Property', ...labels, 'Pre-tax', 'Post-tax'],
           rows,
           totals: ['Total', ...data.grand.monthly.map(v => fmt(v)), fmt(data.grand.pretax), fmt(data.grand.posttax)],
@@ -713,7 +723,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         rows.push([`${b.name} — total`, fmt(b.totals.income), fmt(-(b.totals.expenses + b.totals.fees)), fmt(b.totals.pretax), b.personal ? '—' : fmt(-b.totals.ct), fmt(b.totals.posttax), fmt(b.totals.posttax / months)])
       }
       return {
-        title: 'Full Portfolio P&L', note: FULL_PNL_NOTE, kpis,
+        title: 'Full Portfolio P&L' + (data.forecast ? ' — forecast to period end' : ''), note, kpis,
         headers: ['Company / Property', 'Income', 'Costs', 'Pre-tax profit', 'Tax (est.)', 'Post-tax', 'Per month'],
         rows,
         totals: ['Total', fmt(data.grand.income), fmt(-(data.grand.expenses + data.grand.fees)), fmt(data.grand.pretax), fmt(-data.grand.ct), fmt(data.grand.posttax), fmt(data.grand.posttax / months)],
@@ -1605,23 +1615,30 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
 // costs = pre-tax, company corporation tax apportioned back per unit →
 // post-tax, plus a per-month average. The "Month by month" toggle swaps
 // the columns for one pre-tax net column per calendar month (Xero-style).
-function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T, accent, fmt, agents, companies, selectedCompany, pnlMonthly, setPnlMonthly }) {
-  const wantMonths = pnlMonthly ? periodMonths(year, yearType, range) : null
+function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T, accent, fmt, agents, companies, selectedCompany, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast }) {
+  // Forecasting needs month buckets even in summary view (actual past +
+  // expected future months are combined per bucket).
+  const wantMonths = (pnlMonthly || pnlForecast) ? periodMonths(year, yearType, range) : null
   const tooWide = !!wantMonths && wantMonths.length > MAX_GRID_MONTHS
-  const monthKeys = tooWide ? null : wantMonths
-  const data = computePortfolioPnl(filtProps, filtExp, filtRent, range, { agents, companies, selectedCompany }, monthKeys)
+  const bucketKeys = tooWide ? null : wantMonths
+  const data = computePortfolioPnl(filtProps, filtExp, filtRent, range, { agents, companies, selectedCompany }, bucketKeys, pnlForecast && bucketKeys ? new Date() : null)
   const months = data.months
+  const fc = data.forecast
 
+  const pillGroup = (value, setValue, options) => (
+    <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
+      {options.map(([v,l])=>(
+        <button key={l} onClick={()=>setValue(v)}
+          style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:value===v?accent+'22':'transparent',color:value===v?accent:T.muted,fontWeight:value===v?700:400}}>
+          {l}
+        </button>
+      ))}
+    </div>
+  )
   const toggle = (
-    <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
-      <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
-        {[[false,'Summary'],[true,'Month by month']].map(([v,l])=>(
-          <button key={l} onClick={()=>setPnlMonthly(v)}
-            style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:pnlMonthly===v?accent+'22':'transparent',color:pnlMonthly===v?accent:T.muted,fontWeight:pnlMonthly===v?700:400}}>
-            {l}
-          </button>
-        ))}
-      </div>
+    <div style={{display:'flex',justifyContent:'flex-end',gap:10,flexWrap:'wrap',marginBottom:14}}>
+      {pillGroup(pnlForecast, setPnlForecast, [[false,'Actuals'],[true,'Forecast to year end']])}
+      {pillGroup(pnlMonthly, setPnlMonthly, [[false,'Summary'],[true,'Month by month']])}
     </div>
   )
 
@@ -1641,6 +1658,16 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
 
   const notes = (
     <>
+      {pnlForecast && tooWide && (
+        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
+          Forecast unavailable — the custom range spans more than {MAX_GRID_MONTHS} months (or both dates aren't set). Showing actuals.
+        </div>
+      )}
+      {fc && (
+        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
+          Forecast mode: {FULL_PNL_FORECAST_NOTE.trim()}
+        </div>
+      )}
       {fallbackCos.length > 0 && (
         <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
           No rent payments recorded this period for {fallbackCos.join(', ')} — expected rent from tenancy settings shown instead.
@@ -1660,10 +1687,10 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
 
   const cards = (
     <StatCards T={T} items={[
-      {label:'Income', value:fmt(data.grand.income), color:T.green},
-      {label:'Pre-tax profit', value:fmt(data.grand.pretax), color:data.grand.pretax>=0?T.green:T.red},
+      {label:fc?'Income (forecast)':'Income', value:fmt(data.grand.income), color:T.green},
+      {label:fc?'Pre-tax profit (forecast)':'Pre-tax profit', value:fmt(data.grand.pretax), color:data.grand.pretax>=0?T.green:T.red},
       {label:'Tax (est.)', value:fmt(data.grand.ct), color:T.amber},
-      {label:'Post-tax profit', value:fmt(data.grand.posttax), color:data.grand.posttax>=0?T.green:T.red, sub:`${fmt(data.grand.posttax/months)}/mo across ${months} months`},
+      {label:fc?'Post-tax position at year end':'Post-tax profit', value:fmt(data.grand.posttax), color:data.grand.posttax>=0?T.green:T.red, sub:`${fmt(data.grand.posttax/months)}/mo across ${months} months`},
     ]}/>
   )
 
@@ -1676,6 +1703,8 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
   // ── Month-by-month grid ──
   if (pnlMonthly) {
     if (tooWide) return <>{toggle}<GridTooWide T={T}/></>
+    const monthKeys = bucketKeys
+    const isFc = i => !!data.monthFlags?.[i]
     const n = monthKeys.length
     const cols = `220px repeat(${n},minmax(70px,1fr)) 110px 110px`
     const minWidth = 460 + n * 74
@@ -1687,7 +1716,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',minWidth}}>
             <div style={{display:'grid',gridTemplateColumns:cols,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 16px'}}>
               <div style={cell({fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'})}>Company / Property</div>
-              {monthKeys.map(({m,y},i)=><div key={i} style={cell({fontSize:9,color:T.muted,textAlign:'center'})}>{monthLabel(m,y,yearType)}</div>)}
+              {monthKeys.map(({m,y},i)=><div key={i} style={cell({fontSize:9,color:isFc(i)?T.amber:T.muted,textAlign:'center'})}>{monthLabel(m,y,yearType)}{isFc(i)?'*':''}</div>)}
               <div style={cell({fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',textAlign:'right'})}>Pre-tax</div>
               <div style={cell({fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',textAlign:'right'})}>Post-tax</div>
             </div>
@@ -1699,14 +1728,14 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
                 {b.rows.map(r => (
                   <div key={r.id} style={{display:'grid',gridTemplateColumns:cols,padding:'9px 16px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                     <div style={cell({color:T.text,paddingLeft:14,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'})}>{r.name}</div>
-                    {r.monthly.map((v,i)=>{const c=money(v);return <div key={i} style={cell({color:c.color,textAlign:'center'})}>{v?fmt(v):'-'}</div>})}
+                    {r.monthly.map((v,i)=>{const c=money(v);return <div key={i} style={cell({color:c.color,textAlign:'center',fontStyle:isFc(i)?'italic':'normal',opacity:isFc(i)?0.85:1})}>{v?fmt(v):'-'}</div>})}
                     <div style={cell({fontWeight:700,color:r.pretax>=0?T.green:T.red,textAlign:'right'})}>{fmt(r.pretax)}</div>
                     <div style={cell({fontWeight:700,color:r.posttax>=0?T.green:T.red,textAlign:'right'})}>{fmt(r.posttax)}</div>
                   </div>
                 ))}
                 <div style={{display:'grid',gridTemplateColumns:cols,padding:'9px 16px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
                   <div style={cell({fontWeight:700,color:T.text})}>{b.name} — total{b.personal?'':' (after CT)'}</div>
-                  {b.totals.monthly.map((v,i)=><div key={i} style={cell({fontWeight:700,color:v>=0?T.green:T.red,textAlign:'center'})}>{fmt(v)}</div>)}
+                  {b.totals.monthly.map((v,i)=><div key={i} style={cell({fontWeight:700,color:v>=0?T.green:T.red,textAlign:'center',fontStyle:isFc(i)?'italic':'normal'})}>{fmt(v)}</div>)}
                   <div style={cell({fontWeight:700,color:b.totals.pretax>=0?T.green:T.red,textAlign:'right'})}>{fmt(b.totals.pretax)}</div>
                   <div style={cell({fontWeight:700,color:b.totals.posttax>=0?T.green:T.red,textAlign:'right'})}>{fmt(b.totals.posttax)}</div>
                 </div>
@@ -1714,7 +1743,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
             ))}
             <div style={{display:'grid',gridTemplateColumns:cols,padding:'11px 16px',background:T.bg,borderTop:`2px solid ${accent}`}}>
               <div style={cell({fontSize:12,fontWeight:700,color:T.text})}>Total</div>
-              {data.grand.monthly.map((v,i)=><div key={i} style={cell({fontWeight:700,color:v>=0?T.green:T.red,textAlign:'center'})}>{fmt(v)}</div>)}
+              {data.grand.monthly.map((v,i)=><div key={i} style={cell({fontWeight:700,color:v>=0?T.green:T.red,textAlign:'center',fontStyle:isFc(i)?'italic':'normal'})}>{fmt(v)}</div>)}
               <div style={cell({fontSize:12,fontWeight:700,color:data.grand.pretax>=0?T.green:T.red,textAlign:'right'})}>{fmt(data.grand.pretax)}</div>
               <div style={cell({fontSize:12,fontWeight:700,color:data.grand.posttax>=0?T.green:T.red,textAlign:'right'})}>{fmt(data.grand.posttax)}</div>
             </div>
@@ -1722,6 +1751,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
         </div>
         <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8}}>
           Monthly cells are pre-tax net (rent collected − expenses − management fee) for that calendar month.
+          {fc && <> Columns marked <span style={{color:T.amber}}>*</span> are forecast (expected rent).</>}
         </div>
         {notes}
       </>
