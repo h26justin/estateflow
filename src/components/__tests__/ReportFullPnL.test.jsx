@@ -41,13 +41,13 @@ const companies = [
   { id: 'cB', name: 'Beta Ltd' },
 ]
 
-function renderReport() {
+function renderReport(companySettings = {}) {
   return render(
     <ThemeProvider>
       <ReportsPage
         properties={properties}
         companies={companies}
-        companySettings={{}}
+        companySettings={companySettings}
         user={{ id: 'u1', email: 'justin@example.com' }}
         selectedReportId="full_pnl"
         onSelectReport={() => {}}
@@ -178,5 +178,37 @@ describe('Full Portfolio P&L report', () => {
     // Untick → estimate note and badge disappear.
     fireEvent.click(screen.getByText('✓ Estimate missing rents'))
     expect(screen.queryByText('est. rent')).not.toBeInTheDocument()
+  })
+})
+
+describe('All-companies period type default', () => {
+  it('defaults to the companies\' saved year type (majority wins)', async () => {
+    renderReport({
+      cA: { year_type: 'calendar_year' },
+      cB: { year_type: 'calendar_year' },
+    })
+    await screen.findByText('Alpha Ltd — total')
+    // Both companies are set to calendar year, so "All companies" opens on
+    // it — the year select's options carry the calendar label.
+    expect(screen.getAllByText(/Calendar Year/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Tax Year ·/)).not.toBeInTheDocument()
+  })
+
+  it('stays on tax year when no company has a saved type', async () => {
+    renderReport()
+    await screen.findByText('Alpha Ltd — total')
+    expect(screen.queryByText(/Calendar Year/)).not.toBeInTheDocument()
+  })
+
+  it('does not clobber a manual pick made while on All companies', async () => {
+    renderReport({
+      cA: { year_type: 'calendar_year' },
+      cB: { year_type: 'calendar_year' },
+    })
+    await screen.findByText('Alpha Ltd — total')
+    // User overrides to tax year — the consensus default must not reassert.
+    fireEvent.click(screen.getByText('Tax year'))
+    expect(await screen.findAllByText(/Tax Year/)).not.toHaveLength(0)
+    expect(screen.queryByText(/Calendar Year/)).not.toBeInTheDocument()
   })
 })
