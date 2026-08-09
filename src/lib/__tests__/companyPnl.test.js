@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   ukCorporationTax, dividendTax, monthsInRange, buildCompanyPnl,
-  findViewerShareholder,
+  findViewerShareholder, aggregateShareholdersAcrossCompanies,
 } from '../companyPnl'
 
 describe('ukCorporationTax', () => {
@@ -153,6 +153,50 @@ describe('buildCompanyPnl', () => {
     expect(justin.share).toBe(-3_000)
     // No dividend tax on a negative share.
     expect(justin.dividendTax).toBe(0)
+  })
+})
+
+describe('aggregateShareholdersAcrossCompanies', () => {
+  it('links the same person across companies by user id, email, then name', () => {
+    const rows = aggregateShareholdersAcrossCompanies([
+      { companyName: 'Alpha Ltd', shareholders: [
+        { name: 'Justin', userId: 'u1', email: 'j@x.com', percentage: 75, net: 7500, netMonthly: 625 },
+        { name: 'Partner', percentage: 25, net: 2500, netMonthly: 208.33 },
+      ]},
+      { companyName: 'Beta Ltd', shareholders: [
+        // No userId here — links to the Alpha row via email.
+        { name: 'J Hammond', email: 'J@X.COM', percentage: 50, net: 5000, netMonthly: 416.67 },
+        // Links by exact (case-insensitive) name.
+        { name: 'partner', percentage: 50, net: 5000, netMonthly: 416.67 },
+      ]},
+      { companyName: 'Gamma Ltd', shareholders: [
+        // Links by userId even though name/email differ.
+        { name: 'Justin H', userId: 'u1', percentage: 100, net: 12000, netMonthly: 1000 },
+      ]},
+    ])
+
+    expect(rows).toHaveLength(2)
+    const justin = rows[0] // sorted by total net desc
+    expect(justin.userId).toBe('u1')
+    expect(justin.companiesCount).toBe(3)
+    expect(justin.totalPercent).toBe(225)
+    expect(justin.totalNet).toBe(24_500)
+    expect(justin.totalMonthly).toBeCloseTo(2_041.67, 2)
+    expect(justin.holdings.map(h => h.company)).toEqual(['Alpha Ltd', 'Beta Ltd', 'Gamma Ltd'])
+
+    const partner = rows[1]
+    expect(partner.companiesCount).toBe(2)
+    expect(partner.totalPercent).toBe(75)
+    expect(partner.totalNet).toBe(7_500)
+  })
+
+  it('keeps different people separate and handles empty input', () => {
+    expect(aggregateShareholdersAcrossCompanies([])).toEqual([])
+    const rows = aggregateShareholdersAcrossCompanies([
+      { companyName: 'A', shareholders: [{ name: 'Ann', email: 'ann@x.com', percentage: 50, net: 100, netMonthly: 8.33 }] },
+      { companyName: 'B', shareholders: [{ name: 'Ann Other', email: 'other@x.com', percentage: 50, net: 100, netMonthly: 8.33 }] },
+    ])
+    expect(rows).toHaveLength(2)
   })
 })
 

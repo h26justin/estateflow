@@ -7,7 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
-import { buildCompanyPnl, monthsInRange, findViewerShareholder } from '../lib/companyPnl'
+import { buildCompanyPnl, monthsInRange, findViewerShareholder, aggregateShareholdersAcrossCompanies } from '../lib/companyPnl'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
@@ -606,12 +606,26 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
           return { name: c.name, pat: pnl.profitAfterTax, pct: viewer?.percentage || 0, net: viewer?.net || 0, monthly: viewer?.netMonthly || 0 }
         })
         const tNet = rows.reduce((s, r) => s + r.net, 0), tMonthly = rows.reduce((s, r) => s + r.monthly, 0)
+        // Cross-company portfolio totals per shareholder, appended below the
+        // per-company rows (the PDF/CSV renderers take a single table).
+        const portfolio = aggregateShareholdersAcrossCompanies(companies.map(c => ({
+          companyName: c.name,
+          shareholders: computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras).shareholders,
+        })))
         return {
           title: 'Company P&L & Profit Share', note: COMPANY_PNL_NOTE,
           kpis: [['Your income (period, after tax)', fmt(tNet)], ['Your monthly average', fmt(tMonthly)], ['Companies', companies.length.toString()]],
           headers: ['Company', 'Profit after tax', 'Your %', 'Your share (net)', 'Your monthly'],
-          rows: rows.map(r => [r.name, fmt(r.pat), r.pct ? fmtPct(r.pct, 2) : '—', fmt(r.net), fmt(r.monthly)]),
-          totals: ['Total', '', '', fmt(tNet), fmt(tMonthly)],
+          rows: [
+            ...rows.map(r => [r.name, fmt(r.pat), r.pct ? fmtPct(r.pct, 2) : '—', fmt(r.net), fmt(r.monthly)]),
+            ...(portfolio.length ? [['— Shareholder portfolio totals —', '', '', '', '']] : []),
+            ...portfolio.map(g => [
+              `${g.name} (${g.companiesCount} ${g.companiesCount === 1 ? 'company' : 'companies'})`,
+              g.holdings.map(h => `${h.company} ${h.percentage}%`).join(' · '),
+              `${g.totalPercent.toFixed(2)} pts`, fmt(g.totalNet), fmt(g.totalMonthly),
+            ]),
+          ],
+          totals: ['Total (you)', '', '', fmt(tNet), fmt(tMonthly)],
         }
       }
       const pnl = computeCompanyPnl(selectedCompany, filtProps, filtExp, filtRent, range, extras)
@@ -1399,6 +1413,31 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           ])}
           totals={['Total', '', '', {v:fmt(tNet),color:tNet>=0?T.green:T.red}, {v:fmt(tMonthly),color:accent}]}
         />
+        {(() => {
+          const portfolio = aggregateShareholdersAcrossCompanies(rows.map(({c, pnl}) => ({ companyName: c.name, shareholders: pnl.shareholders })))
+          if (!portfolio.length) return null
+          const isViewer = g => g.userId === user?.id || (g.email && user?.email && g.email.toLowerCase() === user.email.toLowerCase())
+          return (
+            <>
+              <SectionTitle title="Shareholder portfolio overview — all companies" T={T}/>
+              <ReportTable T={T} accent={accent}
+                headers={[{label:'Shareholder'},{label:'Holdings'},{label:'Combined %',right:true,width:'110px'},{label:'Net income (period)',right:true,width:'150px'},{label:'Per month',right:true,width:'110px'}]}
+                rows={portfolio.map(g => [
+                  isViewer(g) ? {v:`${g.name} (you)`, bold:true} : g.name,
+                  {v:g.holdings.map(h => `${h.company} ${Number(h.percentage).toFixed(h.percentage % 1 ? 2 : 0)}%`).join(' · '), color:T.muted},
+                  {v:`${g.totalPercent.toFixed(2)} pts`, color:accent, bold:true},
+                  {v:fmt(g.totalNet), color:g.totalNet>=0?T.green:T.red, bold:true},
+                  {v:fmt(g.totalMonthly), color:accent, bold:true},
+                ])}
+              />
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.7}}>
+                Rows link the same person across companies by linked login, then email, then exact name — use the
+                same email on each company's shareholder entry to keep holdings connected. "Combined %" sums
+                percentage points across companies (e.g. 75% + 50% = 125 pts), so it can exceed 100.
+              </div>
+            </>
+          )
+        })()}
         <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:12}}>
           Select a single company above for its full P&L and every shareholder's split.
         </div>

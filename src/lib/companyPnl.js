@@ -93,6 +93,56 @@ export function findViewerShareholder(shareholders, user) {
     || null
 }
 
+// ── Cross-company shareholder aggregation ─────────────────────────────────
+// Links the same person's shareholder rows across companies and totals
+// their holdings. Rows are considered the same person when they share a
+// linked user account, an email (case-insensitive), or failing both an
+// exact name (case-insensitive) — identifiers accumulate as rows join a
+// group, so a row with user_id+email links a later email-only row.
+//
+// entries: [{ companyName, shareholders }] where shareholders is the
+// buildCompanyPnl output (camelCase: userId, email, name, percentage,
+// net, netMonthly).
+//
+// Returns one row per person, sorted by total net income:
+//   { name, userId, email, holdings: [{ company, percentage, net,
+//     netMonthly }], companiesCount, totalPercent, totalNet, totalMonthly }
+// totalPercent is the SUM of percentage points across companies (e.g.
+// 75% + 50% + 100% = 225 points over 3 companies) — a size-of-footprint
+// figure, not a weighted average.
+export function aggregateShareholdersAcrossCompanies(entries = []) {
+  const index = new Map()
+  const groups = []
+  for (const { companyName, shareholders = [] } of entries) {
+    for (const s of shareholders) {
+      const ids = [
+        s.userId ? `u:${s.userId}` : null,
+        s.email ? `e:${String(s.email).toLowerCase().trim()}` : null,
+        s.name ? `n:${String(s.name).toLowerCase().trim()}` : null,
+      ].filter(Boolean)
+      let g = ids.map(i => index.get(i)).find(Boolean)
+      if (!g) {
+        g = { name: s.name, userId: null, email: null, holdings: [], totalPercent: 0, totalNet: 0, totalMonthly: 0 }
+        groups.push(g)
+      }
+      ids.forEach(i => index.set(i, g))
+      if (!g.userId && s.userId) g.userId = s.userId
+      if (!g.email && s.email) g.email = s.email
+      g.holdings.push({ company: companyName, percentage: s.percentage, net: s.net, netMonthly: s.netMonthly })
+      g.totalPercent += Number(s.percentage) || 0
+      g.totalNet += Number(s.net) || 0
+      g.totalMonthly += Number(s.netMonthly) || 0
+    }
+  }
+  for (const g of groups) {
+    g.companiesCount = g.holdings.length
+    g.totalPercent = Math.round(g.totalPercent * 100) / 100
+    g.totalNet = Math.round(g.totalNet * 100) / 100
+    g.totalMonthly = Math.round(g.totalMonthly * 100) / 100
+  }
+  return groups.sort((a, b) => b.totalNet - a.totalNet)
+}
+
 // ── Main aggregator ────────────────────────────────────────────────────────
 
 // Inputs (all pre-filtered to ONE company and the reporting period):
