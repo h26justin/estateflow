@@ -146,4 +146,6 @@ set up a worktree before editing.
 - `DEPLOYMENT_RUNBOOK.md` — deploy + production-migration steps.
 - `SECURITY_AND_QUALITY_AUDIT.md` — audit findings + remediation status.
 - `LAUNCH_CHECKLIST.md`, `OVERNIGHT_AUDIT.md` — release / QA checklists.
+- `NIGHTLY_AUDIT.md` — the automated 05:15 UTC production audit (edge fn +
+  cron + email digest): what it checks, manual trigger, how to extend.
 - `MARKETING_STRATEGY.md`, `EMAIL_SEQUENCES.md` — go-to-market.
