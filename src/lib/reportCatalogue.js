@@ -25,6 +25,7 @@ export const REPORT_CATALOGUE = [
   { id:'mortgage_port', cat:'finance',    icon:'file-text', name:'Mortgage portfolio',           desc:'All mortgages, rates, terms, monthly payments and LTV ratios' },
   { id:'arrears',       cat:'finance',    icon:'alert-triangle', name:'Arrears report',               desc:'Outstanding rent by property, amount and days overdue' },
   { id:'compliance',    cat:'compliance', icon:'shield-check', name:'Compliance status',            desc:'All certificates — expired, expiring soon, valid (RAG)' },
+  { id:'epc_upgrade',   cat:'compliance', icon:'zap', name:'EPC upgrade plan',             desc:'Builder-ready: every EPC band, the register\'s recommended works and indicative costs to reach band C' },
   { id:'tenancy_sched', cat:'compliance', icon:'clipboard-check', name:'Tenancy schedule',             desc:'All tenancies, start/end dates, notice periods, renewals' },
   { id:'maintenance_report',cat:'maintenance',icon:'wrench',name:'Maintenance overview',      desc:'Open jobs, total spend by property and trade' },
   { id:'contractor_spend',cat:'maintenance',icon:'users',name:'Contractor spend',            desc:'Total paid to each contractor, job counts, average cost' },
