@@ -11,6 +11,8 @@ import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingR
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
+import { planToC, fmtCostRange, BELOW_C } from '../lib/epcUpgrade'
+import { EPC_BAND_COLOR } from '../lib/complianceCatalogue'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -124,6 +126,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [expenses, setExpenses]       = useState([])
   const [shareholders, setShareholders] = useState([])
   const [agents, setAgents]           = useState([])
+  const [epcCerts, setEpcCerts]       = useState([])
   const [loading, setLoading]         = useState(false)
   const [dataLoaded, setDataLoaded]   = useState(false)
   const [loadErrors, setLoadErrors]   = useState([])
@@ -143,6 +146,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
       { label: 'expenses',      fetch: () => api.fetchAllExpenses(user.id),        set: setExpenses },
       { label: 'shareholders',  fetch: () => api.fetchAllShareholders(),           set: setShareholders },
       { label: 'agents',        fetch: () => api.fetchEstateAgents(),              set: setAgents },
+      { label: 'EPC register',  fetch: () => api.fetchAllEpcCertificates(user.id), set: setEpcCerts },
     ]
     const results = await Promise.allSettled(sources.map(s => s.fetch()))
     const failed = []
@@ -246,6 +250,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const filtComp  = useMemo(() => compliance.filter(c => selectedCompany==='all'||c.property?.company_id===selectedCompany), [compliance, selectedCompany])
   const filtMaint = useMemo(() => maintenance.filter(m => selectedCompany==='all'||m.property?.company_id===selectedCompany), [maintenance, selectedCompany])
   const filtTen   = useMemo(() => tenancies.filter(t => selectedCompany==='all'||t.property?.company_id===selectedCompany), [tenancies, selectedCompany])
+  const filtEpc   = useMemo(() => epcCerts.filter(c => selectedCompany==='all'||c.property?.company_id===selectedCompany), [epcCerts, selectedCompany])
 
   // Open a specific report. If a parent supplied onSelectReport (the URL
   // sync) we delegate so the URL stays in sync and browser back works.
@@ -394,7 +399,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             </select>
           )}
           <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}
-            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly, pnlForecast, pnlMyShare, pnlInc }}/>
+            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly, pnlForecast, pnlMyShare, pnlInc, epcCerts: filtEpc }}/>
         </div>
       </div>
 
@@ -408,7 +413,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
 
       {errorBanner}
       {loading && <div style={{display:'grid',gap:16}}><SkeletonTiles count={4}/><SkeletonRows rows={6}/></div>}
-      {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
+      {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} filtEpc={filtEpc} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
         shareholders={shareholders} agents={agents} companies={companies} selectedCompany={selectedCompany} user={user}
         pnlMonthly={pnlMonthly} setPnlMonthly={setPnlMonthly} pnlForecast={pnlForecast} setPnlForecast={setPnlForecast} pnlMyShare={pnlMyShare} setPnlMyShare={setPnlMyShare} pnlInc={pnlInc} setPnlInc={setPnlInc}/>}
     </div>
@@ -416,8 +421,8 @@ export default function ReportsPage({ properties, companies, companySettings, us
 }
 
 // ── REPORT BODY ROUTER ────────────────────────────────────────────────────────
-function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc }) {
-  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc }
+function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc }) {
+  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc }
   const map = {
     pnl: <ReportPnL {...props}/>,
     company_pnl: <ReportCompanyPnL {...props}/>,
@@ -434,6 +439,7 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     mortgage_port: <ReportMortgagePortfolio {...props}/>,
     arrears: <ReportArrears {...props}/>,
     compliance: <ReportCompliance {...props}/>,
+    epc_upgrade: <ReportEpcUpgrade {...props}/>,
     tenancy_sched: <ReportTenancySchedule {...props}/>,
     maintenance_report: <ReportMaintenance {...props}/>,
     contractor_spend: <ReportContractorSpend {...props}/>,
@@ -669,6 +675,40 @@ function viewerShareByCompany(shareholders, companies, user) {
   }
   return { pct, bands }
 }
+
+// ── EPC UPGRADE PLAN (shared compute) ────────────────────────────────────────
+// Groups the portfolio by EPC position using the latest register certificate
+// per property: below C (with the register's own recommended measures +
+// indicative costs to reach band C, via planToC), at C or better, and no EPC
+// on record. Shared by the in-app report and the PDF/CSV builders so all
+// three agree. Worst band first, then most expensive.
+function computeEpcUpgrade(filtProps, epcCerts) {
+  const byProp = new Map((epcCerts || []).map(c => [c.property_id, c]))
+  const belowC = [], atOrAbove = [], missing = []
+  for (const p of filtProps) {
+    const cert = byProp.get(p.id)
+    if (!cert || (!cert.current_rating && cert.sap_score == null)) { missing.push({ p }); continue }
+    const expired = cert.expiry_date ? new Date(cert.expiry_date + 'T00:00:00') < new Date() : false
+    if (BELOW_C.has(String(cert.current_rating || '').toUpperCase())) {
+      belowC.push({ p, cert, expired, plan: planToC(cert) })
+    } else {
+      atOrAbove.push({ p, cert, expired })
+    }
+  }
+  const bandRank = { G: 0, F: 1, E: 2, D: 3 }
+  belowC.sort((a, b) =>
+    (bandRank[a.cert.current_rating] ?? 9) - (bandRank[b.cert.current_rating] ?? 9)
+    || b.plan.costHi - a.plan.costHi)
+  return {
+    belowC, atOrAbove, missing,
+    costLo: belowC.reduce((s, r) => s + r.plan.costLo, 0),
+    costHi: belowC.reduce((s, r) => s + r.plan.costHi, 0),
+    notReachable: belowC.filter(r => r.plan.status === 'not_reachable').length,
+    anyUnknownCost: belowC.some(r => r.plan.hasUnknownCost),
+  }
+}
+
+const EPC_UPGRADE_NOTE = 'Works and costs are the indicative ranges published on each property\'s official EPC (standard register assumptions — not quotes). "SAP after" is the certificate\'s cumulative score once that measure and the ones above it are done; band C starts at SAP 69. Confirm scope and prices with your builder or a qualified retrofit assessor before committing.'
 
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
@@ -922,6 +962,50 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const rows=filtComp.map(c=>{const d=daysUntil(c.expiry_date);return{prop:c.property?.name||'—',type:c.item_type||c.type||'—',expiry:c.expiry_date||'—',days:d,status:!c.expiry_date?'No date':d<0?'EXPIRED':d<=60?'Expiring':'Valid'}}).sort((a,b)=>(a.days||999)-(b.days||999))
       const expired=rows.filter(r=>r.status==='EXPIRED').length,expiring=rows.filter(r=>r.status==='Expiring').length
       return { title:'Compliance Status', kpis:[['Expired',expired.toString()],['Expiring <60 days',expiring.toString()],['Valid',rows.filter(r=>r.status==='Valid').length.toString()],['Total',rows.length.toString()]], headers:['Property','Certificate','Expiry Date','Days','Status'], rows:rows.map(r=>[r.prop,r.type,r.expiry,r.days!=null?r.days.toString():'—',r.status]) }
+    }
+    case 'epc_upgrade': {
+      const d = computeEpcUpgrade(filtProps, extras?.epcCerts || [])
+      const worksHeaders = ['Property', 'Recommended works (in certificate order)', 'SAP after', 'Indicative cost']
+      const worksRows = []
+      for (const { p, cert, expired, plan } of d.belowC) {
+        const sap = cert.sap_score != null ? `, SAP ${cert.sap_score}` : ''
+        worksRows.push([
+          `${p.name} — band ${cert.current_rating}${sap}${expired ? ' (EPC expired)' : ''}`,
+          cert.register_address || p.address || '',
+          '', '',
+        ])
+        plan.measures.forEach((m, i) => {
+          worksRows.push(['', `${i + 1}. ${m.label}`, m.sapAfter != null ? String(m.sapAfter) : '—', fmtCostRange(m.cost)])
+        })
+        const total = fmtCostRange({ lo: plan.costLo, hi: plan.costHi }) + (plan.hasUnknownCost ? ' + unpriced items' : '')
+        if (plan.status === 'not_reachable') {
+          worksRows.push(['', plan.measures.length
+            ? `All listed measures reach SAP ${plan.sapAfter ?? '?'} — band C needs a further retrofit assessment`
+            : 'No measures listed on the certificate — retrofit assessment needed', '', plan.measures.length ? total : '—'])
+        } else {
+          worksRows.push(['', 'Estimated total to reach band C', '', total])
+        }
+      }
+      const okRows = d.atOrAbove.map(({ p, cert, expired }) => [
+        p.name, cert.current_rating || '—', cert.potential_rating || '—',
+        cert.expiry_date ? `${cert.expiry_date}${expired ? ' (EXPIRED)' : ''}` : '—',
+      ])
+      const missingRows = d.missing.map(({ p }) => [p.name, p.address || '—'])
+      return {
+        title: 'EPC Upgrade Plan', note: EPC_UPGRADE_NOTE,
+        kpis: [
+          ['Below band C', d.belowC.length.toString()],
+          ['Est. cost to reach C', d.belowC.length ? fmtCostRange({ lo: d.costLo, hi: d.costHi }) : '—'],
+          ['At C or better', d.atOrAbove.length.toString()],
+          ['No EPC on record', d.missing.length.toString()],
+        ],
+        headers: worksHeaders, rows: worksRows,
+        sections: [
+          { title: `Below band C — recommended works (${d.belowC.length} ${d.belowC.length === 1 ? 'property' : 'properties'})`, headers: worksHeaders, rows: worksRows.length ? worksRows : [['None — every certified property is already C or better', '', '', '']] },
+          ...(d.atOrAbove.length ? [{ title: 'Already band C or better', headers: ['Property', 'Band', 'Potential', 'EPC expiry'], rows: okRows }] : []),
+          ...(d.missing.length ? [{ title: 'No EPC on record — assessment needed', headers: ['Property', 'Address'], rows: missingRows }] : []),
+        ],
+      }
     }
     case 'tenancy_sched': {
       const rows=filtTen.map(t=>({prop:t.property?.name||'—',tenant:t.tenant_name||'—',start:t.start_date||'—',end:t.end_date||'Rolling',rent:t.property?.rent_pcm||0,days:t.end_date?daysUntil(t.end_date):null})).sort((a,b)=>(a.days||9999)-(b.days||9999))
@@ -1401,9 +1485,11 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
   const stripCurrency = (s) => typeof s === 'string' ? s.replace(/[£,]/g, '').trim() : s
 
   switch(id) {
-    case 'company_pnl': {
-      // Emit each section (per-company summary / portfolio totals, or P&L
-      // lines / shareholder split) as its own titled block.
+    case 'company_pnl':
+    case 'epc_upgrade': {
+      // Emit each section (per-company summary / portfolio totals, P&L
+      // lines / shareholder split, or the EPC works/compliant/missing
+      // blocks) as its own titled block.
       const data = buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras)
       const out = []
       for (const sec of (data.sections || [])) {
@@ -2536,6 +2622,112 @@ function ReportCompliance({ filtComp, T, accent }) {
           {v:statusLabel[r.status],color:statusColor[r.status],bold:r.status==='expired'},
         ])}
       />
+    </>
+  )
+}
+
+function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
+  const d = computeEpcUpgrade(filtProps, filtEpc)
+  const Band = ({ b }) => (
+    <span style={{width:22,height:22,borderRadius:6,background:EPC_BAND_COLOR[b]||T.border,color:'#fff',display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700}}>{b||'?'}</span>
+  )
+  return (
+    <>
+      <StatCards T={T} items={[
+        {label:'Below band C',value:d.belowC.length,color:d.belowC.length>0?T.red:T.green},
+        {label:'Est. cost to reach C',value:d.belowC.length?fmtCostRange({lo:d.costLo,hi:d.costHi}):'—',color:T.gold,
+          sub:d.anyUnknownCost?'+ items without a published cost':(d.notReachable>0?`${d.notReachable} can't reach C from listed works`:undefined)},
+        {label:'At C or better',value:d.atOrAbove.length,color:T.green},
+        {label:'No EPC on record',value:d.missing.length,color:d.missing.length>0?T.amber:T.green},
+      ]}/>
+
+      {/* One card per below-C property: the register's own works list with
+          indicative costs, cut off at the measure that reaches band C. */}
+      {d.belowC.map(({ p, cert, expired, plan }) => (
+        <div key={p.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,marginBottom:14,overflow:'hidden'}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',padding:'14px 18px',borderBottom:`1px solid ${T.border}`,background:T.bg}}>
+            <Band b={cert.current_rating}/>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontSize:14,fontWeight:700,color:T.text}}>{p.name}</div>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>
+                {cert.register_address || p.address || ''}
+                {cert.sap_score != null ? ` · SAP ${cert.sap_score}` : ''}
+                {cert.potential_rating ? ` · potential ${cert.potential_rating}` : ''}
+                {expired ? ' · ' : ''}
+                {expired && <span style={{color:T.red,fontWeight:700}}>EPC expired</span>}
+              </div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Est. to band C</div>
+              <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.gold}}>
+                {plan.measures.length?fmtCostRange({lo:plan.costLo,hi:plan.costHi}):'—'}{plan.hasUnknownCost && plan.measures.length ? ' +' : ''}
+              </div>
+            </div>
+            {cert.certificate_url && (
+              <a href={cert.certificate_url} target="_blank" rel="noopener noreferrer"
+                style={{fontFamily:mono,fontSize:10,color:accent,border:`1px solid ${accent}44`,borderRadius:6,padding:'4px 10px',textDecoration:'none',whiteSpace:'nowrap'}}>
+                Certificate ↗
+              </a>
+            )}
+          </div>
+          {plan.measures.length > 0 ? (
+            <div style={{padding:'6px 18px 10px'}}>
+              {plan.measures.map((m, i) => (
+                <div key={i} style={{display:'flex',alignItems:'baseline',gap:10,padding:'7px 0',borderBottom:i<plan.measures.length-1?`1px solid ${T.border}`:'none',fontFamily:mono,fontSize:12}}>
+                  <span style={{color:T.muted,fontSize:10,minWidth:14}}>{i+1}.</span>
+                  <span style={{color:T.text,flex:1}}>{m.label}</span>
+                  {m.saving != null && <span style={{color:T.green,fontSize:10,whiteSpace:'nowrap'}}>saves ~£{Math.round(m.saving).toLocaleString('en-GB')}/yr</span>}
+                  {m.sapAfter != null && <span style={{color:m.sapAfter>=69?T.green:T.muted,fontSize:10,whiteSpace:'nowrap'}}>→ SAP {m.sapAfter}</span>}
+                  <span style={{color:T.text,fontWeight:700,minWidth:100,textAlign:'right',whiteSpace:'nowrap'}}>{fmtCostRange(m.cost)}</span>
+                </div>
+              ))}
+              {plan.status === 'not_reachable' && (
+                <div style={{fontFamily:mono,fontSize:10,color:T.amber,paddingTop:8}}>
+                  ⚠ The certificate's listed measures only reach SAP {plan.sapAfter ?? '?'} — getting to band C (SAP 69) needs a further retrofit assessment.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{padding:'12px 18px',fontFamily:mono,fontSize:11,color:T.amber}}>
+              No improvement measures listed on this certificate — a retrofit assessment is needed to price the route to C.
+            </div>
+          )}
+        </div>
+      ))}
+      {d.belowC.length === 0 && (
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'18px 20px',fontFamily:mono,fontSize:12,color:T.green,marginBottom:18}}>
+          ✓ Every property with an EPC is already band C or better.
+        </div>
+      )}
+
+      {d.atOrAbove.length > 0 && (
+        <>
+          <SectionTitle title="Already band C or better" T={T}/>
+          <ReportTable T={T} accent={accent}
+            headers={[{label:'Property'},{label:'Band',width:'70px'},{label:'Potential',width:'90px'},{label:'EPC expiry',width:'140px'}]}
+            rows={d.atOrAbove.map(({p,cert,expired})=>[
+              p.name,
+              {v:cert.current_rating||'—',color:EPC_BAND_COLOR[cert.current_rating]||T.text,bold:true},
+              cert.potential_rating||'—',
+              {v:cert.expiry_date?`${cert.expiry_date}${expired?' (expired)':''}`:'—',color:expired?T.red:T.text},
+            ])}
+          />
+        </>
+      )}
+
+      {d.missing.length > 0 && (
+        <>
+          <SectionTitle title="No EPC on record — assessment needed" T={T}/>
+          <ReportTable T={T} accent={accent}
+            headers={[{label:'Property'},{label:'Address'}]}
+            rows={d.missing.map(({p})=>[p.name,p.address||'—'])}
+          />
+        </>
+      )}
+
+      <div style={{fontFamily:mono,fontSize:10,color:T.muted,lineHeight:1.7,marginTop:18}}>
+        {EPC_UPGRADE_NOTE} Use the PDF export to hand this straight to your builder.
+      </div>
     </>
   )
 }

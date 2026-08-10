@@ -26,6 +26,7 @@ vi.mock('../../lib/api', () => ({
     { id: 's3', company_id: 'cB', name: 'Someone Else', percentage: 100 },
   ]),
   fetchEstateAgents: vi.fn().mockResolvedValue([]),
+  fetchAllEpcCertificates: vi.fn().mockResolvedValue([]),
 }))
 
 const properties = [

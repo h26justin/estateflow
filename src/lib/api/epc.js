@@ -64,6 +64,25 @@ export async function fetchEpcCertificate(propertyId) {
   return data
 }
 
+// Every register certificate for the caller's properties — used by the
+// EPC upgrade report. Pulls only the JSON fields the report needs out of
+// raw (suggested_improvements + the numeric SAP score) rather than the
+// whole certificate blob, and keeps just the newest certificate per
+// property (history can leave several rows).
+export async function fetchAllEpcCertificates(userId) {
+  const { data, error } = await supabase
+    .from('epc_certificates')
+    .select('id, property_id, certificate_number, register_address, current_rating, potential_rating, lodgement_date, expiry_date, certificate_url, sap_score:raw->energy_rating_current, improvements:raw->suggested_improvements, property:properties(id,name,address,company_id,status,company:companies(name,abbr,color))')
+    .eq('user_id', userId)
+    .order('lodgement_date', { ascending: false, nullsFirst: false })
+  if (error) throw error
+  const latest = new Map()
+  for (const row of data || []) {
+    if (!latest.has(row.property_id)) latest.set(row.property_id, row)
+  }
+  return [...latest.values()]
+}
+
 async function invokeEpcSync(payload) {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
