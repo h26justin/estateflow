@@ -276,7 +276,90 @@ export function parseRMS(text) {
   return result
 }
 
-export function matchProperties(items, properties) {
+// Street-type abbreviations that are safe to fold, so "35 Henley Rd" and
+// "35 Henley Road" normalise identically. Deliberately excludes ambiguous
+// two-letter forms — "st" is Saint as often as Street round here ("St Georges
+// House"), and "dr" is Doctor.
+var STREET_ABBR = {
+  rd:'road', ave:'avenue', cres:'crescent', gdns:'gardens',
+  ter:'terrace', sq:'square', gr:'grove', pde:'parade',
+}
+
+// Canonical form of a property label, used for exact alias lookup: lowercase,
+// punctuation stripped, whitespace collapsed, street types folded.
+export function normaliseStatementName(str) {
+  return String(str || '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(function (w) { return STREET_ABBR[w] || w })
+    .join(' ')
+}
+
+// Levenshtein distance, abandoned as soon as it provably exceeds `max`. We
+// only ever ask "within N edits?", so there's no point completing the matrix.
+function editDistance(a, b, max) {
+  if (a === b) return 0
+  if (Math.abs(a.length - b.length) > max) return max + 1
+  var prev = []
+  for (var j = 0; j <= b.length; j++) prev[j] = j
+  for (var i = 1; i <= a.length; i++) {
+    var cur = [i]
+    var rowMin = i
+    for (var k = 1; k <= b.length; k++) {
+      cur[k] = Math.min(
+        prev[k] + 1,            // deletion
+        cur[k - 1] + 1,         // insertion
+        prev[k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1)  // substitution
+      )
+      if (cur[k] < rowMin) rowMin = cur[k]
+    }
+    if (rowMin > max) return max + 1   // every path from here is already too far
+    prev = cur
+  }
+  return prev[b.length]
+}
+
+// Are two words the same word, allowing for a typo? Agents hand-key property
+// labels, so "Henly" for "Henley" (one dropped letter) is routine. Tolerance
+// scales with length: short words must be exact, because at 4 characters one
+// edit is the difference between genuinely different units.
+function sameWord(a, b) {
+  if (a === b) return true
+  var tol = a.length <= 4 || b.length <= 4 ? 0 : (a.length <= 7 ? 1 : 2)
+  if (tol === 0) return false
+  return editDistance(a, b, tol) <= tol
+}
+
+// `aliases` is an optional list of learned/seeded label → property mappings,
+// shaped `{ property_id, alias }`. An alias is an exact, deterministic match:
+// it exists precisely because fuzzy scoring got this label wrong before, so it
+// must win outright rather than compete on score.
+export function matchProperties(items, properties, aliases) {
+  // alias_norm → property id. Built from explicit aliases first, then each
+  // property's own name as an implicit alias — but only where the normalised
+  // name is unambiguous, so two properties sharing a name never silently
+  // resolve to whichever came last.
+  var aliasMap = {}
+  var nameCounts = {}
+  for (var a = 0; a < properties.length; a++) {
+    var nn = normaliseStatementName(properties[a].name)
+    if (nn) nameCounts[nn] = (nameCounts[nn] || 0) + 1
+  }
+  for (var b = 0; b < properties.length; b++) {
+    var nb = normaliseStatementName(properties[b].name)
+    if (nb && nameCounts[nb] === 1) aliasMap[nb] = properties[b].id
+  }
+  // Explicit aliases are applied last so they can override an implicit name
+  // match, and are ignored when they point at a property that no longer exists
+  // (deleted duplicates leave their aliases behind).
+  var known = {}
+  properties.forEach(function (p) { known[p.id] = p })
+  ;(aliases || []).forEach(function (al) {
+    var norm = normaliseStatementName(al.alias_norm || al.alias)
+    if (norm && known[al.property_id]) aliasMap[norm] = al.property_id
+  })
+
   var flatRe = /(?:flat|room|unit)\s*(\d+[ab]?)/i
   var numRe  = /^(\d+)\s/
   // Extract all plausible unit/flat numbers from a string
@@ -308,6 +391,19 @@ export function matchProperties(items, properties) {
 
   return items.map(function(item) {
     if (!item.propertyName) return item
+
+    // Alias / exact-name hit short-circuits the scoring entirely.
+    var aliasHit = aliasMap[normaliseStatementName(item.propertyName)]
+    if (aliasHit) {
+      return Object.assign({}, item, {
+        matched: true,
+        propertyId: aliasHit,
+        matchedName: known[aliasHit].name,
+        matchedVia: 'alias',
+        matchScore: 100,
+      })
+    }
+
     var name = item.propertyName.toLowerCase()
     var stmtNums = extractNumbers(item.propertyName)
     var stmtBuilding = buildingName(item.propertyName)
@@ -332,18 +428,29 @@ export function matchProperties(items, properties) {
         if (re.test(name) && re.test(combined)) { score += 6; buildingMatch = true }
       })
 
-      // Street/road name word overlap
+      // Street/road name word overlap. Compared against punctuation-free,
+      // abbreviation-folded tokens and with a one-typo allowance, so a
+      // hand-keyed "Henly Road" still finds "35 Henley Road".
       var nameWords = name.split(/\s+/).filter(function(w) { return w.length > 3 && !/^(flat|room|unit|the|and|for|from|rent|house)$/i.test(w) })
-      var propWords = combined.split(/\s+/)
-      var overlap = nameWords.filter(function(w) { return propWords.some(function(pw) { return pw.includes(w) || w.includes(pw) }) })
+      var propWords = normaliseStatementName(combined).split(' ')
+      var overlap = nameWords.filter(function(w) {
+        var nw = normaliseStatementName(w)
+        return propWords.some(function(pw) { return pw.includes(nw) || nw.includes(pw) || sameWord(nw, pw) })
+      })
       score += overlap.length * 2
 
-      // Building name similarity (fuzzy)
-      if (stmtBuilding && propBuilding) {
-        var bWords = stmtBuilding.split(/\s+/).filter(function(w) { return w.length > 2 })
-        var pWords = propBuilding.split(/\s+/)
-        var bOverlap = bWords.filter(function(w) { return pWords.some(function(pw) { return pw === w }) })
-        if (bOverlap.length >= 2) buildingMatch = true
+      // Building name similarity (fuzzy) — the general case behind the
+      // hard-coded namedPatterns above. Two or more matching building words is
+      // as good a signal as a named-building hit, and earns the same bonus:
+      // without it a whole-house property with no unit number in the label
+      // ("Henley Road") could only ever reach 4 points and never met the
+      // threshold. Skipped when namedPatterns already fired, so a building
+      // never gets paid twice for the same evidence.
+      if (!buildingMatch && stmtBuilding && propBuilding) {
+        var bWords = normaliseStatementName(stmtBuilding).split(' ').filter(function(w) { return w.length > 2 })
+        var pWords = normaliseStatementName(propBuilding).split(' ')
+        var bOverlap = bWords.filter(function(w) { return pWords.some(function(pw) { return sameWord(pw, w) }) })
+        if (bOverlap.length >= 2) { score += 6; buildingMatch = true }
       }
 
       // Unit/flat number matching — the critical part
@@ -357,7 +464,12 @@ export function matchProperties(items, properties) {
         } else if (numberMatch) {
           score += 8   // number matches but building unclear
         } else if (buildingMatch) {
-          score -= 3   // same building but WRONG number — penalise
+          // Right building, wrong unit — that is a positive identification of
+          // a DIFFERENT property, not a weak match, so rule it out entirely.
+          // A small penalty used to leave enough building/word score behind
+          // that Flat 99's rent could land on Flat 18. Better to leave it
+          // unmatched and make the user pick.
+          score = 0
         }
       }
 
@@ -368,6 +480,7 @@ export function matchProperties(items, properties) {
       matched: bestScore >= 5,
       propertyId: bestScore >= 5 ? bestMatch.id : null,
       matchedName: bestScore >= 5 ? bestMatch.name : null,
+      matchedVia: bestScore >= 5 ? 'score' : null,
       matchScore: bestScore
     })
   })

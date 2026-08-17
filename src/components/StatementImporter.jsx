@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { MONO } from '../lib/styles'
 import { supabase } from '../lib/supabase'
+import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
-import { detectFormat, parsePNE, parseRMS, matchProperties } from '../lib/statementParser'
+import { detectFormat, parsePNE, parseRMS, matchProperties, normaliseStatementName } from '../lib/statementParser'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import FocusTrap from '../lib/FocusTrap'
@@ -68,7 +69,19 @@ export function StatementImporter({properties, companies, showToast, onClose, as
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [importResults, setImportResults] = useState(null)
+  // Learned label → property mappings, so a spelling we've been corrected on
+  // before matches outright this time. Loaded up front; an empty list on
+  // failure just means we fall back to fuzzy scoring.
+  const [aliases, setAliases] = useState([])
   const fileRef = useRef()
+
+  useEffect(() => {
+    let live = true
+    api.fetchStatementAliases()
+      .then(rows => { if (live) setAliases(rows) })
+      .catch(e => console.error('StatementImporter:fetchStatementAliases', e))
+    return () => { live = false }
+  }, [])
 
   async function handleFile(file) {
     if (!file || !file.name.endsWith('.pdf')) {
@@ -87,7 +100,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
         return
       }
 
-      const matched = matchProperties(parsed.items, properties)
+      const matched = matchProperties(parsed.items, properties, aliases)
       setFormat(fmt)
       setParsed(parsed)
       setItems(matched)
@@ -106,9 +119,48 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     setItems(prev => prev.map((item, i) => i === idx ? {...item, [field]: value} : item))
   }
 
+  // The user picking a property by hand is the signal that our match was
+  // wrong (or missing). Flag it here; handleImport persists the correction as
+  // an alias once they actually commit the import, so idly opening and
+  // closing the dropdown doesn't teach us anything.
+  function assignProperty(idx, propertyId) {
+    const prop = properties.find(p => p.id === propertyId)
+    setItems(prev => prev.map((item, i) => i === idx ? {
+      ...item,
+      propertyId,
+      matchedName: prop?.name || '',
+      matched: !!propertyId,
+      matchedVia: propertyId ? 'manual' : null,
+    } : item))
+  }
+
+  // Remember every label the user corrected by hand, so next month's
+  // statement matches it without help. One row per distinct label — a
+  // statement lists the same property on its rent, fee and maintenance lines.
+  async function learnAliases(committed) {
+    const seen = new Set()
+    for (const item of committed) {
+      if (item.matchedVia !== 'manual' || !item.propertyId || !item.propertyName) continue
+      const norm = normaliseStatementName(item.propertyName)
+      // Nothing to learn when the label already normalises to the chosen
+      // property's own name — the matcher handles that case unaided.
+      const prop = properties.find(p => p.id === item.propertyId)
+      if (!norm || seen.has(norm) || norm === normaliseStatementName(prop?.name)) continue
+      seen.add(norm)
+      try {
+        await api.saveStatementAlias(item.propertyId, item.propertyName, norm)
+      } catch (e) {
+        // A failed alias write must never fail the import — the money is
+        // already logged by this point.
+        console.error('StatementImporter:saveStatementAlias', e)
+      }
+    }
+    return seen.size
+  }
+
   async function handleImport() {
     setStep('importing')
-    const results = { rent: 0, fees: 0, maintenance: 0, errors: [] }
+    const results = { rent: 0, fees: 0, maintenance: 0, learned: 0, errors: [] }
 
     for (const item of items) {
       if (!item.include) continue
@@ -209,6 +261,8 @@ export function StatementImporter({properties, companies, showToast, onClose, as
         results.errors.push(`Error on ${item.propertyName}: ${e.message}`)
       }
     }
+
+    results.learned = await learnAliases(items.filter(i => i.include))
 
     setImportResults(results)
     setStep('done')
@@ -360,7 +414,10 @@ export function StatementImporter({properties, companies, showToast, onClose, as
 
                           {/* Property match */}
                           {item.propertyId
-                            ? <span style={{fontFamily:MONO,fontSize:10,color:T.green}}>✓ {item.matchedName}</span>
+                            ? <span style={{fontFamily:MONO,fontSize:10,color:T.green}}>
+                                ✓ {item.matchedName}
+                                {item.matchedVia==='alias'&&<span style={{color:T.faint}}> · remembered label</span>}
+                              </span>
                             : <span style={{fontFamily:MONO,fontSize:10,color:T.amber}}>Unmatched</span>
                           }
                         </div>
@@ -380,12 +437,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                           <div style={{marginTop:4}}>
                             <select
                               value={item.propertyId||''}
-                              onChange={e=>{
-                                const prop = properties.find(p=>p.id===e.target.value)
-                                updateItem(idx,'propertyId',e.target.value)
-                                updateItem(idx,'matchedName',prop?.name||'')
-                                updateItem(idx,'matched',true)
-                              }}
+                              onChange={e=>assignProperty(idx, e.target.value)}
                               style={{fontSize:11,padding:'4px 8px',width:'100%'}}>
                               <option value="">— Select property manually —</option>
                               {[...properties].sort((a,b)=>naturalCompare(a.name, b.name)).map(p=>(
@@ -400,17 +452,17 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                           <div style={{marginTop:4}}>
                             <select
                               value={item.propertyId}
-                              onChange={e=>{
-                                const prop = properties.find(p=>p.id===e.target.value)
-                                updateItem(idx,'propertyId',e.target.value)
-                                updateItem(idx,'matchedName',prop?.name||'')
-                              }}
+                              onChange={e=>assignProperty(idx, e.target.value)}
                               style={{fontSize:10,padding:'2px 6px',background:T.bg,border:`1px solid ${T.border}`,color:T.muted,borderRadius:4,width:'auto'}}>
                               {[...properties].sort((a,b)=>naturalCompare(a.name, b.name)).map(p=>(
                                 <option key={p.id} value={p.id}>{p.name}</option>
                               ))}
                             </select>
-                            <span style={{fontFamily:MONO,fontSize:9,color:T.faint,marginLeft:4}}>change if wrong</span>
+                            <span style={{fontFamily:MONO,fontSize:9,color:T.faint,marginLeft:4}}>
+                              {item.matchedVia==='manual'
+                                ? 'we\'ll remember this label next time'
+                                : 'change if wrong'}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -462,6 +514,11 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                   </div>
                 ))}
               </div>
+              {importResults.learned>0&&(
+                <div style={{background:T.green+'14',border:`1px solid ${T.green}44`,borderRadius:8,padding:'10px 12px',marginBottom:16,textAlign:'left',fontFamily:MONO,fontSize:10,color:T.muted}}>
+                  Remembered {importResults.learned} property label{importResults.learned!==1?'s':''} you corrected — future statements using {importResults.learned!==1?'those spellings':'that spelling'} will match automatically.
+                </div>
+              )}
               {importResults.errors.length>0&&(
                 <div style={{background:T.red+'14',border:`1px solid ${T.red}`,borderRadius:8,padding:12,marginBottom:16,textAlign:'left'}}>
                   <div style={{fontFamily:MONO,fontSize:10,color:T.red,marginBottom:6}}>ERRORS</div>

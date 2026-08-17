@@ -200,6 +200,51 @@ const CompanyPill = memo(({company}) => {
   return <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||'#C8A84B')+'22',color:company.color||'#C8A84B',border:`1px solid ${(company.color||'#C8A84B')}44`}}>{company.abbr}</span>
 })
 
+// One line inside a StatCard's expanded breakdown. Rows that carry an
+// `onClick` become real buttons — the arrears and refurb widgets list
+// properties, and going from "Flat 18 owes £2,300" to that property's page
+// used to mean re-finding it in the portfolio. Rows without `onClick`
+// render exactly as before (plain label + value, no affordance).
+const BreakdownRow = memo(({item, T}) => {
+  const [hover, setHover] = useState(false)
+  const clickable = typeof item.onClick === 'function'
+  const rowStyle = {
+    display:'flex', justifyContent:'space-between', alignItems:'center',
+    paddingLeft:item.indent?16:0,
+    // Buttons need the div's defaults spelled out — no UA chrome, full width,
+    // and a hit area that doesn't shift the non-clickable rows around it.
+    ...(clickable && {
+      width:'100%', background:hover?T.gold+'14':'none', border:'none',
+      borderRadius:5, cursor:'pointer', textAlign:'left', font:'inherit',
+      padding:`3px ${item.indent?0:5}px 3px ${item.indent?16:5}px`,
+      margin:'-3px 0', transition:'background 0.15s',
+    }),
+  }
+  const inner = (
+    <>
+      <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:clickable&&hover?T.gold:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
+        {item.indent&&<span style={{color:T.border}}>└</span>}
+        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.label}</span>
+        {clickable&&<Icon name="arrow-right" size={10} color={hover?T.gold:T.faint}/>}
+      </span>
+      <span style={{fontFamily:MONO,fontSize:item.indent?10:11,fontWeight:item.indent?400:700,color:item.color||(item.indent?T.muted:T.text),flexShrink:0,paddingLeft:8}}>{item.value}</span>
+    </>
+  )
+  if (!clickable) return <div style={rowStyle}>{inner}</div>
+  return (
+    <button type="button" style={rowStyle}
+      // The card itself toggles open/closed on click, so stop the bubble or
+      // opening a property would also collapse the breakdown behind it.
+      onClick={e=>{e.stopPropagation();item.onClick()}}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      onFocus={()=>setHover(true)} onBlur={()=>setHover(false)}
+      title={item.linkTitle||`Open ${item.label}`}
+      aria-label={item.linkTitle||`Open ${item.label}`}>
+      {inner}
+    </button>
+  )
+})
+
 const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
   const { T } = useTheme()
@@ -236,13 +281,7 @@ const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabe
           {breakdown.map((item,i)=>(
             <div key={i}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingLeft:item.indent?16:0}}>
-                <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:item.indent?T.faint:T.muted,flex:1,display:'flex',alignItems:'center',gap:4}}>
-                  {item.indent&&<span style={{color:T.border}}>└</span>}
-                  {item.label}
-                </span>
-                <span style={{fontFamily:MONO,fontSize:item.indent?10:11,fontWeight:item.indent?400:700,color:item.color||(item.indent?T.muted:T.text)}}>{item.value}</span>
-              </div>
+              <BreakdownRow item={item} T={T}/>
               {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2}}>{item.note}</div>}
             </div>
           ))}
@@ -2937,7 +2976,12 @@ export default function App() {
                   arrears: { icon:'alert-triangle', label:'Total Arrears', render: () => (
                     <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                       breakdown={[
-                        ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red})),
+                        // Each property in arrears links straight to its Rent
+                        // tab — that's where the payment history and arrears
+                        // detail live, which is what you want next after
+                        // spotting the number here.
+                        ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red,
+                          onClick:()=>openDetail(p,'rent'), linkTitle:`Open ${p.name} — rent & arrears`})),
                         ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
                         {label:'Vacant units', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
                       ]}
@@ -2946,7 +2990,10 @@ export default function App() {
                   refurb: { icon:'hammer', label:'In Refurbishment', render: () => (
                     <StatCard icon="hammer" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue} onNavigate={()=>{setStatusFilter('refurb');setPortfolioTab('properties');setView('properties')}} navLabel="View"
                       breakdown={[
-                        ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue})),
+                        // Same for live refurbs — straight to the Refurb tab
+                        // for phases, costs and progress notes.
+                        ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue,
+                          onClick:()=>openDetail(p,'refurb'), linkTitle:`Open ${p.name} — refurbishment`})),
                         ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
                         {label:'Planned refurbs', value:dashProps.filter(p=>p.refurb_status==='planned').length},
                         {label:'Completed refurbs', value:dashProps.filter(p=>p.refurb_status==='complete').length, color:T.green},
