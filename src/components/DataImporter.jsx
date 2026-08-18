@@ -19,7 +19,7 @@ import { safeOverlayClose } from '../lib/modalUtils'
 import FocusTrap from '../lib/FocusTrap'
 import { naturalCompare } from '../lib/addressUtils'
 import {
-  parseCsv, detectColumns, buildRentPlan, buildExpensePlan, aliasesToLearn,
+  parseCsv, detectColumns, buildRentPlan, buildExpensePlan, aliasesToLearn, summarise,
 } from '../lib/csvImport'
 
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(n || 0)
@@ -57,6 +57,11 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   const [result, setResult] = useState(null)
   const [batches, setBatches] = useState([])
   const [showAll, setShowAll] = useState(false)
+  // Lines the user has chosen to leave out. Needed because some rows can never
+  // be made valid — Xero reports a net-negative rent month, which is a real
+  // figure but not something the rent model can hold — and a blocked row stops
+  // the whole import. Without a way to set those aside the import deadlocks.
+  const [excluded, setExcluded] = useState(() => new Set())
   const fileRef = useRef()
 
   const sortedProps = useMemo(
@@ -103,6 +108,27 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
     return out
   }, [parsed, columns, sortedProps, effectiveAliases, context, kind, overrides])
 
+  // What will actually be committed, and the totals that describe it.
+  const effective = useMemo(() => {
+    if (!planned) return null
+    const kept = planned.plan.filter(r => !excluded.has(r.line))
+    return { plan: kept, summary: summarise(kept) }
+  }, [planned, excluded])
+
+  const blockedLines = useMemo(
+    () => (planned?.plan || []).filter(r => r.action === 'error').map(r => r.line),
+    [planned]
+  )
+  const blockedNotExcluded = blockedLines.filter(l => !excluded.has(l))
+
+  function toggleExcluded(line) {
+    setExcluded(prev => {
+      const next = new Set(prev)
+      next.has(line) ? next.delete(line) : next.add(line)
+      return next
+    })
+  }
+
   const missing = useMemo(() => {
     return (REQUIRED[kind] || []).filter(group => !group.some(f => columns[f]))
       .map(group => group.join(' or '))
@@ -127,6 +153,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
       setParsed(p)
       setColumns(detectColumns(p.headers))
       setOverrides({})
+      setExcluded(new Set())
       setStep('map')
     } catch (e) {
       console.error('DataImporter:handleFile', e)
@@ -152,19 +179,20 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   }, [properties, showToast])
 
   async function handleCommit() {
-    if (!planned) return
+    if (!effective) return
     setBusy(true)
     try {
       const res = await api.commitImport({
         kind, source: 'csv', filename,
-        plan: planned.plan,
+        plan: effective.plan,
         companyId: companies?.length === 1 ? companies[0].id : null,
-        notes: `${planned.summary.create} created, ${planned.summary.update} updated from ${filename}`,
+        notes: `${effective.summary.create} created, ${effective.summary.update} updated from ${filename}`
+          + (excluded.size ? ` (${excluded.size} row(s) excluded by hand)` : ''),
       })
       // Learning the corrections is a convenience, never a reason to fail an
       // import that has already written money.
       try {
-        for (const a of aliasesToLearn(planned.plan, sortedProps)) {
+        for (const a of aliasesToLearn(effective.plan, sortedProps)) {
           await api.saveStatementAlias(a.propertyId, a.alias, a.aliasNorm)
         }
       } catch (e) { console.error('DataImporter:saveStatementAlias', e) }
@@ -199,7 +227,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
     setBusy(false)
   }
 
-  const s = planned?.summary
+  const s = effective?.summary
   const canCommit = s && s.error === 0 && (s.create > 0 || s.update > 0)
 
   const label = { fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '.06em' }
@@ -363,10 +391,26 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
 
             {s.error > 0 && (
               <div style={{ background: T.red + '14', border: `1px solid ${T.red}`, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: T.red }}>
-                  {s.error} row{s.error === 1 ? '' : 's'} cannot be imported. Fix them below, or correct the file and
-                  upload again. Nothing will be written while any row is blocked.
+                <div style={{ fontFamily: MONO, fontSize: 11, color: T.red, marginBottom: 8 }}>
+                  {s.error} row{s.error === 1 ? '' : 's'} cannot be imported. Nothing will be written while any row is
+                  blocked. Assign a property where one is missing, or leave the row out and import the rest.
                 </div>
+                <button className="btn btn-ghost" style={{ fontSize: 10 }}
+                  onClick={() => setExcluded(prev => {
+                    const next = new Set(prev)
+                    blockedNotExcluded.forEach(l => next.add(l))
+                    return next
+                  })}>
+                  Leave out {blockedNotExcluded.length} blocked row{blockedNotExcluded.length === 1 ? '' : 's'} and import the rest
+                </button>
+              </div>
+            )}
+            {excluded.size > 0 && (
+              <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
+                {excluded.size} row{excluded.size === 1 ? '' : 's'} left out by hand and will not be imported.{' '}
+                <button className="btn btn-ghost" style={{ fontSize: 10 }} onClick={() => setExcluded(new Set())}>
+                  Put them all back
+                </button>
               </div>
             )}
 
@@ -388,13 +432,22 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                 </thead>
                 <tbody>
                   {planned.plan
-                    .filter(r => showAll || r.action === 'error' || r.warnings.length || r.action === 'update')
+                    .filter(r => showAll || r.action === 'error' || r.warnings.length || r.action === 'update' || excluded.has(r.line))
                     .map(r => {
+                      const out = excluded.has(r.line)
                       const meta = ACTION_META[r.action]
                       return (
-                        <tr key={r.line}>
+                        <tr key={r.line} style={out ? { opacity: 0.45 } : undefined}>
                           <td style={{ ...cell, color: T.muted }}>{r.line}</td>
-                          <td style={cell}>{chip(meta.colour, meta.label)}</td>
+                          <td style={cell}>
+                            {out ? chip('muted', 'Left out') : chip(meta.colour, meta.label)}
+                            <div>
+                              <button className="btn btn-ghost" style={{ fontSize: 9, marginTop: 4 }}
+                                onClick={() => toggleExcluded(r.line)}>
+                                {out ? 'put back' : 'leave out'}
+                              </button>
+                            </div>
+                          </td>
                           <td style={cell}>
                             <div>{r.propertyName || <span style={{ color: T.red }}>unmatched</span>}</div>
                             <div style={{ color: T.muted, fontSize: 10 }}>{r.label}</div>
@@ -465,7 +518,8 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }} />
           <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setStep('upload')}>← Back</button>
-          <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={missing.length > 0 || busy} onClick={goToPreview}>
+          <button className="btn btn-gold" onClick={goToPreview} disabled={missing.length > 0 || busy}
+            style={{ fontSize: 11, ...((missing.length > 0 || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null) }}>
             {busy ? 'Loading…' : 'Review the plan →'}
           </button>
         </div>
@@ -478,7 +532,8 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
               : s.error > 0 ? `${s.error} blocked row(s) must be fixed first` : 'Nothing to import'}
           </div>
           <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setStep('map')}>← Back</button>
-          <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={!canCommit || busy} onClick={handleCommit}>
+          <button className="btn btn-gold" onClick={handleCommit} disabled={!canCommit || busy}
+            style={{ fontSize: 11, ...((!canCommit || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null) }}>
             {busy ? 'Importing…' : `Import ${s.create + s.update} row(s)`}
           </button>
         </div>
