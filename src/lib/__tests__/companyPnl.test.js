@@ -275,7 +275,7 @@ describe('buildPortfolioPnl', () => {
     expect(r.grand.posttax).toBe(28_000 - 5_320)
   })
 
-  it('calculates management fees per property and excludes logged agent_fees expenses', () => {
+  it('prefers a real logged agent fee over the calculated percentage', () => {
     const r = buildPortfolioPnl({
       companies: [{ id: 'cA', name: 'Alpha Ltd' }],
       properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA', managed_by_agent_id: 'ag1' }],
@@ -285,11 +285,41 @@ describe('buildPortfolioPnl', () => {
       months: 12,
     })
     const block = r.companies[0]
-    // 10% + VAT = 12% of £10,000; the logged fee expense is dropped.
-    expect(block.rows[0].fees).toBe(1_200)
-    expect(block.rows[0].expenses).toBe(0)
-    expect(block.excludedAgentFeeExpenses).toBe(500)
-    expect(block.rows[0].pretax).toBe(8_800)
+    // The agent was actually invoiced £500. The 12%-of-£10,000 estimate
+    // (£1,200) is suppressed for this property rather than replacing the
+    // invoice, so the fee is counted once, at its real value.
+    expect(block.rows[0].fees).toBe(0)
+    expect(block.rows[0].expenses).toBe(500)
+    expect(block.excludedAgentFeeExpenses).toBe(0)
+    expect(block.actualAgentFeeExpenses).toBe(500)
+    expect(block.actualFeePropertyCount).toBe(1)
+    expect(block.rows[0].pretax).toBe(9_500)
+  })
+
+  it('still calculates the fee for properties that have no logged fee', () => {
+    // Mixed portfolio: p1 has a real invoice, p2 does not.
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [
+        { id: 'p1', name: 'Flat 1', company_id: 'cA', managed_by_agent_id: 'ag1' },
+        { id: 'p2', name: 'Flat 2', company_id: 'cA', managed_by_agent_id: 'ag1' },
+      ],
+      payments: [
+        { property_id: 'p1', status: 'paid', amount: 10_000 },
+        { property_id: 'p2', status: 'paid', amount: 10_000 },
+      ],
+      expenses: [{ property_id: 'p1', category: 'agent_fees', amount: 500 }],
+      agents: [{ id: 'ag1', name: 'LetCo', fee_percent: 10, vat_treatment: 'ex_vat' }],
+      months: 12,
+    })
+    const block = r.companies[0]
+    const p1 = block.rows.find(x => x.name === 'Flat 1')
+    const p2 = block.rows.find(x => x.name === 'Flat 2')
+    expect(p1.fees).toBe(0)
+    expect(p1.expenses).toBe(500)
+    expect(p2.fees).toBe(1_200)
+    expect(p2.expenses).toBe(0)
+    expect(block.actualFeePropertyCount).toBe(1)
   })
 
   it('falls back to expected rent per company when it has no paid payments', () => {
@@ -438,10 +468,15 @@ describe('buildPortfolioPnl', () => {
     expect(noFees.rows[0].fees).toBe(0)
     expect(noFees.rows[0].expenses).toBe(4_000)
     expect(noFees.excludedAgentFeeExpenses).toBe(0)
-    // Mortgage off: only the mortgage category goes.
+    // Mortgage off: only the mortgage category goes. Repairs £1,000 plus the
+    // logged agent fee £500 remain, and the calculated fee is suppressed
+    // because that real fee is being counted.
     const noMortgage = buildPortfolioPnl({ ...args, include: { mortgage: false } }).companies[0]
-    expect(noMortgage.rows[0].expenses).toBe(1_000)
-    // Expenses off: everything logged goes, calculated fee stays.
+    expect(noMortgage.rows[0].expenses).toBe(1_500)
+    expect(noMortgage.rows[0].fees).toBe(0)
+    // Expenses off: everything logged goes, and the calculated fee comes BACK
+    // — with the real fee excluded from the numbers there is nothing for it to
+    // double-count against, and dropping both would delete the fee entirely.
     const noExp = buildPortfolioPnl({ ...args, include: { expenses: false } }).companies[0]
     expect(noExp.rows[0].expenses).toBe(0)
     expect(noExp.rows[0].fees).toBe(1_000)

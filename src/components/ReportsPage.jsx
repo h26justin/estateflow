@@ -1768,10 +1768,17 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           No rent payments recorded for this period — income shown is expected rent from tenancy settings.
         </div>
       )}
+      {pnl.actualAgentFeeExpenses > 0 && (
+        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12}}>
+          {fmt(pnl.actualAgentFeeExpenses)} of logged "Agent / Management Fees" expenses are counted as-invoiced
+          across {pnl.actualFeePropertyCount} propert{pnl.actualFeePropertyCount === 1 ? 'y' : 'ies'} — the
+          calculated fee percentage is skipped for those, so fees aren't counted twice.
+        </div>
+      )}
       {pnl.excludedAgentFeeExpenses > 0 && (
         <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12}}>
-          {fmt(pnl.excludedAgentFeeExpenses)} of logged "Agent / Management Fees" expenses are excluded — the
-          calculated fee lines below replace them so fees aren't counted twice.
+          {fmt(pnl.excludedAgentFeeExpenses)} of logged "Agent / Management Fees" expenses could not be matched to
+          a property in this portfolio, so they're excluded to avoid double-counting the calculated fee lines.
         </div>
       )}
 
@@ -1906,6 +1913,8 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
 
   const fallbackCos = data.companies.filter(b => b.usedFallback).map(b => b.name)
   const excludedFees = data.companies.reduce((s, b) => s + b.excludedAgentFeeExpenses, 0)
+  const actualFees = data.companies.reduce((s, b) => s + (b.actualAgentFeeExpenses || 0), 0)
+  const actualFeeProps = data.companies.reduce((s, b) => s + (b.actualFeePropertyCount || 0), 0)
 
   const excludedBits = [
     !pnlInc.fees && 'management fees',
@@ -1957,10 +1966,17 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
           No rent payments recorded this period for {fallbackCos.join(', ')} — expected rent from tenancy settings shown instead.
         </div>
       )}
+      {actualFees > 0 && (
+        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:8}}>
+          {fmt(actualFees)} of logged "Agent / Management Fees" expenses are counted as-invoiced across{' '}
+          {actualFeeProps} propert{actualFeeProps === 1 ? 'y' : 'ies'} — the calculated fee percentage is skipped
+          for those, so fees aren't counted twice.
+        </div>
+      )}
       {excludedFees > 0 && (
         <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:8}}>
-          {fmt(excludedFees)} of logged "Agent / Management Fees" expenses are excluded — calculated management
-          fees replace them so fees aren't counted twice.
+          {fmt(excludedFees)} of logged "Agent / Management Fees" expenses could not be matched to a property in
+          this portfolio, so they're excluded to avoid double-counting the calculated fee lines.
         </div>
       )}
       <div style={{fontFamily:mono,fontSize:10,color:T.muted,lineHeight:1.7,marginTop:14,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
