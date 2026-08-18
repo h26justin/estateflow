@@ -457,7 +457,8 @@ function row_(row, header) {
   return String(row[header] ?? '').trim()
 }
 
-function summarise(plan) {
+// Exported so the review UI can recompute totals after the user excludes rows.
+export function summarise(plan) {
   const s = { total: plan.length, create: 0, update: 0, skip: 0, error: 0, warnings: 0, amount: 0 }
   for (const r of plan) {
     s[r.action]++

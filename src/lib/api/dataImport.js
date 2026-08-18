@@ -12,6 +12,7 @@
 // the previous values of the rows it updated.
 
 import { supabase } from '../supabase'
+import { fetchAllPages } from '../paginate'
 
 const CHUNK = 100
 
@@ -25,22 +26,32 @@ async function currentUser() {
 // builders expect. Fetched once up front so planning is a pure function of
 // (file, portfolio, existing) and can be re-run locally as the user edits
 // property assignments without re-querying.
+//
+// MUST be complete. A partial result here does not fail loudly — it makes rows
+// whose existing record was not fetched look new, so they plan as 'create'
+// instead of 'update'. The unique index then rejects them at commit time and
+// they are reported as duplicate-skips, leaving those months with their
+// original (often blank) amount. The first version of this had no pagination,
+// so PostgREST capped it at its 1000-row default: a portfolio with 4,361 rent
+// rows planned 322 updates as creates and would have silently half-imported.
 export async function fetchImportContext(propertyIds) {
   const ids = (propertyIds || []).filter(Boolean)
   if (!ids.length) return { payments: [], expenses: [] }
 
-  const [pay, exp] = await Promise.all([
-    supabase.from('rent_payments')
+  // Ordered by id so paging is stable: without an ORDER BY, Postgres may return
+  // rows in a different order per page and a row could be seen twice or missed.
+  const [payments, expenses] = await Promise.all([
+    fetchAllPages(() => supabase.from('rent_payments')
       .select('id, property_id, period_start, period_end, status, amount, source_ref')
-      .in('property_id', ids),
-    supabase.from('property_expenses')
+      .in('property_id', ids)
+      .order('id', { ascending: true })),
+    fetchAllPages(() => supabase.from('property_expenses')
       .select('id, property_id, date, category, amount, source_ref')
       .in('property_id', ids)
-      .is('deleted_at', null),
+      .is('deleted_at', null)
+      .order('id', { ascending: true })),
   ])
-  if (pay.error) throw pay.error
-  if (exp.error) throw exp.error
-  return { payments: pay.data || [], expenses: exp.data || [] }
+  return { payments, expenses }
 }
 
 // ── COMMIT ──────────────────────────────────────────────────────────────────
