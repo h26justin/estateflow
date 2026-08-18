@@ -114,3 +114,85 @@ describe('matchProperties — learned aliases', () => {
     expect(r.propertyId).toBeUndefined()
   })
 })
+
+describe('matchProperties — number agreement across different buildings', () => {
+  // Found while mapping Vale's Xero tracking options onto the portfolio.
+  // "10 Elms West" is a whole building (house number 10); "Esplanade West
+  // Flat 10" is a flat in an unrelated building. They share the number 10 and
+  // the word "west", which was enough to score 10 and clear the threshold, so
+  // a building's rent would post onto that flat with no warning.
+  const ELMS = { id: 'p-elms', name: 'Room 2A, 10 Elms West', address: '10 Elms West, Sunderland' }
+  const ESP_10 = { id: 'p-esp10', name: 'Esplanade West Flat 10', address: '16 Esplanade, Sunderland' }
+
+  it('does not match a building label onto a same-numbered flat elsewhere', () => {
+    const r = match('10 Elms West', [ELMS, ESP_10])
+    expect(r.propertyId).toBeNull()
+  })
+
+  it('still matches a flat label to its own building', () => {
+    const r = match('16 Esplanade Flat 10', [ELMS, ESP_10])
+    expect(r.propertyId).toBe('p-esp10')
+  })
+
+  it('still matches a room label to its own room', () => {
+    const r = match('10 Elms West Room 2A', [ELMS, ESP_10])
+    expect(r.propertyId).toBe('p-elms')
+  })
+
+  it('keeps matching a bare unit label that names no building', () => {
+    // Nothing to contradict, so the number alone may still match and the user
+    // confirms in the preview.
+    const only = { id: 'p-only', name: 'Flat 3, Somewhere House', address: 'Somewhere House' }
+    expect(match('Flat 3', [only]).propertyId).toBe('p-only')
+  })
+})
+
+describe('matchProperties — town names are not evidence', () => {
+  // Found while mapping Vale's Xero tracking options. "62c Sunderland Road"
+  // (sold Sept 2025, no longer in the portfolio) scored 10 against
+  // "15 Regal Road, Sunderland" purely for sharing "sunderland" and "road" —
+  // enough to clear the threshold and post a sold property's rent elsewhere.
+  // The filter needs at least 5 distinct buildings before it engages, so this
+  // portfolio is realistic rather than minimal.
+  const PORTFOLIO_20 = [
+    { id: 'regal',    name: '15 Regal Road',       address: '15 Regal Road, Sunderland, SR4 6HP' },
+    { id: 'rutland',  name: '103 Rutland Street',  address: '103 Rutland Street, Sunderland, SR4 6QG' },
+    { id: 'garfield', name: '6 Garfield Street',   address: '6 Garfield Street, Sunderland, SR4 6NL' },
+    { id: 'rosedale', name: '46 Rosedale Street',  address: '46 Rosedale Street, Sunderland, SR1 3RW' },
+    { id: 'henley',   name: '35 Henley Road',      address: '35 Henley Road, Nookside, Sunderland, SR4 8AS' },
+    { id: 'weldon',   name: '37 Weldon Avenue',    address: '37 Weldon Avenue, Sunderland, SR2 9QB' },
+    { id: 'goschen',  name: '30 Goschen Street',   address: '30 Goschen Street, Blyth, NE24 1NJ' },
+    { id: 'chester',  name: '12 Chester Grove',    address: '12 Chester Grove, Blyth, NE24 5SH' },
+    // A block: the same building name across many units, which MUST stay
+    // usable as an identifier even though it repeats.
+    ...Array.from({ length: 11 }, (_, i) => ({
+      id: `esp${i + 1}`, name: `Esplanade West Flat ${i + 1}`,
+      address: `Flat ${i + 1}, 16 Esplanade West, Sunderland, SR2 7BG`,
+    })),
+  ]
+
+  it('does not match a sold property onto a same-town, same-street-type house', () => {
+    expect(match('62c Sunderland Road', PORTFOLIO_20).propertyId).toBeNull()
+  })
+
+  it('keeps a block name working as an identifier across its own units', () => {
+    // "esplanade" spans 11 properties but only one building, so it is still
+    // evidence — counting properties rather than buildings broke this.
+    expect(match('16 Esplanade Flat 7', PORTFOLIO_20).propertyId).toBe('esp7')
+    expect(match('16 Esplanade Flat 11', PORTFOLIO_20).propertyId).toBe('esp11')
+  })
+
+  it('leaves a whole-building label unmatched rather than picking a unit', () => {
+    expect(match('16 ESPLANADE', PORTFOLIO_20).propertyId).toBeNull()
+  })
+
+  it('still tolerates a street typo in a portfolio large enough to filter', () => {
+    expect(match('Henly Road', PORTFOLIO_20).propertyId).toBe('henley')
+  })
+
+  it('does not engage the filter on a small portfolio', () => {
+    // Two buildings: one occurrence is already 50%, so discarding it would
+    // throw away real evidence.
+    expect(match('35 Henley Road').propertyId).toBe('p-henley')
+  })
+})

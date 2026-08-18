@@ -6,9 +6,12 @@
 //   rent collected (paid rent_payments; falls back to expected rent when a
 //   portfolio has no payment records at all)
 //   − operating expenses by category (logged property_expenses)
-//   − management fees CALCULATED from each company↔agent fee % (to avoid
-//     double counting, logged 'agent_fees' expenses are excluded from the
-//     expense section whenever calculated fee configs exist)
+//   − management fees, taken from each company↔agent fee % EXCEPT on any
+//     property that carries a real logged 'agent_fees' cost, where the actual
+//     invoiced figure is used instead (a flat fee_percent cannot represent a
+//     rate that changed part-way through the history, and a percentage should
+//     never override a known invoice). Suppressing the calculation per
+//     property is what stops the two double-counting.
 //   = operating profit
 //   − UK corporation tax estimate (19% small profits rate / 25% main rate /
 //     marginal relief between, thresholds divided by associated companies)
@@ -229,13 +232,38 @@ export function buildPortfolioPnl({
     const cExps = expenses.filter(e => propIds.has(e.property_id))
 
     const hasPaid = cPays.some(r => r?.status === 'paid')
+
+    // Properties carrying a real logged agent-fee cost. An actual invoiced fee
+    // beats a percentage estimate, so for these the calculated line is
+    // suppressed and the logged expense is used instead — per property, not
+    // portfolio-wide.
+    //
+    // A flat fee_percent per agent cannot represent a rate that moved: one
+    // managed block ran at 5% through 2024 and 10% from March 2025, so
+    // calculating backwards over a multi-year history is wrong wherever the
+    // real figures are known. This also makes an import of historic fees
+    // meaningful — previously any logged fee was discarded outright the moment
+    // a single property in the company had a fee percentage set.
+    // Only suppress a calculated rate when the actual fee is genuinely being
+    // counted. With expenses switched off the logged fee is not in the numbers
+    // at all, so the calculated line has to stand in for it — otherwise
+    // turning expenses off would silently delete the fee entirely.
+    const countingActualFees = inc.expenses && inc.managementFees
+    const propsWithActualFees = new Set()
+    if (countingActualFees) {
+      for (const e of cExps) {
+        if ((e?.category || 'other') === 'agent_fees' && (Number(e?.amount) || 0) > 0) {
+          propsWithActualFees.add(e.property_id)
+        }
+      }
+    }
     const feeRateFor = (p) => {
       if (!inc.managementFees) return 0
+      if (propsWithActualFees.has(p.id)) return 0
       const a = p.managed_by_agent_id && agentById.get(p.managed_by_agent_id)
       if (!a || !(Number(a.fee_percent) > 0)) return 0
       return (Number(a.fee_percent) / 100) * ((a.vat_treatment || 'ex_vat') === 'ex_vat' ? 1.2 : 1)
     }
-    const hasCalcFees = cProps.some(p => feeRateFor(p) > 0)
 
     // Pre-bucket paid rent and included expenses by property (and month).
     // Month comes from the year/month columns, falling back to
@@ -258,6 +286,7 @@ export function buildPortfolioPnl({
       }
     }
     let excludedAgentFeeExpenses = 0
+    let actualAgentFeeExpenses = 0
     const expByProp = new Map(), expByPropMonth = new Map()
     for (const e of cExps) {
       const amt = Number(e?.amount) || 0
@@ -265,10 +294,12 @@ export function buildPortfolioPnl({
       const cat = e?.category || 'other'
       if (!inc.mortgage && cat === 'mortgage') continue
       if (cat === 'agent_fees') {
-        // Fees toggled off drops logged agent-fee costs too; fees on keeps
-        // the existing rule (calculated fee lines replace logged ones).
+        // Fees toggled off drops logged agent-fee costs too. With fees on, a
+        // logged fee is now kept and its property's calculated rate is
+        // suppressed instead (see propsWithActualFees), so nothing is
+        // double-counted and nothing is silently discarded.
         if (!inc.managementFees) continue
-        if (hasCalcFees) { excludedAgentFeeExpenses += amt; continue }
+        actualAgentFeeExpenses += amt
       }
       expByProp.set(e.property_id, (expByProp.get(e.property_id) || 0) + amt)
       if (monthKeys && e.date) {
@@ -343,6 +374,10 @@ export function buildPortfolioPnl({
     blocks.push({
       id: entry.id, name: entry.name, personal: entry.personal,
       usedFallback: !hasPaid, excludedAgentFeeExpenses: round2(excludedAgentFeeExpenses),
+      // How much of the fee total came from real invoices rather than a
+      // percentage, so the report can say which basis it used.
+      actualAgentFeeExpenses: round2(actualAgentFeeExpenses),
+      actualFeePropertyCount: propsWithActualFees.size,
       rows,
       totals: {
         income: round2(tIncome), expenses: round2(tExp), fees: round2(tFees),
@@ -536,9 +571,25 @@ export function buildCompanyPnl({
   // Management fees — each agency's fee % applied to the rent of the
   // properties it manages. 'ex_vat' adds 20% VAT on top (fees quoted
   // "X% plus VAT" cost more in cash).
+  //
+  // A property with a real logged agent-fee cost is skipped here: the actual
+  // invoiced figure is used instead of the percentage estimate. See the same
+  // rule in buildPortfolioPnl for why (a flat fee_percent cannot represent a
+  // rate that changed part-way through the history).
+  // Only a fee we can pin to a property in this portfolio can suppress that
+  // property's calculated rate. An agent_fees cost with no property_id (or one
+  // we don't hold) is unattributable: keeping it alongside a calculated fee
+  // would double-count, so those fall back to the old exclusion rule below.
+  const knownProps = new Set(properties.map(p => p.id))
+  const propsWithActualFees = new Set()
+  for (const e of expenses) {
+    if ((e?.category || 'other') !== 'agent_fees' || !((Number(e?.amount) || 0) > 0)) continue
+    if (knownProps.has(e.property_id)) propsWithActualFees.add(e.property_id)
+  }
   const agentById = new Map(agents.map(a => [a.id, a]))
   const byAgent = new Map()
   for (const p of properties) {
+    if (propsWithActualFees.has(p.id)) continue
     const a = p.managed_by_agent_id && agentById.get(p.managed_by_agent_id)
     if (!a || !(Number(a.fee_percent) > 0)) continue
     let g = byAgent.get(a.id)
@@ -555,17 +606,26 @@ export function buildCompanyPnl({
   })).sort((a, b) => b.amount - a.amount)
   const totalManagementFees = managementFees.reduce((s, f) => s + f.amount, 0)
 
-  // Operating expenses by category. When calculated fees exist, logged
-  // 'agent_fees' expenses are excluded (the calculated line replaces
-  // them) — surfaced via excludedAgentFeeExpenses so the UI can say so.
+  // Operating expenses by category. A logged 'agent_fees' cost tied to one of
+  // our properties is KEPT — that property's calculated fee was suppressed
+  // above, so the two cannot double-count. One we could not attribute is still
+  // excluded whenever calculated fees exist, since there is no matching
+  // suppression to protect it.
   const hasCalculatedFees = managementFees.length > 0
   let excludedAgentFeeExpenses = 0
+  let actualAgentFeeExpenses = 0
   const byCategory = {}
   for (const e of expenses) {
     const amt = Number(e?.amount) || 0
     if (!amt) continue
     const cat = e?.category || 'other'
-    if (hasCalculatedFees && cat === 'agent_fees') { excludedAgentFeeExpenses += amt; continue }
+    if (cat === 'agent_fees') {
+      if (!propsWithActualFees.has(e.property_id) && hasCalculatedFees) {
+        excludedAgentFeeExpenses += amt
+        continue
+      }
+      actualAgentFeeExpenses += amt
+    }
     byCategory[cat] = (byCategory[cat] || 0) + amt
   }
   const expenseCategories = Object.entries(byCategory)
@@ -603,6 +663,8 @@ export function buildCompanyPnl({
     managementFees, totalManagementFees,
     expenseCategories, totalOperatingExpenses,
     excludedAgentFeeExpenses,
+    actualAgentFeeExpenses: Math.round(actualAgentFeeExpenses * 100) / 100,
+    actualFeePropertyCount: propsWithActualFees.size,
     totalExpenses,
     operatingProfit,
     corporationTax: ct,

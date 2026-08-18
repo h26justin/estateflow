@@ -335,6 +335,14 @@ function sameWord(a, b) {
 // shaped `{ property_id, alias }`. An alias is an exact, deterministic match:
 // it exists precisely because fuzzy scoring got this label wrong before, so it
 // must win outright rather than compete on score.
+// Thresholds for the "common token" filter in matchProperties. A token must
+// appear in at least this many DISTINCT BUILDINGS, and in more than this share
+// of them, before it is treated as non-identifying. Tuned so a town name in a
+// 20-building portfolio is filtered while a street type shared by a handful of
+// houses, or a block name shared by a block's own units, is not.
+var COMMON_TOKEN_MIN_BUILDINGS = 5
+var COMMON_TOKEN_SHARE = 0.25
+
 export function matchProperties(items, properties, aliases) {
   // alias_norm → property id. Built from explicit aliases first, then each
   // property's own name as an implicit alias — but only where the normalised
@@ -389,6 +397,46 @@ export function matchProperties(items, properties, aliases) {
       .trim()
   }
 
+  // Tokens so widespread in this portfolio that they identify nothing — a town
+  // or county name above all. Without this, "62c Sunderland Road" scored 10
+  // against "15 Regal Road, Sunderland" just for sharing "sunderland" and
+  // "road", enough to post a sold property's rent onto an unrelated house.
+  //
+  // Counted over DISTINCT BUILDINGS, not properties. That distinction is the
+  // whole point: a block name repeats across every unit in the block and is
+  // exactly what identifies them ("elms" covers 11 of Vale's units but only
+  // one building), whereas a town name recurs across unrelated buildings.
+  // Counting properties instead threw away the block names and left all 11
+  // Elms West rooms unmatchable.
+  //
+  // Both bars must be cleared: a real share of the portfolio AND an absolute
+  // floor, because in a two-building portfolio one occurrence is already 50%
+  // and discarding real evidence there is worse than the false positive.
+  var buildingsWithToken = {}
+  var buildingKeys = {}
+  for (var t = 0; t < properties.length; t++) {
+    var bKey = buildingName(properties[t].name + ' ' + (properties[t].address || ''))
+    if (!bKey || buildingKeys[bKey]) continue
+    buildingKeys[bKey] = true
+    var toks = normaliseStatementName(properties[t].name + ' ' + (properties[t].address || '')).split(' ')
+    var seenTok = {}
+    for (var u = 0; u < toks.length; u++) {
+      if (!toks[u] || seenTok[toks[u]]) continue
+      seenTok[toks[u]] = true
+      buildingsWithToken[toks[u]] = (buildingsWithToken[toks[u]] || 0) + 1
+    }
+  }
+  var buildingCount = Object.keys(buildingKeys).length
+  var commonTokens = {}
+  if (buildingCount >= COMMON_TOKEN_MIN_BUILDINGS) {
+    for (var tok in buildingsWithToken) {
+      if (buildingsWithToken[tok] >= COMMON_TOKEN_MIN_BUILDINGS &&
+          buildingsWithToken[tok] / buildingCount > COMMON_TOKEN_SHARE) {
+        commonTokens[tok] = true
+      }
+    }
+  }
+
   return items.map(function(item) {
     if (!item.propertyName) return item
 
@@ -439,6 +487,25 @@ export function matchProperties(items, properties, aliases) {
       })
       score += overlap.length * 2
 
+      // How many building words the two sides share. Computed whenever both
+      // name a building, because it is needed twice: to award the fuzzy
+      // building bonus here, and to veto a number-only match further down.
+      var bOverlapCount = 0
+      var bothNameBuildings = false
+      if (stmtBuilding && propBuilding) {
+        var bWords = normaliseStatementName(stmtBuilding).split(' ').filter(function(w) {
+          // Common tokens are dropped from the OVERLAP COUNT only. They are
+          // still evidence that a building was named — see bothNameBuildings
+          // below, which is deliberately taken from the raw string: a block
+          // name legitimately repeats across every unit in that block, so
+          // filtering it must not make the veto think no building was given.
+          return w.length > 2 && !commonTokens[w]
+        })
+        var pWords = normaliseStatementName(propBuilding).split(' ')
+        bOverlapCount = bWords.filter(function(w) { return pWords.some(function(pw) { return sameWord(pw, w) }) }).length
+        bothNameBuildings = normaliseStatementName(stmtBuilding).split(' ').some(function(w) { return w.length > 2 })
+      }
+
       // Building name similarity (fuzzy) — the general case behind the
       // hard-coded namedPatterns above. Two or more matching building words is
       // as good a signal as a named-building hit, and earns the same bonus:
@@ -446,12 +513,7 @@ export function matchProperties(items, properties, aliases) {
       // ("Henley Road") could only ever reach 4 points and never met the
       // threshold. Skipped when namedPatterns already fired, so a building
       // never gets paid twice for the same evidence.
-      if (!buildingMatch && stmtBuilding && propBuilding) {
-        var bWords = normaliseStatementName(stmtBuilding).split(' ').filter(function(w) { return w.length > 2 })
-        var pWords = normaliseStatementName(propBuilding).split(' ')
-        var bOverlap = bWords.filter(function(w) { return pWords.some(function(pw) { return sameWord(pw, w) }) })
-        if (bOverlap.length >= 2) { score += 6; buildingMatch = true }
-      }
+      if (!buildingMatch && bOverlapCount >= 2) { score += 6; buildingMatch = true }
 
       // Unit/flat number matching — the critical part
       if (stmtNums.size > 0 && propNums.size > 0) {
@@ -461,8 +523,21 @@ export function matchProperties(items, properties, aliases) {
         })
         if (numberMatch && buildingMatch) {
           score += 20  // strong: same building AND same unit number
+        } else if (numberMatch && bothNameBuildings && bOverlapCount < 2) {
+          // Numbers agree but both sides name a building and those buildings
+          // share less than two words — so the number agreement is a
+          // coincidence between different buildings, not evidence. Real case:
+          // "10 Elms West" (house 10) scored 10 against "Esplanade West Flat
+          // 10" (flat 10) on the strength of the shared "10" plus the shared
+          // word "west", enough to clear the threshold and silently post a
+          // building's rent onto an unrelated flat. Treated like the
+          // right-building-wrong-unit case below: leave it for the user.
+          score = 0
         } else if (numberMatch) {
-          score += 8   // number matches but building unclear
+          // Number matches and nothing contradicts it — typically the label
+          // carries no building at all ("Flat 3"), so there is nothing to
+          // corroborate against and the user confirms in the preview.
+          score += 8
         } else if (buildingMatch) {
           // Right building, wrong unit — that is a positive identification of
           // a DIFFERENT property, not a weak match, so rule it out entirely.

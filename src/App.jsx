@@ -54,6 +54,7 @@ const RentCollectionPanel = lazyNamed(() => import('./components/RentCollectionP
 const ESignPanel      = lazy(() => import('./components/ESignPanel'))
 const ReferencingPanel = lazy(() => import('./components/ReferencingPanel'))
 const StatementImporter = lazyNamed(() => import('./components/StatementImporter'), 'StatementImporter')
+const DataImporter = lazyNamed(() => import('./components/DataImporter'), 'DataImporter')
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
@@ -1028,6 +1029,7 @@ export default function App() {
         return { view: 'admin', adminTab: parts[1] || null }
       }
       if (parts[0] === 'import') return { view: 'import' }
+      if (parts[0] === 'import-data') return { view: 'import-data' }
       if (parts[0] === 'properties' && parts[1] === 'bulk') return { view: 'bulk-add' }
       // Compliance is the renamed top-level Insurance page (2026-08).
       // Sub-views are addressable (#/compliance/<sub>); the legacy
@@ -1056,7 +1058,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import','import-data']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -1778,6 +1780,7 @@ export default function App() {
       { id:'act:add-bulk',   icon:'building', label:'Add Block of Flats',   group:'create', action:()=>openWorkflow('bulk-add') },
       { id:'act:add-co',     icon:'grid', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
       { id:'act:import',     icon:'file-text', label:'Import Statement',     group:'create', action:()=>openWorkflow('import') },
+      { id:'act:import-data', icon:'upload', label:'Import Historic Data', group:'create', action:()=>openWorkflow('import-data') },
       { id:'act:scan-receipt', icon:'receipt', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
       { id:'act:dark',       icon:'moon', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
         group:'action', keywords: 'theme toggle', action:()=>setDarkMode(!darkMode) },
@@ -1910,7 +1913,7 @@ export default function App() {
     }
   }
   function openWorkflow(key){
-    workflowOrigin.current = (view === 'import' || view === 'bulk-add') ? 'dashboard' : view
+    workflowOrigin.current = (view === 'import' || view === 'import-data' || view === 'bulk-add') ? 'dashboard' : view
     setSelectedId(null)
     setView(key)
   }
@@ -2433,6 +2436,7 @@ export default function App() {
                         {icon:'building',label:'Add Block of Flats', action:()=>openWorkflow('bulk-add')},
                         {icon:'grid',label:'Add Company',     action:()=>setShowAddCo(true)},
                         {icon:'file-text',label:'Import Statement',action:()=>openWorkflow('import')},
+                        {icon:'upload',label:'Import Historic Data',action:()=>openWorkflow('import-data')},
                         {icon:'receipt',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
                         // For these three "drill into a property" actions:
                         // if the user has exactly one property, just open it on
@@ -2619,6 +2623,7 @@ export default function App() {
                 {icon:'building',label:'Add Block of Flats', action:()=>{openWorkflow('bulk-add');setShowDrawer(false)}},
                 {icon:'grid',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
                 {icon:'file-text',label:'Import Statement',action:()=>{openWorkflow('import');setShowDrawer(false)}},
+                {icon:'upload',label:'Import Historic Data',action:()=>{openWorkflow('import-data');setShowDrawer(false)}},
                 {icon:'receipt',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
                 {icon:'pound',label:'Log Expense',     action:()=>{
                   if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
@@ -3466,6 +3471,7 @@ export default function App() {
           {view==='compliance'&&<div className="fade"><CompliancePage user={user} companies={companies} properties={activeProperties} companySettings={companySettings} showToast={showToast} openDetail={(p)=>openDetail(p,'compliance')}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
+          {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
           {view==='bulk-add'&&<BulkAddPropertyModal asPage
             companies={companies}
             onClose={closeWorkflow}
