@@ -146,3 +146,53 @@ describe('matchProperties — number agreement across different buildings', () =
     expect(match('Flat 3', [only]).propertyId).toBe('p-only')
   })
 })
+
+describe('matchProperties — town names are not evidence', () => {
+  // Found while mapping Vale's Xero tracking options. "62c Sunderland Road"
+  // (sold Sept 2025, no longer in the portfolio) scored 10 against
+  // "15 Regal Road, Sunderland" purely for sharing "sunderland" and "road" —
+  // enough to clear the threshold and post a sold property's rent elsewhere.
+  // The filter needs at least 5 distinct buildings before it engages, so this
+  // portfolio is realistic rather than minimal.
+  const PORTFOLIO_20 = [
+    { id: 'regal',    name: '15 Regal Road',       address: '15 Regal Road, Sunderland, SR4 6HP' },
+    { id: 'rutland',  name: '103 Rutland Street',  address: '103 Rutland Street, Sunderland, SR4 6QG' },
+    { id: 'garfield', name: '6 Garfield Street',   address: '6 Garfield Street, Sunderland, SR4 6NL' },
+    { id: 'rosedale', name: '46 Rosedale Street',  address: '46 Rosedale Street, Sunderland, SR1 3RW' },
+    { id: 'henley',   name: '35 Henley Road',      address: '35 Henley Road, Nookside, Sunderland, SR4 8AS' },
+    { id: 'weldon',   name: '37 Weldon Avenue',    address: '37 Weldon Avenue, Sunderland, SR2 9QB' },
+    { id: 'goschen',  name: '30 Goschen Street',   address: '30 Goschen Street, Blyth, NE24 1NJ' },
+    { id: 'chester',  name: '12 Chester Grove',    address: '12 Chester Grove, Blyth, NE24 5SH' },
+    // A block: the same building name across many units, which MUST stay
+    // usable as an identifier even though it repeats.
+    ...Array.from({ length: 11 }, (_, i) => ({
+      id: `esp${i + 1}`, name: `Esplanade West Flat ${i + 1}`,
+      address: `Flat ${i + 1}, 16 Esplanade West, Sunderland, SR2 7BG`,
+    })),
+  ]
+
+  it('does not match a sold property onto a same-town, same-street-type house', () => {
+    expect(match('62c Sunderland Road', PORTFOLIO_20).propertyId).toBeNull()
+  })
+
+  it('keeps a block name working as an identifier across its own units', () => {
+    // "esplanade" spans 11 properties but only one building, so it is still
+    // evidence — counting properties rather than buildings broke this.
+    expect(match('16 Esplanade Flat 7', PORTFOLIO_20).propertyId).toBe('esp7')
+    expect(match('16 Esplanade Flat 11', PORTFOLIO_20).propertyId).toBe('esp11')
+  })
+
+  it('leaves a whole-building label unmatched rather than picking a unit', () => {
+    expect(match('16 ESPLANADE', PORTFOLIO_20).propertyId).toBeNull()
+  })
+
+  it('still tolerates a street typo in a portfolio large enough to filter', () => {
+    expect(match('Henly Road', PORTFOLIO_20).propertyId).toBe('henley')
+  })
+
+  it('does not engage the filter on a small portfolio', () => {
+    // Two buildings: one occurrence is already 50%, so discarding it would
+    // throw away real evidence.
+    expect(match('35 Henley Road').propertyId).toBe('p-henley')
+  })
+})
