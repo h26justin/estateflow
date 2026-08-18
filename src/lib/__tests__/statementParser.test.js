@@ -114,3 +114,35 @@ describe('matchProperties — learned aliases', () => {
     expect(r.propertyId).toBeUndefined()
   })
 })
+
+describe('matchProperties — number agreement across different buildings', () => {
+  // Found while mapping Vale's Xero tracking options onto the portfolio.
+  // "10 Elms West" is a whole building (house number 10); "Esplanade West
+  // Flat 10" is a flat in an unrelated building. They share the number 10 and
+  // the word "west", which was enough to score 10 and clear the threshold, so
+  // a building's rent would post onto that flat with no warning.
+  const ELMS = { id: 'p-elms', name: 'Room 2A, 10 Elms West', address: '10 Elms West, Sunderland' }
+  const ESP_10 = { id: 'p-esp10', name: 'Esplanade West Flat 10', address: '16 Esplanade, Sunderland' }
+
+  it('does not match a building label onto a same-numbered flat elsewhere', () => {
+    const r = match('10 Elms West', [ELMS, ESP_10])
+    expect(r.propertyId).toBeNull()
+  })
+
+  it('still matches a flat label to its own building', () => {
+    const r = match('16 Esplanade Flat 10', [ELMS, ESP_10])
+    expect(r.propertyId).toBe('p-esp10')
+  })
+
+  it('still matches a room label to its own room', () => {
+    const r = match('10 Elms West Room 2A', [ELMS, ESP_10])
+    expect(r.propertyId).toBe('p-elms')
+  })
+
+  it('keeps matching a bare unit label that names no building', () => {
+    // Nothing to contradict, so the number alone may still match and the user
+    // confirms in the preview.
+    const only = { id: 'p-only', name: 'Flat 3, Somewhere House', address: 'Somewhere House' }
+    expect(match('Flat 3', [only]).propertyId).toBe('p-only')
+  })
+})

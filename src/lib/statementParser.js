@@ -439,6 +439,18 @@ export function matchProperties(items, properties, aliases) {
       })
       score += overlap.length * 2
 
+      // How many building words the two sides share. Computed whenever both
+      // name a building, because it is needed twice: to award the fuzzy
+      // building bonus here, and to veto a number-only match further down.
+      var bOverlapCount = 0
+      var bothNameBuildings = false
+      if (stmtBuilding && propBuilding) {
+        var bWords = normaliseStatementName(stmtBuilding).split(' ').filter(function(w) { return w.length > 2 })
+        var pWords = normaliseStatementName(propBuilding).split(' ')
+        bOverlapCount = bWords.filter(function(w) { return pWords.some(function(pw) { return sameWord(pw, w) }) }).length
+        bothNameBuildings = bWords.length > 0
+      }
+
       // Building name similarity (fuzzy) — the general case behind the
       // hard-coded namedPatterns above. Two or more matching building words is
       // as good a signal as a named-building hit, and earns the same bonus:
@@ -446,12 +458,7 @@ export function matchProperties(items, properties, aliases) {
       // ("Henley Road") could only ever reach 4 points and never met the
       // threshold. Skipped when namedPatterns already fired, so a building
       // never gets paid twice for the same evidence.
-      if (!buildingMatch && stmtBuilding && propBuilding) {
-        var bWords = normaliseStatementName(stmtBuilding).split(' ').filter(function(w) { return w.length > 2 })
-        var pWords = normaliseStatementName(propBuilding).split(' ')
-        var bOverlap = bWords.filter(function(w) { return pWords.some(function(pw) { return sameWord(pw, w) }) })
-        if (bOverlap.length >= 2) { score += 6; buildingMatch = true }
-      }
+      if (!buildingMatch && bOverlapCount >= 2) { score += 6; buildingMatch = true }
 
       // Unit/flat number matching — the critical part
       if (stmtNums.size > 0 && propNums.size > 0) {
@@ -461,8 +468,21 @@ export function matchProperties(items, properties, aliases) {
         })
         if (numberMatch && buildingMatch) {
           score += 20  // strong: same building AND same unit number
+        } else if (numberMatch && bothNameBuildings && bOverlapCount < 2) {
+          // Numbers agree but both sides name a building and those buildings
+          // share less than two words — so the number agreement is a
+          // coincidence between different buildings, not evidence. Real case:
+          // "10 Elms West" (house 10) scored 10 against "Esplanade West Flat
+          // 10" (flat 10) on the strength of the shared "10" plus the shared
+          // word "west", enough to clear the threshold and silently post a
+          // building's rent onto an unrelated flat. Treated like the
+          // right-building-wrong-unit case below: leave it for the user.
+          score = 0
         } else if (numberMatch) {
-          score += 8   // number matches but building unclear
+          // Number matches and nothing contradicts it — typically the label
+          // carries no building at all ("Flat 3"), so there is nothing to
+          // corroborate against and the user confirms in the preview.
+          score += 8
         } else if (buildingMatch) {
           // Right building, wrong unit — that is a positive identification of
           // a DIFFERENT property, not a weak match, so rule it out entirely.
