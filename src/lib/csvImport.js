@@ -87,15 +87,23 @@ const COLUMN_ALIASES = {
   status:       ['status', 'state', 'paid'],
   date:         ['date', 'transaction date', 'expense date', 'invoice date'],
   category:     ['category', 'type', 'account', 'account name', 'expense type'],
-  description:  ['description', 'details', 'narration', 'reference', 'memo', 'notes'],
+  // notes is listed BEFORE description on purpose. A header is claimed by one
+  // field only, and 'description' used to list 'notes' among its aliases, so a
+  // file whose column is literally "Notes" had it taken by description — which
+  // the rent planner never reads. The result was a Notes column sitting right
+  // there in the preview while the mapping showed "not used", and the text was
+  // silently dropped. Expenses lose nothing by this order: their description
+  // already falls back to the notes column (see buildExpensePlan).
   notes:        ['notes', 'note', 'comment', 'comments'],
+  description:  ['description', 'details', 'narration', 'reference', 'memo'],
   source_ref:   ['source_ref', 'source ref', 'line id', 'lineitem id', 'journal id', 'id', 'xero id'],
 }
 
 const canonHeader = h => String(h || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 // headers → { canonicalField: actualHeader }. First match wins, and a header is
-// only ever claimed by one field so 'notes' cannot steal 'description'.
+// only ever claimed by one field — so the order of COLUMN_ALIASES decides who
+// gets an ambiguous header like "Notes".
 export function detectColumns(headers) {
   const map = {}
   const taken = new Set()

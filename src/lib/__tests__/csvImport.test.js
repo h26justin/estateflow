@@ -410,3 +410,48 @@ describe('buildRentPlan — overlapping periods', () => {
     expect(plan[0].action).toBe('create')
   })
 })
+
+describe('detectColumns — an ambiguous "Notes" header', () => {
+  it('maps a Notes column to notes, not description', () => {
+    // Regression: 'description' listed 'notes' among its aliases and was checked
+    // first, so a rent file with a Notes column showed NOTES as "not used" and
+    // dropped the text, because the rent planner never reads description.
+    const cols = detectColumns(['Property', 'Period Start', 'Period End', 'Amount', 'Status', 'Notes'])
+    expect(cols.notes).toBe('Notes')
+    expect(cols.description).toBeUndefined()
+  })
+
+  it('still maps Description and Notes separately when both exist', () => {
+    const cols = detectColumns(['Property', 'Date', 'Amount', 'Description', 'Notes'])
+    expect(cols.description).toBe('Description')
+    expect(cols.notes).toBe('Notes')
+  })
+
+  it('keeps the other description aliases working', () => {
+    for (const h of ['Description', 'Details', 'Narration', 'Memo', 'Reference']) {
+      expect(detectColumns(['Property', 'Date', 'Amount', h]).description, h).toBe(h)
+    }
+  })
+
+  it('carries the rent notes through to the plan', () => {
+    const { plan } = buildRentPlan({
+      rows: [{ __line: 2, Property: '35 Henley Road', Start: '2025-01-01', End: '2025-01-31', Amount: '635', Status: 'paid', Notes: 'Xero rental income 2025-01' }],
+      columns: detectColumns(['Property', 'Start', 'End', 'Amount', 'Status', 'Notes']),
+      properties: [{ id: 'p1', name: '35 Henley Road', address: '35 Henley Road, Sunderland' }],
+      existing: [],
+    })
+    expect(plan[0].notes).toBe('Xero rental income 2025-01')
+  })
+
+  it('an expenses file with only Notes still gets a description from it', () => {
+    // The reason this reorder is safe: buildExpensePlan falls back
+    // description -> notes -> 'Imported expense'.
+    const { plan } = buildExpensePlan({
+      rows: [{ __line: 2, Property: '35 Henley Road', Date: '2025-01-14', Amount: '120.50', Category: 'Repairs', Notes: 'Boiler service' }],
+      columns: detectColumns(['Property', 'Date', 'Amount', 'Category', 'Notes']),
+      properties: [{ id: 'p1', name: '35 Henley Road', address: '35 Henley Road, Sunderland' }],
+      existing: [],
+    })
+    expect(plan[0].description).toBe('Boiler service')
+  })
+})
