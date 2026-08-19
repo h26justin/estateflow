@@ -230,6 +230,17 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   const s = effective?.summary
   const canCommit = s && s.error === 0 && (s.create > 0 || s.update > 0)
 
+  // Rendered at BOTH ends of the review step. With 792 rows the footer is a very
+  // long scroll away from the totals you just checked, so the same action sits
+  // beside the summary too. Defined once so the label and the disabled rule can
+  // never drift between the two copies.
+  const commitButton = () => (
+    <button className="btn btn-gold" onClick={handleCommit} disabled={!canCommit || busy}
+      style={{ fontSize: 11, whiteSpace: 'nowrap', ...((!canCommit || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null) }}>
+      {busy ? 'Importing…' : `Import ${s ? s.create + s.update : 0} row(s)`}
+    </button>
+  )
+
   const label = { fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '.06em' }
   const cell = { fontFamily: MONO, fontSize: 11, padding: '6px 8px', borderBottom: `1px solid ${T.border}`, verticalAlign: 'top' }
   const chip = (colour, text) => (
@@ -387,6 +398,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                 <div style={{ ...label }}>Value to post</div>
                 <div style={{ fontFamily: MONO, fontSize: 20, color: T.text }}>{fmt(s.amount)}</div>
               </div>
+              <div style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>{commitButton()}</div>
             </div>
 
             {s.error > 0 && (
@@ -540,10 +552,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
               : s.error > 0 ? `${s.error} blocked row(s) must be fixed first` : 'Nothing to import'}
           </div>
           <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setStep('map')}>← Back</button>
-          <button className="btn btn-gold" onClick={handleCommit} disabled={!canCommit || busy}
-            style={{ fontSize: 11, ...((!canCommit || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null) }}>
-            {busy ? 'Importing…' : `Import ${s.create + s.update} row(s)`}
-          </button>
+          {commitButton()}
         </div>
       )}
     </>
