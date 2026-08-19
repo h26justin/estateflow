@@ -273,6 +273,24 @@ export function buildRentPlan({ rows, columns, properties, aliases = [], existin
   }
   const existingRefs = new Set(existing.map(e => e.source_ref).filter(Boolean))
 
+  // Paid rows with a real amount, per property, for OVERLAP detection.
+  //
+  // An exact-key match is not enough. A tenancy cycle runs 7 May - 6 Jun while
+  // an accounting export gives 1 - 31 May: different bounds, same rent. The
+  // unique index permits both because they are not duplicates, and both then
+  // count as income. Importing a year of calendar months over a portfolio
+  // already tracked on tenancy cycles overstated one company's 2026 rent by
+  // about GBP 35,000 before this check existed.
+  //
+  // Only paid rows with an amount matter — overlapping a void or unpaid row
+  // cannot double-count income.
+  const paidByProperty = new Map()
+  for (const e of existing) {
+    if (!e.period_start || e.status !== 'paid' || e.amount == null) continue
+    if (!paidByProperty.has(e.property_id)) paidByProperty.set(e.property_id, [])
+    paidByProperty.get(e.property_id).push(e)
+  }
+
   const seenInFile = new Map()
   const plan = rows.map((row, i) => {
     const errors = [], warnings = []
@@ -340,6 +358,16 @@ export function buildRentPlan({ rows, columns, properties, aliases = [], existin
             before = { status: hit.status, amount: hit.amount == null ? null : money(hit.amount) }
             const same = before.status === status && before.amount === (amount == null ? null : money(amount))
             action = same ? 'skip' : 'update'
+          } else if (amount != null && amount > 0) {
+            // No row with these exact bounds, so this would be inserted. Refuse
+            // if paid rent is already recorded over any of the same days.
+            const clash = (paidByProperty.get(propertyId) || []).find(e =>
+              e.period_start <= period.period_end && period.period_start <= e.period_end)
+            if (clash) {
+              errors.push(
+                `Overlaps rent already recorded for ${clash.period_start} to ${clash.period_end} `
+                + `(${money(clash.amount)}). Importing both would count the same rent twice.`)
+            }
           }
         }
       }

@@ -335,3 +335,78 @@ describe('aliasesToLearn', () => {
     expect(aliasesToLearn(plan, PROPS)).toHaveLength(1)
   })
 })
+
+describe('buildRentPlan — overlapping periods', () => {
+  const PROPS = [{ id: 'p1', name: '17 Turnberry Avenue', address: '17 Turnberry Avenue, Blyth' }]
+  const cols = { property: 'Property', period_start: 'Start', period_end: 'End', amount: 'Amount', status: 'Status' }
+  const row = (start, end, amount, status = 'paid') =>
+    ({ __line: 2, Property: '17 Turnberry Avenue', Start: start, End: end, Amount: String(amount), Status: status })
+
+  // The bug this exists to prevent: a tenancy cycle of 7 May - 6 Jun and an
+  // accounting month of 1 - 31 May are the same rent under different bounds.
+  // They are not duplicates so the unique index allows both, and both then count
+  // as income.
+  it('blocks a calendar month that overlaps an existing paid tenancy cycle', () => {
+    const { plan } = buildRentPlan({
+      rows: [row('2026-05-01', '2026-05-31', 870.2)], columns: cols, properties: PROPS,
+      existing: [{ id: 'e1', property_id: 'p1', period_start: '2026-05-07', period_end: '2026-06-06', status: 'paid', amount: 950 }],
+    })
+    expect(plan[0].action).toBe('error')
+    expect(plan[0].errors[0]).toMatch(/Overlaps rent already recorded for 2026-05-07 to 2026-06-06/)
+    expect(plan[0].errors[0]).toMatch(/count the same rent twice/)
+  })
+
+  it('allows a month that only touches the edges of neighbouring periods', () => {
+    // Abutting, not overlapping: 30 April ends before 1 May begins.
+    const { plan } = buildRentPlan({
+      rows: [row('2026-05-01', '2026-05-31', 870.2)], columns: cols, properties: PROPS,
+      existing: [
+        { id: 'e1', property_id: 'p1', period_start: '2026-04-01', period_end: '2026-04-30', status: 'paid', amount: 950 },
+        { id: 'e2', property_id: 'p1', period_start: '2026-06-01', period_end: '2026-06-30', status: 'paid', amount: 950 },
+      ],
+    })
+    expect(plan[0].action).toBe('create')
+    expect(plan[0].errors).toEqual([])
+  })
+
+  it('still updates in place when the bounds match exactly', () => {
+    // An exact match is an update, never an overlap error — otherwise the whole
+    // point of the importer (filling blank amounts) would break.
+    const { plan } = buildRentPlan({
+      rows: [row('2026-05-01', '2026-05-31', 870.2)], columns: cols, properties: PROPS,
+      existing: [{ id: 'e1', property_id: 'p1', period_start: '2026-05-01', period_end: '2026-05-31', status: 'paid', amount: 500 }],
+    })
+    expect(plan[0].action).toBe('update')
+    expect(plan[0].existingId).toBe('e1')
+  })
+
+  it('ignores overlap with a void or unpaid row', () => {
+    // Those carry no income, so there is nothing to double-count. This is the
+    // common case when filling a year the app had only placeholders for.
+    for (const status of ['void', 'unpaid']) {
+      const { plan } = buildRentPlan({
+        rows: [row('2026-05-01', '2026-05-31', 870.2)], columns: cols, properties: PROPS,
+        existing: [{ id: 'e1', property_id: 'p1', period_start: '2026-05-17', period_end: '2026-06-16', status, amount: 625 }],
+      })
+      expect(plan[0].action, status).toBe('create')
+    }
+  })
+
+  it('ignores overlap with a paid row that has no amount', () => {
+    // A paid row with a NULL amount reports zero income, so it cannot be
+    // double-counted — and these are exactly the rows an import exists to fix.
+    const { plan } = buildRentPlan({
+      rows: [row('2026-05-01', '2026-05-31', 870.2)], columns: cols, properties: PROPS,
+      existing: [{ id: 'e1', property_id: 'p1', period_start: '2026-05-17', period_end: '2026-06-16', status: 'paid', amount: null }],
+    })
+    expect(plan[0].action).toBe('create')
+  })
+
+  it('does not flag an overlap on a different property', () => {
+    const { plan } = buildRentPlan({
+      rows: [row('2026-05-01', '2026-05-31', 870.2)], columns: cols, properties: PROPS,
+      existing: [{ id: 'e1', property_id: 'other', period_start: '2026-05-07', period_end: '2026-06-06', status: 'paid', amount: 950 }],
+    })
+    expect(plan[0].action).toBe('create')
+  })
+})

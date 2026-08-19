@@ -440,10 +440,18 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                         <tr key={r.line} style={out ? { opacity: 0.45 } : undefined}>
                           <td style={{ ...cell, color: T.muted }}>{r.line}</td>
                           <td style={cell}>
-                            {out ? chip('muted', 'Left out') : chip(meta.colour, meta.label)}
-                            <div>
-                              <button className="btn btn-ghost" style={{ fontSize: 9, marginTop: 4 }}
-                                onClick={() => toggleExcluded(r.line)}>
+                            {/* Inline and unstyled rather than a button class: as a padded
+                                block on its own line this doubled the height of all 792
+                                rows for a control that most of them never need. */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                              {out ? chip('muted', 'Left out') : chip(meta.colour, meta.label)}
+                              <button onClick={() => toggleExcluded(r.line)}
+                                title={out ? 'Put this row back into the import' : 'Leave this row out of the import'}
+                                style={{
+                                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                                  fontFamily: MONO, fontSize: 9, textDecoration: 'underline',
+                                  color: out ? T.blue : T.muted,
+                                }}>
                                 {out ? 'put back' : 'leave out'}
                               </button>
                             </div>
