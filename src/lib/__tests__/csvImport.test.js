@@ -455,3 +455,54 @@ describe('detectColumns — an ambiguous "Notes" header', () => {
     expect(plan[0].description).toBe('Boiler service')
   })
 })
+
+describe('buildRentPlan — an update can double-count too', () => {
+  const PROPS = [{ id: 'p1', name: '48 Turnberry Avenue', address: '48 Turnberry Avenue, Blyth' }]
+  const cols = { property: 'Property', period_start: 'Start', period_end: 'End', amount: 'Amount', status: 'Status' }
+  const row = (start, end, amount) =>
+    ({ __line: 2, Property: '48 Turnberry Avenue', Start: start, End: end, Amount: String(amount), Status: 'paid' })
+  const blankMonth = { id: 'month', property_id: 'p1', period_start: '2026-08-01', period_end: '2026-08-31', status: 'paid', amount: null }
+  const cycle = { id: 'cycle', property_id: 'p1', period_start: '2026-07-07', period_end: '2026-08-06', status: 'paid', amount: 895 }
+
+  it('blocks filling a blank month when another paid row covers some of it', () => {
+    // The residual case the insert-only check missed: the August month exists as
+    // a blank placeholder so it is an update, while a 7 Jul - 6 Aug cycle
+    // already carries GBP 895 of that rent.
+    const { plan } = buildRentPlan({
+      rows: [row('2026-08-01', '2026-08-31', 819.82)], columns: cols, properties: PROPS,
+      existing: [blankMonth, cycle],
+    })
+    expect(plan[0].action).toBe('error')
+    expect(plan[0].errors[0]).toMatch(/double-count/)
+    expect(plan[0].errors[0]).toMatch(/2026-07-07 to 2026-08-06/)
+  })
+
+  it('still fills a blank month when nothing else covers it', () => {
+    // The core purpose of the importer must keep working.
+    const { plan } = buildRentPlan({
+      rows: [row('2026-08-01', '2026-08-31', 819.82)], columns: cols, properties: PROPS,
+      existing: [blankMonth],
+    })
+    expect(plan[0].action).toBe('update')
+    expect(plan[0].existingId).toBe('month')
+  })
+
+  it('does not treat the row being updated as its own clash', () => {
+    // The matched row overlaps itself by definition; excluding it by id is what
+    // stops every single update erroring.
+    const { plan } = buildRentPlan({
+      rows: [row('2026-08-01', '2026-08-31', 819.82)], columns: cols, properties: PROPS,
+      existing: [{ ...blankMonth, amount: 500 }],
+    })
+    expect(plan[0].action).toBe('update')
+    expect(plan[0].errors).toEqual([])
+  })
+
+  it('leaves an unchanged row as a skip, not an error', () => {
+    const { plan } = buildRentPlan({
+      rows: [row('2026-08-01', '2026-08-31', 819.82)], columns: cols, properties: PROPS,
+      existing: [{ ...blankMonth, amount: 819.82 }, cycle],
+    })
+    expect(plan[0].action).toBe('skip')
+  })
+})

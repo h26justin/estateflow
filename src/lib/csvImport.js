@@ -366,6 +366,22 @@ export function buildRentPlan({ rows, columns, properties, aliases = [], existin
             before = { status: hit.status, amount: hit.amount == null ? null : money(hit.amount) }
             const same = before.status === status && before.amount === (amount == null ? null : money(amount))
             action = same ? 'skip' : 'update'
+            // An UPDATE can double-count too. Filling a blank whole-month row is
+            // safe on its own, but not when a SEPARATE paid row already covers
+            // some of those days — a tenancy cycle of 7 Jul - 6 Aug against a
+            // filled August month, say. The first version of this check guarded
+            // inserts only, which left GBP 2,505.87 of overlap on one company's
+            // 2026 after an otherwise-correct load.
+            if (action === 'update' && amount != null && amount > 0) {
+              const other = (paidByProperty.get(propertyId) || []).find(e =>
+                e.id !== hit.id
+                && e.period_start <= period.period_end && period.period_start <= e.period_end)
+              if (other) {
+                errors.push(
+                  `Filling this month would double-count: rent of ${money(other.amount)} is already `
+                  + `recorded for ${other.period_start} to ${other.period_end}, which covers some of the same days.`)
+              }
+            }
           } else if (amount != null && amount > 0) {
             // No row with these exact bounds, so this would be inserted. Refuse
             // if paid rent is already recorded over any of the same days.
