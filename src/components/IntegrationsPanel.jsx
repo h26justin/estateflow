@@ -17,6 +17,8 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
   const [connections, setConnections] = useState([])
   const [lodgifyConnections, setLodgifyConnections] = useState([])
   const [lodgifyMappings, setLodgifyMappings] = useState([])
+  const [hostawayConnections, setHostawayConnections] = useState([])
+  const [hostawayMappings, setHostawayMappings] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { load() }, [])
@@ -24,14 +26,18 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
   async function load() {
     setLoading(true)
     try {
-      const [conns, lodgifyConns, lodgifyMaps] = await Promise.all([
+      const [conns, lodgifyConns, lodgifyMaps, hostawayConns, hostawayMaps] = await Promise.all([
         api.fetchXeroConnections(),
         api.fetchLodgifyConnections().catch(() => []),
         api.fetchLodgifyMappings().catch(() => []),
+        api.fetchHostawayConnections().catch(() => []),
+        api.fetchHostawayMappings().catch(() => []),
       ])
       setConnections(conns)
       setLodgifyConnections(lodgifyConns)
       setLodgifyMappings(lodgifyMaps)
+      setHostawayConnections(hostawayConns)
+      setHostawayMappings(hostawayMaps)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
@@ -75,8 +81,22 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
         Short-term lets
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
-        Pull Airbnb / Booking.com / direct bookings from Lodgify into the Rent Tracker as revenue. Each company can hold its own Lodgify account.
+        Pull Airbnb / Booking.com / Vrbo / direct bookings from your channel manager into the Rent Tracker as revenue. Hostaway and Lodgify are both supported — each company can hold its own account on either.
       </div>
+      {visibleCompanies.map(co => {
+        const conn = hostawayConnections.find(c => c.company_id === co.id)
+        return (
+          <HostawayCard
+            key={co.id}
+            T={T} mono={mono}
+            company={co}
+            connection={conn}
+            savedMappings={conn ? hostawayMappings.filter(m => m.connection_id === conn.id) : []}
+            properties={(properties || []).filter(p => p.company_id === co.id)}
+            onChanged={load}
+          />
+        )
+      })}
       {visibleCompanies.map(co => {
         const conn = lodgifyConnections.find(c => c.company_id === co.id)
         return (
@@ -91,6 +111,256 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
           />
         )
       })}
+    </div>
+  )
+}
+
+// ── HOSTAWAY (STL) CARD — one per company ──────────────────────────────
+// Same model as the Lodgify card: each company holds its own Hostaway
+// account. Hostaway auth is OAuth2 client-credentials rather than a single
+// key — the Account ID (numeric client id) plus an API secret, both from
+// Hostaway → Settings → Hostaway API. Flow: enter credentials → map each
+// Hostaway listing to a property in THIS company → sync (manual button
+// here; server cron three times a day).
+function HostawayCard({ T, mono, company, connection, savedMappings, properties, onChanged }) {
+  const confirmDialog = useConfirm()
+  const [mappings, setMappings] = useState(savedMappings)
+  const [hostawayProps, setHostawayProps] = useState(null) // live list, loaded on demand
+  const [accountId, setAccountId] = useState('')
+  const [apiSecret, setApiSecret] = useState('')
+  const [busy, setBusy] = useState(null)
+  const [lastSync, setLastSync] = useState(null)           // result of the last manual sync
+
+  // Parent reload replaces savedMappings; mirror it unless mid-edit.
+  useEffect(() => { if (!hostawayProps) setMappings(savedMappings) /* eslint-disable-next-line */ }, [savedMappings])
+
+  async function connect() {
+    if (!accountId.trim() || !apiSecret.trim()) { showAppToast('Enter your Hostaway Account ID and API secret first', 'error'); return }
+    setBusy('connect')
+    try {
+      const r = await api.connectHostaway(company.id, accountId.trim(), apiSecret.trim())
+      setAccountId(''); setApiSecret('')
+      setHostawayProps(r.properties || [])
+      showAppToast(`Hostaway connected to ${company.name} — ${r.properties?.length || 0} ${r.properties?.length === 1 ? 'listing' : 'listings'} found. Map them below.`)
+      onChanged?.()
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  async function openMappingEditor() {
+    setBusy('props')
+    try {
+      const r = await api.fetchHostawayProperties(company.id)
+      setHostawayProps(r.properties || [])
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  function setMappingFor(hl, propertyId) {
+    setMappings(ms => {
+      const rest = ms.filter(m => String(m.hostaway_listing_id) !== String(hl.id))
+      if (!propertyId) return rest
+      return [...rest, { hostaway_listing_id: hl.id, hostaway_listing_name: hl.name, property_id: propertyId }]
+    })
+  }
+
+  async function saveMappings() {
+    setBusy('save')
+    try {
+      await api.saveHostawayMappings(company.id, mappings.map(m => ({
+        hostaway_listing_id: m.hostaway_listing_id,
+        hostaway_listing_name: m.hostaway_listing_name,
+        property_id: m.property_id,
+      })))
+      showAppToast('Mappings saved')
+      setHostawayProps(null)
+      onChanged?.()
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  async function syncNow() {
+    setBusy('sync')
+    try {
+      const r = await api.runHostawaySync(company.id)
+      setLastSync(r)
+      const parts = [
+        r.created ? `${r.created} new` : null,
+        r.updated ? `${r.updated} updated` : null,
+        r.removed ? `${r.removed} cancelled` : null,
+      ].filter(Boolean).join(', ') || 'nothing new'
+      showAppToast(`Hostaway (${company.abbr || company.name}): ${parts} (${r.bookings} reservations checked)`)
+      onChanged?.()
+    } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
+    setBusy(null)
+  }
+
+  async function disconnect() {
+    if (!await confirmDialog({
+      title: `Disconnect Hostaway from ${company.name}?`,
+      body: 'Future syncs stop and the booking list clears. Rent Tracker entries already created stay — that revenue really happened.',
+      confirmLabel: 'Disconnect', destructive: true,
+    })) return
+    setBusy('disconnect')
+    try {
+      await api.disconnectHostaway(company.id)
+      setMappings([]); setHostawayProps(null)
+      showAppToast(`Hostaway disconnected from ${company.name}`)
+      onChanged?.()
+    } catch (e) { showAppToast(e.message, 'error') }
+    setBusy(null)
+  }
+
+  const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 26px', marginBottom: 16 }
+  const selectStyle = { fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, width: '100%' }
+  const isConnected = !!connection
+
+  // Alphabetical with natural number handling ("Flat 2" before "Flat 10") —
+  // the raw properties array arrives in portfolio drag-sort order, which
+  // reads as noise in a long dropdown.
+  const propLabel = p => p.name || p.address || ''
+  const naturalSort = (a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' })
+  const sortedProperties = properties
+    .filter(p => !p.deleted_at && !p.archived_at)
+    .sort((a, b) => naturalSort(propLabel(a), propLabel(b)))
+  const sortedHostawayProps = hostawayProps
+    ? [...hostawayProps].sort((a, b) => naturalSort(a.name || '', b.name || ''))
+    : null
+  const sortedMappings = [...mappings].sort((a, b) =>
+    naturalSort(a.hostaway_listing_name || String(a.hostaway_listing_id), b.hostaway_listing_name || String(b.hostaway_listing_id)))
+
+  return (
+    <div style={card}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom: 14, flexWrap:'wrap', gap: 10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: (company.color || '#E85427') + '22', color: company.color || '#E85427', display:'flex', alignItems:'center', justifyContent:'center', fontFamily: mono, fontSize: 11, fontWeight: 700 }}>
+            {company.abbr}
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Hostaway</div>
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+              Airbnb · Booking.com · Vrbo · direct bookings
+            </div>
+          </div>
+        </div>
+        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+          {isConnected ? 'Connected' : 'Not connected'}
+        </span>
+      </div>
+
+      {!isConnected ? (
+        <>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
+            Reservations sync in as dated Rent Tracker entries, tagged with the channel (Airbnb, Booking.com, Vrbo…). Get your credentials in Hostaway: <strong style={{ color: T.text }}>Settings → Hostaway API</strong> — your numeric Account ID plus an API key's secret.
+          </div>
+          <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
+            <input
+              type="text"
+              value={accountId}
+              onChange={e => setAccountId(e.target.value)}
+              placeholder="Account ID (numbers)"
+              autoComplete="off"
+              inputMode="numeric"
+              style={{ ...selectStyle, flex: '0 1 160px', minWidth: 140 }}
+            />
+            <input
+              type="password"
+              value={apiSecret}
+              onChange={e => setApiSecret(e.target.value)}
+              placeholder="Paste Hostaway API secret"
+              autoComplete="off"
+              style={{ ...selectStyle, flex: 1, minWidth: 220, maxWidth: 380 }}
+            />
+            <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+              {busy==='connect' ? 'Checking credentials…' : '🔌 Connect Hostaway'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {mappings.length > 0 ? (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 6 }}>
+              {sortedMappings.map(m => {
+                const prop = properties.find(p => p.id === m.property_id)
+                return (
+                  <div key={m.hostaway_listing_id} style={{ marginBottom: 2 }}>
+                    <span style={{ color: T.muted }}>{m.hostaway_listing_name || `Hostaway #${m.hostaway_listing_id}`}</span>
+                    {' → '}{prop ? (prop.name || prop.address) : m.property_id}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber || '#c90', marginBottom: 6 }}>
+              No listings mapped yet — nothing will sync until you map one.
+            </div>
+          )}
+          {connection.last_synced_at && (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
+              Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
+              {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
+            </div>
+          )}
+          {connection.last_sync_status === 'error' && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          )}
+          {lastSync && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
+              {lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
+              {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
+            </div>
+          )}
+          <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
+            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy || mappings.length === 0}>
+              {busy==='sync' ? 'Syncing…' : 'Sync now'}
+            </button>
+            <button onClick={hostawayProps ? () => setHostawayProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
+              {busy==='props' ? 'Loading listings…' : (hostawayProps ? 'Hide mappings' : 'Edit mappings')}
+            </button>
+            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+              Disconnect
+            </button>
+          </div>
+          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+            Also syncs automatically three times a day (04:10, 12:10, 18:10 UTC).
+          </div>
+
+          {hostawayProps && (
+            <div style={{ marginTop: 16, padding: '16px 0 4px', borderTop: `1px dashed ${T.border}` }}>
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
+                Map Hostaway listings to properties
+              </div>
+              {hostawayProps.length === 0 && (
+                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No listings found in this Hostaway account.</div>
+              )}
+              <div style={{ display:'grid', gap: 8 }}>
+                {sortedHostawayProps.map(hl => {
+                  const current = mappings.find(m => String(m.hostaway_listing_id) === String(hl.id))
+                  return (
+                    <div key={hl.id} style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems:'center' }}>
+                      <div style={{ fontFamily: mono, fontSize: 11, color: T.text, overflow:'hidden', textOverflow:'ellipsis' }}>{hl.name}</div>
+                      <select style={selectStyle}
+                        value={current?.property_id || ''}
+                        onChange={e => setMappingFor(hl, e.target.value || null)}>
+                        <option value="">(don't sync)</option>
+                        {sortedProperties.map(p => (
+                          <option key={p.id} value={p.id}>{propLabel(p)}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ marginTop: 12, display:'flex', justifyContent:'flex-end' }}>
+                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+                  {busy==='save' ? 'Saving…' : 'Save mappings'}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
