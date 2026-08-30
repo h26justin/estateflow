@@ -7,7 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
-import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, findViewerShareholder, aggregateShareholdersAcrossCompanies } from '../lib/companyPnl'
+import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies } from '../lib/companyPnl'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
@@ -631,7 +631,27 @@ function computeCompanyPnl(companyId, filtProps, filtExp, filtRent, range, extra
   })
 }
 
-const COMPANY_PNL_NOTE = 'Estimates for planning, not tax advice. Corporation tax thresholds are split across your companies (associated-company rule); dividend tax applies the band rate flat, ignoring the £500 allowance.'
+const COMPANY_PNL_NOTE = 'Estimates for planning, not tax advice. Corporation tax thresholds are split across your companies (associated-company rule); dividend tax applies the band rate flat, ignoring the £500 allowance. Corporate shareholders carry no dividend tax (company-to-company dividends are normally CT-exempt); "via" figures follow your stake through linked holding companies.'
+
+// The viewer's personal take from one company's P&L, using their EFFECTIVE
+// shareholding from viewerEffectiveShares (direct + stakes held via linked
+// holding companies). Same formula the split table applies to direct rows:
+// % of profit after CT, minus dividend tax at their band where one is set.
+// Returns null when they hold nothing.
+function viewerTakeFromPnl(pnl, companyId, eff) {
+  const pct = eff.pct[companyId] || 0
+  if (!(pct > 0)) return null
+  const band = eff.bands[companyId] || null
+  const share = pnl.profitAfterTax * (pct / 100)
+  const divT = band ? dividendTax(share, band) : null
+  const net = share - (divT || 0)
+  return {
+    percentage: pct, taxBand: band, via: eff.via[companyId] || null,
+    share: Math.round(share * 100) / 100, dividendTax: divT,
+    net: Math.round(net * 100) / 100,
+    netMonthly: Math.round((net / pnl.months) * 100) / 100,
+  }
+}
 
 // ── FULL PORTFOLIO P&L (shared compute) ──────────────────────────────────────
 // Whole-portfolio P&L grouped company → property. Shared by the in-app
@@ -660,20 +680,13 @@ function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthK
 const FULL_PNL_NOTE = 'Estimates for planning, not tax advice. Costs = logged expenses + calculated management fees. Corporation tax is estimated per company (thresholds split under the associated-company rule) and apportioned to properties by their share of positive profit. Personally-held properties show no tax — personal income tax is not modelled.'
 const FULL_PNL_FORECAST_NOTE = 'Forecast: past months keep collected rent; the current month and later use each property\'s expected rent (management fees follow it). Expenses stay as logged — future costs are not projected. '
 
-// The signed-in user's shareholding per company (company_id → percentage
-// points), matched by linked login then email — same posture as the
-// Company P&L report.
+// The signed-in user's EFFECTIVE shareholding per company (company_id →
+// percentage points), matched by linked login then email — and looking
+// through corporate shareholders linked to their own company record, so a
+// stake held via a holding company still counts (direct % + holding co % ×
+// your % of the holding co). See viewerEffectiveShares in companyPnl.js.
 function viewerShareByCompany(shareholders, companies, user) {
-  const pct = {}, bands = {}
-  if (!user) return { pct, bands }
-  for (const c of companies) {
-    const v = findViewerShareholder(shareholders.filter(s => s.company_id === c.id), user)
-    if (v && Number(v.percentage) > 0) {
-      pct[c.id] = Number(v.percentage)
-      if (v.tax_band) bands[c.id] = v.tax_band
-    }
-  }
-  return { pct, bands }
+  return viewerEffectiveShares({ shareholders, companies, user })
 }
 
 // ── EPC UPGRADE PLAN (shared compute) ────────────────────────────────────────
@@ -718,9 +731,12 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const months = monthsInRange(range.start, range.end)
       if (selectedCompany === 'all') {
         // One row per company + cross-company portfolio totals per person.
+        // "Your" figures use the effective shareholding, so stakes held via
+        // a linked holding company still count.
+        const eff = viewerEffectiveShares({ shareholders: extras?.shareholders || [], companies, user })
         const perCo = companies.map(c => {
           const pnl = computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras)
-          const viewer = findViewerShareholder(pnl.shareholders.map(s => ({ ...s, user_id: s.userId })), user)
+          const viewer = viewerTakeFromPnl(pnl, c.id, eff)
           return { c, pnl, viewer }
         })
         const tNet = perCo.reduce((s, r) => s + (r.viewer?.net || 0), 0)
@@ -730,7 +746,8 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         })))
         const companyHeaders = ['Company', 'Profit after tax', 'Your %', 'Your share (net)', 'Your monthly']
         const companyRows = perCo.map(({ c, pnl, viewer }) => [
-          c.name, fmt(pnl.profitAfterTax), viewer ? fmtPct(viewer.percentage, 2) : '—',
+          c.name, fmt(pnl.profitAfterTax),
+          viewer ? fmtPct(viewer.percentage, 2) + (viewer.via ? ` via ${viewer.via.join(' + ')}` : '') : '—',
           viewer ? fmt(viewer.net) : '—', viewer ? fmt(viewer.netMonthly) : '—',
         ])
         const companyTotals = ['Total (you)', '', '', fmt(tNet), fmt(tMonthly)]
@@ -744,7 +761,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
               title: 'Shareholder portfolio totals — all companies',
               headers: ['Shareholder', 'Holdings', 'Combined %', 'Net income (period)', 'Per month'],
               rows: portfolio.map(g => [
-                `${g.name} (${g.companiesCount} ${g.companiesCount === 1 ? 'company' : 'companies'})`,
+                `${g.name}${g.type === 'company' ? ' [company]' : ''} (${g.companiesCount} ${g.companiesCount === 1 ? 'company' : 'companies'})`,
                 g.holdings.map(h => `${h.company} ${h.percentage}%`).join(' · '),
                 `${g.totalPercent.toFixed(2)} pts`, fmt(g.totalNet), fmt(g.totalMonthly),
               ]),
@@ -764,8 +781,8 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         ['Profit after tax', fmt(pnl.profitAfterTax)],
       ]
       const splitRows = pnl.shareholders.map(s => [
-        s.name, fmtPct(s.percentage, 2), fmt(s.share),
-        s.dividendTax != null ? fmt(-s.dividendTax) : '—', fmt(s.net), fmt(s.netMonthly),
+        s.type === 'company' ? `${s.name} [company]` : s.name, fmtPct(s.percentage, 2), fmt(s.share),
+        s.type === 'company' ? 'n/a' : (s.dividendTax != null ? fmt(-s.dividendTax) : '—'), fmt(s.net), fmt(s.netMonthly),
       ])
       return {
         title: `Company P&L — ${co?.name || ''}`, note: COMPANY_PNL_NOTE,
@@ -808,7 +825,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const note = (rentEstimates && Object.keys(rentEstimates).length ? `Rents estimated for ${Object.keys(rentEstimates).length} properties from sibling units (display only, marked "est. rent"). ` : '')
         + (data.fullOccupancy ? 'Full occupancy assumed: every property earns at least its expected rent every month (voids filled). ' : '')
         + (excludedBits.length ? `Excluded by assumption switches: ${excludedBits.join(', ')}. ` : '')
-        + (mine ? `Figures are scaled to your recorded shareholding per company${pnlInc.divTax ? ' (dividend tax estimated from your shareholder tax band)' : ' (before dividend tax)'}; companies where you hold no shares are omitted. ` : '')
+        + (mine ? `Figures are scaled to your effective shareholding per company — direct plus stakes via linked holding companies${pnlInc.divTax ? ' (dividend tax estimated from your shareholder tax band)' : ' (before dividend tax)'}; companies where you hold no shares are omitted. ` : '')
         + (data.forecast ? FULL_PNL_FORECAST_NOTE : '') + FULL_PNL_NOTE
       const coName = b => b.name + (mine && !b.personal && b.sharePercent != null ? ` — your ${b.sharePercent}%` : '')
       const kpis = [
@@ -1666,10 +1683,13 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
   )
 
   // ── All companies → personal income summary ──
+  // "Your" figures use the effective shareholding (direct + via linked
+  // holding companies), so a company held through a holding co still counts.
+  const eff = viewerEffectiveShares({ shareholders, companies, user })
   if (selectedCompany === 'all') {
     const rows = companies.map(c => {
       const pnl = computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras)
-      const viewer = findViewerShareholder(pnl.shareholders.map(s => ({ ...s, user_id: s.userId })), user)
+      const viewer = viewerTakeFromPnl(pnl, c.id, eff)
       return { c, pnl, viewer }
     })
     const tNet = rows.reduce((s, r) => s + (r.viewer?.net || 0), 0)
@@ -1685,7 +1705,9 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
         {holdings === 0 && (
           <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:16,lineHeight:1.7}}>
             None of your companies has a shareholder entry linked to you yet. Add yourself (with your login email)
-            under Portfolio → Companies → Shareholders and your personal income will appear here.
+            under Portfolio → Companies → Shareholders and your personal income will appear here. Holdings via a
+            holding company count too — add the holding company as a corporate shareholder, link it to its own
+            company record, and add yourself as a shareholder of the holding company.
           </div>
         )}
         <ReportTable T={T} accent={accent}
@@ -1693,7 +1715,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           rows={rows.map(({c, pnl, viewer}) => [
             c.name,
             {v:fmt(pnl.profitAfterTax), color:pnl.profitAfterTax>=0?T.green:T.red, right:true},
-            viewer ? fmtPct(viewer.percentage, 2) : '—',
+            viewer ? fmtPct(viewer.percentage, 2) + (viewer.via ? ` via ${viewer.via.join(' + ')}` : '') : '—',
             {v:viewer?fmt(viewer.net):'—', color:(viewer?.net||0)>=0?T.green:T.red, bold:true},
             {v:viewer?fmt(viewer.netMonthly):'—', color:accent, bold:true},
           ])}
@@ -1709,7 +1731,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
               <ReportTable T={T} accent={accent}
                 headers={[{label:'Shareholder'},{label:'Holdings'},{label:'Combined %',right:true,width:'110px'},{label:'Net income (period)',right:true,width:'150px'},{label:'Per month',right:true,width:'110px'}]}
                 rows={portfolio.map(g => [
-                  isViewer(g) ? {v:`${g.name} (you)`, bold:true} : g.name,
+                  g.type === 'company' ? {v:`${g.name} (company)`, color:T.muted} : isViewer(g) ? {v:`${g.name} (you)`, bold:true} : g.name,
                   {v:g.holdings.map(h => `${h.company} ${Number(h.percentage).toFixed(h.percentage % 1 ? 2 : 0)}%`).join(' · '), color:T.muted},
                   {v:`${g.totalPercent.toFixed(2)} pts`, color:accent, bold:true},
                   {v:fmt(g.totalNet), color:g.totalNet>=0?T.green:T.red, bold:true},
@@ -1734,7 +1756,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
 
   // ── Single company → full P&L ──
   const pnl = computeCompanyPnl(selectedCompany, filtProps, filtExp, filtRent, range, extras)
-  const viewer = findViewerShareholder(pnl.shareholders.map(s => ({ ...s, user_id: s.userId })), user)
+  const viewer = viewerTakeFromPnl(pnl, selectedCompany, eff)
   const totalOk = Math.abs(pnl.ownershipTotal - 100) < 0.01
 
   const lineRows = [
@@ -1759,7 +1781,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
         {label:'Corporation tax (est.)', value:fmt(pnl.corporationTax.tax), color:T.amber},
         {label:'Profit after tax', value:fmt(pnl.profitAfterTax), color:pnl.profitAfterTax>=0?T.green:T.red},
         viewer
-          ? {label:'Your monthly income (est.)', value:fmt(viewer.netMonthly), color:accent, sub:`${fmtPct(viewer.percentage,2)} shareholding${viewer.taxBand ? ' · after dividend tax' : ''}`}
+          ? {label:'Your monthly income (est.)', value:fmt(viewer.netMonthly), color:accent, sub:`${fmtPct(viewer.percentage,2)} shareholding${viewer.via ? ` via ${viewer.via.join(' + ')}` : ''}${viewer.taxBand ? ' · after dividend tax' : ''}`}
           : {label:'Months in period', value:String(months), color:accent},
       ]}/>
 
@@ -1804,10 +1826,12 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           <ReportTable T={T} accent={accent}
             headers={[{label:'Shareholder'},{label:'Holding',right:true,width:'90px'},{label:'Share of profit',right:true,width:'130px'},{label:'Est. dividend tax',right:true,width:'130px'},{label:'Net',right:true,width:'120px'},{label:'Per month',right:true,width:'110px'}]}
             rows={pnl.shareholders.map(s => [
-              s.userId === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ? {v:`${s.name} (you)`, bold:true} : s.name,
+              s.type === 'company' ? {v:`${s.name} (company)`, bold:true}
+                : s.userId === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ? {v:`${s.name} (you)`, bold:true} : s.name,
               fmtPct(s.percentage, 2),
               {v:fmt(s.share), color:s.share>=0?T.green:T.red},
-              s.dividendTax != null ? {v:fmt(-s.dividendTax), color:T.red} : {v:'—', color:T.muted},
+              s.type === 'company' ? {v:'n/a', color:T.muted}
+                : s.dividendTax != null ? {v:fmt(-s.dividendTax), color:T.red} : {v:'—', color:T.muted},
               {v:fmt(s.net), color:s.net>=0?T.green:T.red, bold:true},
               {v:fmt(s.netMonthly), color:accent, bold:true},
             ])}
@@ -1815,6 +1839,8 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           {pnl.shareholders.some(s => s.dividendTax == null) && (
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8}}>
               "—" = no dividend tax band set for that shareholder (Portfolio → Companies → Shareholders).
+              {pnl.shareholders.some(s => s.type === 'company') &&
+                ' "n/a" = corporate shareholder — dividends between UK companies are normally CT-exempt, so no dividend tax is estimated; tax arises when the holding company pays its own shareholders.'}
             </div>
           )}
         </>
@@ -1899,7 +1925,8 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
         <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
           {mine
             ? <>No shareholder entry is linked to your login, so there's nothing to show for "My share".<br/>
-               Add yourself (with your login email) under Portfolio → Companies → Shareholders.</>
+               Add yourself (with your login email) under Portfolio → Companies → Shareholders — directly, or as a
+               shareholder of a linked holding company.</>
             : 'No companies or properties for this selection.'}
         </div>
       </>
@@ -1931,7 +1958,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
       )}
       {mine && (
         <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:12}}>
-          Showing your recorded shareholding of each company
+          Showing your effective shareholding of each company (direct, plus stakes via linked holding companies)
           {hiddenCount > 0 && <> — {hiddenCount} {hiddenCount === 1 ? 'company where you hold no shares is' : 'companies where you hold no shares are'} hidden</>}.
           {pnlInc.divTax
             ? ' Dividend tax is estimated from the tax band on your shareholder entry (flat band rate, £500 allowance ignored); companies without a band show none.'

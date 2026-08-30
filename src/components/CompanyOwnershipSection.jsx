@@ -5,7 +5,11 @@
 //   1. Shareholders — the company's cap table. Name-based (shareholders
 //      don't need an app account), optional email + dividend tax band.
 //      Name/email/% all edit inline. Warns when percentages don't sum
-//      to 100.
+//      to 100. A shareholder is a PERSON or a COMPANY (holding company):
+//      company rows get no dividend tax band (inter-company dividends are
+//      normally CT-exempt) and can instead link to that company's own
+//      record here, so "My share" reports follow your stake through the
+//      holding chain.
 //   2. Managing Agents — the estate-agent directory with each agency's
 //      standard fee (% of rent collected, inc/ex VAT). Fees live on the
 //      AGENCY: change once here and it applies to every property that
@@ -39,14 +43,14 @@ function CardShell({ title, sub, T, children, action }) {
   )
 }
 
-export default function CompanyOwnershipSection({ company, properties = [], user, canEdit, T, showToast }) {
+export default function CompanyOwnershipSection({ company, companies = [], properties = [], user, canEdit, T, showToast }) {
   const [shareholders, setShareholders] = useState([])
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Add-shareholder form
   const [showShForm, setShowShForm] = useState(false)
-  const [shForm, setShForm] = useState({ name: '', email: '', percentage: '', taxBand: '' })
+  const [shForm, setShForm] = useState({ name: '', email: '', percentage: '', taxBand: '', type: 'individual', linkCompanyId: '' })
   // Add-agent form
   const [showAgForm, setShowAgForm] = useState(false)
   const [agForm, setAgForm] = useState({ name: '', feePercent: '', vatTreatment: 'ex_vat' })
@@ -79,16 +83,20 @@ export default function CompanyOwnershipSection({ company, properties = [], user
     if (!(pct > 0 && pct <= 100)) return showToast?.('Percentage must be between 0 and 100', 'error')
     setSaving(true)
     try {
+      const corp = shForm.type === 'company'
       // Auto-link the row to the signed-in user when they add themselves by
-      // their own email — the P&L then recognises the row as "you".
-      const isSelf = shForm.email && user?.email && shForm.email.toLowerCase() === user.email.toLowerCase()
+      // their own email — the P&L then recognises the row as "you". Never
+      // for company rows: a holding company isn't the user personally, even
+      // when their email is its contact address.
+      const isSelf = !corp && shForm.email && user?.email && shForm.email.toLowerCase() === user.email.toLowerCase()
       const row = await api.addShareholder({
         companyId: company.id, name: shForm.name.trim(),
         email: shForm.email.trim() || null, userId: isSelf ? user.id : null,
         percentage: pct, taxBand: shForm.taxBand || null,
+        shareholderType: shForm.type, shareholderCompanyId: shForm.linkCompanyId || null,
       })
       setShareholders(s => [...s, row].sort((a, b) => b.percentage - a.percentage))
-      setShForm({ name: '', email: '', percentage: '', taxBand: '' })
+      setShForm({ name: '', email: '', percentage: '', taxBand: '', type: 'individual', linkCompanyId: '' })
       setShowShForm(false)
     } catch (e) { showToast?.(e.message || 'Could not add shareholder', 'error') }
     setSaving(false)
@@ -143,12 +151,15 @@ export default function CompanyOwnershipSection({ company, properties = [], user
 
   const inp = inputStyle(T)
   const smallBtn = { fontFamily: MONO, fontSize: 11, padding: '6px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }
+  // Companies a corporate shareholder can link to — everything but this one.
+  const linkableCompanies = companies.filter(c => c.id !== company.id)
+  const isCorp = s => (s.shareholder_type || 'individual') === 'company'
 
   return (
     <div style={{ marginTop: 22 }}>
       {/* ── Shareholders ── */}
       <CardShell T={T} title="Shareholders"
-        sub="Who owns this company — feeds the Company P&L profit split"
+        sub="Who owns this company — people or holding companies — feeds the Company P&L profit split. Link a corporate shareholder to its own company record and your share flows through it."
         action={canEdit && (
           <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setShowShForm(v => !v)}>
             {showShForm ? 'Cancel' : '+ Add Shareholder'}
@@ -184,10 +195,38 @@ export default function CompanyOwnershipSection({ company, properties = [], user
                       {s.email && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{s.email}</div>}
                     </div>
                   )}
-                  {(s.user_id === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase())) &&
+                  {isCorp(s) &&
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.muted, border: `1px solid ${T.border}`, padding: '1px 7px', borderRadius: 4 }}
+                      title="Corporate shareholder — no personal dividend tax is estimated (company-to-company dividends are normally CT-exempt)">COMPANY</span>}
+                  {!isCorp(s) && (s.user_id === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase())) &&
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.gold, background: T.gold + '22', padding: '1px 7px', borderRadius: 4 }}>YOU</span>}
                 </div>
-                {canEdit ? (
+                {canEdit && (
+                  <select value={isCorp(s) ? 'company' : 'individual'} aria-label={`${s.name} shareholder type`}
+                    title="Person or company? Company shareholders get no dividend tax estimate and can link to their own company record."
+                    onChange={e => patchShareholder(s.id, e.target.value === 'company'
+                      ? { shareholder_type: 'company', tax_band: null, user_id: null }
+                      : { shareholder_type: 'individual', shareholder_company_id: null })}
+                    style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
+                    <option value="individual">Person</option>
+                    <option value="company">Company</option>
+                  </select>
+                )}
+                {isCorp(s) ? (
+                  canEdit ? (
+                    <select value={s.shareholder_company_id || ''} aria-label={`${s.name} linked company`}
+                      title="Link to this holding company's own record — 'My share' reports then follow your stake through it"
+                      onChange={e => patchShareholder(s.id, { shareholder_company_id: e.target.value || null })}
+                      style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
+                      <option value="">Not managed in Properly</option>
+                      {linkableCompanies.map(c => <option key={c.id} value={c.id}>↳ {c.abbr || c.name}</option>)}
+                    </select>
+                  ) : s.shareholder_company_id && (
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                      ↳ {linkableCompanies.find(c => c.id === s.shareholder_company_id)?.abbr || linkableCompanies.find(c => c.id === s.shareholder_company_id)?.name || 'linked company'}
+                    </span>
+                  )
+                ) : canEdit ? (
                   <select value={s.tax_band || ''} onChange={e => patchShareholder(s.id, { tax_band: e.target.value || null })}
                     title="Dividend tax band — used to estimate personal tax on this shareholder's profit share"
                     style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
@@ -232,14 +271,35 @@ export default function CompanyOwnershipSection({ company, properties = [], user
         )}
         {showShForm && canEdit && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
-            <input placeholder="Name" value={shForm.name} onChange={e => setShForm(f => ({ ...f, name: e.target.value }))} style={{ ...inp, flex: 1, minWidth: 130 }} />
-            <input placeholder="Email (optional)" type="email" value={shForm.email} onChange={e => setShForm(f => ({ ...f, email: e.target.value }))} style={{ ...inp, flex: 1, minWidth: 150 }} />
-            <input placeholder="%" type="number" min="0.01" max="100" step="0.01" value={shForm.percentage} onChange={e => setShForm(f => ({ ...f, percentage: e.target.value }))} style={{ ...inp, width: 80 }} />
-            <select value={shForm.taxBand} onChange={e => setShForm(f => ({ ...f, taxBand: e.target.value }))} style={{ ...inp }}>
-              <option value="">Tax band (optional)</option>
-              {Object.entries(TAX_BAND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            <select value={shForm.type} aria-label="Shareholder type"
+              onChange={e => setShForm(f => ({ ...f, type: e.target.value, taxBand: '', linkCompanyId: '' }))} style={{ ...inp }}>
+              <option value="individual">Person</option>
+              <option value="company">Company</option>
             </select>
+            <input placeholder={shForm.type === 'company' ? 'Company name' : 'Name'} value={shForm.name} onChange={e => setShForm(f => ({ ...f, name: e.target.value }))} style={{ ...inp, flex: 1, minWidth: 130 }} />
+            <input placeholder={shForm.type === 'company' ? 'Contact email (optional)' : 'Email (optional)'} type="email" value={shForm.email} onChange={e => setShForm(f => ({ ...f, email: e.target.value }))} style={{ ...inp, flex: 1, minWidth: 150 }} />
+            <input placeholder="%" type="number" min="0.01" max="100" step="0.01" value={shForm.percentage} onChange={e => setShForm(f => ({ ...f, percentage: e.target.value }))} style={{ ...inp, width: 80 }} />
+            {shForm.type === 'company' ? (
+              <select value={shForm.linkCompanyId} aria-label="Linked company"
+                title="Link to this holding company's own record — 'My share' reports then follow your stake through it"
+                onChange={e => setShForm(f => ({ ...f, linkCompanyId: e.target.value }))} style={{ ...inp }}>
+                <option value="">Not managed in Properly</option>
+                {linkableCompanies.map(c => <option key={c.id} value={c.id}>↳ {c.abbr || c.name}</option>)}
+              </select>
+            ) : (
+              <select value={shForm.taxBand} onChange={e => setShForm(f => ({ ...f, taxBand: e.target.value }))} style={{ ...inp }}>
+                <option value="">Tax band (optional)</option>
+                {Object.entries(TAX_BAND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            )}
             <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving} onClick={addShareholder}>{saving ? 'Saving…' : 'Add'}</button>
+            {shForm.type === 'company' && (
+              <div style={{ flexBasis: '100%', fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.6 }}>
+                Company shareholders get no dividend tax estimate — dividends between UK companies are normally
+                corporation-tax-exempt. To follow your personal share through this holding company, link its
+                Properly record and enter its own shareholders there.
+              </div>
+            )}
           </div>
         )}
       </CardShell>

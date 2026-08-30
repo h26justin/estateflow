@@ -87,13 +87,84 @@ export function expenseCategoryLabel(cat) {
   return EXPENSE_CATEGORY_LABELS[cat] || (cat ? String(cat) : 'Other')
 }
 
+// Is this shareholder row a corporate entity (vs a person)? Accepts both raw
+// DB rows (shareholder_type) and buildCompanyPnl output rows (type).
+export function isCorporateShareholder(s) {
+  return (s?.shareholder_type || s?.type || 'individual') === 'company'
+}
+
 // The signed-in user's shareholder row, matched by user_id first, then a
-// case-insensitive email match.
+// case-insensitive email match. Corporate rows never match — a holding
+// company carrying the user's contact email is not the user personally
+// (its dividends are the COMPANY's income, not theirs).
 export function findViewerShareholder(shareholders, user) {
   if (!user) return null
-  return shareholders.find(s => s.user_id && s.user_id === user.id)
-    || shareholders.find(s => s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase())
+  const people = shareholders.filter(s => !isCorporateShareholder(s))
+  return people.find(s => s.user_id && s.user_id === user.id)
+    || people.find(s => s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase())
     || null
+}
+
+// ── Effective ownership through holding companies ─────────────────────────
+// The viewer's effective stake in each company, looking through corporate
+// shareholders that are linked (shareholder_company_id) to another company
+// in the app: direct % + Σ over linked corporate rows of
+// (that row's %) × (viewer's effective % of the holding company).
+//
+// shareholders — raw company_shareholders rows across ALL companies.
+// companies    — companies rows (id + name/abbr, for the `via` labels).
+//
+// Returns { pct, bands, via } keyed by company_id, only for companies where
+// the viewer's effective stake is > 0:
+//   pct   — effective percentage points (2dp)
+//   bands — dividend tax band: the viewer's own band on this company if they
+//           hold directly, else the band on their row of the holding company
+//           where their dividend would personally arise
+//   via   — holding-company display names the stake flows through (empty →
+//           purely direct, omitted)
+// Cycles (A owns B owns A) contribute nothing rather than recursing forever.
+export function viewerEffectiveShares({ shareholders = [], companies = [], user = null } = {}) {
+  const pct = {}, bands = {}, via = {}
+  if (!user) return { pct, bands, via }
+  const byCompany = new Map()
+  for (const s of shareholders) {
+    const arr = byCompany.get(s.company_id)
+    if (arr) arr.push(s); else byCompany.set(s.company_id, [s])
+  }
+  const nameById = new Map(companies.map(c => [c.id, c.abbr || c.name]))
+  const memo = new Map()
+  const resolve = (companyId, stack) => {
+    if (memo.has(companyId)) return memo.get(companyId)
+    if (stack.has(companyId)) return { pct: 0, band: null, via: [] }
+    stack.add(companyId)
+    const rows = byCompany.get(companyId) || []
+    const direct = findViewerShareholder(rows, user)
+    let p = direct ? (Number(direct.percentage) || 0) : 0
+    let band = direct?.tax_band || null
+    const through = []
+    for (const r of rows) {
+      if (!isCorporateShareholder(r) || !r.shareholder_company_id) continue
+      const up = resolve(r.shareholder_company_id, stack)
+      if (up.pct > 0) {
+        p += (Number(r.percentage) || 0) * up.pct / 100
+        if (!band && up.band) band = up.band
+        through.push(nameById.get(r.shareholder_company_id) || r.name)
+      }
+    }
+    stack.delete(companyId)
+    const out = { pct: Math.round(p * 100) / 100, band, via: through }
+    memo.set(companyId, out)
+    return out
+  }
+  for (const c of companies) {
+    const r = resolve(c.id, new Set())
+    if (r.pct > 0) {
+      pct[c.id] = r.pct
+      if (r.band) bands[c.id] = r.band
+      if (r.via.length) via[c.id] = r.via
+    }
+  }
+  return { pct, bands, via }
 }
 
 // ── Cross-company shareholder aggregation ─────────────────────────────────
@@ -125,10 +196,11 @@ export function aggregateShareholdersAcrossCompanies(entries = []) {
       ].filter(Boolean)
       let g = ids.map(i => index.get(i)).find(Boolean)
       if (!g) {
-        g = { name: s.name, userId: null, email: null, holdings: [], totalPercent: 0, totalNet: 0, totalMonthly: 0 }
+        g = { name: s.name, type: 'individual', userId: null, email: null, holdings: [], totalPercent: 0, totalNet: 0, totalMonthly: 0 }
         groups.push(g)
       }
       ids.forEach(i => index.set(i, g))
+      if (isCorporateShareholder(s)) g.type = 'company'
       if (!g.userId && s.userId) g.userId = s.userId
       if (!g.email && s.email) g.email = s.email
       g.holdings.push({ company: companyName, percentage: s.percentage, net: s.net, netMonthly: s.netMonthly })
@@ -640,15 +712,21 @@ export function buildCompanyPnl({
   const ct = ukCorporationTax(Math.max(0, operatingProfit), { associatedCompanies })
   const profitAfterTax = operatingProfit - ct.tax
 
-  // Shareholder split of profit after tax.
+  // Shareholder split of profit after tax. Corporate shareholders (holding
+  // companies) get NO dividend tax estimate even if a band was recorded:
+  // dividends between UK companies are normally CT-exempt — personal tax
+  // arises only when the holding company pays its own shareholders.
   const shareholderRows = shareholders.map(s => {
+    const corporate = isCorporateShareholder(s)
     const pct = Number(s.percentage) || 0
     const share = profitAfterTax * (pct / 100)
-    const divTax = s.tax_band ? dividendTax(share, s.tax_band) : null
+    const divTax = !corporate && s.tax_band ? dividendTax(share, s.tax_band) : null
     const net = share - (divTax || 0)
     return {
       id: s.id, name: s.name, email: s.email || null, userId: s.user_id || null,
-      percentage: pct, taxBand: s.tax_band || null,
+      type: corporate ? 'company' : 'individual',
+      shareholderCompanyId: s.shareholder_company_id || null,
+      percentage: pct, taxBand: corporate ? null : (s.tax_band || null),
       share: Math.round(share * 100) / 100,
       dividendTax: divTax,
       net: Math.round(net * 100) / 100,
