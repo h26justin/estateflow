@@ -62,6 +62,24 @@ export function dividendTax(amount, band) {
   return Math.round(a * rate * 100) / 100
 }
 
+// ── Company types ──────────────────────────────────────────────────────────
+
+// Is this companies row a holding company (owns companies, not properties)?
+export function isHoldingCompany(c) {
+  return (c?.company_type || 'operating') === 'holding'
+}
+
+// How many companies count as "associated" for the corporation tax
+// threshold split. HMRC excludes PASSIVE holding companies (ones that only
+// hold shares and pass dividends through); active holdcos — charging the
+// group fees or interest, holding their own assets, retaining dividends —
+// still count. companies.ct_passive (default true) records which one a
+// holding company is. Operating companies always count. Floor 1.
+export function countAssociatedCompanies(companies = []) {
+  const n = companies.filter(c => !(isHoldingCompany(c) && c.ct_passive !== false)).length
+  return Math.max(1, n)
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 // Whole calendar months a range spans (inclusive), floor 1 — used for
@@ -165,6 +183,48 @@ export function viewerEffectiveShares({ shareholders = [], companies = [], user 
     }
   }
   return { pct, bands, via }
+}
+
+// ── Effective stakes of one company in the others ──────────────────────────
+// What does holding company H own? For every company C, H's effective stake
+// = Σ over C's shareholder rows of:
+//     rows naming H directly (shareholder_company_id === H)  → their %
+//     rows linked to an intermediate company M               → % × stake(H, M)
+// recursively, cycle-safe (a loop contributes nothing). Same look-through
+// maths as viewerEffectiveShares, seeded by a company instead of a user.
+//
+// Returns { [companyId]: effectivePct } (2dp) for companies where the stake
+// is > 0. Drives the holding company's group view and dividend-income P&L.
+export function companyEffectiveStakes(shareholders = [], holdingCompanyId) {
+  const out = {}
+  if (!holdingCompanyId) return out
+  const byCompany = new Map()
+  for (const s of shareholders) {
+    const arr = byCompany.get(s.company_id)
+    if (arr) arr.push(s); else byCompany.set(s.company_id, [s])
+  }
+  const memo = new Map()
+  const resolve = (companyId, stack) => {
+    if (memo.has(companyId)) return memo.get(companyId)
+    if (stack.has(companyId)) return 0
+    stack.add(companyId)
+    let pct = 0
+    for (const r of (byCompany.get(companyId) || [])) {
+      if (!isCorporateShareholder(r) || !r.shareholder_company_id) continue
+      if (r.shareholder_company_id === holdingCompanyId) pct += Number(r.percentage) || 0
+      else pct += (Number(r.percentage) || 0) * resolve(r.shareholder_company_id, stack) / 100
+    }
+    stack.delete(companyId)
+    pct = Math.round(pct * 100) / 100
+    memo.set(companyId, pct)
+    return pct
+  }
+  for (const companyId of byCompany.keys()) {
+    if (companyId === holdingCompanyId) continue
+    const pct = resolve(companyId, new Set())
+    if (pct > 0) out[companyId] = pct
+  }
+  return out
 }
 
 // ── Cross-company shareholder aggregation ─────────────────────────────────

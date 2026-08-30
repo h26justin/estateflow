@@ -9,7 +9,7 @@ import FocusTrap from '../../lib/FocusTrap'
 export default function CompanyModal({ onClose, onSave }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
-  const initialForm = { name:'', abbr:'', color:'#C8A84B' }
+  const initialForm = { name:'', abbr:'', color:'#C8A84B', companyType:'operating' }
   const [form, setForm] = useState(initialForm)
   const [snapshot] = useState(initialForm)
   const isDirty = isFormDirty(snapshot, form)
@@ -85,6 +85,22 @@ export default function CompanyModal({ onClose, onSave }) {
           <label htmlFor="cm-abbr">Short Code (3-4 letters)</label>
           <input id="cm-abbr" value={form.abbr} onChange={e=>s('abbr',e.target.value.toUpperCase())} placeholder="e.g. VPG" maxLength={4} style={triedSave && !form.abbr ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.abbr ? 'true' : undefined} aria-describedby={triedSave && !form.abbr ? 'cm-abbr-err' : undefined}/>
           {triedSave && !form.abbr && <span id="cm-abbr-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
+        </div>
+        <div>
+          <label>Type</label>
+          <div style={{display:'flex',gap:8}}>
+            {[['operating','Operating','Owns properties directly'],['holding','Holding company','Owns other companies — no properties, shows a group view instead']].map(([v,l,d])=>(
+              <button key={v} type="button" onClick={()=>s('companyType',v)}
+                title={d}
+                style={{flex:1,fontFamily:MONO,fontSize:11,padding:'9px 10px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                  border:`1px solid ${form.companyType===v?T.gold:T.border}`,
+                  background:form.companyType===v?T.gold+'18':'transparent',
+                  color:form.companyType===v?T.gold:T.muted}}>
+                <div style={{fontWeight:700}}>{l}</div>
+                <div style={{fontSize:9,marginTop:2,lineHeight:1.4,color:T.muted}}>{d}</div>
+              </button>
+            ))}
+          </div>
         </div>
         <div><label>Colour</label><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{['#C8A84B','#4B8FE0','#2ECC8A','#E05555','#9B59B6','#E0943A','#1ABC9C','#E74C3C'].map(col=><div key={col} onClick={()=>s('color',col)} style={{width:32,height:32,borderRadius:8,background:col,cursor:'pointer',border:`3px solid ${form.color===col?'#fff':'transparent'}`,transition:'border 0.15s'}}/>)}</div></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
