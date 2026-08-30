@@ -1614,6 +1614,30 @@ export default function App() {
     })
   },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived])
 
+  // Reset the drag ("Custom Order") positions back to the canonical default:
+  // company, then building cluster, then natural unit order ("Room 2" before
+  // "Room 10") — the same order the Company / Name sort displays. Persists a
+  // fresh sort_order for every property, so every view that renders the
+  // canonical array (Day Tracker, dashboards, dropdowns) reads it too.
+  function resetCustomOrder() {
+    if (!window.confirm('Reset the custom order to the default (company → building → unit)? This overwrites any drag ordering.')) return
+    const natSort = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
+    const ordered = [...properties].sort((a, b) => {
+      const coA = a.company?.name || '', coB = b.company?.name || ''
+      if (coA !== coB) return natSort(coA, coB)
+      const ka = groupKeyForAddress(a.address) || ''
+      const kb = groupKeyForAddress(b.address) || ''
+      if (ka !== kb) return natSort(ka, kb)
+      return natSort(flatKeyWithinBuilding(a.name), flatKeyWithinBuilding(b.name))
+    })
+    const sortMap = new Map(ordered.map((p, i) => [p.id, i]))
+    setProperties(prev => prev.map(p => sortMap.has(p.id) ? { ...p, sort_order: sortMap.get(p.id) } : p))
+    ordered.forEach((p, i) => {
+      if (p.sort_order !== i) api.updatePropertySortOrder(p.id, i).catch(() => {})
+    })
+    showToast('Property order reset to default ✓')
+  }
+
   // Dashboard counts/widgets exclude archived properties unconditionally —
   // archived = "not actively managing." If you sold a flat 2 years ago you
   // don't want it inflating your Total Invested figure.
@@ -3490,6 +3514,13 @@ export default function App() {
                   {opt.l}
                 </button>
               ))}
+              {sortBy==='custom'&&(
+                <button onClick={resetCustomOrder} title="Reset to the default order (company → building → unit)"
+                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
+                    border:`1px dashed ${T.border}`,background:'transparent',color:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
+                  ↺ Reset to default
+                </button>
+              )}
               {/* List / Grid layout toggle (grid is the redesign card view) */}
               <div style={{display:'flex',gap:2,marginLeft:'auto',background:T.card,border:`1px solid ${T.border}`,borderRadius:9,padding:2}}>
                 {[['list','list','List'],['grid','grid-2','Grid']].map(([k,ic,lbl])=>(
