@@ -43,7 +43,9 @@ function CardShell({ title, sub, T, children, action }) {
   )
 }
 
-export default function CompanyOwnershipSection({ company, companies = [], properties = [], user, canEdit, T, showToast }) {
+// showAgents — hide the Managing Agents card for companies that have no
+// properties to manage (holding companies).
+export default function CompanyOwnershipSection({ company, companies = [], properties = [], user, canEdit, T, showToast, showAgents = true }) {
   const [shareholders, setShareholders] = useState([])
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -305,7 +307,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
       </CardShell>
 
       {/* ── Managing agents ── */}
-      <CardShell T={T} title="Managing Agents"
+      {showAgents && <CardShell T={T} title="Managing Agents"
         sub="Each agency's standard fee (% of rent collected). Fees are portfolio-wide — change a fee here and it updates every property that agency manages. Assign an agent to a property in the property form."
         action={canEdit && (
           <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setShowAgForm(v => !v)}>
@@ -375,7 +377,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
             <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving} onClick={addAgent}>{saving ? 'Saving…' : 'Add'}</button>
           </div>
         )}
-      </CardShell>
+      </CardShell>}
     </div>
   )
 }

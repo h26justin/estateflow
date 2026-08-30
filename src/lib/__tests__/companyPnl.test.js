@@ -3,6 +3,7 @@ import {
   ukCorporationTax, dividendTax, monthsInRange, buildCompanyPnl,
   findViewerShareholder, viewerEffectiveShares, aggregateShareholdersAcrossCompanies,
   buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents,
+  isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes,
 } from '../companyPnl'
 
 describe('ukCorporationTax', () => {
@@ -826,5 +827,46 @@ describe('viewerEffectiveShares', () => {
     const rows = [{ company_id: 'cOp', name: 'Someone Else', percentage: 100 }]
     expect(viewerEffectiveShares({ shareholders: rows, companies, user: null }).pct).toEqual({})
     expect(viewerEffectiveShares({ shareholders: rows, companies, user }).pct).toEqual({})
+  })
+})
+
+describe('holding companies', () => {
+  it('isHoldingCompany reads company_type, defaulting to operating', () => {
+    expect(isHoldingCompany({ company_type: 'holding' })).toBe(true)
+    expect(isHoldingCompany({ company_type: 'operating' })).toBe(false)
+    expect(isHoldingCompany({})).toBe(false)
+    expect(isHoldingCompany(null)).toBe(false)
+  })
+
+  it('countAssociatedCompanies excludes passive holdcos, counts active ones, floors at 1', () => {
+    const op1 = { id: 'a' }, op2 = { id: 'b', company_type: 'operating' }
+    const passive = { id: 'h1', company_type: 'holding' }             // ct_passive defaults true
+    const passiveExplicit = { id: 'h2', company_type: 'holding', ct_passive: true }
+    const active = { id: 'h3', company_type: 'holding', ct_passive: false }
+    expect(countAssociatedCompanies([op1, op2])).toBe(2)
+    expect(countAssociatedCompanies([op1, op2, passive, passiveExplicit])).toBe(2)
+    expect(countAssociatedCompanies([op1, op2, active])).toBe(3)
+    expect(countAssociatedCompanies([passive])).toBe(1)
+    expect(countAssociatedCompanies([])).toBe(1)
+  })
+
+  it('companyEffectiveStakes finds direct and chained stakes, cycle-safe', () => {
+    const shareholders = [
+      // H owns 50% of Op directly...
+      { company_id: 'cOp', name: 'H Ltd', shareholder_type: 'company', shareholder_company_id: 'cH', percentage: 50 },
+      // ...and 80% of Mid, which owns 25% of Op2
+      { company_id: 'cMid', name: 'H Ltd', shareholder_type: 'company', shareholder_company_id: 'cH', percentage: 80 },
+      { company_id: 'cOp2', name: 'Mid Ltd', shareholder_type: 'company', shareholder_company_id: 'cMid', percentage: 25 },
+      // noise: an individual, an unlinked corporate, and a cycle back to H
+      { company_id: 'cOp', name: 'Justin', percentage: 50 },
+      { company_id: 'cOp2', name: 'Unlinked Holdings', shareholder_type: 'company', percentage: 30 },
+      { company_id: 'cH', name: 'Op Ltd', shareholder_type: 'company', shareholder_company_id: 'cOp', percentage: 10 },
+    ]
+    const stakes = companyEffectiveStakes(shareholders, 'cH')
+    expect(stakes.cOp).toBe(50)
+    expect(stakes.cMid).toBe(80)
+    expect(stakes.cOp2).toBe(20) // 25% × 80%
+    expect(stakes.cH).toBeUndefined() // never itself
+    expect(companyEffectiveStakes(shareholders, null)).toEqual({})
   })
 })

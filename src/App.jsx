@@ -71,6 +71,7 @@ const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModa
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
+import { isHoldingCompany } from './lib/companyPnl'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
 import { complianceStatusFor, complianceBadge, propertyComplianceSummary } from './lib/complianceStatus'
@@ -94,6 +95,7 @@ import BuildingMortgageModal from './components/BuildingMortgageModal'
 const ReceiptScanModal = lazy(() => import('./components/ReceiptScanModal'))
 import { canUseInvestorFeatures } from './lib/tierGating'
 import CompanyOwnershipSection from './components/CompanyOwnershipSection'
+import HoldingGroupPanel from './components/HoldingGroupPanel'
 import PropertyModal from './components/modals/PropertyModal'
 import CompanyModal from './components/modals/CompanyModal'
 import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
@@ -1651,7 +1653,11 @@ export default function App() {
     total:               dashProps.length,
   }),[dashProps])
 
-  const companyStats = useMemo(()=>dashCos.map(c=>{
+  // Property stats per company — operating companies only. A holding company
+  // owns companies, not properties, so it has no property stats: including it
+  // would just paint zero-value cards and chart segments on the dashboard.
+  // Its group view lives in Portfolio → Companies.
+  const companyStats = useMemo(()=>dashCos.filter(c=>!isHoldingCompany(c)).map(c=>{
     const ps=dashProps.filter(p=>p.company_id===c.id)
     return {...c, count:ps.length,
       invested:    ps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
@@ -2070,18 +2076,26 @@ export default function App() {
     try{
       const coId=await api.createCompanyForOwner(formData.name, formData.abbr, formData.color)
       // Fetch the newly created company to get the full row
-      const { data: co } = await supabase.from('companies').select('*').eq('id', coId).single()
+      let { data: co } = await supabase.from('companies').select('*').eq('id', coId).single()
       if (!co) throw new Error('Company created but could not be loaded')
-      // Auto-generate and save subdomain
-      try {
-        const sub = (formData.name||'')
-          .toLowerCase()
-          .replace(/\s+(property|group|ltd|limited|co|company|management|properties)\s*/gi,'')
-          .replace(/[^a-z0-9]+/g,'-')
-          .replace(/^-+|-+$/g,'')
-          .slice(0,30)
-        if (sub && co.id) await api.saveCompanySubdomain(co.id, sub)
-      } catch(e) { logError('handleSaveCo:saveCompanySubdomain', e) }
+      // The create RPC only takes name/abbr/colour, so the type is applied
+      // as a follow-up write. Holding companies default to CT-passive.
+      if (formData.companyType === 'holding') {
+        co = await api.updateCompany(co.id, { company_type: 'holding' })
+      }
+      // Auto-generate and save subdomain — operating companies only (a
+      // holding company has no tenants, so no tenant-portal subdomain).
+      if (formData.companyType !== 'holding') {
+        try {
+          const sub = (formData.name||'')
+            .toLowerCase()
+            .replace(/\s+(property|group|ltd|limited|co|company|management|properties)\s*/gi,'')
+            .replace(/[^a-z0-9]+/g,'-')
+            .replace(/^-+|-+$/g,'')
+            .slice(0,30)
+          if (sub && co.id) await api.saveCompanySubdomain(co.id, sub)
+        } catch(e) { logError('handleSaveCo:saveCompanySubdomain', e) }
+      }
       setCompanies(prev=>[...prev,co]);setActiveCoTab(co.id)
       showToast('Company added');setShowAddCo(false)
     }catch(e){showToast(e.message,'error')}
@@ -2194,12 +2208,28 @@ export default function App() {
           {companies.map(c=>(
             <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`}
               style={{border:`1px solid ${activeCoTab===c.id?c.color:T.border}`,color:activeCoTab===c.id?c.color:T.muted,background:activeCoTab===c.id?c.color+'11':'transparent'}}
-              onClick={()=>setActiveCoTab(c.id)}>{c.name}</button>
+              onClick={()=>setActiveCoTab(c.id)}>{c.name}{isHoldingCompany(c)&&<span style={{fontFamily:mono,fontSize:8,fontWeight:700,marginLeft:6,opacity:0.8,letterSpacing:'0.05em'}}>HOLDING</span>}</button>
           ))}
         </div>
         {companies.filter(c=>c.id===activeCoTab).map(c=>{
           const cs=companyStats.find(x=>x.id===c.id)||{count:0,rented:0,vacant:0,monthlyRent:0,invested:0,estVal:0,arrears:0}
           const cProps=activeProperties.filter(p=>p.company_id===c.id)
+          const holding=isHoldingCompany(c)
+          const canEditCo=canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive
+          // Convert between operating and holding. Operating → holding only
+          // while the company has no properties (they'd vanish from its view).
+          async function convertType() {
+            const toHolding=!holding
+            if (toHolding && cProps.length>0) return showToast(`${c.name} has ${cProps.length} properties — move them to another company before converting to a holding company`,'error')
+            if (!window.confirm(toHolding
+              ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
+              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`)) return
+            try {
+              const row=await api.updateCompany(c.id,{company_type:toHolding?'holding':'operating'})
+              setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))
+              showToast(toHolding?'Now a holding company':'Now an operating company')
+            } catch(e){ showToast(e.message,'error') }
+          }
           return <div key={c.id}>
             {/* Company header with rename button */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
@@ -2207,9 +2237,16 @@ export default function App() {
                 <div style={{width:10,height:10,borderRadius:'50%',background:c.color||T.gold}}/>
                 <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
                 <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.gold,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
+                {holding&&<span style={{fontFamily:mono,fontSize:9,fontWeight:700,color:T.muted,border:`1px solid ${T.border}`,padding:'2px 8px',borderRadius:4,letterSpacing:'0.05em'}}
+                  title="Holding company — owns companies, not properties">HOLDING</span>}
               </div>
-              {(canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive) && (
+              {canEditCo && (
                 <div style={{display:'flex',gap:8}}>
+                  <button onClick={convertType}
+                    title={holding?'Convert back to an operating (property-owning) company':'Convert to a holding company (owns companies, not properties)'}
+                    style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                    {holding?'Make operating':'Make holding co'}
+                  </button>
                   <button onClick={()=>openRename(c)}
                     style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
                     Rename
@@ -2223,6 +2260,11 @@ export default function App() {
                 </div>
               )}
             </div>
+            {holding ? (
+              <HoldingGroupPanel company={c} companies={companies} properties={activeProperties} T={T}
+                canEdit={canEditCo} showToast={showToast}
+                onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
+            ) : (<>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
               <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
               <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
@@ -2263,8 +2305,9 @@ export default function App() {
               ))}
               {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
             </div>
+            </>)}
             <CompanyOwnershipSection company={c} companies={companies} properties={cProps} user={user} T={T} showToast={showToast}
-              canEdit={canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive}/>
+              showAgents={!holding} canEdit={canEditCo}/>
           </div>
         })}
 
@@ -3473,7 +3516,7 @@ export default function App() {
           {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
           {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
           {view==='bulk-add'&&<BulkAddPropertyModal asPage
-            companies={companies}
+            companies={companies.filter(c=>!isHoldingCompany(c))}
             onClose={closeWorkflow}
             onSaved={(created)=>{
               setProperties(prev => [...prev, ...created])
@@ -3898,7 +3941,7 @@ export default function App() {
 
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
       {showReferencing && selected && <TenantReferenceModal property={selected} onClose={()=>setShowReferencing(false)}/>}
-      {showAddProp&&<PropertyModal prop={editProp} companies={companies} onClose={()=>{setShowAddProp(false);setEditProp(null);setConvertSourceDealId(null)}} onSave={handleSaveProp}/>}
+      {showAddProp&&<PropertyModal prop={editProp} companies={companies.filter(c=>!isHoldingCompany(c))} onClose={()=>{setShowAddProp(false);setEditProp(null);setConvertSourceDealId(null)}} onSave={handleSaveProp}/>}
       {showBuildingMortgage && <BuildingMortgageModal
         properties={activeCoTab ? activeProperties.filter(p => p.company_id === activeCoTab) : activeProperties}
         setProperties={setProperties}
