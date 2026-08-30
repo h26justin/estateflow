@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   ukCorporationTax, dividendTax, monthsInRange, buildCompanyPnl,
-  findViewerShareholder, aggregateShareholdersAcrossCompanies,
+  findViewerShareholder, viewerEffectiveShares, aggregateShareholdersAcrossCompanies,
   buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents,
 } from '../companyPnl'
 
@@ -725,5 +725,106 @@ describe('findViewerShareholder', () => {
     expect(findViewerShareholder(rows, { id: 'x', email: 'jo@example.com' })?.id).toBe('b')
     expect(findViewerShareholder(rows, { id: 'x', email: 'none@example.com' })).toBeNull()
     expect(findViewerShareholder(rows, null)).toBeNull()
+  })
+
+  it('never matches a corporate shareholder, even on the viewer email or user_id', () => {
+    const corp = [
+      { id: 'h', name: 'Biggie Group Ltd', shareholder_type: 'company', email: 'justin@example.com', user_id: 'u1' },
+      { id: 'j', name: 'Justin', email: 'justin@example.com' },
+    ]
+    expect(findViewerShareholder(corp, { id: 'u1', email: 'justin@example.com' })?.id).toBe('j')
+    expect(findViewerShareholder([corp[0]], { id: 'u1', email: 'justin@example.com' })).toBeNull()
+  })
+})
+
+describe('corporate shareholders (buildCompanyPnl)', () => {
+  it('estimates no dividend tax for a company shareholder even when a band is recorded', () => {
+    const r = buildCompanyPnl({
+      properties: [{ id: 'p1', status: 'rented', rent_pcm: 1_000 }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 10_000 }],
+      shareholders: [
+        { id: 's1', name: 'Biggie Group Ltd', shareholder_type: 'company', shareholder_company_id: 'cH', percentage: 50, tax_band: 'additional' },
+        { id: 's2', name: 'Brian', percentage: 50, tax_band: 'additional' },
+      ],
+      months: 12,
+    })
+    const corp = r.shareholders.find(s => s.id === 's1')
+    const person = r.shareholders.find(s => s.id === 's2')
+    expect(corp.type).toBe('company')
+    expect(corp.shareholderCompanyId).toBe('cH')
+    expect(corp.taxBand).toBeNull()
+    expect(corp.dividendTax).toBeNull()
+    expect(corp.net).toBe(corp.share)
+    expect(person.type).toBe('individual')
+    expect(person.dividendTax).toBeGreaterThan(0)
+  })
+})
+
+describe('viewerEffectiveShares', () => {
+  const user = { id: 'u1', email: 'justin@example.com' }
+  const companies = [
+    { id: 'cOp', name: 'WXH Property Group Ltd', abbr: 'WXH' },
+    { id: 'cH', name: 'Biggie Group Ltd' },
+  ]
+
+  it('counts a direct holding with its band', () => {
+    const r = viewerEffectiveShares({
+      shareholders: [{ company_id: 'cOp', name: 'Justin', user_id: 'u1', percentage: 40, tax_band: 'higher' }],
+      companies, user,
+    })
+    expect(r.pct.cOp).toBe(40)
+    expect(r.bands.cOp).toBe('higher')
+    expect(r.via.cOp).toBeUndefined()
+  })
+
+  it('looks through a linked holding company, taking the band from the row where the viewer holds personally', () => {
+    const r = viewerEffectiveShares({
+      shareholders: [
+        { company_id: 'cOp', name: 'Biggie Group Ltd', shareholder_type: 'company', shareholder_company_id: 'cH', percentage: 50 },
+        { company_id: 'cH', name: 'Justin', user_id: 'u1', percentage: 100, tax_band: 'additional' },
+      ],
+      companies, user,
+    })
+    expect(r.pct.cOp).toBe(50) // 50% × 100%
+    expect(r.bands.cOp).toBe('additional')
+    expect(r.via.cOp).toEqual(['Biggie Group Ltd'])
+    expect(r.pct.cH).toBe(100)
+  })
+
+  it('sums direct and indirect stakes and chains through multiple levels', () => {
+    const threeLevels = [...companies, { id: 'cTop', name: 'TopCo Ltd' }]
+    const r = viewerEffectiveShares({
+      shareholders: [
+        { company_id: 'cOp', name: 'Justin', email: 'JUSTIN@example.com', percentage: 10 },
+        { company_id: 'cOp', name: 'Biggie Group Ltd', shareholder_type: 'company', shareholder_company_id: 'cH', percentage: 50 },
+        { company_id: 'cH', name: 'TopCo Ltd', shareholder_type: 'company', shareholder_company_id: 'cTop', percentage: 80 },
+        { company_id: 'cTop', name: 'Justin', user_id: 'u1', percentage: 50, tax_band: 'basic' },
+      ],
+      companies: threeLevels, user,
+    })
+    // 10 direct + 50% × (80% × 50%) = 10 + 20 = 30
+    expect(r.pct.cOp).toBe(30)
+    expect(r.bands.cOp).toBe('basic')
+  })
+
+  it('ignores unlinked corporate rows and survives ownership cycles', () => {
+    const r = viewerEffectiveShares({
+      shareholders: [
+        { company_id: 'cOp', name: 'Unlinked Holdings', shareholder_type: 'company', percentage: 50 },
+        { company_id: 'cOp', name: 'Biggie Group Ltd', shareholder_type: 'company', shareholder_company_id: 'cH', percentage: 25 },
+        // cycle: the holding company is "owned" back by the operating company
+        { company_id: 'cH', name: 'WXH Property Group Ltd', shareholder_type: 'company', shareholder_company_id: 'cOp', percentage: 60 },
+        { company_id: 'cH', name: 'Justin', user_id: 'u1', percentage: 40 },
+      ],
+      companies, user,
+    })
+    expect(r.pct.cOp).toBe(10) // 25% × 40%, cycle contributes nothing
+    expect(r.pct.cH).toBe(40)
+  })
+
+  it('returns nothing for a signed-out viewer or one who holds nothing', () => {
+    const rows = [{ company_id: 'cOp', name: 'Someone Else', percentage: 100 }]
+    expect(viewerEffectiveShares({ shareholders: rows, companies, user: null }).pct).toEqual({})
+    expect(viewerEffectiveShares({ shareholders: rows, companies, user }).pct).toEqual({})
   })
 })

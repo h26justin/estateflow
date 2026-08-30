@@ -3,7 +3,11 @@
 // Two tables (2026-08-09_company_ownership_agents.sql, reshaped by
 // 2026-08-09_agent_fees_on_agents.sql):
 //   company_shareholders — name-based cap table per company; optional soft
-//                          link to an auth user via user_id/email
+//                          link to an auth user via user_id/email. Rows are
+//                          people or companies (shareholder_type, added by
+//                          2026-08-30_corporate_shareholders.sql); a corporate
+//                          shareholder may link to its own companies row via
+//                          shareholder_company_id for holding-chain look-through
 //   estate_agents        — directory of letting/managing agents carrying the
 //                          agency's standard fee (fee_percent + vat_treatment).
 //                          Properties link to their agent via
@@ -35,12 +39,16 @@ export async function fetchAllShareholders() {
   return data || []
 }
 
-export async function addShareholder({ companyId, name, email = null, userId = null, percentage, taxBand = null, notes = null }) {
+export async function addShareholder({ companyId, name, email = null, userId = null, percentage, taxBand = null, notes = null, shareholderType = 'individual', shareholderCompanyId = null }) {
   const me = (await supabase.auth.getUser()).data.user
+  const corporate = shareholderType === 'company'
   const { data, error } = await supabase.from('company_shareholders')
     .insert({
       company_id: companyId, name, email: email || null, user_id: userId || null,
-      percentage, tax_band: taxBand || null, notes, created_by: me?.id || null,
+      percentage, tax_band: corporate ? null : (taxBand || null), notes, created_by: me?.id || null,
+      shareholder_type: corporate ? 'company' : 'individual',
+      // Only company rows may link to a holding company (DB check enforces it).
+      shareholder_company_id: corporate ? (shareholderCompanyId || null) : null,
     })
     .select().single()
   if (error) throw error
