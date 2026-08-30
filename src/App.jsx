@@ -2097,6 +2097,11 @@ export default function App() {
         } catch(e) { logError('handleSaveCo:saveCompanySubdomain', e) }
       }
       setCompanies(prev=>[...prev,co]);setActiveCoTab(co.id)
+      // The owner map inside permissionsMap was stamped at load time, so a
+      // company created mid-session isn't in it — without this, every canDo()
+      // on the new company denies (read-only Shareholders card, disabled
+      // settings) until the page is refreshed.
+      setPermissionsMap(prev=>({ ...prev, __owner: { ...(prev?.__owner||{}), [co.id]: true } }))
       showToast('Company added');setShowAddCo(false)
     }catch(e){showToast(e.message,'error')}
   }
