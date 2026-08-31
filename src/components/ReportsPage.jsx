@@ -7,6 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
+import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
@@ -941,7 +942,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
           ? filtRent.filter(r => r.property_id === p.id && r.status === 'paid').reduce((s,r) => s + (r.amount || 0), 0)
           : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
         const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
-        return { name:p.name, rent, exp, net:rent-exp, yield:p.est_value?((p.rent_pcm||0)*12/p.est_value*100):0 }
+        return { name:p.name, rent, exp, net:rent-exp, yield:propValue(p)?((p.rent_pcm||0)*12/propValue(p)*100):0 }
       }).sort((a,b)=>b.net-a.net)
       const tR=rows.reduce((s,r)=>s+r.rent,0), tE=rows.reduce((s,r)=>s+r.exp,0)
       return { title:'Annual P&L', kpis:[['Total income',fmt(tR)],['Total expenses',fmt(tE)],['Net profit',fmt(tR-tE)],['Net margin',tR>0?fmtPct((tR-tE)/tR*100):'—']], headers:['Property','Annual Rent','Expenses','Net Profit','Gross Yield'], rows:rows.map(r=>[r.name,fmt(r.rent),fmt(r.exp),fmt(r.net),r.yield>0?fmtPct(r.yield):'—']), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE),''] }
@@ -975,12 +976,12 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Mortgage Interest Summary', note:'Section 24: mortgage interest receives a 20% tax credit, not a deduction. Repayment figures are year-one approximations.', kpis:[['Total interest',fmt(tI)],['20% tax credit',fmt(tC)],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Type','Annual Interest','20% Credit'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct(r.rate*100),r.kind,fmt(r.annual),fmt(r.credit)]), totals:['Total','','','',fmt(tI),fmt(tC)] }
     }
     case 'capital_gains': {
-      const rows = filtProps.map(p=>{const c=(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0);return{name:p.name,cost:c,val:p.est_value||0,gain:(p.est_value||0)-c}}).sort((a,b)=>b.gain-a.gain)
+      const rows = filtProps.map(p=>{const c=(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0);return{name:p.name,cost:c,val:propValue(p),gain:propValue(p)-c}}).sort((a,b)=>b.gain-a.gain)
       const tC=rows.reduce((s,r)=>s+r.cost,0),tV=rows.reduce((s,r)=>s+r.val,0)
       return { title:'Capital Gains Summary', note:'Unrealised gains based on estimated values. Consult your accountant for CGT planning.', kpis:[['Cost base',fmt(tC)],['Portfolio value',fmt(tV)],['Unrealised gain',fmt(tV-tC)]], headers:['Property','Cost Base','Est. Value','Gain','Gain %'], rows:rows.map(r=>[r.name,fmt(r.cost),fmt(r.val),fmt(r.gain),r.cost>0?fmtPct(r.gain/r.cost*100):'—']), totals:['Total',fmt(tC),fmt(tV),fmt(tV-tC),''] }
     }
     case 'yield_compare': {
-      const rows = filtProps.map(p=>{const gy=p.est_value&&p.rent_pcm?((p.rent_pcm*12)/p.est_value)*100:0;return{name:p.name,rent:p.rent_pcm||0,val:p.est_value||0,gy}}).sort((a,b)=>b.gy-a.gy)
+      const rows = filtProps.map(p=>{const gy=propValue(p)&&p.rent_pcm?((p.rent_pcm*12)/propValue(p))*100:0;return{name:p.name,rent:p.rent_pcm||0,val:propValue(p),gy}}).sort((a,b)=>b.gy-a.gy)
       const avg = rows.length?rows.reduce((s,r)=>s+r.gy,0)/rows.length:0
       return { title:'Yield Comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
     }
@@ -1022,7 +1023,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Monthly Cash Flow', kpis:[['Total income',fmt(tR)],['Total outgoings',fmt(tE)],['Net cash flow',fmt(tR-tE)]], headers:['Month','Rent Income','Expenses','Net Cash Flow'], rows:MONTHS.map((m,i)=>[m,fmt(monthRent[i]),fmt(monthExp[i]),fmt(monthRent[i]-monthExp[i])]), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE)] }
     }
     case 'equity': {
-      const rows=filtProps.map(p=>({name:p.name,val:p.est_value||0,debt:p.mortgage_amount||0,eq:(p.est_value||0)-(p.mortgage_amount||0),ltv:p.est_value?((p.mortgage_amount||0)/p.est_value)*100:0})).sort((a,b)=>b.eq-a.eq)
+      const rows=filtProps.map(p=>({name:p.name,val:propValue(p),debt:p.mortgage_amount||0,eq:propValue(p)-(p.mortgage_amount||0),ltv:propValue(p)?((p.mortgage_amount||0)/propValue(p))*100:0})).sort((a,b)=>b.eq-a.eq)
       const t=rows.reduce((s,r)=>({v:s.v+r.val,d:s.d+r.debt,e:s.e+r.eq}),{v:0,d:0,e:0})
       return { title:'Equity Report', kpis:[['Portfolio value',fmt(t.v)],['Total debt',fmt(t.d)],['Total equity',fmt(t.e)],['Portfolio LTV',t.v>0?fmtPct(t.d/t.v*100):'—']], headers:['Property','Est. Value','Mortgage','Equity','LTV'], rows:rows.map(r=>[r.name,fmt(r.val),fmt(r.debt),fmt(r.eq),r.ltv>0?fmtPct(r.ltv):'—']), totals:['Total',fmt(t.v),fmt(t.d),fmt(t.e),''] }
     }
@@ -1034,7 +1035,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         const m = p.mortgage_rate&&p.mortgage_amount
           ? Math.round(p.mortgage_amount * r12 * Math.pow(1+r12,n) / (Math.pow(1+r12,n) - 1))
           : 0
-        return {name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,term:p.mortgage_term,monthly:m,ltv:p.est_value?((p.mortgage_amount||0)/p.est_value)*100:0}
+        return {name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,term:p.mortgage_term,monthly:m,ltv:propValue(p)?((p.mortgage_amount||0)/propValue(p))*100:0}
       })
       return { title:'Mortgage Portfolio Summary', kpis:[['Total debt',fmt(rows.reduce((s,r)=>s+r.loan,0))],['Monthly repayments',fmt(rows.reduce((s,r)=>s+r.monthly,0))],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Term','Monthly','LTV'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct((r.rate||0)*100),r.term?r.term+'y':'—',fmt(r.monthly),r.ltv>0?fmtPct(r.ltv):'—']) }
     }
@@ -1596,8 +1597,8 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
             : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
           const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
           return [p.name, p.status||'', rent, exp, rent-exp,
-            p.est_value?((p.rent_pcm||0)*12/p.est_value*100).toFixed(2)+'%':'',
-            p.est_value||0, p.mortgage_amount||0]
+            propValue(p)?((p.rent_pcm||0)*12/propValue(p)*100).toFixed(2)+'%':'',
+            propValue(p), p.mortgage_amount||0]
         })
       ]
     }
@@ -1649,7 +1650,7 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
           p.mortgage_rate ? +(p.mortgage_rate*100).toFixed(3) : '',
           p.mortgage_type === 'interest_only' ? 'Interest-only' : 'Repayment',
           p.mortgage_term||'', Math.round(monthly), p.mortgage_expiry||'',
-          p.est_value ? ((p.mortgage_amount||0)/p.est_value*100).toFixed(1) : ''
+          propValue(p) ? ((p.mortgage_amount||0)/propValue(p)*100).toFixed(1) : ''
         ]
       })
     ]
@@ -1684,7 +1685,7 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
       : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
     const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
-    const yield_ = p.est_value ? ((p.rent_pcm||0)*12/p.est_value)*100 : 0
+    const yield_ = propValue(p) ? ((p.rent_pcm||0)*12/propValue(p))*100 : 0
     return { p, rent, exp, net, yield: yield_ }
   }).sort((a,b)=>b.net-a.net)
   const totalRent = rows.reduce((s,r)=>s+r.rent,0)
@@ -2415,8 +2416,8 @@ function ReportCapitalGains({ filtProps, T, accent, fmt }) {
   const rows = filtProps.map(p => ({
     p,
     cost: (p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0),
-    currentValue: p.est_value||0,
-    gain: (p.est_value||0)-((p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0)),
+    currentValue: propValue(p),
+    gain: propValue(p)-((p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0)),
   })).sort((a,b)=>b.gain-a.gain)
   const totalCost = rows.reduce((s,r)=>s+r.cost,0)
   const totalValue = rows.reduce((s,r)=>s+r.currentValue,0)
@@ -2448,13 +2449,13 @@ function ReportCapitalGains({ filtProps, T, accent, fmt }) {
 
 function ReportYieldComparison({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
   const rows = filtProps.map(p => {
-    const grossYield = p.est_value&&p.rent_pcm ? ((p.rent_pcm*12)/p.est_value)*100 : 0
+    const grossYield = propValue(p)&&p.rent_pcm ? ((p.rent_pcm*12)/propValue(p))*100 : 0
     // Use real expenses for this property over the period — falls back
     // to a 20% rule of thumb when no expense rows exist.
     const realCosts = filtExp.filter(e => e.property_id === p.id).reduce((s,e) => s + (e.amount || 0), 0)
     const annualRent = (p.rent_pcm||0) * 12
     const costsForYield = realCosts > 0 ? realCosts : annualRent * 0.2
-    const netYield = p.est_value ? ((annualRent - costsForYield) / p.est_value) * 100 : 0
+    const netYield = propValue(p) ? ((annualRent - costsForYield) / propValue(p)) * 100 : 0
     return { p, grossYield, netYield, costsActual: realCosts > 0 }
   }).sort((a,b)=>b.grossYield-a.grossYield)
   const avg = rows.length ? rows.reduce((s,r)=>s+r.grossYield,0)/rows.length : 0
@@ -2483,7 +2484,7 @@ function ReportYieldComparison({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
           {v:`${i+1}`,color:T.muted},
           r.p.name,
           {v:fmt(r.p.rent_pcm),right:true},
-          {v:fmt(r.p.est_value),right:true},
+          {v:fmt(propValue(r.p)),right:true},
           {v:r.grossYield>0?fmtPct(r.grossYield):'—',color:r.grossYield>=6?T.green:r.grossYield>=4?T.amber:T.red,bold:true,right:true},
           {v:r.netYield>0?fmtPct(r.netYield):'—',color:T.muted,right:true},
         ])}
@@ -2655,10 +2656,10 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
 function ReportEquity({ filtProps, T, accent, fmt, fmtPct }) {
   const rows = filtProps.map(p => ({
     p,
-    value: p.est_value||0,
+    value: propValue(p),
     debt: p.mortgage_amount||0,
-    equity: (p.est_value||0)-(p.mortgage_amount||0),
-    ltv: p.est_value ? ((p.mortgage_amount||0)/(p.est_value||1))*100 : 0,
+    equity: propValue(p)-(p.mortgage_amount||0),
+    ltv: propValue(p) ? ((p.mortgage_amount||0)/propValue(p))*100 : 0,
   })).sort((a,b)=>b.equity-a.equity)
   const totals = rows.reduce((s,r)=>({value:s.value+r.value,debt:s.debt+r.debt,equity:s.equity+r.equity}),{value:0,debt:0,equity:0})
   return (
@@ -2694,7 +2695,7 @@ function ReportMortgagePortfolio({ filtProps, T, accent, fmt, fmtPct }) {
     return {
       p,
       monthly,
-      ltv: p.est_value ? ((p.mortgage_amount||0)/p.est_value)*100 : 0,
+      ltv: propValue(p) ? ((p.mortgage_amount||0)/propValue(p))*100 : 0,
     }
   })
   const totalDebt = rows.reduce((s,r)=>s+r.p.mortgage_amount,0)

@@ -71,6 +71,7 @@ const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModa
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
+import { propValue } from './lib/propertyValue'
 import { isHoldingCompany } from './lib/companyPnl'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
@@ -139,7 +140,7 @@ function calcMonthlyMortgage(p) {
 }
 function calcGrossYield(p, basis='cost') {
   const base = basis==='value'
-    ? (p.current_value||p.est_value||0)
+    ? propValue(p)
     : (p.purchase_price||0)+(p.refurb_cost||0)
   return base&&p.rent_pcm?((p.rent_pcm*12)/base)*100:0
 }
@@ -1605,7 +1606,7 @@ export default function App() {
         case 'rent-low':     return (a.rent_pcm||0)-(b.rent_pcm||0)
         case 'yield-high':   return calcGrossYield(b, yieldBasis)-calcGrossYield(a, yieldBasis)
         case 'arrears':      return (b.arrears||0)-(a.arrears||0)
-        case 'value-high':   return (b.est_value||0)-(a.est_value||0)
+        case 'value-high':   return propValue(b)-propValue(a)
         // Custom: drag positions first; rows never dragged (NULL sort_order)
         // tie at 0, so fall back to natural name order instead of DB order.
         case 'custom':       return ((a.sort_order||0)-(b.sort_order||0)) || natSort(a.name||a.address||'', b.name||b.address||'')
@@ -1658,11 +1659,11 @@ export default function App() {
   // 'let_agreed' does NOT (no tenant has moved in yet).
   const stats = useMemo(()=>({
     totalInvested:       dashProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
-    totalEstVal:         dashProps.reduce((s,p)=>s+(p.est_value||0),0),
+    totalEstVal:         dashProps.reduce((s,p)=>s+propValue(p),0),
     monthlyRent:         dashProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
     totalArrears:        dashProps.reduce((s,p)=>s+(p.arrears||0),0),
     totalMortgage:       dashProps.reduce((s,p)=>s+(p.mortgage_amount||0),0),
-    totalEquity:         dashProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0),
+    totalEquity:         dashProps.reduce((s,p)=>s+propValue(p)-(p.mortgage_amount||0),0),
     monthlyMortgageCost: dashProps.reduce((s,p)=>{
       if(!p.mortgage_rate||!p.mortgage_amount) return s
       const r=p.mortgage_rate/12, n=(p.mortgage_term||25)*12
@@ -1685,7 +1686,7 @@ export default function App() {
     const ps=dashProps.filter(p=>p.company_id===c.id)
     return {...c, count:ps.length,
       invested:    ps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
-      estVal:      ps.reduce((s,p)=>s+(p.est_value||0),0),
+      estVal:      ps.reduce((s,p)=>s+propValue(p),0),
       monthlyRent: ps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
       arrears:     ps.reduce((s,p)=>s+(p.arrears||0),0),
       rented:      ps.filter(p=>isPropertyOccupied(p.status)).length,

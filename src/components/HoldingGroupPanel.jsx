@@ -21,6 +21,7 @@ import { fmt } from '../lib/format'
 import * as api from '../lib/api'
 import { companyEffectiveStakes } from '../lib/companyPnl'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
+import { propValue } from '../lib/propertyValue'
 
 export default function HoldingGroupPanel({ company, companies = [], properties = [], T, canEdit, onUpdateCompany, showToast }) {
   const [shareholders, setShareholders] = useState(null) // null = loading
@@ -57,7 +58,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
       const ps = properties.filter(p => p.company_id === c.id)
       const pct = stakes[c.id]
       const f = pct / 100
-      const estVal = ps.reduce((s, p) => s + (p.est_value || 0), 0)
+      const estVal = ps.reduce((s, p) => s + propValue(p), 0)
       const invested = ps.reduce((s, p) => s + (p.purchase_price || 0) + (p.refurb_cost || 0), 0)
       const monthlyRent = ps.filter(p => isPropertyEarningRent(p.status)).reduce((s, p) => s + (p.rent_pcm || 0), 0)
       return {
