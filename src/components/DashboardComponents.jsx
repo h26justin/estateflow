@@ -4,6 +4,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
+import { propValue } from '../lib/propertyValue'
 import { loadCdnScript } from '../lib/loadCdnScript'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
@@ -188,15 +189,15 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
   const totalExpenses = filteredExp.reduce((s,e)=>s+(e.amount||0),0)
   const netProfit = annualRent - totalExpenses
   const totalMortgage = filteredProps.reduce((s,p)=>s+(p.mortgage_amount||0),0)
-  const totalEquity = filteredProps.reduce((s,p)=>s+(p.est_value||0)-(p.mortgage_amount||0),0)
-  // Only include properties that have a real est_value in the average.
+  const totalEquity = filteredProps.reduce((s,p)=>s+propValue(p)-(p.mortgage_amount||0),0)
+  // Only include properties that have a real value in the average.
   // The previous `v = est_value || 1` fallback was a divide-by-1 disaster
   // for any property with missing valuation — it produced yields like
   // "1,440,000%" (rent × 12 / 1) which then dragged the portfolio average
   // up to nonsense. Exclude rather than mask.
-  const yieldable = filteredProps.filter(p => Number(p.est_value) > 0 && Number(p.rent_pcm) > 0)
+  const yieldable = filteredProps.filter(p => propValue(p) > 0 && Number(p.rent_pcm) > 0)
   const avgYield = yieldable.length > 0
-    ? yieldable.reduce((s,p)=>s+((p.rent_pcm*12)/p.est_value)*100, 0) / yieldable.length
+    ? yieldable.reduce((s,p)=>s+((p.rent_pcm*12)/propValue(p))*100, 0) / yieldable.length
     : 0
 
   // Per-property P&L
@@ -204,7 +205,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
     const rent = isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0
     const exp = filteredExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
     const net = rent - exp
-    const yield_ = p.est_value ? ((p.rent_pcm||0)*12/(p.est_value))*100 : 0
+    const yield_ = propValue(p) ? ((p.rent_pcm||0)*12/propValue(p))*100 : 0
     return {...p, annualRent:rent, expenses:exp, netProfit:net, yield:yield_}
   }).sort((a,b)=>b.netProfit-a.netProfit)
 
@@ -220,7 +221,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       ...propPnL.map(p=>[
         p.name, p.company?.name||'', p.status,
         p.annualRent, p.expenses, p.netProfit,
-        p.yield.toFixed(2)+'%', p.est_value||0, p.mortgage_amount||0
+        p.yield.toFixed(2)+'%', propValue(p), p.mortgage_amount||0
       ])
     ]
     const csvSafe = v => {
@@ -287,7 +288,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       {label:'Annual Rent Income', value:fmt(annualRent), color:green},
       {label:'Total Expenses',     value:fmt(totalExpenses), color:red},
       {label:'Net Profit (Est.)',  value:fmt(netProfit), color: netProfit>=0 ? green : red},
-      {label:'Portfolio Value',    value:fmt(filteredProps.reduce((s,p)=>s+(p.est_value||0),0)), color:gold},
+      {label:'Portfolio Value',    value:fmt(filteredProps.reduce((s,p)=>s+propValue(p),0)), color:gold},
       {label:'Mortgage Debt',      value:fmt(totalMortgage), color:[155,89,182]},
       {label:'Avg Gross Yield',    value:avgYield.toFixed(2)+'%', color:[75,143,224]},
     ]
@@ -544,7 +545,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           {l:'Annual Rent Income',   v:fmt(annualRent),    c:T.green,  sub:`${filteredProps.filter(p=>isPropertyEarningRent(p.status)).length} rented properties`},
           {l:'Total Expenses',       v:fmt(totalExpenses), c:T.red,    sub:`${selectedYear} recorded expenses`},
           {l:'Net Profit (Est.)',    v:fmt(netProfit),     c:netProfit>=0?T.green:T.red, sub:'Before tax'},
-          {l:'Portfolio Value',      v:fmt(filteredProps.reduce((s,p)=>s+(p.est_value||0),0)), c:T.gold, sub:`${filteredProps.length} properties`},
+          {l:'Portfolio Value',      v:fmt(filteredProps.reduce((s,p)=>s+propValue(p),0)), c:T.gold, sub:`${filteredProps.length} properties`},
           {l:'Mortgage Debt',        v:fmt(totalMortgage), c:T.purple, sub:`Equity ${fmt(totalEquity)}`},
           {l:'Average Gross Yield',  v:avgYield.toFixed(2)+'%', c:T.blue, sub:'By estimated value'},
         ].map((item,i)=>(
@@ -811,7 +812,7 @@ export function PortfolioChart({properties, companies}) {
   const yearData = years.map(yr=>{
     const propsToDate = properties // All properties (we don't have exact purchase dates)
     const rent = properties.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
-    return {year:yr, properties:properties.length, monthlyRent:rent, value:properties.reduce((s,p)=>s+(p.est_value||0),0)}
+    return {year:yr, properties:properties.length, monthlyRent:rent, value:properties.reduce((s,p)=>s+propValue(p),0)}
   })
 
   const maxRent = Math.max(...yearData.map(d=>d.monthlyRent),1)
@@ -824,7 +825,7 @@ export function PortfolioChart({properties, companies}) {
         {[
           {l:'Total Properties', v:properties.length, c:T.gold},
           {l:'Monthly Rent Roll', v:fmt(properties.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)), c:T.green},
-          {l:'Est. Portfolio Value', v:`£${(properties.reduce((s,p)=>s+(p.est_value||0),0)/1000000).toFixed(1)}m`, c:T.gold},
+          {l:'Est. Portfolio Value', v:`£${(properties.reduce((s,p)=>s+propValue(p),0)/1000000).toFixed(1)}m`, c:T.gold},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px',textAlign:'center'}}>
             <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.l}</div>
@@ -895,7 +896,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
     const delta   = next - current
     const co      = companies.find(c => c.id === p.company_id)
     const basis   = yieldBasis === 'value'
-      ? (p.current_value || p.est_value || p.purchase_price || 0)
+      ? (propValue(p) || p.purchase_price || 0)
       : (p.purchase_price || 0) + (p.refurb_cost || 0)
     const currentYield = basis > 0 ? (current * 12 / basis) * 100 : 0
     const newYield     = basis > 0 ? (next    * 12 / basis) * 100 : 0
@@ -911,7 +912,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
   // Portfolio yield (weighted by basis)
   const totalBasis = inScope.reduce((s, p) => {
-    if (yieldBasis === 'value') return s + (p.current_value || p.est_value || p.purchase_price || 0)
+    if (yieldBasis === 'value') return s + (propValue(p) || p.purchase_price || 0)
     return s + (p.purchase_price || 0) + (p.refurb_cost || 0)
   }, 0)
   const currentYield = totalBasis > 0 ? (totals.current * 12 / totalBasis) * 100 : 0
