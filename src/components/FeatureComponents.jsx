@@ -20,6 +20,7 @@ import CompanyInboxPanel from './CompanyInboxPanel'
 import InspectionsPanel from './InspectionsPanel'
 import IntegrationsPanel from './IntegrationsPanel'
 import TwoFactorPanel from './TwoFactorPanel'
+import ApiAccessPanel from './ApiAccessPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
@@ -998,6 +999,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             </div>
           </div>
           <TwoFactorPanel T={T}/>
+          <ApiAccessPanel T={T}/>
           <SecurityDataPanel user={user} T={T} showToast={showToast}/>
         </>
       )}
