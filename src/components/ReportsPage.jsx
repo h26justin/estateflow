@@ -6,12 +6,13 @@ import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
-import { isPropertyEarningRent } from '../lib/propertyStatus'
+import { isPropertyEarningRent, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
 import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
+import { buildOwnershipRegister, ownersLabel } from '../lib/ownershipReport'
 import { planToC, fmtCostRange, BELOW_C } from '../lib/epcUpgrade'
 import { EPC_BAND_COLOR } from '../lib/complianceCatalogue'
 
@@ -432,6 +433,7 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     expense_breakdown: <ReportExpenseBreakdown {...props}/>,
     mortgage_interest: <ReportMortgageInterest {...props}/>,
     capital_gains: <ReportCapitalGains {...props}/>,
+    ownership: <ReportPropertyOwnership {...props}/>,
     yield_compare: <ReportYieldComparison {...props}/>,
     occupancy: <ReportOccupancy {...props}/>,
     rent_collect: <ReportRentCollection {...props}/>,
@@ -979,6 +981,39 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const rows = filtProps.map(p=>{const c=(p.purchase_price||0)+(p.refurb_cost||0)+(p.stamp_duty||0)+(p.legal_fees||0);return{name:p.name,cost:c,val:propValue(p),gain:propValue(p)-c}}).sort((a,b)=>b.gain-a.gain)
       const tC=rows.reduce((s,r)=>s+r.cost,0),tV=rows.reduce((s,r)=>s+r.val,0)
       return { title:'Capital Gains Summary', note:'Unrealised gains based on estimated values. Consult your accountant for CGT planning.', kpis:[['Cost base',fmt(tC)],['Portfolio value',fmt(tV)],['Unrealised gain',fmt(tV-tC)]], headers:['Property','Cost Base','Est. Value','Gain','Gain %'], rows:rows.map(r=>[r.name,fmt(r.cost),fmt(r.val),fmt(r.gain),r.cost>0?fmtPct(r.gain/r.cost*100):'—']), totals:['Total',fmt(tC),fmt(tV),fmt(tV-tC),''] }
+    }
+    case 'ownership': {
+      const { companies = [], shareholders = [], selectedCompany = 'all', user } = extras || {}
+      const reg = buildOwnershipRegister({
+        properties: filtProps, companies, shareholders, user,
+        scopeCompanyId: selectedCompany === 'all' ? null : selectedCompany,
+      })
+      const rows = []
+      for (const g of reg.groups) {
+        rows.push([`${g.name} — ${g.count} ${g.count === 1 ? 'property' : 'properties'}`, ownershipShareLabel(g, fmtPct), '', fmt(g.value)])
+        for (const r of g.properties) rows.push([`   ${r.p.name}`, r.p.address || '', ownershipStatusLabel(r), r.value ? fmt(r.value) : '—'])
+      }
+      // Holding companies (and empty ones) hold no title, so they have no
+      // property rows — list them after the register so the PDF carries the
+      // same structure the screen shows.
+      if (reg.otherCompanies.length) {
+        rows.push(['Companies holding no property directly', '', '', ''])
+        for (const c of reg.otherCompanies) {
+          rows.push([`   ${c.name} (${OWNERSHIP_TYPE_LABEL[c.type]})`, ownersLabel(c), ownershipHoldsLabel(c, fmtPct), ''])
+        }
+      }
+      return {
+        title: 'Property Ownership', note: OWNERSHIP_NOTE,
+        kpis: [
+          ['Properties', String(reg.totals.properties)],
+          ['Companies holding property', String(reg.totals.companiesWithProperty)],
+          ['In your own name', String(reg.totals.personallyHeld)],
+          ['Estimated value', fmt(reg.totals.value)],
+        ],
+        headers: ['Property', 'Address', 'Status', 'Est. value'],
+        rows,
+        totals: ['Total', '', '', fmt(reg.totals.value)],
+      }
     }
     case 'yield_compare': {
       const rows = filtProps.map(p=>{const gy=propValue(p)&&p.rent_pcm?((p.rent_pcm*12)/propValue(p))*100:0;return{name:p.name,rent:p.rent_pcm||0,val:propValue(p),gy}}).sort((a,b)=>b.gy-a.gy)
@@ -1618,6 +1653,25 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
           const tot = monthRent.reduce((s,v)=>s+v,0)
           return [p.name, ...monthRent, tot]
         }),
+      ]
+    }
+    case 'ownership': {
+      // Flat — one row per property, owner columns repeated on every row so
+      // the sheet pivots and filters cleanly.
+      const { companies = [], shareholders = [], selectedCompany = 'all', user } = extras || {}
+      const reg = buildOwnershipRegister({
+        properties: filtProps, companies, shareholders, user,
+        scopeCompanyId: selectedCompany === 'all' ? null : selectedCompany,
+      })
+      return [
+        ['Property','Address','Owner','Owner type','Owned by','Your effective share %','Held via','Property type','Status','Archived','Sold','Estimated value','Purchase price','Purchase date'],
+        ...reg.groups.flatMap(g => g.properties.map(r => [
+          r.p.name || '', r.p.address || '', g.name, OWNERSHIP_TYPE_LABEL[g.type], ownersLabel(g),
+          g.sharePct == null ? '' : g.sharePct, g.via.join(' + '),
+          r.p.prop_type || '', PROPERTY_STATUS_LABELS[r.p.status] || r.p.status || '',
+          r.archived ? 'Yes' : 'No', r.sold ? 'Yes' : 'No',
+          r.value || 0, r.p.purchase_price || 0, r.p.purchase_date || '',
+        ])),
       ]
     }
     case 'compliance': return [
@@ -2443,6 +2497,126 @@ function ReportCapitalGains({ filtProps, T, accent, fmt }) {
           {v:r.cost>0?fmtPct((r.gain/r.cost)*100):'—',color:r.gain>=0?T.green:T.red,right:true},
         ])}
       />
+    </>
+  )
+}
+
+// ── PROPERTY OWNERSHIP ────────────────────────────────────────────────────────
+const OWNERSHIP_NOTE = 'Ownership is a point-in-time fact, not a period figure — the year selector does not change these numbers. Sold and archived properties stay listed (and flagged) so the register reconciles against your fixed-asset note. "Your share" is your effective shareholding in the company that holds the property, counting stakes held through a holding company.'
+
+// Owner-line for a group header row: the viewer's effective share where one
+// can be traced, otherwise the cap table.
+function ownershipShareLabel(g, fmtPct) {
+  if (g.type === 'personal') return 'Held in your own name'
+  if (g.sharePct == null) return ownersLabel(g)
+  return `Your share ${fmtPct(g.sharePct, 2)}` + (g.via.length ? ` (via ${g.via.join(' + ')})` : '')
+}
+
+// "Rented", "Sold", "Vacant · archived" — the register flags disposals and
+// archived rows rather than hiding them.
+function ownershipStatusLabel(r) {
+  const base = PROPERTY_STATUS_LABELS[r.p.status] || r.p.status || '—'
+  return r.archived ? `${base} · archived` : base
+}
+
+const OWNERSHIP_TYPE_LABEL = { personal: 'Personal', holding: 'Holding co', operating: 'Company' }
+
+// What a holding company holds, one line: "OpCo 60.00%, OtherCo 25.00%".
+function ownershipHoldsLabel(c, fmtPct) {
+  if (!c.holds.length) return 'Nothing on the account'
+  return c.holds.map(h => `${h.name} ${fmtPct(h.pct, 2)}`).join(', ')
+}
+
+function ReportPropertyOwnership({ filtProps, companies, shareholders, selectedCompany, user, T, accent, fmt, fmtPct }) {
+  const scopeCompanyId = selectedCompany === 'all' ? null : selectedCompany
+  const { groups, otherCompanies, totals } = useMemo(
+    () => buildOwnershipRegister({ properties: filtProps, companies, shareholders, user, scopeCompanyId }),
+    [filtProps, companies, shareholders, user, scopeCompanyId])
+
+  // Property table: a bold company row, then that company's properties
+  // indented beneath it — same grouped shape the Full Portfolio P&L uses.
+  const propRows = []
+  for (const g of groups) {
+    propRows.push([
+      { v: `${g.name} — ${g.count} ${g.count === 1 ? 'property' : 'properties'}`, bold: true, color: accent },
+      { v: ownershipShareLabel(g, fmtPct), color: T.muted },
+      '',
+      { v: fmt(g.value), bold: true },
+    ])
+    for (const r of g.properties) {
+      const dim = r.sold || r.archived
+      propRows.push([
+        { v: `    ${r.p.name}`, color: dim ? T.muted : T.text },
+        { v: r.p.address || '—', color: T.muted },
+        { v: ownershipStatusLabel(r), color: dim ? T.muted : T.text },
+        { v: r.value ? fmt(r.value) : '—', color: dim ? T.muted : T.text },
+      ])
+    }
+  }
+
+  return (
+    <>
+      <div style={{background:T.blue+'18',border:`1px solid ${T.blue}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6}}>
+        {OWNERSHIP_NOTE}
+      </div>
+
+      <StatCards T={T} items={[
+        {label:'Properties',value:String(totals.properties),color:T.text,
+         sub: totals.sold || totals.archived
+           ? [totals.sold?`${totals.sold} sold`:null, totals.archived?`${totals.archived} archived`:null].filter(Boolean).join(' · ')
+           : null},
+        {label:'Companies holding property',value:String(totals.companiesWithProperty),color:accent},
+        {label:'In your own name',value:String(totals.personallyHeld),color:totals.personallyHeld?T.amber:T.muted,
+         sub: totals.personallyHeld ? 'No company on the record' : null},
+        {label:'Estimated value',value:fmt(totals.value),color:T.text},
+      ]}/>
+
+      {groups.length === 0 && otherCompanies.length === 0 && (
+        <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12}}>
+          No properties to show.
+        </div>
+      )}
+
+      {groups.length > 0 && (
+        <>
+          <SectionTitle title="Who owns what" T={T}/>
+          <ReportTable T={T} accent={accent}
+            headers={[{label:'Owner'},{label:'Type',width:'110px'},{label:'Properties',right:true,width:'100px'},{label:'Owned by'},{label:'Your share',right:true,width:'150px'},{label:'Est. value',right:true,width:'130px'}]}
+            rows={groups.map(g=>[
+              {v:g.name,bold:true},
+              {v:OWNERSHIP_TYPE_LABEL[g.type],color:T.muted},
+              {v:String(g.count),right:true},
+              {v:ownersLabel(g),color:T.muted},
+              {v:g.sharePct==null?'—':fmtPct(g.sharePct,2)+(g.via.length?` via ${g.via.join(' + ')}`:''),color:g.sharePct==null?T.muted:T.text,right:true},
+              {v:fmt(g.value),right:true},
+            ])}
+            totals={['Total','',String(totals.properties),'','',fmt(totals.value)]}
+          />
+
+          <SectionTitle title="Every property, by owner" T={T}/>
+          <ReportTable T={T} accent={accent}
+            headers={[{label:'Property'},{label:'Address'},{label:'Status',width:'150px'},{label:'Est. value',right:true,width:'130px'}]}
+            rows={propRows}
+            totals={['Total','','',fmt(totals.value)]}
+          />
+        </>
+      )}
+
+      {otherCompanies.length > 0 && (
+        <>
+          <SectionTitle title="Companies holding no property directly" T={T}/>
+          <ReportTable T={T} accent={accent}
+            headers={[{label:'Company'},{label:'Type',width:'110px'},{label:'Owned by'},{label:'Holds'},{label:'Your share',right:true,width:'150px'}]}
+            rows={otherCompanies.map(c=>[
+              {v:c.name,bold:true},
+              {v:OWNERSHIP_TYPE_LABEL[c.type],color:T.muted},
+              {v:ownersLabel(c),color:T.muted},
+              {v:ownershipHoldsLabel(c,fmtPct),color:T.muted},
+              {v:c.sharePct==null?'—':fmtPct(c.sharePct,2)+(c.via.length?` via ${c.via.join(' + ')}`:''),color:c.sharePct==null?T.muted:T.text,right:true},
+            ])}
+          />
+        </>
+      )}
     </>
   )
 }
