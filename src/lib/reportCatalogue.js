@@ -17,6 +17,7 @@ export const REPORT_CATALOGUE = [
   { id:'expense_breakdown', cat:'tax',    icon:'receipt', name:'Expense breakdown',            desc:'All expenses by category, ready for your accountant' },
   { id:'mortgage_interest', cat:'tax',    icon:'landmark', name:'Mortgage interest summary',    desc:'Total interest paid per property — Section 24 tax credit' },
   { id:'capital_gains', cat:'tax',        icon:'trending-up', name:'Capital gains summary',        desc:'Purchase cost vs current value, unrealised gain per property' },
+  { id:'ownership',     cat:'performance',icon:'building', name:'Property ownership',           desc:'Every property and the company that holds it — who owns that company, your effective share, and anything held in your own name' },
   { id:'yield_compare', cat:'performance',icon:'target', name:'Yield comparison',             desc:'Gross and net yield ranked across all properties' },
   { id:'occupancy',     cat:'performance',icon:'home', name:'Occupancy rate',               desc:'Portfolio occupancy %, vacant days, void cost by property' },
   { id:'rent_collect',  cat:'performance',icon:'pound', name:'Rent collection rate',         desc:'% collected on time, late and missed payments by property' },
