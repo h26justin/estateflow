@@ -103,11 +103,19 @@ export async function exportDealPdf({ deal, company }) {
 
   // ── primitives ─────────────────────────────────────────────────────────
   const ensure = (h) => { if (y + h > H - FOOT - 4) { doc.addPage(); y = M } }
-  const text = (s, x, yy, opts = {}) => doc.text(String(s ?? ''), x, yy, opts)
+  // The built-in Helvetica only has Latin-1 glyphs; anything outside it
+  // (✦ on a milestone label, emoji in a caption) prints as stray characters.
+  const clean = (s) => String(s ?? '')
+    .replace(/[\u2013\u2014]/g, '-').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, '...').replace(/\u2022/g, '-')
+    .replace(/[^\u0009\u000A\u0020-\u007E\u00A0-\u00FF]/g, '').replace(/ {2,}/g, ' ').trim()
+  const text = (s, x, yy, opts = {}) => doc.text(clean(s), x, yy, opts)
   const setFont = (size, style = 'normal', color = INK) => { doc.setFontSize(size); doc.setFont('helvetica', style); doc.setTextColor(...color) }
 
   function sectionTitle(title) {
-    ensure(14)
+    // Title plus at least three rows, so a heading never sits alone at the
+    // foot of a page.
+    ensure(30)
     y += 3
     setFont(8.5, 'bold', MUTED)
     text(title.toUpperCase(), M, y)
@@ -128,7 +136,7 @@ export async function exportDealPdf({ deal, company }) {
 
   function paragraph(s, size = 9.5, color = INK) {
     setFont(size, 'normal', color)
-    const lines = doc.splitTextToSize(String(s), CW)
+    const lines = doc.splitTextToSize(clean(s), CW)
     for (const ln of lines) { ensure(5); text(ln, M, y); y += 4.6 }
     y += 2
   }
