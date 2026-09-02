@@ -76,6 +76,7 @@ import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPro
 import { propValue } from './lib/propertyValue'
 import { isHoldingCompany } from './lib/companyPnl'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
+import { normaliseQuery, matchesQuery } from './lib/propertySearch'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
 import { complianceStatusFor, complianceBadge, propertyComplianceSummary } from './lib/complianceStatus'
 import { canonicalCertType } from './lib/complianceCatalogue'
@@ -1501,7 +1502,9 @@ export default function App() {
       if(!showArchived && p.archived_at) return false
       if(coFilter!=='all'&&p.company_id!==coFilter) return false
       if(statusFilter!=='all'&&p.status!==statusFilter) return false
-      if(searchQ&&!(p.name||'').toLowerCase().includes(searchQ.toLowerCase())&&!(p.address||'').toLowerCase().includes(searchQ.toLowerCase())) return false
+      // Name, address, building, unit, company and tenant name — every
+      // whitespace-separated token must match somewhere (lib/propertySearch).
+      if(searchQ&&!matchesQuery(p, searchQ)) return false
       return true
     })
     // Sort
@@ -3392,7 +3395,11 @@ export default function App() {
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
-              <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search name or address…" style={{flex:'1 1 200px',minWidth:0,maxWidth:'100%',width:'auto',padding:'7px 12px',fontSize:12}}/>
+              <div style={{flex:'1 1 220px',minWidth:0,maxWidth:'100%',position:'relative',display:'flex',alignItems:'center'}}>
+                <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} aria-label="Search properties" placeholder="Search name, address, building, unit or tenant…" style={{flex:1,minWidth:0,width:'auto',padding:'7px 30px 7px 12px',fontSize:12}}/>
+                {searchQ&&<button type="button" onClick={()=>setSearchQ('')} aria-label="Clear search" title="Clear search"
+                  style={{position:'absolute',right:6,background:'transparent',border:'none',cursor:'pointer',color:T.muted,fontSize:14,lineHeight:1,padding:'2px 4px'}}>×</button>}
+              </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
                   <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
@@ -4522,6 +4529,35 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   // to focus on a subset; identical UX to the dashboard's dashCoFilter.
   const [coFilter, setCoFilter] = useState([])
 
+  // Search + optional filters (Rent Tracker stage 1). The text search uses
+  // the shared matcher in lib/propertySearch (name, address, building,
+  // unit, company, tenant name); status and arrears narrow further.
+  // Tenancy status / payment source / payment plan / benefit type filters
+  // are later stages and will sit alongside these.
+  const [searchQ, setSearchQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [arrearsOnly, setArrearsOnly] = useState(false)
+  const hasQuery = normaliseQuery(searchQ).length > 0
+  const narrowing = hasQuery || statusFilter !== 'all' || arrearsOnly
+  function clearSearchAndFilters() { setSearchQ(''); setStatusFilter('all'); setArrearsOnly(false) }
+
+  // Properties the tracker shows at all: anything with payment history or
+  // currently earning rent (the pre-existing rule, now applied once).
+  const trackedProps = useMemo(
+    () => properties.filter(p => p.rent_payments?.length>0 || isPropertyEarningRent(p.status)),
+    [properties],
+  )
+  const visibleProps = useMemo(() => {
+    const tokens = normaliseQuery(searchQ)
+    return trackedProps.filter(p =>
+      (statusFilter === 'all' || p.status === statusFilter) &&
+      (!arrearsOnly || (Number(p.arrears)||0) > 0) &&
+      matchesQuery(p, tokens))
+  }, [trackedProps, searchQ, statusFilter, arrearsOnly])
+  // Company pills on top of that
+  const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
+  const shownProps = visCos.flatMap(c => visibleProps.filter(p => p.company_id===c.id))
+
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
   const allYears = [...new Set(allPayments.map(p=>p.year))].sort()
@@ -4616,10 +4652,46 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       {showBankConnect && <BankConnectionsModal onClose={()=>setShowBankConnect(false)}/>}
       {showBankInbox && <BankInboxModal onClose={()=>{setShowBankInbox(false); onRefresh?.()}} properties={properties} onMatched={onRefresh}/>}
 
-      {/* Portfolio rent summary tiles (respects the company filter + year) */}
+      {/* Search + filters. Same input / pill styling as the Portfolio view. */}
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:narrowing?8:18}}>
+        <div style={{flex:'1 1 240px',minWidth:0,maxWidth:'100%',position:'relative',display:'flex',alignItems:'center'}}>
+          <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} aria-label="Search rent tracker"
+            placeholder={isMobile ? 'Search properties or tenants…' : 'Search name, address, building, unit or tenant…'}
+            style={{flex:1,minWidth:0,width:'auto',padding:'8px 30px 8px 12px',fontSize:12}}/>
+          {searchQ&&<button type="button" onClick={()=>setSearchQ('')} aria-label="Clear search" title="Clear search"
+            style={{position:'absolute',right:6,background:'transparent',border:'none',cursor:'pointer',color:T.muted,fontSize:14,lineHeight:1,padding:'2px 4px'}}>×</button>}
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+          {isMobile ? (
+            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} aria-label="Filter by property status"
+              style={{fontFamily:MONO,fontSize:11,padding:'6px 10px',borderRadius:20,border:`1px solid ${statusFilter==='all'?T.border:T.gold}`,
+                background:statusFilter==='all'?'transparent':T.gold+'22',color:statusFilter==='all'?T.muted:T.gold,cursor:'pointer'}}>
+              <option value="all">All Status</option>
+              {PROPERTY_STATUSES.map(f=><option key={f} value={f}>{PROPERTY_STATUS_LABELS[f] || f}</option>)}
+            </select>
+          ) : ['all', ...PROPERTY_STATUSES].map(f=>(
+            <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
+          ))}
+          <div style={{width:1,alignSelf:'stretch',background:T.border,margin:'0 2px'}}/>
+          <button onClick={()=>setArrearsOnly(v=>!v)} aria-pressed={arrearsOnly} title="Only show properties with arrears"
+            style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+              border:`1px solid ${arrearsOnly?T.red:T.border}`,background:arrearsOnly?T.red+'22':'transparent',color:arrearsOnly?T.red:T.muted,fontWeight:arrearsOnly?700:400}}>
+            {arrearsOnly?'✓ ':''}⚠ Arrears
+          </button>
+          {/* Later stages: tenancy status / payment source / payment plan / benefit type filters go here. */}
+        </div>
+      </div>
+      {narrowing && (
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:14,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+          <span>{shownProps.length} of {trackedProps.length} properties match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
+          <button type="button" onClick={clearSearchAndFilters}
+            style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.gold,padding:0,textDecoration:'underline'}}>Clear</button>
+        </div>
+      )}
+
+      {/* Portfolio rent summary tiles (respects the company filter, search, status / arrears filters + year) */}
       {(() => {
-        const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
-        const visProps = visCos.flatMap(c => properties.filter(p => p.company_id===c.id && (p.rent_payments?.length>0 || isPropertyEarningRent(p.status))))
+        const visProps = shownProps
         if (!visProps.length) return null
         const agg = visProps.reduce((a,p)=>{ const s=getStats(p.rent_payments||[], globalYear, p.rent_pcm); a.paid+=s.paid; a.paidToDate+=s.paidToDate; a.missed+=s.missed; a.late+=s.late; a.voidM+=s.voidM; a.income+=s.income; return a }, {paid:0,paidToDate:0,missed:0,late:0,voidM:0,income:0})
         // Collection rate counts VOID months against the portfolio: of every
@@ -4683,12 +4755,15 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         </div>
       )}
 
-      {/* Companies — filtered by the pill row above */}
-      {(coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))).map(c=>{
-        const cps = properties.filter(p=>p.company_id===c.id&&(p.rent_payments?.length>0||isPropertyEarningRent(p.status)))
+      {/* Companies — filtered by the pill row above, then by search / status / arrears */}
+      {visCos.map(c=>{
+        const cps = visibleProps.filter(p=>p.company_id===c.id)
         if (!cps.length) return null
         const totals = getCompanyTotals(cps, globalYear)
-        const isOpen = expandedCompanies[c.id] !== false // default open
+        // Default open; while a search is active every company with a
+        // match is forced open so results are never hidden in a collapsed
+        // accordion.
+        const isOpen = hasQuery || expandedCompanies[c.id] !== false
 
         return (
           <div key={c.id} style={{marginBottom:20}}>
@@ -4818,11 +4893,25 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
                                   <span style={{fontSize:13,fontWeight:600}}>
                                     {/* When grouped under a building, drop the redundant
-                                        building suffix from each row's display name. */}
-                                    {isBuilding ? (p.name.split(',')[0].trim() || p.name) : p.name}
+                                        building suffix from each row's display name —
+                                        unless a search is active, when the full name is
+                                        what tells "Flat 1" apart from its namesakes. */}
+                                    {isBuilding && !hasQuery ? (p.name.split(',')[0].trim() || p.name) : p.name}
                                   </span>
+                                  {hasQuery && p.company && (
+                                    <span title={p.company.name}
+                                      style={{fontFamily:MONO,fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:10,
+                                        border:`1px solid ${(p.company.color||T.gold)}55`,background:(p.company.color||T.gold)+'22',color:p.company.color||T.gold}}>
+                                      {p.company.abbr || p.company.name}
+                                    </span>
+                                  )}
                                   {(p.arrears||0)>0&&<span style={{fontFamily:MONO,fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
                                 </div>
+                                {hasQuery && (p.address || p.tenant_name) && (
+                                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:3,overflowWrap:'anywhere'}}>
+                                    {p.address}{p.address && p.tenant_name ? ' · ' : ''}{p.tenant_name ? `Tenant: ${p.tenant_name}` : ''}
+                                  </div>
+                                )}
                                 <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>
                                   {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                                 </div>
@@ -4860,10 +4949,24 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         )
       })}
 
-      {companies.every(c=>!properties.some(p=>p.company_id===c.id))&&
+      {/* Empty / no-results states */}
+      {properties.length === 0 ? (
         <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
-          No properties found.
-        </div>}
+          No properties yet. Add a property on the Portfolio view to start tracking rent.
+        </div>
+      ) : trackedProps.length === 0 ? (
+        <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
+          No properties are tracking rent yet. Set a property to Rented or log a payment and it will appear here.
+        </div>
+      ) : shownProps.length === 0 && (
+        <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
+          {hasQuery ? <>No properties match <span style={{color:T.text}}>"{searchQ.trim()}"</span></> : 'No properties match these filters'}
+          {coFilter.length > 0 ? ' in the selected companies.' : '.'}
+          {narrowing && (
+            <><br/><button type="button" className="btn btn-ghost" style={{fontSize:11,marginTop:12}} onClick={clearSearchAndFilters}>Clear search &amp; filters</button></>
+          )}
+        </div>
+      )}
 
       {showRentReview && (
         <RentReviewModal
