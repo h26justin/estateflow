@@ -81,6 +81,8 @@ export function propertySearchText(p) {
     p.company?.abbr || '',
     p.tenant_name || '',
     ...collectField(p.tenancy_details, 'tenant_names'),
+    ...collectField(p.tenancies, 'tenant_name'),
+    ...collectField(p.tenancies, 'tenant_ref'),
     // Tenant reference / ID, if any such field is present on the row. There
     // is no such column today; this is a forward hook for later stages.
     p.tenant_reference || p.tenant_ref || p.tenant_id || '',
