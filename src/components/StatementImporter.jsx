@@ -13,6 +13,7 @@ import { loadCdnScript } from '../lib/loadCdnScript'
 import { naturalCompare } from '../lib/addressUtils'
 import { sourceRef } from '../lib/csvImport'
 import { findOverlappingPaid, periodsIntersect } from '../lib/rentStats'
+import { parseLooseDate } from '../lib/tenancyUtils'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
@@ -276,6 +277,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
             continue
           }
 
+          let periodRowId = existing?.id || null
           if (existing) {
             undo.push({ table: 'rent_payments', id: existing.id, status: existing.status, amount: existing.amount,
                         period_start: existing.period_start, period_end: existing.period_end,
@@ -288,19 +290,35 @@ export function StatementImporter({properties, companies, showToast, onClose, as
             if (error) throw error
             updated++
           } else {
-            const { error } = await supabase.from('rent_payments').insert({
+            const { data: ins, error } = await supabase.from('rent_payments').insert({
               property_id: item.propertyId, user_id: user.id,
               month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount,
               period_start: periodStart, period_end: periodEnd,
               source_ref: ref, ...(batch ? { import_batch_id: batch.id } : {}),
-            })
+            }).select('id').single()
             if (error) {
               if (error.code === '23505') { results.skipped++; continue }
               throw error
             }
+            periodRowId = ins?.id || null
             created++
           }
           results.rent++
+          // The statement line is also a RECEIPT: dated money allocated to the
+          // period, so the traffic-light engine and the collection rate read
+          // it directly. Same source_ref, so a re-import is refused by the
+          // unique index rather than duplicated.
+          try {
+            const received = parseLooseDate(parsed?.date) || periodEnd
+            await api.createReceipt({
+              property_id: item.propertyId, company_id: companyId, received_date: received,
+              amount: item.editAmount, payer: 'tenant', source: 'statement', source_ref: ref,
+              import_batch_id: batch?.id || null, reference: `${format || 'Agent'} statement ${stmtKey}`,
+              notes: item.tenant ? `Tenant on statement: ${item.tenant}` : null,
+            }, periodRowId ? [{ target: 'current_rent', rent_payment_id: periodRowId, amount: item.editAmount }] : [], { allowUnallocated: !periodRowId })
+          } catch (e) {
+            if (!/already been recorded/i.test(e.message || '')) results.errors.push(`${item.propertyName}: rent logged but the receipt could not be recorded (${e.message})`)
+          }
         }
 
         if (item.type === 'fee') {

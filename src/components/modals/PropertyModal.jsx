@@ -116,7 +116,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     // payload for the save handler to persist into compliance_items.
     const {
       company, compliance_items, tenancy, maintenance_jobs, rent_payments,
-      refurb_phases, refurb_costs, documents, stl_bookings, tenancies, rent_receipts, non_chargeable_periods, rent_overrides, is_cash,
+      refurb_phases, refurb_costs, documents, stl_bookings, tenancies, rent_receipts, non_chargeable_periods, rent_overrides, payment_plans, is_cash,
       gas_safety_expiry, eicr_expiry, epc_expiry, smoke_alarm_checked,
       ...clean
     } = form

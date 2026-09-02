@@ -9,6 +9,7 @@ import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollec
 import { canDo } from './lib/permissions'
 import { propertyNeedsTenancy } from './lib/tenancyUtils'
 import { evaluateProperty, groupByMonth, collectionStats, arrearsSummary, portfolioStats, STATE_LABEL, GO_LIVE } from './lib/rentEngine'
+import { activePlan } from './lib/paymentPlans'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -39,6 +40,8 @@ import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/Dash
 import TenantInbox from './components/TenantInbox'
 import TenancyPanel from './components/TenancyPanel'
 import ReceiptsPanel from './components/ReceiptsPanel'
+import ArrearsPanel from './components/ArrearsPanel'
+import ReviewQueuePanel from './components/ReviewQueuePanel'
 // Heavy / rarely-on-first-paint pages — code-split via React.lazy so they
 // don't bloat the initial bundle. Each one drops into its own chunk and
 // only fetches when the user navigates there.
@@ -577,7 +580,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, propert
         const eng = m.eng && m.eng.state !== 'future' ? m.eng : null
         const pair = eng ? enginePair(eng, darkMode) : (isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : rentStatusPair(m.status, darkMode))
         const name = MONTH_NAMES[(m.month||1)-1]
-        const statusLabel = isFuture ? 'future' : eng ? `${STATE_LABEL[eng.state]}${eng.needsBackfill ? ', needs backfill' : ''}${eng.override ? ', overridden' : ''}` : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
+        const statusLabel = isFuture ? 'future' : eng ? `${STATE_LABEL[eng.state]}${eng.needsBackfill ? ', needs backfill' : ''}${eng.override ? ', overridden' : ''}${eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) ? ', payment plan' : ''}` : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
         const isGrey = eng && eng.state === 'not_collectible'
         const isLegacy = eng && eng.state === 'legacy'
         const boxStyle = isFuture
@@ -605,6 +608,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, propert
             <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
             {eng?.needsBackfill && <span aria-hidden="true" style={{position:'absolute',top:2,right:3,width:6,height:6,borderRadius:'50%',background:'#E0943A'}}/>}
             {eng?.override && <span aria-hidden="true" style={{position:'absolute',bottom:2,right:3,width:6,height:6,borderRadius:'50%',border:`1.5px solid ${pair.text}`}}/>}
+            {eng && eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) && <span aria-hidden="true" title="Historic arrears on a payment plan" style={{position:'absolute',top:2,left:3,width:6,height:6,borderRadius:'50%',background:'#4B8FE0'}}/>}
           </button>
         )
       })}
@@ -4676,6 +4680,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
   const allYears = [...new Set(allPayments.map(p=>p.year))].sort()
   const [globalYear, setGlobalYear] = useState(() => defaultRentYear(allPayments))
+  const [showReview, setShowReview] = useState(false)
   const [expandedCompanies, setExpandedCompanies] = useState({})
 
   function toggleCompany(id) {
@@ -4705,7 +4710,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:STL_COLOR,l:'STL'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible'},{c:STL_COLOR,l:'Short-term let'},{c:T.blue,l:'Payment plan (dot)'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
                 <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
               </span>
@@ -4847,6 +4852,20 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           </div>
         )
       })()}
+
+      {/* Receipts awaiting a human decision (Stage 5) */}
+      {(() => {
+        const pending = shownProps.flatMap(p => p.rent_receipts || []).filter(r => r.review_status === 'needs_review')
+        if (!pending.length) return null
+        return (
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,padding:'10px 14px',border:`1px solid ${T.amber}55`,background:T.amber+'12',borderRadius:12}}>
+            <span style={{fontFamily:MONO,fontSize:11,color:T.amber,fontWeight:700}}>{pending.length} receipt{pending.length===1?'':'s'} to review</span>
+            <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>unallocated money or possible duplicates, held until someone decides</span>
+            <button className="btn btn-gold" style={{fontSize:11,marginLeft:'auto'}} onClick={()=>setShowReview(true)}>Review</button>
+          </div>
+        )
+      })()}
+      {showReview && <ReviewQueuePanel companies={visCos} properties={shownProps} companyIds={visCos.map(c=>c.id)} canEdit={visCos.some(c=>canEditRent?.(c.id))} showToast={showToast} onClose={()=>setShowReview(false)} onChanged={onRefresh}/>}
 
       {/* Company filter pills (only render if there's more than one
           company to choose from — saves vertical space for solo landlords) */}
@@ -5196,7 +5215,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:STL_COLOR,l:'STL'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible'},{c:STL_COLOR,l:'Short-term let'},{c:T.blue,l:'Payment plan (dot)'}].map(x=>(
             <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>
@@ -5240,6 +5259,9 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
           </div>
         </div>
       </div>}
+
+      {/* Arrears in three figures + payment plan (Stage 5) */}
+      <ArrearsPanel property={selected} showToast={showToast} canEdit={canEdit} onChanged={pl=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,payment_plans:pl}:p))}/>
 
       {/* Receipts: dated cash events with allocations (Stage 2) */}
       <ReceiptsPanel property={selected} tenancies={selected.tenancies} showToast={showToast} canEdit={canEdit} onChanged={r=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,rent_receipts:r}:p))}/>
