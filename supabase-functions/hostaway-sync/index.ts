@@ -293,6 +293,36 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
     const total = toNum(r.totalPrice)
     const isActive = ACTIVE_STATUSES.has(r.status) && !r.cancellationDate
 
+    // Fee lines: Hostaway returns reservationFees (guest-facing fee items) and
+    // financeField (the financial breakdown incl. the host channel fee) when
+    // includeResources=1 is requested. Keep both raw, and derive the channel
+    // fee from financeField when channelCommissionAmount is not populated
+    // (Airbnb host-only fee reservations).
+    const financeField = Array.isArray(r.financeField) ? r.financeField : null
+    const reservationFees = Array.isArray(r.reservationFees) ? r.reservationFees : null
+    const feeFromFinance = (re: RegExp): number | null => {
+      if (!financeField) return null
+      let found = false, sum = 0
+      for (const f of financeField) {
+        const label = `${f?.type ?? ''} ${f?.name ?? ''} ${f?.title ?? ''} ${f?.alias ?? ''}`
+        if (re.test(label)) { const v = toNum(f?.value ?? f?.amount ?? f?.total); if (v != null) { sum += Math.abs(v); found = true } }
+      }
+      return found ? sum : null
+    }
+    // Raw financial fields from the reservation object (docs: hostChannelFee,
+    // guestChannelFee, airbnbPayoutSum, totalPriceFromChannel, refundSum...).
+    const finance: Record<string, unknown> = {}
+    for (const k of ['channelCommissionAmount','hostawayCommissionAmount','hostChannelFee','guestChannelFee','airbnbPayoutSum','airbnbExpectedPayoutAmount','airbnbListingHostFee','totalPriceFromChannel','otaPaymentProcessingFee','paymentServiceProcessingFee','refundSum','cancellationHostFee','cancellationPayout','damageDeposit','securityDepositFee','cleaningFee','taxAmount','totalPaid','remainingBalance','isPaid','paymentStatus','airbnbPassThroughTax','airbnbTransientOccupancyTax']) {
+      if (r[k] !== undefined && r[k] !== null) finance[k] = r[k]
+    }
+    const airbnbPayout = toNum(r.airbnbPayoutSum) ?? toNum(r.airbnbExpectedPayoutAmount)
+    const channelFee = toNum(r.channelCommissionAmount)
+      ?? toNum(r.hostChannelFee)
+      ?? toNum(r.airbnbListingHostFee)
+      ?? (airbnbPayout != null && total != null && airbnbPayout > 0 && airbnbPayout <= total ? Math.round((total - airbnbPayout) * 100) / 100 : null)
+      ?? feeFromFinance(/host.?channel.?fee|channel.?commission|airbnb.?(host|service).?fee|booking\.?com.?commission|vrbo.?fee|expedia.?commission/i)
+    const hostawayFee = toNum(r.hostawayCommissionAmount) ?? feeFromFinance(/hostaway.?(commission|fee)/i)
+
     const { data: row, error: upErr } = await admin.from('stl_bookings').upsert({
       provider: 'hostaway',
       hostaway_connection_id: conn.id,
@@ -311,12 +341,12 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
       // Platform fees, so the Short-Term Let Income page can show what
       // actually comes to us. Airbnb deducts its fee before paying out;
       // Booking.com invoices its commission separately. Both are reported here.
-      channel_commission: toNum(r.channelCommissionAmount),
-      hostaway_commission: toNum(r.hostawayCommissionAmount),
+      channel_commission: channelFee,
+      hostaway_commission: hostawayFee,
       cleaning_fee: toNum(r.cleaningFee),
       tax_amount: toNum(r.taxAmount),
       payment_status: r.paymentStatus || null,
-      fee_lines: Array.isArray(r.reservationFees) ? r.reservationFees : (Array.isArray(r.financeField) ? r.financeField : null),
+      fee_lines: (financeField || reservationFees || Object.keys(finance).length) ? { financeField, reservationFees, finance } : null,
       financials_synced_at: new Date().toISOString(),
       synced_at: new Date().toISOString(),
     }, { onConflict: 'hostaway_connection_id,hostaway_reservation_id' }).select().single()
