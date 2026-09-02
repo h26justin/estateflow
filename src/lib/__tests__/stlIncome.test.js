@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isRevenueBooking, channelLabel, bookingNights, summariseStl, ytd, periodRange, periodDays,
-  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, bookingMatches,
-} from '../stlIncome'
+  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange } from '../stlIncome'
 
 const bk = (over = {}) => ({
   id: 'b1', property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
@@ -206,5 +205,54 @@ describe('display helpers', () => {
     expect(bookingMatches(bk({ source: 'Direct site' }), 'direct')).toBe(true)
     expect(bookingMatches(bk(), 'nobody')).toBe(false)
     expect(bookingMatches(bk(), '')).toBe(true)
+  })
+})
+
+describe('platform fees and manager payouts', () => {
+  const bk = (id, pid, source, arrival, total, channelFee, hostawayFee = 0) => ({ id, property_id: pid, source, status: 'new', arrival, departure: arrival.slice(0, 8) + String(Number(arrival.slice(8, 10)) + 2).padStart(2, '0'), total_amount: total, channel_commission: channelFee, hostaway_commission: hostawayFee })
+  const bookings = [
+    bk('a', 'p1', 'Airbnb', '2026-08-03', 200, 6),         // deducted at source
+    bk('b', 'p1', 'Booking.com', '2026-08-05', 300, 45),    // invoiced separately
+    bk('c', 'p2', 'Airbnb', '2026-08-10', 100, 3),
+    { id: 'd', property_id: 'p2', source: 'Airbnb', status: 'new', arrival: '2026-08-12', departure: '2026-08-13', total_amount: 80 }, // fees not yet synced
+  ]
+  it('splits fees by whether the channel deducts at source', () => {
+    const s = summariseStl(bookings, [], { from: '2026-08-01', to: '2026-08-31' })
+    expect(s.gross).toBe(680); expect(s.platformFees).toBe(54); expect(s.channelFees).toBe(54)
+    expect(s.feesDeducted).toBe(9); expect(s.feesInvoiced).toBe(45)
+    expect(s.netAfterFees).toBe(626); expect(s.payoutReceived).toBe(671); expect(s.net).toBe(626)
+    expect(s.feesKnown).toBe(3)
+    const bcom = s.byChannel.find(c => c.channel === 'Booking.com')
+    expect(bcom.fees).toBe(45); expect(bcom.feeRate).toBe(15); expect(bcom.deductedAtSource).toBe(false)
+    expect(s.months.find(m => m.key === '2026-08').fees).toBe(54)
+  })
+  it('booking helpers', () => {
+    expect(bookingFees(bookings[0])).toEqual({ channel: 6, hostaway: 0, total: 6, known: true })
+    expect(bookingFees(bookings[3]).known).toBe(false)
+    expect(bookingNetAfterFees(bookings[1])).toBe(255)
+    expect(feeDeductedAtSource('Airbnb')).toBe(true); expect(feeDeductedAtSource('Booking.com')).toBe(false)
+  })
+  it('pays a manager a percentage of income after platform fees for their properties only', () => {
+    const managers = [{ id: 'm1', name: 'Stacey', percentage: 15, basis: 'net_after_platform_fees', active: true }]
+    const props = [{ id: 'p1', stl_manager_id: 'm1' }, { id: 'p2', stl_manager_id: null }]
+    const adj = [{ property_id: 'p1', adjustment_date: '2026-08-20', amount: -50 }]
+    const rows = managerPayouts(bookings, adj, props, managers, { from: '2026-08-01', to: '2026-08-31' })
+    expect(rows).toHaveLength(1)
+    const r = rows[0]
+    expect(r.gross).toBe(500); expect(r.platformFees).toBe(51); expect(r.adjustments).toBe(-50)
+    expect(r.netAfterFees).toBe(399); expect(r.amount).toBe(59.85); expect(r.properties).toHaveLength(1)
+  })
+  it('gross basis and inactive managers', () => {
+    const managers = [{ id: 'm1', name: 'A', percentage: 10, basis: 'gross', active: true }, { id: 'm2', name: 'B', percentage: 50, basis: 'gross', active: false }]
+    const props = [{ id: 'p1', stl_manager_id: 'm1' }, { id: 'p2', stl_manager_id: 'm2' }]
+    const rows = managerPayouts(bookings, [], props, managers, { from: '2026-08-01', to: '2026-08-31' })
+    expect(rows).toHaveLength(1); expect(rows[0].amount).toBe(50)
+  })
+  it('fortnights are anchored and consecutive', () => {
+    const cur = fortnightRange(new Date('2026-09-02T12:00:00Z'), 0)
+    const prev = fortnightRange(new Date('2026-09-02T12:00:00Z'), -1)
+    expect(cur).toEqual({ from: '2026-08-31', to: '2026-09-13' })
+    expect(prev).toEqual({ from: '2026-08-17', to: '2026-08-30' })
+    expect(periodRange('last_fortnight', new Date('2026-09-02T12:00:00Z'))).toEqual(prev)
   })
 })
