@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
-import { detectFormat, parsePNE, parseRMS, matchProperties, normaliseStatementName } from '../lib/statementParser'
+import { parseStatement, matchProperties, normaliseStatementName } from '../lib/statementParser'
+import { linesFromTextItems, textFromPages } from '../lib/pdfText'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import FocusTrap from '../lib/FocusTrap'
@@ -39,25 +40,17 @@ async function extractPDFText(file) {
     throw new Error(e?.message || 'The file does not appear to be a valid PDF')
   }
 
-  let fullText = ''
+  // Rebuild reading-order lines per page. The viewport transform applies the
+  // page rotation, so a landscape statement saved with /Rotate 90 (the 2026
+  // RMS layout) reads correctly, and cells whose text wraps stay together.
+  const pages = []
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
+    const viewport = page.getViewport({ scale: 1 })
     const content = await page.getTextContent()
-    // Preserve layout by sorting items by Y then X position
-    const items = content.items.sort((a,b) => {
-      const yDiff = Math.round(b.transform[5]) - Math.round(a.transform[5])
-      return yDiff !== 0 ? yDiff : a.transform[4] - b.transform[4]
-    })
-    let lastY = null
-    for (const item of items) {
-      const y = Math.round(item.transform[5])
-      if (lastY !== null && Math.abs(y - lastY) > 3) fullText += '\n'
-      fullText += item.str + ' '
-      lastY = y
-    }
-    fullText += '\n\n--- PAGE BREAK ---\n\n'
+    pages.push(linesFromTextItems(content.items, viewport.transform))
   }
-  return fullText
+  return textFromPages(pages)
 }
 
 // Parsers imported from lib/statementParser.js
@@ -66,12 +59,14 @@ async function extractPDFText(file) {
 // canEditRent: optional (companyId) => boolean from App.jsx (edit_rent per
 // company). When absent every company is treated as writable, matching the
 // pre-permission behaviour of this importer.
-export function StatementImporter({properties, companies, showToast, onClose, asPage = false, canEditRent}) {
+export function StatementImporter({properties, companies, showToast, onClose, asPage = false, initialDocIds = null, canEditRent}) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const [step, setStep] = useState('upload') // upload | preview | importing | done
   const [format, setFormat] = useState(null)
   const [fileName, setFileName] = useState('')
+  const [sourceDoc, setSourceDoc] = useState(null)   // emailed statement being imported
+  const [inbox, setInbox] = useState(null)           // emailed statements awaiting review
   const [parsed, setParsed] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
@@ -90,6 +85,36 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     return () => { live = false }
   }, [])
 
+  // Emailed statements: list them, and open one straight into the same
+  // parse-and-review flow as a manual upload.
+  useEffect(() => {
+    let live = true
+    api.fetchStatementInbox((companies || []).map(c => c.id))
+      .then(rows => { if (live) setInbox(rows) })
+      .catch(e => { console.error('StatementImporter:fetchStatementInbox', e); if (live) setInbox([]) })
+    return () => { live = false }
+  }, [companies])
+  async function openFromDocument(doc) {
+    setLoading(true)
+    try {
+      const url = await api.getDocumentSignedUrl(doc.file_path, 300)
+      const resp = await fetch(url)
+      if (!resp.ok) throw new Error(`Could not download the statement (${resp.status})`)
+      const blob = await resp.blob()
+      const file = new File([blob], doc.name || 'statement.pdf', { type: doc.file_type || 'application/pdf' })
+      setSourceDoc(doc)
+      await handleFile(file)
+    } catch (e) {
+      showToast(e?.message || 'Could not open the emailed statement', 'error')
+      setLoading(false)
+    }
+  }
+  useEffect(() => {
+    if (!initialDocIds?.length || !inbox?.length || sourceDoc || step !== 'upload') return
+    const doc = inbox.find(d => initialDocIds.includes(d.id))
+    if (doc) openFromDocument(doc)
+  }, [initialDocIds, inbox]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleFile(file) {
     if (!file || !file.name.endsWith('.pdf')) {
       showToast('Please select a PDF file', 'error')
@@ -98,14 +123,17 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     setLoading(true)
     try {
       const text = await extractPDFText(file)
-      const fmt = detectFormat(text)
-      let parsed = fmt === 'PNE' ? parsePNE(text) : fmt === 'RMS' ? parseRMS(text) : null
-
-      if (!parsed) {
-        showToast('Could not detect statement format (PNE or RMS)', 'error')
+      const res = parseStatement(text)
+      if (!res.parsed || res.problem) {
+        // Leave a trace for support: which signatures matched and how much text
+        // there was, without dumping tenant data into the console.
+        console.warn('StatementImporter: cannot import', file.name, res.detail)
+        showToast(res.problem || 'Could not read this statement', 'error')
         setLoading(false)
         return
       }
+      const fmt = res.format
+      const parsed = res.parsed
 
       const matched = matchProperties(parsed.items, properties, aliases)
       setFormat(fmt)
@@ -377,6 +405,10 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     }
 
     results.learned = await learnAliases(items.filter(i => i.include))
+    if (sourceDoc) {
+      try { await api.markStatementImported(sourceDoc.id, { batch_id: batch?.id || null, rent: results.rent, fees: results.fees, skipped: results.skipped }) }
+      catch (e) { console.error('StatementImporter:markStatementImported', e) }
+    }
 
     setImportResults(results)
     setStep('done')
@@ -448,6 +480,27 @@ export function StatementImporter({properties, companies, showToast, onClose, as
           {/* STEP 1: UPLOAD */}
           {step==='upload'&&(
             <div>
+              {inbox && inbox.length > 0 && (
+                <div style={{marginBottom:16,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 16px'}}>
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Statements received by email</div>
+                  <div style={{display:'grid',gap:6}}>
+                    {inbox.slice(0,12).map(d=>{
+                      const done = d.extracted_fields?.import?.at
+                      const co = (companies||[]).find(c=>c.id===d.property?.company_id)
+                      return (
+                        <div key={d.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:T.bg,borderRadius:8,flexWrap:'wrap'}}>
+                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted,width:84}}>{new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                          <span style={{fontSize:12,color:T.text,flex:1,minWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.name}</span>
+                          {co && <span style={{fontFamily:MONO,fontSize:9,color:co.color||T.gold}}>{co.abbr||co.name}</span>}
+                          {done
+                            ? <span style={{fontFamily:MONO,fontSize:10,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                            : <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</button>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <div
                 onClick={()=>fileRef.current?.click()}
                 style={{border:`2px dashed ${T.border}`,borderRadius:12,padding:40,textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}

@@ -768,6 +768,7 @@ export default function App() {
   // Loaded best-effort after boot; empty map degrades to "no deduction".
   const [tenanciesByProp, setTenanciesByProp] = useState({})
   const [view,        setView]         = useState('dashboard')
+  const [importDocs, setImportDocs] = useState(null) // emailed statement ids to open in the importer
   const [selectedId,  setSelectedId]   = useState(null)
   const [detailTab,   setDetailTab]    = useState('overview')
   // Selected report id when drilled into a specific report. Lifted up here
@@ -1071,7 +1072,11 @@ export default function App() {
       if (parts[0] === 'admin') {
         return { view: 'admin', adminTab: parts[1] || null }
       }
-      if (parts[0] === 'import') return { view: 'import' }
+      // #/import and the emailed-statement link #/import?docs=a,b (legacy #/import-statement)
+      if (/^import(-statement)?(\?|$)/.test(parts[0] || '')) {
+        const q = new URLSearchParams(parts[0].split('?')[1] || '')
+        return { view: 'import', importDocs: (q.get('docs') || '').split(',').filter(Boolean) }
+      }
       if (parts[0] === 'import-data') return { view: 'import-data' }
       if (parts[0] === 'properties' && parts[1] === 'bulk') return { view: 'bulk-add' }
       // Compliance is the renamed top-level Insurance page (2026-08).
@@ -1109,6 +1114,7 @@ export default function App() {
     const initial = parseHash()
     if (initial.view && initial.view !== 'dashboard') setView(initial.view === 'admin' ? 'dashboard' : initial.view)
     if (initial.selectedId) setSelectedId(initial.selectedId)
+    if (initial.importDocs?.length) setImportDocs(initial.importDocs)
     if (initial.detailTab) setDetailTab(initial.detailTab)
     if (initial.portfolioTab) setPortfolioTab(initial.portfolioTab)
     if (initial.selectedReportId) setSelectedReportId(initial.selectedReportId)
@@ -1131,6 +1137,7 @@ export default function App() {
       setShowAdmin(false)
       setView(parsed.view || 'dashboard')
       setSelectedId(parsed.selectedId || null)
+      setImportDocs(parsed.importDocs?.length ? parsed.importDocs : null)
       // Always reflect the report id from the URL (including clearing it
       // when the user pops back from a specific report to the catalogue).
       setSelectedReportId(parsed.selectedReportId || null)
@@ -3598,7 +3605,7 @@ export default function App() {
           {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
           {view==='compliance'&&<div className="fade"><CompliancePage user={user} companies={companies} properties={activeProperties} companySettings={companySettings} showToast={showToast} openDetail={(p)=>openDetail(p,'compliance')}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
-          {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
+          {view==='import'&&<StatementImporter asPage initialDocIds={importDocs} properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
             canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
             canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}

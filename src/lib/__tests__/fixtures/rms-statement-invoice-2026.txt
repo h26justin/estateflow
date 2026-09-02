@@ -1,0 +1,24 @@
+STATEMENT/INVOICE
+Date: 02/09/2026
+Vale Property Group Limited
+VAT Regn: GB 000 0000 00Reference: BYHS-RMS-P600298
+Wellesley House, Duke Of Wellington
+Avenue, LONDON, London, England, SE18
+6SS
+Money In  Money Out
+Date  Property  Tenancy  Description
+£  £
+Balance Brought Forward from Previous Statement  0.00
+02/09/2026 5 Jubilee Road, NE24 2RY  Mr Example Tenant 31/07/2026 to 29/08/2027  31/08/2026 - 29/09/2026 Rent Receipt  600.00
+02/09/2026 5 Jubilee Road, NE24 2RY  Mr Example Tenant 31/07/2026 to 29/08/2027  31/08/2026 - 29/09/2026 Letting Agent Fee @7.0%  50.40
+02/09/2026  Payment made to Owner  549.60
+Balance Carried Forward to Next Statement  0.00
+Totals  600.00  600.00
+FEE INVOICE Property  Tenancy  Description  Fee  Vat @20%  Total
+FEES CHARGED THIS PERIOD
+02/09/2026  5 Jubilee Road  31/08/2026 - 29/09/2026 Letting Agent Fee @7.0%  42.00  8.40  50.40
+FEES PAID THIS PERIOD  -50.40
+
+--- PAGE BREAK ---
+
+Vale Property Group LimitedWellesley HouseDuke Of Wellington AvenueLONDONLondonEnglandSE18 6SS

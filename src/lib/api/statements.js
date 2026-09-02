@@ -49,3 +49,25 @@ export async function deleteStatementAlias(id) {
   const { error } = await supabase.from('property_statement_aliases').delete().eq('id', id)
   if (error) throw error
 }
+
+// ── Emailed statements inbox ───────────────────────────────────────────────
+// Statements forwarded to a company's inbox address land as property_documents
+// rows (category 'statement') via the ingest-statement-email edge function.
+// The importer lists them so they can be reviewed and imported without a
+// manual upload. `extracted_fields.import` records when one was imported.
+export async function fetchStatementInbox(companyIds = []) {
+  const { data, error } = await supabase.from('property_documents')
+    .select('id, name, file_path, file_type, file_size, created_at, extraction_status, extracted_fields, property:properties(id, name, company_id)')
+    .eq('category', 'statement').is('deleted_at', null)
+    .order('created_at', { ascending: false }).limit(100)
+  if (error) throw error
+  const ids = new Set(companyIds || [])
+  return (data || []).filter(d => !ids.size || ids.has(d.property?.company_id))
+}
+export async function markStatementImported(docId, info) {
+  const { data: cur, error: rErr } = await supabase.from('property_documents').select('extracted_fields').eq('id', docId).single()
+  if (rErr) throw rErr
+  const merged = { ...(cur?.extracted_fields || {}), import: { ...info, at: info?.at || new Date().toISOString() } }
+  const { error } = await supabase.from('property_documents').update({ extracted_fields: merged }).eq('id', docId)
+  if (error) throw error
+}
