@@ -1963,10 +1963,14 @@ export async function deleteDeal(id, userId) {
   }
 }
 
-export async function duplicateDeal(deal) {
-  const { id, created_at, updated_at, ...rest } = deal
+export async function duplicateDeal(deal, userId) {
+  // Strip identity + trash markers. The copy is owned by whoever clicked
+  // Copy (a collaborator duplicating a colleague's deal used to produce a
+  // copy still owned by the original creator) and is never born deleted.
+  const { id, created_at, updated_at, user_id, deleted_at, deleted_by, ...rest } = deal
+  const owner = userId || user_id
   const { data, error } = await supabase.from('deals')
-    .insert({ ...rest, name: rest.name + ' (copy)', status: 'analysing' }).select().single()
+    .insert({ ...rest, user_id: owner, name: (rest.name || 'Deal') + ' (copy)', status: 'analysing' }).select().single()
   if (error) throw error
   return data
 }
@@ -2027,21 +2031,93 @@ export async function fetchDealDocuments(dealId) {
   return data || []
 }
 
-export async function uploadDealDocument(dealId, file, userId) {
+// True for rows that should show in the photo gallery rather than the
+// document list. Falls back to the extension for the odd browser that
+// leaves file.type blank on HEIC / dropped files.
+export function isDealPhoto(doc) {
+  if ((doc?.type || '').toLowerCase().startsWith('image/')) return true
+  const ext = ((doc?.name || doc?.file_path || '').split('.').pop() || '').toLowerCase()
+  return ['jpg','jpeg','png','webp','heic','heif','gif'].includes(ext)
+}
+
+// Resolve the current user's display name once per upload batch so the
+// gallery can say who added a photo. user_profiles is self-readable only,
+// so this is denormalised onto the row at upload time.
+async function currentUploaderName(userId) {
+  try {
+    const { data } = await supabase.from('user_profiles')
+      .select('full_name, first_name, last_name, email').eq('user_id', userId).maybeSingle()
+    if (!data) return null
+    return data.full_name
+      || [data.first_name, data.last_name].filter(Boolean).join(' ')
+      || data.email || null
+  } catch(_) { return null }
+}
+
+export async function uploadDealDocument(dealId, file, userId, opts = {}) {
   validateUpload(file)
-  const ext = file.name.split('.').pop()
-  // {user_id}/deals/{dealId}/{ts}.{ext} — see uploadDocument for layout rationale
-  const path = `${userId}/deals/${dealId}/${Date.now()}.${ext}`
-  const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
+  const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+  const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : 'bin'
+  // {user_id}/deals/{dealId}/{ts}_{n}.{ext} — see uploadDocument for layout
+  // rationale. The random suffix keeps two files from the same multi-select
+  // batch from colliding on Date.now().
+  const path = `${userId}/deals/${dealId}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+  const { error: uploadErr } = await supabase.storage.from('property-documents')
+    .upload(path, file, { contentType: file.type || undefined, upsert: false })
   if (uploadErr) throw uploadErr
+  const uploaded_by = opts.uploadedBy ?? await currentUploaderName(userId)
   // Private bucket — no public URL stored. View links generated on demand
   // via getDocumentSignedUrl() against file_path.
-  const { error } = await supabase.from('deal_documents').insert({
+  const { data, error } = await supabase.from('deal_documents').insert({
     deal_id: dealId, name: file.name, file_path: path,
     size: file.size, type: file.type, user_id: userId,
-  })
+    caption: opts.caption || null, uploaded_by,
+  }).select().single()
+  if (error) {
+    // Don't leave an orphan file behind if the row insert was refused.
+    try { await supabase.storage.from('property-documents').remove([path]) } catch(_) {}
+    throw error
+  }
+  return data
+}
+
+// Upload several files (photos from a multi-select or drag-drop) in
+// sequence. Resolves the uploader name once. Returns { done, failed } so the
+// UI can report partial success instead of stopping at the first error.
+export async function uploadDealDocuments(dealId, files, userId, onProgress) {
+  const uploadedBy = await currentUploaderName(userId)
+  const list = Array.from(files || [])
+  const done = [], failed = []
+  for (const file of list) {
+    try { done.push(await uploadDealDocument(dealId, file, userId, { uploadedBy })) }
+    catch (e) { failed.push({ name: file.name, error: e.message || 'Upload failed' }) }
+    if (onProgress) { try { onProgress(done.length + failed.length, list.length) } catch(_) {} }
+  }
+  return { done, failed }
+}
+
+export async function updateDealDocument(id, fields) {
+  const { data, error } = await supabase.from('deal_documents')
+    .update(fields).eq('id', id).select().single()
   if (error) throw error
-  return path
+  return data
+}
+
+// Per-deal photo / document counts for badges on the list and pipeline
+// cards. One query, RLS-scoped; grouped client-side (PostgREST can't
+// GROUP BY, and deal document volumes are small).
+export async function fetchDealDocumentCounts() {
+  const { data, error } = await supabase.from('deal_documents')
+    .select('deal_id, type, name, file_path').order('created_at', { ascending: true })
+  if (error) throw error
+  // Oldest photo is the cover, so the thumbnail doesn't change every upload.
+  const out = {}
+  for (const row of data || []) {
+    const c = out[row.deal_id] || (out[row.deal_id] = { photos: 0, documents: 0, cover: null })
+    if (isDealPhoto(row)) { c.photos += 1; if (!c.cover) c.cover = row.file_path }
+    else c.documents += 1
+  }
+  return out
 }
 
 export async function deleteDealDocument(doc) {
