@@ -51,6 +51,7 @@ const DayTrackerPage  = lazy(() => import('./components/DayTrackerPage'))
 const PropertyMap     = lazy(() => import('./components/PropertyMap'))
 const CompliancePage  = lazy(() => import('./components/CompliancePage'))
 const MtdItsaPage     = lazy(() => import('./components/MtdItsaPage'))
+const ShortTermLetIncomePage = lazy(() => import('./components/ShortTermLetIncomePage'))
 const AutopilotWidget = lazyNamed(() => import('./components/AutopilotPanel'), 'AutopilotWidget')
 const AutopilotPage   = lazyNamed(() => import('./components/AutopilotPanel'), 'AutopilotPage')
 const RentersRightsCopilot = lazyNamed(() => import('./components/RentersRightsCopilot'), 'RentersRightsCopilot')
@@ -1096,7 +1097,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import','import-data']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','stl','deals','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import','import-data']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -3585,6 +3586,7 @@ export default function App() {
               as a Portfolio sub-tab (#/properties/companies); legacy #/companies
               deep links are mapped across in parseHash. */}
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData} showToast={showToast} canSeed={cid=>canDo(permissionsMap, cid, 'edit_tenancies') || devModeActive} canEditRent={cid=>canDo(permissionsMap, cid, 'edit_rent') || devModeActive}/>}
+          {view==='stl'&&<ShortTermLetIncomePage companies={companies} properties={activeProperties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} openDetail={openDetail}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}
             canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null} permissionsMap={permissionsMap} devModeActive={devModeActive}/>}

@@ -25,6 +25,12 @@ export const ALL_NAV = [
   { key: 'dashboard',      label: 'Dashboard',      icon: 'home',         short: 'Home',      required: true,  group: 'Overview',    mobileRank: 0 },
   { key: 'properties',     label: 'Portfolio',      icon: 'building',     short: 'Portfolio', required: true,  group: 'Portfolio',   mobileRank: 0 },
   { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
+  // Short-term-let booking income (Hostaway / Lodgify), kept out of the
+  // residential collection rate. Added 2026-09: users whose stored nav_items
+  // predate it must switch it on in Settings -> Navigation (the seed default
+  // includes it for new accounts). mobileRank 8 so it never displaces an
+  // existing bottom-bar slot.
+  { key: 'stl',            label: 'Short-Term Let Income', icon: 'bed',   short: 'STL',       required: false, group: 'Money',       mobileRank: 8 },
   { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
   { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 4 },
   // 'compliance' replaced the old top-level 'insurance' entry (2026-08) —
