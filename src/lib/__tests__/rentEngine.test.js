@@ -153,6 +153,11 @@ describe('decisions from 2 Sep 2026', () => {
     expect(e.state).toBe(STATE.LEGACY); expect(e.legacy).toBe(true)
     expect(collectionStats([e]).due).toBe(0)
   })
+  it('a pre-2026 paid month with no amount is Legacy, not Needs Backfill', () => {
+    const e = evaluatePeriod(month('old2', 2025, 5, 'paid', null), ctx())
+    expect(e.state).toBe(STATE.LEGACY); expect(e.needsBackfill).toBe(false)
+    expect(collectionStats([e]).counts.needsBackfill).toBe(0)
+  })
   it('paid with no amount stays Paid, flagged Needs Backfill, excluded from the rate', () => {
     const e = evaluatePeriod(month('m2', 2026, 2, 'paid', null), ctx())
     expect(e.state).toBe(STATE.PAID); expect(e.needsBackfill).toBe(true)
