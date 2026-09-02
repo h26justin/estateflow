@@ -166,9 +166,13 @@ export function evaluatePeriod(row, ctx) {
     base.receivedTenant = round2(allocs.filter(a => (a.receipt?.payer || 'tenant') === 'tenant' || a.receipt?.payer === 'other').reduce((s, a) => s + Number(a.amount), 0))
     base.receivedBenefit = round2(base.received - base.receivedTenant)
   } else if (row.status === 'paid' || row.status === 'partial' || row.status === 'late') {
-    // Legacy bridge: the month row itself is the receipt.
-    if (row.amount == null) { base.received = null; base.needsBackfill = row.status === 'paid' }
-    else base.received = round2(row.amount)
+    // Legacy bridge: the month row itself is the receipt. A paid row with no
+    // amount OR a stored GBP 0 (the old month toggle saved zeros) is "paid,
+    // amount needs entering" (decision 2, 2 Sep 2026), never GBP 0 received.
+    const amt = row.amount == null ? null : round2(row.amount)
+    if (row.status === 'paid' && (amt == null || amt === 0)) { base.received = null; base.needsBackfill = true }
+    else if (amt == null) base.received = null
+    else base.received = amt
   } else {
     base.received = 0
   }

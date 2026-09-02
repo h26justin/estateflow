@@ -164,6 +164,11 @@ describe('decisions from 2 Sep 2026', () => {
     const s = collectionStats([e, evaluatePeriod(month('m3', 2026, 3, 'paid', 500), ctx())])
     expect(s.due).toBe(500); expect(s.counts.needsBackfill).toBe(1)
   })
+  it('a paid month stored with GBP 0 is Needs Backfill, not a miss', () => {
+    const e = evaluatePeriod(month('m2z', 2026, 2, 'paid', 0), ctx())
+    expect(e.state).toBe(STATE.PAID); expect(e.needsBackfill).toBe(true)
+    expect(collectionStats([e]).counts.needsBackfill).toBe(1)
+  })
   it('legacy paid amounts on the month row still count as received (bridge)', () => {
     const e = evaluatePeriod(month('m4', 2026, 4, 'paid', 500), ctx())
     expect(e.state).toBe(STATE.PAID); expect(e.received).toBe(500)
