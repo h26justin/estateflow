@@ -4637,6 +4637,37 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 }
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
+// Month counts and money received for a set of properties, from the rent
+// engine (Stage 3+). Short-term lets are excluded (own page). Pre-2026 months
+// keep their legacy status and amount but are counted so "All years" still
+// adds up.
+function engineSummary(props, year) {
+  const acc = { paid: 0, due: 0, missed: 0, nc: 0, backfill: 0, legacy: 0, received: 0 }
+  for (const p of props) {
+    if (p.status === 'short_term_let') continue
+    const months = groupByMonth(evaluateProperty(p)).filter(m => (!year || m.year === year) && m.state !== 'future')
+    for (const m of months) {
+      if (m.state === 'legacy') {
+        acc.legacy++
+        const ls = m.evals[0]?.legacyStatus
+        if (ls === 'paid') acc.paid++
+        else if (ls === 'overdue' || ls === 'missed') acc.missed++
+        else if (ls === 'late' || ls === 'partial') acc.due++
+        acc.received += m.evals.reduce((t, e) => t + (e.legacyAmount || 0), 0)
+        continue
+      }
+      if (m.state === 'paid') acc.paid++
+      else if (m.state === 'due' || m.state === 'part_paid') acc.due++
+      else if (m.state === 'missed') acc.missed++
+      else if (m.state === 'not_collectible') acc.nc++
+      if (m.needsBackfill) acc.backfill++
+      acc.received += m.received || 0
+    }
+  }
+  acc.received = Math.round(acc.received * 100) / 100
+  return acc
+}
+
 function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh, showToast, canSeed, canEditRent}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
@@ -4692,15 +4723,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
   // Company totals for selected year
   function getCompanyTotals(companyProps, year) {
-    return companyProps.reduce((acc, p) => {
-      const s = getStats(p.rent_payments||[], year, p.rent_pcm)
-      acc.paid    += s.paid
-      acc.missed  += s.missed
-      acc.late += s.late
-      acc.refurb  += s.refurb
-      acc.income  += s.income
-      return acc
-    }, {paid:0, missed:0, late:0, refurb:0, income:0})
+    const e = engineSummary(companyProps, year)
+    return { paid: e.paid, due: e.due, missed: e.missed, nc: e.nc, backfill: e.backfill, income: e.received }
   }
 
   return (
@@ -4710,7 +4734,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible'},{c:STL_COLOR,l:'Short-term let'},{c:T.blue,l:'Payment plan (dot)'}].map(x=>(
+            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
                 <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
               </span>
@@ -4952,9 +4976,10 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
                 {[
                   {v:totals.paid,   c:T.green, l:'paid'},
+                  {v:totals.due,    c:T.amber, l:'due'},
                   {v:totals.missed, c:T.red,   l:'missed'},
-                  {v:totals.late,c:T.amber, l:'late'},
-                  {v:totals.refurb, c:T.blue,  l:'refurb'},
+                  {v:totals.nc,     c:T.faint, l:'not collectible'},
+                  {v:totals.backfill, c:'#E0943A', l:'need amount'},
                 ].filter(x=>x.v>0).map(x=>(
                   <span key={x.l} style={{fontFamily:MONO,fontSize:11,color:x.c,fontWeight:600}}>
                     {x.v} {x.l}
@@ -5005,11 +5030,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                   // "whole block" line for multi-unit buildings (HMOs, STL
                   // blocks like Piers View).
                   const bgRent = group.items.reduce((s,p) => s + (Number(p.rent_pcm)||0), 0)
-                  const bgStats = group.items.reduce((acc, p) => {
-                    const s = getStats(p.rent_payments||[], globalYear, p.rent_pcm)
-                    acc.income += s.income; acc.paid += s.paid; acc.missed += s.missed; acc.late += s.late
-                    return acc
-                  }, { income:0, paid:0, missed:0, late:0 })
+                  const bgE = engineSummary(group.items, globalYear)
+                  const bgStats = { income: bgE.received, paid: bgE.paid, missed: bgE.missed, late: bgE.due }
                   return (
                     <div key={group.key}>
                       {isBuilding && (
@@ -5032,7 +5054,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                               <span style={{ fontSize: 10, fontWeight: 700, color: T.red }}>{bgStats.missed} missed</span>
                             )}
                             {bgStats.late > 0 && (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: T.amber }}>{bgStats.late} late</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: T.amber }}>{bgStats.late} due</span>
                             )}
                             <span style={{ fontSize: 10, color: T.muted }}>
                               {globalYear ? `${globalYear} revenue` : 'all-years revenue'}
@@ -5090,19 +5112,19 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
                                 <Badge status={p.status}/>
                                 <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                                  {[
-                                    {v:s.paid,    c:T.green, l:'P'},
-                                    {v:s.missed,  c:T.red,   l:'M'},
-                                    {v:s.late, c:T.amber, l:'L'},
-                                    {v:s.refurb,  c:T.blue,  l:'R'},
-                                  ].map(x=>(
-                                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.v>0?x.c:T.faint}}>
+                                  {(() => { const e = engineSummary([p], globalYear); return [
+                                    {v:e.paid,   c:T.green, l:'paid'},
+                                    {v:e.due,    c:T.amber, l:'due'},
+                                    {v:e.missed, c:T.red,   l:'missed'},
+                                    {v:e.nc,     c:T.faint, l:'n/c'},
+                                  ] })().map(x=>(
+                                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.v>0?x.c:T.faint}} title={x.l==='n/c'?'not collectible (vacant, refurbishment, before or after the tenancy)':x.l}>
                                       {x.v} {x.l}
                                     </span>
                                   ))}
                                 </div>
-                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}}>
-                                  {fmt(s.income)}
+                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}} title="Received this year (amounts entered)">
+                                  {fmt(engineSummary([p], globalYear).received)}
                                 </div>
                               </div>
                             </div>
@@ -5215,7 +5237,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible'},{c:STL_COLOR,l:'Short-term let'},{c:T.blue,l:'Payment plan (dot)'}].map(x=>(
+          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
             <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>
