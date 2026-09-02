@@ -416,6 +416,10 @@ var STREET_ABBR = {
 export function normaliseStatementName(str) {
   return String(str || '').toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
+    // "47 B, Somerset Street" and "47B Somerset Street" are the same unit: a
+    // number followed by a lone letter (a-f, the usual sub-address suffixes)
+    // is one token, so the letter is never lost as a separate word.
+    .replace(/\b(\d+) ([a-f])\b/g, '$1$2')
     .split(' ')
     .filter(Boolean)
     .map(function (w) { return STREET_ABBR[w] || w })
@@ -494,17 +498,17 @@ export function matchProperties(items, properties, aliases) {
     if (norm && known[al.property_id]) aliasMap[norm] = al.property_id
   })
 
-  var flatRe = /(?:flat|room|unit)\s*(\d+[ab]?)/i
+  var flatRe = /(?:flat|room|unit)\s*(\d+\s?[a-f]?)\b/i
   var numRe  = /^(\d+)\s/
   // Extract all plausible unit/flat numbers from a string
   function extractNumbers(str) {
     var nums = new Set()
     // "Flat 5", "Room 3", "Unit 12"
-    var fm = str.match(/(?:flat|room|unit)\s*(\d+[ab]?)/gi)
-    if (fm) fm.forEach(function(m) { var n = m.match(/(\d+[ab]?)/i); if (n) nums.add(n[1].toLowerCase()) })
+    var fm = str.match(/(?:flat|room|unit)\s*(\d+\s?[a-f]?)\b/gi)
+    if (fm) fm.forEach(function(m) { var n = m.match(/(\d+)\s?([a-f]?)\b/i); if (n) nums.add((n[1] + n[2]).toLowerCase()) })
     // Leading number: "5 Watts Moses House" or "24 Watts Moses House"
-    var lm = str.match(/^(\d+)\s/)
-    if (lm) nums.add(lm[1])
+    var lm = str.match(/^(\d+)\s?([a-f])?\b/i)
+    if (lm) nums.add((lm[1] + (lm[2] || '')).toLowerCase())
     // "No. 5" or "No 5"
     var nm = str.match(/No\.?\s*(\d+)/gi)
     if (nm) nm.forEach(function(m) { var n = m.match(/(\d+)/); if (n) nums.add(n[1]) })

@@ -196,3 +196,19 @@ describe('matchProperties — town names are not evidence', () => {
     expect(match('35 Henley Road').propertyId).toBe('p-henley')
   })
 })
+
+describe('matchProperties — house-number letter suffixes', () => {
+  const A = { id: 'p-47a', name: '47A Somerset Street', address: '47A Somerset Street, Sunderland' }
+  const B = { id: 'p-47b', name: '47B Somerset Street', address: '47B Somerset Street, Sunderland' }
+  const pick = label => matchProperties([line(label)], [A, B, WATTS_18], [])[0]
+  it('treats "47 B" and "47B" as the same unit and does not confuse it with 47A', () => {
+    expect(normaliseStatementName('47 B, Somerset Street')).toBe('47b somerset street')
+    const r = pick('47 B, Somerset Street')
+    expect(r.matched).toBe(true); expect(r.propertyId).toBe('p-47b')
+    expect(pick('47 A, Somerset Street').propertyId).toBe('p-47a')
+  })
+  it('still matches plain numbers and flat forms', () => {
+    expect(pick('47B Somerset Street').propertyId).toBe('p-47b')
+    expect(matchProperties([line('Flat 18 Watts Moses House')], [A, B, WATTS_18], [])[0].propertyId).toBe('p-w18')
+  })
+})
