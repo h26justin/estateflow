@@ -243,3 +243,19 @@ function friendly(error) {
   }
   return error instanceof Error ? error : new Error(error?.message || 'Request failed')
 }
+
+// ── Overrides (append-only) ────────────────────────────────────────────────
+export async function fetchRentOverrides(propertyId) {
+  const { data, error } = await supabase.from('rent_overrides').select('*')
+    .eq('property_id', propertyId).order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+export async function createRentOverride({ rent_payment_id, property_id, state, reason, expected_amount = null }) {
+  if (!reason || reason.trim().length < 3) throw new Error('A reason is required for an override')
+  const { data, error } = await supabase.from('rent_overrides').insert({
+    rent_payment_id, property_id, state, reason: reason.trim(), expected_amount, user_id: await uid(),
+  }).select('*').single()
+  if (error) throw error
+  return data
+}
