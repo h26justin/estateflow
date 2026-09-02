@@ -264,7 +264,9 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
     const out: any[] = []
     let afterId: number | null = null
     for (let page = 0; page < 40; page++) {
-      let path = `/reservations?limit=100${query}`
+      // includeResources=1 adds the financial breakdown (channel commission,
+      // Hostaway commission, cleaning fee, tax, fee lines) to each reservation.
+      let path = `/reservations?limit=100&includeResources=1${query}`
       if (afterId) path += `&afterId=${afterId}`
       const json = await hostawayGet(token, path)
       const items = Array.isArray(json?.result) ? json.result : []
@@ -306,6 +308,16 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
       total_amount: total,
       amount_paid: toNum(r.totalPaid),
       amount_due: toNum(r.remainingBalance),
+      // Platform fees, so the Short-Term Let Income page can show what
+      // actually comes to us. Airbnb deducts its fee before paying out;
+      // Booking.com invoices its commission separately. Both are reported here.
+      channel_commission: toNum(r.channelCommissionAmount),
+      hostaway_commission: toNum(r.hostawayCommissionAmount),
+      cleaning_fee: toNum(r.cleaningFee),
+      tax_amount: toNum(r.taxAmount),
+      payment_status: r.paymentStatus || null,
+      fee_lines: Array.isArray(r.reservationFees) ? r.reservationFees : (Array.isArray(r.financeField) ? r.financeField : null),
+      financials_synced_at: new Date().toISOString(),
       synced_at: new Date().toISOString(),
     }, { onConflict: 'hostaway_connection_id,hostaway_reservation_id' }).select().single()
     if (upErr) throw upErr

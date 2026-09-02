@@ -79,6 +79,8 @@ export function periodRange(kind, today = new Date()) {
       const ly = m === 1 ? y - 1 : y, lm = m === 1 ? 12 : m - 1
       return { from: `${ly}-${pad(lm)}-01`, to: `${ly}-${pad(lm)}-${pad(lastDayOfMonth(ly, lm))}` }
     }
+    case 'this_fortnight': return fortnightRange(today, 0)
+    case 'last_fortnight': return fortnightRange(today, -1)
     case 'ytd': return { from: `${y}-01-01`, to: toISO(today) }
     case 'year': return { from: `${y}-01-01`, to: `${y}-12-31` }
     default: return { from: null, to: null }
@@ -115,6 +117,41 @@ export function channelLabel(source) {
   if (k.startsWith('expedia')) return 'Expedia'
   if (k.startsWith('tripadvisor')) return 'TripAdvisor'
   return raw
+}
+
+// ── Platform fees ───────────────────────────────────────────────────────────
+// Airbnb (and Vrbo) deduct their host fee before paying out, so the payout is
+// gross minus the fee. Booking.com and Expedia invoice their commission
+// separately: the payout is the gross and the fee leaves later as a bill.
+const FEE_DEDUCTED_AT_SOURCE = Object.freeze({ Airbnb: true, Vrbo: true, 'Booking.com': false, Expedia: false, Direct: false, Other: false })
+export function feeDeductedAtSource(channel) {
+  const c = channelLabel(channel)
+  return FEE_DEDUCTED_AT_SOURCE[c] ?? false
+}
+// Fees on one booking. `known` is false when the sync has not yet stored a
+// commission figure for it (older rows before the fee fields existed).
+export function bookingFees(b) {
+  const channel = b?.channel_commission == null ? null : num(b.channel_commission)
+  const hostaway = b?.hostaway_commission == null ? null : num(b.hostaway_commission)
+  const known = channel != null || hostaway != null
+  const total = round2((channel || 0) + (hostaway || 0))
+  return { channel: channel || 0, hostaway: hostaway || 0, total, known }
+}
+export function bookingNetAfterFees(b) {
+  return round2(num(b?.total_amount) - bookingFees(b).total)
+}
+
+// Fortnights are anchored to Monday 5 January 2026 so "this fortnight" is
+// stable regardless of when the page is opened. offset 0 = the fortnight
+// containing `today`, -1 = the previous one.
+export const FORTNIGHT_ANCHOR = '2026-01-05'
+export function fortnightRange(today = new Date(), offset = 0) {
+  const t = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  const a = Date.UTC(2026, 0, 5)
+  const idx = Math.floor((t - a) / (14 * 86400000)) + offset
+  const from = new Date(a + idx * 14 * 86400000)
+  const to = new Date(from.getTime() + 13 * 86400000)
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) }
 }
 
 export function bookingNights(b) {
@@ -197,18 +234,34 @@ export function summariseStl(bookings = [], adjustments = [], { from = null, to 
   const gross = round2(revenue.reduce((s, b) => s + num(b.total_amount), 0))
   const nights = revenue.reduce((s, b) => s + bookingNights(b), 0)
   const adjustmentsTotal = round2(adj.reduce((s, a) => s + num(a.amount), 0))
-  const net = round2(gross + adjustmentsTotal)
+  // Platform fees: channel (Airbnb, Booking.com…) and Hostaway. Split by
+  // whether the channel deducts at source or invoices separately, so the
+  // page can show cash received as well as true net.
+  let channelFees = 0, hostawayFees = 0, feesDeducted = 0, feesInvoiced = 0, feesKnown = 0
+  for (const b of revenue) {
+    const f = bookingFees(b)
+    if (f.known) feesKnown++
+    channelFees += f.channel; hostawayFees += f.hostaway
+    if (feeDeductedAtSource(b.source)) feesDeducted += f.total; else feesInvoiced += f.total
+  }
+  channelFees = round2(channelFees); hostawayFees = round2(hostawayFees)
+  const platformFees = round2(channelFees + hostawayFees)
+  feesDeducted = round2(feesDeducted); feesInvoiced = round2(feesInvoiced)
+  const netAfterFees = round2(gross - platformFees + adjustmentsTotal)
+  const payoutReceived = round2(gross - feesDeducted + adjustmentsTotal)
+  const net = netAfterFees
 
   // Channel breakdown, largest first.
   const chan = new Map()
   for (const b of revenue) {
     const c = channelLabel(b.source)
-    const row = chan.get(c) || { channel: c, gross: 0, bookings: 0, nights: 0 }
-    row.gross += num(b.total_amount); row.bookings += 1; row.nights += bookingNights(b)
+    const row = chan.get(c) || { channel: c, gross: 0, fees: 0, bookings: 0, nights: 0, deductedAtSource: feeDeductedAtSource(c) }
+    row.gross += num(b.total_amount); row.fees += bookingFees(b).total; row.bookings += 1; row.nights += bookingNights(b)
     chan.set(c, row)
   }
   const byChannel = [...chan.values()]
-    .map(r => ({ ...r, gross: round2(r.gross), share: gross > 0 ? r.gross / gross : 0 }))
+    .map(r => ({ ...r, gross: round2(r.gross), fees: round2(r.fees), net: round2(r.gross - r.fees),
+      feeRate: r.gross > 0 ? round2((r.fees / r.gross) * 100) : 0, share: gross > 0 ? r.gross / gross : 0 }))
     .sort((a, b) => b.gross - a.gross)
 
   // Month series. Explicit bounds win; otherwise span the data.
@@ -219,24 +272,25 @@ export function summariseStl(bookings = [], adjustments = [], { from = null, to 
   }
   const months = monthKeysBetween(mFrom, mTo).map(key => ({
     key, year: Number(key.slice(0, 4)), month: Number(key.slice(5, 7)),
-    gross: 0, adjustments: 0, net: 0, bookings: 0, nights: 0,
+    gross: 0, fees: 0, adjustments: 0, net: 0, bookings: 0, nights: 0,
   }))
   const byKey = new Map(months.map(m => [m.key, m]))
   for (const b of revenue) {
     const m = byKey.get(monthKey(b.arrival)); if (!m) continue
-    m.gross += num(b.total_amount); m.bookings += 1; m.nights += bookingNights(b)
+    m.gross += num(b.total_amount); m.fees += bookingFees(b).total; m.bookings += 1; m.nights += bookingNights(b)
   }
   for (const a of adj) {
     const m = byKey.get(monthKey(a.adjustment_date)); if (!m) continue
     m.adjustments += num(a.amount)
   }
-  for (const m of months) { m.gross = round2(m.gross); m.adjustments = round2(m.adjustments); m.net = round2(m.gross + m.adjustments) }
+  for (const m of months) { m.gross = round2(m.gross); m.fees = round2(m.fees); m.adjustments = round2(m.adjustments); m.net = round2(m.gross - m.fees + m.adjustments) }
 
   const days = periodDays(from, to)
   const occupancy = roomCount > 0 && days > 0 ? round2((nights / (roomCount * days)) * 100) : null
 
   return {
     gross, adjustmentsTotal, net, nights,
+    platformFees, channelFees, hostawayFees, feesDeducted, feesInvoiced, feesKnown, netAfterFees, payoutReceived,
     bookings: revenue.length, nonRevenueCount: nonRevenue.length,
     byChannel, months, occupancy, periodDays: days, roomCount: roomCount ?? null,
     revenueBookings: revenue, nonRevenueBookings: nonRevenue, adjustments: adj,
@@ -261,4 +315,33 @@ export function bookingMatches(b, query) {
     channelLabel(b.source), b.source, b.status, b.property?.name, b.property?.address, b.arrival, b.departure,
   ].filter(Boolean).join(' ').toLowerCase()
   return q.split(/\s+/).every(tok => hay.includes(tok))
+}
+
+// ── Property manager payouts ────────────────────────────────────────────────
+// A manager (e.g. someone taking 15% for management and cleaning) is paid a
+// percentage of each assigned property's income in the period: by default
+// income after platform fees and adjustments, or gross if the agreement says so.
+// Bookings are counted by check-in date, the same convention as the month
+// table. Returns one row per manager with a per-property breakdown.
+export function managerPayouts(bookings = [], adjustments = [], properties = [], managers = [], { from = null, to = null } = {}) {
+  const byManager = new Map()
+  for (const p of properties) {
+    if (!p.stl_manager_id) continue
+    const m = managers.find(x => x.id === p.stl_manager_id)
+    if (!m || m.active === false) continue
+    const own = bookings.filter(b => b.property_id === p.id)
+    const ownAdj = adjustments.filter(a => a.property_id === p.id)
+    const sum = summariseStl(own, ownAdj, { from, to })
+    const base = m.basis === 'gross' ? sum.gross : sum.netAfterFees
+    const amount = round2(Math.max(0, base) * (num(m.percentage) / 100))
+    const row = byManager.get(m.id) || { manager: m, properties: [], gross: 0, platformFees: 0, adjustments: 0, netAfterFees: 0, base: 0, amount: 0, bookings: 0, nights: 0, feesKnown: 0, feesUnknown: 0 }
+    row.properties.push({ property: p, gross: sum.gross, platformFees: sum.platformFees, adjustments: sum.adjustmentsTotal, netAfterFees: sum.netAfterFees, base: round2(base), amount, bookings: sum.bookings, nights: sum.nights })
+    row.gross = round2(row.gross + sum.gross); row.platformFees = round2(row.platformFees + sum.platformFees)
+    row.adjustments = round2(row.adjustments + sum.adjustmentsTotal); row.netAfterFees = round2(row.netAfterFees + sum.netAfterFees)
+    row.base = round2(row.base + base); row.amount = round2(row.amount + amount)
+    row.bookings += sum.bookings; row.nights += sum.nights
+    row.feesKnown += sum.feesKnown; row.feesUnknown += sum.bookings - sum.feesKnown
+    byManager.set(m.id, row)
+  }
+  return [...byManager.values()].sort((a, b) => a.manager.name.localeCompare(b.manager.name))
 }
