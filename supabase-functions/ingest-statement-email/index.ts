@@ -187,7 +187,7 @@ serve(async (req) => {
       type: 'statement_received',
       title: `📨 New statement for ${company.name}`,
       body: `${summary}. Click to review and import.`,
-      link: '#/import-statement?docs=' + docIds.join(','),
+      link: '#/import?docs=' + docIds.join(','),
       metadata: { company_id: company.id, document_ids: docIds, sender: payload.From },
     })
 
