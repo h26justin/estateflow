@@ -174,8 +174,10 @@ export function evaluatePeriod(row, ctx) {
   }
 
   if (start < GO_LIVE) {
+    // Legacy months keep the old logic entirely: they are never flagged for
+    // backfill (decision 1, 2 Sep 2026: pre-2026 stays as it is).
     base.legacy = true
-    return { ...base, state: STATE.LEGACY, reasons: ['Before 1 Jan 2026: legacy tracking applies'] }
+    return { ...base, state: STATE.LEGACY, needsBackfill: false, reasons: ['Before 1 Jan 2026: legacy tracking applies'] }
   }
   if (property?.status === 'short_term_let' || (stlIds && stlIds.has(row.id))) {
     return { ...base, state: STATE.STL, reasons: ['Short-term let: reported under Short-Term Let Income'] }
