@@ -3,6 +3,7 @@ import { extractStoragePaths, dealDocToPropertyCategory } from '../attachments'
 import { loadCdnScript } from '../loadCdnScript'
 import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
 import { sortPropertiesCanonically } from '../addressUtils'
+import { DEFAULT_COPY_OPTIONS, isCopyOptionActive, buildDealCopyFields, buildMilestoneCopies } from '../dealCopy'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -1964,16 +1965,100 @@ export async function deleteDeal(id, userId) {
   }
 }
 
-export async function duplicateDeal(deal, userId) {
-  // Strip identity + trash markers. The copy is owned by whoever clicked
-  // Copy (a collaborator duplicating a colleague's deal used to produce a
-  // copy still owned by the original creator) and is never born deleted.
-  const { id, created_at, updated_at, user_id, deleted_at, deleted_by, ...rest } = deal
-  const owner = userId || user_id
-  const { data, error } = await supabase.from('deals')
-    .insert({ ...rest, user_id: owner, name: (rest.name || 'Deal') + ' (copy)', status: 'analysing' }).select().single()
+// Copy a deal, carrying over only the parts the user ticked in the Copy
+// dialog (see src/lib/dealCopy.js for the groups). Identity, timestamps and
+// trash markers are never copied, and the copy is owned by whoever clicked
+// Copy — a collaborator duplicating a colleague's deal used to produce a copy
+// still owned by the original creator.
+//
+// Child records are best-effort: a failure on one contact or one photo is
+// collected as a warning rather than aborting a copy that already exists.
+// Returns { deal, counts, warnings }.
+export async function copyDeal(deal, userId, options = DEFAULT_COPY_OPTIONS) {
+  const owner = userId || deal.user_id
+  const row = buildDealCopyFields(deal, options, { userId: owner })
+  const { data: copy, error } = await supabase.from('deals').insert(row).select().single()
   if (error) throw error
-  return data
+
+  const counts = { milestones: 0, contacts: 0, photos: 0, documents: 0 }
+  const warnings = []
+
+  // Tracker. Ticked: clone the original's own steps (progress optionally).
+  // Unticked: a fresh tracker built from the user's master milestone defaults,
+  // exactly as a brand-new deal gets.
+  try {
+    if (isCopyOptionActive(options, 'tracker')) {
+      const source = await fetchDealMilestones(deal.id)
+      const rows = buildMilestoneCopies(source, copy.id, options)
+      if (rows.length) {
+        const { error: mErr } = await supabase.from('deal_milestones').insert(rows)
+        if (mErr) throw mErr
+        counts.milestones = rows.filter(r => r.is_enabled).length
+      } else {
+        const cfg = await fetchMilestoneDefaults(owner)
+        await initialiseMilestones(copy.id, copy.is_auction, copy.deal_type === 'brrr', cfg)
+      }
+    } else {
+      const cfg = await fetchMilestoneDefaults(owner)
+      await initialiseMilestones(copy.id, copy.is_auction, copy.deal_type === 'brrr', cfg)
+    }
+  } catch (e) {
+    warnings.push(`Purchase tracker: ${e.message || 'could not be copied'}`)
+  }
+
+  if (isCopyOptionActive(options, 'contacts')) {
+    try {
+      const source = await fetchDealContacts(deal.id)
+      const rows = source.map(({ id, deal_id, created_at, ...rest }) => ({ ...rest, deal_id: copy.id }))
+      if (rows.length) {
+        const { error: cErr } = await supabase.from('deal_contacts').insert(rows)
+        if (cErr) throw cErr
+        counts.contacts = rows.length
+      }
+    } catch (e) {
+      warnings.push(`Contacts: ${e.message || 'could not be copied'}`)
+    }
+  }
+
+  const wantPhotos = isCopyOptionActive(options, 'photos')
+  const wantDocs = isCopyOptionActive(options, 'documents')
+  if (wantPhotos || wantDocs) {
+    try {
+      const source = await fetchDealDocuments(deal.id)
+      for (const doc of source) {
+        const isPhoto = isDealPhoto(doc)
+        if (isPhoto ? !wantPhotos : !wantDocs) continue
+        if (!doc.file_path) continue
+        try {
+          // Server-side object copy — the file never round-trips through the
+          // browser. The destination sits under the copier's own uid folder,
+          // which is what the storage policy lets them write to.
+          const rawExt = (doc.file_path.split('.').pop() || '').toLowerCase()
+          const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : 'bin'
+          const path = `${owner}/deals/${copy.id}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+          const { error: sErr } = await supabase.storage.from('property-documents').copy(doc.file_path, path)
+          if (sErr) throw sErr
+          const { error: dErr } = await supabase.from('deal_documents').insert({
+            deal_id: copy.id, name: doc.name, file_path: path,
+            size: doc.size, type: doc.type, user_id: owner,
+            caption: doc.caption || null, uploaded_by: doc.uploaded_by || null,
+          })
+          if (dErr) {
+            // Don't leave an orphan file behind if the row insert was refused.
+            try { await supabase.storage.from('property-documents').remove([path]) } catch (_) {}
+            throw dErr
+          }
+          if (isPhoto) counts.photos += 1; else counts.documents += 1
+        } catch (e) {
+          warnings.push(`${doc.name || 'File'}: ${e.message || 'could not be copied'}`)
+        }
+      }
+    } catch (e) {
+      warnings.push(`Files: ${e.message || 'could not be copied'}`)
+    }
+  }
+
+  return { deal: copy, counts, warnings }
 }
 
 export async function fetchDealMilestones(dealId) {

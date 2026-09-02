@@ -15,6 +15,8 @@ import { computeDealMetrics } from '../lib/dealMetrics'
 import { useIsMobile } from '../lib/useWindowSize'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { exportDealPdf } from '../lib/dealPdf'
+import CopyDealModal from './modals/CopyDealModal'
+import { summariseCopy } from '../lib/dealCopy'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -202,6 +204,10 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [saving, setSaving]   = useState(false)
   const [compareIds, setCompareIds] = useState([])
   const [showCompare, setShowCompare] = useState(false)
+  // Deal awaiting a Copy — holds the source deal while the picker asks
+  // which parts (tracker, contacts, photos, documents) come across.
+  const [copyTarget, setCopyTarget] = useState(null)
+  const [copyBusy, setCopyBusy] = useState(false)
   const [statusFilter, setStatusFilter] = useState('all')
   const [coFilter, setCoFilter] = useState('all')
   const [triggerNewLetting, setTriggerNewLetting] = useState(false)
@@ -347,13 +353,21 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     } catch(e) { showToast(e.message, 'error') }
   }
 
-  async function duplicateDeal(deal) {
+  // Runs after the picker: only the ticked groups are carried over, and
+  // per-item failures (one unreadable photo) come back as warnings on an
+  // otherwise-created copy rather than as a thrown error.
+  async function runCopy(options) {
+    if (!copyTarget) return
+    setCopyBusy(true)
     try {
-      const copy = await api.duplicateDeal(deal, user?.id)
-      await api.initialiseMilestones(copy.id, copy.is_auction, copy.deal_type === 'brrr')
+      const { deal: copy, counts, warnings } = await api.copyDeal(copyTarget, user?.id, options)
       setDeals(prev => [copy, ...prev])
-      showToast('Deal duplicated')
+      loadDocCounts()
+      setCopyTarget(null)
+      if (warnings.length) showToast(`${summariseCopy(counts)} — ${warnings.length} item(s) could not be copied`, 'error')
+      else showToast(summariseCopy(counts))
     } catch(e) { showToast(e.message, 'error') }
+    setCopyBusy(false)
   }
 
   function openDeal(deal) {
@@ -563,7 +577,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                             border:`1px solid ${inCompare?T.gold:T.border}`,background:inCompare?T.gold+'22':'transparent',color:inCompare?T.gold:T.muted}}>
                           {inCompare?'Compare':'Compare'}
                         </button>
-                        <button onClick={()=>duplicateDeal(deal)}
+                        <button onClick={()=>setCopyTarget(deal)}
                           style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
                           Copy
                         </button>
@@ -578,6 +592,12 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               })}
             </div>
       }
+
+      {/* Copy picker — asks what to carry over before duplicating */}
+      {copyTarget && (
+        <CopyDealModal deal={copyTarget} busy={copyBusy}
+          onClose={()=>setCopyTarget(null)} onConfirm={runCopy}/>
+      )}
 
       {/* Compare modal */}
       {showCompare && compareIds.length >= 2 && (
