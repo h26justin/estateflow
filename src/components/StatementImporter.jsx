@@ -363,9 +363,27 @@ export function StatementImporter({properties, companies, showToast, onClose, as
         }
 
         if (item.type === 'fee') {
-          const dateMatch = item.period.match(new RegExp('(\\d{2})\\/(\\d{2})\\/(\\d{4})')) || item.date?.match(new RegExp('(\\w+)\\s+(\\d{4})'))
-          const expDate = dateMatch ? `${dateMatch[3]||new Date().getFullYear()}-${(dateMatch[2]||'01').padStart(2,'0')}-01` : todayIso
+          // Date the fee on the statement date (PNE "10th August 2026", RMS
+          // "02/09/2026"); fall back to the start of the fee's period, then
+          // today. Previously PNE fees landed on the import day.
+          const periodStart = (item.period || '').match(/(\d{2})\/(\d{2})\/(\d{4})/)
+          const expDate = parseLooseDate(parsed?.date)
+            || (periodStart ? `${periodStart[3]}-${periodStart[2]}-${periodStart[1]}` : null)
+            || todayIso
           const ref = sourceRef('stmtfee', [format, stmtKey, item.propertyId, item.description || '', item.editAmount, expDate])
+          // Fees imported before source references existed have no ref to
+          // collide with, so also treat a fee of the same amount on the same
+          // property within 45 days as already recorded, and stamp it.
+          const from = new Date(expDate); from.setDate(from.getDate() - 45)
+          const to = new Date(expDate); to.setDate(to.getDate() + 45)
+          const { data: priorFees } = await supabase.from('property_expenses')
+            .select('id, source_ref').eq('property_id', item.propertyId).eq('category', 'agent_fees').eq('amount', item.editAmount)
+            .is('deleted_at', null).gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10)).limit(1)
+          if (priorFees && priorFees.length) {
+            if (!priorFees[0].source_ref) await supabase.from('property_expenses').update({ source_ref: ref }).eq('id', priorFees[0].id)
+            results.skipped++
+            continue
+          }
           const { error } = await supabase.from('property_expenses').insert({
             property_id: item.propertyId, user_id: user.id,
             category: 'agent_fees',
