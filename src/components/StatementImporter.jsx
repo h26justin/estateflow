@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
-import { parseStatement, matchProperties, normaliseStatementName } from '../lib/statementParser'
+import { parseStatement, matchProperties, normaliseStatementName, mergeSamePeriodRent } from '../lib/statementParser'
 import { linesFromTextItems, textFromPages } from '../lib/pdfText'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -66,6 +66,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
   const [format, setFormat] = useState(null)
   const [fileName, setFileName] = useState('')
   const [sourceDoc, setSourceDoc] = useState(null)   // emailed statement being imported
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [inbox, setInbox] = useState(null)           // emailed statements awaiting review
   const [parsed, setParsed] = useState(null)
   const [items, setItems] = useState([])
@@ -231,7 +232,14 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     const undo = []
     let created = 0, updated = 0
 
-    for (const item of items) {
+    // Several rent lines for one property and period (part payment + balance,
+    // housemates paying separately) become one rent row worth the sum, with a
+    // receipt per original line. Without this the second line overwrote the
+    // first and its receipt was refused as a duplicate.
+    const work = mergeSamePeriodRent(items)
+    setProgress({ done: 0, total: work.filter(i => i.include).length })
+    for (const item of work) {
+      if (item.include) setProgress(pr => ({ ...pr, done: pr.done + 1 }))
       if (!item.include) continue
       if (!item.propertyId) {
         results.errors.push(`No property match for: ${item.propertyName}`)
@@ -336,16 +344,21 @@ export function StatementImporter({properties, companies, showToast, onClose, as
           // period, so the traffic-light engine and the collection rate read
           // it directly. Same source_ref, so a re-import is refused by the
           // unique index rather than duplicated.
-          try {
-            const received = parseLooseDate(parsed?.date) || periodEnd
-            await api.createReceipt({
-              property_id: item.propertyId, company_id: companyId, received_date: received,
-              amount: item.editAmount, payer: 'tenant', source: 'statement', source_ref: ref,
-              import_batch_id: batch?.id || null, reference: `${format || 'Agent'} statement ${stmtKey}`,
-              notes: item.tenant ? `Tenant on statement: ${item.tenant}` : null,
-            }, periodRowId ? [{ target: 'current_rent', rent_payment_id: periodRowId, amount: item.editAmount }] : [], { allowUnallocated: !periodRowId })
-          } catch (e) {
-            if (!/already been recorded/i.test(e.message || '')) results.errors.push(`${item.propertyName}: rent logged but the receipt could not be recorded (${e.message})`)
+          const received = parseLooseDate(parsed?.date) || periodEnd
+          const parts = item.parts && item.parts.length > 1 ? item.parts : [item]
+          for (let pi = 0; pi < parts.length; pi++) {
+            const part = parts[pi]
+            const partRef = parts.length > 1 ? `${ref}:${pi + 1}` : ref
+            try {
+              await api.createReceipt({
+                property_id: item.propertyId, company_id: companyId, received_date: received,
+                amount: part.editAmount, payer: 'tenant', source: 'statement', source_ref: partRef,
+                import_batch_id: batch?.id || null, reference: `${format || 'Agent'} statement ${stmtKey}${parts.length > 1 ? ` (payment ${pi + 1} of ${parts.length})` : ''}`,
+                notes: part.tenant ? `Tenant on statement: ${part.tenant}` : null,
+              }, periodRowId ? [{ target: 'current_rent', rent_payment_id: periodRowId, amount: part.editAmount }] : [], { allowUnallocated: !periodRowId })
+            } catch (e) {
+              if (!/already been recorded/i.test(e.message || '')) results.errors.push(`${item.propertyName}: rent logged but the receipt could not be recorded (${e.message})`)
+            }
           }
         }
 
@@ -447,7 +460,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
               <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                 {step==='upload'&&'Upload a PNE or RMS rental statement PDF'}
                 {step==='preview'&&`${format} Statement · ${parsed?.date} · ${items.length} items found`}
-                {step==='importing'&&'Importing data…'}
+                {step==='importing'&&(progress.total ? `Importing ${progress.done} of ${progress.total} lines…` : 'Importing data…')}
                 {step==='done'&&'Import complete'}
               </div>
             </div>

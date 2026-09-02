@@ -113,7 +113,7 @@ export function parseRMSInvoice(text) {
     var period = pm ? pm[1] + ' to ' + pm[2] : result.date
     var what = pm ? pm[3] : desc
     if (/Rent Receipt|Rent Received|^Rent\b/i.test(what)) {
-      if (amount > 0 && amount < 50000) {
+      if (amount > 0 && amount < 1000000) {
         result.items.push({ propertyName: property, type: 'rent', amount: amount, tenant: tenant, period: period,
           description: 'Rent ' + period + (tenant ? ' \u2014 ' + tenant : ''), include: true, matched: false, propertyId: null, editAmount: amount })
         result.totalIncome += amount
@@ -125,7 +125,7 @@ export function parseRMSInvoice(text) {
       result.totalFees += amount
     } else if (/Balance|Totals?/i.test(what)) {
       continue
-    } else if (amount > 0 && amount < 50000) {
+    } else if (amount > 0 && amount < 1000000) {
       result.items.push({ propertyName: property, type: 'maintenance', amount: amount, tenant: '', period: period,
         description: what.replace(/\s+/g, ' ').trim(), include: true, matched: false, propertyId: null, editAmount: amount })
     }
@@ -347,7 +347,7 @@ export function parseRMS(text) {
       var am = line.match(amtRe)
       if (am) {
         var amount = parseCurrency(am[1])
-        if (amount > 0 && amount < 50000) {
+        if (amount > 0 && amount < 1000000) {
           var period = rentM[2] + ' to ' + rentM[3]
           result.items.push({
             propertyName: propName, type: 'rent',
@@ -384,7 +384,7 @@ export function parseRMS(text) {
       var ma = line.match(amtRe)
       if (ma) {
         var mamount = parseCurrency(ma[1])
-        if (mamount > 0 && mamount < 50000) {
+        if (mamount > 0 && mamount < 1000000) {
           result.items.push({
             propertyName: propName3, type: 'maintenance',
             amount: mamount, tenant: '', period: result.date,
@@ -685,4 +685,33 @@ export function matchProperties(items, properties, aliases) {
       matchScore: bestScore
     })
   })
+}
+
+// ── Same property, same period, several lines ───────────────────────────────
+// A statement can carry two or more rent lines for one property and period
+// (a part payment and the balance, or two housemates paying separately). The
+// importer keeps ONE rent row per period, so those lines are merged into a
+// single item whose amount is the sum, while `parts` keeps every original
+// line so each can still be recorded as its own receipt. Fee and maintenance
+// lines are left alone. Order is preserved; excluded lines are untouched.
+export function mergeSamePeriodRent(items) {
+  const out = []
+  const byKey = new Map()
+  for (const it of items || []) {
+    if (!it || it.type !== 'rent' || !it.include || !it.propertyId) { out.push(it); continue }
+    const key = `${it.propertyId}|${it.period}`
+    const seen = byKey.get(key)
+    if (!seen) {
+      const merged = { ...it, parts: [{ ...it }] }
+      byKey.set(key, merged); out.push(merged)
+    } else {
+      seen.parts.push({ ...it })
+      seen.editAmount = Math.round((Number(seen.editAmount) + Number(it.editAmount)) * 100) / 100
+      seen.amount = Math.round((Number(seen.amount) + Number(it.amount)) * 100) / 100
+      const tenants = [...new Set(seen.parts.map(x => x.tenant).filter(Boolean))]
+      seen.tenant = tenants.join(' + ')
+      seen.description = `Rent ${it.period} (${seen.parts.length} payments)${tenants.length ? ' \u2014 ' + tenants.join(', ') : ''}`
+    }
+  }
+  return out
 }
