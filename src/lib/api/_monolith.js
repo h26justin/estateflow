@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { extractStoragePaths, dealDocToPropertyCategory } from '../attachments'
 import { loadCdnScript } from '../loadCdnScript'
 import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
 import { sortPropertiesCanonically } from '../addressUtils'
@@ -2211,6 +2212,45 @@ export async function deleteDealDocument(doc) {
   if (error) throw error
 }
 
+// ── DEAL → PROPERTY ATTACHMENT CARRY-OVER ────────────────────────────────────
+// When a completed deal is converted into a property, its photos and
+// documents come with it. Each file is COPIED to a new path under the
+// converting user's folder rather than re-referenced, for two reasons:
+//   1. the path-ownership trigger on property_documents only accepts paths in
+//      the caller's own folder, and a deal file may have been uploaded by a
+//      colleague;
+//   2. the deal goes to Trash and its files are removed when it is purged, so
+//      a shared path would break the property's copy 30 days later.
+// Photos land in the 'photos' category (rendered as a gallery on the property
+// Documents tab); documents are filed by a name heuristic, 'other' otherwise.
+export async function carryDealAttachmentsToProperty(dealId, propertyId, userId) {
+  const docs = await fetchDealDocuments(dealId)
+  const result = { photos: 0, documents: 0, failed: [] }
+  for (const d of docs) {
+    if (!d.file_path) { result.failed.push({ name: d.name, error: 'No file stored' }); continue }
+    const rawExt = (d.file_path.split('.').pop() || '').toLowerCase()
+    const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : 'bin'
+    const dest = `${userId}/properties/${propertyId}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+    const { error: copyErr } = await supabase.storage.from('property-documents').copy(d.file_path, dest)
+    if (copyErr) { result.failed.push({ name: d.name, error: copyErr.message || 'Copy failed' }); continue }
+    const photo = isDealPhoto(d)
+    const { error } = await supabase.from('property_documents').insert({
+      property_id: propertyId, user_id: userId,
+      name: d.caption || d.name, file_path: dest,
+      file_type: d.type || null, file_size: d.size || null,
+      category: photo ? 'photos' : dealDocToPropertyCategory(d),
+    })
+    if (error) {
+      try { await supabase.storage.from('property-documents').remove([dest]) } catch (_) {}
+      result.failed.push({ name: d.name, error: error.message })
+      continue
+    }
+    if (photo) result.photos += 1
+    else result.documents += 1
+  }
+  return result
+}
+
 // Stamp duty calculator (UK 2024 rates)
 export function calcStampDuty(price, isAdditional = true, isFirstTimeBuyer = false) {
   // UK SDLT rates — updated April 2025 / October 2024
@@ -2653,8 +2693,11 @@ export async function restoreEntity(table, id) {
   if (error) throw error
 }
 
-// Permanent hard delete (only for admins or from trash after 30 days)
+// Permanent hard delete (only for admins or from trash after 30 days).
+// Files first, then the row — see STORAGE_PATH_SOURCES.
 export async function hardDeleteEntity(table, id) {
+  const paths = await collectStoragePaths(table, [id])
+  if (paths.length) await removeStorageFiles(paths)
   const { error } = await supabase.from(table).delete().eq('id', id)
   if (error) throw error
 }
@@ -2783,8 +2826,54 @@ export async function restoreCompanyAndCascade(companyId, userId) {
 // reach their 30 day mark in the same time frame, so they purge alongside.
 const TRASH_RETENTION_DAYS = 30
 
+// ── STORAGE CLEAN-UP ON PURGE ────────────────────────────────────────────────
+// Postgres cascades the document ROWS away when a trashed entity is hard-
+// deleted, but nothing removes the FILES from the private bucket, so every
+// purge used to leave orphans behind (six were found in Sept 2026). For each
+// purgeable table this says where its files are referenced. Paths are
+// collected BEFORE the rows go: the storage read/delete permission for a
+// colleague's upload comes from those very rows.
+const STORAGE_PATH_SOURCES = {
+  deals:              [{ table: 'deal_documents',       fk: 'deal_id',     col: 'file_path' }],
+  properties:         [{ table: 'property_documents',   fk: 'property_id', col: 'file_path' },
+                       { table: 'property_inspections', fk: 'property_id', col: 'photos' },
+                       { table: 'maintenance_jobs',     fk: 'property_id', col: 'photos' }],
+  companies:          [{ table: 'company_documents',    fk: 'company_id',  col: 'file_path' }],
+  maintenance_jobs:   [{ table: 'maintenance_jobs',     fk: 'id',          col: 'photos' }],
+  property_documents: [{ table: 'property_documents',   fk: 'id',          col: 'file_path' }],
+}
+
+export async function collectStoragePaths(table, ids) {
+  const sources = STORAGE_PATH_SOURCES[table]
+  if (!sources || !ids?.length) return []
+  const paths = []
+  for (const src of sources) {
+    try {
+      const { data, error } = await supabase.from(src.table).select(src.col).in(src.fk, ids)
+      if (!error) paths.push(...extractStoragePaths(data, src.col))
+    } catch (_) { /* best effort: a missing table must not block the purge */ }
+  }
+  return [...new Set(paths)]
+}
+
+// Best effort, in chunks of 100 (the Storage API's comfortable batch size).
+// Objects the caller isn't allowed to delete are simply not returned by the
+// API; they are counted as failed rather than thrown.
+export async function removeStorageFiles(paths) {
+  let removed = 0, failed = 0
+  for (let i = 0; i < paths.length; i += 100) {
+    const chunk = paths.slice(i, i + 100)
+    try {
+      const { data, error } = await supabase.storage.from('property-documents').remove(chunk)
+      if (error) failed += chunk.length
+      else { removed += (data || []).length; failed += chunk.length - (data || []).length }
+    } catch (_) { failed += chunk.length }
+  }
+  return { removed, failed }
+}
+
 export async function purgeExpiredTrash(userId) {
-  if (!userId) return { purged: 0 }
+  if (!userId) return { purged: 0, filesRemoved: 0 }
   const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
   const tables = [
     { table: 'properties',         scope: { col: 'user_id',  val: userId } },
@@ -2796,18 +2885,31 @@ export async function purgeExpiredTrash(userId) {
     { table: 'deals',              scope: { col: 'user_id',  val: userId } },
     { table: 'property_documents', scope: { col: 'user_id',  val: userId } },
   ]
-  let purged = 0
+  let purged = 0, filesRemoved = 0
   for (const { table, scope } of tables) {
     try {
+      // Find what is about to go, remove its files while the rows (and so
+      // our storage permissions) still exist, then delete the rows. The
+      // delete repeats the trash conditions so a row restored between the
+      // two calls survives.
+      const { data: rows, error: selErr } = await supabase.from(table)
+        .select('id')
+        .eq(scope.col, scope.val)
+        .lt('deleted_at', cutoff)
+        .not('deleted_at', 'is', null)
+      if (selErr || !rows?.length) continue
+      const ids = rows.map(r => r.id)
+      const paths = await collectStoragePaths(table, ids)
+      if (paths.length) filesRemoved += (await removeStorageFiles(paths)).removed
       const { error, count } = await supabase.from(table)
         .delete({ count: 'exact' })
-        .eq(scope.col, scope.val)
+        .in('id', ids)
         .lt('deleted_at', cutoff)
         .not('deleted_at', 'is', null)
       if (!error && count) purged += count
     } catch (e) { /* table-level error: continue with the others */ }
   }
-  return { purged, retentionDays: TRASH_RETENTION_DAYS }
+  return { purged, filesRemoved, retentionDays: TRASH_RETENTION_DAYS }
 }
 
 export async function fetchAllDeleted(userId) {

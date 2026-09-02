@@ -14,6 +14,7 @@ import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TI
 import { computeDealMetrics } from '../lib/dealMetrics'
 import { useIsMobile } from '../lib/useWindowSize'
 import { SignedPhoto } from '../lib/SignedPhoto'
+import { exportDealPdf } from '../lib/dealPdf'
 import CopyDealModal from './modals/CopyDealModal'
 import { summariseCopy } from '../lib/dealCopy'
 
@@ -904,6 +905,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const [tab, setTab]     = useState('calculator')
   const [form, setForm]   = useState(deal ? { ...deal } : {})
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   // Ref for the title input so the Edit button can focus + select-all,
   // making it visually obvious the title is editable. Without this affordance
   // the title looks like static text (Georgia serif, no border) and people
@@ -964,6 +966,18 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
     setSaving(false)
   }
 
+  // Shareable PDF pack: the whole analysis plus contacts, tracker, notes,
+  // document list and the photos. Reads the ref so unsaved edits are included.
+  async function exportPdf() {
+    setExporting(true)
+    try {
+      const current = formRef.current
+      const res = await exportDealPdf({ deal: current, company: companies.find(c => c.id === current.company_id) })
+      showToast(`Deal pack downloaded (${res.pages} page${res.pages === 1 ? '' : 's'}${res.photos ? `, ${res.photos} photo${res.photos === 1 ? '' : 's'}` : ''})`)
+    } catch (e) { showToast('Could not build the PDF: ' + (e.message || 'unknown error'), 'error') }
+    setExporting(false)
+  }
+
   // InputRow and ResultRow are defined at module level to avoid focus loss
 
   const sc = STATUS_CFG[form.status]||STATUS_CFG.analysing
@@ -1016,6 +1030,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           </select>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave} disabled={saving}>
             {saving?'Saving…':'Save'}
+          </button>
+          <button className="btn btn-ghost" style={{fontSize:11}} onClick={exportPdf} disabled={exporting} title="Download a PDF pack of this deal to share">
+            {exporting ? 'Building PDF…' : 'Download PDF'}
           </button>
           {form.status === 'completed' && (
             <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>onConvert&&onConvert(form)}>Convert to Property →</button>
