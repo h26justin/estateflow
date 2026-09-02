@@ -81,7 +81,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     ;(async () => {
       try {
         const [b, a, m] = await Promise.all([
-          api.fetchStlBookings({ propertyIds: stlIds }),
+          api.fetchStlIncomeBookings({ propertyIds: stlIds }),
           api.fetchStlAdjustments({ propertyIds: stlIds }),
           api.fetchHostawayMappings().catch(() => []),   // own-rows RLS; optional
         ])

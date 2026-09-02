@@ -21,7 +21,7 @@ const chunk = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i +=
 // Bookings for a set of STL properties. `from` / `to` bound the ARRIVAL date
 // (that is the month a booking is counted in). Paged past the PostgREST cap
 // and chunked on the id list so a big portfolio never hits a URL-length limit.
-export async function fetchStlBookings({ companyId = null, propertyIds = [], from = null, to = null } = {}) {
+export async function fetchStlIncomeBookings({ companyId = null, propertyIds = [], from = null, to = null } = {}) {
   if (!propertyIds?.length) return []
   const rows = []
   for (const ids of chunk(propertyIds, 200)) {
