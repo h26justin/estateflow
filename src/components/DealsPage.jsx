@@ -11,6 +11,9 @@ const LettingsAssistantPanel = lazy(() => import('./LettingsAssistantPanel'))
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TIME_BUCKET_LABEL } from '../lib/dealCashflow'
+import { computeDealMetrics } from '../lib/dealMetrics'
+import { useIsMobile } from '../lib/useWindowSize'
+import { SignedPhoto } from '../lib/SignedPhoto'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -83,6 +86,21 @@ function ResultRow({ label, value, color, big, T }) {
       <span style={{fontFamily:mono,fontSize:big?13:11,color:T.muted}}>{label}</span>
       <span style={{fontFamily:mono,fontSize:big?18:13,fontWeight:big?700:600,color:color||T.text}}>{value}</span>
     </div>
+  )
+}
+
+// Small "3 photos · 2 docs" chip for list and pipeline cards. Renders
+// nothing when the deal has no attachments.
+function DocCountBadge({ counts, T }) {
+  const parts = []
+  if (counts?.photos > 0) parts.push(`${counts.photos} photo${counts.photos===1?'':'s'}`)
+  if (counts?.documents > 0) parts.push(`${counts.documents} doc${counts.documents===1?'':'s'}`)
+  if (!parts.length) return null
+  return (
+    <span title="Photos and documents attached to this deal"
+      style={{fontFamily:mono,fontSize:9,padding:'2px 7px',borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.muted,display:'inline-flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
+      <Icon name="folder" size={10} color={T.muted}/>{parts.join(' · ')}
+    </span>
   )
 }
 
@@ -178,7 +196,6 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [selectedDeal, setSelectedDeal] = useState(null)
   // Deal id from a deep link — resolved once deals have loaded.
   const pendingDealId = useRef(initialHash?.dealId || null)
-  const [dealTab, setDealTab] = useState('calculator')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [saving, setSaving]   = useState(false)
@@ -187,6 +204,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [statusFilter, setStatusFilter] = useState('all')
   const [coFilter, setCoFilter] = useState('all')
   const [triggerNewLetting, setTriggerNewLetting] = useState(false)
+  // Photo / document counts per deal for the badges on list + pipeline
+  // cards. Loaded with the deals and refreshed when the user comes back
+  // from a deal, since they may have just added photos.
+  const [docCounts, setDocCounts] = useState({})
+  const loadDocCounts = () => api.fetchDealDocumentCounts().then(setDocCounts).catch(()=>{})
 
   useEffect(() => { loadDeals() }, [])
 
@@ -260,6 +282,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     try {
       const data = await api.fetchDeals(user.id)
       setDeals(data)
+      loadDocCounts()
     } catch(e) {
       setLoadError(e.message || 'Failed to load deals')
     }
@@ -325,7 +348,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 
   async function duplicateDeal(deal) {
     try {
-      const copy = await api.duplicateDeal(deal)
+      const copy = await api.duplicateDeal(deal, user?.id)
       await api.initialiseMilestones(copy.id, copy.is_auction, copy.deal_type === 'brrr')
       setDeals(prev => [copy, ...prev])
       showToast('Deal duplicated')
@@ -334,7 +357,6 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 
   function openDeal(deal) {
     setSelectedDeal(deal)
-    setDealTab('calculator')
     setView('deal')
   }
 
@@ -345,15 +367,6 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   }), [deals, statusFilter, coFilter])
 
 
-  // ── card / style helpers ────────────────────────────────────────────────────
-  const card = { background: T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
-  const sect = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
-  const tabBtn = (k) => ({
-    fontFamily:mono, fontSize:11, padding:'7px 16px', borderRadius:8, border:'none',
-    cursor:'pointer', background: dealTab===k ? T.gold+'22' : 'transparent',
-    color: dealTab===k ? T.gold : T.muted, fontWeight: dealTab===k ? 700 : 400,
-  })
-
   // ── DEAL DETAIL VIEW ────────────────────────────────────────────────────────
   if (view === 'deal' && selectedDeal) return (
     <DealDetail
@@ -362,7 +375,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       companies={companies}
       user={user}
       showToast={showToast}
-      onBack={()=>{ setView('list') }}
+      onBack={()=>{ setView('list'); loadDocCounts() }}
       onSave={saveDeal}
       onDelete={()=>deleteDeal(selectedDeal.id)}
       onConvert={onConvertToProperty}
@@ -418,7 +431,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       </div>
 
       {/* ── PIPELINE VIEW ── */}
-      {dealView==='pipeline' && <DealPipeline deals={filtered} companies={companies} onOpen={openDeal} onNew={createNewDeal} T={T}/>}
+      {dealView==='pipeline' && <DealPipeline deals={filtered} companies={companies} docCounts={docCounts} onOpen={openDeal} onNew={createNewDeal} T={T}/>}
 
       {/* ── LETTINGS VIEW ── */}
       {dealView==='lettings' && <>
@@ -495,23 +508,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               {filtered.map(deal => {
                 const co = companies.find(c=>c.id===deal.company_id)
                 const sc = STATUS_CFG[deal.status]||STATUS_CFG.analysing
-                const sd = deal.stamp_duty_override ?? api.calcStampDuty(deal.purchase_price, deal.is_additional_property, deal.is_first_time_buyer)
-                const totalCost = (deal.purchase_price||0)+sd+(deal.legal_fees||0)+(deal.survey_cost||0)+(deal.auction_fees||0)+(deal.broker_fee||0)+(deal.refurb_cost||0)+(deal.other_costs||0)
-                const deposit = deal.purchase_type==='cash' ? deal.purchase_price : (deal.purchase_price||0)*(deal.deposit_percent||25)/100
-                const cashIn = Math.max(0, totalCost - (deal.purchase_price||0)*(1-(deal.deposit_percent||25)/100))
-                const grossRent = deal.deal_type==='hmo'
-                  ? (deal.hmo_rooms||4)*(deal.hmo_rent_per_room||0)
-                  : deal.deal_type==='sa'
-                    ? (deal.sa_nightly_rate||0)*(deal.sa_occupancy_percent||70)/100*30.4
-                    : (deal.monthly_rent||0)
-                const grossYield = deal.purchase_price > 0 ? (grossRent*12/deal.purchase_price)*100 : 0
-                const monthlyRepayment = deal.purchase_type !== 'cash'
-                  ? api.calcMonthlyRepayment((deal.purchase_price||0)*(1-(deal.deposit_percent||25)/100), deal.mortgage_rate||5, deal.mortgage_term||25)
-                  : 0
-                const effectiveRent = grossRent*(1-(deal.void_percent||8)/100)
-                const agentVatMult = (deal.agent_fee_vat||'ex_vat')==='ex_vat' ? 1.2 : 1.0
-                const runningCosts = effectiveRent*((deal.agent_fee_percent||10)*agentVatMult/100 + (deal.maintenance_percent||10)/100) + (deal.insurance_monthly||0) + (deal.service_charge_monthly||0) + monthlyRepayment
-                const monthlyProfit = effectiveRent - runningCosts
+                // Same maths as the deal editor — see src/lib/dealMetrics.js.
+                const { cashIn, grossMonthlyRent: grossRent, grossYield, monthlyProfit } = computeDealMetrics(deal)
+                const counts = docCounts[deal.id]
                 const inCompare = compareIds.includes(deal.id)
 
                 return (
@@ -520,12 +519,17 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                     onMouseLeave={e=>e.currentTarget.style.transform='none'}
                     onClick={()=>openDeal(deal)}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>
-                      <div style={{flex:1}}>
+                      {counts?.cover && (
+                        <SignedPhoto path={counts.cover} alt="" wrapAnchor={false}
+                          style={{width:64,height:64,objectFit:'cover',borderRadius:8,border:`1px solid ${T.border}`,flexShrink:0}}/>
+                      )}
+                      <div style={{flex:1,minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
                           <span style={{fontSize:15,fontWeight:700,color:T.text}}>{deal.name}</span>
                           <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:10,background:sc.color+'22',color:sc.color}}>{sc.label}</span>
                           {co && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>}
                           <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{DEAL_TYPE_LABELS[deal.deal_type]||'BTL'}{deal.is_auction?' · Auction':''}</span>
+                          <DocCountBadge counts={counts} T={T}/>
                         </div>
                         {deal.address && <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:8}}>{deal.address}</div>}
                         <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
@@ -874,6 +878,9 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
 // ── DEAL DETAIL ────────────────────────────────────────────────────────────────
 function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete, onConvert }) {
   const { T } = useTheme()
+  // The calculator is a two-column layout (inputs | sticky results). On a
+  // phone the fixed 320px results column left ~30px for the inputs.
+  const isMobile = useIsMobile()
   const [tab, setTab]     = useState('calculator')
   const [form, setForm]   = useState(deal ? { ...deal } : {})
   const [saving, setSaving] = useState(false)
@@ -910,47 +917,14 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const num = (field) => parseFloat(form[field]) || 0
 
   // ── CALCULATIONS ────────────────────────────────────────────────────────────
-  const sd = form.stamp_duty_override != null
-    ? num('stamp_duty_override')
-    : api.calcStampDuty(num('purchase_price'), form.is_additional_property, form.is_first_time_buyer)
-
-  const loanAmount = form.purchase_type === 'cash' ? 0 : num('purchase_price') * (1 - num('deposit_percent') / 100)
-  const deposit = num('purchase_price') - loanAmount
-  const mortgageFee = form.purchase_type !== 'cash' ? loanAmount * (num('mortgage_fee_percent') / 100) : 0
-  const totalAcquisition = num('purchase_price') + sd + num('legal_fees') + num('survey_cost') + num('auction_fees') + num('broker_fee') + num('refurb_cost') + num('other_costs') + mortgageFee
-  const cashIn = Math.max(0, totalAcquisition - loanAmount)
-  const isInterestOnly = (form.mortgage_type || 'interest_only') === 'interest_only'
-  const monthlyRepayment = form.purchase_type !== 'cash' ? api.calcMonthlyRepayment(loanAmount, num('mortgage_rate'), num('mortgage_term') || 25, isInterestOnly) : 0
-
-  const grossMonthlyRent = form.deal_type === 'hmo'
-    ? (form.hmo_rent_mode === 'individual' && Array.isArray(form.hmo_room_rents) && form.hmo_room_rents.length > 0
-        ? form.hmo_room_rents.reduce((s,r)=>s+(parseFloat(r)||0),0)
-        : num('hmo_rooms') * num('hmo_rent_per_room'))
-    : form.deal_type === 'sa'
-      ? num('sa_nightly_rate') * (num('sa_occupancy_percent') / 100) * 30.4
-      : num('monthly_rent')
-
-  const effectiveRent = grossMonthlyRent * (1 - num('void_percent') / 100)
-  // Agent fee: if ex_vat, multiply by 1.2 to get true cost (10% ex VAT = 12% effective)
-  const agentFeeMultiplier = (form.agent_fee_vat || 'ex_vat') === 'ex_vat' ? 1.2 : 1.0
-  const agentFee = effectiveRent * num('agent_fee_percent') / 100 * agentFeeMultiplier
-  const maintenanceFee = effectiveRent * num('maintenance_percent') / 100
-  const hmoExtras = form.deal_type === 'hmo' ? num('hmo_utilities_monthly') + num('hmo_council_tax_monthly') + num('hmo_licence_annual') / 12 : 0
-  const totalMonthlyCosts = monthlyRepayment + agentFee + maintenanceFee + num('insurance_monthly') + num('service_charge_monthly') + num('ground_rent_monthly') + hmoExtras
-
-  const monthlyProfit = effectiveRent - totalMonthlyCosts
-  const annualProfit = monthlyProfit * 12
-  const grossYield = num('purchase_price') > 0 ? (grossMonthlyRent * 12 / num('purchase_price')) * 100 : 0
-  const netYield = num('purchase_price') > 0 ? (annualProfit / num('purchase_price')) * 100 : 0
-  const cashOnCash = cashIn > 0 ? (annualProfit / cashIn) * 100 : 0
-  const roce = totalAcquisition > 0 ? (annualProfit / totalAcquisition) * 100 : 0
-  const payback = annualProfit > 0 ? cashIn / annualProfit : 0
-
-  // BRRR
-  const brrrNewLoan = num('brrr_end_value') * num('brrr_refinance_ltv') / 100
-  const brrrNewRepayment = api.calcMonthlyRepayment(brrrNewLoan, num('brrr_new_rate'), num('brrr_new_term') || 25, isInterestOnly)
-  const brrrMoneyLeft = cashIn - (brrrNewLoan - loanAmount)
-  const brrrCashOnCash = brrrMoneyLeft > 0 ? (annualProfit / brrrMoneyLeft) * 100 : 0
+  // Shared with the list card, compare modal and pipeline so every screen
+  // agrees on the numbers. See src/lib/dealMetrics.js.
+  const {
+    sd, loanAmount, mortgageFee, totalAcquisition, cashIn, isInterestOnly, monthlyRepayment,
+    grossMonthlyRent, effectiveRent, agentFee, maintenanceFee, hmoExtras, totalMonthlyCosts,
+    monthlyProfit, annualProfit, grossYield, netYield, cashOnCash, roce, payback,
+    brrrNewLoan, brrrNewRepayment, brrrMoneyLeft, brrrCashOnCash,
+  } = computeDealMetrics(form)
 
   async function handleSave() {
     setSaving(true)
@@ -1068,14 +1042,14 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
       {/* Tabs */}
       <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:`1px solid ${T.border}`,flexWrap:'wrap'}}>
-        {[['calculator','Calculator'],['tracker','Purchase Tracker'],['contacts','Contacts'],['documents','Documents']].map(([k,l])=>(
+        {[['calculator','Calculator'],['tracker','Purchase Tracker'],['contacts','Contacts'],['documents','Photos & Documents']].map(([k,l])=>(
           <button key={k} style={tabStyle(k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
 
       {/* ── CALCULATOR TAB ── */}
       {tab === 'calculator' && (
-        <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:24,alignItems:'start'}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 320px',gap:24,alignItems:'start'}}>
           <div style={{display:'grid',gap:16}}>
 
             {/* Deal type & purchase type */}
@@ -1390,7 +1364,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           </div>
 
           {/* ── RESULTS PANEL ── */}
-          <div style={{position:'sticky',top:80}}>
+          <div style={isMobile?undefined:{position:'sticky',top:80}}>
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Acquisition summary</span>
               <ResultRow label="Purchase price" value={fmt(num('purchase_price'))} T={T}/>
@@ -1577,7 +1551,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
       {/* ── DOCUMENTS TAB ── */}
       {tab === 'documents' && (
-        <DocumentsTab dealId={form.id} userId={user.id} showToast={showToast}/>
+        <DocumentsTab dealId={form.id} userId={user?.id} showToast={showToast}/>
       )}
     </div>
   )
@@ -1750,7 +1724,8 @@ function ContactsTab({ dealId, userId, showToast }) {
   const [abView, setAbView]           = useState('deal') // 'deal' | 'book'
 
   useEffect(() => {
-    api.fetchDealContacts(dealId).then(setContacts).catch(()=>{})
+    api.fetchDealContacts(dealId).then(setContacts)
+      .catch(e => showToast && showToast('Could not load contacts: ' + (e.message || 'unknown error'), 'error'))
     if (userId) api.fetchAddressBook(userId).then(setAddressBook).catch(()=>{})
   }, [dealId, userId])
 
@@ -1784,6 +1759,7 @@ function ContactsTab({ dealId, userId, showToast }) {
   }
 
   async function remove(id) {
+    if (!await confirmDialog({ title: 'Remove this contact from the deal?', body: 'Your address book is not affected.', confirmLabel: 'Remove', destructive: true })) return
     try {
       await api.deleteDealContact(id)
       setContacts(prev=>prev.filter(c=>c.id!==id))
@@ -1928,76 +1904,282 @@ function ContactsTab({ dealId, userId, showToast }) {
   )
 }
 
-// ── DOCUMENTS TAB ─────────────────────────────────────────────────────────────
+// ── PHOTOS & DOCUMENTS TAB ────────────────────────────────────────────────────
+// Photos (viewing shots, floorplans, listing images) render as a gallery
+// with captions and a lightbox; everything else is a document list. Both
+// live in deal_documents — a row is a "photo" when its MIME type (or, for
+// browsers that leave it blank, its extension) is an image. Files are in
+// the private property-documents bucket and rendered through short-lived
+// signed URLs, so anyone with access to the deal (creator, company
+// collaborators) sees the same gallery.
+const IMAGE_ACCEPT = 'image/*,.heic,.heif'
+const DOC_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.eml,.msg,image/*'
+
+function docIcon(doc) {
+  const ext = ((doc.name || '').split('.').pop() || '').toLowerCase()
+  if (ext === 'pdf') return 'file-text'
+  if (['xls','xlsx','csv'].includes(ext)) return 'grid'
+  if (['eml','msg'].includes(ext)) return 'mail'
+  return 'file-text'
+}
+
+function fmtBytes(n) {
+  if (!n) return ''
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB'
+  return (n / 1024 / 1024).toFixed(1) + ' MB'
+}
+
+function fmtDate(iso) {
+  return iso ? new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : ''
+}
+
 function DocumentsTab({ dealId, userId, showToast }) {
   const { T } = useTheme()
-  const [docs, setDocs]         = useState([])
-  const [uploading, setUploading] = useState(false)
-  const inputRef = useRef(null)
+  const confirmDialog = useConfirm()
+  const [docs, setDocs]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [uploading, setUploading] = useState(null)   // null | { done, total }
+  const [dragging, setDragging]   = useState(false)
+  const [lightbox, setLightbox]   = useState(null)   // index into `photos`
+  const [captionEdit, setCaptionEdit] = useState(null) // { id, value }
+  const photoInputRef = useRef(null)
+  const docInputRef   = useRef(null)
 
-  useEffect(() => {
-    api.fetchDealDocuments(dealId).then(setDocs).catch(()=>{})
-  }, [dealId])
+  async function load() {
+    setLoading(true)
+    setLoadError(null)
+    try { setDocs(await api.fetchDealDocuments(dealId)) }
+    catch (e) { setLoadError(e.message || 'Failed to load') }
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [dealId])
 
-  async function handleUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
+  const photos = docs.filter(api.isDealPhoto)
+  const files  = docs.filter(d => !api.isDealPhoto(d))
+
+  async function handleFiles(fileList, kind) {
+    const list = Array.from(fileList || [])
+    if (!list.length) return
+    setUploading({ done: 0, total: list.length })
     try {
-      await api.uploadDealDocument(dealId, file, userId)
-      const docs = await api.fetchDealDocuments(dealId)
-      setDocs(docs)
-      showToast('Document uploaded')
-    } catch(e) { showToast(e.message,'error') }
-    setUploading(false)
+      const { done, failed } = await api.uploadDealDocuments(dealId, list, userId,
+        (n, total) => setUploading({ done: n, total }))
+      if (done.length) {
+        // fetchDealDocuments is newest-first; keep that order.
+        setDocs(prev => [...done.slice().reverse(), ...prev])
+        const noun = kind === 'photo' ? 'photo' : 'file'
+        showToast(`${done.length} ${noun}${done.length === 1 ? '' : 's'} added`)
+      }
+      if (failed.length) {
+        showToast(`${failed.length} failed — ${failed.map(f => `${f.name}: ${f.error}`).join('; ')}`, 'error')
+      }
+    } catch (e) { showToast(e.message || 'Upload failed', 'error') }
+    setUploading(null)
   }
 
   async function remove(doc) {
+    const isPhoto = api.isDealPhoto(doc)
+    const ok = await confirmDialog({
+      title: isPhoto ? 'Remove this photo?' : 'Remove this document?',
+      body: 'It is deleted for everyone on this deal. This cannot be undone.',
+      confirmLabel: 'Remove', destructive: true,
+    })
+    if (!ok) return
     try {
       await api.deleteDealDocument(doc)
-      setDocs(prev=>prev.filter(d=>d.id!==doc.id))
-      showToast('Document removed')
-    } catch(e) { showToast(e.message,'error') }
+      setDocs(prev => prev.filter(d => d.id !== doc.id))
+      setLightbox(null)
+      showToast(isPhoto ? 'Photo removed' : 'Document removed')
+    } catch (e) { showToast(e.message, 'error') }
   }
 
+  async function saveCaption() {
+    if (!captionEdit) return
+    const { id, value } = captionEdit
+    const current = docs.find(d => d.id === id)
+    setCaptionEdit(null)
+    const caption = value.trim() || null
+    if (!current || (current.caption || null) === caption) return
+    try {
+      const updated = await api.updateDealDocument(id, { caption })
+      setDocs(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d))
+    } catch (e) { showToast(e.message || 'Could not save caption', 'error') }
+  }
+
+  async function openOriginal(doc) {
+    try {
+      const url = await api.getDocumentSignedUrl(doc.file_path)
+      if (url) window.open(url, '_blank', 'noopener,noreferrer')
+      else showToast('Could not generate view link', 'error')
+    } catch (e) { showToast('Could not view: ' + (e.message || 'unknown'), 'error') }
+  }
+
+  // Drag-and-drop anywhere on the tab. Images go to the gallery, the rest
+  // to the document list — the split happens on MIME type after upload.
+  const onDragOver  = e => { e.preventDefault(); if (!dragging) setDragging(true) }
+  const onDragLeave = e => { if (e.currentTarget.contains(e.relatedTarget)) return; setDragging(false) }
+  const onDrop      = e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer?.files, 'file') }
+
+  // Arrow keys / Escape in the lightbox.
+  useEffect(() => {
+    if (lightbox == null) return
+    const onKey = e => {
+      if (e.key === 'ArrowRight') setLightbox(i => Math.min(photos.length - 1, i + 1))
+      if (e.key === 'ArrowLeft')  setLightbox(i => Math.max(0, i - 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightbox, photos.length])
+
+  const sectStyle = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', display:'block' }
+  const ghostBtn = { fontFamily:mono, fontSize:11, padding:'4px 10px', borderRadius:6, cursor:'pointer', border:`1px solid ${T.border}`, background:'transparent', color:T.muted }
+  const meta = (d) => [d.uploaded_by, fmtDate(d.created_at), fmtBytes(d.size)].filter(Boolean).join(' · ')
+  const current = lightbox != null ? photos[lightbox] : null
+
   return (
-    <div>
-      <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
-        <span style={{fontFamily:mono,fontSize:12,color:T.muted}}>Documents stored against this deal</span>
-        <label style={{cursor:'pointer'}}>
-          <span className="btn btn-gold" style={{fontSize:11}}>{uploading?'Uploading…':'+ Upload Document'}</span>
-          <input type="file" style={{display:'none'}} onChange={handleUpload} disabled={uploading}/>
-        </label>
+    <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+      style={{border:`2px dashed ${dragging ? T.gold : 'transparent'}`, borderRadius:14, padding:dragging ? 10 : 0, transition:'all 0.15s', position:'relative'}}>
+      {dragging && (
+        <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:T.gold+'11', borderRadius:14, pointerEvents:'none', zIndex:2}}>
+          <span style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.gold}}>Drop to add to this deal</span>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:16}}>
+        <span style={{fontFamily:mono, fontSize:12, color:T.muted}}>
+          Photos and documents for this deal. Everyone with access to the deal sees them. Drag and drop works too.
+        </span>
+        <div style={{display:'flex', gap:8, alignItems:'center', flexShrink:0}}>
+          {uploading && (
+            <span style={{fontFamily:mono, fontSize:10, color:T.muted}}>Uploading {Math.min(uploading.done + 1, uploading.total)}/{uploading.total}…</span>
+          )}
+          <button className="btn btn-gold" style={{fontSize:11}} disabled={!!uploading} onClick={() => photoInputRef.current?.click()}>
+            + Add photos
+          </button>
+          <button className="btn btn-ghost" style={{fontSize:11}} disabled={!!uploading} onClick={() => docInputRef.current?.click()}>
+            + Upload document
+          </button>
+          <input ref={photoInputRef} type="file" accept={IMAGE_ACCEPT} multiple style={{display:'none'}}
+            onChange={e => { handleFiles(e.target.files, 'photo'); e.target.value = '' }}/>
+          <input ref={docInputRef} type="file" accept={DOC_ACCEPT} multiple style={{display:'none'}}
+            onChange={e => { handleFiles(e.target.files, 'file'); e.target.value = '' }}/>
+        </div>
       </div>
-      {docs.length===0
-        ? <div className="card" style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
-            No documents yet. Upload your survey report, mortgage offer, legal pack or contracts.
+
+      {loading ? <SkeletonTiles count={4}/> : loadError ? (
+        <div className="card" style={{padding:32, textAlign:'center'}}>
+          <div style={{fontFamily:mono, fontSize:12, color:T.red, marginBottom:12}}>Couldn't load attachments — {loadError}</div>
+          <button className="btn btn-ghost" style={{fontSize:11}} onClick={load}>Retry</button>
+        </div>
+      ) : (<>
+        {/* ── PHOTOS ── */}
+        <div style={{background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'18px 20px', marginBottom:16}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+            <span style={sectStyle}>Photos ({photos.length})</span>
+            {photos.length > 0 && <span style={{fontFamily:mono, fontSize:10, color:T.muted}}>Click a photo to view · click a caption to edit</span>}
           </div>
-        : <div style={{display:'grid',gap:8}}>
-            {docs.map(doc=>(
-              <div key={doc.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
-                <span style={{fontSize:20}}>📄</span>
-                <div style={{flex:1}}>
-                  <button onClick={async()=>{
-                    try {
-                      const url = await api.getDocumentSignedUrl(doc.file_path)
-                      if (url) window.open(url, '_blank', 'noopener,noreferrer')
-                      else if (showToast) showToast('Could not generate view link', 'error')
-                    } catch(e) { if (showToast) showToast('Could not view: '+(e.message||'unknown'), 'error') }
-                  }}
-                    style={{background:'none',border:'none',padding:0,fontSize:13,fontWeight:600,color:T.gold,cursor:'pointer',textAlign:'left'}}>
-                    {doc.name}
-                  </button>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>
-                    {doc.size ? (doc.size/1024).toFixed(0)+'KB · ' : ''}
-                    {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
-                  </div>
-                </div>
-                <button onClick={()=>remove(doc)} style={{fontFamily:mono,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Remove</button>
+          {photos.length === 0 ? (
+            <button onClick={() => photoInputRef.current?.click()} disabled={!!uploading}
+              style={{width:'100%', padding:'28px 16px', borderRadius:10, border:`1px dashed ${T.border}`, background:T.bg, cursor:'pointer', textAlign:'center'}}>
+              <div style={{display:'flex', justifyContent:'center', marginBottom:8}}><Icon name="upload" size={22} color={T.gold}/></div>
+              <div style={{fontFamily:mono, fontSize:12, color:T.text, marginBottom:4}}>No photos yet</div>
+              <div style={{fontFamily:mono, fontSize:10, color:T.muted, lineHeight:1.6}}>
+                Add viewing shots, the listing photos or a floorplan so everyone on this deal can see what you saw.
+                <br/>JPG, PNG, WebP or HEIC, up to 10 MB each.
               </div>
-            ))}
+            </button>
+          ) : (
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))', gap:12}}>
+              {photos.map((p, i) => (
+                <div key={p.id} style={{position:'relative', minWidth:0}}>
+                  <button onClick={() => setLightbox(i)} aria-label={`View photo ${i + 1}${p.caption ? ': ' + p.caption : ''}`}
+                    style={{display:'block', width:'100%', padding:0, border:'none', background:'none', cursor:'zoom-in'}}>
+                    <SignedPhoto path={p.file_path} url={p.url} alt={p.caption || p.name} wrapAnchor={false}
+                      style={{width:'100%', aspectRatio:'4 / 3', objectFit:'cover', borderRadius:10, border:`1px solid ${T.border}`, display:'block'}}/>
+                  </button>
+                  <button onClick={() => remove(p)} aria-label="Remove photo" title="Remove photo"
+                    style={{position:'absolute', top:6, right:6, width:22, height:22, borderRadius:11, border:'none', background:'rgba(0,0,0,0.6)', color:'white', cursor:'pointer', fontSize:12, lineHeight:1, padding:0}}>×</button>
+                  {captionEdit?.id === p.id ? (
+                    <input autoFocus value={captionEdit.value}
+                      onChange={e => setCaptionEdit({ id: p.id, value: e.target.value })}
+                      onBlur={saveCaption}
+                      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setCaptionEdit(null) }}
+                      placeholder="Caption"
+                      style={{width:'100%', marginTop:6, fontFamily:mono, fontSize:11, background:T.bg, border:`1px solid ${T.gold}`, color:T.text, borderRadius:6, padding:'4px 8px', outline:'none'}}/>
+                  ) : (
+                    <button onClick={() => setCaptionEdit({ id: p.id, value: p.caption || '' })} title="Edit caption"
+                      style={{display:'block', width:'100%', marginTop:6, padding:0, border:'none', background:'none', cursor:'text', textAlign:'left', fontFamily:mono, fontSize:11, color:p.caption ? T.text : T.muted, fontStyle:p.caption ? 'normal' : 'italic', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                      {p.caption || 'Add caption…'}
+                    </button>
+                  )}
+                  <div style={{fontFamily:mono, fontSize:9, color:T.muted, marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{meta(p)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── DOCUMENTS ── */}
+        <div style={{background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'18px 20px'}}>
+          <span style={{...sectStyle, marginBottom:12}}>Documents ({files.length})</span>
+          {files.length === 0 ? (
+            <div style={{padding:'20px 16px', textAlign:'center', fontFamily:mono, fontSize:11, color:T.muted, background:T.bg, borderRadius:10, border:`1px dashed ${T.border}`}}>
+              No documents yet. Upload the survey report, mortgage offer, legal pack or contracts.
+            </div>
+          ) : (
+            <div style={{display:'grid', gap:8}}>
+              {files.map(doc => (
+                <div key={doc.id} style={{background:T.bg, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:12}}>
+                  <Icon name={docIcon(doc)} size={18} color={T.gold}/>
+                  <div style={{flex:1, minWidth:0}}>
+                    <button onClick={() => openOriginal(doc)}
+                      style={{background:'none', border:'none', padding:0, fontSize:13, fontWeight:600, color:T.gold, cursor:'pointer', textAlign:'left', maxWidth:'100%', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', display:'block'}}>
+                      {doc.name}
+                    </button>
+                    <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginTop:2}}>{meta(doc)}</div>
+                  </div>
+                  <button onClick={() => remove(doc)} style={{...ghostBtn, borderColor:T.red+'44', color:T.red}}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>)}
+
+      {/* ── LIGHTBOX ── */}
+      {current && (
+        <Modal onClose={() => setLightbox(null)} size="xl" ariaLabel="Photo viewer">
+          <div style={{padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', justifyContent:'space-between', alignItems:'center', gap:10}}>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:14, fontWeight:700, color:T.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{current.caption || current.name}</div>
+              <div style={{fontFamily:mono, fontSize:10, color:T.muted}}>{lightbox + 1} of {photos.length}{meta(current) ? ' · ' + meta(current) : ''}</div>
+            </div>
+            <div style={{display:'flex', gap:8, alignItems:'center', flexShrink:0}}>
+              <button style={ghostBtn} onClick={() => openOriginal(current)}>Open full size</button>
+              <button style={{...ghostBtn, borderColor:T.red+'44', color:T.red}} onClick={() => remove(current)}>Remove</button>
+              <button onClick={() => setLightbox(null)} aria-label="Close photo viewer" style={{background:'none', border:'none', color:T.muted, fontSize:20, cursor:'pointer', padding:'4px 8px'}}>✕</button>
+            </div>
           </div>
-      }
+          <div style={{position:'relative', background:'#111', display:'flex', alignItems:'center', justifyContent:'center', minHeight:240}}>
+            <SignedPhoto key={current.id} path={current.file_path} url={current.url} alt={current.caption || current.name} wrapAnchor={false}
+              style={{maxWidth:'100%', maxHeight:'72vh', objectFit:'contain', display:'block'}}/>
+            {lightbox > 0 && (
+              <button onClick={() => setLightbox(lightbox - 1)} aria-label="Previous photo"
+                style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', width:36, height:36, borderRadius:18, border:'none', background:'rgba(0,0,0,0.55)', color:'white', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <Icon name="chevron-left" size={18} color="white"/>
+              </button>
+            )}
+            {lightbox < photos.length - 1 && (
+              <button onClick={() => setLightbox(lightbox + 1)} aria-label="Next photo"
+                style={{position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', width:36, height:36, borderRadius:18, border:'none', background:'rgba(0,0,0,0.55)', color:'white', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <Icon name="chevron-right" size={18} color="white"/>
+              </button>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -2005,20 +2187,19 @@ function DocumentsTab({ dealId, userId, showToast }) {
 // ── COMPARISON MODAL ──────────────────────────────────────────────────────────
 function CompareModal({ deals, companies, onClose }) {
   const { T } = useTheme()
+  // One metrics object per deal, same maths as the editor and list card.
+  const M = Object.fromEntries(deals.map(d => [d.id, computeDealMetrics(d)]))
   const rows = [
-    { label:'Purchase price', fn: d => fmt(d.purchase_price) },
-    { label:'Total cash in', fn: d => {
-      const sd = d.stamp_duty_override ?? api.calcStampDuty(d.purchase_price, d.is_additional_property, d.is_first_time_buyer)
-      const total = (d.purchase_price||0)+sd+(d.legal_fees||0)+(d.survey_cost||0)+(d.refurb_cost||0)+(d.other_costs||0)
-      const loan = d.purchase_type==='cash' ? 0 : (d.purchase_price||0)*(1-(d.deposit_percent||25)/100)
-      return fmt(Math.max(0, total-loan))
-    }},
-    { label:'Monthly rent', fn: d => fmt(d.deal_type==='hmo'?(d.hmo_rooms||4)*(d.hmo_rent_per_room||0):d.monthly_rent||0) },
-    { label:'Monthly repayment', fn: d => fmt(d.purchase_type==='cash'?0:api.calcMonthlyRepayment((d.purchase_price||0)*(1-(d.deposit_percent||25)/100),d.mortgage_rate||5,d.mortgage_term||25)) },
-    { label:'Gross yield', fn: d => {
-      const rent = d.deal_type==='hmo'?(d.hmo_rooms||4)*(d.hmo_rent_per_room||0):d.monthly_rent||0
-      return d.purchase_price>0?fmtPct((rent*12/d.purchase_price)*100):'—'
-    }, highlight: true },
+    { label:'Purchase price', fn: d => fmt(M[d.id].price) },
+    { label:'Total capital required', fn: d => fmt(M[d.id].totalAcquisition) },
+    { label:'Total cash in', fn: d => fmt(M[d.id].cashIn) },
+    { label:'Gross monthly rent', fn: d => fmt(M[d.id].grossMonthlyRent) },
+    { label:'Monthly mortgage', fn: d => fmt(M[d.id].monthlyRepayment) },
+    { label:'Monthly profit', fn: d => fmt(M[d.id].monthlyProfit), color: d => M[d.id].monthlyProfit > 0 ? T.green : T.red },
+    { label:'Gross yield', fn: d => M[d.id].price > 0 ? fmtPct(M[d.id].grossYield) : '—', highlight: true },
+    { label:'Net yield', fn: d => M[d.id].price > 0 ? fmtPct(M[d.id].netYield) : '—' },
+    { label:'Cash-on-cash', fn: d => M[d.id].cashIn > 0 ? fmtPct(M[d.id].cashOnCash) : '—' },
+    { label:'Deal score', fn: d => { const sc = api.calcDealScore({ ...d, expected_rent: M[d.id].grossMonthlyRent }); return `${sc.score}/100 · ${sc.rating}` } },
     { label:'Deal type', fn: d => DEAL_TYPE_LABELS[d.deal_type]||'BTL' },
     { label:'Purchase type', fn: d => PURCHASE_TYPES[d.purchase_type]||'Mortgage' },
     { label:'Status', fn: d => STATUS_CFG[d.status]?.label||d.status },
@@ -2053,7 +2234,7 @@ function CompareModal({ deals, companies, onClose }) {
                   {row.label}
                 </div>
                 {deals.map(d=>(
-                  <div key={d.id+row.label} style={{padding:'10px 16px',margin:'0 4px',background:T.card,borderBottom:`1px solid ${T.border}`,textAlign:'center',fontFamily:mono,fontSize:row.highlight?14:12,fontWeight:row.highlight?700:400,color:row.highlight?T.gold:T.text}}>
+                  <div key={d.id+row.label} style={{padding:'10px 16px',margin:'0 4px',background:T.card,borderBottom:`1px solid ${T.border}`,textAlign:'center',fontFamily:mono,fontSize:row.highlight?14:12,fontWeight:row.highlight?700:400,color:row.color?row.color(d):row.highlight?T.gold:T.text}}>
                     {row.fn(d)}
                   </div>
                 ))}
@@ -2067,15 +2248,13 @@ function CompareModal({ deals, companies, onClose }) {
 }
 
 // ── DEAL PIPELINE KANBAN ──────────────────────────────────────────────────────
-function DealPipeline({ deals, companies, onOpen, onNew, T }) {
-  const STAGES = [
-    { key: 'analysing',   label: 'Analysing',   color: '#4B8FE0' },
-    { key: 'offer',       label: 'Offer made',  color: '#C8A84B' },
-    { key: 'under_offer', label: 'Under offer', color: '#E0943A' },
-    { key: 'exchanged',   label: 'Exchanged',   color: '#9B59B6' },
-    { key: 'complete',    label: 'Complete',    color: '#2ECC8A' },
-    { key: 'dead',        label: 'Dead',        color: '#888' },
-  ]
+function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
+  // Columns come straight from STATUS_CFG so the board can never drift from
+  // the status list again. It previously hard-coded 'offer' and 'complete'
+  // where the statuses are 'offer_made' and 'completed', so every deal in
+  // those two states silently vanished from the board and the summary
+  // counts were wrong.
+  const STAGES = Object.entries(STATUS_CFG).map(([key, v]) => ({ key, label: v.label, color: v.color }))
 
   const byStage = Object.fromEntries(STAGES.map(s => [s.key, deals.filter(d => (d.status||'analysing') === s.key)]))
   const totalValue = deals.filter(d=>d.status!=='dead').reduce((s,d)=>s+(d.purchase_price||0),0)
@@ -2088,8 +2267,8 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
         {[
           { label:'Total deals', value: deals.length, color: T.text },
           { label:'Pipeline value', value: fmt(totalValue), color: T.gold },
-          { label:'Active', value: deals.filter(d=>!['dead','complete'].includes(d.status||'analysing')).length, color: '#4B8FE0' },
-          { label:'Completed', value: byStage.complete?.length||0, color: '#2ECC8A' },
+          { label:'Active', value: deals.filter(d=>!['dead','completed'].includes(d.status||'analysing')).length, color: '#4B8FE0' },
+          { label:'Completed', value: byStage.completed?.length||0, color: STATUS_CFG.completed.color },
         ].map(k => (
           <div key={k.label} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 16px' }}>
             <div style={{ fontFamily:MONO, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
@@ -2099,7 +2278,7 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
       </div>
 
       {/* Kanban board */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, overflowX:'auto', minHeight:400 }}>
+      <div style={{ display:'grid', gridTemplateColumns:`repeat(${STAGES.length},minmax(180px,1fr))`, gap:10, overflowX:'auto', minHeight:400 }}>
         {STAGES.map(stage => {
           const stagDeals = byStage[stage.key] || []
           return (
@@ -2114,7 +2293,8 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
               <div style={{ background:T.bg, border:`1px solid ${stage.color}44`, borderRadius:'0 0 8px 8px', padding:8, minHeight:200 }}>
                 {stagDeals.map(deal => {
                   const co = companies.find(c=>c.id===deal.company_id)
-                  const sdlt = deal.stamp_duty_override ?? (deal.purchase_price ? Math.round(deal.purchase_price * (deal.is_additional_property!==false ? 0.05 : 0.02)) : 0)
+                  const m = computeDealMetrics(deal)
+                  const counts = docCounts[deal.id]
                   return (
                     <div key={deal.id} onClick={()=>onOpen(deal)}
                       style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:8, padding:'10px 12px', marginBottom:8, cursor:'pointer', transition:'border-color 0.15s' }}
@@ -2139,9 +2319,10 @@ function DealPipeline({ deals, companies, onOpen, onNew, T }) {
                         )}
                         {deal.purchase_price > 0 && (
                           <span style={{ fontFamily:MONO, fontSize:9, padding:'2px 6px', borderRadius:4, background:T.bg, color:T.muted }}>
-                            {((deal.monthly_rent||deal.hmo_rooms*deal.hmo_rent_per_room||0)*12/(deal.purchase_price)*100).toFixed(1)}% yield
+                            {m.grossYield.toFixed(1)}% yield
                           </span>
                         )}
+                        <DocCountBadge counts={counts} T={T}/>
                       </div>
                     </div>
                   )
