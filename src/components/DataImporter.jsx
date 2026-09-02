@@ -42,7 +42,9 @@ const ACTION_META = {
   error:  { label: 'Blocked', colour: 'red'   },
 }
 
-export function DataImporter({ properties, companies, showToast, onClose, asPage = false }) {
+// canEditRent: optional (companyId) => boolean from App.jsx (edit_rent per
+// company). Gates the rent kind only; absent means every company is writable.
+export function DataImporter({ properties, companies, showToast, onClose, asPage = false, canEditRent }) {
   const confirm = useConfirm()
   const { T } = useTheme()
   const [step, setStep] = useState('upload')   // upload | map | preview | done
@@ -180,6 +182,15 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
 
   async function handleCommit() {
     if (!effective) return
+    // Per-row check at commit time as well as on the button, so a stale click
+    // cannot hand RLS a batch it will reject row by row.
+    if (kind === 'rent') {
+      const blocked = effective.plan.filter(r => r.propertyId && !canWriteProperty(r.propertyId))
+      if (blocked.length) {
+        showToast(`${blocked.length} row(s) belong to a company where you have read-only access to rent`, 'error')
+        return
+      }
+    }
     setBusy(true)
     try {
       const res = await api.commitImport({
@@ -227,8 +238,20 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
     setBusy(false)
   }
 
+  // ── edit_rent gate (rent kind) ────────────────────────────────────────
+  // The target company is only known per planned row (one CSV can span
+  // companies), so: block the workflow when the user has edit_rent nowhere,
+  // and block the commit when any kept rent row lands in a read-only company.
+  const canWriteCompany = (companyId) => typeof canEditRent === 'function' ? !!canEditRent(companyId) : true
+  const canWriteProperty = (propertyId) => canWriteCompany(properties.find(p => p.id === propertyId)?.company_id)
+  const canEditAnyRent = typeof canEditRent !== 'function' || (companies || []).some(c => canWriteCompany(c.id))
+  const blockedByPermission = kind === 'rent'
+    ? (effective?.plan || []).filter(r => r.propertyId && r.action !== 'error' && !canWriteProperty(r.propertyId))
+    : []
+  const permissionBlocked = kind === 'rent' && (!canEditAnyRent || blockedByPermission.length > 0)
+
   const s = effective?.summary
-  const canCommit = s && s.error === 0 && (s.create > 0 || s.update > 0)
+  const canCommit = s && s.error === 0 && (s.create > 0 || s.update > 0) && !permissionBlocked
 
   // Rendered at BOTH ends of the review step. With 792 rows the footer is a very
   // long scroll away from the totals you just checked, so the same action sits
@@ -280,6 +303,12 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                   style={{ fontSize: 11, textTransform: 'capitalize' }}>{k}</button>
               ))}
             </div>
+
+            {kind === 'rent' && !canEditAnyRent && (
+              <div style={{ marginBottom: 18, padding: '10px 12px', background: T.amber + '14', border: `1px solid ${T.amber}55`, borderRadius: 8, fontFamily: MONO, fontSize: 11, color: T.muted }}>
+                You have read-only access to rent in every company you can see, so a rent CSV can be reviewed here but not imported. Ask an admin for the Rent Tracker Editor role.
+              </div>
+            )}
 
             <div onClick={() => fileRef.current?.click()}
               style={{
@@ -549,7 +578,13 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
           <div style={{ flex: 1, fontFamily: MONO, fontSize: 11, color: T.muted }}>
             {canCommit
               ? `${s.create} new, ${s.update} updated, ${fmt(s.amount)}`
-              : s.error > 0 ? `${s.error} blocked row(s) must be fixed first` : 'Nothing to import'}
+              : permissionBlocked
+                ? <span style={{ color: T.amber }}>
+                    {blockedByPermission.length > 0
+                      ? `${blockedByPermission.length} row(s) match a company where you have read-only access to rent. Exclude them or ask an admin for the Rent Tracker Editor role.`
+                      : 'You have read-only access to rent in every company you can see, so this file cannot be imported.'}
+                  </span>
+                : s.error > 0 ? `${s.error} blocked row(s) must be fixed first` : 'Nothing to import'}
           </div>
           <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setStep('map')}>← Back</button>
           {commitButton()}

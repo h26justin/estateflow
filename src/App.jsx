@@ -6,6 +6,7 @@ import { getSubdomain } from './lib/subdomain'
 import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS } from './lib/nav'
 import { REPORT_CATALOGUE } from './lib/reportCatalogue'
 import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from './lib/rentStats'
+import { canDo } from './lib/permissions'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -149,21 +150,9 @@ function calcMonthlyProfit(p) {
   return (p.rent_pcm||0)-calcMonthlyMortgage(p)-(p.insurance||0)/12
 }
 
-// Permission helper — check if current user can perform action on a company
-// permissionsMap: { [companyId]: { edit_properties: true, view_financial: false, ... } }
-// Fail-CLOSED: if we have no permission record for the company, deny the action.
-// The map is loaded together with the user's companies; once it's loaded but
-// missing a company entry that means the user is not a collaborator on it.
-// (The OWNER of a company gets an implicit allow via `permissionsMap.__owner`
-// — see loader. For platform admins, callers should bypass canDo entirely.)
-function canDo(permissionsMap, companyId, permissionKey) {
-  if (!companyId) return true  // no company context = global / personal action
-  if (!permissionsMap) return false  // not loaded yet → deny by default
-  if (permissionsMap.__owner?.[companyId]) return true  // owner can do anything
-  const perms = permissionsMap[companyId]
-  if (!perms) return false  // collaborator row missing → no access
-  return perms[permissionKey] === true
-}
+// canDo(permissionsMap, companyId, key) lives in src/lib/permissions.js so the
+// components that gate write surfaces (Day Tracker, importers, Team & Access)
+// share one fail-closed implementation with App.jsx.
 
 const STATUS_CFG = {
   rented:       {label:'Rented',       bg:'#0D2B1F',fg:'#2ECC8A',dot:'#2ECC8A'},
@@ -437,11 +426,13 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
           ))}
           {payment.period_start&&<div style={{fontFamily:mono,fontSize:9,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
         </div>
-        <button onClick={()=>{onClose();if(onDayTracker)onDayTracker()}}
-          style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
-            border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>
-          View full day tracker →
-        </button>
+        {onDayTracker
+          ? <button onClick={()=>{onClose();onDayTracker()}}
+              style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
+                border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>
+              View full day tracker →
+            </button>
+          : <div style={{fontFamily:mono,fontSize:10,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
       </div>
     </div>
   )
@@ -3475,14 +3466,17 @@ export default function App() {
               as a Portfolio sub-tab (#/properties/companies); legacy #/companies
               deep links are mapped across in parseHash. */}
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData}/>}
-          {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
-          {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null}/>}
+          {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}
+            canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
+          {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null} permissionsMap={permissionsMap} devModeActive={devModeActive}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags} selectedReportId={selectedReportId} onSelectReport={setSelectedReportId}/></div>}
           {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
           {view==='compliance'&&<div className="fade"><CompliancePage user={user} companies={companies} properties={activeProperties} companySettings={companySettings} showToast={showToast} openDetail={(p)=>openDetail(p,'compliance')}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
-          {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
-          {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
+          {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
+            canEditRent={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
+          {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
+            canEditRent={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='bulk-add'&&<BulkAddPropertyModal asPage
             companies={companies.filter(c=>!isHoldingCompany(c))}
             onClose={closeWorkflow}
@@ -3650,7 +3644,7 @@ export default function App() {
                       {/* Year of dots */}
                       <RentDots payments={payments} filterYear={focusYear} stlIds={stlPaymentIds(selected)}
                         onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})}
-                        onDayTracker={()=>setView('daytracker')}/>
+                        onDayTracker={(canDo(permissionsMap, selected.company_id, 'edit_rent') || devModeActive) ? ()=>setView('daytracker') : undefined}/>
 
                       {/* YTD summary — compact 4-stat grid */}
                       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginTop:14}}>
@@ -3747,7 +3741,7 @@ export default function App() {
                   </div>}
                 </div>}
                 {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdatePhase={handleUpdatePhase} onDeletePhase={handleDeletePhase} onUpdateCost={handleUpdateCost} onDeleteCost={handleDeleteCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
-                {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')}/>}
+                {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')} canEdit={canDo(permissionsMap, selected.company_id, 'edit_rent') || devModeActive}/>}
                 {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditFinancial={canDo(permissionsMap, selected.company_id, 'edit_financial') || devModeActive}/>}
                 {false&&<div style={{display:'grid',gap:12}}>
                   {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
@@ -4015,7 +4009,9 @@ export default function App() {
         // light mode, the shipped default) + clear of the mobile bottom bar
         // and iPhone safe area. Errors persist (no auto-dismiss), so always
         // offer an explicit close.
-        const tint = toast.type==='error'?T.red:T.green
+        // 'info' is the muted variant for notices that are neither a success
+        // nor a failure (e.g. a read-only click on the Day Tracker).
+        const tint = toast.type==='error'?T.red:toast.type==='info'?T.muted:T.green
         return <div
           role={toast.type==='error'?'alert':'status'}
           aria-live={toast.type==='error'?'assertive':'polite'}
@@ -4883,7 +4879,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 }
 
 // ─── RENT TAB ────────────────────────────────────────────────────────────────
-function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties, onDayTracker}) {
+function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties, onDayTracker, canEdit = true}) {
   const { T } = useTheme()
   const payments = selected.rent_payments || []
   const years = [...new Set(payments.map(p=>p.year))].sort()
@@ -4917,7 +4913,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
         {/* Year filter buttons */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:12}}>
           <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
-            Payment History <span style={{fontSize:9}}>(click dot to update)</span>
+            Payment History <span style={{fontSize:9}}>{canEdit ? '(click dot to update)' : '(read-only)'}</span>
           </div>
           <div style={{display:'flex',gap:6}}>
             <button onClick={()=>setFilterYear(null)}
@@ -4936,7 +4932,12 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
         </div>
 
         {/* Dots */}
-        <RentDots payments={payments} stlIds={stlPaymentIds(selected)} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})} filterYear={filterYear} onDayTracker={onDayTracker}/>
+        {/* Without edit_rent the dots stay readable but the Day view (the
+            live rent editor) is not offered, and the legacy payment modal
+            is never opened. */}
+        <RentDots payments={payments} stlIds={stlPaymentIds(selected)}
+          onUpdate={canEdit ? m=>setEditingPayment({payment:m,propId:selected.id}) : ()=>showToast('You have read-only access to rent for this company','info')}
+          filterYear={filterYear} onDayTracker={canEdit ? onDayTracker : undefined}/>
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>

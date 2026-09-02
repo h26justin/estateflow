@@ -62,7 +62,10 @@ async function extractPDFText(file) {
 // Parsers imported from lib/statementParser.js
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
-export function StatementImporter({properties, companies, showToast, onClose, asPage = false}) {
+// canEditRent: optional (companyId) => boolean from App.jsx (edit_rent per
+// company). When absent every company is treated as writable, matching the
+// pre-permission behaviour of this importer.
+export function StatementImporter({properties, companies, showToast, onClose, asPage = false, canEditRent}) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const [step, setStep] = useState('upload') // upload | preview | importing | done
@@ -203,6 +206,13 @@ export function StatementImporter({properties, companies, showToast, onClose, as
       if (!item.include) continue
       if (!item.propertyId) {
         results.errors.push(`No property match for: ${item.propertyName}`)
+        continue
+      }
+      // Per-row permission check at commit time. The button is disabled when
+      // any included row is blocked, but this keeps a stale click from writing
+      // rows that RLS would reject one at a time with a less useful error.
+      if (!canWriteProperty(item.propertyId)) {
+        results.errors.push(`${item.propertyName}: you have read-only access to rent for this company`)
         continue
       }
 
@@ -360,6 +370,18 @@ export function StatementImporter({properties, companies, showToast, onClose, as
 
   const includedItems = items.filter(i => i.include)
   const unmatchedItems = items.filter(i => i.include && !i.propertyId)
+
+  // ── edit_rent gate ────────────────────────────────────────────────────
+  // A statement can carry several landlords' properties, so the target
+  // company is only known per matched line. Gate the whole workflow on having
+  // edit_rent SOMEWHERE (otherwise nothing could ever be written) and the
+  // commit button on every matched line being writable.
+  const canWriteCompany = (companyId) => typeof canEditRent === 'function' ? !!canEditRent(companyId) : true
+  const canWriteProperty = (propertyId) => canWriteCompany(properties.find(p => p.id === propertyId)?.company_id)
+  const canEditAnyRent = typeof canEditRent !== 'function' || (companies || []).some(c => canWriteCompany(c.id))
+  const blockedByPermission = includedItems.filter(i => i.propertyId && !canWriteProperty(i.propertyId))
+  const readyCount = includedItems.filter(i => i.propertyId).length
+  const commitBlocked = !canEditAnyRent || blockedByPermission.length > 0
   const totalToImport = includedItems.reduce((s,i) => s + (i.type==='rent' ? i.editAmount : 0), 0)
 
   // Header + steps + content, shared between the routed page (#/import) and
@@ -424,6 +446,12 @@ export function StatementImporter({properties, companies, showToast, onClose, as
               </div>
               <input ref={fileRef} type="file" accept=".pdf" style={{display:'none'}}
                 onChange={e=>e.target.files[0]&&handleFile(e.target.files[0])}/>
+
+              {!canEditAnyRent&&(
+                <div style={{marginTop:14,padding:'10px 12px',background:T.amber+'14',border:`1px solid ${T.amber}55`,borderRadius:8,fontFamily:MONO,fontSize:11,color:T.muted}}>
+                  You have read-only access to rent in every company you can see, so a statement can be reviewed here but not imported. Ask an admin for the Rent Tracker Editor role.
+                </div>
+              )}
 
               {loading&&(
                 <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.gold,fontSize:12}}>
@@ -625,11 +653,15 @@ export function StatementImporter({properties, companies, showToast, onClose, as
             <div style={{flex:1,fontFamily:MONO,fontSize:11,color:T.muted}}>
               {includedItems.length} items selected · {fmt(totalToImport)} rent to log
               {unmatchedItems.length>0&&<span style={{color:T.amber}}> · {unmatchedItems.length} unmatched</span>}
+              {blockedByPermission.length>0&&<div style={{color:T.amber,marginTop:4}}>
+                {blockedByPermission.length} item{blockedByPermission.length!==1?'s':''} matched to a company where you have read-only access to rent. Untick {blockedByPermission.length!==1?'them':'it'} or ask an admin for the Rent Tracker Editor role.
+              </div>}
             </div>
             <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setStep('upload')}>← Back</button>
             <button className="btn btn-gold" style={{fontSize:11}} onClick={handleImport}
-              disabled={includedItems.filter(i=>i.propertyId).length===0}>
-              Confirm Import ({includedItems.filter(i=>i.propertyId).length} items)
+              disabled={readyCount===0 || commitBlocked}
+              title={commitBlocked ? 'You have read-only access to rent for one or more of these companies' : ''}>
+              Confirm Import ({readyCount} items)
             </button>
           </div>
         )}
