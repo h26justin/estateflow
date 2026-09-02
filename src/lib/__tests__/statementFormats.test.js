@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { detectFormat, detectFormatDetail, parseStatement, normaliseStatementText } from '../statementParser'
+import { detectFormat, detectFormatDetail, parseStatement, normaliseStatementText, mergeSamePeriodRent } from '../statementParser'
 
 // Text produced by src/lib/pdfText.js from real 2026 statements (tenant names
 // anonymised). These pin the two layouts that broke the importer: the PNE
@@ -74,5 +74,25 @@ describe('RMS 2026 STATEMENT/INVOICE', () => {
     expect(fees[0].amount).toBe(50.4)
     expect(r.parsed.paymentAmount).toBe(549.6)
     expect(Math.round((r.parsed.totalIncome - r.parsed.totalFees) * 100) / 100).toBe(549.6)
+  })
+})
+
+describe('mergeSamePeriodRent', () => {
+  const line = (propertyId, period, amount, tenant, type = 'rent', include = true) => ({ propertyId, period, amount, editAmount: amount, tenant, type, include, propertyName: 'x' })
+  it('sums part payments for one property and period and keeps each line as a part', () => {
+    const items = [line('p1', '01/08/2026 to 31/08/2026', 300, 'A'), line('p1', '01/08/2026 to 31/08/2026', 200, 'B'), line('p2', '01/08/2026 to 31/08/2026', 500, 'C')]
+    const out = mergeSamePeriodRent(items)
+    expect(out).toHaveLength(2)
+    expect(out[0].editAmount).toBe(500); expect(out[0].parts).toHaveLength(2); expect(out[0].tenant).toBe('A + B')
+    expect(out[1].editAmount).toBe(500); expect(out[1].parts).toHaveLength(1)
+  })
+  it('leaves fees, unmatched and excluded lines untouched and preserves order', () => {
+    const items = [line('p1', 'x', 60, '', 'fee'), line(null, 'y', 500, 'A'), line('p1', 'y', 500, 'A', 'rent', false), line('p1', 'y', 500, 'A')]
+    const out = mergeSamePeriodRent(items)
+    expect(out).toHaveLength(4); expect(out[0].type).toBe('fee'); expect(out[3].parts).toHaveLength(1)
+  })
+  it('keeps very large and very small amounts exactly', () => {
+    const out = mergeSamePeriodRent([line('p1', 'z', 12345.67, 'A'), line('p1', 'z', 0.33, 'B')])
+    expect(out[0].editAmount).toBe(12346)
   })
 })
