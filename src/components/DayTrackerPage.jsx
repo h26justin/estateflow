@@ -112,7 +112,11 @@ const STATUS_LABEL = { paid:'Paid', stl:'STL', partial:'Partial', pending:'Pendi
 // the property's refurb tab so accidental clicks don't change refurb state).
 const SETTABLE_STATUSES = ['paid', 'late', 'overdue', 'void']
 
-export default function DayTrackerPage({ companies, properties, setProperties, showToast, onBack }) {
+// canEdit: either a boolean or a function (companyId) => boolean. The Day
+// Tracker spans every company the user can see and edit_rent is granted per
+// company, so App.jsx passes the function form. Defaults to editable so any
+// other mount site keeps today's behaviour.
+export default function DayTrackerPage({ companies, properties, setProperties, showToast, onBack, canEdit = true }) {
   const { T } = useTheme()
   const now = new Date()
   const [year,  setYear]  = useState(now.getFullYear())
@@ -164,10 +168,23 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
     [baseActiveProps]
   )
 
+  // ── Per-row write gate (edit_rent) ────────────────────────────────────
+  // Resolved from the property's company because a member can be a Rent
+  // Tracker Editor on one company and a plain viewer on another. The DB
+  // enforces the same rule (has_rent_permission); this only keeps the UI
+  // honest so a read-only user never sees a Save button that would fail.
+  const rowCanEdit = (prop) => typeof canEdit === 'function' ? !!canEdit(prop?.company_id) : canEdit !== false
+  const anyEditable = baseActiveProps.some(rowCanEdit)
+  const popoverEditable = editPopover ? rowCanEdit(properties.find(p => p.id === editPopover.propId)) : false
+
   // ── Click-to-mark handler ─────────────────────────────────────────────
   // Opens the edit popover anchored to the clicked cell. Finds the current
   // status from the cell so the popover can show which option is active.
   function openEditPopover(e, prop, day) {
+    if (!rowCanEdit(prop)) {
+      if (showToast) showToast('You have read-only access to rent for this company', 'info')
+      return
+    }
     const dateStr = toKey(year, month, day)
     const todayStr = toKey(now.getFullYear(), now.getMonth()+1, now.getDate())
     if (dateStr > todayStr) return  // don't allow editing future days
@@ -200,7 +217,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
   // existing one. A range can be any start→end (e.g. tenant in on the 18th), and
   // the amount is whatever was actually paid (supports partial payments).
   async function saveSegment() {
-    if (!editPopover || savingPayment) return
+    if (!editPopover || savingPayment || !popoverEditable) return
     if (!form.start || !form.end || form.end < form.start) {
       if (showToast) showToast('End date must be on or after start date', 'error')
       return
@@ -243,7 +260,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
 
   // Delete the segment being edited (clears that range back to a void gap).
   async function deleteSegment() {
-    if (!editPopover?.segmentId || savingPayment) return
+    if (!editPopover?.segmentId || savingPayment || !popoverEditable) return
     setSavingPayment(true)
     try {
       await api.deleteRentSegment(editPopover.segmentId)
@@ -341,7 +358,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
           </button>
           <div>
             <h1 style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.03em', marginBottom:4 }}>Day Tracker</h1>
-            <p style={{ fontFamily:mono, color:T.muted, fontSize:12 }}>Daily rent coverage across all properties · click any day to update</p>
+            <p style={{ fontFamily:mono, color:T.muted, fontSize:12 }}>Daily rent coverage across all properties · {anyEditable ? 'click any day to update' : 'read-only'}</p>
           </div>
         </div>
 
@@ -453,6 +470,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                     const voidDays = dayStatuses.filter(s => s === 'void').length
                     const isOverdue = overdueIds.has(prop.id)
                     const highlightOverdue = overdueMode === 'overdue-highlighted' && isOverdue
+                    const editable = rowCanEdit(prop)
 
                     return (
                       <tr key={prop.id} style={{
@@ -497,7 +515,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                                   border: isFuture ? `1px dashed ${T.border}` : 'none',
                                   transition:'transform 0.1s',
                                   transform: isHovered ? 'scale(1.4)' : 'scale(1)',
-                                  cursor: isFuture ? 'default' : 'pointer',
+                                  cursor: (isFuture || !editable) ? 'default' : 'pointer',
                                 }}
                               />
                             </td>
@@ -601,8 +619,8 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
               })}
             </div>
 
-            {/* Actions */}
-            <div style={{ display:'flex', gap:6 }}>
+            {/* Actions: never rendered without edit_rent on this row's company */}
+            {popoverEditable && <div style={{ display:'flex', gap:6 }}>
               <button onClick={saveSegment} disabled={savingPayment}
                 style={{ flex:1, fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 0', borderRadius:6,
                   border:'none', background:T.gold, color:'#1A2530', cursor: savingPayment?'not-allowed':'pointer', opacity: savingPayment?0.6:1 }}>
@@ -616,7 +634,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                   Delete
                 </button>
               )}
-            </div>
+            </div>}
           </div>
         </>
       )}
