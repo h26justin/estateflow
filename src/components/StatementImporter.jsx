@@ -11,6 +11,8 @@ import FocusTrap from '../lib/FocusTrap'
 import MoneyInput from '../lib/MoneyInput'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { naturalCompare } from '../lib/addressUtils'
+import { sourceRef } from '../lib/csvImport'
+import { findOverlappingPaid, periodsIntersect } from '../lib/rentStats'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
@@ -65,6 +67,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
   const { T } = useTheme()
   const [step, setStep] = useState('upload') // upload | preview | importing | done
   const [format, setFormat] = useState(null)
+  const [fileName, setFileName] = useState('')
   const [parsed, setParsed] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
@@ -102,6 +105,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
 
       const matched = matchProperties(parsed.items, properties, aliases)
       setFormat(fmt)
+      setFileName(file.name)
       setParsed(parsed)
       setItems(matched)
       setStep('preview')
@@ -160,7 +164,40 @@ export function StatementImporter({properties, companies, showToast, onClose, as
 
   async function handleImport() {
     setStep('importing')
-    const results = { rent: 0, fees: 0, maintenance: 0, learned: 0, errors: [] }
+    const results = { rent: 0, fees: 0, maintenance: 0, learned: 0, skipped: 0, errors: [], batchId: null }
+    const stmtKey = String(parsed?.statementNo || parsed?.date || fileName || 'statement').trim()
+    const toIso = (d, m, y) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const todayIso = new Date().toISOString().split('T')[0]
+
+    const {data: {user}} = await supabase.auth.getUser()
+
+    // Every statement import is a batch, written FIRST so anything that lands
+    // is attributable and reversible (Data import → History → Revert). Before
+    // this, statement rows carried no provenance at all.
+    // Company for the batch history filter: the company most of the matched
+    // properties belong to (a statement is per landlord, so normally all).
+    const companyIds = items.filter(i => i.include && i.propertyId)
+      .map(i => properties.find(p => p.id === i.propertyId)?.company_id).filter(Boolean)
+    const companyId = companyIds.length
+      ? [...new Set(companyIds)].sort((a, b) => companyIds.filter(x => x === a).length - companyIds.filter(x => x === b).length).pop()
+      : null
+    let batch = null
+    try {
+      const { data, error } = await supabase.from('import_batches').insert({
+        user_id: user.id, company_id: companyId, kind: 'mixed', source: 'statement',
+        filename: fileName || null,
+        notes: `${format || 'Agent'} statement ${stmtKey}. Rent and fees revert with the batch; maintenance jobs do not.`,
+      }).select().single()
+      if (error) throw error
+      batch = data
+      results.batchId = batch.id
+    } catch (e) {
+      // A missing batch row must not block logging the money, but say so.
+      console.error('StatementImporter:import_batches', e)
+      results.errors.push(`Could not record an import batch (${e.message}); rows were still written but cannot be reverted as a group.`)
+    }
+    const undo = []
+    let created = 0, updated = 0
 
     for (const item of items) {
       if (!item.include) continue
@@ -170,96 +207,145 @@ export function StatementImporter({properties, companies, showToast, onClose, as
       }
 
       try {
-        const {data: {user}} = await supabase.auth.getUser()
-
         if (item.type === 'rent') {
-          // Parse period dates — format is "DD/MM/YYYY to DD/MM/YYYY"
+          // Period is "DD/MM/YYYY to DD/MM/YYYY"
           const periodParts = item.period.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2})\/(\d{2})\/(\d{4})/)
           const dateMatch = item.period.match(/(\d{2})\/(\d{2})\/(\d{4})/)
-          if (dateMatch) {
-            const year = parseInt(dateMatch[3])
-            const month = parseInt(dateMatch[2])
-            const monthLabel = new Date(year, month-1).toLocaleString('en-GB', {month:'short', year:'numeric'})
-
-            // Convert DD/MM/YYYY to YYYY-MM-DD for storage
-            const toIso = (d,m,y) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-            const periodStart = periodParts ? toIso(periodParts[1], periodParts[2], periodParts[3]) : null
-            const periodEnd   = periodParts ? toIso(periodParts[4], periodParts[5], periodParts[6]) : null
-
-            // A month can hold several dated segments (tenant changeover,
-            // partial payments), so never blindly update the first row —
-            // only update a row whose period actually intersects the
-            // statement's period, or the legacy whole-month (NULL period)
-            // row. Anything else gets a new segment inserted.
-            const {data: monthRows} = await supabase.from('rent_payments')
-              .select('id, period_start, period_end')
-              .eq('property_id', item.propertyId).eq('year', year).eq('month', month)
-              .order('period_start', { ascending: true, nullsFirst: true })
-            const rows = monthRows || []
-            let existing = null
-            if (periodStart && periodEnd) {
-              existing = rows.find(r => r.period_start && r.period_end && r.period_start <= periodEnd && r.period_end >= periodStart)
-                || rows.find(r => !r.period_start)
-            } else if (rows.length === 1) {
-              existing = rows[0]
-            } else {
-              // Several segments and no statement period — only the legacy
-              // whole-month row is safe to overwrite.
-              existing = rows.find(r => !r.period_start)
-            }
-
-            // Default to whole-month period bounds when the statement
-            // doesn't carry explicit dates.
-            const monthStart = `${year}-${String(month).padStart(2,'0')}-01`
-            const monthEnd   = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year, month, 0).getDate()).padStart(2,'0')}`
-
-            if (existing) {
-              await supabase.from('rent_payments').update({
-                status:'paid', amount:item.editAmount,
-                ...(periodStart && { period_start: periodStart }),
-                ...(periodEnd   && { period_end:   periodEnd }),
-              }).eq('id', existing.id)
-            } else {
-              await supabase.from('rent_payments').insert({
-                property_id: item.propertyId, user_id: user.id,
-                month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount,
-                period_start: periodStart || monthStart,
-                period_end:   periodEnd   || monthEnd,
-              })
-            }
-            results.rent++
+          if (!dateMatch) {
+            results.errors.push(`${item.propertyName}: could not read the rent period "${item.period}"`)
+            continue
           }
+          const year = parseInt(dateMatch[3])
+          const month = parseInt(dateMatch[2])
+          const monthLabel = new Date(year, month-1).toLocaleString('en-GB', {month:'short', year:'numeric'})
+          const monthStart = `${year}-${String(month).padStart(2,'0')}-01`
+          const monthEnd   = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year, month, 0).getDate()).padStart(2,'0')}`
+          const periodStart = periodParts ? toIso(periodParts[1], periodParts[2], periodParts[3]) : monthStart
+          const periodEnd   = periodParts ? toIso(periodParts[4], periodParts[5], periodParts[6]) : monthEnd
+          const ref = sourceRef('stmt', [format, stmtKey, item.propertyId, periodStart, periodEnd])
+
+          // Candidate rows: anything on this property whose period shares a
+          // day with the statement period (across month boundaries — a 7 May
+          // to 6 Jun cycle must see June's row), plus legacy whole-month rows
+          // for the arrival month that carry no period dates.
+          const {data: candidates, error: qErr} = await supabase.from('rent_payments')
+            .select('id, period_start, period_end, status, amount, source_ref, import_batch_id')
+            .eq('property_id', item.propertyId)
+            .or(`and(period_start.lte.${periodEnd},period_end.gte.${periodStart}),and(year.eq.${year},month.eq.${month},period_start.is.null)`)
+            .order('period_start', { ascending: true, nullsFirst: true })
+          if (qErr) throw qErr
+          const rows = candidates || []
+
+          // Same statement line already imported → nothing to do.
+          if (rows.some(r => r.source_ref === ref)) { results.skipped++; continue }
+
+          // Prefer a row with exactly these bounds, then a legacy whole-month
+          // row, then an intersecting non-paid row (a pre-generated void).
+          const exact = rows.find(r => r.period_start === periodStart && r.period_end === periodEnd)
+          const legacy = rows.find(r => !r.period_start)
+          const fillable = rows.find(r => r.status !== 'paid' && periodsIntersect(r.period_start, r.period_end, periodStart, periodEnd))
+          const existing = exact || legacy || fillable || null
+
+          // Double-count guard: a DIFFERENT paid row with a real amount already
+          // covers some of these days. Never overwrite money with money.
+          const clash = findOverlappingPaid(rows, periodStart, periodEnd, existing?.id || null)
+          if (clash) {
+            results.errors.push(`${item.propertyName}: rent of £${Number(clash.amount).toFixed(2)} is already recorded for ${clash.period_start} to ${clash.period_end}, which covers some of the same days as ${periodStart} to ${periodEnd}. Skipped so it is not counted twice.`)
+            results.skipped++
+            continue
+          }
+          if (existing && existing.status === 'paid' && existing.amount != null
+              && Number(existing.amount) === Number(item.editAmount)) {
+            // Already recorded with the same figure (e.g. keyed by hand).
+            // Stamp provenance so the next import recognises it, but change
+            // nothing financial.
+            if (!existing.source_ref) {
+              await supabase.from('rent_payments').update({ source_ref: ref }).eq('id', existing.id)
+            }
+            results.skipped++
+            continue
+          }
+
+          if (existing) {
+            undo.push({ table: 'rent_payments', id: existing.id, status: existing.status, amount: existing.amount,
+                        period_start: existing.period_start, period_end: existing.period_end,
+                        source_ref: existing.source_ref, import_batch_id: existing.import_batch_id })
+            const { error } = await supabase.from('rent_payments').update({
+              status: 'paid', amount: item.editAmount,
+              period_start: periodStart, period_end: periodEnd,
+              source_ref: ref, ...(batch ? { import_batch_id: batch.id } : {}),
+            }).eq('id', existing.id)
+            if (error) throw error
+            updated++
+          } else {
+            const { error } = await supabase.from('rent_payments').insert({
+              property_id: item.propertyId, user_id: user.id,
+              month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount,
+              period_start: periodStart, period_end: periodEnd,
+              source_ref: ref, ...(batch ? { import_batch_id: batch.id } : {}),
+            })
+            if (error) {
+              if (error.code === '23505') { results.skipped++; continue }
+              throw error
+            }
+            created++
+          }
+          results.rent++
         }
 
         if (item.type === 'fee') {
           const dateMatch = item.period.match(new RegExp('(\\d{2})\\/(\\d{2})\\/(\\d{4})')) || item.date?.match(new RegExp('(\\w+)\\s+(\\d{4})'))
-          const expDate = dateMatch ? `${dateMatch[3]||new Date().getFullYear()}-${(dateMatch[2]||'01').padStart(2,'0')}-01` : new Date().toISOString().split('T')[0]
-
-          await supabase.from('property_expenses').insert({
+          const expDate = dateMatch ? `${dateMatch[3]||new Date().getFullYear()}-${(dateMatch[2]||'01').padStart(2,'0')}-01` : todayIso
+          const ref = sourceRef('stmtfee', [format, stmtKey, item.propertyId, item.description || '', item.editAmount, expDate])
+          const { error } = await supabase.from('property_expenses').insert({
             property_id: item.propertyId, user_id: user.id,
             category: 'agent_fees',
             description: item.description || 'Management fee',
             amount: item.editAmount,
             date: expDate,
+            source_ref: ref, ...(batch ? { import_batch_id: batch.id } : {}),
           })
+          if (error) {
+            // Unique (user, source_ref): this fee line was imported before.
+            if (error.code === '23505') { results.skipped++; continue }
+            throw error
+          }
+          created++
           results.fees++
         }
 
         if (item.type === 'maintenance') {
-          await supabase.from('maintenance_jobs').insert({
+          // maintenance_jobs has no source_ref column, so the statement key is
+          // carried in the description and checked before inserting.
+          const description = `From ${format || 'agent'} statement ${stmtKey}`
+          const title = item.description || 'Maintenance'
+          const { data: dupes, error: dErr } = await supabase.from('maintenance_jobs')
+            .select('id').eq('property_id', item.propertyId).eq('title', title)
+            .eq('actual_cost', item.editAmount).eq('description', description).is('deleted_at', null).limit(1)
+          if (dErr) throw dErr
+          if (dupes && dupes.length) { results.skipped++; continue }
+          const { error } = await supabase.from('maintenance_jobs').insert({
             property_id: item.propertyId, user_id: user.id,
-            title: item.description || 'Maintenance',
+            title, description,
             category: 'other',
             priority: 'medium',
             status: 'complete',
             actual_cost: item.editAmount,
-            date_raised: new Date().toISOString().split('T')[0],
+            date_raised: todayIso,
           })
+          if (error) throw error
           results.maintenance++
         }
       } catch(e) {
         results.errors.push(`Error on ${item.propertyName}: ${e.message}`)
       }
+    }
+
+    if (batch) {
+      await supabase.from('import_batches').update({
+        rows_created: created, rows_updated: updated, rows_skipped: results.skipped,
+        meta: { undo, failed_count: results.errors.length },
+      }).eq('id', batch.id).then(({ error }) => { if (error) console.error('StatementImporter:batch update', error) })
     }
 
     results.learned = await learnAliases(items.filter(i => i.include))
@@ -507,6 +593,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                   {l:'Rent payments logged', v:importResults.rent, c:T.green},
                   {l:'Management fees logged', v:importResults.fees, c:T.amber},
                   {l:'Maintenance jobs logged', v:importResults.maintenance, c:T.blue},
+                  {l:'Already recorded, skipped', v:importResults.skipped||0, c:T.muted},
                 ].map((item,i)=>(
                   <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 14px',background:T.surface,borderRadius:8}}>
                     <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>

@@ -5,6 +5,7 @@ import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
 import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS } from './lib/nav'
 import { REPORT_CATALOGUE } from './lib/reportCatalogue'
+import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from './lib/rentStats'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -349,80 +350,10 @@ function rentStatusPair(status, darkMode) {
 }
 
 // Short-term-let revenue keeps its own colour so STL and long-term income
-// read differently at a glance even though both are status 'paid'. A paid
-// segment is "STL" when a Lodgify booking links to it (stl_bookings join
-// on fetchProperties).
+// read differently at a glance even though both are status 'paid'.
 const STL_COLOR = '#9B6FDE'
-function stlPaymentIds(property) {
-  return new Set((property?.stl_bookings || []).map(b => b.rent_payment_id).filter(Boolean))
-}
-
-// A month can now hold several dated rent segments (tenant changeover, partial
-// payment + balance). For the year-strip dot and per-month stat counts we
-// collapse a month's segments to one "dominant" status. Problems surface first
-// (overdue/late), otherwise paid > refurb > void > future.
-const MONTH_STATUS_PRIORITY = ['overdue','missed','late','partial','paid','pending','refurb','void','future']
-function monthDominantStatus(segs) {
-  for (const s of MONTH_STATUS_PRIORITY) {
-    if (segs.some(p => p.status === s)) return s
-  }
-  return segs[0]?.status || 'void'
-}
-
-// Default year for rent year-filters: the current year when it has data,
-// otherwise the most recent year that does. Never blindly "latest year with
-// rows": future months are pre-generated ~6 months ahead
-// (ensureFutureRentMonths), so from July onwards the latest year is NEXT
-// year, which made the Rent Tracker open on it.
-function defaultRentYear(payments) {
-  const years = [...new Set(payments.map(p => p.year))].sort()
-  if (years.length === 0) return null
-  const currentYear = new Date().getFullYear()
-  return years.includes(currentYear) ? currentYear : years[years.length - 1]
-}
-
-// Month-level stats for a set of rent segments (optionally scoped to a year).
-// Counts collapse a month's segments to its dominant status so a month split
-// across several segments (tenant changeover, partial payment + balance)
-// counts once. Income sums the actual paid amounts; the rent_pcm fallback for
-// legacy amount-less paid rows applies once per month, never per segment.
-// Shared by the Rent Tracker overview, the property Rent tab and the
-// Overview "Rent at a glance" card so all three agree.
-function getMonthlyRentStats(payments, year, rentPcm) {
-  const scoped = year ? payments.filter(p => p.year === year) : payments
-  const byMonth = {}
-  for (const p of scoped) {
-    const key = `${p.year}-${p.month}`
-    ;(byMonth[key] ||= []).push(p)
-  }
-  // Time-aware counts: future months are pre-created as voids
-  // (ensureFutureRentMonths) and STL bookings create future PAID months, so
-  // anything feeding a "how are we collecting" rate must only look at months
-  // up to the current one. voidM is past-months-only for the same reason —
-  // an empty August that hasn't happened yet isn't a void.
-  const _now = new Date()
-  const _curKey = _now.getFullYear() * 12 + _now.getMonth() + 1
-  let paid = 0, missed = 0, late = 0, refurb = 0, voidM = 0, income = 0, paidToDate = 0
-  for (const key in byMonth) {
-    const segs = byMonth[key]
-    const dom = monthDominantStatus(segs)
-    const [ky, km] = key.split('-').map(Number)
-    const isFuture = (ky * 12 + km) > _curKey
-    if (dom === 'paid') { paid++; if (!isFuture) paidToDate++ }
-    else if (dom === 'overdue' || dom === 'missed') missed++
-    else if (dom === 'late' || dom === 'partial') late++   // partial = attention bucket
-    else if (dom === 'refurb') refurb++
-    else if (dom === 'void') { if (!isFuture) voidM++ }
-    // Income credits actual amounts from paid AND partial segments (matching the
-    // Reports module); the rent_pcm fallback only covers a legacy amount-less
-    // PAID row, never a partial (a partial without an amount contributes £0).
-    const fullPaidSegs = segs.filter(p => p.status === 'paid')
-    const incomeSegs = segs.filter(p => p.status === 'paid' || p.status === 'partial')
-    const monthIncome = incomeSegs.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-    income += monthIncome > 0 ? monthIncome : (fullPaidSegs.length ? (rentPcm || 0) : 0)
-  }
-  return { paid, missed, late, refurb, voidM, income, paidToDate }
-}
+// Rent arithmetic (month collapse, default year, monthly stats, STL ids) lives
+// in lib/rentStats.js so it is unit-tested and shared; see the import above.
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
 function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
@@ -4701,8 +4632,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         // pre-created future voids aren't losses yet, and prepaid future STL
         // bookings aren't collections yet. Refurb months are deliberately
         // out (not lettable).
-        const tracked = agg.paidToDate + agg.missed + agg.late + agg.voidM
-        const rate = tracked ? Math.round((agg.paidToDate / tracked) * 100) : null
+        const rate = legacyCollectionRate(agg)
         const tiles = [
           { label: globalYear ? `Collected · ${globalYear}` : 'Collected · all years', value: fmt(agg.income), accent: T.green },
           { label: 'Collection rate', value: rate === null ? '—' : `${rate}%`, accent: rate === null ? T.muted : rate>=95?T.green:rate>=85?T.amber:T.red },

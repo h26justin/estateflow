@@ -205,9 +205,17 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
       if (showToast) showToast('End date must be on or after start date', 'error')
       return
     }
+    const amount = Number(form.amount) || 0
+    // A paid or late range with no amount used to save as £0 income, which
+    // then silently understated every report that switches to actuals the
+    // moment any paid row exists. Ask for the money, or a status that means
+    // none arrived.
+    if ((form.status === 'paid' || form.status === 'late') && amount <= 0) {
+      if (showToast) showToast('Enter the amount received. Use Overdue if it was not paid, or Void if nothing was due.', 'error')
+      return
+    }
     setSavingPayment(true)
     try {
-      const amount = Number(form.amount) || 0
       let saved
       if (editPopover.segmentId) {
         saved = await api.updateRentSegment(editPopover.segmentId, {
