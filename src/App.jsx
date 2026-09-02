@@ -8,6 +8,7 @@ import { REPORT_CATALOGUE } from './lib/reportCatalogue'
 import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from './lib/rentStats'
 import { canDo } from './lib/permissions'
 import { propertyNeedsTenancy } from './lib/tenancyUtils'
+import { evaluateProperty, groupByMonth, collectionStats, arrearsSummary, portfolioStats, STATE_LABEL, GO_LIVE } from './lib/rentEngine'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -343,6 +344,16 @@ function rentStatusPair(status, darkMode) {
   return statusColors(key, darkMode)
 }
 
+// Traffic-light pair for an engine state (Stage 3). Legacy months keep the
+// old status colours; short-term lets keep purple; grey is shared with void.
+function enginePair(m, darkMode) {
+  if (!m) return null
+  if (m.state === 'stl') return darkMode ? STL_PAIR.dark : STL_PAIR.light
+  if (m.state === 'legacy') return rentStatusPair(m.evals?.[0]?.legacyStatus || 'void', darkMode)
+  const key = { paid:'ok', due:'warn', part_paid:'warn', missed:'bad', not_collectible:'void' }[m.state] || 'void'
+  return statusColors(key, darkMode)
+}
+
 // Short-term-let revenue keeps its own colour so STL and long-term income
 // read differently at a glance even though both are status 'paid'.
 const STL_COLOR = '#9B6FDE'
@@ -350,9 +361,27 @@ const STL_COLOR = '#9B6FDE'
 // in lib/rentStats.js so it is unit-tested and shared; see the import above.
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
-function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
+function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, monthEval, property, canEdit, onChanged, showToast }) {
   const { T, darkMode } = useTheme()
   const mono = MONO
+  const [ovOpen, setOvOpen] = useState(false)
+  const [ovState, setOvState] = useState('not_collectible')
+  const [ovReason, setOvReason] = useState('')
+  const [ovSaving, setOvSaving] = useState(false)
+  const fmtGBP = n => n == null ? '—' : `£${Number(n).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`
+  const fmtD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—'
+  async function saveOverride() {
+    if (!monthEval || ovSaving) return
+    if (ovReason.trim().length < 3) { showToast?.('Give a reason for the override', 'error'); return }
+    const target = monthEval.evals.find(e => e.state === monthEval.state) || monthEval.evals[0]
+    setOvSaving(true)
+    try {
+      await api.createRentOverride({ rent_payment_id: target.id, property_id: property.id, state: ovState, reason: ovReason })
+      showToast?.('Override recorded')
+      onChanged?.(); onClose()
+    } catch (e) { showToast?.(e.message || 'Override failed', 'error') }
+    setOvSaving(false)
+  }
   const year = payment.year, month = payment.month
   const days = new Date(year, month, 0).getDate()
   const firstDow = (new Date(year, month-1, 1).getDay() + 6) % 7
@@ -399,6 +428,74 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
           <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{monthName}</div>
           <button onClick={onClose} aria-label="Close day view" style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1,padding:'6px 8px',margin:'-6px -8px'}}>×</button>
         </div>
+        {monthEval && (() => {
+          const m = monthEval
+          const pair = enginePair(m, darkMode)
+          const ev = m.evals.find(e => e.state === m.state) || m.evals[0]
+          const benefit = ev?.tenancy && ev.tenancy.payment_source && ev.tenancy.payment_source !== 'tenant'
+          const allocs = m.evals.flatMap(e => e.allocations || [])
+          const rows = m.state === 'legacy' ? [
+            ['Legacy status', ev?.legacyStatus || '—'],
+            ['Amount recorded', fmtGBP(ev?.legacyAmount)],
+          ] : m.state === 'stl' ? [
+            ['Booked income', fmtGBP(m.received)],
+          ] : [
+            ['Rent expected', fmtGBP(m.expected)],
+            ...(benefit ? [['Tenant share', fmtGBP(m.evals.reduce((a,e)=>a+(e.tenantShare||0),0))],['Benefit share', fmtGBP(m.evals.reduce((a,e)=>a+(e.benefitShare||0),0))]] : []),
+            ['Received', m.needsBackfill ? 'Paid, amount not entered' : fmtGBP(m.received)],
+            ['Outstanding', fmtGBP(m.outstanding)],
+            ...(m.excess > 0 ? [['Overpaid', fmtGBP(m.excess)]] : []),
+            ...(ev?.dueDate ? [['Due', `${fmtD(ev.dueDate)} · window to ${fmtD(ev.windowEnd)}${ev.benefitDue ? ` · benefit ${fmtD(ev.benefitDue)}` : ''}`]] : []),
+          ]
+          return (
+            <div style={{marginBottom:12,paddingBottom:12,borderBottom:`1px solid ${T.border}`}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:pair?.bg,color:pair?.text,border:`1px solid ${pair?.text}44`}}>{STATE_LABEL[m.state] || m.state}</span>
+                {m.needsBackfill && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.amber+'22',color:T.amber}}>Needs backfill</span>}
+                {m.state === 'legacy' && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.border,color:T.muted}}>Legacy data</span>}
+                {m.override && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.blue+'22',color:T.blue}}>Override</span>}
+                {ev?.fallback && <span title="No tenancy record yet: using the property's rent and due day" style={{fontFamily:mono,fontSize:9,color:T.muted}}>no tenancy record</span>}
+              </div>
+              <div style={{display:'grid',gap:4}}>
+                {rows.map(([l,v])=>(
+                  <div key={l} style={{display:'flex',justifyContent:'space-between',gap:10,fontFamily:mono,fontSize:11}}>
+                    <span style={{color:T.muted}}>{l}</span><span style={{color:T.text,fontWeight:600,textAlign:'right'}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              {allocs.length > 0 && (
+                <div style={{marginTop:8}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Receipts</div>
+                  {allocs.map(a=>(
+                    <div key={a.id} style={{display:'flex',justifyContent:'space-between',fontFamily:mono,fontSize:10,color:T.text}}>
+                      <span>{fmtD(a.receipt?.received_date)} · {(a.receipt?.payer||'tenant').replace('_',' ')}{a.receipt?.kind && a.receipt.kind!=='receipt' ? ` · ${a.receipt.kind}` : ''}</span>
+                      <span style={{color:Number(a.amount)<0?T.red:T.text}}>{fmtGBP(a.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {ev?.reasons?.length > 0 && <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:6}}>{ev.reasons.join(' · ')}</div>}
+              {m.override && <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:4}}>Override by {m.override.created_by ? 'a user' : 'system'} on {new Date(m.override.created_at).toLocaleDateString('en-GB')}: {m.override.reason}</div>}
+              {canEdit && m.state !== 'legacy' && m.state !== 'stl' && m.state !== 'future' && (
+                ovOpen ? (
+                  <div style={{marginTop:8,display:'grid',gap:6}}>
+                    <select value={ovState} onChange={e=>setOvState(e.target.value)} style={{fontFamily:mono,fontSize:11}}>
+                      {['paid','due','part_paid','missed','not_collectible'].map(k=><option key={k} value={k}>{STATE_LABEL[k]}</option>)}
+                      {m.override && <option value="clear">Remove override</option>}
+                    </select>
+                    <textarea value={ovReason} onChange={e=>setOvReason(e.target.value)} rows={2} placeholder="Reason (required, recorded with your name and the time)" style={{fontFamily:mono,fontSize:11,resize:'vertical'}}/>
+                    <div style={{display:'flex',gap:6}}>
+                      <button className="btn btn-gold" style={{fontSize:11}} onClick={saveOverride} disabled={ovSaving}>{ovSaving?'Saving…':'Save override'}</button>
+                      <button className="btn" style={{fontSize:11}} onClick={()=>setOvOpen(false)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button className="btn" style={{fontSize:10,marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</button>
+                )
+              )}
+            </div>
+          )
+        })()}
         <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:4}}>
           {['M','T','W','T','F','S','S'].map((d,i)=>(
             <div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{d}</div>
@@ -443,9 +540,13 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
   )
 }
 
-const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
+const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, property, canEdit, onChanged, showToast}) => {
   const { darkMode } = useTheme()
   const [popover, setPopover] = useState(null)
+  // Stage 3: when the property is supplied the tiles come from the rent
+  // engine (tenancy dates, due windows, receipts, overrides). The legacy
+  // month-collapse path below remains for callers that only have payments.
+  const engineMonths = useMemo(() => property ? groupByMonth(evaluateProperty(property)) : null, [property])
   if (!payments?.length) return null
   const scoped = filterYear ? payments.filter(m=>m.year===filterYear) : payments
   // Collapse multiple segments per month into one representative dot.
@@ -455,8 +556,9 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
     if (!byMonth.has(key)) byMonth.set(key, [])
     byMonth.get(key).push(p)
   }
+  const evalByKey = new Map((engineMonths || []).map(m => [`${m.year}-${m.month}`, m]))
   const filtered = [...byMonth.values()]
-    .map(segs => ({ ...segs[0], status: monthDominantStatus(segs), isStl: !!stlIds && segs.some(s => stlIds.has(s.id)) }))
+    .map(segs => ({ ...segs[0], status: monthDominantStatus(segs), isStl: !!stlIds && segs.some(s => stlIds.has(s.id)), eng: evalByKey.get(`${segs[0].year}-${segs[0].month}`) || null }))
     .sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
   const now = new Date()
   const currentYear = now.getFullYear()
@@ -472,14 +574,19 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
         // fill with the AA text colour for the label (the previous raw-hue
         // fill + white label read at ~1.8:1 on paid-green), gold outline for
         // the current month, hatched fill for future months.
-        const pair = isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : rentStatusPair(m.status, darkMode)
+        const eng = m.eng && m.eng.state !== 'future' ? m.eng : null
+        const pair = eng ? enginePair(eng, darkMode) : (isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : rentStatusPair(m.status, darkMode))
         const name = MONTH_NAMES[(m.month||1)-1]
-        const statusLabel = isFuture ? 'future' : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
+        const statusLabel = isFuture ? 'future' : eng ? `${STATE_LABEL[eng.state]}${eng.needsBackfill ? ', needs backfill' : ''}${eng.override ? ', overridden' : ''}` : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
+        const isGrey = eng && eng.state === 'not_collectible'
+        const isLegacy = eng && eng.state === 'legacy'
         const boxStyle = isFuture
           ? { background:'repeating-linear-gradient(135deg, rgba(128,128,128,0.10) 0 5px, transparent 5px 10px)', border:'1px dashed rgba(128,128,128,0.40)', cursor:'default' }
           : isCurrent
             ? { background:pair.bg, border:`2px solid #B8902F`, cursor:'pointer' }
             : { background:pair.bg, border:`1px solid ${pair.text}55`, cursor:'pointer' }
+        if (isGrey) boxStyle.background = `repeating-linear-gradient(135deg, ${pair.text}22 0 4px, ${pair.bg} 4px 8px)`
+        if (isLegacy) boxStyle.borderBottom = `2px dotted ${pair.text}88`
         const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : pair.text
         return (
           // A real <button>: these cells are the primary interaction on the
@@ -490,17 +597,19 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
             title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL booked (paid)' : m.status} — click for day view`}
             disabled={isFuture}
             onClick={!isFuture ? (e)=>{e.stopPropagation();setPopover(m)} : undefined}
-            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',padding:0,
+            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',padding:0,position:'relative',
               display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
             onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${pair.text}55`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
             <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
+            {eng?.needsBackfill && <span aria-hidden="true" style={{position:'absolute',top:2,right:3,width:6,height:6,borderRadius:'50%',background:'#E0943A'}}/>}
+            {eng?.override && <span aria-hidden="true" style={{position:'absolute',bottom:2,right:3,width:6,height:6,borderRadius:'50%',border:`1.5px solid ${pair.text}`}}/>}
           </button>
         )
       })}
     </div>
-    {popover&&<DayPopover payment={popover} allPayments={payments} stlIds={stlIds} onClose={()=>setPopover(null)} onDayTracker={onDayTracker}/>}
+    {popover&&<DayPopover payment={popover} allPayments={payments} stlIds={stlIds} onClose={()=>setPopover(null)} onDayTracker={onDayTracker} monthEval={popover.eng||null} property={property} canEdit={canEdit} onChanged={onChanged} showToast={showToast}/>}
   </>
 }
 const Spinner = () => {
@@ -3476,7 +3585,7 @@ export default function App() {
           {/* Standalone Companies view removed — Companies now lives solely
               as a Portfolio sub-tab (#/properties/companies); legacy #/companies
               deep links are mapped across in parseHash. */}
-          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData} showToast={showToast} canSeed={cid=>canDo(permissionsMap, cid, 'edit_tenancies') || devModeActive}/>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData} showToast={showToast} canSeed={cid=>canDo(permissionsMap, cid, 'edit_tenancies') || devModeActive} canEditRent={cid=>canDo(permissionsMap, cid, 'edit_rent') || devModeActive}/>}
           {view==='stl'&&<ShortTermLetIncomePage companies={companies} properties={activeProperties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} openDetail={openDetail}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}
             canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
@@ -3654,7 +3763,7 @@ export default function App() {
                       </div>
 
                       {/* Year of dots */}
-                      <RentDots payments={payments} filterYear={focusYear} stlIds={stlPaymentIds(selected)}
+                      <RentDots payments={payments} filterYear={focusYear} stlIds={stlPaymentIds(selected)} property={selected}
                         onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})}
                         onDayTracker={(canDo(permissionsMap, selected.company_id, 'edit_rent') || devModeActive) ? ()=>setView('daytracker') : undefined}/>
 
@@ -4524,7 +4633,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 }
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
-function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh, showToast, canSeed}) {
+function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh, showToast, canSeed, canEditRent}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
   const [showRentReview, setShowRentReview] = useState(false)
@@ -4706,11 +4815,25 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         // bookings aren't collections yet. Refurb months are deliberately
         // out (not lettable).
         const rate = legacyCollectionRate(agg)
-        const tiles = [
-          { label: globalYear ? `Collected · ${globalYear}` : 'Collected · all years', value: fmt(agg.income), accent: T.green },
-          { label: 'Collection rate', value: rate === null ? '—' : `${rate}%`, accent: rate === null ? T.muted : rate>=95?T.green:rate>=85?T.amber:T.red },
+        const fmtPct = v => v == null ? '—' : `${v}%`
+        // Stage 4: for the go-live year onwards the tiles come from the rent
+        // engine (value-based, due-date aware, STL and non-collectible
+        // excluded). Earlier years keep the legacy month count, labelled.
+        const nowYear = new Date().getFullYear()
+        const legacyYear = !!globalYear && globalYear < Number(GO_LIVE.slice(0,4))
+        const ps = legacyYear ? null : portfolioStats(visProps.filter(p=>p.status!=='short_term_let'), { year: globalYear || nowYear })
+        const tiles = legacyYear ? [
+          { label: `Collected · ${globalYear} · legacy data`, value: fmt(agg.income), accent: T.green },
+          { label: 'Collection rate · legacy month count', value: rate === null ? '—' : `${rate}%`, accent: rate === null ? T.muted : rate>=95?T.green:rate>=85?T.amber:T.red },
           { label: 'Months paid', value: agg.paid, accent: T.text },
           { label: 'Missed / late / void', value: `${agg.missed} / ${agg.late} / ${agg.voidM}`, accent: (agg.missed>0)?T.red:(agg.late>0)?T.amber:T.muted },
+        ] : [
+          { label: `Collection rate · ${globalYear || nowYear} to date`, value: fmtPct(ps.ytd.rate), accent: ps.ytd.rate == null ? T.muted : ps.ytd.rate>=95?T.green:ps.ytd.rate>=85?T.amber:T.red,
+            sub: `Month to date ${fmtPct(ps.mtd.rate)} · ${ps.ytd.periods} periods due` },
+          { label: 'Collectible rent due', value: fmt(ps.ytd.due), accent: T.text, sub: `${ps.ytd.counts.not_collectible} not collectible · ${ps.legacyCount ? `${ps.legacyCount} legacy` : 'short-term lets excluded'}` },
+          { label: 'Current rent received', value: fmt(ps.ytd.received), accent: T.green, sub: ps.ytd.excess > 0 ? `+${fmt(ps.ytd.excess)} overpaid` : `${ps.ytd.counts.paid} paid · ${ps.ytd.counts.part_paid} part paid` },
+          { label: 'Current rent outstanding', value: fmt(ps.ytd.outstanding), accent: ps.ytd.outstanding > 0 ? T.red : T.green,
+            sub: `${ps.ytd.counts.missed} missed · ${ps.ytd.counts.due} due · historic arrears ${fmt(ps.arrears.balance)}${ps.needsBackfill.length ? ` · ${ps.needsBackfill.length} need backfill` : ''}` },
         ]
         return (
           <div className="summary-cards" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:isMobile?14:20}}>
@@ -4718,6 +4841,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <div key={t.label} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'16px 18px'}}>
                 <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{t.label}</div>
                 <div style={{fontFamily:MONO,fontSize:20,fontWeight:500,color:t.accent,letterSpacing:'-0.01em'}}>{t.value}</div>
+                {t.sub && <div style={{fontFamily:MONO,fontSize:9,color:T.muted,marginTop:4}}>{t.sub}</div>}
               </div>
             ))}
           </div>
@@ -4762,7 +4886,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
       {/* Companies — filtered by the pill row above, then by search / status / arrears */}
       {visCos.map(c=>{
-        const cps = visibleProps.filter(p=>p.company_id===c.id)
+        // Short-term lets are reported under Short-Term Let Income, not here.
+        const cps = visibleProps.filter(p=>p.company_id===c.id&&p.status!=='short_term_let')
         if (!cps.length) return null
         const totals = getCompanyTotals(cps, globalYear)
         // Default open; while a search is active every company with a
@@ -4940,7 +5065,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                 <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>
                                   {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                                 </div>
-                                <RentDots payments={p.rent_payments||[]} stlIds={stlPaymentIds(p)} filterYear={globalYear} onDayTracker={onDayTracker}/>
+                                <RentDots payments={p.rent_payments||[]} stlIds={stlPaymentIds(p)} filterYear={globalYear} onDayTracker={onDayTracker} property={p} canEdit={canEditRent?.(p.company_id)} onChanged={onRefresh} showToast={showToast}/>
                               </div>
                               {/* Right: stats + badge */}
                               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
@@ -5065,7 +5190,9 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
             is never opened. */}
         <RentDots payments={payments} stlIds={stlPaymentIds(selected)}
           onUpdate={canEdit ? m=>setEditingPayment({payment:m,propId:selected.id}) : ()=>showToast('You have read-only access to rent for this company','info')}
-          filterYear={filterYear} onDayTracker={canEdit ? onDayTracker : undefined}/>
+          filterYear={filterYear} onDayTracker={canEdit ? onDayTracker : undefined}
+          property={selected} canEdit={canEdit} showToast={showToast}
+          onChanged={()=>api.fetchRentOverrides(selected.id).then(o=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,rent_overrides:o}:p))).catch(()=>{})}/>
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
@@ -5082,14 +5209,28 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
             {filterYear ? `${filterYear} Summary` : 'All Time Summary'}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
-            {[
-              {l:'Months Paid',    v:paid,    c:T.green,  sub:fmt(totalIncome)},
-              {l:'Months Missed',  v:missed,  c:T.red,    sub:fmt(missed*(selected.rent_pcm||0))},
-              {l:'Months Late', v:late, c:T.amber,  sub:fmt(lateIncome)},
-              {l:'Months Refurb',  v:refurb,  c:T.blue,   sub:''},
-              {l:'Months Void',    v:voidM,   c:T.faint,  sub:''},
-              {l:'Total Received', v:fmt(totalIncome), c:T.gold, sub:`${paid} months`, big:true},
-            ].map((item,i)=>(
+                        {(() => {
+              const legacyYear = !!filterYear && filterYear < Number(GO_LIVE.slice(0,4))
+              if (legacyYear || selected.status === 'short_term_let') return [
+                {l:'Months Paid',    v:paid,    c:T.green,  sub:fmt(totalIncome)},
+                {l:'Months Missed',  v:missed,  c:T.red,    sub:fmt(missed*(selected.rent_pcm||0))},
+                {l:'Months Late', v:late, c:T.amber,  sub:fmt(lateIncome)},
+                {l:'Months Refurb',  v:refurb,  c:T.blue,   sub:''},
+                {l:'Months Void',    v:voidM,   c:T.faint,  sub:''},
+                {l:'Total Received', v:fmt(totalIncome), c:T.gold, sub:legacyYear ? 'legacy data' : `${paid} months`, big:true},
+              ]
+              const evals = evaluateProperty(selected).filter(e => !filterYear || e.year === filterYear)
+              const cs = collectionStats(evals)
+              const ar = arrearsSummary(selected)
+              return [
+                {l:'Collection rate', v: cs.rate == null ? '—' : `${cs.rate}%`, c: cs.rate == null ? T.muted : cs.rate>=95?T.green:cs.rate>=85?T.amber:T.red, sub:`${cs.periods} periods due`},
+                {l:'Collectible due', v:fmt(cs.due), c:T.text, sub:`${cs.counts.not_collectible} not collectible`},
+                {l:'Received', v:fmt(cs.received), c:T.green, sub: cs.excess>0 ? `+${fmt(cs.excess)} overpaid` : `${cs.counts.paid} paid`},
+                {l:'Outstanding', v:fmt(cs.outstanding), c: cs.outstanding>0?T.red:T.green, sub:`${cs.counts.missed} missed · ${cs.counts.due + cs.counts.part_paid} due`},
+                {l:'Historic arrears', v:fmt(ar.balance), c: ar.balance>0?T.amber:T.muted, sub: ar.paid>0 ? `${fmt(ar.paid)} paid off` : (ar.opening ? 'opening balance' : 'none recorded')},
+                {l:'Needs backfill', v:cs.counts.needsBackfill, c: cs.counts.needsBackfill>0?T.amber:T.muted, sub: cs.counts.legacy ? `${cs.counts.legacy} legacy months` : 'paid months missing an amount'},
+              ]
+            })().map((item,i)=>(
               <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
                 <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
                 <div style={{fontFamily:MONO,fontSize:item.big?15:17,fontWeight:700,color:item.c}}>{item.v}</div>
@@ -5101,7 +5242,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
       </div>}
 
       {/* Receipts: dated cash events with allocations (Stage 2) */}
-      <ReceiptsPanel property={selected} tenancies={selected.tenancies} showToast={showToast} canEdit={canEdit}/>
+      <ReceiptsPanel property={selected} tenancies={selected.tenancies} showToast={showToast} canEdit={canEdit} onChanged={r=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,rent_receipts:r}:p))}/>
 
       {/* Notes Timeline */}
       <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} category="rent"/>

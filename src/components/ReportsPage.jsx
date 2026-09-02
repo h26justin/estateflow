@@ -7,6 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
+import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { loadCdnScript } from '../lib/loadCdnScript'
@@ -435,6 +436,7 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     yield_compare: <ReportYieldComparison {...props}/>,
     occupancy: <ReportOccupancy {...props}/>,
     rent_collect: <ReportRentCollection {...props}/>,
+    rent_backfill: <ReportRentBackfill {...props}/>,
     cashflow: <ReportCashFlow {...props}/>,
     equity: <ReportEquity {...props}/>,
     mortgage_port: <ReportMortgagePortfolio {...props}/>,
@@ -990,22 +992,23 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(rate)],['Rented',rented.toString()],['Vacant',vacant.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,p.status||'—',fmt(p.rent_pcm),isPropertyEarningRent(p.status)?'Yes':'No']) }
     }
     case 'rent_collect': {
-      const expected=filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
-      const collected=filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
-      const lateCol=filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
-      const missed=filtRent.filter(r=>r.status==='overdue'||r.status==='missed').length
-      const rate=expected>0?((collected+lateCol)/expected)*100:100
-      const rows=filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p=>{
-        const own=filtRent.filter(r=>r.property_id===p.id)
-        return { name:p.name, expected:(p.rent_pcm||0)*12,
-          paid:own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
-          late:own.filter(r=>r.status==='late').length,
-          missed:own.filter(r=>r.status==='overdue'||r.status==='missed').length }
-      })
-      return { title:'Rent Collection Rate', kpis:[['Collection rate',fmtPct(rate)],['Expected',fmt(expected)],['Collected on time',fmt(collected)],['Missed payments',missed.toString()]],
-        headers:['Property','Expected','Collected','Late','Missed'],
-        rows:rows.map(r=>[r.name,fmt(r.expected),fmt(r.paid),r.late.toString(),r.missed.toString()]),
-        totals:['Total',fmt(expected),fmt(collected),'',missed.toString()] }
+      const d = rentCollectionData(filtProps, filtRent, range)
+      if (d.legacy) {
+        return { title:'Rent Collection Rate (legacy data, pre-2026 method)', kpis:[['Collection rate',d.rate==null?'—':fmtPct(d.rate)],['Expected',fmt(d.expected)],['Collected on time',fmt(d.collected)],['Missed payments',d.missed.toString()]],
+          headers:['Property','Expected','Collected','Late','Missed'],
+          rows:d.rows.map(r=>[r.name,fmt(r.expected),fmt(r.paid),r.late.toString(),r.missed.toString()]),
+          totals:['Total',fmt(d.expected),fmt(d.collected),'',d.missed.toString()] }
+      }
+      return { title:'Rent Collection Rate', kpis:[['Collection rate',d.rate==null?'—':`${d.rate}%`],['Collectible rent due',fmt(d.due)],['Current rent received',fmt(d.received)],['Current rent outstanding',fmt(d.outstanding)],['Historic arrears',fmt(d.arrears)],['Not collectible periods',String(d.notCollectible)]],
+        headers:['Property','Due','Received','Outstanding','Missed','Not collectible','Historic arrears'],
+        rows:d.rows.map(r=>[r.name,fmt(r.due),fmt(r.received),fmt(r.outstanding),String(r.missed),String(r.notCollectible),fmt(r.arrears)]),
+        totals:['Total',fmt(d.due),fmt(d.received),fmt(d.outstanding),String(d.missed),String(d.notCollectible),fmt(d.arrears)] }
+    }
+    case 'rent_backfill': {
+      const rows = rentBackfillRows(filtProps)
+      return { title:'Rent months needing backfill', kpis:[['Months needing an amount',String(rows.length)],['Properties affected',String(new Set(rows.map(r=>r.property)).size)]],
+        headers:['Company','Property','Month','Period','Expected'],
+        rows:rows.map(r=>[r.company,r.property,r.month,r.period,r.expected!=null?fmt(r.expected):'']) }
     }
     case 'cashflow': {
       // Use real per-month data — same logic as the in-app component.
@@ -2554,47 +2557,135 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
   )
 }
 
-function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
-  // rent_payments.status values: paid | late | overdue | void | partial | refurb.
-  // Legacy 'missed' rows (pre-2026-05-25) still treated as overdue. Treat
-  // late + partial as "collected with delay".
-  const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
-  const collected = filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
-  const lateCollected = filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
-  const missed = filtRent.filter(r=>r.status==='overdue'||r.status==='missed').length
-  const rate = expected>0?((collected+lateCollected)/expected)*100:100
+// ── Rent collection data (Stage 4) ────────────────────────────────────────
+// One computation shared by the on-screen report, the PDF and the CSV so the
+// three can never disagree. Ranges starting before the go-live date use the
+// legacy month-count arithmetic and are labelled as such.
+function rangeIso(range) {
+  const iso = d => d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10)
+  return { start: iso(range.start), end: iso(range.end) }
+}
+function rentCollectionData(filtProps, filtRent, range) {
+  const { start, end } = rangeIso(range)
+  if (start < GO_LIVE) {
+    const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+    const collected = filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
+    const lateCollected = filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
+    const missed = filtRent.filter(r=>r.status==='overdue'||r.status==='missed').length
+    const rate = expected>0?((collected+lateCollected)/expected)*100:null
+    const rows = filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p => {
+      const own = filtRent.filter(r => r.property_id === p.id)
+      return { p, name: p.name, expected: (p.rent_pcm||0) * 12,
+        paid: own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
+        late: own.filter(r=>r.status==='late').length,
+        missed: own.filter(r=>r.status==='overdue'||r.status==='missed').length }
+    }).sort((a,b) => (b.missed+b.late) - (a.missed+a.late))
+    return { legacy: true, rate, expected, collected, missed, rows }
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  const asOf = end < today ? end : today
+  const props = filtProps.filter(p => p.status !== 'short_term_let')
+  const stlExcluded = filtProps.length - props.length
+  const rows = props.map(p => {
+    const evals = evaluateProperty(p).filter(e => e.periodStart >= start && e.periodStart <= end)
+    const cs = collectionStats(evals, { asOf })
+    const ar = arrearsSummary(p)
+    return { p, name: p.name, company: p.company?.abbr || p.company?.name || '', due: cs.due, received: cs.received, outstanding: cs.outstanding, excess: cs.excess,
+      missed: cs.counts.missed, partPaid: cs.counts.part_paid, dueNow: cs.counts.due, notCollectible: cs.counts.not_collectible,
+      needsBackfill: cs.counts.needsBackfill, arrears: ar.balance, rate: cs.rate }
+  }).filter(r => r.due > 0 || r.missed || r.needsBackfill || r.notCollectible || r.arrears)
+    .sort((a, b) => (b.outstanding - a.outstanding) || (b.missed - a.missed))
+  const sum = k => Math.round(rows.reduce((s, r) => s + (Number(r[k]) || 0), 0) * 100) / 100
+  const due = sum('due'), received = sum('received')
+  return {
+    legacy: false, start, end, asOf, stlExcluded,
+    rate: due > 0 ? Math.round((received / due) * 1000) / 10 : null,
+    due, received, outstanding: sum('outstanding'), excess: sum('excess'),
+    missed: sum('missed'), notCollectible: sum('notCollectible'), needsBackfill: sum('needsBackfill'), arrears: sum('arrears'), rows,
+  }
+}
 
-  // Per-property breakdown of what landed when.
-  const byProp = filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p => {
-    const own = filtRent.filter(r => r.property_id === p.id)
-    return {
-      p,
-      expected: (p.rent_pcm||0) * 12,
-      paid: own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
-      late: own.filter(r=>r.status==='late').length,
-      missed: own.filter(r=>r.status==='overdue'||r.status==='missed').length,
+// Paid months with no amount since go-live: the work-through list for the
+// backfill (decision 2 of 2 Sep 2026).
+function rentBackfillRows(filtProps) {
+  const out = []
+  for (const p of filtProps) {
+    if (p.status === 'short_term_let') continue
+    for (const e of evaluateProperty(p)) {
+      if (e.needsBackfill) out.push({ company: p.company?.name || '', property: p.name, month: e.monthLabel || `${e.month}/${e.year}`, period: `${e.periodStart} → ${e.periodEnd}`, status: e.legacyStatus, expected: e.expected })
     }
-  }).sort((a,b) => (b.missed+b.late) - (a.missed+a.late))
+  }
+  return out.sort((a, b) => a.company.localeCompare(b.company) || a.property.localeCompare(b.property) || a.period.localeCompare(b.period))
+}
 
+function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
+  const d = rentCollectionData(filtProps, filtRent, range)
+  if (d.legacy) {
+    return (
+      <>
+        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:10}}>Legacy data: periods before 1 January 2026 use the older month-count method (late and part payments count as collected; contract rent × 12 as the expectation).</div>
+        <StatCards T={T} items={[
+          {label:'Collection rate (legacy)',value:d.rate==null?'—':`${d.rate.toFixed(1)}%`,color:d.rate==null?T.muted:d.rate>=95?T.green:d.rate>=85?T.amber:T.red},
+          {label:'Expected income',value:fmt(d.expected),color:T.text},
+          {label:'Collected on time',value:fmt(d.collected),color:T.green},
+          {label:'Missed payments',value:d.missed,color:d.missed>0?T.red:T.green},
+        ]}/>
+        <ReportTable T={T} accent={accent}
+          headers={[{label:'Property'},{label:'Expected',right:true,width:'120px'},{label:'Collected',right:true,width:'120px'},{label:'Late',right:true,width:'70px'},{label:'Missed',right:true,width:'70px'}]}
+          rows={d.rows.map(r=>[r.name,{v:fmt(r.expected),right:true},{v:fmt(r.paid),color:T.green,right:true},{v:r.late||'—',color:r.late>0?T.amber:T.muted,right:true},{v:r.missed||'—',color:r.missed>0?T.red:T.muted,right:true,bold:r.missed>0}])}
+        />
+      </>
+    )
+  }
   return (
     <>
       <StatCards T={T} items={[
-        {label:'Collection rate',value:`${rate.toFixed(1)}%`,color:rate>=95?T.green:rate>=85?T.amber:T.red},
-        {label:'Expected income',value:fmt(expected),color:T.text},
-        {label:'Collected on time',value:fmt(collected),color:T.green},
-        {label:'Missed payments',value:missed,color:missed>0?T.red:T.green},
+        {label:'Collection rate',value:d.rate==null?'—':`${d.rate}%`,color:d.rate==null?T.muted:d.rate>=95?T.green:d.rate>=85?T.amber:T.red},
+        {label:'Collectible rent due',value:fmt(d.due),color:T.text},
+        {label:'Current rent received',value:fmt(d.received),color:T.green},
+        {label:'Current rent outstanding',value:fmt(d.outstanding),color:d.outstanding>0?T.red:T.green},
       ]}/>
+      <div style={{fontFamily:mono,fontSize:11,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
+        Current rent received ÷ collectible rent due to {d.asOf}. Only tenancy-covered periods whose due date has been reached count; vacant, refurbishment and non-chargeable periods are excluded ({d.notCollectible} this period).
+        {d.stlExcluded>0 && ` ${d.stlExcluded} short-term-let ${d.stlExcluded===1?'property is':'properties are'} reported under Short-Term Let Income.`}
+        {d.needsBackfill>0 && ` ${d.needsBackfill} paid ${d.needsBackfill===1?'month has':'months have'} no amount and are excluded until backfilled.`}
+        {d.excess>0 && ` Overpayments of ${fmt(d.excess)} are shown separately and never lift the rate above 100%.`}
+        {` Historic arrears (${fmt(d.arrears)}) are tracked separately and do not affect the rate.`}
+      </div>
       <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Expected',right:true,width:'120px'},{label:'Collected',right:true,width:'120px'},{label:'Late',right:true,width:'70px'},{label:'Missed',right:true,width:'70px'}]}
-        rows={byProp.map(r=>[
-          r.p.name,
-          {v:fmt(r.expected),right:true},
-          {v:fmt(r.paid),color:T.green,right:true},
-          {v:r.late||'—',color:r.late>0?T.amber:T.muted,right:true},
-          {v:r.missed||'—',color:r.missed>0?T.red:T.muted,right:true,bold:r.missed>0},
+        headers={[{label:'Property'},{label:'Due',right:true,width:'100px'},{label:'Received',right:true,width:'100px'},{label:'Outstanding',right:true,width:'110px'},{label:'Missed',right:true,width:'70px'},{label:'Not coll.',right:true,width:'80px'},{label:'Arrears',right:true,width:'100px'}]}
+        rows={d.rows.map(r=>[
+          r.name,
+          {v:fmt(r.due),right:true},
+          {v:fmt(r.received),color:T.green,right:true},
+          {v:r.outstanding>0?fmt(r.outstanding):'—',color:r.outstanding>0?T.red:T.muted,right:true,bold:r.outstanding>0},
+          {v:r.missed||'—',color:r.missed>0?T.red:T.muted,right:true},
+          {v:r.notCollectible||'—',color:T.muted,right:true},
+          {v:r.arrears>0?fmt(r.arrears):'—',color:r.arrears>0?T.amber:T.muted,right:true},
         ])}
+        totals={['Total',fmt(d.due),fmt(d.received),fmt(d.outstanding),String(d.missed),String(d.notCollectible),fmt(d.arrears)]}
       />
-      {filtRent.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'20px 0'}}>No payment records found. Mark rent as paid in the Rent Tracker to populate this report.</div>}
+      {d.rows.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'20px 0'}}>No collectible rent in this period. Record tenancies and receipts in the property Rent and Tenancy tabs to populate this report.</div>}
+    </>
+  )
+}
+
+function ReportRentBackfill({ filtProps, T, accent }) {
+  const rows = rentBackfillRows(filtProps)
+  return (
+    <>
+      <StatCards T={T} items={[
+        {label:'Months needing an amount',value:rows.length,color:rows.length>0?T.amber:T.green},
+        {label:'Properties affected',value:new Set(rows.map(r=>r.property)).size,color:T.text},
+      ]}/>
+      <div style={{fontFamily:mono,fontSize:11,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
+        These months are marked paid but carry no amount, so they stay Green on the tracker and are left out of the value-based collection rate until the amount is entered. Record the money as a receipt on the property Rent tab (or set the amount in the Day Tracker) to clear each one.
+      </div>
+      <ReportTable T={T} accent={accent}
+        headers={[{label:'Company'},{label:'Property'},{label:'Month'},{label:'Period'},{label:'Expected',right:true,width:'100px'}]}
+        rows={rows.map(r=>[r.company,r.property,r.month,r.period,{v:r.expected!=null?`£${Number(r.expected).toLocaleString('en-GB',{minimumFractionDigits:2})}`:'—',right:true}])}
+      />
+      {rows.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.green,padding:'20px 0'}}>Nothing to backfill: every paid month since 1 January 2026 has an amount.</div>}
     </>
   )
 }

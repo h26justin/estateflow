@@ -194,14 +194,14 @@ const GUIDES = [
     steps: [
       "Navigate to Rent Tracker from the top navigation bar.",
       "The main view shows a calendar grid for each company: rows are properties, columns are months.",
-      "Each cell is colour-coded: Green = Paid, Red = Missed, Amber = Late, Blue = Refurb, Grey = Void.",
+      "Each cell is colour-coded by the rent position for that month: Green = Paid in full, Amber = Due (payment window still open, or benefit not yet due) or Part paid, Red = Missed (window passed with rent outstanding), Grey (hatched) = Not collectible (vacant, refurbishment, before the tenancy started or after it ended), Purple = Short-term let. Months before January 2026 use the older Paid / Missed / Late / Refurb / Void colours and are marked as legacy data. An orange dot means the month is marked paid but the amount still needs entering.",
       "Click any cell to change its status. The year filter at the top lets you switch between years.",
       "Click on a company header to collapse or expand that company section.",
     ]},
   { id: 21, cat: 'rent', title: 'Marking rent as paid, missed or late', tags: ['rent','paid','missed','late','status'],
     steps: [
       "On the Rent Tracker page, find the property and month you want to update.",
-      "Click the cell for that month. A popup will appear with status options: Paid, Missed, Late, Refurb, or Void.",
+      "Click the cell for that month to see what was expected, what was received and when it was due, with each receipt listed. Rent is recorded as receipts on the property Rent tab; the day-by-day tracker is still available for dated ranges. Owners, admins and Rent Tracker Editors can override a month's status, which always requires a reason and is recorded with their name and the time.",
       "Select the appropriate status. The cell colour will change immediately.",
       "The income totals at the bottom of each company section will update to reflect the change.",
       "Tip: Use the Day View for more granular daily rent tracking instead of monthly.",
@@ -529,7 +529,7 @@ const GUIDES = [
     ]},
   { id: 58, cat: 'reports', title: 'Overview of all 16 reports', tags: ['report','list','overview','available'],
     steps: [
-      "Properly includes 16 built-in reports covering: Tax & Accounting (annual P&L, rental income schedule, expense breakdown, mortgage interest summary, capital gains summary), Portfolio Performance (yield comparison, occupancy rate, rent collection rate), Cash Flow & Finance (monthly cash flow, equity report, mortgage portfolio, arrears), Compliance & Legal (compliance status, tenancy schedule), and Maintenance (maintenance overview, contractor spend).",
+      "Properly includes 20 built-in reports covering: Tax & Accounting (annual P&L, rental income schedule, expense breakdown, mortgage interest summary, capital gains summary), Portfolio Performance (yield comparison, occupancy rate, rent collection rate), Cash Flow & Finance (monthly cash flow, equity report, mortgage portfolio, arrears), Compliance & Legal (compliance status, tenancy schedule), and Maintenance (maintenance overview, contractor spend).",
       "All reports can be filtered by company, date range, and property status.",
       "Reports update in real time as you add data \u2014 no manual recalculation needed.",
       "Navigate to Reports and browse the full list organised by category.",
