@@ -40,8 +40,12 @@ export async function fetchProperties() {
   // without an extra round-trip per row.
   const { data, error } = await supabase
     .from('properties')
-    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end,xero_reconciled), compliance_items(id,cert_type,cert_name,issue_date,expiry_date,deleted_at), stl_bookings(id,rent_payment_id), rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount,payment_plan_id)), payment_plans(id,tenancy_id,opening_balance,start_date,instalment_amount,frequency,due_day,status_override), non_chargeable_periods(id,start_date,end_date,reason,notes), rent_overrides(id,rent_payment_id,state,reason,expected_amount,created_at,created_by), tenancies(id,tenant_name,tenant_ref,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date,needs_confirmation)')
+    .select('*, company:companies(id,name,abbr,color), refurb_projects(*, refurb_lines(*)), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end,xero_reconciled), compliance_items(id,cert_type,cert_name,issue_date,expiry_date,deleted_at), stl_bookings(id,rent_payment_id), rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount,payment_plan_id)), payment_plans(id,tenancy_id,opening_balance,start_date,instalment_amount,frequency,due_day,status_override), non_chargeable_periods(id,start_date,end_date,reason,notes), rent_overrides(id,rent_payment_id,state,reason,expected_amount,created_at,created_by), tenancies(id,tenant_name,tenant_ref,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date,needs_confirmation)')
     .is('deleted_at', null)
+    // Refurb projects and their ledger lines are soft-deleted; keep Trash
+    // rows out of every consumer (engine filters again client-side).
+    .is('refurb_projects.deleted_at', null)
+    .is('refurb_projects.refurb_lines.deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
   if (error) throw error
@@ -61,7 +65,7 @@ export async function createProperty(prop) {
   if (data?.address) {
     geocodeProperty(data.id, data.address).catch(() => {})
   }
-  return { ...data, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [], payment_plans: [] }
+  return { ...data, refurb_projects: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [], payment_plans: [] }
 }
 
 /**
@@ -88,7 +92,7 @@ export async function bulkCreateProperties(props) {
   for (const row of (data || [])) {
     if (row?.address) geocodeProperty(row.id, row.address).catch(() => {})
   }
-  return (data || []).map(d => ({ ...d, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [], payment_plans: [] }))
+  return (data || []).map(d => ({ ...d, refurb_projects: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [], payment_plans: [] }))
 }
 
 export async function updateProperty(id, updates) {
@@ -109,7 +113,7 @@ export async function deleteProperty(id) {
 
 /**
  * Duplicate a property — creates a fresh row with the same financial / status
- * data but a new ID. Children (refurb_phases, refurb_costs, compliance_items,
+ * data but a new ID. Children (refurb_projects, compliance_items,
  * tenancy, etc.) are NOT cloned — duplicated properties start with a clean slate.
  * Name is suffixed with " (copy)" for clarity.
  */
@@ -138,7 +142,7 @@ export async function duplicateProperty(propertyId) {
     .insert({ ...payload, name: newName, user_id: await uid() })
     .select('*, company:companies(id,name,abbr,color)').single()
   if (insertErr) throw insertErr
-  return { ...created, refurb_phases: [], refurb_costs: [], rent_payments: [] }
+  return { ...created, refurb_projects: [], rent_payments: [] }
 }
 
 /** Archive a property — hides from active list. Reversible. */
@@ -413,38 +417,7 @@ export async function resetPropertyPin(id, address) {
   return await geocodeProperty(id, address)
 }
 
-export async function createRefurbPhase(propertyId, phase) {
-  const { data, error } = await supabase
-    .from('refurb_phases').insert({ ...phase, property_id: propertyId, user_id: await uid() }).select().single()
-  if (error) throw error
-  return data
-}
-export async function updateRefurbPhase(id, fields) {
-  const { data, error } = await supabase
-    .from('refurb_phases').update(fields).eq('id', id).select().single()
-  if (error) throw error
-  return data
-}
-export async function deleteRefurbPhase(id) {
-  const { error } = await supabase.from('refurb_phases').delete().eq('id', id)
-  if (error) throw error
-}
-export async function createRefurbCost(propertyId, cost) {
-  const { data, error } = await supabase
-    .from('refurb_costs').insert({ ...cost, property_id: propertyId, user_id: await uid() }).select().single()
-  if (error) throw error
-  return data
-}
-export async function updateRefurbCost(id, fields) {
-  const { data, error } = await supabase
-    .from('refurb_costs').update(fields).eq('id', id).select().single()
-  if (error) throw error
-  return data
-}
-export async function deleteRefurbCost(id) {
-  const { error } = await supabase.from('refurb_costs').delete().eq('id', id)
-  if (error) throw error
-}
+// Refurb CRUD moved to api/refurbs.js (refurb_projects / refurb_lines).
 
 // Derive {year, month, month_label} from a YYYY-MM-DD period_start string.
 function periodToMonthParts(periodStart) {

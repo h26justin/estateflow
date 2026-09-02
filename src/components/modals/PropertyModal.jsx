@@ -43,7 +43,7 @@ export const COMPLIANCE_PROMPTS = [
 export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
-  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',refurb_status:'planned',purchase_price:'',purchase_date:'',refurb_cost:'',refurb_cost_unpaid:false,est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',mortgage_product_end_date:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',managed_by_agent_id:'',
+  const blank = { name:'',company_id:prop?.company_id||companies[0]?.id||'',address:'',prop_type:'',status:'purchased',purchase_price:'',purchase_date:'',est_value:'',mortgage_amount:'',deposit:'',stamp_duty:'',legal_fees:'',rent_pcm:'',mortgage_rate:'',mortgage_term:25,mortgage_type:'repayment',mortgage_monthly_payment:'',mortgage_fees:'',mortgage_product_end_date:'',insurance:'',arrears:0,tenancy_end:'',rent_due_day:'',notes:'',managed_by:'',managed_by_agent_id:'',
     // Compliance dates (form-only — extracted into compliance_items rows
     // by handleSaveProp). When editing an existing property we pre-fill
     // from any compliance_items rows that already exist for the matching
@@ -116,7 +116,11 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     // payload for the save handler to persist into compliance_items.
     const {
       company, compliance_items, tenancy, maintenance_jobs, rent_payments,
-      refurb_phases, refurb_costs, documents, stl_bookings, tenancies, rent_receipts, non_chargeable_periods, rent_overrides, payment_plans, is_cash,
+      documents, stl_bookings, tenancies, rent_receipts, non_chargeable_periods, rent_overrides, payment_plans, is_cash,
+      // Refurb fields are owned by the Refurbs module: refurb_projects is a
+      // relation, and refurb_cost / refurb_status are mirrors written by a
+      // DB trigger from the projects. Never write them back from this form.
+      refurb_projects, refurb_cost, refurb_status, refurb_cost_unpaid,
       gas_safety_expiry, eicr_expiry, epc_expiry, smoke_alarm_checked,
       ...clean
     } = form
@@ -152,7 +156,6 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       // Completion date. Null (not '') when blank so the date column stays
       // empty rather than erroring on an invalid date literal.
       purchase_date: clean.purchase_date || null,
-      refurb_cost:parseFloat(clean.refurb_cost)||0,
       est_value:parseFloat(clean.est_value)||0,
       mortgage_amount:parseFloat(clean.mortgage_amount)||0,
       deposit:parseFloat(clean.deposit)||0,
@@ -217,21 +220,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
 
         <Section title="Purchase & costs" T={T} />
         <div className="g2"><div><label htmlFor="pm-purchase-price">Purchase Price</label><MoneyInput id="pm-purchase-price" prefix="£" value={form.purchase_price} onChange={v=>s('purchase_price',v)}/></div><div><label htmlFor="pm-est-value">Estimated Value</label><MoneyInput id="pm-est-value" prefix="£" value={form.est_value} onChange={v=>s('est_value',v)}/></div></div>
-        <div className="g2"><div><label htmlFor="pm-purchase-date">Completion Date</label><input id="pm-purchase-date" type="date" value={form.purchase_date || ''} onChange={e=>s('purchase_date', e.target.value)}/></div><div><label htmlFor="pm-refurb-cost">Refurb Cost</label><MoneyInput id="pm-refurb-cost" prefix="£" value={form.refurb_cost} onChange={v=>s('refurb_cost',v)}/></div></div>
-        {/* Unpaid-refurb flag — drives the cashflow panel on the Deals page.
-            Only meaningful when there's a refurb cost set, so we hide it
-            otherwise to avoid clutter. */}
-        {Number(form.refurb_cost) > 0 && (
-          <div style={{padding:'8px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,marginTop:-4}}>
-            <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontFamily:MONO,fontSize:11,color:T.text}}>
-              <input type="checkbox" checked={!!form.refurb_cost_unpaid} onChange={e=>s('refurb_cost_unpaid',e.target.checked)} style={{width:'auto',margin:0,marginTop:2}}/>
-              <span>
-                <strong>Refurb cost is unpaid (still owed)</strong>
-                <span style={{display:'block',color:T.muted,fontSize:10,marginTop:2,fontWeight:400}}>Tick this if you haven't yet paid the refurb. Surfaces it on the Deals → Cashflow panel as money still to pay out, regardless of property status.</span>
-              </span>
-            </label>
-          </div>
-        )}
+        <div className="g2"><div><label htmlFor="pm-purchase-date">Completion Date</label><input id="pm-purchase-date" type="date" value={form.purchase_date || ''} onChange={e=>s('purchase_date', e.target.value)}/></div><div><label>Refurb</label><div style={{fontFamily:MONO,fontSize:11,color:T.muted,padding:'9px 0'}}>{prop?.id ? 'Managed on the Refurb tab and the Refurbs page' : 'Add the refurb after saving, on the Refurb tab'}</div></div></div>
         <div className="g2"><div><label htmlFor="pm-stamp-duty">Stamp Duty</label><MoneyInput id="pm-stamp-duty" prefix="£" value={form.stamp_duty} onChange={v=>s('stamp_duty',v)}/></div><div><label htmlFor="pm-legal-fees">Legal Fees</label><MoneyInput id="pm-legal-fees" prefix="£" value={form.legal_fees} onChange={v=>s('legal_fees',v)}/></div></div>
 
         <Section title="Financing" T={T} />

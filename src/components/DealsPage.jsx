@@ -648,15 +648,11 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
           </div>
           {properties.map(p => {
             const rcf = p._refurbCashflow || {}
-            // Source tag tells the user how the unpaid number was derived —
-            // crucial for trust in the figure.
-            const sourceTag = rcf.source === 'itemised'
-              ? { label: 'Itemised', color: T.green }
-              : rcf.source === 'budgeted'
-                ? { label: 'Budgeted', color: T.amber }
-                : rcf.source === 'user-flag'
-                  ? { label: 'Flagged', color: T.blue }
-                  : null
+            // Figures come from the property's refurb projects (Refurbs page):
+            // headline = agreed price, cash out = remaining to pay.
+            const sourceTag = rcf.count > 1
+              ? { label: `${rcf.count} refurbs`, color: T.blue }
+              : rcf.trigger ? null : { label: 'No target date', color: T.amber }
             return (
               <div key={`p-${p.id}`} style={itemRow}>
                 <span style={{fontSize:10}}>🏠</span>
@@ -818,11 +814,11 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
               </div>
             )
           })}
-          {/* Hint: encourage user to itemise refurb costs if they're using
-              the budgeted fallback (less accurate). One line, friendly. */}
-          {agg.propertyRefurbBudgeted > 0 && (
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
-              💡 {agg.propertyRefurbBudgeted} {agg.propertyRefurbBudgeted===1?'property is':'properties are'} using the full refurb budget as the unpaid amount. Add itemised costs (with paid/unpaid status) on the property's Refurb tab for a more accurate cashflow figure.
+          {/* Property refurbs are managed on the Refurbs page; point there. */}
+          {agg.propertyRefurbCount > 0 && (
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+              <span>Refurb figures are the agreed price less payments logged on each refurb.{agg.propertyRefurbUndated > 0 ? ` ${agg.propertyRefurbUndated} ${agg.propertyRefurbUndated===1?'has':'have'} no target finish date.` : ''}</span>
+              <a href="#/refurbs" style={{color:T.gold,fontStyle:'normal',fontWeight:700,textDecoration:'none'}}>Open Refurbs →</a>
             </div>
           )}
         </div>
@@ -866,7 +862,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
           {/* Helpful nudge if too many items are 'undated' — hint them to fill in dates */}
           {agg.byBucket.undated.count > agg.totalCount / 2 && (
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
-              Most items don't have completion or refurb dates set. Add them in each deal's Timeline section, or set refurb dates on properties, to see them in 30/60/90 day buckets.
+              Most items don't have dates set. Add completion and refurb dates in each deal's Timeline section, and a target finish on each refurb in Refurbs, to see them in 30/60/90 day buckets.
             </div>
           )}
         </div>
