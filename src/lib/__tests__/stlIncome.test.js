@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isRevenueBooking, channelLabel, bookingNights, summariseStl, ytd, periodRange, periodDays,
-  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange } from '../stlIncome'
+  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
 
 const bk = (over = {}) => ({
   id: 'b1', property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
@@ -254,5 +254,25 @@ describe('platform fees and manager payouts', () => {
     expect(cur).toEqual({ from: '2026-08-31', to: '2026-09-13' })
     expect(prev).toEqual({ from: '2026-08-17', to: '2026-08-30' })
     expect(periodRange('last_fortnight', new Date('2026-09-02T12:00:00Z'))).toEqual(prev)
+  })
+})
+
+describe('estimating fees not yet reported', () => {
+  const known = { id: 'k', property_id: 'p', source: 'Booking.com', status: 'new', arrival: '2026-08-01', departure: '2026-08-03', total_amount: 200, channel_commission: 30 }
+  const pending = { id: 'u', property_id: 'p', source: 'Booking.com', status: 'new', arrival: '2026-08-10', departure: '2026-08-12', total_amount: 100 }
+  const airbnbUnknown = { id: 'a', property_id: 'p', source: 'Airbnb', status: 'new', arrival: '2026-08-11', departure: '2026-08-12', total_amount: 100 }
+  it('derives the observed rate per channel from bookings that carry a fee', () => {
+    expect(observedChannelRates([known, pending])).toEqual({ 'Booking.com': 15 })
+  })
+  it('estimates an invoice-later channel at the observed rate, never a deduct-at-source channel', () => {
+    const rates = observedChannelRates([known])
+    expect(effectiveFees(pending, rates)).toMatchObject({ total: 15, estimated: true, rate: 15 })
+    expect(effectiveFees(airbnbUnknown, rates).estimated).toBe(false)
+    expect(effectiveFees(pending, null).total).toBe(0)
+  })
+  it('summary counts estimated fees and reports them separately', () => {
+    const s = summariseStl([known, pending, airbnbUnknown], [], { from: '2026-08-01', to: '2026-08-31', rates: { 'Booking.com': 15 } })
+    expect(s.platformFees).toBe(45); expect(s.feesEstimated).toBe(1); expect(s.feesEstimatedAmount).toBe(15); expect(s.feesKnown).toBe(1)
+    expect(s.netAfterFees).toBe(355)
   })
 })

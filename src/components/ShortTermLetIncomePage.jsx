@@ -19,7 +19,7 @@ import { canDo } from '../lib/permissions'
 import {
   STL_COLOR, STL_STATUS, ADJUSTMENT_KINDS, KNOWN_CHANNELS,
   isRevenueBooking, isCancelled, channelLabel, bookingNights, bookingReference, guestDisplayName,
-  bookingStatusLabel, unitCount, summariseStl, periodRange, toISO, bookingMatches, bookingFees, bookingNetAfterFees, managerPayouts,
+  bookingStatusLabel, unitCount, summariseStl, periodRange, toISO, bookingMatches, bookingFees, bookingNetAfterFees, managerPayouts, observedChannelRates, effectiveFees,
 } from '../lib/stlIncome'
 
 const fmtMoney = n => {
@@ -128,9 +128,13 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     return total
   }, [selectedProps, bookings, mappings])
 
-  const summary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { ...range, roomCount }), [scopedBookings, scopedAdjustments, range.from, range.to, roomCount])
-  const yearSummary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { from: `${yearShown}-01-01`, to: `${yearShown}-12-31`, roomCount }), [scopedBookings, scopedAdjustments, yearShown, roomCount])
-  const payouts = useMemo(() => managerPayouts(scopedBookings, scopedAdjustments, selectedProps, managers, range), [scopedBookings, scopedAdjustments, selectedProps, managers, range.from, range.to])
+  // Fee rates observed across ALL bookings, used to estimate fees on bookings
+  // whose channel has not reported a commission yet (Booking.com reports after
+  // the stay). Estimates are labelled wherever they appear.
+  const rates = useMemo(() => observedChannelRates(bookings || []), [bookings])
+  const summary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { ...range, roomCount, rates }), [scopedBookings, scopedAdjustments, range.from, range.to, roomCount, rates])
+  const yearSummary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { from: `${yearShown}-01-01`, to: `${yearShown}-12-31`, roomCount, rates }), [scopedBookings, scopedAdjustments, yearShown, roomCount, rates])
+  const payouts = useMemo(() => managerPayouts(scopedBookings, scopedAdjustments, selectedProps, managers, { ...range, rates }), [scopedBookings, scopedAdjustments, selectedProps, managers, range.from, range.to, rates])
   const managerFees = Math.round(payouts.reduce((acc, r) => acc + r.amount, 0) * 100) / 100
   const netToOwner = Math.round((summary.netAfterFees - managerFees) * 100) / 100
 
@@ -350,8 +354,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   sub={summary.occupancy == null ? (roomCount == null ? 'room count unknown' : 'set a period') : `${summary.nights} of ${roomCount * summary.periodDays} room-nights`} />
               </div>
               {summary.bookings > 0 && summary.feesKnown < summary.bookings && (
-                <div style={{ fontFamily: MONO, fontSize: 10, color: T.amber, marginBottom: 14 }}>
-                  Platform fees are known for {summary.feesKnown} of {summary.bookings} bookings in this period. Run a Hostaway sync (Settings → Integrations) to fill in the rest; until then fees for those bookings count as £0.
+                <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 14 }}>
+                  Fees reported by the channel for {summary.feesKnown} of {summary.bookings} bookings.
+                  {summary.feesEstimated > 0 && ` ${summary.feesEstimated} Booking.com booking${summary.feesEstimated === 1 ? '' : 's'} not yet invoiced ${summary.feesEstimated === 1 ? 'is' : 'are'} estimated at the observed rate (${fmtMoney(summary.feesEstimatedAmount)} in total); the figure firms up after the stay.`}
+                  {summary.bookings - summary.feesKnown - summary.feesEstimated > 0 && ` ${summary.bookings - summary.feesKnown - summary.feesEstimated} other booking${summary.bookings - summary.feesKnown - summary.feesEstimated === 1 ? '' : 's'} carry no fee.`}
                 </div>
               )}
               {summary.bookings > 0 && summary.feesKnown === summary.bookings && <div style={{ marginBottom: 10 }} />}
@@ -455,8 +461,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                               <td style={{ ...td, color: T.muted }}>{bookingReference(b)}</td>
                               <td style={td}>{guestDisplayName(b.guest_name)}</td>
                               <td style={{ ...tdR, fontWeight: rev ? 600 : 400, textDecoration: rev ? 'none' : 'line-through', color: rev ? T.text : T.faint }}>{fmtMoney(b.total_amount)}</td>
-                              <td style={{ ...tdR, color: rev && bookingFees(b).total ? T.red : T.faint }} title={bookingFees(b).known ? `Channel ${fmtMoney(bookingFees(b).channel)}${bookingFees(b).hostaway ? ` · Hostaway ${fmtMoney(bookingFees(b).hostaway)}` : ''}` : 'Fee not synced yet'}>{rev ? (bookingFees(b).known ? fmtMoney(-bookingFees(b).total) : '?') : '·'}</td>
-                              <td style={{ ...tdR, fontWeight: rev ? 600 : 400, color: rev ? T.green : T.faint }}>{rev ? fmtMoney(bookingNetAfterFees(b)) : '·'}</td>
+                              {(() => { const f = effectiveFees(b, rates); return (<>
+                              <td style={{ ...tdR, color: rev && f.total ? T.red : T.faint, fontStyle: f.estimated ? 'italic' : 'normal' }} title={f.known ? `Channel ${fmtMoney(f.channel)}${f.hostaway ? ` · Hostaway ${fmtMoney(f.hostaway)}` : ''}` : f.estimated ? `Estimated at ${f.rate}% until the channel reports it` : 'No fee reported'}>{rev ? (f.total ? `${fmtMoney(-f.total)}${f.estimated ? '*' : ''}` : (f.known ? fmtMoney(0) : '—')) : '·'}</td>
+                              <td style={{ ...tdR, fontWeight: rev ? 600 : 400, color: rev ? T.green : T.faint }}>{rev ? fmtMoney(bookingNetAfterFees(b, rates)) : '·'}</td>
+                              </>) })()}
                               <td style={td}>{statusPill(b)}</td>
                               {canAdd && (
                                 <td style={{ ...td, textAlign: 'right' }}>
@@ -548,24 +556,24 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead><tr>
-                        <th style={th}>Manager</th><th style={{ ...th, textAlign: 'right' }}>Gross</th><th style={{ ...th, textAlign: 'right' }}>Platform fees</th><th style={{ ...th, textAlign: 'right' }}>Adj.</th><th style={{ ...th, textAlign: 'right' }}>Net after fees</th><th style={{ ...th, textAlign: 'right' }}>%</th><th style={{ ...th, textAlign: 'right' }}>Pay</th>
+                        <th style={th}>Manager / unit</th><th style={{ ...th, textAlign: 'right' }}>Net after fees</th><th style={{ ...th, textAlign: 'right' }}>%</th><th style={{ ...th, textAlign: 'right' }}>Pay</th>
                       </tr></thead>
                       <tbody>
                         {payouts.map(r => (
                           <Fragment key={r.manager.id}>
                             <tr style={{ background: stlBg }}>
-                              <td style={{ ...td, fontWeight: 700 }}>{r.manager.name}<div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, fontWeight: 400 }}>{r.properties.length} unit(s) · {r.bookings} bookings{r.feesUnknown ? ` · fees missing on ${r.feesUnknown}` : ''}</div></td>
-                              <td style={tdR}>{fmtMoney(r.gross)}</td><td style={{ ...tdR, color: T.red }}>{fmtMoney(-r.platformFees)}</td>
-                              <td style={{ ...tdR, color: r.adjustments < 0 ? T.red : r.adjustments > 0 ? T.green : T.faint }}>{r.adjustments ? fmtMoney(r.adjustments) : '·'}</td>
+                              <td style={{ ...td, fontWeight: 700, whiteSpace: 'normal' }}>{r.manager.name}
+                                <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, fontWeight: 400 }}>
+                                  {r.properties.length} unit(s) · {r.bookings} bookings · gross {fmtMoney(r.gross)} · platform fees {fmtMoney(-r.platformFees)}{r.adjustments ? ` · adjustments ${fmtMoney(r.adjustments)}` : ''}{r.feesEstimated ? ` · ${r.feesEstimated} fee${r.feesEstimated === 1 ? '' : 's'} estimated` : ''}{r.feesUnknown ? ` · ${r.feesUnknown} with no fee` : ''}
+                                </div>
+                              </td>
                               <td style={{ ...tdR, fontWeight: 600 }}>{fmtMoney(r.manager.basis === 'gross' ? r.gross : r.netAfterFees)}</td>
                               <td style={tdR}>{r.manager.percentage}%</td>
-                              <td style={{ ...tdR, fontWeight: 700, color: T.gold, fontSize: 14 }}>{fmtMoney(r.amount)}</td>
+                              <td style={{ ...tdR, fontWeight: 700, color: T.gold, fontSize: 15 }}>{fmtMoney(r.amount)}</td>
                             </tr>
-                            {r.properties.map(pp => (
+                            {r.properties.filter(pp => pp.gross || pp.adjustments).map(pp => (
                               <tr key={pp.property.id}>
-                                <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.property.name || pp.property.address}</td>
-                                <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.gross)}</td><td style={{ ...tdR, color: T.muted }}>{pp.platformFees ? fmtMoney(-pp.platformFees) : '·'}</td>
-                                <td style={{ ...tdR, color: T.muted }}>{pp.adjustments ? fmtMoney(pp.adjustments) : '·'}</td>
+                                <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.property.name || pp.property.address}<span style={{ fontSize: 10, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-pp.platformFees)}</span></td>
                                 <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.base)}</td><td style={tdR}></td>
                                 <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.amount)}</td>
                               </tr>
