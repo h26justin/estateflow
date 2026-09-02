@@ -40,7 +40,7 @@ export async function fetchProperties() {
   // without an extra round-trip per row.
   const { data, error } = await supabase
     .from('properties')
-    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,issue_date,expiry_date,deleted_at), stl_bookings(id,rent_payment_id), rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount)), non_chargeable_periods(id,start_date,end_date,reason,notes), rent_overrides(id,rent_payment_id,state,reason,expected_amount,created_at,created_by), tenancies(id,tenant_name,tenant_ref,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date,needs_confirmation)')
+    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end,xero_reconciled), compliance_items(id,cert_type,cert_name,issue_date,expiry_date,deleted_at), stl_bookings(id,rent_payment_id), rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount,payment_plan_id)), payment_plans(id,tenancy_id,opening_balance,start_date,instalment_amount,frequency,due_day,status_override), non_chargeable_periods(id,start_date,end_date,reason,notes), rent_overrides(id,rent_payment_id,state,reason,expected_amount,created_at,created_by), tenancies(id,tenant_name,tenant_ref,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date,needs_confirmation)')
     .is('deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
@@ -61,7 +61,7 @@ export async function createProperty(prop) {
   if (data?.address) {
     geocodeProperty(data.id, data.address).catch(() => {})
   }
-  return { ...data, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [] }
+  return { ...data, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [], payment_plans: [] }
 }
 
 /**
@@ -88,7 +88,7 @@ export async function bulkCreateProperties(props) {
   for (const row of (data || [])) {
     if (row?.address) geocodeProperty(row.id, row.address).catch(() => {})
   }
-  return (data || []).map(d => ({ ...d, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [] }))
+  return (data || []).map(d => ({ ...d, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [], payment_plans: [] }))
 }
 
 export async function updateProperty(id, updates) {

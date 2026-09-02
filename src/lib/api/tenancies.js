@@ -3,6 +3,7 @@
 // supabase-migrations/2026-09-02_rent_tracker_tenancies_receipts.sql.
 import { supabase } from '../supabase'
 import { tenancyDraftFromProperty, propertyNeedsTenancy } from '../tenancyUtils'
+import { possibleDuplicate } from '../paymentPlans'
 
 async function uid() {
   const { data } = await supabase.auth.getUser()
@@ -10,7 +11,7 @@ async function uid() {
 }
 
 const TENANCY_COLS = '*'
-const RECEIPT_COLS = 'id, property_id, tenancy_id, company_id, received_date, amount, kind, reverses_receipt_id, payer, source, source_ref, import_batch_id, reference, notes, review_status, review_reason, created_at, created_by, rent_allocations(id, receipt_id, rent_payment_id, tenancy_id, target, amount, notes)'
+const RECEIPT_COLS = 'id, property_id, tenancy_id, company_id, received_date, amount, kind, reverses_receipt_id, payer, source, source_ref, import_batch_id, reference, notes, review_status, review_reason, created_at, created_by, rent_allocations(id, receipt_id, rent_payment_id, tenancy_id, target, amount, notes, payment_plan_id)'
 
 // ── Tenancies ───────────────────────────────────────────────────────────────
 export async function fetchTenancies(propertyId) {
@@ -145,16 +146,31 @@ export async function createReceipt(receipt, allocations = [], { allowUnallocate
   const allocs = (allocations || []).filter(a => Number(a.amount)).map(a => ({
     rent_payment_id: a.rent_payment_id || null, tenancy_id: a.tenancy_id || receipt.tenancy_id || null,
     target: a.target || 'current_rent', amount: Number(a.amount), notes: a.notes || null,
+    payment_plan_id: a.payment_plan_id || null,
   }))
   const allocated = allocs.reduce((s, a) => s + a.amount, 0)
   const remainder = Math.round((amount - allocated) * 100) / 100
   let review_status = receipt.review_status || 'ok'
   let review_reason = receipt.review_reason || null
+  // Cross-source duplicate check: the same money can arrive via an agent
+  // statement, a bank feed and a manual entry. Never drop it silently — record
+  // it and flag it for a human.
+  if (receipt.kind == null || receipt.kind === 'receipt') {
+    const from = new Date(receipt.received_date); from.setDate(from.getDate() - 4)
+    const to = new Date(receipt.received_date); to.setDate(to.getDate() + 4)
+    const { data: near } = await supabase.from('rent_receipts').select('id, received_date, amount, kind, source, source_ref')
+      .eq('property_id', receipt.property_id).gte('received_date', from.toISOString().slice(0, 10)).lte('received_date', to.toISOString().slice(0, 10))
+    const dup = possibleDuplicate(near || [], { ...receipt, amount })
+    if (dup) {
+      review_status = 'needs_review'
+      review_reason = `Possible duplicate of the ${dup.source} receipt for the same amount on ${dup.received_date}`
+    }
+  }
   if (Math.abs(remainder) >= 0.005) {
     if (!allowUnallocated) throw new Error(`Allocations total £${allocated.toFixed(2)} but the receipt is £${amount.toFixed(2)}`)
-    allocs.push({ rent_payment_id: null, tenancy_id: receipt.tenancy_id || null, target: 'unallocated', amount: remainder, notes: null })
+    allocs.push({ rent_payment_id: null, tenancy_id: receipt.tenancy_id || null, target: 'unallocated', amount: remainder, notes: null, payment_plan_id: null })
     review_status = 'needs_review'
-    review_reason = review_reason || `£${remainder.toFixed(2)} not yet allocated`
+    review_reason = review_reason ? `${review_reason}; £${remainder.toFixed(2)} not yet allocated` : `£${remainder.toFixed(2)} not yet allocated`
   }
   const { data: r, error } = await supabase.from('rent_receipts').insert({
     property_id: receipt.property_id, tenancy_id: receipt.tenancy_id || null, company_id: receipt.company_id || null,
@@ -206,7 +222,7 @@ export async function reallocateReceipt(receipt, allocations) {
   const amount = Number(receipt.amount)
   const allocs = (allocations || []).filter(a => Number(a.amount)).map(a => ({
     receipt_id: receipt.id, rent_payment_id: a.rent_payment_id || null, tenancy_id: a.tenancy_id || receipt.tenancy_id || null,
-    target: a.target || 'current_rent', amount: Number(a.amount), notes: a.notes || null,
+    target: a.target || 'current_rent', amount: Number(a.amount), notes: a.notes || null, payment_plan_id: a.payment_plan_id || null,
   }))
   const allocated = allocs.reduce((s, a) => s + a.amount, 0)
   if (Math.abs(amount - allocated) >= 0.005) throw new Error(`Allocations total £${allocated.toFixed(2)} but the receipt is £${amount.toFixed(2)}`)
@@ -258,4 +274,25 @@ export async function createRentOverride({ rent_payment_id, property_id, state, 
   }).select('*').single()
   if (error) throw error
   return data
+}
+
+// ── Payment plans ──────────────────────────────────────────────────────────
+export async function fetchPaymentPlans(propertyId) {
+  const { data, error } = await supabase.from('payment_plans').select('*').eq('property_id', propertyId).order('start_date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+export async function createPaymentPlan(plan) {
+  const { data, error } = await supabase.from('payment_plans').insert({ ...plan, user_id: await uid() }).select('*').single()
+  if (error) throw error
+  return data
+}
+export async function updatePaymentPlan(id, fields) {
+  const { data, error } = await supabase.from('payment_plans').update({ ...fields, updated_by: await uid() }).eq('id', id).select('*').single()
+  if (error) throw error
+  return data
+}
+export async function deletePaymentPlan(id) {
+  const { error } = await supabase.from('payment_plans').delete().eq('id', id)
+  if (error) throw error
 }

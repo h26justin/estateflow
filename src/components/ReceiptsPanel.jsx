@@ -10,6 +10,7 @@ import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
 import { currentTenancy, usesBenefit } from '../lib/tenancyUtils'
+import { activePlan } from '../lib/paymentPlans'
 
 const PAYERS = [
   { v: 'tenant', l: 'Tenant' }, { v: 'housing_benefit', l: 'Housing Benefit' },
@@ -76,11 +77,13 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
     }
     setSaving(true)
     try {
+      const plan = activePlan(property.payment_plans || [])
+      const allocations = form.allocations.map(a => a.target === 'historic_arrears' && plan ? { ...a, payment_plan_id: plan.id } : a)
       await api.createReceipt({
         property_id: property.id, company_id: property.company_id, tenancy_id: cur?.id || null,
         received_date: form.received_date, amount: Number(form.amount), payer: form.payer, source: 'manual',
         reference: form.reference || null, notes: form.notes || null,
-      }, form.allocations, { allowUnallocated: form.allowUnallocated })
+      }, allocations, { allowUnallocated: form.allowUnallocated })
       showToast?.('Receipt recorded')
       setAdding(false); setForm(null)
       await load()
