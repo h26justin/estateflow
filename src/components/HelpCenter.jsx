@@ -239,6 +239,15 @@ const GUIDES = [
       "You will see a timeline of all rent payments recorded for this property: dates, amounts, status, and source (manual or statement import).",
       "Use this view to identify patterns \u2014 late payments, missed months, or rent increases over time.",
     ]},
+  { id: 73, cat: 'rent', title: 'Short-Term Let Income (Hostaway bookings)', tags: ['rent','stl','short-term','airbnb','hostaway','booking','occupancy','refund'],
+    steps: [
+      "Open Short-Term Let Income from the Money section of the navigation (switch it on in Settings → Navigation if you cannot see it).",
+      "It covers every property whose status is Short-Term Let and shows bookings synced from Hostaway (or Lodgify), by check-in month.",
+      "Figures are GROSS booking values: what the guest paid, before the channel's commission. They are not net payouts.",
+      "Record refunds, chargebacks, fees and payout differences with \"Add adjustment\". Refunds are entered as a negative amount and reduce Net; Gross never changes.",
+      "Occupancy is nights sold divided by rooms × days in the period. It needs each property's Hostaway listings mapped so the room count is known.",
+      "Short-term let income is excluded from the residential rent collection rate on the Rent Tracker, so an unbooked week never shows as missed rent.",
+    ]},
   { id: 26, cat: 'rent', title: 'Using the rent review planner', tags: ['rent','review','increase','planner','model'],
     steps: [
       "On the Rent Tracker page, click \"Plan rent review\" (the green button in the top-right).",
