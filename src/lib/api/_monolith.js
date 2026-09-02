@@ -40,7 +40,7 @@ export async function fetchProperties() {
   // without an extra round-trip per row.
   const { data, error } = await supabase
     .from('properties')
-    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,issue_date,expiry_date,deleted_at), stl_bookings(id,rent_payment_id)')
+    .select('*, company:companies(id,name,abbr,color), refurb_phases(*), refurb_costs(*), rent_payments(id,property_id,year,month,month_label,status,amount,notes,period_start,period_end), compliance_items(id,cert_type,cert_name,issue_date,expiry_date,deleted_at), stl_bookings(id,rent_payment_id), tenancies(id,tenant_name,tenant_ref,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date,needs_confirmation)')
     .is('deleted_at', null)
     .order('sort_order', {ascending:true})
     .order('name', {ascending:true})
@@ -61,7 +61,7 @@ export async function createProperty(prop) {
   if (data?.address) {
     geocodeProperty(data.id, data.address).catch(() => {})
   }
-  return { ...data, refurb_phases: [], refurb_costs: [], rent_payments: [] }
+  return { ...data, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [] }
 }
 
 /**
@@ -88,7 +88,7 @@ export async function bulkCreateProperties(props) {
   for (const row of (data || [])) {
     if (row?.address) geocodeProperty(row.id, row.address).catch(() => {})
   }
-  return (data || []).map(d => ({ ...d, refurb_phases: [], refurb_costs: [], rent_payments: [] }))
+  return (data || []).map(d => ({ ...d, refurb_phases: [], refurb_costs: [], rent_payments: [], tenancies: [] }))
 }
 
 export async function updateProperty(id, updates) {

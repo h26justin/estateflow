@@ -156,3 +156,12 @@ describe('propertySearchMeta', () => {
     expect(m.companyColor).toBeNull()
   })
 })
+
+describe('tenancies join (Stage 2)', () => {
+  it('matches tenant name and reference from the tenancies join', () => {
+    const p = { id: 'x', name: 'Flat 9, Watts Moses House', address: 'High Street East', tenancies: [{ tenant_name: 'Priya Patel', tenant_ref: 'WMH-09' }] }
+    expect(matchesQuery(p, 'priya')).toBe(true)
+    expect(matchesQuery(p, 'wmh-09')).toBe(true)
+    expect(matchesQuery(p, 'nobody')).toBe(false)
+  })
+})

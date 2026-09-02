@@ -7,6 +7,7 @@ import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS } from './lib/nav
 import { REPORT_CATALOGUE } from './lib/reportCatalogue'
 import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from './lib/rentStats'
 import { canDo } from './lib/permissions'
+import { propertyNeedsTenancy } from './lib/tenancyUtils'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -35,6 +36,8 @@ const RentHistoryTab       = lazyNamed(tenancyModule, 'RentHistoryTab')
 const TenancyRenewalAlert  = lazyNamed(tenancyModule, 'TenancyRenewalAlert')
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
+import TenancyPanel from './components/TenancyPanel'
+import ReceiptsPanel from './components/ReceiptsPanel'
 // Heavy / rarely-on-first-paint pages — code-split via React.lazy so they
 // don't bloat the initial bundle. Each one drops into its own chunk and
 // only fetches when the user navigates there.
@@ -3472,7 +3475,7 @@ export default function App() {
           {/* Standalone Companies view removed — Companies now lives solely
               as a Portfolio sub-tab (#/properties/companies); legacy #/companies
               deep links are mapped across in parseHash. */}
-          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData}/>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData} showToast={showToast} canSeed={cid=>canDo(permissionsMap, cid, 'edit_tenancies') || devModeActive}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}
             canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null} permissionsMap={permissionsMap} devModeActive={devModeActive}/>}
@@ -3481,9 +3484,9 @@ export default function App() {
           {view==='compliance'&&<div className="fade"><CompliancePage user={user} companies={companies} properties={activeProperties} companySettings={companySettings} showToast={showToast} openDetail={(p)=>openDetail(p,'compliance')}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
           {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
-            canEditRent={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
+            canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
-            canEditRent={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
+            canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='bulk-add'&&<BulkAddPropertyModal asPage
             companies={companies.filter(c=>!isHoldingCompany(c))}
             onClose={closeWorkflow}
@@ -3813,7 +3816,7 @@ export default function App() {
                           <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.gold}}>EARLY</span>
                         </button>
                       </div>
-                      {subTab==='details'      &&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
+                      {subTab==='details'      &&<><TenancyPanel property={selected} showToast={showToast} canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive} onChanged={t=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,tenancies:t}:p))}/><TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/></>}
                       {subTab==='right-to-rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='deposit'      &&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='notices'      &&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T} property={selected}/>}
@@ -4519,7 +4522,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 }
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
-function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh}) {
+function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh, showToast, canSeed}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
   const [showRentReview, setShowRentReview] = useState(false)
@@ -4777,6 +4780,26 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <h2 style={{fontSize:15,fontWeight:700}}>{c.name}</h2>
                   <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{cps.length} properties</span>
+                  {(() => {
+                    // Tenancy coverage for this company: how many earning units
+                    // still have no tenancy record, and how many drafts await a
+                    // human. Seeding creates DRAFTS only (needs_confirmation).
+                    const missing = cps.filter(p => propertyNeedsTenancy(p.status) && !(p.tenancies||[]).length).length
+                    const drafts = cps.filter(p => (p.tenancies||[]).some(t => t.needs_confirmation)).length
+                    return (<>
+                      {drafts>0 && <span style={{fontFamily:MONO,fontSize:10,color:T.amber}}>{drafts} tenanc{drafts===1?'y':'ies'} to confirm</span>}
+                      {missing>0 && canSeed?.(c.id) && (
+                        <button onClick={async e=>{ e.stopPropagation();
+                            try { const r = await api.seedTenanciesFromProperties(c.id, properties)
+                              showToast?.(`${r.created} draft tenanc${r.created===1?'y':'ies'} created${r.skipped?`, ${r.skipped} already had one`:''}${r.failed.length?`, ${r.failed.length} failed`:''}. Confirm each in the property's Tenancy tab.`)
+                              onRefresh?.() } catch(err) { showToast?.(err.message||'Seeding failed','error') } }}
+                          style={{fontFamily:MONO,fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,cursor:'pointer'}}
+                          title="Create a draft tenancy for every rented unit from its property fields">
+                          Seed {missing} tenanc{missing===1?'y':'ies'}
+                        </button>
+                      )}
+                    </>)
+                  })()}
                 </div>
               </div>
               {/* Company summary for selected year */}
@@ -5074,6 +5097,9 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
           </div>
         </div>
       </div>}
+
+      {/* Receipts: dated cash events with allocations (Stage 2) */}
+      <ReceiptsPanel property={selected} tenancies={selected.tenancies} showToast={showToast} canEdit={canEdit}/>
 
       {/* Notes Timeline */}
       <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} category="rent"/>

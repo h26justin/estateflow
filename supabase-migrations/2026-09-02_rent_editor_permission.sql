@@ -170,3 +170,42 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT has_property_permission('<property_id>', 'write');  -- expect false (unchanged floor)
 -- and as a plain viewer both should be false; as an editor with
 -- permissions = {"edit_rent": false} has_rent_permission(...,'write') is false.
+
+-- ── 4. Stage 2 tables use the same rent gate ───────────────────────────────
+-- tenancies, non_chargeable_periods, rent_receipts and rent_allocations were
+-- created (2026-09-02_rent_tracker_tenancies_receipts.sql) with the coarse
+-- has_property_permission floor. A Rent Tracker Editor must be able to record
+-- receipts and confirm tenancies, so their write policies switch too. SELECT
+-- policies are unchanged.
+DO $rls$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['tenancies','non_chargeable_periods','rent_receipts']
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I_insert ON public.%I', t, t);
+    EXECUTE format('DROP POLICY IF EXISTS %I_update ON public.%I', t, t);
+    EXECUTE format('DROP POLICY IF EXISTS %I_delete ON public.%I', t, t);
+    EXECUTE format($p$CREATE POLICY %I_insert ON public.%I FOR INSERT
+      WITH CHECK (has_rent_permission(property_id, 'write')
+        AND company_is_live((SELECT company_id FROM public.properties WHERE id = %I.property_id)))$p$, t, t, t);
+    EXECUTE format($p$CREATE POLICY %I_update ON public.%I FOR UPDATE
+      USING (has_rent_permission(property_id, 'write'))
+      WITH CHECK (has_rent_permission(property_id, 'write')
+        AND company_is_live((SELECT company_id FROM public.properties WHERE id = %I.property_id)))$p$, t, t, t);
+    EXECUTE format($p$CREATE POLICY %I_delete ON public.%I FOR DELETE
+      USING (has_rent_permission(property_id, 'delete'))$p$, t, t);
+  END LOOP;
+END $rls$;
+
+DROP POLICY IF EXISTS rent_allocations_insert ON public.rent_allocations;
+DROP POLICY IF EXISTS rent_allocations_update ON public.rent_allocations;
+DROP POLICY IF EXISTS rent_allocations_delete ON public.rent_allocations;
+CREATE POLICY rent_allocations_insert ON public.rent_allocations FOR INSERT
+  WITH CHECK (has_rent_permission((SELECT property_id FROM public.rent_receipts r WHERE r.id = receipt_id), 'write'));
+CREATE POLICY rent_allocations_update ON public.rent_allocations FOR UPDATE
+  USING (has_rent_permission((SELECT property_id FROM public.rent_receipts r WHERE r.id = receipt_id), 'write'))
+  WITH CHECK (has_rent_permission((SELECT property_id FROM public.rent_receipts r WHERE r.id = receipt_id), 'write'));
+CREATE POLICY rent_allocations_delete ON public.rent_allocations FOR DELETE
+  USING (has_rent_permission((SELECT property_id FROM public.rent_receipts r WHERE r.id = receipt_id), 'delete'));
+
+NOTIFY pgrst, 'reload schema';
