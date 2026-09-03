@@ -11,7 +11,7 @@ const LettingsAssistantPanel = lazy(() => import('./LettingsAssistantPanel'))
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TIME_BUCKET_LABEL } from '../lib/dealCashflow'
-import { computeDealMetrics } from '../lib/dealMetrics'
+import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from '../lib/dealMetrics'
 import { useIsMobile } from '../lib/useWindowSize'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { exportDealPdf } from '../lib/dealPdf'
@@ -104,6 +104,125 @@ function DocCountBadge({ counts, T }) {
       style={{fontFamily:mono,fontSize:9,padding:'2px 7px',borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.muted,display:'inline-flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
       <Icon name="folder" size={10} color={T.muted}/>{parts.join(' · ')}
     </span>
+  )
+}
+
+// ── REFINANCE SCENARIOS (results column) ─────────────────────────────────────
+// "Buy, refurb, remortgage": at each standard LTV of the post-refurb value,
+// how much cash comes back, what is left in, and what the deal earns after.
+function RefinanceCard({ deal, T }) {
+  const r = refinanceScenarios(deal)
+  const cardStyle = {background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}
+  const sectStyle = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
+  if (!r) return (
+    <div style={cardStyle}>
+      <span style={sectStyle}>Remortgage after refurb</span>
+      <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
+        Enter an estimated value after refurb (left, under Refurb &amp; remortgage) to see how much of your cash a remortgage at 55–75% LTV would return.
+      </div>
+    </div>
+  )
+  const best = r.scenarios.find(sc => sc.allMoneyOut)
+  return (
+    <div style={cardStyle}>
+      <span style={sectStyle}>Remortgage after refurb</span>
+      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:10,lineHeight:1.5}}>
+        On {fmt(r.value)} value · {r.rate}% {r.isInterestOnly ? 'interest only' : `repayment over ${r.term} yrs`} · {fmt(r.cashIn)} cash in today
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'auto 1fr 1fr 1fr',gap:'6px 10px',alignItems:'center'}}>
+        {['LTV','Cash back','Left in','Profit / mo'].map(h => (
+          <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',textAlign:h==='LTV'?'left':'right'}}>{h}</div>
+        ))}
+        {r.scenarios.map(sc => (
+          <Fragment key={sc.ltv}>
+            <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.text}}>{sc.ltv}%</div>
+            <div style={{fontFamily:mono,fontSize:12,fontWeight:700,textAlign:'right',color:sc.released>=0?T.green:T.red}}>{sc.released>=0?'':'−'}{fmt(Math.abs(sc.released))}</div>
+            <div style={{fontFamily:mono,fontSize:12,textAlign:'right',color:sc.allMoneyOut?T.green:T.text}}>{sc.allMoneyOut ? 'All out' : fmt(sc.moneyLeft)}</div>
+            <div style={{fontFamily:mono,fontSize:12,textAlign:'right',color:sc.monthlyProfit>=0?T.text:T.red}}>{fmt(sc.monthlyProfit)}</div>
+          </Fragment>
+        ))}
+      </div>
+      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.5}}>
+        {best
+          ? `At ${best.ltv}% LTV the remortgage returns all your cash${best.moneyLeft < 0 ? ` plus ${fmt(-best.moneyLeft)}` : ''}. Profit shown is after the new mortgage payment.`
+          : 'No LTV returns all your cash on this value. Profit shown is after the new mortgage payment.'}
+      </div>
+    </div>
+  )
+}
+
+// ── 10-YEAR PROJECTION (full width under the calculator) ─────────────────────
+function ProjectionCard({ deal, T }) {
+  const p = projectDeal(deal)
+  const { rentGrowth, capitalGrowth } = growthAssumptions(deal)
+  const last = p.rows[p.rows.length - 1]
+  const maxReturn = Math.max(1, ...p.rows.map(r => Math.max(0, r.totalReturn)))
+  const sectStyle = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4, display:'block' }
+  const th = { fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right', padding:'6px 8px', borderBottom:`1px solid ${T.border}`, whiteSpace:'nowrap' }
+  const td = { fontFamily:mono, fontSize:11, color:T.text, textAlign:'right', padding:'6px 8px', borderBottom:`1px solid ${T.border}`, whiteSpace:'nowrap' }
+  return (
+    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginTop:8}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap',marginBottom:12}}>
+        <div>
+          <span style={sectStyle}>10-year projection</span>
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>
+            Rent +{rentGrowth}% a year · value +{capitalGrowth}% a year from {fmt(p.startValue)} · {fmt(p.cashIn)} cash in. Edit the rates under Growth assumptions.
+          </div>
+        </div>
+        <div style={{display:'flex',gap:14,flexWrap:'wrap'}}>
+          {[
+            ['Profit over 10 yrs', fmt(last.cumulativeProfit), last.cumulativeProfit>=0?T.green:T.red],
+            ['Value growth', fmt(last.equityGain), T.gold],
+            last.principalRepaid > 0 ? ['Mortgage paid down', fmt(last.principalRepaid), T.blue] : null,
+            ['Total return', fmt(last.totalReturn), last.totalReturn>=0?T.green:T.red],
+            ['Return on cash', p.cashIn > 0 ? fmtPct(last.roiOnCash) : '—', T.text],
+          ].filter(Boolean).map(([l,v,c]) => (
+            <div key={l} style={{textAlign:'right'}}>
+              <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>{l}</div>
+              <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:c}}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',minWidth:640}}>
+          <thead>
+            <tr>
+              <th style={{...th,textAlign:'left'}}>Year</th>
+              <th style={th}>Rent / mo</th>
+              <th style={th}>Profit / yr</th>
+              <th style={th}>Cumulative profit</th>
+              <th style={th}>Value</th>
+              <th style={th}>Equity</th>
+              <th style={{...th,textAlign:'left',width:'28%'}}>Total return</th>
+            </tr>
+          </thead>
+          <tbody>
+            {p.rows.map(r => (
+              <tr key={r.year}>
+                <td style={{...td,textAlign:'left',color:T.muted}}>Year {r.year}</td>
+                <td style={td}>{fmt(r.grossMonthlyRent)}</td>
+                <td style={{...td,color:r.annualProfit>=0?T.text:T.red}}>{fmt(r.annualProfit)}</td>
+                <td style={{...td,color:r.cumulativeProfit>=0?T.green:T.red}}>{fmt(r.cumulativeProfit)}</td>
+                <td style={td}>{fmt(r.value)}</td>
+                <td style={td}>{fmt(r.equity)}</td>
+                <td style={{...td,textAlign:'left'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{flex:1,height:8,background:T.bg,borderRadius:4,overflow:'hidden'}}>
+                      <div style={{width:`${Math.max(0,Math.min(100,(r.totalReturn/maxReturn)*100))}%`,height:'100%',background:r.totalReturn>=0?T.gold:T.red,transition:'width 0.3s'}}/>
+                    </div>
+                    <span style={{fontWeight:700,color:r.totalReturn>=0?T.text:T.red,minWidth:70,textAlign:'right'}}>{fmt(r.totalReturn)}</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.5}}>
+        Total return = cumulative profit + value growth{last.principalRepaid > 0 ? ' + mortgage principal repaid' : ''}. Before tax, selling costs and any remortgage. Estimates only.
+      </div>
+    </div>
   )
 }
 
@@ -669,15 +788,11 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
           </div>
           {properties.map(p => {
             const rcf = p._refurbCashflow || {}
-            // Source tag tells the user how the unpaid number was derived —
-            // crucial for trust in the figure.
-            const sourceTag = rcf.source === 'itemised'
-              ? { label: 'Itemised', color: T.green }
-              : rcf.source === 'budgeted'
-                ? { label: 'Budgeted', color: T.amber }
-                : rcf.source === 'user-flag'
-                  ? { label: 'Flagged', color: T.blue }
-                  : null
+            // Figures come from the property's refurb projects (Refurbs page):
+            // headline = agreed price, cash out = remaining to pay.
+            const sourceTag = rcf.count > 1
+              ? { label: `${rcf.count} refurbs`, color: T.blue }
+              : rcf.trigger ? null : { label: 'No target date', color: T.amber }
             return (
               <div key={`p-${p.id}`} style={itemRow}>
                 <span style={{fontSize:10}}>🏠</span>
@@ -839,11 +954,11 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
               </div>
             )
           })}
-          {/* Hint: encourage user to itemise refurb costs if they're using
-              the budgeted fallback (less accurate). One line, friendly. */}
-          {agg.propertyRefurbBudgeted > 0 && (
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
-              💡 {agg.propertyRefurbBudgeted} {agg.propertyRefurbBudgeted===1?'property is':'properties are'} using the full refurb budget as the unpaid amount. Add itemised costs (with paid/unpaid status) on the property's Refurb tab for a more accurate cashflow figure.
+          {/* Property refurbs are managed on the Refurbs page; point there. */}
+          {agg.propertyRefurbCount > 0 && (
+            <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+              <span>Refurb figures are the agreed price less payments logged on each refurb.{agg.propertyRefurbUndated > 0 ? ` ${agg.propertyRefurbUndated} ${agg.propertyRefurbUndated===1?'has':'have'} no target finish date.` : ''}</span>
+              <a href="#/refurbs" style={{color:T.gold,fontStyle:'normal',fontWeight:700,textDecoration:'none'}}>Open Refurbs →</a>
             </div>
           )}
         </div>
@@ -887,7 +1002,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
           {/* Helpful nudge if too many items are 'undated' — hint them to fill in dates */}
           {agg.byBucket.undated.count > agg.totalCount / 2 && (
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
-              Most items don't have completion or refurb dates set. Add them in each deal's Timeline section, or set refurb dates on properties, to see them in 30/60/90 day buckets.
+              Most items don't have dates set. Add completion and refurb dates in each deal's Timeline section, and a target finish on each refurb in Refurbs, to see them in 30/60/90 day buckets.
             </div>
           )}
         </div>
@@ -1344,16 +1459,33 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               </>)}
             </div>
 
-            {/* BRRR */}
-            {(form.deal_type==='brrr') && (
-              <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
-                <span style={sect}>BRRR — Refinance</span>
-                <InputRow label="Estimated end value (post refurb)" field="brrr_end_value"form={form} set={set} onBlur={autoSave} T={T}/>
-                <InputRow label="Refinance LTV" field="brrr_refinance_ltv" prefix="" suffix="%" min={0} max={90} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
-                <InputRow label="New mortgage rate" field="brrr_new_rate" prefix="" suffix="% p.a." min={0} step={0.1}form={form} set={set} onBlur={autoSave} T={T}/>
-                <InputRow label="New mortgage term" field="brrr_new_term" prefix="" suffix="years" min={1} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
+            {/* Refinance / remortgage — every deal type. Drives the LTV
+                scenarios card in the results column (and the BRRR analysis
+                when the deal is a BRRR). */}
+            <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
+              <span style={sect}>{form.deal_type==='brrr' ? 'BRRR — Refinance' : 'Refurb & remortgage'}</span>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:10,lineHeight:1.5}}>
+                Enter what the property should be worth after the refurb to see how much cash a remortgage at 55–75% LTV would return.
               </div>
-            )}
+              <InputRow label="Estimated value after refurb" field="brrr_end_value"form={form} set={set} onBlur={autoSave} T={T}/>
+              {form.deal_type==='brrr' && (
+                <InputRow label="Refinance LTV" field="brrr_refinance_ltv" prefix="" suffix="%" min={0} max={90} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
+              )}
+              <InputRow label="Remortgage rate" field="brrr_new_rate" prefix="" suffix="% p.a." min={0} step={0.1}form={form} set={set} onBlur={autoSave} T={T}/>
+              {(form.mortgage_type||'interest_only') === 'repayment' && (
+                <InputRow label="Remortgage term" field="brrr_new_term" prefix="" suffix="years" min={1} step={1}form={form} set={set} onBlur={autoSave} T={T}/>
+              )}
+            </div>
+
+            {/* Growth assumptions — feed the 10-year projection below. */}
+            <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
+              <span style={sect}>Growth assumptions (10-year projection)</span>
+              <InputRow label="Rent growth per year" field="rent_growth_percent" prefix="" suffix="%" min={0} step={0.5} placeholder="5" form={form} set={set} onBlur={autoSave} T={T}/>
+              <InputRow label="Capital growth per year" field="capital_growth_percent" prefix="" suffix="%" min={0} step={0.5} placeholder="3" form={form} set={set} onBlur={autoSave} T={T}/>
+              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.5}}>
+                Blank uses the defaults (5% rent, 3% capital). Percentage costs grow with rent; insurance, service charge and the mortgage payment stay flat.
+              </div>
+            </div>
 
             {/* Timeline — drives the cashflow panel on the Deals list page.
                 These dates are optional but if set they let us bucket
@@ -1505,9 +1637,14 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 <ResultRow label="Cash-on-cash (post refi)" value={fmtPct(brrrCashOnCash)} color={T.green} T={T}/>
               </div>
             )}
+
+            <RefinanceCard deal={form} T={T}/>
           </div>
         </div>
       )}
+
+      {/* ── 10-YEAR PROJECTION ── */}
+      {tab === 'calculator' && <ProjectionCard deal={form} T={T}/>}
 
       {/* ── SECTION 24 TAX IMPACT ── */}
       {tab === 'calculator' && form.purchase_type !== 'cash' && monthlyRepayment > 0 && (

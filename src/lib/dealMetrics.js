@@ -100,3 +100,97 @@ export function computeDealMetrics(d = {}) {
     brrrNewLoan, brrrNewRepayment, brrrCapitalReleased, brrrMoneyLeft, brrrCashOnCash,
   }
 }
+
+// ── GROWTH PROJECTION ────────────────────────────────────────────────────────
+// Ten-year view of what the deal might return, on two editable assumptions
+// stored on the deal: rent growth and capital growth (% per year). Defaults
+// match the values the DB applies to new deals (5% and 3%).
+//
+// Year 1 is the deal as analysed. Each later year: rent grows, percentage
+// costs (agent fee, maintenance reserve) grow with it, fixed costs (insurance,
+// service charge, ground rent, HMO extras) and the mortgage payment stay
+// flat. Value starts from the estimated post-refurb value if one is entered,
+// otherwise the purchase price. For repayment mortgages the loan balance
+// amortises, so total return also credits the principal repaid.
+
+export const DEFAULT_RENT_GROWTH = 5
+export const DEFAULT_CAPITAL_GROWTH = 3
+export const REFI_LTVS = [55, 65, 70, 75]
+
+export function growthAssumptions(d = {}) {
+  const pick = (v, dflt) => (v == null || v === '' ? dflt : num(v))
+  return {
+    rentGrowth: pick(d.rent_growth_percent, DEFAULT_RENT_GROWTH),
+    capitalGrowth: pick(d.capital_growth_percent, DEFAULT_CAPITAL_GROWTH),
+  }
+}
+
+/** Value the growth and refinance maths start from. */
+export function startingValue(d, m = computeDealMetrics(d)) {
+  const v = num(d.brrr_end_value)
+  return v > 0 ? v : m.price
+}
+
+export function projectDeal(d = {}, m = computeDealMetrics(d), years = 10) {
+  const { rentGrowth, capitalGrowth } = growthAssumptions(d)
+  const startValue = startingValue(d, m)
+  const voidPct = num(d.void_percent) / 100
+  const pctOfRent = (num(d.agent_fee_percent) / 100) * m.agentFeeMultiplier + num(d.maintenance_percent) / 100
+  const fixedMonthly = num(d.insurance_monthly) + num(d.service_charge_monthly) + num(d.ground_rent_monthly) + m.hmoExtras
+  const monthlyRate = num(d.mortgage_rate) / 100 / 12
+  let balance = m.loanAmount
+  let cumulativeProfit = 0
+  const rows = []
+  for (let year = 1; year <= years; year++) {
+    const grossMonthlyRent = m.grossMonthlyRent * Math.pow(1 + rentGrowth / 100, year - 1)
+    const effectiveRent = grossMonthlyRent * (1 - voidPct)
+    const monthlyProfit = effectiveRent - (effectiveRent * pctOfRent + fixedMonthly + m.monthlyRepayment)
+    const annualProfit = monthlyProfit * 12
+    cumulativeProfit += annualProfit
+    if (!m.isCash && !m.isInterestOnly && balance > 0) {
+      for (let k = 0; k < 12 && balance > 0; k++) {
+        const interest = balance * monthlyRate
+        const principal = Math.min(balance, Math.max(0, m.monthlyRepayment - interest))
+        balance -= principal
+      }
+    }
+    const value = startValue * Math.pow(1 + capitalGrowth / 100, year)
+    const equityGain = value - startValue
+    const principalRepaid = m.loanAmount - balance
+    const totalReturn = cumulativeProfit + equityGain + principalRepaid
+    rows.push({
+      year, grossMonthlyRent, annualRent: grossMonthlyRent * 12, annualProfit, cumulativeProfit,
+      value, equityGain, loanBalance: balance, equity: value - balance, principalRepaid, totalReturn,
+      roiOnCash: m.cashIn > 0 ? (totalReturn / m.cashIn) * 100 : 0,
+    })
+  }
+  return { rows, rentGrowth, capitalGrowth, startValue, cashIn: m.cashIn, years }
+}
+
+// ── REFINANCE SCENARIOS ──────────────────────────────────────────────────────
+// "If I refurbish and remortgage at X% LTV of the post-refurb value, how much
+// of my cash comes back and what does the deal look like afterwards?" Uses
+// the refinance rate/term fields if set, else the purchase mortgage's. Returns
+// null until an estimated post-refurb value has been entered.
+export function refinanceScenarios(d = {}, m = computeDealMetrics(d), ltvs = REFI_LTVS) {
+  const value = num(d.brrr_end_value)
+  if (!(value > 0)) return null
+  const rate = num(d.brrr_new_rate) || num(d.mortgage_rate)
+  const term = num(d.brrr_new_term) || m.mortgageTerm
+  const otherMonthlyCosts = m.totalMonthlyCosts - m.monthlyRepayment
+  const scenarios = ltvs.map(ltv => {
+    const newLoan = value * ltv / 100
+    const newPayment = calcMonthlyRepayment(newLoan, rate, term, m.isInterestOnly)
+    const released = newLoan - m.loanAmount
+    const moneyLeft = m.cashIn - released
+    const monthlyProfit = m.effectiveRent - otherMonthlyCosts - newPayment
+    const annualProfit = monthlyProfit * 12
+    return {
+      ltv, newLoan, newPayment, released, moneyLeft, monthlyProfit, annualProfit,
+      allMoneyOut: moneyLeft <= 0,
+      cashOnCash: moneyLeft > 0 ? (annualProfit / moneyLeft) * 100 : null,
+      dscr: newPayment > 0 ? (m.grossMonthlyRent * 12) / (newPayment * 12) : null,
+    }
+  })
+  return { value, rate, term, isInterestOnly: m.isInterestOnly, currentLoan: m.loanAmount, cashIn: m.cashIn, scenarios }
+}

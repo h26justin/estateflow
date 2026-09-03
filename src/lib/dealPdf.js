@@ -12,7 +12,7 @@
 
 import * as api from './api'
 import { loadCdnScript } from './loadCdnScript'
-import { computeDealMetrics } from './dealMetrics'
+import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from './dealMetrics'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -103,11 +103,19 @@ export async function exportDealPdf({ deal, company }) {
 
   // ── primitives ─────────────────────────────────────────────────────────
   const ensure = (h) => { if (y + h > H - FOOT - 4) { doc.addPage(); y = M } }
-  const text = (s, x, yy, opts = {}) => doc.text(String(s ?? ''), x, yy, opts)
+  // The built-in Helvetica only has Latin-1 glyphs; anything outside it
+  // (✦ on a milestone label, emoji in a caption) prints as stray characters.
+  const clean = (s) => String(s ?? '')
+    .replace(/[\u2013\u2014]/g, '-').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, '...').replace(/\u2022/g, '-')
+    .replace(/[^\u0009\u000A\u0020-\u007E\u00A0-\u00FF]/g, '').replace(/ {2,}/g, ' ').trim()
+  const text = (s, x, yy, opts = {}) => doc.text(clean(s), x, yy, opts)
   const setFont = (size, style = 'normal', color = INK) => { doc.setFontSize(size); doc.setFont('helvetica', style); doc.setTextColor(...color) }
 
   function sectionTitle(title) {
-    ensure(14)
+    // Title plus at least three rows, so a heading never sits alone at the
+    // foot of a page.
+    ensure(30)
     y += 3
     setFont(8.5, 'bold', MUTED)
     text(title.toUpperCase(), M, y)
@@ -128,7 +136,7 @@ export async function exportDealPdf({ deal, company }) {
 
   function paragraph(s, size = 9.5, color = INK) {
     setFont(size, 'normal', color)
-    const lines = doc.splitTextToSize(String(s), CW)
+    const lines = doc.splitTextToSize(clean(s), CW)
     for (const ln of lines) { ensure(5); text(ln, M, y); y += 4.6 }
     y += 2
   }
@@ -148,18 +156,44 @@ export async function exportDealPdf({ deal, company }) {
   }
 
   // ── header ─────────────────────────────────────────────────────────────
-  doc.setFillColor(...INK); doc.rect(0, 0, W, 34, 'F')
-  doc.setFillColor(...GOLD); doc.rect(0, 34, W, 1.2, 'F')
-  setFont(18, 'bold', [255, 255, 255]); text(deal.name || deal.address || 'Deal', M, 15, { maxWidth: CW - 50 })
+  // Title wraps within the space left of the right-hand meta block; the band
+  // grows with it so nothing overlaps.
+  const titleMaxW = CW - 58
+  setFont(18, 'bold', [255, 255, 255])
+  let titleLines = doc.splitTextToSize(clean(deal.name || deal.address || 'Deal'), titleMaxW)
+  if (titleLines.length > 2) { setFont(14, 'bold', [255, 255, 255]); titleLines = doc.splitTextToSize(clean(deal.name || deal.address || 'Deal'), titleMaxW).slice(0, 2) }
+  const titleLH = titleLines.length > 1 ? 7 : 8
+  const showAddr = deal.address && deal.address !== deal.name
+  const bandH = 12 + titleLines.length * titleLH + (showAddr ? 5.5 : 0) + 8.5
+  doc.setFillColor(...INK); doc.rect(0, 0, W, bandH, 'F')
+  doc.setFillColor(...GOLD); doc.rect(0, bandH, W, 1.2, 'F')
+  let hy = 15
+  titleLines.forEach(ln => { text(ln, M, hy); hy += titleLH })
   setFont(9, 'normal', [200, 205, 215])
-  if (deal.address && deal.address !== deal.name) text(deal.address, M, 22)
+  if (showAddr) { text(deal.address, M, hy - 0.5); hy += 5.5 }
   const chips = [STATUS_LABEL[deal.status] || deal.status, DEAL_TYPE_LABEL[deal.deal_type] || 'Buy-to-Let', PURCHASE_LABEL[deal.purchase_type] || 'Mortgage', deal.is_auction ? 'Auction' : null].filter(Boolean)
-  text(chips.join('  ·  '), M, 28.5)
+  text(chips.join('  ·  '), M, hy + 0.5)
   setFont(8, 'normal', [200, 205, 215])
   text('Deal pack', W - M, 13, { align: 'right' })
   if (company?.name) text(company.name, W - M, 19, { align: 'right' })
   text('Prepared ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - M, 25, { align: 'right' })
-  y = 44
+  y = bandH + 9
+
+  // Hero: the first photo, full width, so the reader sees the property
+  // before the numbers. Landscape shots fill the width; tall ones are
+  // capped in height and centred.
+  if (photos.length) {
+    const hero = photos[0]
+    const maxH = 78
+    const s = Math.min(CW / hero.w, maxH / hero.h)
+    const hw = hero.w * s, hh = hero.h * s
+    doc.setFillColor(...CARD); doc.roundedRect(M, y, CW, hh, 2, 2, 'F')
+    try { doc.addImage(hero.dataUrl, 'JPEG', M + (CW - hw) / 2, y, hw, hh) } catch (_) {}
+    y += hh
+    const cap = hero.doc.caption || ''
+    if (cap) { setFont(8, 'normal', MUTED); text(doc.splitTextToSize(clean(cap), CW)[0], M, y + 4); y += 5 }
+    y += 6
+  }
 
   // ── headline ───────────────────────────────────────────────────────────
   const scoreColor = score.score >= 70 ? GREEN : score.score >= 55 ? AMBER : RED
@@ -264,6 +298,92 @@ export async function exportDealPdf({ deal, company }) {
     ])
   }
 
+  // ── refinance scenarios ────────────────────────────────────────────────
+  const refi = refinanceScenarios(deal, m)
+  if (refi) {
+    sectionTitle('Remortgage after refurb')
+    setFont(8, 'normal', MUTED)
+    ensure(6)
+    text(`Based on an estimated post-refurb value of ${money(refi.value)}, a remortgage at ${refi.rate}% ${refi.isInterestOnly ? 'interest only' : `repayment over ${refi.term} years`}, and ${money(refi.cashIn)} cash in the deal today.`, M, y, { maxWidth: CW }); y += 8
+    const cols = ['LTV', 'New loan', 'Cash back', 'Left in deal', 'New payment', 'Profit / mo']
+    const cw = [16, 34, 34, 34, 30, 30]
+    const tableRow = (cells, opts = {}) => {
+      ensure(7)
+      let x = M
+      cells.forEach((c, i) => {
+        setFont(opts.head ? 7 : 8.5, opts.head ? 'bold' : (i === 0 ? 'bold' : 'normal'), opts.head ? MUTED : (opts.colors?.[i] || INK))
+        text(c, i === 0 ? x : x + cw[i] - 1, y, i === 0 ? {} : { align: 'right' })
+        x += cw[i]
+      })
+      doc.setDrawColor(...BORDER); doc.setLineWidth(0.2); doc.line(M, y + 2, M + cw.reduce((a, b) => a + b, 0), y + 2)
+      y += 6.5
+    }
+    tableRow(cols.map(c => c.toUpperCase()), { head: true })
+    for (const sc of refi.scenarios) {
+      tableRow([
+        `${sc.ltv}%`, money(sc.newLoan),
+        (sc.released < 0 ? '-' : '') + money(Math.abs(sc.released)),
+        sc.allMoneyOut ? 'All money out' : money(sc.moneyLeft),
+        money(sc.newPayment), money(sc.monthlyProfit),
+      ], { colors: [INK, INK, sc.released >= 0 ? GREEN : RED, sc.allMoneyOut ? GREEN : INK, INK, sc.monthlyProfit >= 0 ? INK : RED] })
+    }
+    const best = refi.scenarios.find(sc => sc.allMoneyOut)
+    setFont(7.5, 'normal', FAINT); ensure(6)
+    text(best
+      ? `At ${best.ltv}% LTV the remortgage returns all the cash in the deal${best.moneyLeft < 0 ? ` and ${money(-best.moneyLeft)} more` : ''}. Profit is after the new mortgage payment.`
+      : 'No LTV shown returns all the cash in the deal at this value. Profit is after the new mortgage payment.', M, y); y += 6
+  }
+
+  // ── 10-year projection ─────────────────────────────────────────────────
+  {
+    const p = projectDeal(deal, m)
+    const { rentGrowth, capitalGrowth } = growthAssumptions(deal)
+    const last = p.rows[p.rows.length - 1]
+    sectionTitle('10-year projection')
+    setFont(8, 'normal', MUTED); ensure(6)
+    text(`Rent growing ${rentGrowth}% a year and value ${capitalGrowth}% a year from ${money(p.startValue)}. Percentage costs grow with rent; fixed costs and the mortgage payment stay flat. Before tax and selling costs.`, M, y, { maxWidth: CW }); y += 9
+    // Headline strip
+    statBoxes([
+      { label: 'Profit over 10 yrs', value: money(last.cumulativeProfit), color: last.cumulativeProfit >= 0 ? GREEN : RED },
+      { label: 'Value growth', value: money(last.equityGain), color: GOLD, sub: `to ${money(last.value)}` },
+      ...(last.principalRepaid > 0 ? [{ label: 'Mortgage paid down', value: money(last.principalRepaid) }] : []),
+      { label: 'Total return', value: money(last.totalReturn), color: last.totalReturn >= 0 ? GREEN : RED, sub: p.cashIn > 0 ? `${pct(last.roiOnCash)} of ${money(p.cashIn)} cash in` : undefined },
+    ])
+    // Bar chart: total return by year
+    const chartH = 34, base = y + chartH, barGap = 3, barW = (CW - barGap * (p.rows.length - 1)) / p.rows.length
+    const maxV = Math.max(1, ...p.rows.map(r => Math.max(0, r.totalReturn)))
+    ensure(chartH + 12)
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.2); doc.line(M, base, W - M, base)
+    p.rows.forEach((r, i) => {
+      const h = Math.max(0.6, (Math.max(0, r.totalReturn) / maxV) * chartH)
+      const x = M + i * (barW + barGap)
+      doc.setFillColor(...(r.totalReturn >= 0 ? GOLD : RED)); doc.rect(x, base - h, barW, h, 'F')
+      setFont(6, 'normal', MUTED); text(`Y${r.year}`, x + barW / 2, base + 3.5, { align: 'center' })
+      setFont(6, 'normal', INK); text(money(r.totalReturn), x + barW / 2, base - h - 1.2, { align: 'center' })
+    })
+    y = base + 9
+    // Table
+    const cols = ['Year', 'Rent / mo', 'Profit / yr', 'Cumulative', 'Value', 'Equity', 'Total return']
+    const cw = [14, 24, 26, 30, 28, 28, 28]
+    const tableRow = (cells, opts = {}) => {
+      ensure(6.5)
+      let x = M
+      cells.forEach((c, i) => {
+        setFont(opts.head ? 7 : 8.5, opts.head ? 'bold' : 'normal', opts.head ? MUTED : (opts.colors?.[i] || INK))
+        text(c, i === 0 ? x : x + cw[i] - 1, y, i === 0 ? {} : { align: 'right' })
+        x += cw[i]
+      })
+      doc.setDrawColor(...BORDER); doc.setLineWidth(0.2); doc.line(M, y + 2, M + cw.reduce((a, b) => a + b, 0), y + 2)
+      y += 6
+    }
+    tableRow(cols.map(c => c.toUpperCase()), { head: true })
+    for (const r of p.rows) {
+      tableRow([String(r.year), money(r.grossMonthlyRent), money(r.annualProfit), money(r.cumulativeProfit), money(r.value), money(r.equity), money(r.totalReturn)],
+        { colors: [MUTED, INK, r.annualProfit >= 0 ? INK : RED, r.cumulativeProfit >= 0 ? GREEN : RED, INK, INK, r.totalReturn >= 0 ? INK : RED] })
+    }
+    y += 2
+  }
+
   // ── score + stress test ────────────────────────────────────────────────
   sectionTitle('Deal score & stress test')
   const labels = { yield: 'Yield', dscr: 'DSCR', stress: 'Stress test', cash_on_cash: 'Cash-on-cash', ltv: 'LTV' }
@@ -352,12 +472,13 @@ export async function exportDealPdf({ deal, company }) {
   }
 
   // ── photos ─────────────────────────────────────────────────────────────
-  if (photos.length) {
+  const gallery = photos.slice(1) // the first photo is the hero on page 1
+  if (gallery.length) {
     doc.addPage(); y = M
-    sectionTitle(`Photos (${photos.length})`)
+    sectionTitle(`More photos (${gallery.length})`)
     const gap = 5, cellW = (CW - gap) / 2, maxH = 68
-    for (let i = 0; i < photos.length; i += 2) {
-      const pair = photos.slice(i, i + 2)
+    for (let i = 0; i < gallery.length; i += 2) {
+      const pair = gallery.slice(i, i + 2)
       const dims = pair.map(p => { const s = Math.min(cellW / p.w, maxH / p.h); return { w: p.w * s, h: p.h * s } })
       const rowH = Math.max(...dims.map(d => d.h)) + 9
       ensure(rowH)
