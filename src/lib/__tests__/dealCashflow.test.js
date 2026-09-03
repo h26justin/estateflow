@@ -151,49 +151,55 @@ describe('dealCashflow — dead deals', () => {
   })
 })
 
-describe('propertyRefurbCashflow', () => {
+describe('propertyRefurbCashflow (from refurb_projects)', () => {
+  const proj = (over = {}) => ({ id: 'x', stage: 'in_progress', agreed_price: 30_000, refurb_lines: [], ...over })
+  const pay = (amount) => ({ id: Math.random().toString(36).slice(2), kind: 'payment', amount })
+
   it('returns 0 for sold properties', () => {
-    expect(propertyRefurbCashflow({ status: 'sold', refurb_cost: 10_000 })).toEqual(
+    expect(propertyRefurbCashflow({ status: 'sold', refurb_projects: [proj()] })).toEqual(
       expect.objectContaining({ unpaid: 0, source: 'excluded' })
     )
   })
 
   it('returns 0 for deleted properties', () => {
-    expect(propertyRefurbCashflow({ status: 'rented', deleted_at: '2026-01-01' })).toEqual(
+    expect(propertyRefurbCashflow({ status: 'rented', deleted_at: '2026-01-01', refurb_projects: [proj()] })).toEqual(
       expect.objectContaining({ unpaid: 0, source: 'excluded' })
     )
   })
 
-  it('uses itemised refurb_costs rows when present (sums unpaid)', () => {
-    const r = propertyRefurbCashflow({
-      status: 'refurb',
-      refurb_costs: [
-        { cost: 1000, paid: true },
-        { cost: 2500, paid: false },
-        { cost: 500,  paid: false },
-      ],
-    })
-    expect(r.unpaid).toBe(3000)
-    expect(r.source).toBe('itemised')
+  it('headline = agreed (with extras), unpaid = remaining to pay', () => {
+    const r = propertyRefurbCashflow({ status: 'refurb', refurb_projects: [
+      proj({ refurb_lines: [pay(7_000), pay(7_000), { id: 'e', kind: 'extra', amount: 1_800 }] }),
+    ] })
+    expect(r.headline).toBe(31_800)
+    expect(r.unpaid).toBe(17_800)
+    expect(r.source).toBe('projects')
+    expect(r.count).toBe(1)
   })
 
-  it('honours refurb_cost_unpaid flag even when rented', () => {
-    const r = propertyRefurbCashflow({
-      status: 'rented',
-      refurb_cost: 7500,
-      refurb_cost_unpaid: true,
-    })
-    expect(r.unpaid).toBe(7500)
-    expect(r.source).toBe('user-flag')
+  it('counts live refurbs on rented properties too (status no longer matters)', () => {
+    const r = propertyRefurbCashflow({ status: 'rented', refurb_projects: [proj({ refurb_lines: [pay(10_000)] })] })
+    expect(r.unpaid).toBe(20_000)
   })
 
-  it('treats budget as unpaid for purchased / refurb statuses with no line items', () => {
-    expect(propertyRefurbCashflow({ status: 'purchased', refurb_cost: 5000 }).unpaid).toBe(5000)
-    expect(propertyRefurbCashflow({ status: 'refurb',    refurb_cost: 5000 }).unpaid).toBe(5000)
+  it('excludes completed and soft-deleted projects', () => {
+    const r = propertyRefurbCashflow({ status: 'refurb', refurb_projects: [
+      proj({ stage: 'complete' }),
+      proj({ deleted_at: '2026-01-01' }),
+    ] })
+    expect(r.source).toBe('excluded')
+    expect(r.unpaid).toBe(0)
   })
 
-  it('excludes rented/vacant with no line items and no flag', () => {
-    expect(propertyRefurbCashflow({ status: 'rented', refurb_cost: 5000 }).unpaid).toBe(0)
-    expect(propertyRefurbCashflow({ status: 'vacant', refurb_cost: 5000 }).unpaid).toBe(0)
+  it('ignores the legacy refurb_cost budget when there are no projects', () => {
+    expect(propertyRefurbCashflow({ status: 'purchased', refurb_cost: 5_000 }).unpaid).toBe(0)
+    expect(propertyRefurbCashflow({ status: 'refurb',    refurb_cost: 5_000, refurb_cost_unpaid: true }).unpaid).toBe(0)
+  })
+
+  it('exposes the earliest target finish for time bucketing', () => {
+    const r = propertyRefurbCashflow({ status: 'refurb', refurb_projects: [
+      proj({ target_end_date: '2026-11-01' }), proj({ id: 'y', target_end_date: '2026-10-01' }),
+    ] })
+    expect(r.trigger).toBe('2026-10-01')
   })
 })
