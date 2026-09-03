@@ -118,3 +118,42 @@ export function searchProperties(properties, q) {
   if (tokens.length === 0) return [...list]
   return list.filter(p => matchesQuery(p, tokens))
 }
+
+/**
+ * Rank matching properties for a type-ahead dropdown. Same matching rules as
+ * matchesQuery (every token must appear somewhere), but the survivors are
+ * ordered so the thing the user most likely meant is first:
+ *
+ *   1. the name starts with the query           ("13 lum" → 13 Lumley Street)
+ *   2. a word inside the name starts with it    ("lumley" → 13 Lumley Street)
+ *   3. the address starts with the query
+ *   4. a word inside the address starts with it
+ *   5. matched somewhere else (tenant, company, building key)
+ *
+ * Ties break on natural name order so "Flat 2" precedes "Flat 10". Pass a
+ * limit to cap the list (the dropdown only shows a handful).
+ */
+export function rankProperties(properties, q, limit = 8) {
+  const list = Array.isArray(properties) ? properties : []
+  const tokens = normaliseQuery(q)
+  if (tokens.length === 0) return []
+  // The whole query as typed, for the "starts with" tests — a multi-word
+  // query like "13 lumley" should still count as a prefix of the name.
+  const phrase = tokens.join(' ')
+  const rank = p => {
+    const name = String(p?.name || '').toLowerCase()
+    const addr = String(p?.address || '').toLowerCase()
+    if (name.startsWith(phrase)) return 0
+    if (name.split(/[\s,]+/).some(w => w.startsWith(phrase))) return 1
+    if (addr.startsWith(phrase)) return 2
+    if (addr.split(/[\s,]+/).some(w => w.startsWith(phrase))) return 3
+    return 4
+  }
+  const natSort = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
+  const scored = list
+    .filter(p => matchesQuery(p, tokens))
+    .map(p => ({ p, r: rank(p) }))
+    .sort((a, b) => (a.r - b.r) || natSort(a.p?.name || a.p?.address, b.p?.name || b.p?.address))
+    .map(x => x.p)
+  return limit > 0 ? scored.slice(0, limit) : scored
+}

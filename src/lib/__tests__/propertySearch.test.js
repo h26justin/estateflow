@@ -5,6 +5,7 @@ import {
   propertySearchMeta,
   matchesQuery,
   searchProperties,
+  rankProperties,
 } from '../propertySearch'
 
 const EXH   = { id: 'co-exh',  name: 'ExH Property Group', abbr: 'ExH', color: '#C8A96A' }
@@ -163,5 +164,51 @@ describe('tenancies join (Stage 2)', () => {
     expect(matchesQuery(p, 'priya')).toBe(true)
     expect(matchesQuery(p, 'wmh-09')).toBe(true)
     expect(matchesQuery(p, 'nobody')).toBe(false)
+  })
+})
+
+
+describe('rankProperties', () => {
+  it('returns nothing for an empty query', () => {
+    expect(rankProperties(PROPS, '')).toEqual([])
+    expect(rankProperties(PROPS, '   ')).toEqual([])
+    expect(rankProperties(PROPS, null)).toEqual([])
+  })
+
+  it('puts a name prefix match first', () => {
+    const r = rankProperties(PROPS, '13 lum')
+    expect(r[0].id).toBe('p5')
+  })
+
+  it('ranks a word inside the name above an address-only match', () => {
+    const r = rankProperties(PROPS, 'lumley')
+    expect(r[0].id).toBe('p5')
+  })
+
+  it('ranks name/address matches above a tenant match', () => {
+    const r = rankProperties(PROPS, 'park')
+    // Park Place West / East carry "Park" in the name; The Cottage only has
+    // Park Road in its address.
+    expect(r.map(p => p.id).slice(0, 2).sort()).toEqual(['p2', 'p3'])
+    expect(r[r.length - 1].id).toBe('p6')
+  })
+
+  it('still finds a property by tenant name', () => {
+    expect(rankProperties(PROPS, 'carol').map(p => p.id)).toEqual(['p5'])
+    expect(rankProperties(PROPS, 'erin grey').map(p => p.id)).toEqual(['p6'])
+  })
+
+  it('orders units naturally, so Flat 1 precedes Flat 10', () => {
+    const r = rankProperties(PROPS, 'watts')
+    expect(r.map(p => p.id)).toEqual(['p1', 'p4'])
+  })
+
+  it('respects the limit', () => {
+    expect(rankProperties(PROPS, 'flat', 2)).toHaveLength(2)
+    expect(rankProperties(PROPS, 'flat', 0).length).toBeGreaterThan(2)
+  })
+
+  it('tolerates a non-array input', () => {
+    expect(rankProperties(null, 'flat')).toEqual([])
   })
 })
