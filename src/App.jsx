@@ -97,6 +97,7 @@ import { Icon, ICON_NAMES } from './lib/icons'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
+import PropertySearchBar from './components/PropertySearchBar'
 import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
 import TenantReferenceModal from './components/TenantReferenceModal'
 import BankConnectionsModal from './components/BankConnectionsModal'
@@ -2541,8 +2542,20 @@ export default function App() {
                   </span>}
           </div>
 
-          {/* Desktop nav now lives in the left rail; spacer pushes actions right */}
-          {!isMobile&&<div style={{flex:1}}/>}
+          {/* Desktop nav lives in the left rail, so the middle of the header
+              is free for the property search — the most common thing anyone
+              does on landing (dashboard → a specific property). It doubles as
+              the spacer that pushes the action cluster right. "/" focuses it. */}
+          {!isMobile&&(
+            <div style={{flex:1,display:'flex',justifyContent:'center',minWidth:0,padding:'0 16px'}}>
+              <PropertySearchBar
+                properties={activeProperties}
+                onOpen={p=>openDetail(p)}
+                slashToFocus
+                placeholder="Search properties by name, address or tenant…"
+                style={{width:'100%',maxWidth:440}}/>
+            </div>
+          )}
 
           {/* Mobile: current page title */}
           {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
@@ -2849,6 +2862,17 @@ export default function App() {
                       </>
                     : <button className="btn btn-gold" onClick={()=>{setEditProp(null);setShowAddProp(true)}}>Add your first property</button>}
                 </div>
+              </div>
+            )}
+            {/* Mobile property search. The header bar has no room for it at
+                phone widths (logo + title + actions already fill 52px), so on
+                mobile it sits at the top of the dashboard instead. */}
+            {isMobile && activeProperties.length > 0 && (
+              <div style={{marginBottom:14}}>
+                <PropertySearchBar
+                  properties={activeProperties}
+                  onOpen={p=>openDetail(p)}
+                  placeholder="Search properties…"/>
               </div>
             )}
             <div style={{marginBottom:isMobile?14:20,minWidth:0}}>
