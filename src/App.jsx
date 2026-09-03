@@ -2054,10 +2054,23 @@ export default function App() {
             }
           }
           setConvertSourceDeal(null)
+          // Carry the deal's photos and documents onto the new property
+          // first (copied into this user's folder), then retire the deal.
+          let carried = null
+          try { carried = await api.carryDealAttachmentsToProperty(convertSourceDealId, created.id, user.id) }
+          catch (e) { console.error('failed to carry deal attachments', e) }
           try {
             await api.deleteDeal(convertSourceDealId, user.id)
             setConvertRefreshKey(k => k + 1) // tell DealsPage to refresh its list
-            showToast('Property added — deal moved to Trash')
+            const parts = []
+            if (carried?.photos) parts.push(`${carried.photos} photo${carried.photos === 1 ? '' : 's'}`)
+            if (carried?.documents) parts.push(`${carried.documents} document${carried.documents === 1 ? '' : 's'}`)
+            showToast(parts.length
+              ? `Property added — ${parts.join(' and ')} carried across, deal moved to Trash`
+              : 'Property added — deal moved to Trash')
+            if (carried?.failed?.length) {
+              showToast(`${carried.failed.length} attachment${carried.failed.length === 1 ? '' : 's'} could not be carried across — still on the deal in Trash`, 'error')
+            }
           } catch (e) {
             console.error('failed to retire converted deal', e)
             showToast('Property added — but the deal could not be removed, delete it manually', 'error')

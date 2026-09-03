@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense, Fragment } from 'react'
 import { useIsMobile } from '../lib/useWindowSize'
+import { SignedPhoto } from '../lib/SignedPhoto'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO, statusPill } from '../lib/styles'
@@ -1545,6 +1546,7 @@ const DOC_CATEGORIES = [
   {value:'inventory',   label:'Inventory',           icon:'📋'},
   {value:'legal',       label:'Legal',               icon:'⚖️'},
   {value:'maintenance', label:'Maintenance',         icon:'🔧'},
+  {value:'photos',      label:'Photos',              icon:'📷'},
   {value:'other',       label:'Other',               icon:'📄'},
 ]
 
@@ -1686,6 +1688,10 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
   }
 
   const filtered = filterCategory==='all' ? docs : docs.filter(d=>d.category===filterCategory)
+  // Photos (e.g. carried across from a converted deal, or uploaded under the
+  // Photos category) render as a thumbnail gallery; everything else is a row.
+  const photoDocs = filtered.filter(d => d.category === 'photos')
+  const listDocs  = filtered.filter(d => d.category !== 'photos')
   const byCategory = DOC_CATEGORIES.reduce((acc,cat)=>{
     const catDocs = filtered.filter(d=>d.category===cat.value)
     if (catDocs.length>0) acc[cat.value] = catDocs
@@ -1748,16 +1754,35 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         ))}
       </div>}
 
+      {/* Photo gallery */}
+      {!loading && photoDocs.length>0 && (
+        <div style={{marginBottom:14}}>
+          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Photos ({photoDocs.length})</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))',gap:10}}>
+            {photoDocs.map(doc=>(
+              <div key={doc.id} style={{position:'relative',minWidth:0}}>
+                <SignedPhoto path={doc.file_path} url={doc.file_url} alt={doc.name||'Photo'}
+                  style={{width:'100%',aspectRatio:'4 / 3',objectFit:'cover',borderRadius:10,border:`1px solid ${T.border}`,display:'block'}}/>
+                {isAdmin&&<button onClick={()=>handleDelete(doc)} aria-label="Move photo to Trash" title="Move to Trash"
+                  style={{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:11,border:'none',background:'rgba(0,0,0,0.6)',color:'white',cursor:'pointer',fontSize:12,lineHeight:1,padding:0}}>×</button>}
+                <div style={{fontFamily:MONO,fontSize:10,color:T.text,marginTop:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{doc.name}</div>
+                <div style={{fontFamily:MONO,fontSize:9,color:T.muted}}>{formatDate(doc.created_at)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Document list */}
       {loading
         ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
-        : filtered.length===0
-          ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',padding:32,
+        : listDocs.length===0
+          ? (photoDocs.length===0 && <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',padding:32,
               background:T.bg,borderRadius:12}}>
               No documents yet. Upload tenancy agreements, certificates and other files here.
-            </div>
+            </div>)
           : <div style={{display:'grid',gap:8}}>
-              {filtered.map(doc=>{
+              {listDocs.map(doc=>{
                 const cat = getCatInfo(doc.category)
                 const isPDF = doc.file_type?.includes('pdf') || doc.name?.endsWith('.pdf')
                 const isImage = doc.file_type?.includes('image')
