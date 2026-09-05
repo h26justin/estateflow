@@ -115,17 +115,23 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const scopedBookings = useMemo(() => (bookings || []).filter(b => selectedIds.has(b.property_id) && bookingMatches(b, search)), [bookings, selectedIds, search])
   const scopedAdjustments = useMemo(() => adjustments.filter(a => selectedIds.has(a.property_id)), [adjustments, selectedIds])
 
-  // Room count for occupancy: known only when EVERY selected property has a
-  // unit count (mapped listings or listing ids seen on bookings).
-  const roomCount = useMemo(() => {
-    if (selectedProps.length === 0) return null
+  // Room count for occupancy. Counts the units that are actually open for
+  // bookings: rooms not yet listed anywhere (still in refurb, say) count 0 and
+  // sit out of the denominator, so one dark room in a block no longer blanks
+  // occupancy for the whole selection. Still null if any property has bookings
+  // we cannot attribute to a listing, because then the count is unknowable.
+  // notOpen is surfaced next to the figure so dark rooms stay visible.
+  const { roomCount, notOpen } = useMemo(() => {
+    if (selectedProps.length === 0) return { roomCount: null, notOpen: 0 }
     let total = 0
+    let dark = 0
     for (const p of selectedProps) {
       const u = unitCount(p, bookings || [], mappings)
-      if (u == null) return null
+      if (u == null) return { roomCount: null, notOpen: 0 }
+      if (u === 0) dark++
       total += u
     }
-    return total
+    return { roomCount: total, notOpen: dark }
   }, [selectedProps, bookings, mappings])
 
   // Fee rates observed across ALL bookings, used to estimate fees on bookings
@@ -351,7 +357,9 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <Tile label="Bookings" value={summary.bookings} sub={summary.nonRevenueCount ? `${summary.nonRevenueCount} non-revenue` : 'confirmed stays'} />
                 <Tile label="Nights" value={summary.nights} sub="by check-in month" />
                 <Tile label="Occupancy" value={summary.occupancy == null ? '—' : `${summary.occupancy.toFixed(0)}%`}
-                  sub={summary.occupancy == null ? (roomCount == null ? 'room count unknown' : 'set a period') : `${summary.nights} of ${roomCount * summary.periodDays} room-nights`} />
+                  sub={summary.occupancy == null
+                    ? (roomCount == null ? 'room count unknown' : roomCount === 0 ? 'no rooms open for bookings' : 'set a period')
+                    : `${summary.nights} of ${roomCount * summary.periodDays} room-nights${notOpen ? ` · ${roomCount} of ${roomCount + notOpen} rooms open` : ''}`} />
               </div>
               {summary.bookings > 0 && summary.feesKnown < summary.bookings && (
                 <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 14 }}>
