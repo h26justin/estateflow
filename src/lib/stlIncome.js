@@ -44,6 +44,7 @@ export function toISO(date) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+const DAY = 86400000
 export function daysBetween(fromISO, toISO_) {
   const a = parseISO(fromISO), b = parseISO(toISO_)
   if (a == null || b == null) return 0
@@ -194,6 +195,38 @@ export function bookingNights(b) {
   return n > 0 ? n : 1
 }
 
+// Nights of a stay that actually fall INSIDE [from, to] (both ends inclusive
+// days). A stay occupies the nights arrival..departure-1, so this is the
+// overlap of [arrival, departure) with [from, to+1).
+//
+// Revenue is attributed by check-in month, which is the right call for money:
+// a stay is one booking, billed once. Occupancy is a different question. A
+// stay arriving 28 Sept for five nights puts three of them in October, and a
+// stay arriving 30 Aug puts nights into September, so counting a booking's
+// whole length against its arrival month both misses inbound spill and
+// double-counts the same night in two months.
+export function nightsInRange(b, from = null, to = null) {
+  if (!b?.arrival || !b?.departure) return 0
+  const a = parseISO(b.arrival), d = parseISO(b.departure)
+  if (a == null || d == null) return 0
+  let start = a
+  let end = d > a ? d : a + DAY   // a zero-length stay counts 1 night, as bookingNights does
+  if (from) { const f = parseISO(from); if (f != null && f > start) start = f }
+  if (to) { const t = parseISO(to); if (t != null && t + DAY < end) end = t + DAY }
+  const n = Math.round((end - start) / DAY)
+  return n > 0 ? n : 0
+}
+
+// The ISO day n days after (or before) an ISO day. Stays in UTC throughout:
+// parseISO builds a UTC instant, so reading it back with the local getters
+// (as toISO does) would slip a day west of Greenwich.
+export function addDaysISO(iso, n) {
+  const t = parseISO(iso)
+  if (t == null) return null
+  const d = new Date(t + n * DAY)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
 export function bookingReference(b) {
   if (!b) return ''
   if (b.hostaway_reservation_id) return `Hostaway #${b.hostaway_reservation_id}`
@@ -266,11 +299,19 @@ function monthKeysBetween(from, to) {
 /**
  * summariseStl(bookings, adjustments, { from, to, roomCount })
  *
- * Bookings are selected by ARRIVAL within [from, to]; adjustments by
- * adjustment_date. Either bound may be null (open). roomCount is the number
- * of bookable units in the selection; when it is null occupancy is null.
+ * Bookings are selected by ARRIVAL within [from, to] for every money figure;
+ * adjustments by adjustment_date. Either bound may be null (open). roomCount
+ * is the number of bookable units in the selection; when it is null occupancy
+ * is null.
+ *
+ * Occupancy alone works off the FULL bookings list, counting nights that fall
+ * inside the period whoever they arrived with. See nightsInRange.
+ *
+ * When the period runs past `today` the headline occupancy is "how full is it
+ * currently booked", which reads low for a month barely begun, so
+ * occupancyToDate gives the same measure over the nights already slept.
  */
-export function summariseStl(bookings = [], adjustments = [], { from = null, to = null, roomCount = null, rates = null } = {}) {
+export function summariseStl(bookings = [], adjustments = [], { from = null, to = null, roomCount = null, rates = null, today = new Date() } = {}) {
   const inPeriod = bookings.filter(b => inRange(b.arrival, from, to))
   const revenue = inPeriod.filter(isRevenueBooking)
   const nonRevenue = inPeriod.filter(b => !isRevenueBooking(b))
@@ -332,13 +373,56 @@ export function summariseStl(bookings = [], adjustments = [], { from = null, to 
   for (const m of months) { m.gross = round2(m.gross); m.fees = round2(m.fees); m.adjustments = round2(m.adjustments); m.net = round2(m.gross - m.fees + m.adjustments) }
 
   const days = periodDays(from, to)
-  const occupancy = roomCount > 0 && days > 0 ? round2((nights / (roomCount * days)) * 100) : null
+
+  // Occupancy: nights that actually fall in the period, from every booking of
+  // the selected properties, not just the ones that checked in during it.
+  const allRevenue = bookings.filter(isRevenueBooking)
+  const occupiedNights = allRevenue.reduce((s2, b) => s2 + nightsInRange(b, from, to), 0)
+  const occupancy = roomCount > 0 && days > 0 ? round2((occupiedNights / (roomCount * days)) * 100) : null
+
+  // Same measure over the nights already slept, when the period runs ahead of
+  // today. Tonight is still in progress, so the last completed night is the
+  // one starting yesterday.
+  const todayISO = today ? toISO(today) : null
+  const lastNight = todayISO ? addDaysISO(todayISO, -1) : null
+  const elapsedTo = lastNight && to && from && lastNight < to && lastNight >= from ? lastNight : null
+  const elapsedDays = elapsedTo ? periodDays(from, elapsedTo) : 0
+  const nightsToDate = elapsedTo ? allRevenue.reduce((s2, b) => s2 + nightsInRange(b, from, elapsedTo), 0) : 0
+  const occupancyToDate = elapsedTo && roomCount > 0 && elapsedDays > 0
+    ? round2((nightsToDate / (roomCount * elapsedDays)) * 100) : null
+
+  // Per-month occupancy, on the same in-period basis: nights slept in that
+  // calendar month over the month's room-nights. m.nights stays as it was
+  // (whole stays, by check-in) because it pairs with that month's money.
+  // The row total is occupancy ACHIEVED: nights already slept over the nights
+  // that have already run. A month row can read low simply because it is in
+  // the future and still filling, and averaging those in would make a healthy
+  // year look like a failing one. Months before trading started are skipped
+  // for the same reason: an empty January is not a vacancy.
+  let achievedDays = 0, achievedNights = 0
+  for (const m of months) {
+    const mStart = `${m.key}-01`
+    const mEnd = `${m.key}-${String(lastDayOfMonth(m.year, m.month)).padStart(2, '0')}`
+    m.days = periodDays(mStart, mEnd)
+    m.occupiedNights = allRevenue.reduce((s2, b) => s2 + nightsInRange(b, mStart, mEnd), 0)
+    m.occupancy = roomCount > 0 && m.days > 0 ? round2((m.occupiedNights / (roomCount * m.days)) * 100) : null
+
+    const traded = m.occupiedNights > 0 || m.bookings > 0
+    const ran = lastNight && lastNight >= mStart ? (lastNight < mEnd ? lastNight : mEnd) : null
+    if (traded && ran) {
+      achievedDays += periodDays(mStart, ran)
+      achievedNights += allRevenue.reduce((s2, b) => s2 + nightsInRange(b, mStart, ran), 0)
+    }
+  }
+  const occupancyAchieved = roomCount > 0 && achievedDays > 0
+    ? round2((achievedNights / (roomCount * achievedDays)) * 100) : null
 
   return {
     gross, adjustmentsTotal, net, nights,
     platformFees, channelFees, hostawayFees, feesDeducted, feesInvoiced, feesKnown, feesEstimated, feesEstimatedAmount, netAfterFees, payoutReceived,
     bookings: revenue.length, nonRevenueCount: nonRevenue.length,
     byChannel, months, occupancy, periodDays: days, roomCount: roomCount ?? null,
+    occupiedNights, occupancyToDate, nightsToDate, elapsedDays, occupancyAchieved, achievedDays,
     revenueBookings: revenue, nonRevenueBookings: nonRevenue, adjustments: adj,
   }
 }

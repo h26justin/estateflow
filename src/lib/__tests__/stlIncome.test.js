@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isRevenueBooking, channelLabel, bookingNights, summariseStl, ytd, periodRange, periodDays,
-  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
+  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, summariseStl, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
 
 const bk = (over = {}) => ({
   id: 'b1', property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
@@ -284,5 +284,122 @@ describe('estimating fees not yet reported', () => {
     const s = summariseStl([known, pending, airbnbUnknown], [], { from: '2026-08-01', to: '2026-08-31', rates: { 'Booking.com': 15 } })
     expect(s.platformFees).toBe(45); expect(s.feesEstimated).toBe(1); expect(s.feesEstimatedAmount).toBe(15); expect(s.feesKnown).toBe(1)
     expect(s.netAfterFees).toBe(355)
+  })
+})
+
+
+describe('occupancy counts nights inside the period', () => {
+  const stay = (id, arrival, departure) => ({
+    id, property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
+    arrival, departure, total_amount: 100, hostaway_listing_id: 1,
+  })
+
+  it('nightsInRange clips a stay to the period at both ends', () => {
+    // arriving 28 Sept for 5 nights: 28/29/30 are September's, 1/2 Oct are not
+    expect(nightsInRange(stay('a', '2026-09-28', '2026-10-03'), '2026-09-01', '2026-09-30')).toBe(3)
+    expect(nightsInRange(stay('a', '2026-09-28', '2026-10-03'), '2026-10-01', '2026-10-31')).toBe(2)
+    // arriving before the period, spilling in
+    expect(nightsInRange(stay('b', '2026-08-30', '2026-09-03'), '2026-09-01', '2026-09-30')).toBe(2)
+    // wholly inside, wholly outside
+    expect(nightsInRange(stay('c', '2026-09-10', '2026-09-13'), '2026-09-01', '2026-09-30')).toBe(3)
+    expect(nightsInRange(stay('d', '2026-07-01', '2026-07-04'), '2026-09-01', '2026-09-30')).toBe(0)
+    // a night is never counted twice across adjoining months
+    const b = stay('e', '2026-09-29', '2026-10-04')
+    expect(nightsInRange(b, '2026-09-01', '2026-09-30') + nightsInRange(b, '2026-10-01', '2026-10-31'))
+      .toBe(5)
+  })
+
+  it('addDaysISO steps days without slipping a timezone', () => {
+    expect(addDaysISO('2026-09-05', -1)).toBe('2026-09-04')
+    expect(addDaysISO('2026-01-01', -1)).toBe('2025-12-31')
+    expect(addDaysISO('2026-02-28', 1)).toBe('2026-03-01')
+  })
+
+  it('counts spill-in nights and excludes spill-out nights', () => {
+    const bookings = [
+      stay('a', '2026-08-25', '2026-09-02'),  // 8 nights, only 1 of them September's
+      stay('b', '2026-09-28', '2026-10-03'),  // 5 nights, 3 of them September's
+      stay('c', '2026-09-10', '2026-09-13'),  // 3 nights, all September's
+    ]
+    const s = summariseStl(bookings, [], { from: '2026-09-01', to: '2026-09-30', roomCount: 1, today: new Date('2026-11-01T00:00:00Z') })
+    expect(s.occupiedNights).toBe(7)
+    expect(s.occupancy).toBe(round(7 / 30 * 100))
+    // the old by-check-in count still drives the Nights tile and the money
+    expect(s.nights).toBe(8)   // b's full 5 plus c's 3; a checked in in August so it counts none
+  })
+
+  it('reports occupancy to date while the period is still running', () => {
+    const bookings = [stay('a', '2026-09-01', '2026-09-05')]  // 4 nights, all elapsed by the 5th
+    const s = summariseStl(bookings, [], { from: '2026-09-01', to: '2026-09-30', roomCount: 1, today: new Date('2026-09-05T12:00:00Z') })
+    expect(s.elapsedDays).toBe(4)          // nights of 1,2,3,4 Sept; tonight is still running
+    expect(s.nightsToDate).toBe(4)
+    expect(s.occupancyToDate).toBe(100)
+    expect(s.occupancy).toBe(round(4 / 30 * 100))   // full month reads low, correctly
+  })
+
+  it('gives no to-date figure for a period already finished', () => {
+    const s = summariseStl([stay('a', '2026-09-01', '2026-09-05')], [], { from: '2026-09-01', to: '2026-09-30', roomCount: 1, today: new Date('2026-11-01T00:00:00Z') })
+    expect(s.occupancyToDate).toBeNull()
+  })
+})
+
+const round = n => Math.round(n * 100) / 100
+
+describe('per-month occupancy', () => {
+  const stay = (id, arrival, departure) => ({
+    id, property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
+    arrival, departure, total_amount: 100, hostaway_listing_id: 1,
+  })
+
+  it('splits a straddling stay across the two months it actually occupies', () => {
+    // 29 Sept to 4 Oct: 2 nights in September, 3 in October
+    const s = summariseStl([stay('a', '2026-09-29', '2026-10-04')], [], {
+      from: '2026-01-01', to: '2026-12-31', roomCount: 1, today: new Date('2027-01-01T00:00:00Z'),
+    })
+    const sep = s.months.find(m => m.key === '2026-09')
+    const oct = s.months.find(m => m.key === '2026-10')
+    expect(sep.occupiedNights).toBe(2)
+    expect(oct.occupiedNights).toBe(3)
+    expect(sep.occupancy).toBe(round(2 / 30 * 100))
+    expect(oct.occupancy).toBe(round(3 / 31 * 100))
+    // the money still lands wholly in the check-in month
+    expect(sep.gross).toBe(100)
+    expect(oct.gross).toBe(0)
+  })
+
+  it('year occupancy ignores months that never traded', () => {
+    // one full July, nothing else: 31 of 31 room-nights in the only live month
+    const s = summariseStl([stay('a', '2026-07-01', '2026-08-01')], [], {
+      from: '2026-01-01', to: '2026-12-31', roomCount: 1, today: new Date('2027-01-01T00:00:00Z'),
+    })
+    expect(s.occupancyAchieved).toBe(100)
+    expect(s.achievedDays).toBe(31)
+    // whereas across the whole calendar year it is a twelfth of that
+    expect(s.occupancy).toBe(round(31 / 365 * 100))
+  })
+
+  it('year occupancy counts only the nights that have already run', () => {
+    // Full July, then a September that is 4 nights old and half booked.
+    // Averaging in the unbooked rest of September, or unbooked Oct-Dec,
+    // would report a failing year for a block that has been full.
+    const s = summariseStl([
+      stay('a', '2026-07-01', '2026-08-01'),   // 31 nights, all elapsed
+      stay('b', '2026-09-01', '2026-09-03'),   // 2 of the 4 elapsed Sept nights
+      stay('c', '2026-11-10', '2026-11-15'),   // a future booking, not yet run
+    ], [], { from: '2026-01-01', to: '2026-12-31', roomCount: 1, today: new Date('2026-09-05T12:00:00Z') })
+    // 31 July nights + 4 elapsed September nights
+    expect(s.achievedDays).toBe(35)
+    expect(s.occupancyAchieved).toBe(round(33 / 35 * 100))
+    // November still shows its own low figure, it is just not averaged in
+    expect(s.months.find(m => m.key === '2026-11').occupiedNights).toBe(5)
+  })
+
+  it('scales per-month occupancy by the room count', () => {
+    const s = summariseStl([stay('a', '2026-09-01', '2026-09-16')], [], {
+      from: '2026-01-01', to: '2026-12-31', roomCount: 2, today: new Date('2027-01-01T00:00:00Z'),
+    })
+    const sep = s.months.find(m => m.key === '2026-09')
+    expect(sep.occupiedNights).toBe(15)
+    expect(sep.occupancy).toBe(25)   // 15 of 2 rooms x 30 nights
   })
 })

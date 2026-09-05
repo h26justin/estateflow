@@ -359,7 +359,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <Tile label="Occupancy" value={summary.occupancy == null ? '—' : `${summary.occupancy.toFixed(0)}%`}
                   sub={summary.occupancy == null
                     ? (roomCount == null ? 'room count unknown' : roomCount === 0 ? 'no rooms open for bookings' : 'set a period')
-                    : `${summary.nights} of ${roomCount * summary.periodDays} room-nights${notOpen ? ` · ${roomCount} of ${roomCount + notOpen} rooms open` : ''}`} />
+                    : `${summary.occupiedNights} of ${roomCount * summary.periodDays} room-nights${notOpen ? ` · ${roomCount} of ${roomCount + notOpen} rooms open` : ''}${summary.occupancyToDate != null ? ` · ${summary.occupancyToDate.toFixed(0)}% over the ${summary.elapsedDays} night${summary.elapsedDays === 1 ? '' : 's'} so far` : ''}`} />
               </div>
               {summary.bookings > 0 && summary.feesKnown < summary.bookings && (
                 <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 14 }}>
@@ -397,6 +397,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead><tr>
                       <th style={th}>Month</th><th style={{ ...th, textAlign: 'right' }}>Bookings</th><th style={{ ...th, textAlign: 'right' }}>Nights</th>
+                      <th style={{ ...th, textAlign: 'right' }} title="Nights slept that month over the month's room-nights">Occ.</th>
                       <th style={{ ...th, textAlign: 'right' }}>Gross</th><th style={{ ...th, textAlign: 'right' }}>Fees</th><th style={{ ...th, textAlign: 'right' }}>Adj.</th><th style={{ ...th, textAlign: 'right' }}>Net</th>
                     </tr></thead>
                     <tbody>
@@ -408,6 +409,9 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                             <td style={{ ...td, color: dim ? T.faint : T.text, fontWeight: inRange ? 700 : 400 }}>{MONTHS[m.month - 1]}</td>
                             <td style={{ ...tdR, color: dim ? T.faint : T.text }}>{m.bookings || '·'}</td>
                             <td style={{ ...tdR, color: dim ? T.faint : T.text }}>{m.nights || '·'}</td>
+                            <td style={{ ...tdR, color: m.occupancy == null || !m.occupiedNights ? T.faint : T.text }}
+                              title={m.occupancy == null ? 'room count unknown' : `${m.occupiedNights} of ${roomCount * m.days} room-nights`}>
+                              {m.occupancy == null || !m.occupiedNights ? '·' : `${m.occupancy.toFixed(0)}%`}</td>
                             <td style={{ ...tdR, color: dim ? T.faint : T.text }}>{m.gross ? fmtMoney(m.gross) : '·'}</td>
                             <td style={{ ...tdR, color: m.fees ? T.red : T.faint }}>{m.fees ? fmtMoney(-m.fees) : '·'}</td>
                             <td style={{ ...tdR, color: m.adjustments < 0 ? T.red : m.adjustments > 0 ? T.green : T.faint }}>{m.adjustments ? fmtMoney(m.adjustments) : '·'}</td>
@@ -419,7 +423,11 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                         <td style={{ ...td, fontWeight: 700, borderBottom: 'none' }}>Total</td>
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}>{yearSummary.bookings}</td>
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}>{yearSummary.nights}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}
+                          title={yearSummary.occupancyAchieved == null ? 'room count unknown' : `nights already slept, over the ${yearSummary.achievedDays} nights of trading that have run so far. Future months are still filling, so they are not averaged in.`}>
+                          {yearSummary.occupancyAchieved == null ? '·' : `${yearSummary.occupancyAchieved.toFixed(0)}%`}</td>
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}>{fmtMoney(yearSummary.gross)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none', color: yearSummary.platformFees ? T.red : T.text }}>{fmtMoney(-yearSummary.platformFees)}</td>
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none', color: yearSummary.adjustmentsTotal < 0 ? T.red : T.text }}>{fmtMoney(yearSummary.adjustmentsTotal)}</td>
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}>{fmtMoney(yearSummary.net)}</td>
                       </tr>
