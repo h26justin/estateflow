@@ -380,6 +380,13 @@ export function summariseStl(bookings = [], adjustments = [], { from = null, to 
   const occupiedNights = allRevenue.reduce((s2, b) => s2 + nightsInRange(b, from, to), 0)
   const occupancy = roomCount > 0 && days > 0 ? round2((occupiedNights / (roomCount * days)) * 100) : null
 
+  // ADR (average daily rate) is gross per night sold, both on the check-in
+  // basis so they pair. RevPAR (revenue per available room-night) spreads the
+  // period's gross over every room-night the rooms could have sold, so it is
+  // the one number that moves with both price and occupancy.
+  const adr = nights > 0 ? round2(gross / nights) : null
+  const revpar = roomCount > 0 && days > 0 ? round2(gross / (roomCount * days)) : null
+
   // Same measure over the nights already slept, when the period runs ahead of
   // today. Tonight is still in progress, so the last completed night is the
   // one starting yesterday.
@@ -406,6 +413,8 @@ export function summariseStl(bookings = [], adjustments = [], { from = null, to 
     m.days = periodDays(mStart, mEnd)
     m.occupiedNights = allRevenue.reduce((s2, b) => s2 + nightsInRange(b, mStart, mEnd), 0)
     m.occupancy = roomCount > 0 && m.days > 0 ? round2((m.occupiedNights / (roomCount * m.days)) * 100) : null
+    m.adr = m.nights > 0 ? round2(m.gross / m.nights) : null
+    m.revpar = roomCount > 0 && m.days > 0 ? round2(m.gross / (roomCount * m.days)) : null
 
     const traded = m.occupiedNights > 0 || m.bookings > 0
     const ran = lastNight && lastNight >= mStart ? (lastNight < mEnd ? lastNight : mEnd) : null
@@ -422,7 +431,7 @@ export function summariseStl(bookings = [], adjustments = [], { from = null, to 
     platformFees, channelFees, hostawayFees, feesDeducted, feesInvoiced, feesKnown, feesEstimated, feesEstimatedAmount, netAfterFees, payoutReceived,
     bookings: revenue.length, nonRevenueCount: nonRevenue.length,
     byChannel, months, occupancy, periodDays: days, roomCount: roomCount ?? null,
-    occupiedNights, occupancyToDate, nightsToDate, elapsedDays, occupancyAchieved, achievedDays,
+    occupiedNights, occupancyToDate, nightsToDate, elapsedDays, occupancyAchieved, achievedDays, adr, revpar,
     revenueBookings: revenue, nonRevenueBookings: nonRevenue, adjustments: adj,
   }
 }
@@ -474,4 +483,66 @@ export function managerPayouts(bookings = [], adjustments = [], properties = [],
     byManager.set(m.id, row)
   }
   return [...byManager.values()].sort((a, b) => a.manager.name.localeCompare(b.manager.name))
+}
+
+// ── Per-room breakdown ──────────────────────────────────────────────────────
+// One row per property in the selection, each summarised over its own
+// bookings so occupancy, ADR and RevPAR are the room's own. `units` is the
+// room's listing count (unitCount): 0 means not open yet, null means the
+// count is unknowable, and either way occupancy / RevPAR are null for it.
+// Sorted by gross, largest first.
+export function roomBreakdown(bookings = [], adjustments = [], properties = [], { from = null, to = null, rates = null, mappings = [], today = new Date() } = {}) {
+  const rows = []
+  for (const p of properties) {
+    const units = unitCount(p, bookings, mappings)
+    const own = bookings.filter(b => b.property_id === p.id)
+    const ownAdj = adjustments.filter(a => a.property_id === p.id)
+    const s = summariseStl(own, ownAdj, { from, to, roomCount: units || null, rates, today })
+    rows.push({
+      property: p, units, open: units > 0,
+      bookings: s.bookings, nights: s.nights, occupiedNights: s.occupiedNights, occupancy: s.occupancy,
+      gross: s.gross, platformFees: s.platformFees, adjustments: s.adjustmentsTotal, netAfterFees: s.netAfterFees,
+      adr: s.adr, revpar: s.revpar,
+      byChannel: s.byChannel.map(c => ({ channel: c.channel, share: c.share, gross: c.gross, bookings: c.bookings })),
+    })
+  }
+  return rows.sort((a, b) => b.gross - a.gross || String(a.property.name || '').localeCompare(String(b.property.name || '')))
+}
+
+// ── Forward look ────────────────────────────────────────────────────────────
+// What is already on the books from today: who is in house tonight, who
+// arrives in the next seven days, and how full the next `horizon` nights are.
+// Works off confirmed bookings only; enquiries and cancellations never count.
+export function forwardLook(bookings = [], roomCount = null, { today = new Date(), horizon = 30 } = {}) {
+  const t = toISO(today)
+  const day = d => String(d || '').slice(0, 10)
+  const rev = bookings.filter(isRevenueBooking)
+  const inHouse = rev.filter(b => day(b.arrival) <= t && day(b.departure) > t)
+  const departingToday = rev.filter(b => day(b.departure) === t)
+  const end7 = addDaysISO(t, 6)
+  const arrivalsNext7 = rev.filter(b => day(b.arrival) >= t && day(b.arrival) <= end7)
+    .sort((a, b) => day(a.arrival).localeCompare(day(b.arrival)) || String(a.property_id).localeCompare(String(b.property_id)))
+  const endH = addDaysISO(t, horizon - 1)
+  const nightsAhead = rev.reduce((s, b) => s + nightsInRange(b, t, endH), 0)
+  const availableNights = roomCount > 0 ? roomCount * horizon : null
+  const forwardOccupancy = availableNights ? round2((nightsAhead / availableNights) * 100) : null
+  const grossAhead = round2(rev.filter(b => day(b.arrival) >= t && day(b.arrival) <= endH).reduce((s, b) => s + num(b.total_amount), 0))
+  return { today: t, horizon, inHouse, departingToday, arrivalsNext7, nightsAhead, availableNights, forwardOccupancy, grossAhead }
+}
+
+// ── Payout ledger helpers ───────────────────────────────────────────────────
+// A ledger row records one manager paid for one exact period. The UI matches
+// a computed payout row to its ledger entry by manager and period bounds.
+export function findPaidPayout(ledger = [], managerId, from, to) {
+  if (!managerId || !from || !to) return null
+  return ledger.find(l => l.manager_id === managerId && String(l.period_from).slice(0, 10) === from && String(l.period_to).slice(0, 10) === to) || null
+}
+// The snapshot stored with a ledger row, so a later rate change or a
+// late-arriving Booking.com invoice cannot restate what was actually paid.
+export function payoutSnapshot(row) {
+  return row.properties.map(pp => ({
+    property_id: pp.property.id, name: pp.property.name || pp.property.address || '',
+    gross: pp.gross, platform_fees: pp.platformFees, adjustments: pp.adjustments, net_after_fees: pp.netAfterFees,
+    base: pp.base, amount: pp.amount, bookings: pp.bookings, nights: pp.nights,
+  }))
 }

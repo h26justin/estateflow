@@ -126,3 +126,36 @@ export async function setPropertyStlManager(propertyId, managerId) {
   if (error) throw error
   return data
 }
+
+// ── Manager payout ledger ─────────────────────────────────────────────────
+// One row per manager per period actually paid, with a per-room snapshot of
+// the figures at the time. See supabase-migrations/2026-09-05_stl_manager_payouts.sql.
+const PAYOUT_COLS = 'id, company_id, manager_id, manager_name, period_from, period_to, amount, base_amount, percentage, basis, breakdown, notes, paid_on, created_at, created_by'
+export async function fetchStlPayouts(companyIds = []) {
+  let q = supabase.from('stl_manager_payouts').select(PAYOUT_COLS).order('period_from', { ascending: false }).order('created_at', { ascending: false })
+  if (companyIds?.length) q = q.in('company_id', companyIds)
+  const { data, error } = await q
+  if (error) throw error
+  return data || []
+}
+export async function createStlPayout(p) {
+  const { data, error } = await supabase.from('stl_manager_payouts').insert({
+    company_id: p.company_id, manager_id: p.manager_id, manager_name: String(p.manager_name || '').trim(),
+    period_from: p.period_from, period_to: p.period_to,
+    amount: Number(p.amount), base_amount: Number(p.base_amount) || 0, percentage: Number(p.percentage), basis: p.basis,
+    breakdown: p.breakdown || [], notes: p.notes || null, paid_on: p.paid_on || undefined,
+    user_id: await uid(),
+  }).select(PAYOUT_COLS).single()
+  if (error) throw friendlyPayout(error)
+  return data
+}
+export async function deleteStlPayout(id) {
+  const { error } = await supabase.from('stl_manager_payouts').delete().eq('id', id)
+  if (error) throw friendlyPayout(error)
+}
+function friendlyPayout(error) {
+  const msg = String(error?.message || '')
+  if (msg.includes('uq_stl_manager_payouts_period')) return new Error('This manager has already been marked as paid for exactly that period.')
+  if (msg.includes('row-level security')) return new Error('You do not have permission to record payouts for this company.')
+  return error
+}
