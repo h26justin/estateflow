@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isRevenueBooking, channelLabel, bookingNights, summariseStl, ytd, periodRange, periodDays,
-  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, summariseStl, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
+  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
 
 const bk = (over = {}) => ({
   id: 'b1', property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
