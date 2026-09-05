@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isRevenueBooking, channelLabel, bookingNights, summariseStl, ytd, periodRange, periodDays,
-  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
+  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
 
 const bk = (over = {}) => ({
   id: 'b1', property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
@@ -401,5 +401,110 @@ describe('per-month occupancy', () => {
     const sep = s.months.find(m => m.key === '2026-09')
     expect(sep.occupiedNights).toBe(15)
     expect(sep.occupancy).toBe(25)   // 15 of 2 rooms x 30 nights
+  })
+})
+
+describe('ADR and RevPAR', () => {
+  const stay = (id, pid, arrival, departure, total) => ({
+    id, property_id: pid, provider: 'hostaway', source: 'Airbnb', status: 'new',
+    arrival, departure, total_amount: total, hostaway_listing_id: 1,
+  })
+  it('ADR is gross per night sold; RevPAR spreads gross over every available room-night', () => {
+    const s = summariseStl([stay('a', 'p1', '2026-09-01', '2026-09-03', 200), stay('b', 'p1', '2026-09-10', '2026-09-11', 70)], [], {
+      from: '2026-09-01', to: '2026-09-30', roomCount: 2, today: new Date('2026-11-01T00:00:00Z'),
+    })
+    expect(s.adr).toBe(90)                       // 270 over 3 nights
+    expect(s.revpar).toBe(round(270 / 60))       // 2 rooms x 30 nights
+    const sep = s.months.find(m => m.key === '2026-09')
+    expect(sep.adr).toBe(90)
+    expect(sep.revpar).toBe(round(270 / 60))
+  })
+  it('are null with no nights or no room count', () => {
+    const s = summariseStl([], [], { from: '2026-09-01', to: '2026-09-30', roomCount: null })
+    expect(s.adr).toBeNull(); expect(s.revpar).toBeNull()
+  })
+})
+
+describe('roomBreakdown', () => {
+  const stay = (id, pid, arrival, departure, total, source = 'Airbnb') => ({
+    id, property_id: pid, provider: 'hostaway', source, status: 'new',
+    arrival, departure, total_amount: total, hostaway_listing_id: pid === 'p1' ? 11 : 22, channel_commission: 10,
+  })
+  const props = [{ id: 'p1', name: 'Room 1' }, { id: 'p2', name: 'Room 2' }, { id: 'p3', name: 'Room 3 (refurb)' }]
+  const mappings = [{ property_id: 'p1', hostaway_listing_id: 11 }, { property_id: 'p2', hostaway_listing_id: 22 }]
+  const bookings = [
+    stay('a', 'p1', '2026-09-01', '2026-09-04', 300),
+    stay('b', 'p1', '2026-09-20', '2026-09-22', 150, 'Booking.com'),
+    stay('c', 'p2', '2026-09-05', '2026-09-06', 60),
+  ]
+  const opts = { from: '2026-09-01', to: '2026-09-30', mappings, today: new Date('2026-11-01T00:00:00Z') }
+
+  it('summarises each room over its own bookings, largest gross first', () => {
+    const rows = roomBreakdown(bookings, [], props, opts)
+    expect(rows.map(r => r.property.id)).toEqual(['p1', 'p2', 'p3'])
+    const r1 = rows[0]
+    expect(r1.gross).toBe(450); expect(r1.nights).toBe(5); expect(r1.adr).toBe(90)
+    expect(r1.occupiedNights).toBe(5); expect(r1.occupancy).toBe(round(5 / 30 * 100))
+    expect(r1.revpar).toBe(15)                   // 450 over 30 room-nights
+    expect(r1.byChannel.map(c => c.channel)).toEqual(['Airbnb', 'Booking.com'])
+    expect(r1.byChannel[0].share).toBeCloseTo(300 / 450)
+  })
+  it('a room not yet open shows no occupancy rather than zero', () => {
+    const r3 = roomBreakdown(bookings, [], props, opts)[2]
+    expect(r3.units).toBe(0); expect(r3.open).toBe(false)
+    expect(r3.gross).toBe(0); expect(r3.occupancy).toBeNull(); expect(r3.revpar).toBeNull(); expect(r3.adr).toBeNull()
+  })
+  it('adjustments land on their own room', () => {
+    const rows = roomBreakdown(bookings, [{ property_id: 'p2', adjustment_date: '2026-09-07', amount: -20 }], props, opts)
+    const r2 = rows.find(r => r.property.id === 'p2')
+    expect(r2.adjustments).toBe(-20); expect(r2.netAfterFees).toBe(round(60 - 10 - 20))
+  })
+})
+
+describe('forwardLook', () => {
+  const stay = (id, pid, arrival, departure, total = 100, status = 'new') => ({
+    id, property_id: pid, provider: 'hostaway', source: 'Airbnb', status, arrival, departure, total_amount: total,
+  })
+  const today = new Date('2026-09-05T09:00:00Z')
+  const bookings = [
+    stay('a', 'p1', '2026-09-03', '2026-09-07'),   // in house tonight
+    stay('b', 'p2', '2026-09-04', '2026-09-05'),   // checking out today, not in house
+    stay('c', 'p3', '2026-09-05', '2026-09-08'),   // arrives today: in house AND an arrival
+    stay('d', 'p1', '2026-09-11', '2026-09-13'),   // arrives day 7 (11th is 6 days out): counts
+    stay('e', 'p2', '2026-09-12', '2026-09-14'),   // arrives day 8: not in the 7
+    stay('f', 'p3', '2026-10-03', '2026-10-06'),   // straddles the 30-day horizon end (4 Oct)
+    stay('g', 'p1', '2026-09-06', '2026-09-08', 100, 'cancelled'),
+  ]
+  it('splits in-house, departing and arriving correctly', () => {
+    const f = forwardLook(bookings, 3, { today })
+    expect(f.today).toBe('2026-09-05')
+    expect(f.inHouse.map(b => b.id).sort()).toEqual(['a', 'c'])
+    expect(f.departingToday.map(b => b.id)).toEqual(['b'])
+    expect(f.arrivalsNext7.map(b => b.id)).toEqual(['c', 'd'])
+  })
+  it('counts only nights inside the horizon and scales by rooms', () => {
+    const f = forwardLook(bookings, 3, { today })
+    // a: 5,6 (2) · c: 5,6,7 (3) · d: 11,12 (2) · e: 12,13 (2) · f: 3 Oct + 4 Oct only (2 of 3)
+    expect(f.nightsAhead).toBe(11)
+    expect(f.availableNights).toBe(90)
+    expect(f.forwardOccupancy).toBe(round(11 / 90 * 100))
+    expect(f.grossAhead).toBe(400)             // c, d, e, f check in within the horizon; a checked in before today; g is cancelled
+  })
+  it('has no occupancy when the room count is unknown', () => {
+    expect(forwardLook(bookings, null, { today }).forwardOccupancy).toBeNull()
+  })
+})
+
+describe('payout ledger helpers', () => {
+  it('findPaidPayout matches manager and exact period bounds', () => {
+    const ledger = [{ manager_id: 'm1', period_from: '2026-08-31', period_to: '2026-09-13', amount: 300 }]
+    expect(findPaidPayout(ledger, 'm1', '2026-08-31', '2026-09-13')?.amount).toBe(300)
+    expect(findPaidPayout(ledger, 'm1', '2026-09-14', '2026-09-27')).toBeNull()
+    expect(findPaidPayout(ledger, 'm2', '2026-08-31', '2026-09-13')).toBeNull()
+    expect(findPaidPayout(ledger, null, '2026-08-31', '2026-09-13')).toBeNull()
+  })
+  it('payoutSnapshot freezes the per-room figures', () => {
+    const snap = payoutSnapshot({ properties: [{ property: { id: 'p1', name: 'Room 1' }, gross: 100, platformFees: 15, adjustments: 0, netAfterFees: 85, base: 85, amount: 10.2, bookings: 2, nights: 3 }] })
+    expect(snap).toEqual([{ property_id: 'p1', name: 'Room 1', gross: 100, platform_fees: 15, adjustments: 0, net_after_fees: 85, base: 85, amount: 10.2, bookings: 2, nights: 3 }])
   })
 })
