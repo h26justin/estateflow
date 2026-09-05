@@ -199,6 +199,16 @@ describe('display helpers', () => {
     expect(unitCount(p, [bk({ hostaway_listing_id: 1 }), bk({ hostaway_listing_id: 2 }), bk({ hostaway_listing_id: 2 })], [])).toBe(2)
     expect(unitCount(p, [bk({ hostaway_listing_id: null })], [])).toBeNull()
   })
+  it('unitCount counts a room with no listing and no bookings as 0, not unknown', () => {
+    // A room still in refurb is not open for bookings, so it sits out of the
+    // occupancy denominator instead of blanking occupancy for the whole block.
+    const p = { id: 'p9' }
+    expect(unitCount(p, [], [])).toBe(0)
+    expect(unitCount(p, [bk({ property_id: 'p1' })], [{ property_id: 'p1' }])).toBe(0)
+    // but a mapping or a first booking brings it straight back in
+    expect(unitCount(p, [], [{ property_id: 'p9' }])).toBe(1)
+    expect(unitCount(p, [bk({ property_id: 'p9', hostaway_listing_id: 7 })], [])).toBe(1)
+  })
   it('bookingMatches searches guest, reference and channel', () => {
     expect(bookingMatches(bk(), 'smith')).toBe(true)
     expect(bookingMatches(bk(), '12345')).toBe(true)

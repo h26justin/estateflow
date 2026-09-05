@@ -220,19 +220,30 @@ export function bookingStatusLabel(b) {
 
 // Distinct bookable units a property presents on the channel manager: the
 // mapped Hostaway listings if we have them, else the distinct listing ids seen
-// on its bookings, else null (unknown). Occupancy needs this.
+// on its bookings. Occupancy needs this.
+//
+// A property with no listing AND no bookings at all is not unknown, it is not
+// open for bookings yet (a room still in refurb, or one never listed), so it
+// counts 0 units and drops out of the occupancy denominator rather than
+// blanking occupancy for the whole selection. It rejoins automatically the
+// moment it is mapped or takes its first booking.
+//
+// null is reserved for the genuine unknown: a property that HAS bookings but
+// whose bookings carry no listing id, where the unit count is unknowable.
 export function unitCount(property, bookings = [], mappings = []) {
   if (!property) return null
   const mapped = mappings.filter(m => m.property_id === property.id).length
   if (mapped > 0) return mapped
   const seen = new Set()
+  let any = false
   for (const b of bookings) {
     if (b.property_id !== property.id) continue
+    any = true
     const id = b.hostaway_listing_id ?? b.lodgify_property_id
     if (id != null) seen.add(String(id))
   }
   if (seen.size > 0) return seen.size
-  return null
+  return any ? null : 0
 }
 
 // ── Summary ─────────────────────────────────────────────────────────────────
