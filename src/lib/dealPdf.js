@@ -305,6 +305,7 @@ export async function exportDealPdf({ deal, company }) {
     setFont(8, 'normal', MUTED)
     ensure(6)
     text(`Based on an estimated post-refurb value of ${money(refi.value)}, a remortgage at ${refi.rate}% ${refi.isInterestOnly ? 'interest only' : `repayment over ${refi.term} years`}, and ${money(refi.cashIn)} cash in the deal today.`, M, y, { maxWidth: CW }); y += 8
+    ensure(6.5 * (refi.scenarios.length + 1) + 8) // header + rows + note stay together
     const cols = ['LTV', 'New loan', 'Cash back', 'Left in deal', 'New payment', 'Profit / mo']
     const cw = [16, 34, 34, 34, 30, 30]
     const tableRow = (cells, opts = {}) => {
@@ -362,7 +363,9 @@ export async function exportDealPdf({ deal, company }) {
       setFont(6, 'normal', INK); text(money(r.totalReturn), x + barW / 2, base - h - 1.2, { align: 'center' })
     })
     y = base + 9
-    // Table
+    // Table — keep the header and all ten rows together rather than
+    // splitting two rows onto one page and eight onto the next.
+    ensure(6 * (p.rows.length + 1) + 6)
     const cols = ['Year', 'Rent / mo', 'Profit / yr', 'Cumulative', 'Value', 'Equity', 'Total return']
     const cw = [14, 24, 26, 30, 28, 28, 28]
     const tableRow = (cells, opts = {}) => {
