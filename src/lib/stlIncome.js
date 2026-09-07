@@ -94,7 +94,22 @@ export function isRevenueBooking(b) {
   const s = String(b.status || '').toLowerCase()
   if (!REVENUE_STATUSES.has(s)) return false
   if (b.cancellation_date || b.cancelled_at || b.canceled_at) return false
+  // A confirmed reservation with nothing charged is an owner block or an
+  // extension placeholder from the channel manager, not a guest. It earns
+  // nothing and must not count as an occupied night either.
+  if (isNoCharge(b)) return false
   return true
+}
+export function isNoCharge(b) {
+  if (!b) return false
+  const s = String(b.status || '').toLowerCase()
+  if (!REVENUE_STATUSES.has(s)) return false
+  if (b.cancellation_date || b.cancelled_at || b.canceled_at) return false
+  // A NULL total is an amount the sync has not reported yet, not a free
+  // stay; only an explicit zero (or negative) is a no-charge block.
+  if (b.total_amount == null || b.total_amount === '') return false
+  const n = Number(b.total_amount)
+  return Number.isFinite(n) && n <= 0
 }
 
 export function isCancelled(b) {
@@ -245,6 +260,7 @@ export function guestDisplayName(name) {
 
 export function bookingStatusLabel(b) {
   if (isRevenueBooking(b)) return 'Confirmed'
+  if (isNoCharge(b)) return 'No charge'
   if (isCancelled(b)) return 'Cancelled'
   if (isInquiry(b)) return 'Inquiry'
   const s = String(b?.status || 'unknown')

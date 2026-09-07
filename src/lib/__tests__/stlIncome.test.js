@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isRevenueBooking, channelLabel, bookingNights, summariseStl, ytd, periodRange, periodDays,
-  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
+  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, isNoCharge, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
 
 const bk = (over = {}) => ({
   id: 'b1', property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
@@ -506,5 +506,22 @@ describe('payout ledger helpers', () => {
   it('payoutSnapshot freezes the per-room figures', () => {
     const snap = payoutSnapshot({ properties: [{ property: { id: 'p1', name: 'Room 1' }, gross: 100, platformFees: 15, adjustments: 0, netAfterFees: 85, base: 85, amount: 10.2, bookings: 2, nights: 3 }] })
     expect(snap).toEqual([{ property_id: 'p1', name: 'Room 1', gross: 100, platform_fees: 15, adjustments: 0, net_after_fees: 85, base: 85, amount: 10.2, bookings: 2, nights: 3 }])
+  })
+})
+
+describe('zero-value confirmed bookings (owner blocks)', () => {
+  const block = { id: 'z', property_id: 'p1', provider: 'hostaway', source: 'Direct', status: 'new', guest_name: 'U extending', arrival: '2026-09-06', departure: '2026-09-08', total_amount: 0, hostaway_listing_id: 1 }
+  it('are not revenue and are labelled No charge', () => {
+    expect(isRevenueBooking(block)).toBe(false)
+    expect(isNoCharge(block)).toBe(true)
+    expect(bookingStatusLabel(block)).toBe('No charge')
+    expect(isNoCharge({ ...block, total_amount: 60 })).toBe(false)
+    expect(isNoCharge({ ...block, status: 'cancelled' })).toBe(false)   // cancelled is its own thing
+  })
+  it('do not occupy nights', () => {
+    const s = summariseStl([block], [], { from: '2026-09-01', to: '2026-09-30', roomCount: 1, today: new Date('2026-11-01T00:00:00Z') })
+    expect(s.bookings).toBe(0); expect(s.occupiedNights).toBe(0); expect(s.nonRevenueCount).toBe(1)
+    const f = forwardLook([block], 1, { today: new Date('2026-09-06T12:00:00Z') })
+    expect(f.inHouse).toHaveLength(0)
   })
 })

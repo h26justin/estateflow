@@ -35,7 +35,10 @@ function getSegmentForDay(day, year, month, payments) {
 // 'stl' (purple) so short-term-let income reads differently from long-term
 // rent. stlIds is the Set of rent_payment ids linked from stl_bookings.
 function segDisplayStatus(seg, stlIds) {
-  return (seg.status === 'paid' && stlIds?.has(seg.id)) ? 'stl' : seg.status
+  if (!stlIds?.has(seg.id)) return seg.status
+  // A booked-but-not-yet-stayed STL segment is 'pending' in the database
+  // (2026-09-07_stl_pending_until_stayed.sql); show it as a lighter STL.
+  return seg.status === 'paid' ? 'stl' : seg.status === 'pending' ? 'stl_pending' : seg.status
 }
 
 function getDayStatus(day, year, month, payments, stlIds) {
@@ -95,6 +98,7 @@ function isPropertyOverdue(prop) {
 const STATUS_COLOR = {
   paid:    '#2ECC8A',
   stl:     '#9B6FDE',  // pseudo-status: paid segment linked to a Lodgify booking
+  stl_pending: '#C4B3EA',  // STL booked, stay not yet completed
   partial: '#E0943A',  // part-paid = attention, same amber as late
   pending: '#9B6FDE',  // legacy rows from the pre-2026-07 Lodgify sync
   overdue: '#E05555',
@@ -105,7 +109,7 @@ const STATUS_COLOR = {
   future:  'transparent',
 }
 
-const STATUS_LABEL = { paid:'Paid', stl:'STL', partial:'Partial', pending:'Pending', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
+const STATUS_LABEL = { paid:'Paid', stl:'STL', stl_pending:'STL booked', partial:'Partial', pending:'Pending', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
 
 // Statuses the user can manually set via click. We deliberately omit 'future'
 // (clicking a future day doesn't make sense) and 'refurb' (set elsewhere via
