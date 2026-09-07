@@ -52,21 +52,32 @@ const FEATURE_CATS = [
     icon: 'building',
     color: '#4B8FE0',
     features: [
-      { icon: 'building', title: 'Multi-company portfolios', desc: 'Organise properties under separate companies or trading names. Each gets its own branding, settings and access controls.' },
-      { icon: 'pie-chart', title: 'Property health scores', desc: 'Every property gets an automatic health score based on compliance, occupancy, rent and maintenance — so you see issues instantly.' },
-      { icon: 'trending-up', title: 'Yield & equity tracking', desc: 'Live gross and net yields per property. Track current value, equity and portfolio-wide financials at a glance.' },
-      { icon: 'trash', title: '30-day trash recovery', desc: 'Accidentally deleted something? Soft-delete keeps everything recoverable for 30 days before permanent removal.' },
+      { icon: 'building', title: 'Multi-company portfolios', desc: 'Organise properties under separate companies or trading names, each with its own branding, settings, Xero connection and access controls. Blocks of flats and HMO rooms sit under their building.' },
+      { icon: 'pie-chart', title: 'Property health scores', desc: 'Every property gets an automatic health score from compliance, occupancy, rent and maintenance, so the ones that need you rise to the top.' },
+      { icon: 'trending-up', title: 'Yield, equity and valuation', desc: 'Live gross and net yields, current value, equity and LTV per property and for the whole portfolio. Mortgages tracked with product end dates.' },
+      { icon: 'map', title: 'Property map and search', desc: 'Every address geocoded onto one map. Find any property, tenant or building from the search bar on every page.' },
     ]
   },
   {
     cat: 'Rent & Finance',
-    icon: 'wallet',
+    icon: 'pound',
     color: '#2ECC8A',
     features: [
-      { icon: 'calendar', title: 'Visual rent tracker', desc: 'Month-by-month payment squares for every tenancy. Paid, missed, late, void and refurb — colour-coded and clickable to update.' },
-      { icon: 'download', title: 'Statement importer', desc: 'Import bank statements in CSV, PNE or RMS format to match and reconcile rent payments automatically.' },
-      { icon: 'trending-up', title: 'Rent increase timeline', desc: 'Log every rent review with date and amount. See the full history of increases per property at a glance.' },
-      { icon: 'alert-triangle', title: 'Arrears alerts', desc: 'Smart alerts flag missed and late payments immediately. Daily digest emails ensure nothing slips through.' },
+      { icon: 'calendar', title: 'Rent Tracker and Day Tracker', desc: 'Month squares and a day-by-day grid for every tenancy: paid, due, missed, part-paid, payment plans and non-chargeable periods, with the arrears position always current.' },
+      { icon: 'upload', title: 'Statement importer and inbox', desc: 'Drop a PNE or RMS agent statement PDF, or have the agent email it to your statement inbox, and rent, fees and maintenance are matched to properties automatically.' },
+      { icon: 'receipt', title: 'Xero, two ways', desc: 'Rent and expenses post to Xero as bank transactions with a Property tracking category; reconciliation status and spend come back the other way so the P&L matches the books.' },
+      { icon: 'wallet', title: 'Full Portfolio P&L', desc: 'Every company and property in one long P&L: income per unit, pre- and post-tax profit, your share as a shareholder, month by month, with a forecast for the rest of the year.' },
+    ]
+  },
+  {
+    cat: 'Short-Term Lets',
+    icon: 'bed',
+    color: '#9B6FDE',
+    features: [
+      { icon: 'plug', title: 'Hostaway and Lodgify sync', desc: 'Airbnb, Booking.com, Vrbo and direct bookings pulled from your channel manager three times a day and recorded as income once the guest has stayed, with platform fees shown per booking.' },
+      { icon: 'percent', title: 'Occupancy, ADR and RevPAR', desc: 'Nights actually slept over the rooms actually open, average daily rate and revenue per available room, per room and per month. Rooms in refurb sit out of the maths.' },
+      { icon: 'users', title: 'Manager pay run', desc: 'Give a property manager a percentage of income after platform fees and the pay run works itself out each fortnight. Mark it paid and the figures are frozen so a rate change never restates a past payout.' },
+      { icon: 'clock', title: 'On the books', desc: 'Who is in house tonight, who arrives this week and how full the next thirty nights are, alongside the money that is already booked.' },
     ]
   },
   {
@@ -74,43 +85,52 @@ const FEATURE_CATS = [
     icon: 'shield-check',
     color: '#E0943A',
     features: [
-      { icon: 'flame', title: 'Certificate tracking', desc: 'Gas safety, EICR, EPC, HMO licences — every certificate with expiry date, automatic alerts at 90, 60 and 30 days.' },
-      { icon: 'id-card', title: 'Right to Rent checks', desc: 'Log document type, check date and expiry for every tenant. Follow-up alerts ensure you stay legally compliant.' },
-      { icon: 'landmark', title: 'Deposit protection', desc: 'Track which scheme protects each deposit (DPS, TDS, mydeposits), dates and certificate numbers.' },
-      { icon: 'scale', title: 'Section 21 & S8 notices', desc: 'Log served notices with dates, grounds and court hearing dates. Full notice history per tenancy.' },
+      { icon: 'clipboard-check', title: 'Certificate tracking with EPC auto-sync', desc: 'Gas safety, EICR, smoke and CO, HMO licences and more with expiry alerts at 90, 60 and 30 days. EPC ratings and expiry pulled from the national register automatically.' },
+      { icon: 'id-card', title: 'Right to Rent and deposits', desc: 'Log document type, check date and expiry for every tenant; track which scheme protects each deposit, with dates and certificate numbers.' },
+      { icon: 'scale', title: 'Renters Rights ready', desc: 'A portfolio checklist for the Renters Rights Act (PRS database, ombudsman, periodic tenancies) plus notice generation with the right grounds and periods.' },
+      { icon: 'robot', title: 'Portfolio Autopilot', desc: 'A daily AI-drafted action list across arrears, compliance, insurance and vacancies. Every item is a suggestion with a ready-to-send draft; nothing goes out without you.' },
     ]
   },
   {
-    cat: 'Tenant Portal',
-    icon: 'users',
-    color: '#9B59B6',
+    cat: 'Refurbs',
+    icon: 'hammer',
+    color: '#C8A84B',
     features: [
-      { icon: 'globe', title: 'Branded subdomains', desc: 'Each company gets its own portal at yourname.ownproperly.com — branded with your colours and logo.' },
-      { icon: 'wrench', title: 'Repair requests', desc: 'Tenants submit repairs with photos directly. You get an instant email alert and it logs in your maintenance tracker.' },
-      { icon: 'message', title: 'Secure messaging', desc: 'Private message threads between landlord and tenant. No WhatsApp, no personal emails — everything in one auditable place.' },
-      { icon: 'mail', title: 'Branded email invites', desc: 'Invite tenants to their portal with a fully branded email. They set their own password and are in immediately.' },
+      { icon: 'hammer', title: 'Refurb projects', desc: 'Agreed price against payments made, extras, milestones and a board view for every refurbishment, so remaining-to-pay is always a real number.' },
+      { icon: 'wallet', title: 'Payments ledger', desc: 'Every payment and credit logged against the project and the payee, exportable for your accountant and pushed to Xero as its own category if you want it separate.' },
+      { icon: 'target', title: 'Refurbs to fund', desc: 'The Deals cashflow view rolls every open refurb into the money you have committed, next to the pipeline you are still deciding on.' },
     ]
   },
   {
     cat: 'Deals & Acquisitions',
     icon: 'target',
-    color: '#C8A84B',
+    color: '#6E44B8',
     features: [
-      { icon: 'calculator', title: 'BTL/HMO/SA/BRRR calculator', desc: 'Full acquisition calculator with correct April 2025 SDLT rates, conveyancing costs, agent fees and Section 24 tax modelling.' },
-      { icon: 'target', title: 'Deal pipeline', desc: '6-stage Kanban board to track every deal from sourcing to completion. Milestones, contacts and documents per deal.' },
-      { icon: 'sparkle', title: 'AI listing writer', desc: 'Generate professional Rightmove and Zoopla listing descriptions in seconds. Choose tone: professional, warm or luxury.' },
-      { icon: 'trending-up', title: 'Portfolio modeller', desc: 'What-if modeller with 5 sliders — add properties, change yields, model refinancing — and see your portfolio projections live.' },
+      { icon: 'calculator', title: 'BTL, HMO, SA and BRRR calculator', desc: 'Full acquisition numbers with current SDLT rates, conveyancing, agent fees, Section 24 tax and a deal score. Paste a Rightmove, Zoopla or OnTheMarket link to pre-fill.' },
+      { icon: 'trending-up', title: 'Ten-year projection and remortgage scenarios', desc: 'Cashflow, equity and yield projected ten years out, with an LTV table showing what a remortgage at 65, 70 or 75 per cent would release.' },
+      { icon: 'file-text', title: 'Deal pack PDF with photos', desc: 'One PDF per deal for a lender, partner or your own file: photos, the numbers, the projection and the milestones. Copy a deal and choose what carries across.' },
+      { icon: 'sparkle', title: 'AI listing writer and what-if modeller', desc: 'Rightmove and Zoopla descriptions in seconds in the tone you choose, and a portfolio modeller that shows what five more properties at a given yield would do.' },
     ]
   },
   {
-    cat: 'Reports & Data',
-    icon: 'pie-chart',
-    color: '#E05555',
+    cat: 'Tenant Portal',
+    icon: 'users',
+    color: '#9B6FDE',
     features: [
-      { icon: 'file-text', title: '16 built-in reports', desc: 'P&L, tax summaries, arrears, compliance status, occupancy, rent roll, expenses and more — all exportable to CSV.' },
-      { icon: 'lock', title: 'GDPR audit log', desc: 'Every action in the platform is logged — who did what and when. Full data export for any tenant or company on request.' },
-      { icon: 'folder', title: 'Document storage', desc: 'Upload leases, certificates and correspondence per property. Share documents directly with tenants via the portal.' },
-      { icon: 'bell', title: 'Smart alert engine', desc: 'Configurable alerts for arrears, expiring leases, compliance deadlines and vacant properties. Weekly digest or instant.' },
+      { icon: 'globe', title: 'Branded subdomains', desc: 'Each company gets its own portal at yourname.ownproperly.com, in your colours and logo, with a branded email invite for every tenant.' },
+      { icon: 'wrench', title: 'Repair requests', desc: 'Tenants submit repairs with photos. You get an alert, it lands in your maintenance tracker, and AI triage suggests urgency and trade.' },
+      { icon: 'message', title: 'Secure messaging and documents', desc: 'Private threads between landlord and tenant, and the documents you choose to share, all in one auditable place instead of WhatsApp.' },
+    ]
+  },
+  {
+    cat: 'Reports & Tax',
+    icon: 'file-text',
+    color: '#4B8FE0',
+    features: [
+      { icon: 'file-text', title: '20 built-in reports', desc: 'P&L, rental income schedule, mortgage interest, capital gains, yield comparison, occupancy, collection rate, backfill, compliance, expenses and more. CSV and PDF, and a year-end tax pack.' },
+      { icon: 'landmark', title: 'Making Tax Digital for Income Tax', desc: 'Quarterly Property Business submissions to HMRC built in, with sandbox testing and a clear steer on when MTD applies and when it does not (limited companies).' },
+      { icon: 'folder', title: 'Documents, backups and audit log', desc: 'Leases, certificates and correspondence per property, weekly account backups you can download, and a full audit log of every change.' },
+      { icon: 'download', title: 'Export everything', desc: 'Bookings, months, rooms, refurb payments and every report export to CSV. Your data is yours.' },
     ]
   },
 ]
@@ -267,7 +287,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Everything you need</div>
             <h2 style={{ fontSize: 38, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Built for serious property investors</h2>
             <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.8, maxWidth: 560, margin: '0 auto' }}>
-              Six fully built modules covering every part of running a property portfolio — from acquisition to tenant management.
+              Eight modules covering every part of running a portfolio: acquisition, refurb, letting, rent, short-term lets, compliance, tax and the tenants themselves.
             </p>
           </div>
 
@@ -420,7 +440,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   'MTD ITSA submissions built in',
                   'Document storage & sharing',
                   'Email alerts & weekly digest',
-                  '16 built-in reports with CSV export',
+                  '20 built-in reports with CSV and PDF export',
                   '14-day free trial — no card needed',
                 ].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
