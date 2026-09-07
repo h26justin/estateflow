@@ -21,6 +21,7 @@ import { MONO } from '../lib/styles'
 import InsurancePage from './InsurancePage'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
 import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
+import { groupPropertiesByBuilding } from '../lib/addressUtils'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -128,7 +129,7 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
   const missingRequired = summary.rows.filter(r => r.status.state === 'missing' && r.req.tier <= 2).length
   const scoreColor = (summary.expired > 0 || missingRequired > 0) ? T.red
     : (summary.expiring > 0 || summary.missing > 0) ? T.amber : T.green
-  const allGood = summary.expired === 0 && summary.expiring === 0 && summary.missing === 0
+  const allGood = summary.expired === 0 && summary.expiring === 0 && missingRequired === 0   // advisory gaps do not spoil a tick
   return (
     <div className="card" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -262,6 +263,13 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
   )
 }
 
+function addMonthsISO(iso, months) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1 + months, d))
+  return dt.toISOString().slice(0, 10)
+}
+
 export default function CompliancePage({ user, companies = [], properties = [], companySettings = {}, showToast, openDetail }) {
   const { T } = useTheme()
   // Sub-view is addressable (#/compliance/<sub>) so deep links from the old
@@ -296,21 +304,81 @@ export default function CompliancePage({ user, companies = [], properties = [], 
   const active = useMemo(() => (properties || []).filter(p => p.status !== 'sold' && !p.archived_at), [properties])
   const filtered = coFilter === 'all' ? active : active.filter(p => p.company_id === coFilter)
 
+  // Items logged from this page in this session, merged into each property so
+  // the cards and tiles update without a reload (properties arrive as props).
+  const [added, setAdded] = useState({})
+  const withAdded = p => added[p.id] ? { ...p, compliance_items: [...(p.compliance_items || []), ...added[p.id]] } : p
+
+  // ── Log one certificate for a whole building ────────────────────────────
+  // A Gas Safe engineer does the block in one visit; entering that fifteen
+  // times per flat is why the register stays empty. Pick the building, the
+  // requirement, the dates, and every unit that is not already in date gets
+  // the same item.
+  const buildings = useMemo(() => groupPropertiesByBuilding(filtered).filter(g => g.isBuilding), [filtered])
+  const [bulk, setBulk] = useState(null)   // null | { building, key, issue, expiry }
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const bulkReqs = COMPLIANCE_CATALOGUE.filter(r => r.tier <= 2 && r.group !== 'tenancy' && r.group !== 'insurance')
+  const REMINDER_DAYS = { gas_safety: 30, eicr: 60, epc: 90, hmo: 90, selective_licence: 90 }
+  const openBulk = () => {
+    const today = new Date().toISOString().slice(0, 10)
+    setBulk({ building: buildings[0]?.tail || '', key: 'gas_safety', issue: today, expiry: addMonthsISO(today, 12) })
+  }
+  const setBulkKey = key => setBulk(b => { const req = bulkReqs.find(r => r.key === key); return { ...b, key, expiry: addMonthsISO(b.issue, req?.cycleMonths || 12) } })
+  const setBulkIssue = issue => setBulk(b => { const req = bulkReqs.find(r => r.key === b.key); return { ...b, issue, expiry: addMonthsISO(issue, req?.cycleMonths || 12) } })
+  const bulkTargets = useMemo(() => {
+    if (!bulk) return []
+    const g = buildings.find(x => x.tail === bulk.building)
+    if (!g) return []
+    // Units where this certificate is not already valid or merely expiring.
+    return g.items.map(withAdded).filter(p => {
+      const st = certTypeStatus(p, bulk.key)
+      return !(st?.state === 'valid' || st?.state === 'expiring')
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulk, buildings, added])
+  async function saveBulk() {
+    if (!bulk || bulkTargets.length === 0) return
+    const req = bulkReqs.find(r => r.key === bulk.key)
+    setBulkSaving(true)
+    let done = 0
+    const next = { ...added }
+    for (const p of bulkTargets) {
+      try {
+        const row = await api.createCompliance(p.id, {
+          cert_type: req.key, cert_name: req.label, issue_date: bulk.issue || null, expiry_date: bulk.expiry || null,
+          reminder_days: REMINDER_DAYS[req.key] || 30, notes: `Logged for the whole building (${bulk.building}) on ${new Date().toISOString().slice(0, 10)}`,
+        })
+        next[p.id] = [...(next[p.id] || []), row]
+        done++
+      } catch (e) { showToast?.(`${p.name}: ${e.message || 'could not save'}`, 'error') }
+    }
+    setAdded(next); setBulkSaving(false); setBulk(null)
+    showToast?.(`${req.short} logged for ${done} unit${done === 1 ? '' : 's'} in ${bulk.building}`, 'success')
+  }
+  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }
+  const inp = { width: '100%', padding: '7px 8px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontFamily: mono, fontSize: 12 }
+
   // Portfolio-level summary tiles for the overview.
   const totals = useMemo(() => {
-    let expired = 0, expiring = 0, missingRequired = 0, fullyInDate = 0
-    for (const p of filtered) {
+    // Legal (tier 1 and 2) and advisory (tier 3: PAT, boiler service,
+    // inventory, insurance) are counted apart. Until 2026-09 a single missing
+    // advisory item stopped a property ever reading as "fully in date", which
+    // is how a 153-property portfolio showed 0 in date and 1,221 missing.
+    let expired = 0, expiring = 0, missingRequired = 0, advisoryGaps = 0, fullyInDate = 0
+    for (const p of filtered.map(withAdded)) {
       const s = propertyComplianceSummary(p, settingsFor(p.company_id), policies)
       expired += s.expired
       expiring += s.expiring
-      missingRequired += s.rows.filter(r => r.status.state === 'missing' && r.req.tier <= 2).length
-      if (s.total > 0 && s.expired === 0 && s.missing === 0 && s.expiring === 0) fullyInDate++
+      const missingLegal = s.rows.filter(r => r.status.state === 'missing' && r.req.tier <= 2).length
+      missingRequired += missingLegal
+      advisoryGaps += s.rows.filter(r => r.status.state === 'missing' && r.req.tier === 3).length
+      if (s.total > 0 && s.expired === 0 && s.expiring === 0 && missingLegal === 0) fullyInDate++
     }
-    return { expired, expiring, missingRequired, fullyInDate }
+    return { expired, expiring, missingRequired, advisoryGaps, fullyInDate }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, policies, companySettings])
+  }, [filtered, policies, companySettings, added])
 
-  const ordered = [...companies, { id: null }].flatMap(co => filtered.filter(p => p.company_id === co.id).map(p => ({ p, co: co.id ? co : null })))
+  const ordered = [...companies, { id: null }].flatMap(co => filtered.filter(p => p.company_id === co.id).map(p => ({ p: withAdded(p), co: co.id ? co : null })))
 
   return (
     <div>
@@ -357,14 +425,43 @@ export default function CompliancePage({ user, companies = [], properties = [], 
             <ComplianceMatrix properties={filtered} companies={companies} settingsFor={settingsFor} policies={policies} openDetail={openDetail} T={T} />
           ) : (
             <div className="fade">
-              <div className="summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
+              {buildings.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                  {!bulk && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={openBulk}>Log a certificate for a whole building</button>}
+                </div>
+              )}
+              {bulk && (
+                <div style={{ background: T.card, border: `1px solid ${T.gold}`, borderRadius: 14, padding: '14px 16px', marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'end' }}>
+                  <div><label style={lbl}>Building</label>
+                    <select value={bulk.building} onChange={e => setBulk(b => ({ ...b, building: e.target.value }))} style={inp}>
+                      {buildings.map(g => <option key={g.tail} value={g.tail}>{g.tail} · {g.items.length} units</option>)}
+                    </select></div>
+                  <div><label style={lbl}>Certificate</label>
+                    <select value={bulk.key} onChange={e => setBulkKey(e.target.value)} style={inp}>
+                      {bulkReqs.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                    </select></div>
+                  <div><label style={lbl}>Issued</label>
+                    <input type="date" value={bulk.issue} onChange={e => setBulkIssue(e.target.value)} style={inp} /></div>
+                  <div><label style={lbl}>Expires</label>
+                    <input type="date" value={bulk.expiry} onChange={e => setBulk(b => ({ ...b, expiry: e.target.value }))} style={inp} /></div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</button>
+                    <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</button>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: 10, color: T.faint }}>
+                    Units already in date for this certificate are skipped.{bulkTargets.length === 0 && bulk.building ? ' Every unit in this building is already covered.' : ''}
+                  </div>
+                </div>
+              )}
+              <div className="summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}>
                 {[
                   { l: 'Expired', v: totals.expired, c: T.red },
                   { l: 'Expiring soon', v: totals.expiring, c: T.amber },
-                  { l: 'Missing required', v: totals.missingRequired, c: T.red },
-                  { l: 'Fully in date', v: totals.fullyInDate, c: T.green },
+                  { l: 'Missing (legal)', v: totals.missingRequired, c: T.red, hint: 'Tier 1 and 2: required by law for this property' },
+                  { l: 'Advisory gaps', v: totals.advisoryGaps, c: T.muted, hint: 'Tier 3: recommended or lender-required, not statutory' },
+                  { l: 'Legally in date', v: totals.fullyInDate, c: T.green, hint: 'Properties with every legal requirement valid' },
                 ].map(t => (
-                  <div key={t.l} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '16px 18px' }}>
+                  <div key={t.l} title={t.hint || ''} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '16px 18px' }}>
                     <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t.l}</div>
                     <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 500, color: t.c }}>{t.v}</div>
                   </div>
