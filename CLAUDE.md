@@ -60,12 +60,13 @@ Model A (PR-based) under auto mode, same shape as FortaOS:
 - Sync `main` in by **merge, never rebase / `--force`.** The squash at merge time
   collapses the merge commits, so `main` stays clean and no force-push is ever
   needed.
-- **Pre-merge gate (local CI substitute):** `npm run build` (`vite build`) is a
-  **hard gate** — it is what Vercel runs to deploy — and `npm test` (vitest) must
-  pass too. GitHub Actions (`.github/workflows/build.yml`) runs `npm ci && npm
-  test && npm run build` on every PR; wait for it if branch protection requires
-  it. *Currently `main` carries no required-status-check protection, so the local
-  gate is the real guard — worth enabling branch protection so CI is enforced.*
+- **Pre-merge gate (local CI substitute):** `npm run lint`, `npm test` and
+  `npm run build` must all pass. Build is what Vercel runs to deploy; lint is
+  the one most often skipped, and esbuild tolerates things eslint rejects (a
+  duplicate import passed 619 tests and a clean build, then failed CI on PR
+  #121). GitHub Actions (`.github/workflows/build.yml`) runs `npm ci && npm run
+  lint && npm test && npm run build` on every PR, and since 2026-09-07 `main`
+  requires the `build` check to pass before anything lands.
 - **The user saying "merge" IS the per-merge approval.** Once the gate is green,
   Claude proceeds to `gh pr merge <n> --squash`, posting a summary for the record
   (not as a second question). Re-confirm only on a material change to what was
@@ -115,12 +116,18 @@ set up a worktree before editing.
 
 ## Stack (summary)
 
-- **Frontend:** Vite + React 19 (plain `.jsx`, no TypeScript) in `src/`. Mapbox,
+- **Frontend:** Vite + React 18.3 (plain `.jsx`, no TypeScript) in `src/`. Mapbox,
   Plausible + Vercel analytics. Service worker is version-stamped on build.
 - **Hosting:** Vercel; `main` auto-deploys. Security headers + CSP in `vercel.json`.
 - **Backend:** Supabase project **`hqrhqbkqxzllmzhcofrh`** (production) — Postgres
   with RLS, Edge Functions in `supabase-functions/`, migrations in
   `supabase-migrations/`.
+- **Repo is the source of record for Edge Functions.** Every function deployed
+  to production has its source under `supabase-functions/<slug>/index.ts`.
+  Before deploying, diff the deployed source (MCP `get_edge_function`) against
+  the repo; after deploying, commit what was deployed in the same PR. Five
+  functions lived only in production from June to September 2026 and one
+  (scrape-listing) was an open proxy nobody could see. Never again.
 - **Integrations:** Stripe (billing + webhooks), Xero (accounting sync), Plaid +
   TrueLayer (open banking), HMRC MTD (`mtd-submit`), e-sign, document OCR, and the
   Claude API (`api.anthropic.com`) for the AI features (bookkeeping, lettings
