@@ -12,12 +12,28 @@ import { createServer } from 'vite'
 import fs from 'node:fs'
 import path from 'node:path'
 
-// Modules under src/ read import.meta.env at import time. The prerender never
-// talks to Supabase, but the client module must construct, so give it
-// placeholders when the build environment (CI) has none. Nothing from these
-// values reaches the HTML.
-process.env.VITE_SUPABASE_URL ||= 'https://prerender.invalid'
-process.env.VITE_SUPABASE_ANON_KEY ||= 'prerender-placeholder'
+// The pages being rendered never talk to Supabase, but ThemeContext imports
+// the client module, and constructing supabase-js under Node 20 fails
+// ("Node.js 20 detected without native WebSocket support", the realtime
+// dependency). Rather than pin CI and Vercel to Node 22, swap that one module
+// for an inert stub for the duration of the render.
+const supabasePath = path.resolve('src/lib/supabase.js')
+const STUB = `export const supabase = {
+  auth: { getSession: async () => ({ data: { session: null } }), getUser: async () => ({ data: { user: null } }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
+  from: () => ({ select: () => ({}), insert: () => ({}), update: () => ({}), delete: () => ({}) }),
+  rpc: async () => ({ data: null, error: null }),
+}`
+const stubSupabase = {
+  name: 'prerender-stub-supabase',
+  enforce: 'pre',
+  async resolveId(id, importer) {
+    const r = await this.resolve(id, importer, { skipSelf: true })
+    if (r && r.id.split('?')[0] === supabasePath) return '\0supabase-stub'
+    return null
+  },
+  load(id) { if (id === '\0supabase-stub') return STUB },
+}
 
 const dist = path.resolve('dist')
 const shellPath = path.join(dist, 'index.html')
@@ -29,7 +45,7 @@ const META = {
   security: { title: 'Security — Properly', description: 'How Properly protects landlord and tenant data: encryption, row-level security, backups, access control and incident handling.', path: '/security' },
 }
 
-const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
+const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error', plugins: [stubSupabase] })
 try {
   const { renderPage } = await vite.ssrLoadModule('/src/prerender/entry.jsx')
   const shell = fs.readFileSync(shellPath, 'utf8')
