@@ -21,11 +21,6 @@ export async function fetchCompanies() {
   if (error) throw error
   return data
 }
-export async function createCompany(co) {
-  const { data, error } = await supabase.from('companies').insert({ ...co, user_id: await uid() }).select().single()
-  if (error) throw error
-  return data
-}
 export async function updateCompany(id, updates) {
   const { data, error } = await supabase.from('companies').update(updates).eq('id', id).select().single()
   if (error) throw error
@@ -107,10 +102,6 @@ export async function updateProperty(id, updates) {
     geocodeProperty(data.id, data.address).catch(() => {})
   }
   return data
-}
-export async function deleteProperty(id) {
-  const { error } = await supabase.from('properties').delete().eq('id', id)
-  if (error) throw error
 }
 
 /**
@@ -441,36 +432,6 @@ function monthPeriodBounds(year, month) {
   }
 }
 
-// Legacy month-keyed upsert. The (property,year,month) unique constraint was
-// dropped (a month can now hold multiple dated segments), so we can't use
-// ON CONFLICT anymore — do a manual find-or-insert keyed on the whole month.
-// Used by the App.jsx month strip toggle for properties that still only have
-// one full-month row. For day-level ranges use createRentSegment instead.
-export async function upsertRentPayment(propertyId, year, month, status, amount, notes, periodStart, periodEnd) {
-  const monthLabel = new Date(year, month - 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
-  const payload = { property_id: propertyId, user_id: await uid(), year, month, month_label: monthLabel, status, amount, notes }
-  if (periodStart) payload.period_start = periodStart
-  if (periodEnd)   payload.period_end   = periodEnd
-  const { data: existing } = await supabase
-    .from('rent_payments').select('id, period_start, period_end')
-    .eq('property_id', propertyId).eq('year', year).eq('month', month)
-    .order('period_start', { ascending: true, nullsFirst: true })
-    .limit(1).maybeSingle()
-  // Stamp whole-month period dates when the caller didn't supply any and the
-  // row doesn't already have them — never overwrite an existing dated segment.
-  if (!periodStart && !existing?.period_start) {
-    const bounds = monthPeriodBounds(year, month)
-    payload.period_start = bounds.period_start
-    payload.period_end = periodEnd || existing?.period_end || bounds.period_end
-  }
-  const q = existing
-    ? supabase.from('rent_payments').update(payload).eq('id', existing.id)
-    : supabase.from('rent_payments').insert(payload)
-  const { data, error } = await q.select().single()
-  if (error) throw error
-  return data
-}
-
 // ── RENT SEGMENTS ─────────────────────────────────────────────────────────
 // A "segment" is one dated rent row: period_start..period_end with a status and
 // the amount actually logged for it. Multiple per month are allowed (tenant
@@ -522,17 +483,6 @@ export async function fetchInspections(propertyId) {
     .eq('property_id', propertyId)
     .is('deleted_at', null)
     .order('scheduled_date', { ascending: false })
-  if (error) throw error
-  return data || []
-}
-
-export async function fetchAllInspections(userId) {
-  const { data, error } = await supabase
-    .from('property_inspections')
-    .select('*, property:properties(id,name,address,company_id)')
-    .eq('user_id', userId)
-    .is('deleted_at', null)
-    .order('scheduled_date', { ascending: true })
   if (error) throw error
   return data || []
 }
@@ -612,19 +562,6 @@ export async function fetchUserAccess(userId) {
   // If table doesn't exist, return empty (admin mode)
   if (error) return []
   return data || []
-}
-
-export async function updateUserAccess(userId, companyId, email, grant) {
-  if (grant) {
-    const { error } = await supabase.from('user_company_access')
-      .upsert({ user_id: userId, company_id: companyId, email, is_admin: false },
-        { onConflict: 'user_id,company_id' })
-    if (error) throw error
-  } else {
-    const { error } = await supabase.from('user_company_access')
-      .delete().eq('user_id', userId).eq('company_id', companyId)
-    if (error) throw error
-  }
 }
 
 // ── ROLE MANAGEMENT ───────────────────────────────────────────────────────────
@@ -754,20 +691,7 @@ export function getEffectivePermissions(accessRow, isOwner = false) {
   return { ...base, ...overrides }
 }
 
-// Check a single permission for a user on a company
-export function hasPermission(accessRow, permissionKey, isOwner = false) {
-  if (isOwner) return true
-  const perms = getEffectivePermissions(accessRow, isOwner)
-  return perms[permissionKey] === true
-}
 
-
-// ── COMPANY SETTINGS ──────────────────────────────────────
-export async function fetchCompanySettings(companyId) {
-  const { data, error } = await supabase.from('company_settings').select('*').eq('company_id', companyId).single()
-  if (error) return null
-  return data
-}
 export async function upsertCompanySettings(companyId, settings) {
   const userId = await uid()
   const { data, error } = await supabase.from('company_settings')
@@ -908,15 +832,6 @@ export async function deleteCompliance(id) {
     .eq('id', id)
   if (error) throw error
 }
-export async function fetchAllCompliance(userId) {
-  const { data, error } = await supabase.from('compliance_items')
-    .select('*, property:properties(name,company_id)')
-    .eq('user_id', userId)
-    .is('deleted_at', null)
-    .order('expiry_date')
-  if (error) throw error
-  return data || []
-}
 
 // ── TENANCY DETAILS ───────────────────────────────────────
 export async function upsertTenancyDetails(propertyId, details) {
@@ -966,11 +881,6 @@ export async function fetchExpenses(propertyId) {
 }
 export async function createExpense(propertyId, expense) {
   const { data, error } = await supabase.from('property_expenses').insert({ ...expense, property_id: propertyId, user_id: await uid() }).select().single()
-  if (error) throw error
-  return data
-}
-export async function updateExpense(id, updates) {
-  const { data, error } = await supabase.from('property_expenses').update(updates).eq('id', id).select().single()
   if (error) throw error
   return data
 }
@@ -1032,27 +942,6 @@ export async function ensureFutureRentMonths(properties, monthsAhead = 6) {
   return inserts.length
 }
 
-// ── USER THEME PREFERENCE ─────────────────────────────────────────────────────
-export async function fetchThemePreference(userId) {
-  try {
-    const { data } = await supabase.from('user_profiles')
-      .select('dark_mode').eq('user_id', userId).single()
-    if (data && data.dark_mode !== null && data.dark_mode !== undefined) {
-      return data.dark_mode
-    }
-  } catch(e) {}
-  return null // null = not set yet, use default
-}
-
-export async function saveThemePreference(userId, email, darkMode) {
-  try {
-    await supabase.from('user_profiles').upsert(
-      { user_id: userId, email, dark_mode: darkMode, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
-    )
-  } catch(e) { }
-}
-
 // ── USER PROFILE ──────────────────────────────────────────────────────────────
 export async function fetchUserProfile(userId) {
   const { data } = await supabase.from('user_profiles').select('*').eq('user_id', userId).single()
@@ -1110,16 +999,6 @@ export async function createNote(propertyId, content, category, userId, userEmai
 export async function deleteNote(id) {
   const { error } = await supabase.from('property_notes').delete().eq('id', id)
   if (error) throw error
-}
-
-// ── PROPERTY DOCUMENTS ────────────────────────────────────────────────────────
-export async function fetchDocuments(propertyId) {
-  const { data, error } = await supabase.from('property_documents')
-    .select('*').eq('property_id', propertyId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return data || []
 }
 
 // File upload validation — applied to every Storage write so the bucket
@@ -1213,15 +1092,6 @@ export async function getDocumentSignedUrl(filePath, expiresIn = 300) {
   return data?.signedUrl || null
 }
 
-export async function deleteDocument(doc) {
-  // Soft-delete: flip deleted_at. Storage file stays until 30-day purge/hard-delete.
-  const userId = await uid()
-  const { error } = await supabase.from('property_documents')
-    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-    .eq('id', doc.id)
-  if (error) throw error
-}
-
 // Permanent removal: deletes Storage file AND the DB row. Use only from Trash purge.
 export async function hardDeleteDocument(doc) {
   if (doc.file_path) {
@@ -1229,16 +1099,6 @@ export async function hardDeleteDocument(doc) {
   }
   const { error } = await supabase.from('property_documents').delete().eq('id', doc.id)
   if (error) throw error
-}
-
-// ── COMPANY DOCUMENTS ─────────────────────────────────────────────────────────
-export async function fetchCompanyDocuments(companyId) {
-  const { data, error } = await supabase.from('company_documents')
-    .select('*').eq('company_id', companyId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return data || []
 }
 
 // Attach an insurance policy schedule (etc.) as a company document,
@@ -1265,22 +1125,6 @@ export async function getCompanyDocumentSignedUrlById(documentId) {
     .select('file_path').eq('id', documentId).single()
   if (error || !data?.file_path) return null
   return getDocumentSignedUrl(data.file_path)
-}
-
-export async function uploadCompanyDocument(companyId, file, userId) {
-  validateUpload(file)
-  const ext = file.name.split('.').pop()
-  // {user_id}/company_documents/{companyId}/{ts}.{ext} — see uploadDocument for layout rationale
-  const path = `${userId}/company_documents/${companyId}/${Date.now()}.${ext}`
-  const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
-  if (uploadErr) throw uploadErr
-  // Private bucket — no public URL storage.
-  await supabase.from('company_documents').insert({
-    company_id: companyId, name: file.name,
-    file_path: path,
-    size: file.size, type: file.type, user_id: userId,
-  })
-  return path
 }
 
 // Soft-delete. company_documents has deleted_at + deleted_by columns.
@@ -1598,15 +1442,6 @@ export async function findCompaniesByNameFuzzy(query) {
   return data || []
 }
 
-// ── DEVELOPER / PLATFORM ADMIN ────────────────────────────────────────────────
-export async function fetchIsPlatformAdmin() {
-  try {
-    const { data } = await supabase.from('user_profiles')
-      .select('is_developer, platform_admin').eq('user_id', (await supabase.auth.getUser()).data.user.id).single()
-    return data?.is_developer === true || data?.platform_admin === true
-  } catch(e) { return false }
-}
-
 // ── BILLING ───────────────────────────────────────────────────────────────────
 export async function fetchSubscriptions(companyIds) {
   if (!companyIds.length) return []
@@ -1673,20 +1508,6 @@ export async function setCompanyFreeTier(companyId, isFreeTier, grantedBy) {
     .from('subscriptions')
     .update({ status: isFreeTier ? 'free_tier' : 'trialing' })
     .eq('company_id', companyId)
-}
-
-export async function fetchBillingStatus(companyId) {
-  const { data } = await supabase
-    .from('companies')
-    .select('is_free_tier, trial_ends_at')
-    .eq('id', companyId)
-    .single()
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('status, current_period_end')
-    .eq('company_id', companyId)
-    .single()
-  return { company: data, subscription: sub }
 }
 
 // ── ONBOARDING ────────────────────────────────────────────────────────────────
@@ -2394,13 +2215,6 @@ export async function saveToAddressBook(userId, contact) {
   return data
 }
 
-export async function updateAddressBookEntry(id, fields) {
-  const { data, error } = await supabase.from('address_book')
-    .update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id).select().single()
-  if (error) throw error
-  return data
-}
-
 export async function deleteAddressBookEntry(id) {
   const { error } = await supabase.from('address_book').delete().eq('id', id)
   if (error) throw error
@@ -2573,21 +2387,6 @@ export async function saveCompanySubdomain(companyId, subdomain) {
   if (error) throw error
 }
 
-export async function uploadMaintenancePhoto(jobId, file) {
-  // Maintenance photos can show home interiors so they live in the private
-  // bucket. Stored under the landlord's user-folder for RLS scoping. We DO
-  // NOT return a public URL — callers should use getDocumentSignedUrl when
-  // they need to display the photo. The `path` is the durable identifier;
-  // signed URLs are generated on-demand and expire after 5 minutes.
-  const userId = await uid()
-  const ext = file.name.split('.').pop()
-  const path = `${userId}/maintenance/${jobId}/${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from('property-documents').upload(path, file, { upsert: true })
-  if (error) throw error
-  // Return path only — caller fetches a signed URL when displaying.
-  return { path, name: file.name }
-}
-
 export async function attachPhotosToJob(jobId, photos) {
   const { error } = await supabase.from('maintenance_jobs')
     .update({ photos: photos }).eq('id', jobId)
@@ -2648,15 +2447,6 @@ export async function fetchDeletedProperties(userId) {
     .order('deleted_at', { ascending: false })
   if (error) throw error
   return data || []
-}
-
-// ── SOFT-DELETE FOR ALL ENTITY TYPES ──────────────────────────────────────────
-// Generic helper: soft-delete any row in any table by ID
-export async function softDeleteEntity(table, id, userId) {
-  const { error } = await supabase.from(table)
-    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-    .eq('id', id)
-  if (error) throw error
 }
 
 export async function restoreEntity(table, id) {
@@ -2924,44 +2714,6 @@ export async function fetchAllDeleted(userId) {
 // createManualBackup, deleteBackup, exportUserData are re-exported via
 // src/lib/api/index.js so callers still use `import * as api from '../lib/api'`.
 
-// ── TENANT INBOX ──────────────────────────────────────────────────────────────
-export async function fetchTenantInbox(userId) {
-  // Get all properties for this user
-  const { data: props } = await supabase
-    .from('properties')
-    .select('id, name, address, company_id')
-    .eq('user_id', userId)
-
-  if (!props || props.length === 0) return { messages: [], maintenance: [] }
-
-  const propIds = props.map(p => p.id)
-  const propMap = Object.fromEntries(props.map(p => [p.id, p]))
-
-  // Fetch unread tenant messages
-  const { data: messages } = await supabase
-    .from('tenant_messages')
-    .select('*')
-    .in('property_id', propIds)
-    .eq('sender_type', 'tenant')
-    .is('read_at', null)
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  // Fetch recent tenant-reported maintenance jobs
-  const { data: maintenance } = await supabase
-    .from('maintenance_jobs')
-    .select('*')
-    .in('property_id', propIds)
-    .eq('reported_by_tenant', true)
-    .order('created_at', { ascending: false })
-    .limit(20)
-
-  return {
-    messages: (messages || []).map(m => ({ ...m, property: propMap[m.property_id] })),
-    maintenance: (maintenance || []).map(m => ({ ...m, property: propMap[m.property_id] })),
-  }
-}
-
 export async function markTenantMessageReadByLandlord(messageId) {
   await supabase.from('tenant_messages')
     .update({ read_at: new Date().toISOString() })
@@ -3001,28 +2753,6 @@ export async function saveRightToRent(record) {
     .upsert(record, { onConflict: 'id' }).select().single()
   if (error) throw error
   return data
-}
-
-export async function deleteRightToRent(id) {
-  const { error } = await supabase.from('right_to_rent').delete().eq('id', id)
-  if (error) throw error
-}
-
-export async function fetchAllRightToRent(userId) {
-  const { data: props } = await supabase.from('properties').select('id,name,address').eq('user_id', userId)
-  if (!props?.length) return []
-  const propIds = props.map(p => p.id)
-  const propMap = Object.fromEntries(props.map(p => [p.id, p]))
-  const { data } = await supabase.from('right_to_rent').select('*').in('property_id', propIds).order('expiry_date')
-  return (data || []).map(r => ({ ...r, property: propMap[r.property_id] }))
-}
-
-// ── PORTFOLIO VALUATION ───────────────────────────────────────────────────────
-export async function updatePropertyValuation(propertyId, value) {
-  const { error } = await supabase.from('properties')
-    .update({ current_value: value, value_updated_at: new Date().toISOString() })
-    .eq('id', propertyId)
-  if (error) throw error
 }
 
 // ── REFERRALS ─────────────────────────────────────────────────────────────────
@@ -3119,46 +2849,6 @@ export function calcPropertyHealthScore(property, compliance=[], tenancy=null, m
   const grade = clamped >= 90 ? 'A' : clamped >= 75 ? 'B' : clamped >= 60 ? 'C' : clamped >= 40 ? 'D' : 'F'
   const color = clamped >= 90 ? '#2ECC8A' : clamped >= 75 ? '#4B8FE0' : clamped >= 60 ? '#C8A84B' : clamped >= 40 ? '#E0943A' : '#E05555'
   return { score: clamped, grade, color, issues }
-}
-
-// ── DEPOSIT PROTECTION ────────────────────────────────────────────────────────
-export async function deleteDepositProtection(id) {
-  const { error } = await supabase.from('deposit_protection').delete().eq('id', id)
-  if (error) throw error
-}
-
-// ── LEGAL NOTICES ─────────────────────────────────────────────────────────────
-export async function fetchLegalNotices(propertyId) {
-  const { data, error } = await supabase.from('legal_notices').select('*').eq('property_id', propertyId).order('served_date', { ascending: false })
-  if (error) throw error; return data || []
-}
-export async function saveLegalNotice(record) {
-  const { data, error } = await supabase.from('legal_notices').upsert(record, { onConflict: 'id' }).select().single()
-  if (error) throw error; return data
-}
-export async function deleteLegalNotice(id) {
-  const { error } = await supabase.from('legal_notices').delete().eq('id', id)
-  if (error) throw error
-}
-
-// ── RENT INCREASES ────────────────────────────────────────────────────────────
-export async function fetchRentIncreases(propertyId) {
-  const { data, error } = await supabase.from('rent_increases').select('*').eq('property_id', propertyId).order('effective_date', { ascending: false })
-  if (error) throw error; return data || []
-}
-export async function saveRentIncrease(record) {
-  const { data, error } = await supabase.from('rent_increases').upsert(record, { onConflict: 'id' }).select().single()
-  if (error) throw error; return data
-}
-
-// ── BULK PROPERTY ACTIONS ─────────────────────────────────────────────────────
-export async function bulkUpdateProperties(ids, updates) {
-  const { error } = await supabase.from('properties').update(updates).in('id', ids)
-  if (error) throw error
-}
-export async function bulkSoftDeleteProperties(ids, userId) {
-  const { error } = await supabase.from('properties').update({ deleted_at: new Date().toISOString(), deleted_by: userId }).in('id', ids)
-  if (error) throw error
 }
 
 // ── DEPOSIT PROTECTION ────────────────────────────────────────────────────────
@@ -3482,27 +3172,6 @@ export async function fetchMyActiveFlags() {
     return active
   } catch(e) {
     return new Set()
-  }
-}
-
-// ── PERMISSIONS HELPER ────────────────────────────────────────────────────────
-// Given a user + company, return their effective permission object
-// Uses isDeveloper flag to grant everything to dev users
-export async function fetchMyPermissionsForCompany(companyId, isDeveloper = false) {
-  if (isDeveloper) return { ...ROLE_DEFAULTS.owner, _role: 'developer' }
-  try {
-    const user = (await supabase.auth.getUser()).data.user
-    if (!user) return Object.keys(ROLE_DEFAULTS.admin).reduce((a,k)=>({...a,[k]:false}),{ _role: 'none' })
-    // Check ownership
-    const { data: co } = await supabase.from('companies').select('owner_id').eq('id', companyId).single()
-    if (co?.owner_id === user.id) return { ...ROLE_DEFAULTS.owner, _role: 'owner' }
-    // Check access row
-    const { data: access } = await supabase.from('user_company_access').select('role, is_admin, permissions').eq('company_id', companyId).eq('user_id', user.id).single()
-    if (!access) return Object.keys(ROLE_DEFAULTS.admin).reduce((a,k)=>({...a,[k]:false}),{ _role: 'none' })
-    const perms = getEffectivePermissions(access, false)
-    return { ...perms, _role: access.role || (access.is_admin ? 'admin' : 'editor') }
-  } catch(e) {
-    return Object.keys(ROLE_DEFAULTS.admin).reduce((a,k)=>({...a,[k]:false}),{ _role: 'none' })
   }
 }
 
@@ -3862,19 +3531,6 @@ export async function fetchXeroConnections() {
   return data || []
 }
 
-// Convenience: fetch the connection for a specific company (or null).
-export async function fetchXeroConnection(companyId) {
-  if (!companyId) return null
-  const uid = (await supabase.auth.getUser()).data.user?.id
-  if (!uid) return null
-  const { data, error } = await supabase
-    .from('xero_connections')
-    .select('user_id, company_id, tenant_id, tenant_name, expires_at, scopes, last_sync_at, last_sync_status, last_sync_error, created_at')
-    .eq('user_id', uid).eq('company_id', companyId).maybeSingle()
-  if (error) throw error
-  return data
-}
-
 // Start the Xero OAuth flow for a SPECIFIC company. The companyId is
 // encoded in the state token so the callback knows which company to
 // associate the new tokens with.
@@ -3907,17 +3563,6 @@ export async function runXeroSync(companyId, direction = 'to_xero') {
   if (error) throw error
   if (data?.error) throw new Error(data.error)
   return data
-}
-
-export async function fetchXeroSyncLog(companyId, limit = 20) {
-  const uid = (await supabase.auth.getUser()).data.user?.id
-  if (!uid) return []
-  let q = supabase.from('xero_sync_log').select('*').eq('user_id', uid)
-  if (companyId) q = q.eq('company_id', companyId)
-  const { data, error } = await q
-    .order('started_at', { ascending: false }).limit(limit)
-  if (error) throw error
-  return data || []
 }
 
 // ── Per-(user,company) Xero sync settings ──────────────────────────────
@@ -3985,32 +3630,5 @@ export async function resyncAllXero(companyId) {
   if (error) throw error
   if (data?.error) throw new Error(data.error)
   return data?.cleared || 0
-}
-
-// Toggle the daily reconciliation cron on/off for this (user, company).
-// Row in xero_cron_schedules exists ↔ cron is enabled.
-export async function setXeroCronEnabled(companyId, enabled) {
-  if (!companyId) throw new Error('companyId required')
-  const uid = (await supabase.auth.getUser()).data.user?.id
-  if (!uid) throw new Error('Not signed in')
-  if (enabled) {
-    const { error } = await supabase.from('xero_cron_schedules')
-      .upsert({ user_id: uid, company_id: companyId }, { onConflict: 'user_id,company_id' })
-    if (error) throw error
-  } else {
-    const { error } = await supabase.from('xero_cron_schedules')
-      .delete().eq('user_id', uid).eq('company_id', companyId)
-    if (error) throw error
-  }
-  return enabled
-}
-
-export async function fetchXeroCronStatus(companyId) {
-  if (!companyId) return null
-  const uid = (await supabase.auth.getUser()).data.user?.id
-  if (!uid) return null
-  const { data } = await supabase.from('xero_cron_schedules')
-    .select('*').eq('user_id', uid).eq('company_id', companyId).maybeSingle()
-  return data
 }
 
