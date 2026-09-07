@@ -1684,8 +1684,9 @@ export default function App() {
   // "Room 10") — the same order the Company / Name sort displays. Persists a
   // fresh sort_order for every property, so every view that renders the
   // canonical array (Day Tracker, dashboards, dropdowns) reads it too.
-  function resetCustomOrder() {
-    if (!window.confirm('Reset the custom order to the default (company → building → unit)? This overwrites any drag ordering.')) return
+  async function resetCustomOrder() {
+    const ok = await confirmDialog({ title: 'Reset the custom order?', body: 'Every property goes back to the default order (company → building → unit). Any drag ordering you have done is overwritten.', confirmLabel: 'Reset order', danger: true })
+    if (!ok) return
     const natSort = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
     const ordered = [...properties].sort((a, b) => {
       const coA = a.company?.name || '', coB = b.company?.name || ''
@@ -2309,9 +2310,9 @@ export default function App() {
           async function convertType() {
             const toHolding=!holding
             if (toHolding && cProps.length>0) return showToast(`${c.name} has ${cProps.length} properties — move them to another company before converting to a holding company`,'error')
-            if (!window.confirm(toHolding
+            if (!(await confirmDialog({ title: toHolding ? `Make ${c.name} a holding company?` : `Make ${c.name} an operating company?`, body: (toHolding
               ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
-              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`)) return
+              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`), confirmLabel: toHolding ? 'Make holding company' : 'Make operating company' }))) return
             try {
               const row=await api.updateCompany(c.id,{company_type:toHolding?'holding':'operating'})
               setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))
