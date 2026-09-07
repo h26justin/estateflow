@@ -11,6 +11,17 @@ export class ErrorBoundary extends Component {
     return { hasError: true, error }
   }
 
+  // A crash on one route must not follow the user to the next. Reset when the
+  // hash changes (the app routes on the hash), so Go Back / a sidebar click
+  // gets a fresh render instead of the same error card.
+  componentDidMount() {
+    this._onHash = () => { if (this.state.hasError) this.setState({ hasError: false, error: null, info: null }) }
+    window.addEventListener('hashchange', this._onHash)
+  }
+  componentWillUnmount() {
+    window.removeEventListener('hashchange', this._onHash)
+  }
+
   componentDidCatch(error, info) {
     // Keep console.error so we can see the actual error in Vercel logs
     console.error('[OwnProperly] Uncaught error:', error?.message || error)
@@ -67,7 +78,9 @@ export class ErrorBoundary extends Component {
               Something went wrong
             </h2>
             <p style={{ fontSize: 13, color: '#6B7191', marginBottom: 20, lineHeight: 1.6 }}>
-              An unexpected error occurred. Your data is safe.
+              {/Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(msg)
+                ? 'Properly was updated while this page was open, so part of it could not load. Refresh to pick up the new version; nothing is lost.'
+                : 'An unexpected error occurred. Your data is safe.'}
             </p>
             {msg && (
               <div style={{
