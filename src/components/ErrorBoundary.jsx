@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { reportClientError } from '../lib/errorReporter'
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -14,6 +15,15 @@ export class ErrorBoundary extends Component {
     // Keep console.error so we can see the actual error in Vercel logs
     console.error('[OwnProperly] Uncaught error:', error?.message || error)
     console.error('[OwnProperly] Component stack:', info?.componentStack?.split('\n').slice(0,5).join('\n'))
+    // Until 2026-09-07 this was where the trail ended: the user saw the
+    // fallback and nobody else ever knew. Now it lands in client_errors and
+    // the nightly audit counts it.
+    reportClientError({
+      message: error?.message || String(error),
+      stack: error?.stack,
+      kind: 'boundary',
+      component: info?.componentStack?.split('\n').map(l => l.trim()).filter(Boolean)[0] || null,
+    })
     this.setState({ info })
   }
 
