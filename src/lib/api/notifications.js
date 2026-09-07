@@ -10,6 +10,7 @@ export async function fetchNotifications(limit = 30) {
   const { data, error } = await supabase
     .from('notifications')
     .select('id, type, title, body, link, metadata, read_at, created_at')
+    .or(`snoozed_until.is.null,snoozed_until.lt.${new Date().toISOString()}`)   // snoozed items stay out of sight until their date
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) throw error
@@ -20,6 +21,7 @@ export async function fetchUnreadNotificationCount() {
   const { count, error } = await supabase
     .from('notifications')
     .select('id', { count: 'exact', head: true })
+    .or(`snoozed_until.is.null,snoozed_until.lt.${new Date().toISOString()}`)   // snoozed items stay out of sight until their date
     .is('read_at', null)
   if (error) throw error
   return count || 0
@@ -221,4 +223,23 @@ export async function createNotification({ type, title, body = null, link = null
     .single()
   if (error) throw error
   return data
+}
+
+// Hide a notification until a date (default a week). It comes back unread.
+export async function snoozeNotification(id, days = 7) {
+  const until = new Date(Date.now() + days * 86_400_000).toISOString()
+  const { error } = await supabase.from('notifications').update({ snoozed_until: until }).eq('id', id)
+  if (error) throw error
+  return until
+}
+
+// Remove every notification of one type for the current user (the panel's
+// "Clear all" on a group). The dedupe trigger means the next occurrence
+// creates a single fresh row rather than re-flooding.
+export async function clearNotificationsOfType(type) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return 0
+  const { data, error } = await supabase.from('notifications').delete().eq('user_id', user.id).eq('type', type).select('id')
+  if (error) throw error
+  return data?.length || 0
 }

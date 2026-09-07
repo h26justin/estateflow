@@ -21,6 +21,7 @@
 import { useState, useEffect } from 'react'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
+import { useConfirm } from '../lib/ConfirmContext'
 import { TAX_BAND_LABELS } from '../lib/companyPnl'
 
 const inputStyle = (T) => ({
@@ -46,6 +47,7 @@ function CardShell({ title, sub, T, children, action }) {
 // showAgents — hide the Managing Agents card for companies that have no
 // properties to manage (holding companies).
 export default function CompanyOwnershipSection({ company, companies = [], properties = [], user, canEdit, T, showToast, showAgents = true }) {
+  const confirmDialog = useConfirm()
   const [shareholders, setShareholders] = useState([])
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -142,7 +144,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
 
   async function removeAgent(agent) {
     const managedHere = properties.filter(p => p.managed_by_agent_id === agent.id).length
-    if (managedHere > 0 && !window.confirm(`${agent.name} manages ${managedHere} of this company's properties — remove anyway? Properties keep their data but lose the agent link.`)) return
+    if (managedHere > 0 && !(await confirmDialog({ title: `Remove ${agent.name}?`, body: (`${agent.name} manages ${managedHere} of this company's properties — remove anyway? Properties keep their data but lose the agent link.`), confirmLabel: 'Remove agent', danger: true }))) return
     try {
       await api.deleteEstateAgent(agent.id)
       setAgents(a => a.filter(x => x.id !== agent.id))

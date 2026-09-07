@@ -6,11 +6,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
 import { safeOverlayClose } from '../lib/modalUtils'
-import {
-  listAutopilotActions,
-  actOnAutopilotAction,
-  dismissAutopilotAction,
-} from '../lib/api/autopilot'
+import { listAutopilotActions, actOnAutopilotAction, dismissAutopilotAction, bulkActOnAutopilotActions, bulkDismissAutopilotActions, snoozeAutopilotAction } from '../lib/api/autopilot'
 
 const KIND_META = {
   arrears:         { icon: 'pound', label: 'Arrears' },
@@ -143,6 +139,45 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
     }
   }
 
+  async function handleSnooze(a) {
+    setBusyId(a.id)
+    try {
+      await snoozeAutopilotAction(a.id, 30)
+      setActions(prev => prev.filter(x => x.id !== a.id))
+      setViewing(null)
+      showAppToast('Snoozed for 30 days', 'info')
+    } catch (e) {
+      showAppToast(e.message || 'Could not snooze', 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+  // Bulk: everything currently shown by the company and task filters.
+  async function handleBulk(kind) {
+    const ids = filtered.map(a => a.id)
+    if (!ids.length) return
+    const verb = kind === 'act' ? 'Mark as actioned' : 'Dismiss'
+    const ok = await confirmDialog({
+      title: `${verb} all ${ids.length} shown?`,
+      body: kind === 'act'
+        ? 'Every suggestion in the current view is recorded as actioned. Nothing is sent or booked; this only clears the list.'
+        : 'Every suggestion in the current view is dismissed. Autopilot will not raise the same items again for 30 days.',
+      confirmLabel: verb,
+      danger: kind !== 'act',
+    })
+    if (!ok) return
+    setBusyId('bulk')
+    try {
+      const n = kind === 'act' ? await bulkActOnAutopilotActions(ids) : await bulkDismissAutopilotActions(ids)
+      const done = new Set(ids)
+      setActions(prev => prev.filter(x => !done.has(x.id)))
+      showAppToast(`${n} ${kind === 'act' ? 'marked as actioned' : 'dismissed'}`, 'success')
+    } catch (e) {
+      showAppToast(e.message || 'Bulk update failed', 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
   async function handleDismiss(a) {
     const ok = await confirmDialog({ title: 'Dismiss this suggestion?', body: 'It will be removed from your review list.', confirmLabel: 'Dismiss' })
     if (!ok) return
@@ -191,7 +226,15 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
           Portfolio Autopilot
         </h1>
-        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {filtered.length > 1 && (
+            <>
+              <button className="btn btn-ghost" style={{ fontSize: 11 }} disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</button>
+              <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red }} disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')}>Dismiss all {filtered.length} shown</button>
+            </>
+          )}
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
+        </div>
       </div>
       <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24 }}>
         Daily AI-drafted action list. Every item is a suggestion for you to review — approving an item never sends or books anything automatically.
@@ -307,6 +350,10 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                             onClick={() => handleDismiss(a)}
                           >
                             Dismiss
+                          </button>
+                          <button className="btn btn-ghost" style={{ fontSize: 11 }} disabled={busyId === a.id}
+                            onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
+                            Snooze 30d
                           </button>
                         </div>
                       </div>

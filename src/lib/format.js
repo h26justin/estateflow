@@ -95,3 +95,14 @@ export function parseMoney(str) {
   const n = parseFloat(cleaned)
   return isNaN(n) ? NaN : n
 }
+
+// Dates. Everything in the app stores ISO 'YYYY-MM-DD' (or a timestamp); the
+// UI shows British short forms. These two replace eleven per-file copies.
+const asDate = d => {
+  if (!d) return null
+  const s = String(d)
+  const dt = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T00:00:00') : new Date(s)
+  return Number.isNaN(dt.getTime()) ? null : dt
+}
+export const fmtDate = d => { const dt = asDate(d); return dt ? dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' }
+export const fmtDateShort = d => { const dt = asDate(d); return dt ? dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—' }

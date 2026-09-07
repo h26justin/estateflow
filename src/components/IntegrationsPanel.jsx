@@ -731,7 +731,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       setSettings(s || {
         sync_rent: true, sync_expenses: true, sync_mortgage_interest: false,
         sync_tracking_categories: true, sync_real_tenant_contacts: false,
-        pull_reconciliation: true,
+        pull_reconciliation: true, pull_expenses: false,
         per_property_bank_accounts: {},
       })
       setAccounts(accts || [])
@@ -808,6 +808,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       </Section>
 
       <Section title="What to pull back (Xero → Properly)">
+        <Toggle keyName="pull_expenses" label="← Pull expenses from Xero (SPEND)" desc="Mirrors every Xero bank spend that carries this company's Property tracking option into Properly's expenses, once, so the P&L stops being income-only. Needs tracking categories on. Off by default." />
         <Toggle keyName="pull_reconciliation"  label="Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
         <Toggle keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to Properly. Off by default — leave off if you treat Properly as the source of truth." />
       </Section>

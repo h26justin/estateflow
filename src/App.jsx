@@ -339,6 +339,9 @@ function getStatusColor(status) {
 // text sat at ~1.8:1 on paid-green). STL/pending keep their purple identity
 // via a matching hand-tuned pair (purple isn't in the shared STATUS set).
 const STL_PAIR = { light: { text:'#6E44B8', bg:'#F0EAFB' }, dark: { text:'#B89BEF', bg:'#241A38' } }
+// A short-term-let booking whose stay has not finished yet: recorded, not yet
+// income (see 2026-09-07_stl_pending_until_stayed.sql). Same hue, lighter.
+const STL_PENDING_PAIR = { light: { text:'#8F73CF', bg:'#F8F5FD' }, dark: { text:'#9C86D4', bg:'#1B1529' } }
 function rentStatusPair(status, darkMode) {
   if (status === 'pending') return darkMode ? STL_PAIR.dark : STL_PAIR.light
   const key = { paid:'ok', overdue:'bad', missed:'bad', late:'warn', partial:'warn', refurb:'info' }[status] || 'void'
@@ -389,7 +392,9 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
 
   // Paid STL segments render as the pseudo-status 'stl' (purple) so
   // short-term-let days read differently from long-term rent.
-  const segStatus = p => (p.status === 'paid' && stlIds?.has(p.id)) ? 'stl' : p.status
+  const segStatus = p => stlIds?.has(p.id)
+    ? (p.status === 'paid' ? 'stl' : p.status === 'pending' ? 'stl_pending' : p.status)
+    : p.status
 
   function getDayStatus(day) {
     const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
@@ -410,7 +415,9 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
   // restate the legacy raw hues with white labels).
   const pairFor = (status) => status === 'stl'
     ? (darkMode ? STL_PAIR.dark : STL_PAIR.light)
-    : rentStatusPair(status, darkMode)
+    : status === 'stl_pending'
+      ? (darkMode ? STL_PENDING_PAIR.dark : STL_PENDING_PAIR.light)
+      : rentStatusPair(status, darkMode)
   const monthName = new Date(year, month-1).toLocaleString('en-GB', {month:'long', year:'numeric'})
   const cells = []
   for (let i = 0; i < firstDow; i++) cells.push(null)
@@ -571,14 +578,15 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, propert
         const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
         const isCurrent = m.year === currentYear && m.month === currentMonth
         const isStlPaid = m.isStl && m.status === 'paid'
+        const isStlPending = m.isStl && m.status === 'pending'
         // Redesign: full 3-letter month name in the cell, STATUS TINT as the
         // fill with the AA text colour for the label (the previous raw-hue
         // fill + white label read at ~1.8:1 on paid-green), gold outline for
         // the current month, hatched fill for future months.
         const eng = m.eng && m.eng.state !== 'future' ? m.eng : null
-        const pair = eng ? enginePair(eng, darkMode) : (isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : rentStatusPair(m.status, darkMode))
+        const pair = eng ? enginePair(eng, darkMode) : (isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : isStlPending ? (darkMode ? STL_PENDING_PAIR.dark : STL_PENDING_PAIR.light) : rentStatusPair(m.status, darkMode))
         const name = MONTH_NAMES[(m.month||1)-1]
-        const statusLabel = isFuture ? 'future' : eng ? `${STATE_LABEL[eng.state]}${eng.needsBackfill ? ', needs backfill' : ''}${eng.override ? ', overridden' : ''}${eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) ? ', payment plan' : ''}` : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
+        const statusLabel = isFuture ? 'future' : eng ? `${STATE_LABEL[eng.state]}${eng.needsBackfill ? ', needs backfill' : ''}${eng.override ? ', overridden' : ''}${eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) ? ', payment plan' : ''}` : (isStlPaid ? 'short-term let, paid' : isStlPending ? 'short-term let, booked, stay not yet completed' : (m.status || 'void'))
         const isGrey = eng && eng.state === 'not_collectible'
         const isLegacy = eng && eng.state === 'legacy'
         const boxStyle = isFuture
@@ -595,7 +603,7 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, propert
           // appeared on touch.
           <button key={m.id} type="button"
             aria-label={`${m.month_label || `${name} ${m.year}`}: ${statusLabel}${isFuture ? '' : ' — open day view'}`}
-            title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL booked (paid)' : m.status} — click for day view`}
+            title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL stayed (paid)' : isStlPending ? 'STL booked, not yet stayed' : m.status} — click for day view`}
             disabled={isFuture}
             onClick={!isFuture ? (e)=>{e.stopPropagation();setPopover(m)} : undefined}
             style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',padding:0,position:'relative',
@@ -1684,8 +1692,9 @@ export default function App() {
   // "Room 10") — the same order the Company / Name sort displays. Persists a
   // fresh sort_order for every property, so every view that renders the
   // canonical array (Day Tracker, dashboards, dropdowns) reads it too.
-  function resetCustomOrder() {
-    if (!window.confirm('Reset the custom order to the default (company → building → unit)? This overwrites any drag ordering.')) return
+  async function resetCustomOrder() {
+    const ok = await confirmDialog({ title: 'Reset the custom order?', body: 'Every property goes back to the default order (company → building → unit). Any drag ordering you have done is overwritten.', confirmLabel: 'Reset order', danger: true })
+    if (!ok) return
     const natSort = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
     const ordered = [...properties].sort((a, b) => {
       const coA = a.company?.name || '', coB = b.company?.name || ''
@@ -2309,9 +2318,9 @@ export default function App() {
           async function convertType() {
             const toHolding=!holding
             if (toHolding && cProps.length>0) return showToast(`${c.name} has ${cProps.length} properties — move them to another company before converting to a holding company`,'error')
-            if (!window.confirm(toHolding
+            if (!(await confirmDialog({ title: toHolding ? `Make ${c.name} a holding company?` : `Make ${c.name} an operating company?`, body: (toHolding
               ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
-              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`)) return
+              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`), confirmLabel: toHolding ? 'Make holding company' : 'Make operating company' }))) return
             try {
               const row=await api.updateCompany(c.id,{company_type:toHolding?'holding':'operating'})
               setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))
@@ -4630,7 +4639,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
+            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
                 <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
               </span>
@@ -5133,7 +5142,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
+          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
             <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>

@@ -91,3 +91,13 @@ describe('parseMoney — string → number', () => {
     expect(parseMoney(42)).toBe(42)
   })
 })
+
+import { fmtDate, fmtDateShort } from '../format'
+describe('fmtDate / fmtDateShort', () => {
+  it('formats ISO dates in British short form and dashes the empties', () => {
+    expect(fmtDate('2026-09-07')).toBe('7 Sept 2026')
+    expect(fmtDateShort('2026-09-07')).toBe('7 Sept')
+    expect(fmtDate(null)).toBe('—'); expect(fmtDate('')).toBe('—'); expect(fmtDate('not a date')).toBe('—')
+    expect(fmtDate('2026-09-07T13:10:00Z')).toMatch(/7 Sept 2026/)
+  })
+})
