@@ -28,6 +28,14 @@ const CSS = `
   .mkt-btn-white{background:white;color:${SLATE};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;}
   .mkt-btn-white:hover{background:${CREAM};}
   .feat-card{background:${CREAM};border:1px solid ${BORDER};border-radius:14px;padding:26px 26px;transition:border-color 0.18s,transform 0.18s,box-shadow 0.18s;}
+  .screen-tab{background:transparent;border:1px solid ${BORDER};color:${MUTED};font-family:${MONO};font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all 0.15s;}
+  .screen-tab:hover{border-color:${SLATE};color:${SLATE};}
+  .screen-tab.active{background:${SLATE};border-color:${SLATE};color:${WHITE};}
+  .screen-tab:focus-visible{outline:2px solid ${GOLD};outline-offset:2px;}
+  .screen-frame{background:${WHITE};border:1px solid ${BORDER};border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(28,40,48,0.14),0 2px 6px rgba(28,40,48,0.06);}
+  .screen-frame-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:#F7F6F2;border-bottom:1px solid ${BORDER};}
+  .screen-frame-bar span{width:10px;height:10px;border-radius:50%;background:#D9D5CB;display:inline-block;}
+  .screen-frame-url{margin-left:12px;font-family:${MONO};font-size:11px;color:${MUTED};background:${WHITE};border:1px solid ${BORDER};border-radius:6px;padding:3px 10px;}
   .feat-card:hover{border-color:${GOLD}88;transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,0.07);}
   @media(max-width:768px){
     .mkt-hero-btns{flex-direction:column!important;align-items:stretch!important;}
@@ -141,9 +149,36 @@ const steps = [
   { n: '3', title: 'Run your portfolio', desc: 'Track rent, stay compliant, manage repairs and generate reports — everything from one clean dashboard.' },
 ]
 
+// Real screens from a live portfolio (the founder's own), captured 7 Sep
+// 2026. Guest and manager names are masked; the properties are not.
+// Files live in public/screens; crop is the top 1000px of a 1606px-wide app
+// window, saved as WebP.
+const SCREENS = [
+  { id: 'dashboard',  label: 'Dashboard',        img: '/screens/dashboard.webp',
+    title: 'The whole portfolio on one page',
+    desc: '153 properties across six companies: value, equity, a health score, the items that need attention today, Autopilot suggestions and AI insights that name the property and the number.' },
+  { id: 'rent',       label: 'Rent Tracker',     img: '/screens/rent-tracker.webp',
+    title: 'Every month of every tenancy, at a glance',
+    desc: 'Paid, due, missed and part-paid month squares per property, grouped by company and building, with the collection rate and arrears position for the year always current.' },
+  { id: 'stl',        label: 'Short-term lets',  img: '/screens/stl-income.webp',
+    title: 'Airbnb and Booking.com income, after the fees',
+    desc: 'Gross, platform fees, manager fees and net to owner for any period; occupancy, ADR and RevPAR on the rooms actually open; who is in house tonight and who arrives this week.' },
+  { id: 'compliance', label: 'Compliance',       img: '/screens/compliance.webp',
+    title: 'Certificates and paperwork per property',
+    desc: 'Gas, EICR, EPC, smoke and CO, licences, deposits and Right to Rent for each unit, with legal requirements separated from advisory gaps and a one-click entry for a whole building.' },
+  { id: 'deals',      label: 'Deals',            img: '/screens/deals.webp',
+    title: 'A pipeline for what you might buy next',
+    desc: 'Analysing, offer made, under offer, exchanged and completed, with price, yield and photos on every card and a full deal pack PDF one click away.' },
+  { id: 'refurbs',    label: 'Refurbs',          img: '/screens/refurbs.webp',
+    title: 'Agreed price against what you have paid',
+    desc: 'Each refurb with its agreed total, extras, payments so far and remaining to pay, filtered by company, so the money committed to works is never a guess.' },
+]
+
 export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeNav, setActiveNav] = useState('home')
+  const [screen, setScreen] = useState(SCREENS[0].id)
+  const shot = SCREENS.find(x => x.id === screen) || SCREENS[0]
 
   function scrollTo(id) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
@@ -219,6 +254,40 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           ))}
         </div>
       </div>
+
+      <section id="screens" style={{ padding: '80px 24px 72px', background: CREAM, borderBottom: `1px solid ${BORDER}` }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Inside Properly</div>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Real screens, real portfolio</h2>
+            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>
+              These are live pages from the founder's own 153-property portfolio, not mock-ups. Guest and manager names are masked; everything else is as it runs today.
+            </p>
+          </div>
+          <div className="screen-tabs" role="tablist" aria-label="Product screens" style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 22 }}>
+            {SCREENS.map(sc => (
+              <button key={sc.id} role="tab" aria-selected={sc.id === shot.id} onClick={() => setScreen(sc.id)}
+                className={'screen-tab' + (sc.id === shot.id ? ' active' : '')}>
+                {sc.label}
+              </button>
+            ))}
+          </div>
+          <div className="screen-frame">
+            <div className="screen-frame-bar" aria-hidden="true">
+              <span/><span/><span/>
+              <div className="screen-frame-url">www.ownproperly.com/#/{shot.id}</div>
+            </div>
+            <img key={shot.id} src={shot.img} alt={`Properly ${shot.label} page: ${shot.title}`} width={1606} height={1000} loading={shot.id === SCREENS[0].id ? 'eager' : 'lazy'} decoding="async"
+              style={{ display: 'block', width: '100%', height: 'auto' }}/>
+          </div>
+          <div className="screen-caption" style={{ display: 'flex', gap: 24, alignItems: 'flex-start', marginTop: 22, maxWidth: 860, margin: '22px auto 0' }}>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600, color: SLATE, marginBottom: 8, letterSpacing: '-0.01em' }}>{shot.title}</h3>
+              <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED, lineHeight: 1.8 }}>{shot.desc}</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section style={{ padding: '88px 24px 72px', background: WHITE }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
