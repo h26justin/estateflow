@@ -109,3 +109,22 @@ Push/merge → Vercel deploy. Notes:
 - `index.html` retains `'unsafe-inline'` for scripts (inline consent/SW bootstrap + static marketing pages; hashing would break un-hashed inline scripts).
 - Landlord-side UI for sharing documents with tenants (`shared_with_tenant` flag) exists in the API but has no UI control yet — tenant Documents tab will be empty until that's added.
 - bank-plaid per-row upsert errors are logged but don't fail the sync; near-miss amounts now create notifications instead of mutating rent rows.
+
+## Repo ↔ production parity (added 2026-09-07)
+
+Two things drift silently on this project and both have bitten:
+
+1. **Edge Functions.** Deploying by hand (dashboard, MCP `deploy_edge_function`)
+   without committing leaves production running code the repo does not have.
+   Rule: commit the exact deployed source in the same PR as the deploy. To
+   check parity, list deployed functions (MCP `list_edge_functions`) and confirm
+   every slug has `supabase-functions/<slug>/index.ts`; for any doubt, pull the
+   deployed source (`get_edge_function`) and `diff` it.
+2. **Migrations.** `supabase-migrations/*.sql` are applied through MCP
+   `apply_migration` with a `name`; Supabase records that name and a timestamp in
+   its migration history (`list_migrations`), not the file name. Name the
+   migration the same as the file's stem (`2026-09-05_stl_manager_payouts.sql`
+   → `stl_manager_payouts`) so the two can be matched by eye. The longer-term
+   fix is the Supabase CLI workflow (`supabase db push` / `db diff` from CI),
+   which needs the CLI installed and a one-time reconciliation of the 108 legacy
+   files; until then, verify against the live schema, never the file.
