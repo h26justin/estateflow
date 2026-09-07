@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, memo, lazy, Suspense
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
-import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS } from './lib/nav'
+import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS, AUTO_ENABLE_NAV_KEYS, navSeenMarker } from './lib/nav'
 import { REPORT_CATALOGUE } from './lib/reportCatalogue'
 import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from './lib/rentStats'
 import { canDo } from './lib/permissions'
@@ -1335,7 +1335,19 @@ export default function App() {
         // Nav / yield / account prefs from the same row.
         // Stored prefs may predate the Insurance → Compliance rename (2026-08);
         // map the old key so nobody loses the entry from their rail.
-        if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items.map(k => k === 'insurance' ? 'compliance' : k))
+        if (prof?.nav_items && prof.nav_items.length > 0) {
+          let prefs = prof.nav_items.map(k => k === 'insurance' ? 'compliance' : k)
+          // Items introduced after this account saved its list (e.g. Refurbs,
+          // 2026-09) appear once automatically, with a seen-marker so a later
+          // opt-out sticks. Persisted best-effort; the rail updates regardless.
+          const missing = AUTO_ENABLE_NAV_KEYS.filter(k => !prefs.includes(k) && !prefs.includes(navSeenMarker(k)))
+          if (missing.length > 0) {
+            prefs = [...prefs, ...missing, ...missing.map(navSeenMarker)]
+            supabase.from('user_profiles').update({ nav_items: prefs, updated_at: new Date().toISOString() }).eq('user_id', user.id)
+              .then(({ error }) => { if (error) console.error('nav auto-enable persist failed', error) })
+          }
+          setUserNavPrefs(prefs)
+        }
         else setUserNavPrefs(DEFAULT_NAV_KEYS)
         if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
         setAccountType(prof?.account_type || null)

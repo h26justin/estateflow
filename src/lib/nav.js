@@ -26,9 +26,9 @@ export const ALL_NAV = [
   { key: 'properties',     label: 'Portfolio',      icon: 'building',     short: 'Portfolio', required: true,  group: 'Portfolio',   mobileRank: 0 },
   // Refurbs (2026-09): every refurbishment across every company in one
   // place, agreed price versus payments. Sits under Portfolio on Justin's
-  // ruling. Like STL, users whose stored nav_items predate it must switch it
-  // on in Settings -> Navigation; the seed default includes it. mobileRank 9
-  // so it never displaces an existing bottom-bar slot.
+  // ruling. Listed in AUTO_ENABLE_NAV_KEYS below so accounts whose stored
+  // nav_items predate it get it switched on once. mobileRank 9 so it never
+  // displaces an existing bottom-bar slot.
   { key: 'refurbs',        label: 'Refurbs',        icon: 'hammer',       short: 'Refurbs',   required: false, group: 'Portfolio',   mobileRank: 9 },
   { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
   // Short-term-let booking income (Hostaway / Lodgify), kept out of the
@@ -49,6 +49,15 @@ export const ALL_NAV = [
   { key: 'renters-rights', label: 'Renters Rights', icon: 'scale',        short: 'RRA',       required: false, group: 'Growth & AI', mobileRank: 7, flag: 'renters_rights' },
   { key: 'settings',       label: 'Settings',       icon: 'settings',     short: 'Settings',  required: true,  group: 'System',      mobileRank: 0 },
 ]
+
+// Items added after launch that existing accounts should see without having
+// to find the toggle. On load, App.jsx adds any of these that a stored list
+// lacks, and records a `seen:<key>` marker in the same list so it happens
+// once: if the user later switches the item off, the marker keeps it off.
+// Markers are inert everywhere else (nothing renders a key that is not in
+// ALL_NAV). Remove a key from here once every account has the marker.
+export const AUTO_ENABLE_NAV_KEYS = ['refurbs']
+export const navSeenMarker = key => `seen:${key}`
 
 // The one default list, used both as the runtime pref fallback and as the
 // seed when the first toggle is saved. Flag-gated items are excluded — the
