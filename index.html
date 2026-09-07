@@ -41,10 +41,13 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 
     <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'"/>
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap"/></noscript>
+    <!-- Self-hosted (public/fonts): no third-party request on first paint, no
+         Google Fonts cookie question for UK visitors. Regenerate with the
+         command noted at the top of public/fonts/fonts.css. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/SchibstedGrotesk-400-latin.woff2" crossorigin/>
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/DMMono-400-latin.woff2" crossorigin/>
+    <link rel="stylesheet" href="/fonts/fonts.css"/>
+    <link rel="preconnect" href="https://hqrhqbkqxzllmzhcofrh.supabase.co" crossorigin/>
 
     <!-- Structured Data: SoftwareApplication -->
     <script type="application/ld+json">
