@@ -22,18 +22,11 @@ export default function CustomizeDashModal({
   const mono = MONO
   const [tab, setTab] = useState(initialTab)
 
-  // Build initial section state, with all known keys
-  const buildState = (current, defOrder, defEnabled) => {
-    const map = {}; (current || []).forEach(w => { map[w.key] = w.enabled })
-    const existing = (current || []).map(w => w.key)
-    const existingSet = new Set(existing)
-    const orderedKeys = existing.length > 0
-      ? [...existing, ...defOrder.filter(k => !existingSet.has(k))]
-      : [...defOrder]
-    return orderedKeys.map(k => ({ key:k, enabled: map[k] !== undefined ? map[k] : (defEnabled[k] !== false) }))
-  }
+  // Initial state for both lists: saved prefs merged with the current defaults
+  // by the same resolver the dashboard uses, so a new section or widget shows
+  // up here in the same slot and with the same enabled flag as on the page.
   const [sections, setSections] = useState(() =>
-    buildState(currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled))
+    resolveWidgetPrefs(currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled))
   // Widgets share their resolver with the KPI grid so a widget the user has
   // never saved lands in the same slot here as it does on the dashboard.
   const [widgets, setWidgets] = useState(() =>
