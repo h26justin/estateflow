@@ -250,13 +250,21 @@ const BreakdownRow = memo(({item, T}) => {
 
 const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
+  const [alignRight,setAlignRight] = useState(false)
   const { T } = useTheme()
   const rootRef = useRef(null)
   // The breakdown opens as an overlay panel below the card rather than
   // inline, so expanding one KPI card never changes the height of its row
   // or shoves the page about. Close on outside click or Escape.
+  //
+  // The panel is wider than the card (PANEL_MIN) so every row and note is
+  // read in full with no scrolling; cards near the right edge of the
+  // viewport anchor the panel to their right edge so it stays on screen.
+  const PANEL_MIN = 560
   useEffect(() => {
     if (!open) return
+    const r = rootRef.current?.getBoundingClientRect()
+    setAlignRight(!!r && r.left + PANEL_MIN > window.innerWidth - 16)
     const onDown = e => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
     const onKey = e => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDown)
@@ -306,12 +314,14 @@ const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,n
       )}
       {open&&breakdown&&(
         <div onClick={e=>e.stopPropagation()}
-          style={{position:'absolute',top:'calc(100% + 6px)',left:0,right:0,zIndex:30,background:T.card,border:`1px solid ${T.gold}`,borderRadius:12,padding:'12px 16px 14px',boxShadow:'0 12px 32px rgba(0,0,0,0.14)',display:'grid',gap:4,cursor:'default',maxHeight:'70vh',overflowY:'auto'}}>
+          style={{position:'absolute',top:'calc(100% + 6px)',...(alignRight?{right:0}:{left:0}),
+            width:`max(100%, min(${PANEL_MIN}px, calc(100vw - 32px)))`,
+            zIndex:30,background:T.card,border:`1px solid ${T.gold}`,borderRadius:12,padding:'14px 18px 16px',boxShadow:'0 12px 32px rgba(0,0,0,0.14)',display:'grid',gap:5,cursor:'default'}}>
           {breakdown.map((item,i)=>(
-            <div key={i}>
+            <div key={i} style={{minWidth:0}}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
               <BreakdownRow item={item} T={T}/>
-              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2}}>{item.note}</div>}
+              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
             </div>
           ))}
         </div>
