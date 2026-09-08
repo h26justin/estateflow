@@ -9,6 +9,7 @@ import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollec
 import { canDo } from './lib/permissions'
 import { propertyNeedsTenancy } from './lib/tenancyUtils'
 import { evaluateProperty, groupByMonth, collectionStats, arrearsSummary, portfolioStats, STATE_LABEL, GO_LIVE } from './lib/rentEngine'
+import { rentMonthSnapshot, monthRate } from './lib/rentForecast'
 import { activePlan } from './lib/paymentPlans'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
@@ -882,7 +883,9 @@ export default function App() {
   const WIDGET_META = {
     portfolio_value:    { icon:'home', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
     monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
-    arrears:            { icon:'alert-triangle', label:'Total Arrears',           description:'Overdue rent and vacant properties' },
+    rent_forecast:      { icon:'trending-up', label:'Rent Forecast',      description:'Collectible rent expected this month from tenancies, with next month ahead' },
+    rent_received:      { icon:'receipt', label:'Rent Received',          description:'Rent actually received this month, last month and the month before' },
+    arrears:          { icon:'alert-triangle', label:'Total Arrears',           description:'Overdue rent and vacant properties' },
     refurb:             { icon:'hammer', label:'In Refurbishment',        description:'Properties under renovation' },
     mortgages:          { icon:'landmark', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
     cashflow_forecast:  { icon:'wallet', label:'Cash Committed', description:'Total cash out across deals + properties, with 90-day urgency split' },
@@ -891,8 +894,8 @@ export default function App() {
     property_count:     { icon:'home', label:'Property Count',          description:'Total properties with rented/vacant split' },
     occupancy_rate:     { icon:'pie-chart', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
-  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
-  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
+  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','rent_forecast','rent_received','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, rent_forecast:true, rent_received:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
 
   // Developer mode toggle — lets a platform admin choose to "see everything"
   // (bypasses per-company permissions). Default OFF on every login: more
@@ -1750,6 +1753,15 @@ export default function App() {
     inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
     total:               dashProps.length,
   }),[dashProps])
+
+  // Forecast vs received rent for this month and the two before it, plus next
+  // month's forecast, for the dashboard's Rent Forecast / Rent Received cards.
+  // Runs the rent engine over the filtered properties so the cards agree with
+  // the Rent Tracker; only the rows in those four months are evaluated.
+  const rentSnapshot = useMemo(() => ({
+    months: rentMonthSnapshot(dashProps),
+    next: rentMonthSnapshot(dashProps, { count: 1, offset: 1 })[0],
+  }), [dashProps])
 
   // Property stats per company — operating companies only. A holding company
   // owns companies, not properties, so it has no property stats: including it
@@ -3141,6 +3153,68 @@ export default function App() {
                       ]}
                     />
                   )},
+                  rent_forecast: { icon:'trending-up', label:'Rent Forecast', render: () => {
+                    // This month's collectible rent from the rent engine
+                    // (tenancy-aware, prorated for move-ins/outs and voids),
+                    // against the contracted figure the Monthly Rental Income
+                    // card shows. Next month rides along as the forward look.
+                    const cur = rentSnapshot.months[0]
+                    const next = rentSnapshot.next
+                    const rate = monthRate(cur)
+                    const sub = cur.periods === 0 ? 'No rent periods for this month yet'
+                      : `${fmt(cur.received)} received so far${rate == null ? '' : ` · ${rate}%`}`
+                    const gap = cur.expected - stats.monthlyRent
+                    return (
+                      <StatCard icon="trending-up" label={`Rent Forecast · ${cur.label}`} value={fmt(cur.expected)} sub={sub} accent={T.gold} onNavigate={()=>setView('rent')} navLabel="Rent"
+                        breakdown={[
+                          {label:`${cur.label} collectible rent`, value:fmt(cur.expected), color:T.gold, note:'What the tenancies say is due this month: mid-month move-ins and move-outs, voids and approved non-chargeable periods are prorated'},
+                          {label:'Contracted monthly rent', value:fmt(stats.monthlyRent), note:'Sum of the monthly rent on every rented or notice-given property'},
+                          {label:'Forecast vs contracted', value:`${gap >= 0 ? '+' : '-'}${fmt(Math.abs(gap))}`, color:Math.abs(gap) < 1 ? T.muted : gap > 0 ? T.green : T.amber},
+                          {label:'Received so far', value:fmt(cur.received), color:T.green, separator:true},
+                          {label:'Still to collect', value:fmt(cur.outstanding), color:cur.outstanding > 0 ? T.amber : T.green},
+                          ...(cur.needsBackfill > 0 ? [{label:`${cur.needsBackfill} paid ${cur.needsBackfill===1?'period':'periods'} with no amount`, value:'⚠', color:T.amber, note:'Marked paid in the Rent Tracker without a figure, so the received total is understated until the amounts are entered'}] : []),
+                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.muted, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
+                          ...companyStats.map(c=>({label:c.name, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color})),
+                        ]}
+                      />
+                    )
+                  }},
+                  rent_received: { icon:'receipt', label:'Rent Received', render: () => {
+                    // Actual rent received for this month, last month and the
+                    // month before, by rent period (the month the rent is
+                    // for, as the Rent Tracker lays it out). Short-term-let
+                    // income is excluded from the headline and footnoted.
+                    const [cur, prev, prev2] = rentSnapshot.months
+                    const rate = monthRate(cur)
+                    const prevRate = monthRate(prev)
+                    // Colour on the completed month: this month is usually
+                    // mid-collection, so it is a poor guide on its own.
+                    const accent = prevRate == null ? T.green : prevRate >= 95 ? T.green : prevRate >= 80 ? T.amber : T.red
+                    const stlTotal = cur.stlReceived + prev.stlReceived + prev2.stlReceived
+                    const monthRow = (mo, isCurrent) => {
+                      const r = monthRate(mo)
+                      return {
+                        label: `${mo.label}${isCurrent ? ' (so far)' : ''}`,
+                        value: fmt(mo.received),
+                        color: r == null ? T.muted : isCurrent ? T.green : r >= 95 ? T.green : r >= 80 ? T.amber : T.red,
+                        note: mo.expected > 0
+                          ? `${r}% of ${fmt(mo.expected)} expected${mo.outstanding > 0 ? ` · ${fmt(mo.outstanding)} outstanding` : ''}${mo.needsBackfill > 0 ? ` · ${mo.needsBackfill} paid with no amount` : ''}`
+                          : (mo.periods === 0 ? 'No rent periods recorded' : 'Nothing expected'),
+                      }
+                    }
+                    return (
+                      <StatCard icon="receipt" label={`Rent Received · ${cur.label}`} value={fmt(cur.received)} sub={`${prev.label.slice(0,3)} ${fmt(prev.received)} · ${prev2.label.slice(0,3)} ${fmt(prev2.received)}`} accent={accent} onNavigate={()=>setView('rent')} navLabel="Rent"
+                        breakdown={[
+                          monthRow(cur, true),
+                          monthRow(prev, false),
+                          monthRow(prev2, false),
+                          {label:`Three-month total`, value:fmt(cur.received + prev.received + prev2.received), color:T.green, separator:true, note:`${rate == null ? '' : `This month ${rate}% collected so far. `}Figures are by rent period, the month the rent is for, matching the Rent Tracker`},
+                          ...companyStats.map(c=>({label:`${c.name} · ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.received || 0), color:c.color})),
+                          ...(stlTotal > 0 ? [{label:'Short-term let income (excluded above)', value:fmt(stlTotal), color:'#9B6FDE', separator:true, note:'Booking income over the same three months, reported in full on the Short-Term Let Income page'}] : []),
+                        ]}
+                      />
+                    )
+                  }},
                   arrears: { icon:'alert-triangle', label:'Total Arrears', render: () => (
                     <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                       breakdown={[
@@ -3357,6 +3431,8 @@ export default function App() {
                 const DEFAULT_WIDGETS = [
                   { key:'portfolio_value', enabled:true },
                   { key:'monthly_rent', enabled:true },
+                  { key:'rent_forecast', enabled:true },
+                  { key:'rent_received', enabled:true },
                   { key:'arrears', enabled:true },
                   { key:'refurb', enabled:true },
                   { key:'mortgages', enabled:true },
@@ -3367,10 +3443,14 @@ export default function App() {
                   { key:'occupancy_rate', enabled:false },
                 ]
                 const currentWidgets = widgetPrefs || DEFAULT_WIDGETS
-                // Add any new widget keys that aren't in saved prefs (default to disabled so existing users aren't surprised)
+                // Add any new widget keys that aren't in saved prefs, using the
+                // widget's default. This matches how the Customize modal and the
+                // sections list resolve new keys; previously new widgets were
+                // always appended disabled here, so the modal showed a new
+                // default-on card as ticked while the grid never rendered it.
                 const knownKeys = new Set(currentWidgets.map(w=>w.key))
                 Object.keys(WIDGET_DEFS).forEach(k => {
-                  if (!knownKeys.has(k)) currentWidgets.push({ key:k, enabled:false })
+                  if (!knownKeys.has(k)) currentWidgets.push({ key:k, enabled: WIDGET_DEFAULT_ENABLED[k] !== false })
                 })
                 const enabledWidgets = currentWidgets.filter(w => w.enabled && WIDGET_DEFS[w.key])
                 const count = enabledWidgets.length
