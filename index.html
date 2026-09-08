@@ -399,7 +399,8 @@
     <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        // A worker script may not sit behind a redirect (apex -> www), so on the bare host this rejects; swallow it.
+        navigator.serviceWorker.register('/sw.js').catch(() => {})
       })
     }
     </script>
