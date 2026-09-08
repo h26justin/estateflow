@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmt, fmtMoney2dp, fmtPct, fmtNum, parseMoney } from '../format'
+import { fmt, fmtMoney2dp, fmtPct, fmtNum, parseMoney, fmtTimeAgo } from '../format'
 
 describe('fmt — GBP currency with no decimals', () => {
   it('formats whole pounds with thousand separators', () => {
@@ -99,5 +99,20 @@ describe('fmtDate / fmtDateShort', () => {
     expect(fmtDateShort('2026-09-07')).toBe('7 Sept')
     expect(fmtDate(null)).toBe('—'); expect(fmtDate('')).toBe('—'); expect(fmtDate('not a date')).toBe('—')
     expect(fmtDate('2026-09-07T13:10:00Z')).toMatch(/7 Sept 2026/)
+  })
+})
+
+describe('fmtTimeAgo — relative activity stamp (Admin > Users "Last active")', () => {
+  const now = new Date('2026-09-08T22:00:00Z')
+  it('buckets by seconds, minutes, hours, days', () => {
+    expect(fmtTimeAgo('2026-09-08T21:59:40Z', now)).toBe('just now')
+    expect(fmtTimeAgo('2026-09-08T21:48:00Z', now)).toBe('12m ago')
+    expect(fmtTimeAgo('2026-09-08T19:00:00Z', now)).toBe('3h ago')
+    expect(fmtTimeAgo('2026-08-30T22:00:00Z', now)).toBe('9d ago')
+  })
+  it('falls back to a short date past 30 days, and dashes null', () => {
+    expect(fmtTimeAgo('2026-07-01T07:41:39Z', now)).toMatch(/1 Jul 26/)
+    expect(fmtTimeAgo(null, now)).toBe('—')
+    expect(fmtTimeAgo('nonsense', now)).toBe('—')
   })
 })
