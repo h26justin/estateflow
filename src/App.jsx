@@ -896,8 +896,7 @@ export default function App() {
 
   const WIDGET_META = {
     portfolio_value:    { icon:'home', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
-    monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
-    rent_forecast:      { icon:'trending-up', label:'Rent Forecast',      description:'Collectible rent expected this month from tenancies, with next month ahead' },
+    monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Collectible rent forecast for this month from tenancies, contracted and annualised totals, next month ahead' },
     rent_received:      { icon:'receipt', label:'Rent Received',          description:'Rent actually received this month, last month and the month before' },
     arrears:          { icon:'alert-triangle', label:'Total Arrears',           description:'Overdue rent and vacant properties' },
     refurb:             { icon:'hammer', label:'In Refurbishment',        description:'Properties under renovation' },
@@ -908,8 +907,8 @@ export default function App() {
     property_count:     { icon:'home', label:'Property Count',          description:'Total properties with rented/vacant split' },
     occupancy_rate:     { icon:'pie-chart', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
-  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','rent_forecast','rent_received','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
-  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, rent_forecast:true, rent_received:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
+  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','rent_received','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, rent_received:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
 
   // Developer mode toggle — lets a platform admin choose to "see everything"
   // (bypasses per-company permissions). Default OFF on every login: more
@@ -3157,38 +3156,43 @@ export default function App() {
                       ]}
                     />
                   )},
-                  monthly_rent: { icon:'pound', label:'Monthly Rental Income', render: () => (
-                    <StatCard icon="pound" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
-                      breakdown={[
-                        ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
-                        {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
-                        {label:'Rented units', value:`${stats.rented} of ${stats.total}`},
-                        {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
-                      ]}
-                    />
-                  )},
-                  rent_forecast: { icon:'trending-up', label:'Rent Forecast', render: () => {
-                    // This month's collectible rent from the rent engine
-                    // (tenancy-aware, prorated for move-ins/outs and voids),
-                    // against the contracted figure the Monthly Rental Income
-                    // card shows. Next month rides along as the forward look.
+                  monthly_rent: { icon:'pound', label:'Monthly Rental Income', render: () => {
+                    // One card for "what should this month bring in": the
+                    // headline is the rent engine's collectible rent for the
+                    // month (tenancy-aware, prorated for move-ins/outs, voids
+                    // and non-chargeable periods). The contracted rent_pcm
+                    // total, annualised figure and next month's forecast sit on
+                    // the face; the previous separate Rent Forecast card was
+                    // retired because it duplicated this one.
                     const cur = rentSnapshot.months[0]
                     const next = rentSnapshot.next
                     const rate = monthRate(cur)
-                    const sub = cur.periods === 0 ? 'No rent periods for this month yet'
-                      : `${fmt(cur.received)} received so far${rate == null ? '' : ` · ${rate}%`}`
+                    const hasPeriods = cur.periods > 0
+                    const headline = hasPeriods ? cur.expected : stats.monthlyRent
                     const gap = cur.expected - stats.monthlyRent
+                    const sub = hasPeriods
+                      ? `${fmt(cur.received)} received so far${rate == null ? '' : ` · ${rate}%`}`
+                      : 'No rent periods for this month yet · showing contracted rent'
                     return (
-                      <StatCard icon="trending-up" label={`Rent Forecast · ${cur.label}`} value={fmt(cur.expected)} sub={sub} accent={T.gold} onNavigate={()=>setView('rent')} navLabel="Rent"
+                      <StatCard icon="pound" label={`Monthly Rental Income · ${cur.label}`} value={fmt(headline)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
+                        strip={[
+                          {label:'Contracted', value:`${fmt(stats.monthlyRent)}/mo`},
+                          {label:'Annualised', value:`${fmt(stats.monthlyRent*12)}/yr`},
+                          {label:`${next.label.slice(0,3)} forecast`, value:fmt(next.expected), color:T.gold},
+                          {label:'Still to collect', value:fmt(cur.outstanding), color:cur.outstanding > 0 ? T.amber : T.green},
+                        ]}
                         breakdown={[
-                          {label:`${cur.label} collectible rent`, value:fmt(cur.expected), color:T.gold, note:'What the tenancies say is due this month: mid-month move-ins and move-outs, voids and approved non-chargeable periods are prorated'},
+                          {label:`${cur.label} collectible rent`, value:fmt(cur.expected), color:T.green, note:'What the tenancies say is due this month: mid-month move-ins and move-outs, voids and approved non-chargeable periods are prorated'},
                           {label:'Contracted monthly rent', value:fmt(stats.monthlyRent), note:'Sum of the monthly rent on every rented or notice-given property'},
                           {label:'Forecast vs contracted', value:`${gap >= 0 ? '+' : '-'}${fmt(Math.abs(gap))}`, color:Math.abs(gap) < 1 ? T.muted : gap > 0 ? T.green : T.amber},
+                          {label:'Annual total (contracted)', value:fmt(stats.monthlyRent*12), color:T.green},
                           {label:'Received so far', value:fmt(cur.received), color:T.green, separator:true},
                           {label:'Still to collect', value:fmt(cur.outstanding), color:cur.outstanding > 0 ? T.amber : T.green},
                           ...(cur.needsBackfill > 0 ? [{label:`${cur.needsBackfill} paid ${cur.needsBackfill===1?'period':'periods'} with no amount`, value:'⚠', color:T.amber, note:'Marked paid in the Rent Tracker without a figure, so the received total is understated until the amounts are entered'}] : []),
                           {label:`${next.label} forecast`, value:fmt(next.expected), color:T.muted, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
-                          ...companyStats.map(c=>({label:c.name, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color})),
+                          {label:'Rented units', value:`${stats.rented} of ${stats.total}`, separator:true},
+                          {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
+                          ...companyStats.map(c=>({label:`${c.name} · ${cur.label.slice(0,3)} forecast`, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color, separator:c===companyStats[0]})),
                         ]}
                       />
                     )
