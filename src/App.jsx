@@ -3459,7 +3459,10 @@ export default function App() {
                 const count = enabledWidgets.length
                 return (
                   <div style={{marginBottom:20}}>
-                    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10}}>
+                    {/* alignItems:start so an expanded card's detail panel only
+                        grows that card; the default stretch made every card in
+                        the row as tall as the open one and pushed the page apart. */}
+                    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10,alignItems:'start'}}>
                       {enabledWidgets.map(w => (
                         <div key={w.key} style={{display:'contents'}}>{WIDGET_DEFS[w.key].render()}</div>
                       ))}
