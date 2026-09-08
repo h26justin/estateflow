@@ -106,3 +106,20 @@ const asDate = d => {
 }
 export const fmtDate = d => { const dt = asDate(d); return dt ? dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' }
 export const fmtDateShort = d => { const dt = asDate(d); return dt ? dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—' }
+
+// Relative stamp for activity columns ("just now", "12m ago", "3h ago",
+// "9d ago"). Past 30 days it falls back to a short date so old stamps stay
+// exact. `now` is injectable for tests.
+export const fmtTimeAgo = (d, now = new Date()) => {
+  const dt = asDate(d)
+  if (!dt) return '—'
+  const s = Math.round((now - dt) / 1000)
+  if (s < 60) return 'just now'
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const days = Math.floor(h / 24)
+  if (days < 30) return `${days}d ago`
+  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+}
