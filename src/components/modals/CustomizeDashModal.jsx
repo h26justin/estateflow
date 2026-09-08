@@ -15,7 +15,7 @@ import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
 
 export default function CustomizeDashModal({
   initialTab = 'sections',
-  sectionDefs, currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled, sectionPlacement, onSaveSections,
+  sectionDefs, currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled, onSaveSections,
   widgetDefs, currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled, onSaveWidgets,
   onClose, T,
 }) {
@@ -26,7 +26,7 @@ export default function CustomizeDashModal({
   // by the same resolver the dashboard uses, so a new section or widget shows
   // up here in the same slot and with the same enabled flag as on the page.
   const [sections, setSections] = useState(() =>
-    resolveWidgetPrefs(currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled, sectionPlacement))
+    resolveWidgetPrefs(currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled))
   // Widgets share their resolver with the KPI grid so a widget the user has
   // never saved lands in the same slot here as it does on the dashboard.
   const [widgets, setWidgets] = useState(() =>

@@ -942,11 +942,11 @@ export default function App() {
     portfolio_modeller: { icon:'trending-up',    label:'Portfolio What-If Modeller',  description:'Model rent changes, refinancing, and other scenarios' },
     company_documents:  { icon:'folder',         label:'Company Documents',           description:'Documents stored at company level (only shows when a company is selected)' },
   }
-  const SECTION_DEFAULT_ORDER   = ['smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','rent_income','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
-  // Rental Income pins itself directly above the KPI cards for anyone who has
-  // not yet placed it, whatever order their other sections are in. Once saved
-  // from Customize > Sections, the user's position wins.
-  const SECTION_PLACEMENT = { before: { rent_income: 'kpi_grid' } }
+  // Rental Income leads the page for every user who has not positioned it
+  // (ruled 8 Sep 2026: new section, everyone should see it first). Being the
+  // first default key, the resolver inserts it at the top of any saved layout
+  // that lacks it; once saved from Customize > Sections, the user's order wins.
+  const SECTION_DEFAULT_ORDER   = ['rent_income','smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
   const SECTION_DEFAULT_ENABLED = { rent_income:true, kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
   const WIDGET_META = {
@@ -3196,7 +3196,7 @@ export default function App() {
               // Same resolver as the KPI widgets: a section the user has never
               // saved lands where the default order puts it (Rental Income sits
               // just above the KPI cards), not at the bottom of the page.
-              const resolvedSections = resolveWidgetPrefs(sectionPrefs, SECTION_DEFAULT_ORDER, SECTION_DEFAULT_ENABLED, SECTION_PLACEMENT)
+              const resolvedSections = resolveWidgetPrefs(sectionPrefs, SECTION_DEFAULT_ORDER, SECTION_DEFAULT_ENABLED)
                 .filter(s => SECTION_DEFS[s.key])
 
               // ── Renderers for each section. Defined here to keep closures
@@ -4259,7 +4259,6 @@ export default function App() {
         currentSectionPrefs={sectionPrefs}
         defaultSectionOrder={SECTION_DEFAULT_ORDER}
         defaultSectionEnabled={SECTION_DEFAULT_ENABLED}
-        sectionPlacement={SECTION_PLACEMENT}
         onSaveSections={(newPrefs) => {
           setSectionPrefs(newPrefs)
           try { localStorage.setItem(`ownproperly_section_prefs_${user.id}`, JSON.stringify(newPrefs)) } catch(e) {}

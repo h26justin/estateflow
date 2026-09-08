@@ -50,6 +50,14 @@ describe('resolveWidgetPrefs', () => {
       .toEqual(['alerts', 'inbox', 'income', 'grid', 'company'])
   })
 
+  it('puts a new first-default key at the top of any saved layout', () => {
+    // Rental Income leads SECTION_DEFAULT_ORDER, so every existing user sees it
+    // first until they move it.
+    const order = ['income', 'alerts', 'grid', 'company']
+    const saved = [{ key: 'grid', enabled: true }, { key: 'company', enabled: true }, { key: 'alerts', enabled: true }]
+    expect(resolveWidgetPrefs(saved, order, {}).map(w => w.key)).toEqual(['income', 'grid', 'company', 'alerts'])
+  })
+
   it('does not mutate the saved array', () => {
     const saved = [{ key: 'value', enabled: true }]
     resolveWidgetPrefs(saved, ORDER, ENABLED)
