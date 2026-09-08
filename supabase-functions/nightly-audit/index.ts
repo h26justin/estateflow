@@ -314,13 +314,20 @@ async function stripeChecks(admin: any): Promise<Check[]> {
       detail: `${evts.length} event(s) 24h · ${undelivered} undelivered >2h`,
     })
 
-    // DB ↔ Stripe drift on subscription status.
+    // DB ↔ Stripe drift on subscription status. 'free_tier' is a DB-only
+    // state: the admin "grant free tier" toggle writes it over whatever
+    // Stripe says, so it can never match and is not drift (it warned for 8
+    // nights in Sept 2026 on a deliberate override). A free-tier company
+    // whose Stripe subscription is still live is listed as information.
     const stripeMap = new Map<string, string>(
       (subs.json?.data || []).map((s: any) => [s.id, s.status]))
-    const drift = (dbSubs.data || []).filter((r: any) =>
-      r.stripe_subscription_id &&
-      stripeMap.has(r.stripe_subscription_id) &&
-      stripeMap.get(r.stripe_subscription_id) !== r.status)
+    const known = (dbSubs.data || []).filter((r: any) =>
+      r.stripe_subscription_id && stripeMap.has(r.stripe_subscription_id))
+    const drift = known.filter((r: any) =>
+      r.status !== 'free_tier' && stripeMap.get(r.stripe_subscription_id) !== r.status)
+    const freeButBilled = known.filter((r: any) =>
+      r.status === 'free_tier' &&
+      ['active', 'trialing', 'past_due'].includes(stripeMap.get(r.stripe_subscription_id) || ''))
     const missing = (dbSubs.data || []).filter((r: any) =>
       r.stripe_subscription_id && !stripeMap.has(r.stripe_subscription_id))
     checks.push({
@@ -328,7 +335,9 @@ async function stripeChecks(admin: any): Promise<Check[]> {
       status: drift.length > 0 || missing.length > 0 ? 'warn' : 'ok',
       detail: `${drift.length} status mismatch(es) · ${missing.length} DB sub(s) unknown to Stripe`
               + (drift.length ? ` — ${drift.map((d: any) =>
-                  `${d.stripe_subscription_id.slice(0, 14)}… db=${d.status}/stripe=${stripeMap.get(d.stripe_subscription_id)}`).join(', ')}` : ''),
+                  `${d.stripe_subscription_id.slice(0, 14)}… db=${d.status}/stripe=${stripeMap.get(d.stripe_subscription_id)}`).join(', ')}` : '')
+              + (freeButBilled.length ? ` · ${freeButBilled.length} free-tier override(s) with a live Stripe sub (${freeButBilled.map((d: any) =>
+                  `${d.stripe_subscription_id.slice(0, 14)}… stripe=${stripeMap.get(d.stripe_subscription_id)}`).join(', ')})` : ''),
     })
     return checks
   } catch (e) {

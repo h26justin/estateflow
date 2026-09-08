@@ -17,6 +17,19 @@ const DEDUPE_MS = 60_000
 let sent = 0
 const recent = new Map()   // message -> last sent ms
 
+// A deploy while the app is open makes the next lazy route fail with a
+// stale-chunk error. main.jsx reloads once on vite:preloadError and sets
+// this sessionStorage flag just before it does; the flag is cleared again on
+// boot. While it is set, the crash is being handled and is not reported.
+// The second failure (reload already tried, so a genuine outage) has no flag
+// and is reported.
+export const CHUNK_RELOADING_KEY = 'ef_chunk_reloading'
+const CHUNK_ERROR = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i
+
+function chunkReloadInFlight() {
+  try { return sessionStorage.getItem(CHUNK_RELOADING_KEY) === '1' } catch { return false }
+}
+
 function buildId() {
   try {
     const m = document.querySelector('script[src*="/assets/index-"]')?.getAttribute('src')?.match(/index-([A-Za-z0-9_-]+)\.js/)
@@ -29,6 +42,7 @@ export function reportClientError({ message, stack, kind = 'error', component = 
     const msg = String(message || 'Unknown error').slice(0, 2000)
     // Browser-extension and cross-origin noise adds nothing actionable.
     if (/ResizeObserver loop|Script error\.?$|chrome-extension:\/\//.test(msg)) return
+    if (CHUNK_ERROR.test(msg) && chunkReloadInFlight()) return
     const now = Date.now()
     if (sent >= MAX_PER_SESSION) return
     const last = recent.get(msg)
