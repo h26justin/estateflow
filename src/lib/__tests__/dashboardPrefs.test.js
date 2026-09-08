@@ -35,6 +35,29 @@ describe('resolveWidgetPrefs', () => {
     expect(resolveWidgetPrefs(saved, ORDER, ENABLED).map(w => w.key)).toContain('gone')
   })
 
+  it('pins an unsaved key directly before its anchor when opts.before names one', () => {
+    // User has the "alerts" sections below the grid; the new key must still
+    // land right above the grid, not after alerts.
+    const order = ['alerts', 'inbox', 'income', 'grid', 'company']
+    const saved = [{ key: 'grid', enabled: true }, { key: 'company', enabled: true }, { key: 'alerts', enabled: true }, { key: 'inbox', enabled: false }]
+    expect(resolveWidgetPrefs(saved, order, {}, { before: { income: 'grid' } }).map(w => w.key))
+      .toEqual(['income', 'grid', 'company', 'alerts', 'inbox'])
+    // Without the anchor it follows the nearest earlier default key (inbox).
+    expect(resolveWidgetPrefs(saved, order, {}).map(w => w.key))
+      .toEqual(['grid', 'company', 'alerts', 'inbox', 'income'])
+    // Anchor missing from the layout: falls back to the default rule.
+    expect(resolveWidgetPrefs([{ key: 'alerts', enabled: true }], order, {}, { before: { income: 'grid' } }).map(w => w.key))
+      .toEqual(['alerts', 'inbox', 'income', 'grid', 'company'])
+  })
+
+  it('puts a new first-default key at the top of any saved layout', () => {
+    // Rental Income leads SECTION_DEFAULT_ORDER, so every existing user sees it
+    // first until they move it.
+    const order = ['income', 'alerts', 'grid', 'company']
+    const saved = [{ key: 'grid', enabled: true }, { key: 'company', enabled: true }, { key: 'alerts', enabled: true }]
+    expect(resolveWidgetPrefs(saved, order, {}).map(w => w.key)).toEqual(['income', 'grid', 'company', 'alerts'])
+  })
+
   it('does not mutate the saved array', () => {
     const saved = [{ key: 'value', enabled: true }]
     resolveWidgetPrefs(saved, ORDER, ENABLED)
