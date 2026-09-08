@@ -11,6 +11,7 @@ import { propertyNeedsTenancy } from './lib/tenancyUtils'
 import { evaluateProperty, groupByMonth, collectionStats, arrearsSummary, portfolioStats, STATE_LABEL, GO_LIVE } from './lib/rentEngine'
 import { rentMonthSnapshot, monthRate } from './lib/rentForecast'
 import { resolveWidgetPrefs } from './lib/dashboardPrefs'
+import RentIncomePanel from './components/RentIncomePanel'
 import { activePlan } from './lib/paymentPlans'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
@@ -248,15 +249,23 @@ const BreakdownRow = memo(({item, T}) => {
   )
 })
 
-const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,navLabel}) => {
+const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
+  const [alignRight,setAlignRight] = useState(false)
   const { T } = useTheme()
   const rootRef = useRef(null)
   // The breakdown opens as an overlay panel below the card rather than
   // inline, so expanding one KPI card never changes the height of its row
   // or shoves the page about. Close on outside click or Escape.
+  //
+  // The panel is wider than the card (PANEL_MIN) so every row and note is
+  // read in full with no scrolling; cards near the right edge of the
+  // viewport anchor the panel to their right edge so it stays on screen.
+  const PANEL_MIN = 560
   useEffect(() => {
     if (!open) return
+    const r = rootRef.current?.getBoundingClientRect()
+    setAlignRight(!!r && r.left + PANEL_MIN > window.innerWidth - 16)
     const onDown = e => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
     const onKey = e => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDown)
@@ -294,6 +303,20 @@ const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,n
       {/* Optional 2-column strip of small label/value pairs on the card face,
           for cards whose story needs a few figures at a glance (e.g. the last
           three months of rent) rather than one sub-line. */}
+      {/* Optional compact table on the card face: `table.columns` are the
+          header labels, each row has `cells` (one per column) and optional
+          per-cell `colors`; `strong` bolds the row. First column left-aligned,
+          the rest right-aligned so figures line up. */}
+      {table&&table.rows.length>0&&(
+        <div style={{display:'grid',gridTemplateColumns:`auto repeat(${table.columns.length-1},minmax(0,auto))`,columnGap:10,rowGap:5,marginTop:10,alignItems:'baseline'}}>
+          {table.columns.map((c,i)=>(
+            <div key={'h'+i} style={{fontFamily:MONO,fontSize:9,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',textAlign:i?'right':'left',whiteSpace:'nowrap'}}>{c}</div>
+          ))}
+          {table.rows.map((r,ri)=>r.cells.map((cell,ci)=>(
+            <div key={ri+'-'+ci} style={{fontFamily:MONO,fontSize:11,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',whiteSpace:'nowrap'}}>{cell}</div>
+          )))}
+        </div>
+      )}
       {strip&&strip.length>0&&(
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px 12px',marginTop:10}}>
           {strip.map((s,i)=>(
@@ -306,12 +329,14 @@ const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,n
       )}
       {open&&breakdown&&(
         <div onClick={e=>e.stopPropagation()}
-          style={{position:'absolute',top:'calc(100% + 6px)',left:0,right:0,zIndex:30,background:T.card,border:`1px solid ${T.gold}`,borderRadius:12,padding:'12px 16px 14px',boxShadow:'0 12px 32px rgba(0,0,0,0.14)',display:'grid',gap:4,cursor:'default',maxHeight:'70vh',overflowY:'auto'}}>
+          style={{position:'absolute',top:'calc(100% + 6px)',...(alignRight?{right:0}:{left:0}),
+            width:`max(100%, min(${PANEL_MIN}px, calc(100vw - 32px)))`,
+            zIndex:30,background:T.card,border:`1px solid ${T.gold}`,borderRadius:12,padding:'14px 18px 16px',boxShadow:'0 12px 32px rgba(0,0,0,0.14)',display:'grid',gap:5,cursor:'default'}}>
           {breakdown.map((item,i)=>(
-            <div key={i}>
+            <div key={i} style={{minWidth:0}}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
               <BreakdownRow item={item} T={T}/>
-              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2}}>{item.note}</div>}
+              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
             </div>
           ))}
         </div>
@@ -894,6 +919,7 @@ export default function App() {
   // add a new section, add it in BOTH places (the render fn list at
   // ~line 1750, plus the three constants here).
   const SECTION_META = {
+    rent_income:        { icon:'pound',          label:'Rental Income',               description:'Due vs collected by month, year to date, with a per-company split' },
     kpi_grid:           { icon:'pie-chart',      label:'KPI cards',                   description:'Portfolio value, monthly rent, arrears, and other key metrics' },
     by_company:         { icon:'grid',           label:'By Company',                  description:'A card per company with its property/rent stats' },
     smart_alerts:       { icon:'alert-triangle', label:'Items needing attention',     description:'Smart alerts: overdue rent, expiring compliance, vacant properties' },
@@ -904,13 +930,13 @@ export default function App() {
     portfolio_modeller: { icon:'trending-up',    label:'Portfolio What-If Modeller',  description:'Model rent changes, refinancing, and other scenarios' },
     company_documents:  { icon:'folder',         label:'Company Documents',           description:'Documents stored at company level (only shows when a company is selected)' },
   }
-  const SECTION_DEFAULT_ORDER   = ['smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
-  const SECTION_DEFAULT_ENABLED = { kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
+  const SECTION_DEFAULT_ORDER   = ['smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','rent_income','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
+  const SECTION_DEFAULT_ENABLED = { rent_income:true, kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
   const WIDGET_META = {
     portfolio_value:    { icon:'home', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
     monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Rent expected this month from tenancies, contracted and annualised totals, next month ahead' },
-    rent_received:      { icon:'receipt', label:'Rent Collected',         description:'Rent collected this month with outstanding, plus the two previous months' },
+    rent_received:      { icon:'receipt', label:'Rent Collected',         description:'Compact due / collected / outstanding table for the last three months and year to date (the Rental Income section shows this in full)' },
     arrears:          { icon:'alert-triangle', label:'Total Arrears',           description:'Overdue rent and vacant properties' },
     refurb:             { icon:'hammer', label:'In Refurbishment',        description:'Properties under renovation' },
     mortgages:          { icon:'landmark', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
@@ -921,7 +947,9 @@ export default function App() {
     occupancy_rate:     { icon:'pie-chart', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
   const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','rent_received','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
-  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, rent_received:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
+  // rent_received is off by default now that the Rental Income section carries
+  // the same figures in full; it stays available for anyone who hides the section.
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, rent_received:false, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
 
   // Developer mode toggle — lets a platform admin choose to "see everything"
   // (bypasses per-company permissions). Default OFF on every login: more
@@ -1784,10 +1812,12 @@ export default function App() {
   // month's forecast, for the dashboard's Rent Forecast / Rent Received cards.
   // Runs the rent engine over the filtered properties so the cards agree with
   // the Rent Tracker; only the rows in those four months are evaluated.
-  const rentSnapshot = useMemo(() => ({
-    months: rentMonthSnapshot(dashProps),
-    next: rentMonthSnapshot(dashProps, { count: 1, offset: 1 })[0],
-  }), [dashProps])
+  // `ytd` covers January to this month (newest first) for the Rental Income
+  // section; `months` is its first three for the KPI card.
+  const rentSnapshot = useMemo(() => {
+    const ytd = rentMonthSnapshot(dashProps, { count: new Date().getMonth() + 1 })
+    return { ytd, months: ytd.slice(0, 3), next: rentMonthSnapshot(dashProps, { count: 1, offset: 1 })[0] }
+  }, [dashProps])
 
   // Property stats per company — operating companies only. A holding company
   // owns companies, not properties, so it has no property stats: including it
@@ -3009,6 +3039,12 @@ export default function App() {
               // ───────────────────────────────────────────────────────────────
 
               const SECTION_DEFS = {
+                rent_income: {
+                  icon: 'pound',
+                  label: 'Rental Income',
+                  description: 'Due vs collected by month, year to date, with a per-company split',
+                  render: () => <RentIncomePanel months={rentSnapshot.ytd} companies={companyStats} onOpenRent={()=>setView('rent')} isMobile={isMobile}/>,
+                },
                 kpi_grid: {
                   icon: 'pie-chart',
                   label: 'KPI cards',
@@ -3141,13 +3177,11 @@ export default function App() {
               // Previously redeclared here, which caused the customise modal
               // to silently miss new sections (e.g. portfolio_insights).
               // Resolve current section prefs, filling in any missing keys from defaults.
-              const savedSections = sectionPrefs || []
-              const savedKeys = new Set(savedSections.map(s => s.key))
-              const resolvedSections = [
-                ...savedSections.filter(s => SECTION_DEFS[s.key]),       // saved order, drop unknown keys
-                ...SECTION_DEFAULT_ORDER.filter(k => !savedKeys.has(k))  // append any new keys at end
-                  .map(k => ({ key: k, enabled: SECTION_DEFAULT_ENABLED[k] !== false })),
-              ]
+              // Same resolver as the KPI widgets: a section the user has never
+              // saved lands where the default order puts it (Rental Income sits
+              // just above the KPI cards), not at the bottom of the page.
+              const resolvedSections = resolveWidgetPrefs(sectionPrefs, SECTION_DEFAULT_ORDER, SECTION_DEFAULT_ENABLED)
+                .filter(s => SECTION_DEFS[s.key])
 
               // ── Renderers for each section. Defined here to keep closures
               //    over dashProps/companies/etc lexically simple.
@@ -3225,10 +3259,20 @@ export default function App() {
                     const sub = cur.expected > 0
                       ? `${cur.label} · ${rate}% of ${fmt(cur.expected)} · ${fmt(cur.outstanding)} outstanding`
                       : `${cur.label} · ${cur.periods === 0 ? 'no rent periods yet' : 'nothing expected'}`
-                    const cell = mo => {
+                    // Card face: one row per month (oldest first, this month
+                    // bold) plus year to date: Due · Collected · Outstanding · %.
+                    const ytd = rentSnapshot.ytd.reduce((a, mo) => ({ expected: a.expected + mo.expected, received: a.received + mo.received }), { expected: 0, received: 0 })
+                    ytd.outstanding = Math.max(0, ytd.expected - ytd.received)
+                    const tableRow = (mo, isCurrent, label) => {
                       const r = monthRate(mo)
-                      return { label:`${mo.label.slice(0,3)} collected`, value:`${fmt(mo.received)}${r == null ? '' : ` · ${r}%`}`, color:completedColor(r) }
+                      const col = isCurrent ? T.green : completedColor(r)
+                      return { strong: isCurrent, cells: [label, fmt(mo.expected), fmt(mo.received), fmt(mo.outstanding), r == null ? '–' : `${r}%`],
+                        colors: [isCurrent ? T.text : T.muted, T.text, T.green, mo.outstanding > 0 ? (isCurrent ? T.amber : col) : T.green, col] }
                     }
+                    const table = { columns: ['Month', 'Due', 'Collected', 'Outstanding', '%'], rows: [
+                      tableRow(prev2, false, prev2.label.slice(0,3)), tableRow(prev, false, prev.label.slice(0,3)), tableRow(cur, true, `${cur.label.slice(0,3)} so far`),
+                      tableRow(ytd, true, `${cur.year} YTD`),
+                    ] }
                     const monthRow = (mo, isCurrent) => {
                       const r = monthRate(mo)
                       return {
@@ -3242,7 +3286,7 @@ export default function App() {
                     }
                     return (
                       <StatCard icon="receipt" label="Rent Collected" value={fmt(cur.received)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
-                        strip={[cell(prev2), cell(prev)]}
+                        table={table}
                         breakdown={[
                           monthRow(cur, true),
                           monthRow(prev, false),
