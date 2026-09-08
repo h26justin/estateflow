@@ -251,12 +251,24 @@ const BreakdownRow = memo(({item, T}) => {
 const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
   const { T } = useTheme()
+  const rootRef = useRef(null)
+  // The breakdown opens as an overlay panel below the card rather than
+  // inline, so expanding one KPI card never changes the height of its row
+  // or shoves the page about. Close on outside click or Escape.
+  useEffect(() => {
+    if (!open) return
+    const onDown = e => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
+    const onKey = e => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
   // Cards with a breakdown keep click = expand; navigation gets its own
   // explicit link so the two affordances never fight. Cards without a
   // breakdown navigate on click directly.
   const clickable = breakdown || onNavigate
   return (
-    <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
+    <div ref={rootRef} style={{position:'relative',zIndex:open?30:undefined,background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
       onClick={breakdown?()=>setOpen(o=>!o):(onNavigate||undefined)}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         {/* Redesign: a known icon name renders the hairline glyph in a tinted
@@ -293,7 +305,8 @@ const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,n
         </div>
       )}
       {open&&breakdown&&(
-        <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:12,display:'grid',gap:4}}>
+        <div onClick={e=>e.stopPropagation()}
+          style={{position:'absolute',top:'calc(100% + 6px)',left:0,right:0,zIndex:30,background:T.card,border:`1px solid ${T.gold}`,borderRadius:12,padding:'12px 16px 14px',boxShadow:'0 12px 32px rgba(0,0,0,0.14)',display:'grid',gap:4,cursor:'default',maxHeight:'70vh',overflowY:'auto'}}>
           {breakdown.map((item,i)=>(
             <div key={i}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
@@ -896,8 +909,8 @@ export default function App() {
 
   const WIDGET_META = {
     portfolio_value:    { icon:'home', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
-    monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Collectible rent forecast for this month from tenancies, contracted and annualised totals, next month ahead' },
-    rent_received:      { icon:'receipt', label:'Rent Received',          description:'Rent actually received this month, last month and the month before' },
+    monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Rent expected this month from tenancies, contracted and annualised totals, next month ahead' },
+    rent_received:      { icon:'receipt', label:'Rent Collected',         description:'Rent collected this month with outstanding, plus the two previous months' },
     arrears:          { icon:'alert-triangle', label:'Total Arrears',           description:'Overdue rent and vacant properties' },
     refurb:             { icon:'hammer', label:'In Refurbishment',        description:'Properties under renovation' },
     mortgages:          { icon:'landmark', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
@@ -3164,78 +3177,79 @@ export default function App() {
                     // total, annualised figure and next month's forecast sit on
                     // the face; the previous separate Rent Forecast card was
                     // retired because it duplicated this one.
+                    // This card answers "what should come in"; what HAS come
+                    // in lives on Rent Collected, so nothing is repeated.
                     const cur = rentSnapshot.months[0]
                     const next = rentSnapshot.next
-                    const rate = monthRate(cur)
                     const hasPeriods = cur.periods > 0
                     const headline = hasPeriods ? cur.expected : stats.monthlyRent
                     const gap = cur.expected - stats.monthlyRent
-                    const sub = hasPeriods
-                      ? `${fmt(cur.received)} received so far${rate == null ? '' : ` · ${rate}%`}`
-                      : 'No rent periods for this month yet · showing contracted rent'
+                    const sub = !hasPeriods ? `${cur.label} · no rent periods yet, showing contracted rent`
+                      : Math.abs(gap) < 1 ? `Expected ${cur.label} · matches contracted rent`
+                      : `Expected ${cur.label} · ${fmt(Math.abs(gap))} ${gap > 0 ? 'above' : 'below'} contracted`
                     return (
-                      <StatCard icon="pound" label={`Monthly Rental Income · ${cur.label}`} value={fmt(headline)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
+                      <StatCard icon="pound" label="Monthly Rental Income" value={fmt(headline)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                         strip={[
                           {label:'Contracted', value:`${fmt(stats.monthlyRent)}/mo`},
-                          {label:'Annualised', value:`${fmt(stats.monthlyRent*12)}/yr`},
                           {label:`${next.label.slice(0,3)} forecast`, value:fmt(next.expected), color:T.gold},
-                          {label:'Still to collect', value:fmt(cur.outstanding), color:cur.outstanding > 0 ? T.amber : T.green},
+                          {label:'Annualised', value:`${fmt(stats.monthlyRent*12)}/yr`},
+                          {label:'Rented', value:`${stats.rented} of ${stats.total}`},
                         ]}
                         breakdown={[
-                          {label:`${cur.label} collectible rent`, value:fmt(cur.expected), color:T.green, note:'What the tenancies say is due this month: mid-month move-ins and move-outs, voids and approved non-chargeable periods are prorated'},
+                          {label:`Expected ${cur.label}`, value:fmt(cur.expected), color:T.green, note:'What the tenancies say is due this month: mid-month move-ins and move-outs, voids and approved non-chargeable periods are prorated'},
                           {label:'Contracted monthly rent', value:fmt(stats.monthlyRent), note:'Sum of the monthly rent on every rented or notice-given property'},
-                          {label:'Forecast vs contracted', value:`${gap >= 0 ? '+' : '-'}${fmt(Math.abs(gap))}`, color:Math.abs(gap) < 1 ? T.muted : gap > 0 ? T.green : T.amber},
-                          {label:'Annual total (contracted)', value:fmt(stats.monthlyRent*12), color:T.green},
-                          {label:'Received so far', value:fmt(cur.received), color:T.green, separator:true},
-                          {label:'Still to collect', value:fmt(cur.outstanding), color:cur.outstanding > 0 ? T.amber : T.green},
-                          ...(cur.needsBackfill > 0 ? [{label:`${cur.needsBackfill} paid ${cur.needsBackfill===1?'period':'periods'} with no amount`, value:'⚠', color:T.amber, note:'Marked paid in the Rent Tracker without a figure, so the received total is understated until the amounts are entered'}] : []),
-                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.muted, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
+                          {label:'Expected vs contracted', value:`${gap >= 0 ? '+' : '-'}${fmt(Math.abs(gap))}`, color:Math.abs(gap) < 1 ? T.muted : gap > 0 ? T.green : T.amber},
+                          {label:'Annualised (contracted)', value:fmt(stats.monthlyRent*12), color:T.green},
+                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.gold, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
                           {label:'Rented units', value:`${stats.rented} of ${stats.total}`, separator:true},
                           {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
-                          ...companyStats.map(c=>({label:`${c.name} · ${cur.label.slice(0,3)} forecast`, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color, separator:c===companyStats[0]})),
+                          ...companyStats.map(c=>({label:`${c.name} · expected ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color, separator:c===companyStats[0]})),
                         ]}
                       />
                     )
                   }},
-                  rent_received: { icon:'receipt', label:'Rent Received', render: () => {
-                    // Actual rent received for this month, last month and the
-                    // month before, by rent period (the month the rent is
-                    // for, as the Rent Tracker lays it out). Short-term-let
-                    // income is excluded from the headline and footnoted.
+                  rent_received: { icon:'receipt', label:'Rent Collected', render: () => {
+                    // What HAS come in: this month's collected rent with its
+                    // percentage and outstanding, and the two previous months
+                    // on the face. By rent period (the month the rent is for,
+                    // as the Rent Tracker lays it out). Short-term-let income
+                    // is excluded from the headline and footnoted.
+                    //
+                    // Colour semantics: green = money in; the warning colours
+                    // are reserved for COMPLETED months whose collection window
+                    // has closed. This month mid-collection is never red.
                     const [cur, prev, prev2] = rentSnapshot.months
                     const rate = monthRate(cur)
-                    const prevRate = monthRate(prev)
-                    // Colour on the completed month: this month is usually
-                    // mid-collection, so it is a poor guide on its own.
-                    const accent = prevRate == null ? T.green : prevRate >= 95 ? T.green : prevRate >= 80 ? T.amber : T.red
+                    const completedColor = r => r == null ? T.muted : r >= 95 ? T.green : r >= 80 ? T.amber : T.red
                     const stlTotal = cur.stlReceived + prev.stlReceived + prev2.stlReceived
+                    const sub = cur.expected > 0
+                      ? `${cur.label} · ${rate}% of ${fmt(cur.expected)} · ${fmt(cur.outstanding)} outstanding`
+                      : `${cur.label} · ${cur.periods === 0 ? 'no rent periods yet' : 'nothing expected'}`
+                    const cell = mo => {
+                      const r = monthRate(mo)
+                      return { label:`${mo.label.slice(0,3)} collected`, value:`${fmt(mo.received)}${r == null ? '' : ` · ${r}%`}`, color:completedColor(r) }
+                    }
                     const monthRow = (mo, isCurrent) => {
                       const r = monthRate(mo)
                       return {
                         label: `${mo.label}${isCurrent ? ' (so far)' : ''}`,
                         value: fmt(mo.received),
-                        color: r == null ? T.muted : isCurrent ? T.green : r >= 95 ? T.green : r >= 80 ? T.amber : T.red,
+                        color: isCurrent ? T.green : completedColor(r),
                         note: mo.expected > 0
                           ? `${r}% of ${fmt(mo.expected)} expected${mo.outstanding > 0 ? ` · ${fmt(mo.outstanding)} outstanding` : ''}${mo.needsBackfill > 0 ? ` · ${mo.needsBackfill} paid with no amount` : ''}`
                           : (mo.periods === 0 ? 'No rent periods recorded' : 'Nothing expected'),
                       }
                     }
                     return (
-                      <StatCard icon="receipt" label={`Rent Received · ${cur.label}`} value={fmt(cur.received)} accent={accent} onNavigate={()=>setView('rent')} navLabel="Rent"
-                        // Card face: the two completed months' actuals, then
-                        // this month's estimate beside its actual (the headline).
-                        strip={[
-                          {label:`${prev2.label.slice(0,3)} actual`, value:fmt(prev2.received)},
-                          {label:`${prev.label.slice(0,3)} actual`, value:fmt(prev.received)},
-                          {label:`${cur.label.slice(0,3)} estimated`, value:fmt(cur.expected), color:T.gold},
-                          {label:`${cur.label.slice(0,3)} actual`, value:`${fmt(cur.received)}${rate == null ? '' : ` · ${rate}%`}`, color:T.green},
-                        ]}
+                      <StatCard icon="receipt" label="Rent Collected" value={fmt(cur.received)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
+                        strip={[cell(prev2), cell(prev)]}
                         breakdown={[
                           monthRow(cur, true),
                           monthRow(prev, false),
                           monthRow(prev2, false),
-                          {label:`Three-month total`, value:fmt(cur.received + prev.received + prev2.received), color:T.green, separator:true, note:`${rate == null ? '' : `This month ${rate}% collected so far. `}Figures are by rent period, the month the rent is for, matching the Rent Tracker`},
-                          ...companyStats.map(c=>({label:`${c.name} · ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.received || 0), color:c.color})),
+                          {label:'Three-month total', value:fmt(cur.received + prev.received + prev2.received), color:T.green, separator:true, note:'Figures are by rent period, the month the rent is for, matching the Rent Tracker'},
+                          ...(cur.needsBackfill > 0 ? [{label:`${cur.needsBackfill} paid ${cur.needsBackfill===1?'period':'periods'} with no amount this month`, value:'⚠', color:T.amber, note:'Marked paid in the Rent Tracker without a figure, so collected is understated until the amounts are entered'}] : []),
+                          ...companyStats.map(c=>({label:`${c.name} · collected ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.received || 0), color:c.color, separator:c===companyStats[0]})),
                           ...(stlTotal > 0 ? [{label:'Short-term let income (excluded above)', value:fmt(stlTotal), color:'#9B6FDE', separator:true, note:'Booking income over the same three months, reported in full on the Short-Term Let Income page'}] : []),
                         ]}
                       />
@@ -3463,10 +3477,9 @@ export default function App() {
                 const count = enabledWidgets.length
                 return (
                   <div style={{marginBottom:20}}>
-                    {/* alignItems:start so an expanded card's detail panel only
-                        grows that card; the default stretch made every card in
-                        the row as tall as the open one and pushed the page apart. */}
-                    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10,alignItems:'start'}}>
+                    {/* Rows stretch to even heights; a card's detail panel is an
+                        overlay (see StatCard) so opening one never resizes the row. */}
+                    <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10}}>
                       {enabledWidgets.map(w => (
                         <div key={w.key} style={{display:'contents'}}>{WIDGET_DEFS[w.key].render()}</div>
                       ))}
