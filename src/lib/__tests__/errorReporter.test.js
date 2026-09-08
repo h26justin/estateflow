@@ -43,6 +43,19 @@ describe('errorReporter', () => {
     expect(inserts).toHaveLength(0)
   })
 
+  it('drops a stale-chunk error only while the one-shot reload is in flight', async () => {
+    const { reportClientError, CHUNK_RELOADING_KEY } = await import('../errorReporter')
+    const msg = 'Failed to fetch dynamically imported module: https://x/assets/Page-abc.js'
+    sessionStorage.setItem(CHUNK_RELOADING_KEY, '1')     // main.jsx set this and is reloading
+    reportClientError({ message: msg, kind: 'boundary' })
+    await flush()
+    expect(inserts).toHaveLength(0)
+    sessionStorage.removeItem(CHUNK_RELOADING_KEY)       // booted again, second failure = real outage
+    reportClientError({ message: msg + '?2', kind: 'boundary' })
+    await flush()
+    expect(inserts).toHaveLength(1)
+  })
+
   it('never throws, even when the client is broken', async () => {
     const { reportClientError } = await import('../errorReporter')
     const { supabase } = await import('../supabase')
