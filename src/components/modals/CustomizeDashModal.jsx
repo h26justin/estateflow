@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MONO } from '../../lib/styles'
 import FocusTrap from '../../lib/FocusTrap'
 import { Icon, ICON_NAMES } from '../../lib/icons'
+import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────
 // Combined dashboard customization modal. Two tabs: Sections (top-level
@@ -33,8 +34,10 @@ export default function CustomizeDashModal({
   }
   const [sections, setSections] = useState(() =>
     buildState(currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled))
+  // Widgets share their resolver with the KPI grid so a widget the user has
+  // never saved lands in the same slot here as it does on the dashboard.
   const [widgets, setWidgets] = useState(() =>
-    buildState(currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled))
+    resolveWidgetPrefs(currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled))
 
   // For drag-and-drop visual feedback
   const [dragKey, setDragKey] = useState(null)
