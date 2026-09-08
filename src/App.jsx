@@ -10,6 +10,7 @@ import { canDo } from './lib/permissions'
 import { propertyNeedsTenancy } from './lib/tenancyUtils'
 import { evaluateProperty, groupByMonth, collectionStats, arrearsSummary, portfolioStats, STATE_LABEL, GO_LIVE } from './lib/rentEngine'
 import { rentMonthSnapshot, monthRate } from './lib/rentForecast'
+import { resolveWidgetPrefs } from './lib/dashboardPrefs'
 import { activePlan } from './lib/paymentPlans'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
@@ -247,7 +248,7 @@ const BreakdownRow = memo(({item, T}) => {
   )
 })
 
-const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabel}) => {
+const StatCard = memo(({icon,label,value,sub,strip,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
   const { T } = useTheme()
   // Cards with a breakdown keep click = expand; navigation gets its own
@@ -278,6 +279,19 @@ const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabe
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
       {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
+      {/* Optional 2-column strip of small label/value pairs on the card face,
+          for cards whose story needs a few figures at a glance (e.g. the last
+          three months of rent) rather than one sub-line. */}
+      {strip&&strip.length>0&&(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px 12px',marginTop:10}}>
+          {strip.map((s,i)=>(
+            <div key={i}>
+              <div style={{fontFamily:MONO,fontSize:9,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>{s.label}</div>
+              <div style={{fontFamily:MONO,fontSize:12,color:s.color||T.text}}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {open&&breakdown&&(
         <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:12,display:'grid',gap:4}}>
           {breakdown.map((item,i)=>(
@@ -3203,7 +3217,15 @@ export default function App() {
                       }
                     }
                     return (
-                      <StatCard icon="receipt" label={`Rent Received · ${cur.label}`} value={fmt(cur.received)} sub={`${prev.label.slice(0,3)} ${fmt(prev.received)} · ${prev2.label.slice(0,3)} ${fmt(prev2.received)}`} accent={accent} onNavigate={()=>setView('rent')} navLabel="Rent"
+                      <StatCard icon="receipt" label={`Rent Received · ${cur.label}`} value={fmt(cur.received)} accent={accent} onNavigate={()=>setView('rent')} navLabel="Rent"
+                        // Card face: the two completed months' actuals, then
+                        // this month's estimate beside its actual (the headline).
+                        strip={[
+                          {label:`${prev2.label.slice(0,3)} actual`, value:fmt(prev2.received)},
+                          {label:`${prev.label.slice(0,3)} actual`, value:fmt(prev.received)},
+                          {label:`${cur.label.slice(0,3)} estimated`, value:fmt(cur.expected), color:T.gold},
+                          {label:`${cur.label.slice(0,3)} actual`, value:`${fmt(cur.received)}${rate == null ? '' : ` · ${rate}%`}`, color:T.green},
+                        ]}
                         breakdown={[
                           monthRow(cur, true),
                           monthRow(prev, false),
@@ -3427,31 +3449,12 @@ export default function App() {
                     )
                   }},
                 }
-                // Default widget config
-                const DEFAULT_WIDGETS = [
-                  { key:'portfolio_value', enabled:true },
-                  { key:'monthly_rent', enabled:true },
-                  { key:'rent_forecast', enabled:true },
-                  { key:'rent_received', enabled:true },
-                  { key:'arrears', enabled:true },
-                  { key:'refurb', enabled:true },
-                  { key:'mortgages', enabled:true },
-                  { key:'cashflow_forecast', enabled:true },
-                  { key:'insurance_renewals', enabled:true },
-                  { key:'compliance_status', enabled:true },
-                  { key:'property_count', enabled:false },
-                  { key:'occupancy_rate', enabled:false },
-                ]
-                const currentWidgets = widgetPrefs || DEFAULT_WIDGETS
-                // Add any new widget keys that aren't in saved prefs, using the
-                // widget's default. This matches how the Customize modal and the
-                // sections list resolve new keys; previously new widgets were
-                // always appended disabled here, so the modal showed a new
-                // default-on card as ticked while the grid never rendered it.
-                const knownKeys = new Set(currentWidgets.map(w=>w.key))
-                Object.keys(WIDGET_DEFS).forEach(k => {
-                  if (!knownKeys.has(k)) currentWidgets.push({ key:k, enabled: WIDGET_DEFAULT_ENABLED[k] !== false })
-                })
+                // Saved layout + defaults, resolved by the same helper the
+                // Customize modal uses: a widget the user has never saved is
+                // slotted where the default order puts it (the rent cards sit
+                // beside Monthly Rental Income, not on a row of their own) and
+                // starts with its default enabled flag.
+                const currentWidgets = resolveWidgetPrefs(widgetPrefs, WIDGET_DEFAULT_ORDER, WIDGET_DEFAULT_ENABLED)
                 const enabledWidgets = currentWidgets.filter(w => w.enabled && WIDGET_DEFS[w.key])
                 const count = enabledWidgets.length
                 return (
