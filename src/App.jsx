@@ -308,13 +308,25 @@ const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavi
           per-cell `colors`; `strong` bolds the row. First column left-aligned,
           the rest right-aligned so figures line up. */}
       {table&&table.rows.length>0&&(
-        <div style={{display:'grid',gridTemplateColumns:`auto repeat(${table.columns.length-1},minmax(0,auto))`,columnGap:10,rowGap:5,marginTop:10,alignItems:'baseline'}}>
-          {table.columns.map((c,i)=>(
-            <div key={'h'+i} style={{fontFamily:MONO,fontSize:9,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',textAlign:i?'right':'left',whiteSpace:'nowrap'}}>{c}</div>
-          ))}
-          {table.rows.map((r,ri)=>r.cells.map((cell,ci)=>(
-            <div key={ri+'-'+ci} style={{fontFamily:MONO,fontSize:11,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',whiteSpace:'nowrap'}}>{cell}</div>
-          )))}
+        <div style={{marginTop:10,overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto'}}>
+            <thead>
+              <tr>
+                {table.columns.map((c,i)=>(
+                  <th key={'h'+i} style={{fontFamily:MONO,fontSize:8,fontWeight:400,color:T.faint,textTransform:'uppercase',letterSpacing:'0.06em',textAlign:i?'right':'left',padding:`0 0 4px ${i?6:0}px`,whiteSpace:'nowrap'}}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((r,ri)=>(
+                <tr key={ri}>
+                  {r.cells.map((cell,ci)=>(
+                    <td key={ci} style={{fontFamily:MONO,fontSize:10,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       {strip&&strip.length>0&&(
@@ -931,6 +943,10 @@ export default function App() {
     company_documents:  { icon:'folder',         label:'Company Documents',           description:'Documents stored at company level (only shows when a company is selected)' },
   }
   const SECTION_DEFAULT_ORDER   = ['smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','rent_income','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
+  // Rental Income pins itself directly above the KPI cards for anyone who has
+  // not yet placed it, whatever order their other sections are in. Once saved
+  // from Customize > Sections, the user's position wins.
+  const SECTION_PLACEMENT = { before: { rent_income: 'kpi_grid' } }
   const SECTION_DEFAULT_ENABLED = { rent_income:true, kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
   const WIDGET_META = {
@@ -3180,7 +3196,7 @@ export default function App() {
               // Same resolver as the KPI widgets: a section the user has never
               // saved lands where the default order puts it (Rental Income sits
               // just above the KPI cards), not at the bottom of the page.
-              const resolvedSections = resolveWidgetPrefs(sectionPrefs, SECTION_DEFAULT_ORDER, SECTION_DEFAULT_ENABLED)
+              const resolvedSections = resolveWidgetPrefs(sectionPrefs, SECTION_DEFAULT_ORDER, SECTION_DEFAULT_ENABLED, SECTION_PLACEMENT)
                 .filter(s => SECTION_DEFS[s.key])
 
               // ── Renderers for each section. Defined here to keep closures
@@ -4243,6 +4259,7 @@ export default function App() {
         currentSectionPrefs={sectionPrefs}
         defaultSectionOrder={SECTION_DEFAULT_ORDER}
         defaultSectionEnabled={SECTION_DEFAULT_ENABLED}
+        sectionPlacement={SECTION_PLACEMENT}
         onSaveSections={(newPrefs) => {
           setSectionPrefs(newPrefs)
           try { localStorage.setItem(`ownproperly_section_prefs_${user.id}`, JSON.stringify(newPrefs)) } catch(e) {}
