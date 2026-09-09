@@ -158,7 +158,7 @@ const steps = [
 const SCREENS = [
   { id: 'dashboard',  label: 'Dashboard',        img: '/screens/dashboard.webp', url: 'dashboard',
     title: 'The whole portfolio on one page',
-    desc: 'Value, equity, rent received against forecast, arrears, occupancy and a health score across every company, with the items that need attention today, a portfolio map, Autopilot suggestions and AI insights underneath.' },
+    desc: 'Rental Income leads the page: rent due against collected for every month of the year and for every company, then value, equity, arrears, occupancy and a health score, with the items that need attention today, a portfolio map, Autopilot suggestions and AI insights underneath.' },
   { id: 'portfolio',  label: 'Portfolio',        img: '/screens/portfolio.webp', url: 'properties',
     title: 'Every unit, grouped by company and building',
     desc: 'Houses, flats in a block, HMO rooms and serviced apartments in one list or grid, with status, yield and rent on every row, filters by company and status, a map view and a one-step block-of-flats add.' },
