@@ -48,6 +48,10 @@ export const LINE_TYPES = [
   { key: 'maintenance',     label: 'Maintenance',          section: 'expenditure' },
   { key: 'other_deduction', label: 'Other deduction',      section: 'expenditure' },
   { key: 'credit',          label: 'Credit / adjustment',  section: 'expenditure' },
+  // A payment the agent made to the landlord. PNE prints one PAYMENT AMOUNT
+  // (kept on the statement header); Rook Matthews Sayer can make several
+  // payments on one statement, so each is a line for matching to the bank.
+  { key: 'transfer',        label: 'Payment to landlord',  section: 'summary' },
 ]
 export const LINE_TYPE_LABEL = Object.fromEntries(LINE_TYPES.map(t => [t.key, t.label]))
 
@@ -86,8 +90,12 @@ export function toIsoDate(str) {
 export function normaliseLabel(str) {
   return String(str || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\b(\d+) ([a-f])\b/g, '$1$2').trim()
 }
-export function seriesKeyFor(company) {
-  return normaliseLabel(company).replace(/\b(limited|ltd|llp|plc)\b/g, '').trim().replace(/\s+/g, '-') || 'unknown'
+// One landlord can be served by two agents (Vale has a PNE run and a Rook
+// Matthews Sayer run, each with its own statement numbering), so the run key
+// is landlord plus agent.
+export function seriesKeyFor(company, agent) {
+  const co = normaliseLabel(company).replace(/\b(limited|ltd|llp|plc)\b/g, '').trim().replace(/\s+/g, '-') || 'unknown'
+  return agent ? `${co}-${String(agent).toLowerCase()}` : co
 }
 
 // ── Line classification helpers ─────────────────────────────────────────────
@@ -155,8 +163,12 @@ export function parseAuditStatement(rawText) {
     const any = text.match(/Statement\s*No\s*[:.]?\s*(\d+)/i)
     if (any) out.statementNumber = parseInt(any[1], 10)
   }
-  out.agent = /Propertunity|PNE|Gardner Industrial|Beckenham|Statement No/i.test(text) ? 'PNE' : (/Rook Matthews|STATEMENT\/INVOICE/i.test(text) ? 'RMS' : null)
-  out.seriesKey = seriesKeyFor(out.landlordCompany || out.landlordName)
+  // Detect the agent by the shape of the document, never by an address: the
+  // landlord's own address appears on both agents' statements.
+  if (/STATEMENT\/INVOICE|Payment made to Owner|rookmatthewssayer|Rook Matthews/i.test(text)) out.agent = 'RMS'
+  else if (/Statement No\s*[:.]|Rent for the month|Management Commission|PAYMENT AMOUNT|Propertunity/i.test(text)) out.agent = 'PNE'
+  if (out.agent === 'RMS') return parseRmsAudit(lines, out)
+  out.seriesKey = seriesKeyFor(out.landlordCompany || out.landlordName, out.agent)
 
   // Sections. The 2026 template always prints "Expenditure  Amount  VAT  Gross";
   // if it ever disappears, the first commission line starts the section.
@@ -346,8 +358,17 @@ export function parseAuditStatement(rawText) {
 
 // Exact identity of a line for duplicate detection. Same type, property,
 // period, tenant and gross amount on the same statement means the same entry.
+export function lineAmountOf(l) {
+  switch (l.line_type) {
+    case 'management_fee': return round2(l.fee_amount)
+    case 'credit': return round2(l.credit_amount)
+    case 'transfer': return round2(l.net_amount)
+    case 'rent': case 'arrears': case 'other_income': return round2(l.gross_rent)
+    default: return round2(l.deduction_amount)
+  }
+}
 export function lineKey(l) {
-  const amt = l.line_type === 'management_fee' ? round2(l.fee_amount) : (l.line_type === 'credit' ? round2(l.credit_amount) : (l.gross_rent ? round2(l.gross_rent) : round2(l.deduction_amount)))
+  const amt = lineAmountOf(l)
   return [l.line_type, normaliseLabel(l.property_address), l.period_start || '', l.period_end || '', amt.toFixed(2), normaliseLabel(l.tenant_name), l.line_type === 'management_fee' ? (l.fee_basis ?? '') : '', normaliseLabel(l.line_type === 'rent' ? '' : l.description)].join('|')
 }
 // Looser identity: the same slot on the statement even if the amount or
@@ -360,7 +381,7 @@ export function looseKey(l) {
 
 // ── Totals & balance check ──────────────────────────────────────────────────
 export function computeTotals(lines) {
-  const t = { gross_rent: 0, arrears: 0, other_income: 0, management_fees: 0, vat: 0, maintenance: 0, other_deductions: 0, credits: 0, counted: 0, excluded: 0 }
+  const t = { gross_rent: 0, arrears: 0, other_income: 0, management_fees: 0, vat: 0, maintenance: 0, other_deductions: 0, credits: 0, transfers: 0, transfer_count: 0, counted: 0, excluded: 0 }
   for (const l of lines || []) {
     if (NON_COUNTING_REVIEW.has(l.review_status)) { t.excluded++; continue }
     t.counted++
@@ -373,9 +394,10 @@ export function computeTotals(lines) {
       case 'maintenance': t.maintenance += n('deduction_amount'); break
       case 'other_deduction': t.other_deductions += n('deduction_amount'); break
       case 'credit': t.credits += n('credit_amount'); break
+      case 'transfer': t.transfers += n('net_amount'); t.transfer_count++; break
       default: break
     }
-    t.vat += n('vat_amount')
+    if (l.line_type !== 'transfer') t.vat += n('vat_amount')
   }
   for (const k of Object.keys(t)) if (k !== 'counted' && k !== 'excluded') t[k] = round2(t[k])
   t.total_income = round2(t.gross_rent + t.arrears + t.other_income)
@@ -389,8 +411,10 @@ export function computeTotals(lines) {
 export function balanceCheck(stmt, lines) {
   const t = computeTotals(lines)
   const prev = Number(stmt?.previous_balance ?? stmt?.previousBalance) || 0
-  const expected = round2(t.total_income - t.total_deductions + t.credits + prev)
-  const stated = stmt?.payment_amount ?? stmt?.paymentAmount ?? stmt?.new_balance ?? stmt?.newBalance
+  const carried = Number(stmt?.carried_forward ?? stmt?.carriedForward) || 0
+  const expected = round2(t.total_income - t.total_deductions + t.credits + prev - carried)
+  let stated = stmt?.payment_amount ?? stmt?.paymentAmount ?? stmt?.new_balance ?? stmt?.newBalance
+  if (stated == null && t.transfer_count) stated = t.transfers
   const statedNum = stated == null ? null : round2(stated)
   const difference = statedNum == null ? null : round2(expected - statedNum)
   const causes = []
@@ -401,6 +425,8 @@ export function balanceCheck(stmt, lines) {
   const nb = stmt?.new_balance ?? stmt?.newBalance
   if (statedNum != null && nb != null && Math.abs(round2(nb) - statedNum) > 0.005) causes.push(`Summary: New Balance £${round2(nb).toFixed(2)} differs from PAYMENT AMOUNT £${statedNum.toFixed(2)}; the agent may have held part of the balance back.`)
   if (prev) causes.push(`Summary: £${prev.toFixed(2)} carried from the previous statement is included in the expected figure.`)
+  if (carried) causes.push(`Summary: £${carried.toFixed(2)} carried forward to the next statement has been deducted from the expected figure.`)
+  if (t.transfer_count && statedNum != null && Math.abs(round2(t.transfers) - statedNum) > 0.005) causes.push(`The ${t.transfer_count} payment lines to the landlord total £${round2(t.transfers).toFixed(2)}, not the £${statedNum.toFixed(2)} stated.`)
   if (difference != null && Math.abs(difference) > 0.005) {
     const target = Math.abs(difference)
     const culprit = (lines || []).find(l => !NON_COUNTING_REVIEW.has(l.review_status) && [l.gross_rent, l.fee_amount, l.deduction_amount, l.credit_amount, l.vat_amount].some(v => Math.abs(round2(v) - target) < 0.005))
@@ -489,6 +515,8 @@ export function buildImportSummary({ parsed, decisions, applied, check, checked,
     possible_duplicates: count('possible_duplicate'),
     import_errors: parsed.errors.length,
     missing_information: parsed.lines.filter(l => l.flags?.some(f => /^missing_/.test(f))).length,
+    fee_rate_differs: parsed.lines.filter(l => l.flags?.includes('fee_rate_differs')).length,
+    vat_not_shown: parsed.lines.filter(l => l.flags?.includes('vat_not_shown') || l.flags?.includes('vat_not_itemised')).length,
     balances: !!check?.balances,
     expected_net: check?.expected ?? null,
     stated_net: check?.stated ?? null,
@@ -498,4 +526,188 @@ export function buildImportSummary({ parsed, decisions, applied, check, checked,
     status,
     at: new Date().toISOString(),
   }
+}
+
+// ── Rook Matthews Sayer "STATEMENT/INVOICE" layout ───────────────────────────
+// One dated row per event: Date  Property  [Tenancy]  Description  amount.
+// The tenancy cell often wraps onto the lines before and after the row
+// ("Tenant, Ms Example Oct 21 2022 to Oct 20" / "2023 (T...)"). Money in and
+// money out are separate columns on paper but arrive as one trailing amount,
+// so the description decides the direction. Fees in the body are VAT
+// inclusive; the FEE INVOICE block underneath splits fee / VAT / total and is
+// used to fill those in. "Payment made to Owner" rows become transfer lines,
+// one per payment, so each can be matched to a bank receipt.
+const RMS_ROW = /^(\d{2}\/\d{2}\/\d{4})\s+(.*?)\s+(-?[\d,]+\.\d{2})$/
+const RMS_INVOICE_ROW = /^(\d{2}\/\d{2}\/\d{4})\s+(.*?)\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})$/
+const RMS_PERIOD = /(\d{2}\/\d{2}\/\d{4})\s*(?:-|to)\s*(\d{2}\/\d{2}\/\d{4})/
+const RMS_TENANCY_WRAP = /^(.+?)\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\s+\d{4}\s+to\b/i
+const RMS_POSTCODE = /,?\s*\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/
+
+export function parseRmsAudit(lines, out) {
+  out.agent = 'RMS'
+  for (const l of lines.slice(0, 8)) {
+    let m = l.match(/Date:\s*(\d{2}\/\d{2}\/\d{4})/i); if (m) { out.statementDateText = m[1]; out.statementDate = toIsoDate(m[1]) }
+    m = l.match(/Statement Period:\s*(\d{2}\/\d{2}\/\d{4})\s*to\s*(\d{2}\/\d{2}\/\d{4})/i); if (m) { out.statementPeriodStart = toIsoDate(m[1]); out.statementPeriodEnd = toIsoDate(m[2]) }
+    m = l.match(/Reference:\s*(\S+)/i); if (m) out.agentReference = m[1]
+    if (!out.landlordCompany && /(Limited|Ltd|LLP|Plc|Property Group)\b/i.test(l) && !/Rook|VAT Regn/i.test(l)) out.landlordCompany = l.replace(/\s{2,}.*$/, '').replace(/\s+Date:.*$/i, '').trim()
+  }
+  out.landlordName = ''
+  out.statementNumber = null           // RMS prints no sequential number; assigned on import.
+  out.seriesKey = seriesKeyFor(out.landlordCompany, 'RMS')
+  out.carriedForward = 0
+  out.paymentAmount = null
+
+  const feeIdx = lines.findIndex(l => /^FEE INVOICE\b/i.test(l))
+  const body = feeIdx >= 0 ? lines.slice(0, feeIdx) : lines
+  const invoice = feeIdx >= 0 ? lines.slice(feeIdx) : []
+
+  // Invoice block: fee / VAT / total per charged fee, plus the invoice total.
+  const invoiceRows = []
+  let invoiceFees = 0
+  for (const l of invoice) {
+    const m = l.match(RMS_INVOICE_ROW)
+    if (m) { invoiceRows.push({ desc: normaliseLabel(m[2].replace(RMS_POSTCODE, '')), fee: money(m[3]), vat: money(m[4]), total: money(m[5]), used: false }); invoiceFees = round2(invoiceFees + money(m[5])) }
+  }
+  out.invoiceFees = invoiceRows.length ? invoiceFees : null
+  out.invoiceNumber = out.agentReference || null
+  out.invoiceDate = out.statementDate
+
+  const entries = []
+  let pendingTenancy = ''
+  let lastProperty = ''
+  let lineNo = 0
+  let totalsIn = null, totalsOut = null
+  for (const raw of body) {
+    const l = raw.trim()
+    let m
+    if ((m = l.match(/Balance Brought Forward from Previous Statement\s+(-?[\d,]+\.\d{2})/i))) { out.previousBalance = money(m[1]); continue }
+    if ((m = l.match(/Balance Carried Forward to Next Statement\s+(-?[\d,]+\.\d{2})/i))) { out.carriedForward = money(m[1]); continue }
+    if ((m = l.match(/^Totals\s+(-?[\d,]+\.\d{2})(?:\s+(-?[\d,]+\.\d{2}))?/i))) { totalsIn = money(m[1]); totalsOut = m[2] != null ? money(m[2]) : null; continue }
+    const row = l.match(RMS_ROW)
+    if (!row) {
+      const t = l.match(RMS_TENANCY_WRAP)
+      if (t) pendingTenancy = t[1].replace(/\s+/g, ' ').trim()
+      continue
+    }
+    const date = toIsoDate(row[1])
+    const amount = money(row[3])
+    const cells = row[2].split(/\s{2,}/).map(c => c.trim()).filter(Boolean)
+    lineNo++
+    if (/Payment made to Owner/i.test(row[2])) {
+      entries.push({ line_no: lineNo, section: 'summary', line_type: 'transfer', property_address: '', tenant_name: '', period_start: null, period_end: null,
+        transaction_date: date, description: 'Payment made to Owner', gross_rent: 0, fee_amount: 0, vat_amount: 0, deduction_amount: 0, credit_amount: 0,
+        net_amount: amount, fee_pct: null, fee_basis: null, flags: [], raw_text: l })
+      out.paymentAmount = round2((out.paymentAmount || 0) + amount)
+      continue
+    }
+    const desc = cells[cells.length - 1] || ''
+    let property = '', tenancy = ''
+    for (const c of cells.slice(0, -1)) {
+      if (/\d{2}\/\d{2}\/\d{4}\s+to\s+\d{2}\/\d{2}\/\d{4}/.test(c)) tenancy = c
+      else if (!property) property = c.replace(RMS_POSTCODE, '').trim()
+    }
+    if (property) lastProperty = property; else property = lastProperty
+    let tenant = ''
+    const tc = tenancy.match(/^(.*?)\s+\d{2}\/\d{2}\/\d{4}\s+to/); if (tc) tenant = tc[1].trim()
+    if (!tenant && pendingTenancy) tenant = pendingTenancy
+    const pm = desc.match(RMS_PERIOD)
+    const base = { line_no: lineNo, section: 'income', line_type: 'rent', property_address: property, tenant_name: tenant,
+      period_start: pm ? toIsoDate(pm[1]) : null, period_end: pm ? toIsoDate(pm[2]) : null, transaction_date: date,
+      description: desc, gross_rent: 0, fee_amount: 0, vat_amount: 0, deduction_amount: 0, credit_amount: 0, net_amount: 0, fee_pct: null, fee_basis: null, flags: [], raw_text: l }
+    if (!property) base.flags.push('missing_property')
+    let fm
+    if (/Arrears/i.test(desc)) {
+      base.line_type = 'arrears'; base.gross_rent = amount; base.net_amount = amount
+    } else if (/Rent Receipt|Rent Received|^Received\s+from|^Rent\b/i.test(desc)) {
+      const rf = desc.match(/Received\s+From\s+(.+?)\s+-\s+\d{2}\//i); if (rf) base.tenant_name = rf[1].trim()
+      base.gross_rent = amount; base.net_amount = amount
+      base.description = pm ? `Rent ${pm[1]} to ${pm[2]}` : desc
+      if (!base.period_start) base.flags.push('missing_period')
+    } else if ((fm = desc.match(/Fee\s*@\s*([\d.]+)\s*%/i))) {
+      base.section = 'expenditure'; base.line_type = 'management_fee'; base.fee_pct = parseFloat(fm[1])
+      const bm = desc.match(/of\s+£?\s?([\d,]+\.\d{2})/i)
+      if (bm) base.fee_basis = money(bm[1])
+      else {
+        const rent = entries.find(e => e.line_type === 'rent' && normaliseLabel(e.property_address) === normaliseLabel(property) && (!pm || (e.period_start === base.period_start && e.period_end === base.period_end)))
+        if (rent) base.fee_basis = rent.gross_rent
+      }
+      const inv = invoiceRows.find(r => !r.used && Math.abs(r.total - amount) < 0.005 && r.desc === normaliseLabel(desc.replace(RMS_POSTCODE, '')))
+        || invoiceRows.find(r => !r.used && Math.abs(r.total - amount) < 0.005)
+      if (inv) { inv.used = true; base.fee_amount = inv.fee; base.vat_amount = inv.vat }
+      else if (base.fee_basis != null) {
+        // Not itemised on this invoice (a fee carried from an earlier period):
+        // the net is the stated percentage, the rest is VAT.
+        base.fee_amount = round2(base.fee_basis * base.fee_pct / 100); base.vat_amount = round2(amount - base.fee_amount); base.flags.push('vat_derived_not_itemised')
+      } else { base.fee_amount = amount; base.flags.push('vat_not_itemised', 'missing_fee_basis') }
+      base.net_amount = -amount
+    } else if (/Deposit|Refund|Credit|Reimburse/i.test(desc) && !/Fee/i.test(desc)) {
+      base.section = 'expenditure'; base.line_type = 'credit'; base.credit_amount = amount; base.net_amount = amount; base.flags.push('review_description')
+    } else if (MAINTENANCE_WORDS.test(desc) || /\(Inv:/i.test(desc)) {
+      base.section = 'expenditure'; base.line_type = 'maintenance'; base.deduction_amount = amount; base.net_amount = -amount; base.flags.push('vat_not_itemised')
+    } else {
+      base.section = 'expenditure'; base.line_type = 'other_deduction'; base.deduction_amount = amount; base.net_amount = -amount
+      base.flags.push(/fee|charge|renewal|admin|inventory|check/i.test(desc) ? 'vat_not_itemised' : 'unclassified')
+    }
+    if (['rent', 'arrears'].includes(base.line_type) && !base.tenant_name) base.flags.push('missing_tenant')
+    entries.push(base)
+    pendingTenancy = ''
+  }
+  for (const e of entries) { e.line_key = lineKey(e); e.loose_key = looseKey(e) }
+  out.lines = entries
+  out.statedIncomeTotal = totalsIn
+  // The money-out total includes the payments to the owner; strip them so it
+  // is comparable with the fees and deductions.
+  out.statedExpenditureTotal = totalsOut != null && out.paymentAmount != null ? round2(totalsOut - out.paymentAmount) : null
+  out.ok = entries.length > 0
+  if (!out.ok) out.problem = 'Recognised a Rook Matthews Sayer statement but found no dated rows. The layout may have changed; the extracted text has been kept for review.'
+  out.warnings.push('Rook Matthews Sayer statements carry no sequential number: enter the audit statement number before importing.')
+  if (!out.statementDate) out.warnings.push('No statement date found in the header.')
+  if (out.paymentAmount == null) out.warnings.push('No "Payment made to Owner" line found.')
+  return out
+}
+
+// ── Agreed fee terms ─────────────────────────────────────────────────────────
+// Compares each fee line with the rate agreed for the landlord run. The
+// comparison is on the VAT-inclusive charge as a share of the rent, because an
+// agent may fold VAT into its percentage without itemising it (10% + 20% VAT
+// prints as a flat 12%). Returns null when there is nothing to compare.
+export function feeCheck(line, series) {
+  if (!line || line.line_type !== 'management_fee' || !series || series.expected_fee_pct == null || series.expected_fee_pct === '') return null
+  const pct = Number(series.expected_fee_pct)
+  const vat = Number(series.expected_fee_vat_pct) || 0
+  const chargedGross = round2((Number(line.fee_amount) || 0) + (Number(line.vat_amount) || 0))
+  const res = { expected_pct: pct, expected_vat_pct: vat, charged_gross: chargedGross, flags: [] }
+  if (line.fee_basis != null && Number(line.fee_basis) > 0) {
+    const basis = Number(line.fee_basis)
+    res.expected_gross = round2(basis * pct / 100 * (1 + vat / 100))
+    res.expected_net = round2(basis * pct / 100)
+    res.charged_pct_of_rent = round2(chargedGross / basis * 100)
+    if (Math.abs(res.expected_gross - chargedGross) > 0.011) res.flags.push('fee_rate_differs')
+  } else if (line.fee_pct != null) {
+    // No basis printed: compare the stated percentage alone.
+    const statedGrossPct = round2(Number(line.fee_pct) * (Number(line.vat_amount) ? 1 : (1 + vat / 100)))
+    if (Math.abs(Number(line.fee_pct) - pct) > 0.011 && Math.abs(statedGrossPct - round2(pct * (1 + vat / 100))) > 0.011) res.flags.push('fee_rate_differs')
+  }
+  if (vat > 0 && !(Number(line.vat_amount) > 0)) res.flags.push('vat_not_shown')
+  res.ok = res.flags.length === 0
+  return res
+}
+export function applyFeeExpectations(lines, series) {
+  return (lines || []).map(l => {
+    const chk = feeCheck(l, series)
+    if (!chk) return l
+    const flags = (l.flags || []).filter(f => f !== 'fee_rate_differs' && f !== 'vat_not_shown').concat(chk.flags)
+    return { ...l, flags, fee_check: chk }
+  })
+}
+export function describeFeeCheck(chk) {
+  if (!chk) return ''
+  const agreed = `${chk.expected_pct}%${chk.expected_vat_pct ? ` + ${chk.expected_vat_pct}% VAT` : ' (no VAT)'}`
+  if (chk.ok) return `Matches agreed ${agreed}`
+  const parts = []
+  if (chk.flags.includes('fee_rate_differs')) parts.push(chk.expected_gross != null
+    ? `Charged £${chk.charged_gross.toFixed(2)} (${chk.charged_pct_of_rent}% of rent) against agreed ${agreed} = £${chk.expected_gross.toFixed(2)}`
+    : `Stated rate differs from agreed ${agreed}`)
+  if (chk.flags.includes('vat_not_shown')) parts.push('no VAT itemised on the statement')
+  return parts.join('; ')
 }

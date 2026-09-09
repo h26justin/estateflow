@@ -1,0 +1,37 @@
+STATEMENT/INVOICE
+Vale Property Group LTD  Date: 22/11/2023  Statement Period: 01/11/2023 to 30/11/2023
+Unit 14, Gardner Industrial Estate, Kent House Lane, London, London, BR3 1  VAT Regn: 000 000 000  Reference: L0000J0000-00AAAA
+Money In  Money out
+Date  Property  Tenancy  Description
+£  £
+Balance Brought Forward from Previous Statement  0.00
+Tenant, Ms Example Oct 21 2022 to Oct 20
+21/11/2023  30 Goschen Street  Rent Received From Tenant, Ms Example - 21/11/2023 to 20/12/2023  495.00
+2023 (T0000J0000-000AAAAA)
+Tenant, Ms Example Oct 21 2022 to Oct 20
+22/11/2023  30 Goschen Street  Management Fee @ 7% - (7% of £495.00)  41.58
+2023 (T0000J0000-000AAAAA)
+Tenant, Ms Example Oct 21 2022 to Oct 20
+22/11/2023  30 Goschen Street  Balance of Agreement Fee Renewal  123.20
+2023 (T0000J0000-000AAAAA)
+Tenant, Ms Example Oct 21 2022 to Oct 20
+22/11/2023  30 Goschen Street  Management Fee @ 7% - (7% of £495.00)  41.58
+2023 (T0000J0000-000AAAAA)
+22/11/2023  30 Goschen Street  Example Locksmith (Inv:1725) When locking the front door the key struggles to go in  90.00
+22/11/2023  Payment made to Owner  198.64
+Balance Carried Forward to Next Statement  0.00
+Totals  495.00  495.00
+VAT
+FEE INVOICE Property  Tenancy  Description  Fee  Total
+@ 20%
+Outstanding Fees Brought Forward From Previous Period  164.78
+FEES CHARGED THIS PERIOD
+22/11/2023  30 Goschen Street  Management Fee @ 7% - (7% of £495.00)  34.65  6.93  41.58
+FEES PAID THIS PERIOD  -206.36
+Outstanding Fees Carried Forward To Next Period  0.00
+Accounts Department - Newcastle House, Newcastle Business Park, Newcastle upon Tyne, Tyne & Wear NE4 7YB - Email: lettingsaccounts@rookmatthewssayer.co.uk - Telephone: 0191 246 3762
+
+--- PAGE BREAK ---
+
+Vale Property GrouUnit 14Gardner IndustrialEstateKent House LaneLondonLondonBR3 1QZEngland
+3762

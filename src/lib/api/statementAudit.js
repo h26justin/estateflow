@@ -35,11 +35,11 @@ export async function fetchAuditSeries() {
   return fetchAll(() => supabase.from('statement_audit_series').select('*').order('landlord_company'))
 }
 
-export async function upsertAuditSeries({ series_key, landlord_company, landlord_name = null, agent = null, start_number = 71 }) {
+export async function upsertAuditSeries({ series_key, landlord_company, landlord_name = null, agent = null, start_number = 71, expected_fee_pct = null, expected_fee_vat_pct = 0 }) {
   const user_id = await currentUserId()
-  const key = series_key || seriesKeyFor(landlord_company)
+  const key = series_key || seriesKeyFor(landlord_company, agent)
   const { data, error } = await supabase.from('statement_audit_series')
-    .upsert({ user_id, series_key: key, landlord_company, landlord_name, agent, start_number, updated_at: new Date().toISOString() }, { onConflict: 'user_id,series_key' })
+    .upsert({ user_id, series_key: key, landlord_company, landlord_name, agent, start_number, expected_fee_pct, expected_fee_vat_pct, updated_at: new Date().toISOString() }, { onConflict: 'user_id,series_key' })
     .select().single()
   if (error) throw error
   return data
@@ -55,7 +55,7 @@ export async function updateAuditSeries(id, patch) {
 // ── Statements ──────────────────────────────────────────────────────────────
 export async function fetchAuditStatements(seriesKey) {
   return fetchAll(() => supabase.from('statement_audit_statements')
-    .select('id, user_id, series_key, statement_number, statement_date, agent, landlord_name, landlord_company, status, statement_checked, checked_by, checked_at, notes, correction_required, bank_payment_matched, bank_paid_date, bank_paid_amount, file_name, previous_balance, new_balance, payment_amount, stated_income_total, stated_expenditure_total, invoice_number, invoice_date, invoice_fees, import_errors, last_import_summary, imported_at, created_at, updated_at')
+    .select('id, user_id, series_key, statement_number, statement_date, agent, landlord_name, landlord_company, agent_reference, statement_period_start, statement_period_end, carried_forward, status, statement_checked, checked_by, checked_at, notes, correction_required, bank_payment_matched, bank_paid_date, bank_paid_amount, file_name, previous_balance, new_balance, payment_amount, stated_income_total, stated_expenditure_total, invoice_number, invoice_date, invoice_fees, import_errors, last_import_summary, imported_at, created_at, updated_at')
     .eq('series_key', seriesKey).order('statement_number'))
 }
 
@@ -119,6 +119,8 @@ export async function saveAuditImport({ seriesKey, statement, inserts, correctio
     statement_date: statement.statement_date, agent: statement.agent, landlord_name: statement.landlord_name,
     landlord_company: statement.landlord_company, file_name: statement.file_name, raw_text: statement.raw_text,
     previous_balance: statement.previous_balance, new_balance: statement.new_balance, payment_amount: statement.payment_amount,
+    carried_forward: statement.carried_forward || 0, agent_reference: statement.agent_reference || null,
+    statement_period_start: statement.statement_period_start || null, statement_period_end: statement.statement_period_end || null,
     stated_income_total: statement.stated_income_total, stated_expenditure_total: statement.stated_expenditure_total,
     invoice_number: statement.invoice_number, invoice_date: statement.invoice_date, invoice_fees: statement.invoice_fees,
     import_errors: statement.import_errors || [], status: 'importing', imported_at: now, updated_at: now,

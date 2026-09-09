@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import {
   parseAuditStatement, computeTotals, balanceCheck, compareWithExisting,
   deriveStatus, missingNumbers, lineKey, toIsoDate, seriesKeyFor, buildImportSummary,
+  feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../statementAudit'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -26,7 +27,7 @@ describe('parseAuditStatement - Statement 71 (the first audit statement)', () =>
     expect(p.statementNumber).toBe(71)
     expect(p.statementDate).toBe('2026-01-05')
     expect(p.landlordCompany).toBe('EXH Property Group Limited')
-    expect(p.seriesKey).toBe('exh-property-group')
+    expect(p.seriesKey).toBe('exh-property-group-pne')
     expect(p.invoiceNumber).toBe('INV3494')
     expect(p.invoiceFees).toBe(647)
   })
@@ -262,8 +263,112 @@ describe('statuses, sequence and summary', () => {
     expect(toIsoDate('5th January 2026')).toBe('2026-01-05')
     expect(toIsoDate('05/01/2026')).toBe('2026-01-05')
     expect(seriesKeyFor('EXH Property Group Limited')).toBe('exh-property-group')
+    expect(seriesKeyFor('Vale Property Group LTD', 'RMS')).toBe('vale-property-group-rms')
     const a = lineKey({ line_type: 'rent', property_address: '47 B, Somerset Street', period_start: '2026-01-01', period_end: '2026-01-31', gross_rent: 550, tenant_name: 'Ms X' })
     const b = lineKey({ line_type: 'rent', property_address: '47B Somerset Street', period_start: '2026-01-01', period_end: '2026-01-31', gross_rent: 550, tenant_name: 'ms x' })
     expect(a).toBe(b)
+  })
+})
+
+describe('parseAuditStatement - Rook Matthews Sayer layouts', () => {
+  it('reads the 2023 layout: rent, fees with VAT from the invoice block, a renewal charge, a contractor invoice and the payout', () => {
+    const p = parseAuditStatement(fixture('audit-rms-2023.txt'))
+    expect(p.ok).toBe(true)
+    expect(p.agent).toBe('RMS')
+    expect(p.statementNumber).toBeNull()
+    expect(p.statementDate).toBe('2023-11-22')
+    expect(p.statementPeriodStart).toBe('2023-11-01')
+    expect(p.agentReference).toBe('L0000J0000-00AAAA')
+    expect(p.seriesKey).toBe('vale-property-group-rms')
+    expect(p.errors).toEqual([])
+    const types = p.lines.map(l => l.line_type)
+    expect(types).toEqual(['rent', 'management_fee', 'other_deduction', 'management_fee', 'maintenance', 'transfer'])
+    expect(p.lines[0]).toMatchObject({ property_address: '30 Goschen Street', tenant_name: 'Tenant, Ms Example', period_start: '2023-11-21', period_end: '2023-12-20', gross_rent: 495 })
+    // Fee in the body is VAT inclusive (41.58); the invoice block splits it 34.65 + 6.93.
+    expect(p.lines[1]).toMatchObject({ fee_pct: 7, fee_basis: 495, fee_amount: 34.65, vat_amount: 6.93, net_amount: -41.58 })
+    // Second 41.58 is a fee carried from an earlier period: not on this invoice, so the split is derived and flagged.
+    expect(p.lines[3].flags).toContain('vat_derived_not_itemised')
+    expect(p.lines[4]).toMatchObject({ line_type: 'maintenance', deduction_amount: 90 })
+    expect(p.lines[5]).toMatchObject({ line_type: 'transfer', net_amount: 198.64, transaction_date: '2023-11-22' })
+    expect(p.paymentAmount).toBe(198.64)
+    const c = balanceCheck(stmtOf(p), withStatus(p.lines))
+    expect(c.totals.management_fees).toBe(69.3)
+    expect(c.totals.vat).toBe(13.86)
+    expect(c.totals.transfers).toBe(198.64)
+    expect(c.expected).toBe(198.64)
+    expect(c.balances).toBe(true)
+  })
+
+  it('records each payment to the landlord as its own line when there are two on one statement', () => {
+    const p = parseAuditStatement(fixture('audit-rms-2026-two-payouts.txt'))
+    expect(p.errors).toEqual([])
+    const transfers = p.lines.filter(l => l.line_type === 'transfer')
+    expect(transfers.map(t => t.net_amount)).toEqual([819.82, 27.48])
+    expect(transfers.map(t => t.transaction_date)).toEqual(['2026-07-03', '2026-07-10'])
+    expect(p.paymentAmount).toBe(847.3)
+    const fees = p.lines.filter(l => l.line_type === 'management_fee')
+    expect(fees.map(f => [f.fee_amount, f.vat_amount, f.fee_basis])).toEqual([[62.65, 12.53, 895], [2.1, 0.42, 30]])
+    const c = balanceCheck(stmtOf(p), withStatus(p.lines))
+    expect(c.totals.gross_rent).toBe(925)
+    expect(c.expected).toBe(847.3)
+    expect(c.balances).toBe(true)
+  })
+
+  it('reads the 2026 STATEMENT/INVOICE layout with the tenancy on the row and the fee basis taken from the rent line', () => {
+    const p = parseAuditStatement(fixture('rms-statement-invoice-2026.txt'))
+    expect(p.ok).toBe(true)
+    const rent = p.lines.find(l => l.line_type === 'rent')
+    expect(rent).toMatchObject({ property_address: '5 Jubilee Road', tenant_name: 'Mr Example Tenant', period_start: '2026-08-31', period_end: '2026-09-29', gross_rent: 600 })
+    const fee = p.lines.find(l => l.line_type === 'management_fee')
+    expect(fee).toMatchObject({ fee_pct: 7, fee_basis: 600, fee_amount: 42, vat_amount: 8.4 })
+    expect(balanceCheck(stmtOf(p), withStatus(p.lines))).toMatchObject({ expected: 549.6, stated: 549.6, balances: true })
+  })
+
+  it('a carried-forward balance reduces the expected payout', () => {
+    const p = parseAuditStatement(fixture('audit-rms-2023.txt'))
+    const c = balanceCheck({ ...stmtOf(p), carried_forward: 50, payment_amount: 148.64 }, withStatus(p.lines))
+    expect(c.expected).toBe(148.64)
+    expect(c.balances).toBe(true)
+  })
+})
+
+describe('agreed fee terms', () => {
+  const RMS_TERMS = { expected_fee_pct: 7, expected_fee_vat_pct: 20 }
+  const PNE_TERMS = { expected_fee_pct: 10, expected_fee_vat_pct: 20 }
+
+  it('passes Rook Matthews Sayer fees charged at 7% plus VAT', () => {
+    const p = parseAuditStatement(fixture('audit-rms-2026-two-payouts.txt'))
+    const checked = applyFeeExpectations(p.lines, RMS_TERMS)
+    const fees = checked.filter(l => l.line_type === 'management_fee')
+    expect(fees.every(f => f.fee_check.ok)).toBe(true)
+    expect(describeFeeCheck(fees[0].fee_check)).toBe('Matches agreed 7% + 20% VAT')
+    expect(checked.filter(l => l.line_type !== 'management_fee').every(l => !l.fee_check)).toBe(true)
+  })
+
+  it('flags PNE fees of a flat 10% with no VAT against an agreement of 10% plus VAT', () => {
+    const p = parse71()
+    const checked = applyFeeExpectations(p.lines, PNE_TERMS)
+    const fee = checked.find(l => l.line_type === 'management_fee' && l.property_address === '29, Briardene')
+    expect(fee.flags).toEqual(expect.arrayContaining(['fee_rate_differs', 'vat_not_shown']))
+    expect(fee.fee_check).toMatchObject({ expected_gross: 93.6, charged_gross: 78, charged_pct_of_rent: 10 })
+    expect(describeFeeCheck(fee.fee_check)).toMatch(/Charged £78\.00 \(10% of rent\) against agreed 10% \+ 20% VAT = £93\.60; no VAT itemised/)
+  })
+
+  it('treats a flat 12% as matching 10% plus VAT on amount, but still notes the VAT is not itemised', () => {
+    const p = parseAuditStatement(fixture('audit-pne-three-line-fee-99.txt'))
+    const checked = applyFeeExpectations(p.lines, PNE_TERMS)
+    const twelve = checked.filter(l => l.line_type === 'management_fee' && l.fee_pct === 12)
+    expect(twelve.length).toBeGreaterThan(0)
+    expect(twelve.every(f => !f.flags.includes('fee_rate_differs'))).toBe(true)
+    expect(twelve.every(f => f.flags.includes('vat_not_shown'))).toBe(true)
+    const ten = checked.find(l => l.line_type === 'management_fee' && l.fee_pct === 10)
+    expect(ten.flags).toContain('fee_rate_differs')
+  })
+
+  it('does nothing when no rate has been agreed, and a flat rate with no VAT passes a no-VAT agreement', () => {
+    const p = parse71()
+    expect(feeCheck(p.lines.find(l => l.line_type === 'management_fee'), { expected_fee_pct: null })).toBeNull()
+    const checked = applyFeeExpectations(p.lines, { expected_fee_pct: 10, expected_fee_vat_pct: 0 })
+    expect(checked.filter(l => l.line_type === 'management_fee').every(f => f.fee_check.ok)).toBe(true)
   })
 })
