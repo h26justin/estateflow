@@ -1499,6 +1499,11 @@ export default function App() {
               ...targetAccessEmail.map(a => a.company_id),
             ])
             visibleProps = props.filter(p => targetCompanyIds.has(p.company_id))
+            // Until 2026-09-08 only the properties were filtered, so the
+            // company chips, the By Company cards and the "N companies"
+            // summary still showed every company the admin could see, each
+            // with zero properties, next to the impersonated user's data.
+            visibleCos = cos.filter(c => targetCompanyIds.has(c.id))
           } catch(e) { console.error('Impersonation filter failed', e) }
         }
         // ─── Suspended-company access control ────────────────────────────

@@ -149,29 +149,49 @@ const steps = [
   { n: '3', title: 'Run your portfolio', desc: 'Track rent, stay compliant, manage repairs and generate reports — everything from one clean dashboard.' },
 ]
 
-// Real screens from a live portfolio (the founder's own), captured 7 Sep
-// 2026. Guest and manager names are masked; the properties are not.
-// Files live in public/screens; crop is the top 1000px of a 1606px-wide app
-// window, saved as WebP.
+// Real screens from a live Properly account, captured 8 Sep 2026: the demo
+// portfolio (Northgate Property Ltd and Harbour Lets Ltd, 19 units across two
+// companies, fictional people). Files live in public/screens; each is the
+// top 913px of a 1606px-wide app window, saved as WebP. Refresh recipe: sign
+// in as a platform admin, Impersonate the demo user, capture with
+// html-to-image.
 const SCREENS = [
-  { id: 'dashboard',  label: 'Dashboard',        img: '/screens/dashboard.webp',
+  { id: 'dashboard',  label: 'Dashboard',        img: '/screens/dashboard.webp', url: 'dashboard',
     title: 'The whole portfolio on one page',
-    desc: '153 properties across six companies: value, equity, a health score, the items that need attention today, Autopilot suggestions and AI insights that name the property and the number.' },
-  { id: 'rent',       label: 'Rent Tracker',     img: '/screens/rent-tracker.webp',
+    desc: 'Rental Income leads the page: rent due against collected for every month of the year and for every company, then value, equity, arrears, occupancy and a health score, with the items that need attention today, a portfolio map, Autopilot suggestions and AI insights underneath.' },
+  { id: 'portfolio',  label: 'Portfolio',        img: '/screens/portfolio.webp', url: 'properties',
+    title: 'Every unit, grouped by company and building',
+    desc: 'Houses, flats in a block, HMO rooms and serviced apartments in one list or grid, with status, yield and rent on every row, filters by company and status, a map view and a one-step block-of-flats add.' },
+  { id: 'property',   label: 'Property',         img: '/screens/property.webp', url: 'detail',
+    title: 'One page per property, one tab per job',
+    desc: 'Rent history month by month, tenancy, financials, compliance certificates, maintenance, documents, expenses and the refurb ledger for a single property, with the arrears position and quick stats always in view.' },
+  { id: 'rent',       label: 'Rent Tracker',     img: '/screens/rent-tracker.webp', url: 'rent',
     title: 'Every month of every tenancy, at a glance',
-    desc: 'Paid, due, missed and part-paid month squares per property, grouped by company and building, with the collection rate and arrears position for the year always current.' },
-  { id: 'stl',        label: 'Short-term lets',  img: '/screens/stl-income.webp',
+    desc: 'Paid, due, missed and part-paid month squares per property, grouped by company and building, with the collection rate and arrears position for the year and a day-by-day view for the current month.' },
+  { id: 'stl',        label: 'Short-term lets',  img: '/screens/stl-income.webp', url: 'stl',
     title: 'Airbnb and Booking.com income, after the fees',
-    desc: 'Gross, platform fees, manager fees and net to owner for any period; occupancy, ADR and RevPAR on the rooms actually open; who is in house tonight and who arrives this week.' },
-  { id: 'compliance', label: 'Compliance',       img: '/screens/compliance.webp',
+    desc: 'Gross, platform fees, manager fees and net to owner for any period; occupancy, ADR and RevPAR on the rooms actually open; who is in house tonight and what is arriving, synced from Hostaway or Lodgify.' },
+  { id: 'reports',    label: 'Reports',          img: '/screens/reports.webp', url: 'reports/full_pnl',
+    title: 'Twenty reports, one click each',
+    desc: 'Full Portfolio P&L per property and per company, cash flow, yield comparison, arrears, compliance, mortgage interest, capital gains and the MTD tax pack, for any tax year or calendar year, as PDF or CSV.' },
+  { id: 'compliance', label: 'Compliance',       img: '/screens/compliance.webp', url: 'compliance',
     title: 'Certificates and paperwork per property',
-    desc: 'Gas, EICR, EPC, smoke and CO, licences, deposits and Right to Rent for each unit, with legal requirements separated from advisory gaps and a one-click entry for a whole building.' },
-  { id: 'deals',      label: 'Deals',            img: '/screens/deals.webp',
+    desc: 'Gas, EICR, EPC, smoke and CO, licences, deposits and Right to Rent for each unit, with legal requirements separated from advisory gaps, an expiry matrix, insurance per building and automatic reminders.' },
+  { id: 'deals',      label: 'Deals',            img: '/screens/deals.webp', url: 'deals/pipeline',
     title: 'A pipeline for what you might buy next',
-    desc: 'Analysing, offer made, under offer, exchanged and completed, with price, yield and photos on every card and a full deal pack PDF one click away.' },
-  { id: 'refurbs',    label: 'Refurbs',          img: '/screens/refurbs.webp',
+    desc: 'Analysing, offer made, under offer, exchanged and completed on a board or list, with price, yield and cash committed on every card, a purchase timeline of milestones and a full deal pack PDF one click away.' },
+  { id: 'deal-calc',  label: 'Deal calculator',  img: '/screens/deal-calculator.webp', url: 'deals/deal',
+    title: 'Stamp duty, mortgage and returns before you offer',
+    desc: 'Buy-to-let, HMO, serviced apartment, BRR or flip: acquisition costs with the additional-property surcharge, mortgage and rental income, gross yield, net yield, cash-on-cash return and a ten-year projection.' },
+  { id: 'refurbs',    label: 'Refurbs',          img: '/screens/refurbs.webp', url: 'refurbs',
     title: 'Agreed price against what you have paid',
-    desc: 'Each refurb with its agreed total, extras, payments so far and remaining to pay, filtered by company, so the money committed to works is never a guess.' },
+    desc: 'Each refurb with its agreed total, extras, payments so far and remaining to pay, on a list, a stage board or a payments ledger, filtered by company, so the money committed to works is never a guess.' },
+  { id: 'autopilot',  label: 'Autopilot',        img: '/screens/autopilot.webp', url: 'autopilot',
+    title: 'A daily to-do list the software writes for you',
+    desc: 'Expired gas certificates, boiler services due, smoke alarm tests, insurance renewals and rent arrears, each with a plain-English draft to send, so the day starts with actions instead of spreadsheets.' },
+  { id: 'tenant',     label: 'Tenant portal',    img: '/screens/tenant-portal.webp', url: 'portal',
+    title: 'Your tenants get their own branded portal',
+    desc: 'A sign-in page on your-company.ownproperly.com where tenants see their tenancy, payment history and shared documents, and raise repairs with photos, in your company name and colours.' },
 ]
 
 export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
@@ -259,9 +279,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Inside Properly</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Real screens, real portfolio</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Real screens, live account</h2>
             <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>
-              These are live pages from the founder's own 153-property portfolio, not mock-ups. Guest and manager names are masked; everything else is as it runs today.
+              These are live pages from a working Properly account, not mock-ups: a two-company portfolio of houses, a block of flats, an HMO and six serviced apartments, exactly as it runs today.
             </p>
           </div>
           <div className="screen-tabs" role="tablist" aria-label="Product screens" style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 22 }}>
@@ -275,9 +295,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <div className="screen-frame">
             <div className="screen-frame-bar" aria-hidden="true">
               <span/><span/><span/>
-              <div className="screen-frame-url">www.ownproperly.com/#/{shot.id}</div>
+              <div className="screen-frame-url">www.ownproperly.com/#/{shot.url}</div>
             </div>
-            <img key={shot.id} src={shot.img} alt={`Properly ${shot.label} page: ${shot.title}`} width={1606} height={1000} loading={shot.id === SCREENS[0].id ? 'eager' : 'lazy'} decoding="async"
+            <img key={shot.id} src={shot.img} alt={`Properly ${shot.label} page: ${shot.title}`} width={1606} height={913} loading={shot.id === SCREENS[0].id ? 'eager' : 'lazy'} decoding="async"
               style={{ display: 'block', width: '100%', height: 'auto' }}/>
           </div>
           <div className="screen-caption" style={{ display: 'flex', gap: 24, alignItems: 'flex-start', marginTop: 22, maxWidth: 860, margin: '22px auto 0' }}>
