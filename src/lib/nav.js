@@ -108,6 +108,7 @@ export const VIEW_LABELS = {
   feedback: 'Feedback',
   detail: 'Property',
   'import': 'Import Statement',
+  'statement-audit': 'Rental Statement Audit',
   'import-data': 'Import Historic Data',
   'bulk-add': 'Add Block of Flats',
 }
