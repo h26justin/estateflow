@@ -1,0 +1,60 @@
+Mr Example Landlord
+EXH Property Group Limited  28th April 2025
+50, Goldsmith Road
+London  Statement No : 36
+SE15 5TN
+Statement
+Income  Amount  VAT  Gross
+5 Watts Moses House, High Street East
+Rent for the month 25/04/2025 to 24/05/2025 - Tenant D1
+£500.00  £0.00  £500.00
+7 Watts Moses House, High Street East
+Brought Forward Arrears - Tenant D2
+£500.00  £0.00  £500.00
+Rent for the month 30/03/2025 to 29/04/2025 - Tenant D2
+£500.00  £0.00  £500.00
+Rent for the month 30/04/2025 to 29/05/2025 - Tenant D2
+£500.00  £0.00  £500.00
+19 Watts Moses House, High Street East
+Rent for the month 19/04/2025 to 18/05/2025 - Tenant D3
+£500.00  £0.00  £500.00
+Rent for the month 19/10/2024 to 18/11/2024 - Tenant D3  £200.00  £0.00  £200.00
+28 Watts Moses House, High Street East
+Rent for the month 19/04/2025 to 18/05/2025 - Tenant D4
+£500.00  £0.00  £500.00
+Flat 2, Watts Moses House, High Street East
+Rent for the month 21/04/2025 to 20/05/2025 - Tenant D5
+£500.00  £0.00  £500.00
+The Lounge, Watts Moses House, High Street East
+Rent for the month 19/04/2025 to 18/05/2025 - Tenant D6  £1,000.00  £0.00  £1,000.00
+Flat 5, St. Georges House
+
+--- PAGE BREAK ---
+
+Rent for the month 25/04/2025 to 24/05/2025 - Tenant D7
+£600.00  £0.00  £600.00
+£5,300.00  £0.00  £5,300.00
+Expenditure  Amount  VAT  Gross
+5 Watts Moses House, High Street East
+Management Commission 10.00% of £500.00  £50.00  £0.00  £50.00
+7 Watts Moses House, High Street East
+Management Commission 10.00% of £1,500.00  £150.00  £0.00  £150.00
+19 Watts Moses House, High Street East
+Management Commission 10.00% of £700.00  £70.00  £0.00  £70.00
+28 Watts Moses House, High Street East
+Management Commission 10.00% of £500.00  £50.00  £0.00  £50.00
+Flat 2, Watts Moses House, High Street East
+Management Commission 10.00% of £500.00  £50.00  £0.00  £50.00
+The Lounge, Watts Moses House, High Street East
+Management Commission 10.00% of £1,000.00  £100.00  £0.00  £100.00
+Flat 5, St. Georges House
+Management Commission 10.00% of £600.00  £60.00  £0.00  £60.00
+£530.00  £0.00  £530.00
+Summary
+Balance from previous statement  £0.00
+New Balance  £4,770.00
+PAYMENT AMOUNT  £4,770.00
+The amount shown will be transferred to your designated bank account as agreed.
+Our Invoice
+Date  Invoice No.  Fees
+28/04/2025  INV2526  £530.00
