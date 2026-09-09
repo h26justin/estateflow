@@ -9,7 +9,7 @@ import StatementAuditPage from '../StatementAuditPage'
 // the review fields and the per-statement balance check.
 const updateAuditStatement = vi.fn(async (id, patch) => ({ ...STATEMENTS.find(s => s.id === id), ...patch }))
 vi.mock('../../lib/api', () => ({
-  fetchAuditSeries: vi.fn(async () => [{ id: 'ser1', series_key: 'exh-property-group', landlord_company: 'EXH Property Group Limited', agent: 'PNE', start_number: 71 }]),
+  fetchAuditSeries: vi.fn(async () => [{ id: 'ser1', series_key: 'exh-property-group-pne', landlord_company: 'EXH Property Group Limited', agent: 'PNE', start_number: 71, expected_fee_pct: 10, expected_fee_vat_pct: 20 }]),
   fetchAuditStatements: vi.fn(async () => STATEMENTS),
   fetchAuditLinesForSeries: vi.fn(async () => LINES),
   updateAuditStatement: (...a) => updateAuditStatement(...a),
@@ -20,11 +20,11 @@ vi.mock('../../lib/api', () => ({
 }))
 
 const STATEMENTS = [
-  { id: 's71', series_key: 'exh-property-group', statement_number: 71, statement_date: '2026-01-05', status: 'imported_awaiting_review', statement_checked: false,
+  { id: 's71', series_key: 'exh-property-group-pne', statement_number: 71, statement_date: '2026-01-05', status: 'imported_awaiting_review', statement_checked: false,
     landlord_company: 'EXH Property Group Limited', agent: 'PNE', previous_balance: 0, new_balance: 5823, payment_amount: 5823,
     stated_income_total: 6470, stated_expenditure_total: 647, invoice_number: 'INV3494', invoice_fees: 647, import_errors: [] },
-  { id: 's72', series_key: 'exh-property-group', statement_number: 72, status: 'not_uploaded', import_errors: [] },
-  { id: 's73', series_key: 'exh-property-group', statement_number: 73, statement_date: '2026-01-19', status: 'discrepancy_found', statement_checked: true, checked_by: 'JH', checked_at: '2026-09-09',
+  { id: 's72', series_key: 'exh-property-group-pne', statement_number: 72, status: 'not_uploaded', import_errors: [] },
+  { id: 's73', series_key: 'exh-property-group-pne', statement_number: 73, statement_date: '2026-01-19', status: 'discrepancy_found', statement_checked: true, checked_by: 'JH', checked_at: '2026-09-09',
     previous_balance: 0, new_balance: 1000, payment_amount: 1000, import_errors: [{ property_address: '5, Thomas Street', tenant_name: '', amount: null, reason: 'No amount cell found for this entry' }] },
 ]
 const LINES = [
@@ -74,6 +74,17 @@ describe('StatementAuditPage', () => {
     expect(screen.getByText(/Transactions \(2\)/)).toBeInTheDocument()
     expect(screen.getAllByText('29, Briardene').length).toBe(2)
     expect(screen.getByText('£647.00 (10%)')).toBeInTheDocument()
+    // Agreed terms are 10% + 20% VAT; the statement charged a flat 10% with no VAT.
+    expect(screen.getByText(/fee rate differs from agreement/)).toBeInTheDocument()
+    expect(screen.getByText(/Charged £647\.00 \(10% of rent\) against agreed 10% \+ 20% VAT = £776\.40/)).toBeInTheDocument()
+  })
+
+  it('shows the agreed fee terms for the run and lets them be edited', async () => {
+    renderPage()
+    await waitFor(() => screen.getByText(/Statement register/))
+    expect(screen.getByText('Agreed fee')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('10')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('20')).toBeInTheDocument()
   })
 
   it('reports a discrepancy with expected, stated and the difference', async () => {

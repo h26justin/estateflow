@@ -9,7 +9,7 @@ import { linesFromTextItems, textFromPages } from '../lib/pdfText'
 import {
   parseAuditStatement, balanceCheck, computeTotals, compareWithExisting, deriveStatus, missingNumbers,
   buildImportSummary, STATEMENT_STATUSES, STATUS_LABEL, LINE_TYPES, LINE_TYPE_LABEL, REVIEW_STATUSES, REVIEW_LABEL,
-  NON_COUNTING_REVIEW, round2, toIsoDate,
+  NON_COUNTING_REVIEW, round2, lineAmountOf, feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../lib/statementAudit'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
@@ -51,7 +51,17 @@ const STATUS_COLOUR = (T) => ({
 })
 const DECISION_LABEL = { new: 'New - will be imported', previously_imported_checked: 'Previously imported - checked and correct', correction_required: 'Correction required', possible_duplicate: 'Possible duplicate - manual review' }
 
-const lineAmount = l => l.line_type === 'management_fee' ? l.fee_amount : (l.line_type === 'credit' ? l.credit_amount : (['rent', 'arrears', 'other_income'].includes(l.line_type) ? l.gross_rent : l.deduction_amount))
+const lineAmount = lineAmountOf
+// Agreed fee terms seeded for a new landlord run, by agent. Editable on the
+// page; used only to flag lines, never to change a figure.
+const DEFAULT_FEE_TERMS = { PNE: { expected_fee_pct: 10, expected_fee_vat_pct: 20 }, RMS: { expected_fee_pct: 7, expected_fee_vat_pct: 20 } }
+const FLAG_LABEL = {
+  missing_property: 'no property shown', missing_tenant: 'no tenant shown', missing_period: 'no rental period', missing_fee_basis: 'fee basis not shown',
+  unclassified: 'type needs review', review_description: 'wording needs review', part_period: 'part period',
+  fee_does_not_match_percentage: 'fee is not the stated % of rent', amount_plus_vat_not_gross: 'amount + VAT is not the gross',
+  fee_rate_differs: 'fee rate differs from agreement', vat_not_shown: 'VAT not itemised on statement', vat_not_itemised: 'VAT not itemised on statement',
+  vat_derived_not_itemised: 'VAT split derived (not on this invoice)', added_manually: 'added by hand', reprocessed_from_error: 're-processed from an import error',
+}
 
 export default function StatementAuditPage({ user, showToast, onClose }) {
   const { T } = useTheme()
@@ -156,22 +166,37 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     let key = parsed.seriesKey
     let seriesRows = series
     if (!seriesRows.some(s => s.series_key === key)) {
-      await api.upsertAuditSeries({ series_key: key, landlord_company: parsed.landlordCompany || parsed.landlordName || 'Unknown landlord', landlord_name: parsed.landlordName, agent: parsed.agent, start_number: DEFAULT_START })
+      await api.upsertAuditSeries({ series_key: key, landlord_company: parsed.landlordCompany || parsed.landlordName || 'Unknown landlord', landlord_name: parsed.landlordName, agent: parsed.agent, start_number: DEFAULT_START, ...(DEFAULT_FEE_TERMS[parsed.agent] || {}) })
       seriesRows = await loadSeries()
     }
+    const seriesRow = seriesRows.find(s => s.series_key === key) || null
+    parsed.lines = applyFeeExpectations(parsed.lines, seriesRow)
     let stmts = statements, allLines = lines
     if (key !== seriesKey) {
       // Statement belongs to a different landlord run: load that register.
       ;[stmts, allLines] = await Promise.all([api.fetchAuditStatements(key), api.fetchAuditLinesForSeries(key)])
       setSeriesKey(key); setStatements(stmts); setLines(allLines)
     }
-    const existing = stmts.find(s => s.statement_number === parsed.statementNumber && s.status !== 'not_uploaded') || null
-    const placeholder = stmts.find(s => s.statement_number === parsed.statementNumber) || null
+    // Rook Matthews Sayer prints no sequential number: suggest the next one
+    // in the run and let the user confirm or change it before importing.
+    if (parsed.statementNumber == null) {
+      const nums = stmts.filter(s => s.status !== 'not_uploaded').map(s => s.statement_number)
+      parsed.statementNumber = nums.length ? Math.max(...nums) + 1 : (seriesRow?.start_number ?? DEFAULT_START)
+      parsed.numberAssigned = true
+    }
+    setUpload(compareForNumber({ step: 'preview', fileName, rawText, parsed, apply: new Set(), seriesKey: key }, stmts, allLines, parsed.statementNumber))
+  }
+
+  // Everything in the preview that depends on the statement number.
+  function compareForNumber(u, stmts, allLines, number) {
+    const parsed = { ...u.parsed, statementNumber: number }
+    const existing = stmts.find(s => s.statement_number === number && s.status !== 'not_uploaded') || null
+    const placeholder = stmts.find(s => s.statement_number === number) || null
     const existingLines = existing ? allLines.filter(l => l.statement_id === existing.id) : []
     const compare = compareWithExisting(parsed.lines, existingLines)
     const previewLines = compare.decisions.map(d => ({ ...d.parsed, review_status: d.decision === 'possible_duplicate' ? 'possible_duplicate' : 'imported' }))
-    const check = balanceCheck({ previous_balance: parsed.previousBalance, new_balance: parsed.newBalance, payment_amount: parsed.paymentAmount, stated_income_total: parsed.statedIncomeTotal, stated_expenditure_total: parsed.statedExpenditureTotal, invoice_fees: parsed.invoiceFees, import_errors: parsed.errors }, previewLines)
-    setUpload({ step: 'preview', fileName, rawText, parsed, existing: existing || placeholder, existingLines, compare, check, apply: new Set(), seriesKey: key })
+    const check = balanceCheck({ previous_balance: parsed.previousBalance, carried_forward: parsed.carriedForward, new_balance: parsed.newBalance, payment_amount: parsed.paymentAmount, stated_income_total: parsed.statedIncomeTotal, stated_expenditure_total: parsed.statedExpenditureTotal, invoice_fees: parsed.invoiceFees, import_errors: parsed.errors }, previewLines)
+    return { ...u, parsed, existing: existing || placeholder, existingLines, compare, check, apply: new Set() }
   }
 
   async function confirmImport() {
@@ -210,6 +235,8 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         statement_number: parsed.statementNumber, statement_date: parsed.statementDate, agent: parsed.agent,
         landlord_name: parsed.landlordName, landlord_company: parsed.landlordCompany, file_name: u.fileName, raw_text: u.rawText,
         previous_balance: parsed.previousBalance, new_balance: parsed.newBalance, payment_amount: parsed.paymentAmount,
+        carried_forward: parsed.carriedForward || 0, agent_reference: parsed.agentReference || null,
+        statement_period_start: parsed.statementPeriodStart || null, statement_period_end: parsed.statementPeriodEnd || null,
         stated_income_total: parsed.statedIncomeTotal, stated_expenditure_total: parsed.statedExpenditureTotal,
         invoice_number: parsed.invoiceNumber, invoice_date: parsed.invoiceDate, invoice_fees: parsed.invoiceFees,
         import_errors: parsed.errors.map(e => ({ ...e, statement_number: parsed.statementNumber })),
@@ -281,6 +308,12 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     } catch (e) { showToast?.(e.message, 'error') }
   }
 
+  async function saveSeriesTerms(patch) {
+    if (!currentSeries) return
+    try { await api.updateAuditSeries(currentSeries.id, patch); await loadSeries() }
+    catch (e) { showToast?.(e.message, 'error') }
+  }
+
   function startEditLine(statementId, line) {
     const draft = line ? { ...line } : { line_type: 'rent', section: 'income', property_address: '', tenant_name: '', period_start: '', period_end: '', description: '', gross_rent: 0, fee_amount: 0, vat_amount: 0, deduction_amount: 0, credit_amount: 0, fee_pct: '', fee_basis: '', review_status: 'imported', flags: [] }
     setEditLine({ id: line?.id || null, statementId, draft })
@@ -292,6 +325,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     if (['rent', 'arrears', 'other_income'].includes(d.line_type)) { out.gross_rent = amt; out.net_amount = amt; out.section = 'income' }
     else if (d.line_type === 'management_fee') { out.fee_amount = amt; out.net_amount = -(amt + out.vat_amount); out.section = 'expenditure' }
     else if (d.line_type === 'credit') { out.credit_amount = amt; out.net_amount = amt; out.section = 'expenditure' }
+    else if (d.line_type === 'transfer') { out.net_amount = amt; out.vat_amount = 0; out.section = 'summary' }
     else { out.deduction_amount = amt; out.net_amount = -(amt + out.vat_amount); out.section = 'expenditure' }
     out.fee_pct = d.fee_pct === '' || d.fee_pct == null ? null : Number(d.fee_pct)
     out.fee_basis = d.fee_basis === '' || d.fee_basis == null ? null : Number(d.fee_basis)
@@ -381,7 +415,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
       ['Gross rent received', t.gross_rent, T.green], ['Arrears payments', t.arrears, T.green], ['Other income', t.other_income, T.green],
       ['Management fees', t.management_fees, T.amber], ['VAT', t.vat, T.amber], ['Maintenance', t.maintenance, T.amber],
       ['Other deductions', t.other_deductions, T.amber], ['Credits / adjustments', t.credits, T.blue],
-      ['Net amount due (expected)', check.expected, T.text], ['Shown as transferred', check.stated, T.text],
+      ['Net amount due (expected)', check.expected, T.text], [t.transfer_count ? `Paid to landlord (${t.transfer_count} payment${t.transfer_count === 1 ? '' : 's'})` : 'Shown as transferred', check.stated, T.text],
     ]
     return (
       <div className="summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
@@ -428,11 +462,14 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               const d = decisions ? decisions[i] : null
               const rs = d ? d.decision : l.review_status
               const colour = rs === 'new' || rs === 'imported' ? T.green : rs === 'previously_imported_checked' ? T.blue : rs === 'excluded' ? T.muted : rs === 'import_error' ? T.red : T.amber
-              const flags = (l.flags || []).filter(f => f !== 'part_period')
+              const chk = l.fee_check || (l.line_type === 'management_fee' && !decisions ? feeCheck(l, currentSeries) : null)
+              const flags = (l.flags || []).filter(f => f !== 'part_period' && f !== 'fee_rate_differs' && f !== 'vat_not_shown')
+              if (chk && !chk.ok) flags.push(...chk.flags)
+              const feeNote = chk ? describeFeeCheck(chk) : ''
               return (
                 <tr key={l.id || i} style={{ opacity: NON_COUNTING_REVIEW.has(l.review_status) && !decisions ? 0.55 : 1 }}>
                   {td(l.line_no ?? i + 1, { color: T.muted })}
-                  {td(LINE_TYPE_LABEL[l.line_type] || l.line_type, { color: ['rent', 'arrears', 'other_income'].includes(l.line_type) ? T.green : T.amber })}
+                  {td(LINE_TYPE_LABEL[l.line_type] || l.line_type, { color: ['rent', 'arrears', 'other_income'].includes(l.line_type) ? T.green : l.line_type === 'transfer' ? T.blue : T.amber })}
                   {td(l.property_address || <span style={{ color: T.red }}>missing</span>, { max: 260, title: l.property_address })}
                   {td(l.tenant_name || (['rent', 'arrears', 'other_income'].includes(l.line_type) ? <span style={{ color: T.amber }}>not shown</span> : '-'), { max: 220, title: l.tenant_name })}
                   {td(l.period_start ? `${fmtDate(l.period_start)} - ${fmtDate(l.period_end)}` : (l.line_type === 'rent' ? <span style={{ color: T.amber }}>missing</span> : '-'))}
@@ -442,13 +479,16 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   {td(l.vat_amount ? fmt(l.vat_amount) : '', { right: true })}
                   {td(l.deduction_amount ? fmt(l.deduction_amount) : '', { right: true })}
                   {td(l.credit_amount ? fmt(l.credit_amount) : '', { right: true })}
-                  {td(fmt(l.net_amount), { right: true, color: l.net_amount < 0 ? T.amber : T.text })}
+                  {td(l.line_type === 'transfer' ? <span style={{ color: T.blue }}>{fmt(l.net_amount)} paid</span> : fmt(l.net_amount), { right: true, color: l.net_amount < 0 ? T.amber : T.text })}
                   <td style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22` }}>
                     {pill(d ? DECISION_LABEL[rs] : (REVIEW_LABEL[rs] || rs), colour)}
                     {d?.note && <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, marginTop: 3 }}>{d.note}</div>}
                     {!d && l.error_reason && <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, marginTop: 3, maxWidth: 260, whiteSpace: 'normal' }}>{l.error_reason}</div>}
                   </td>
-                  {td(flags.length ? flags.map(f => f.replace(/_/g, ' ')).join(', ') : '', { color: T.amber, wrap: true, max: 180 })}
+                  <td style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, maxWidth: 220, whiteSpace: 'normal' }}>
+                    {flags.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, color: T.amber }}>{[...new Set(flags)].map(f => FLAG_LABEL[f] || f.replace(/_/g, ' ')).join(', ')}</div>}
+                    {feeNote && <div style={{ fontFamily: MONO, fontSize: 9, color: chk.ok ? T.green : T.amber, marginTop: 2 }}>{feeNote}</div>}
+                  </td>
                   {editable && (
                     <td style={{ padding: '4px 6px', borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap' }}>
                       <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => startEditLine(l.statement_id, l)}>Edit</button>
@@ -480,7 +520,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         <div><label>Tenant</label>{inp('tenant_name')}</div>
         <div><label>Period start</label>{inp('period_start', 'date')}</div>
         <div><label>Period end</label>{inp('period_end', 'date')}</div>
-        <div><label>{isIncome ? 'Gross amount received' : draft.line_type === 'management_fee' ? 'Fee (net of VAT)' : draft.line_type === 'credit' ? 'Credit amount' : 'Deduction (net of VAT)'}</label>
+        <div><label>{isIncome ? 'Gross amount received' : draft.line_type === 'management_fee' ? 'Fee (net of VAT)' : draft.line_type === 'credit' ? 'Credit amount' : draft.line_type === 'transfer' ? 'Amount paid to landlord' : 'Deduction (net of VAT)'}</label>
           <input type="number" step="0.01" value={amount} onChange={e => setDraft({ ...draft, _amount: e.target.value })} style={{ fontSize: 12, padding: '6px 8px' }} /></div>
         <div><label>VAT</label>{inp('vat_amount', 'number', { step: '0.01' })}</div>
         {draft.line_type === 'management_fee' && <><div><label>Fee %</label>{inp('fee_pct', 'number', { step: '0.01' })}</div><div><label>Of (rent basis)</label>{inp('fee_basis', 'number', { step: '0.01' })}</div></>}
@@ -527,13 +567,22 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
           return (
             <div>
               <div className="summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, marginBottom: 12 }}>
-                {[['Landlord', parsed.landlordCompany || parsed.landlordName || '-'], ['Statement date', fmtDate(parsed.statementDate) || 'not found'], ['Agent', parsed.agent || 'unknown'],
+                {[['Landlord', parsed.landlordCompany || parsed.landlordName || '-'], ['Statement date', fmtDate(parsed.statementDate) || 'not found'], ['Agent', (parsed.agent === 'RMS' ? 'Rook Matthews Sayer' : parsed.agent) || 'unknown'],
                   ['Transactions on statement', parsed.lines.length + parsed.errors.length], ['Agent invoice', parsed.invoiceNumber ? `${parsed.invoiceNumber} ${fmt(parsed.invoiceFees)}` : '-'],
                   ['On register already', existing && existing.status !== 'not_uploaded' ? `Yes - ${STATUS_LABEL[existing.status]}` : 'No']].map(([l, v]) => (
                   <div key={l} style={{ background: T.bg, borderRadius: 8, padding: '8px 10px' }}>{label(l)}<div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: T.text }}>{v}</div></div>
                 ))}
               </div>
               {parsed.warnings.length > 0 && <div style={{ marginBottom: 10, fontFamily: MONO, fontSize: 10, color: T.amber }}>{parsed.warnings.join(' ')}</div>}
+              {(parsed.numberAssigned || parsed.agent === 'RMS') && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '8px 12px', background: T.amber + '14', border: `1px solid ${T.amber}55`, borderRadius: 8 }}>
+                  <label style={{ margin: 0 }}>Audit statement number</label>
+                  <input type="number" value={parsed.statementNumber ?? ''} onChange={e => { const n = parseInt(e.target.value, 10); setUpload(compareForNumber(upload, statements, lines, Number.isFinite(n) ? n : null)) }} style={{ width: 90, fontSize: 12, padding: '5px 8px' }} />
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                    This agent prints no sequential number{parsed.agentReference ? ` (agent reference ${parsed.agentReference}` : ''}{parsed.statementPeriodStart ? `${parsed.agentReference ? ', ' : ' ('}period ${fmtDate(parsed.statementPeriodStart)} to ${fmtDate(parsed.statementPeriodEnd)}` : ''}{parsed.agentReference || parsed.statementPeriodStart ? ')' : ''}. The next number in this run is suggested; change it if the statement belongs elsewhere in the sequence.
+                  </span>
+                </div>
+              )}
               {totalsGrid(check)}
               {balanceBlock(check)}
 
@@ -542,6 +591,8 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 {pill(`${count('correction_required')} correction required`, T.amber)}{pill(`${count('possible_duplicate')} possible duplicate`, T.amber)}
                 {pill(`${parsed.errors.length} import error${parsed.errors.length === 1 ? '' : 's'}`, parsed.errors.length ? T.red : T.muted)}
                 {compare.missingFromUpload.length > 0 && pill(`${compare.missingFromUpload.length} on register but not on this upload`, T.amber)}
+                {(() => { const n = parsed.lines.filter(l => l.flags?.includes('fee_rate_differs')).length; return n ? pill(`${n} fee line${n === 1 ? '' : 's'} differ from the agreed rate`, T.amber) : null })()}
+                {(() => { const n = parsed.lines.filter(l => l.flags?.includes('vat_not_shown')).length; return n ? pill(`${n} fee line${n === 1 ? '' : 's'} with no VAT itemised`, T.muted) : null })()}
               </div>
               {lineTable(dec.map(d => d.parsed), { decisions: dec })}
 
@@ -591,6 +642,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
             ['Already imported and confirmed', s.previously_imported], ['Corrections applied', s.corrections_applied], ['Requiring correction', s.corrections - s.corrections_applied + (s.lines_missing_from_upload || 0)],
             ['Possible duplicates', s.possible_duplicates], ['Import errors', s.import_errors + (s.db_failures || 0)],
             ['Lines with missing information', s.missing_information],
+            ['Fee lines differing from the agreed rate', s.fee_rate_differs ?? 0], ['Fee lines with no VAT itemised', s.vat_not_shown ?? 0],
             ['Statement balances', s.balances ? 'Yes' : `No - expected ${fmt(s.expected_net)}, stated ${s.stated_net == null ? '-' : fmt(s.stated_net)}, difference ${fmt(s.difference)}`],
             ['Manually checked by you', s.manually_checked ? 'Yes' : 'No - set "Statement checked?" to Yes once reviewed'],
             ['Ready to compare with the bank account', s.ready_for_bank ? 'Yes' : 'Not yet'],
@@ -661,6 +713,13 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>Audit starts at</span>
                 <input type="number" defaultValue={startNumber} key={currentSeries.id + startNumber} onBlur={e => Number(e.target.value) !== startNumber && saveStart(e.target.value)} style={{ width: 70, fontSize: 12, padding: '5px 8px' }} />
+                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginLeft: 6 }} title="The fee rate agreed with the agent. Every fee line is checked against it; the statement figures are never changed.">Agreed fee</span>
+                <input type="number" step="0.01" placeholder="%" defaultValue={currentSeries.expected_fee_pct ?? ''} key={'fp' + currentSeries.id + currentSeries.expected_fee_pct}
+                  onBlur={e => String(e.target.value) !== String(currentSeries.expected_fee_pct ?? '') && saveSeriesTerms({ expected_fee_pct: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: 62, fontSize: 12, padding: '5px 8px' }} />
+                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>% + VAT</span>
+                <input type="number" step="1" defaultValue={currentSeries.expected_fee_vat_pct ?? 0} key={'fv' + currentSeries.id + currentSeries.expected_fee_vat_pct}
+                  onBlur={e => Number(e.target.value) !== Number(currentSeries.expected_fee_vat_pct ?? 0) && saveSeriesTerms({ expected_fee_vat_pct: Number(e.target.value) || 0 })} style={{ width: 52, fontSize: 12, padding: '5px 8px' }} />
+                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>%</span>
               </div>
             )}
             <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; handleFile(f) }} />
@@ -773,7 +832,8 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text }}>Statement {s.statement_number} {s.statement_date ? `· ${fmtDate(s.statement_date)}` : ''} {pill(STATUS_LABEL[s.status], colours[s.status])}</h3>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 3 }}>
                       {s.landlord_company || currentSeries?.landlord_company}{s.landlord_name ? ` · ${s.landlord_name}` : ''}{s.agent ? ` · ${s.agent}` : ''}{s.file_name ? ` · ${s.file_name}` : ''}
-                      {s.invoice_number ? ` · Agent invoice ${s.invoice_number} ${fmtDate(s.invoice_date)} ${fmt(s.invoice_fees)}` : ''}
+                      {s.agent_reference ? ` · Agent ref ${s.agent_reference}` : ''}{s.statement_period_start ? ` · Period ${fmtDate(s.statement_period_start)} to ${fmtDate(s.statement_period_end)}` : ''}
+                      {s.invoice_number && s.invoice_number !== s.agent_reference ? ` · Agent invoice ${s.invoice_number} ${fmtDate(s.invoice_date)} ${fmt(s.invoice_fees)}` : (s.invoice_fees != null ? ` · Fee invoice ${fmt(s.invoice_fees)}` : '')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -813,6 +873,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                       <span>Statement income total: <b style={{ color: T.text }}>{s.stated_income_total == null ? '-' : fmt(s.stated_income_total)}</b></span>
                       <span>Statement expenditure total: <b style={{ color: T.text }}>{s.stated_expenditure_total == null ? '-' : fmt(s.stated_expenditure_total)}</b></span>
                       <span>Previous balance: <b style={{ color: T.text }}>{fmt(s.previous_balance)}</b></span>
+                      {Number(s.carried_forward) ? <span>Carried forward: <b style={{ color: T.text }}>{fmt(s.carried_forward)}</b></span> : null}
                       <span>New balance: <b style={{ color: T.text }}>{s.new_balance == null ? '-' : fmt(s.new_balance)}</b></span>
                       <span>Payment amount: <b style={{ color: T.text }}>{s.payment_amount == null ? '-' : fmt(s.payment_amount)}</b></span>
                     </div>
