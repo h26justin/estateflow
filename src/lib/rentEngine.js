@@ -105,6 +105,27 @@ export function tenancyForPeriod(tenancies, start, end) {
 
 // Days inside [start,end] that are collectible: covered by the tenancy and not
 // inside any non-chargeable period.
+// Labels for non_chargeable_periods.reason (the DB check constraint lists the
+// same keys). 'not_owned' added 15 Sept 2026 for 10 Elms West: months before
+// the purchase completed must never read as missed rent.
+export const NON_CHARGEABLE_REASONS = Object.freeze([
+  { v: 'not_owned',     l: 'Not owned / before ownership' },
+  { v: 'vacant',        l: 'Vacant' },
+  { v: 'refurbishment', l: 'Refurbishment' },
+  { v: 'rent_free',     l: 'Agreed rent-free' },
+  { v: 'other',         l: 'Other' },
+])
+export const NON_CHARGEABLE_REASON_LABEL = Object.freeze(Object.fromEntries(NON_CHARGEABLE_REASONS.map(r => [r.v, r.l])))
+// The first approved period overlapping [start, end], for the explanation.
+export function nonChargeablePeriodFor(periods, start, end) {
+  return (periods || []).find(p => p.start_date <= end && (!p.end_date || p.end_date >= start)) || null
+}
+function nonChargeableWhy(periods, start, end) {
+  const p = nonChargeablePeriodFor(periods, start, end)
+  const l = p && NON_CHARGEABLE_REASON_LABEL[p.reason]
+  return l ? `${l} (approved non-chargeable period)` : 'Approved non-chargeable period'
+}
+
 export function collectibleDays(start, end, tenancy, nonChargeable) {
   let n = 0
   const total = daysBetween(start, end)
@@ -222,7 +243,7 @@ export function evaluatePeriod(row, ctx) {
   const cDays = collectibleDays(start, end, tenancy, nonChargeable)
   base.collectibleDays = cDays
   if (cDays === 0) {
-    const why = start < tenancy.tenancy_start ? 'Before tenancy start' : (tenancy.tenancy_end && start > tenancy.tenancy_end) ? 'After tenancy end' : 'Approved non-chargeable period'
+    const why = start < tenancy.tenancy_start ? 'Before tenancy start' : (tenancy.tenancy_end && start > tenancy.tenancy_end) ? 'After tenancy end' : nonChargeableWhy(nonChargeable, start, end)
     return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: [why] }, activeOverride)
   }
 
@@ -236,7 +257,11 @@ export function evaluatePeriod(row, ctx) {
   expected = round2(expected)
   if (activeOverride?.expected_amount != null) expected = round2(activeOverride.expected_amount)
   base.expected = expected
-  if (cDays < base.totalDays) base.reasons.push(`${cDays} of ${base.totalDays} days collectible`)
+  if (cDays < base.totalDays) {
+    const ncp = nonChargeablePeriodFor(nonChargeable, start, end)
+    const lbl = ncp && NON_CHARGEABLE_REASON_LABEL[ncp.reason]
+    base.reasons.push(`${cDays} of ${base.totalDays} days collectible${lbl ? ` (${lbl} ${ncp.start_date} to ${ncp.end_date || 'ongoing'})` : ''}`)
+  }
   if (base.fallback) base.reasons.push('No tenancy record: using the property\'s rent and due day')
 
   // Shares for mixed funding.

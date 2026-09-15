@@ -20,7 +20,7 @@ import {
   STL_COLOR, STL_STATUS, ADJUSTMENT_KINDS, KNOWN_CHANNELS,
   isRevenueBooking, isCancelled, channelLabel, bookingNights, bookingReference, guestDisplayName,
   bookingStatusLabel, unitCount, summariseStl, periodRange, toISO, bookingMatches, bookingFees, bookingNetAfterFees, managerPayouts, observedChannelRates, effectiveFees,
-  roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot,
+  roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, payoutCorrections, snapshotRooms, snapshotCorrections,
 } from '../lib/stlIncome'
 import { downloadCsv } from '../lib/csv'
 
@@ -163,6 +163,14 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const yearSummary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { from: `${yearShown}-01-01`, to: `${yearShown}-12-31`, roomCount, rates }), [scopedBookings, scopedAdjustments, yearShown, roomCount, rates])
   const payouts = useMemo(() => managerPayouts(scopedBookings, scopedAdjustments, selectedProps, managers, { ...range, rates }), [scopedBookings, scopedAdjustments, selectedProps, managers, range.from, range.to, rates])
   const managerFees = Math.round(payouts.reduce((acc, r) => acc + r.amount, 0) * 100) / 100
+  // Corrections carried from locked pay runs: a period that was paid and whose
+  // bookings have since changed (a cancellation that arrived later, a refund
+  // entered against one of them). Computed over ALL bookings, not the current
+  // view, so a room outside the filter still reconciles against what was paid.
+  const corrections = useMemo(() => payoutCorrections(ledger, bookings || [], adjustments, { rates, excludeFrom: range.from, excludeTo: range.to }), [ledger, bookings, adjustments, rates, range.from, range.to])
+  const correctionsFor = mid => corrections.filter(c => c.manager_id === mid)
+  const carriedFor = mid => Math.round(correctionsFor(mid).reduce((sum, c) => sum + c.outstanding, 0) * 100) / 100
+  const payTotal = r => Math.round((r.amount + carriedFor(r.manager.id)) * 100) / 100
   const netToOwner = Math.round((summary.netAfterFees - managerFees) * 100) / 100
 
   // Per-room rows and the sort the table is showing them in.
@@ -257,7 +265,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   }
   async function removeManager(m) {
     const assigned = stlProps.filter(p => p.stl_manager_id === m.id).length
-    const go = await confirmDialog({ title: `Remove ${m.name}?`, body: assigned ? `${assigned} propert${assigned === 1 ? 'y is' : 'ies are'} assigned to ${m.name}; they will have no manager afterwards. Past payouts are not stored, so nothing else changes.` : 'Nothing is assigned to this manager.', confirmLabel: 'Remove', danger: true })
+    const go = await confirmDialog({ title: `Remove ${m.name}?`, body: assigned ? `${assigned} propert${assigned === 1 ? 'y is' : 'ies are'} assigned to ${m.name}; they will have no manager afterwards. Recorded payouts stay in the ledger under the manager's name.` : 'Nothing is assigned to this manager.', confirmLabel: 'Remove', danger: true })
     if (!go) return
     try { await api.deleteStlManager(m.id); await loadManagers(); showToast?.('Manager removed', 'success') }
     catch (e) { showToast?.(e.message || 'Could not remove manager', 'error') }
@@ -272,12 +280,17 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   }
   // ── Payout ledger: record what was actually paid ─────────────────────────
   const [markingPaid, setMarkingPaid] = useState(null)   // manager id in flight
+  const [openPayout, setOpenPayout] = useState(null)     // ledger row whose details are expanded
   async function markPaid(r) {
     if (!range.from || !range.to) return showToast?.('Choose a period with both dates first', 'error')
     if (!canEditCompany(r.manager.company_id)) return showToast?.('You do not have permission to record payouts for this company', 'error')
+    const mine = correctionsFor(r.manager.id)
+    const carried = carriedFor(r.manager.id)
+    const total = payTotal(r)
+    if (total < 0) return showToast?.('Corrections carried from earlier periods exceed this period\'s fee; nothing to pay yet', 'error')
     const go = await confirmDialog({
       title: `Mark ${r.manager.name} as paid?`,
-      body: `${fmtMoney(r.amount)} for ${periodLabel}: ${r.manager.percentage}% of ${fmtMoney(r.base)} (${r.manager.basis === 'gross' ? 'gross' : 'income after platform fees'}) across ${r.properties.filter(pp => pp.gross || pp.adjustments).length} unit(s). The figures behind it are frozen in the ledger so a later rate change or a late Booking.com invoice cannot restate what was paid.`,
+      body: `${fmtMoney(total)} for ${periodLabel}: ${r.manager.percentage}% of ${fmtMoney(r.base)} (${r.manager.basis === 'gross' ? 'gross' : 'income after platform fees'}) across ${r.properties.filter(pp => pp.gross || pp.adjustments).length} unit(s)${carried ? `, ${carried < 0 ? 'less' : 'plus'} ${fmtMoney(Math.abs(carried))} carried from ${mine.length} earlier locked period${mine.length === 1 ? '' : 's'}` : ''}. The period locks: its figures and the bookings behind them are frozen in the ledger, and anything that changes afterwards carries into the next open pay run as a correction rather than restating this one.`,
       confirmLabel: 'Record payment',
     })
     if (!go) return
@@ -286,16 +299,16 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
       await api.createStlPayout({
         company_id: r.manager.company_id, manager_id: r.manager.id, manager_name: r.manager.name,
         period_from: range.from, period_to: range.to,
-        amount: r.amount, base_amount: r.base, percentage: r.manager.percentage, basis: r.manager.basis,
-        breakdown: payoutSnapshot(r),
+        amount: total, base_amount: r.base, percentage: r.manager.percentage, basis: r.manager.basis,
+        breakdown: payoutSnapshot(r, { bookings: bookings || [], rates, from: range.from, to: range.to, corrections: mine }),
       })
       await loadLedger()
-      showToast?.(`${r.manager.name} recorded as paid ${fmtMoney(r.amount)}`, 'success')
+      showToast?.(`${r.manager.name} recorded as paid ${fmtMoney(total)}${carried ? ` (including ${fmtMoney(carried)} of corrections)` : ''}`, 'success')
     } catch (e) { showToast?.(e.message || 'Could not record the payout', 'error') }
     finally { setMarkingPaid(null) }
   }
   async function removePaid(l) {
-    const go = await confirmDialog({ title: 'Remove this payout record?', body: `${l.manager_name} · ${fmtDateShort(l.period_from)} – ${fmtDate(l.period_to)} · ${fmtMoney(l.amount)}. The period goes back to "not yet paid". Nothing is sent anywhere.`, confirmLabel: 'Remove', danger: true })
+    const go = await confirmDialog({ title: 'Remove this payout record?', body: `${l.manager_name} · ${fmtDateShort(l.period_from)} – ${fmtDate(l.period_to)} · ${fmtMoney(l.amount)}. The period unlocks and goes back to "not yet paid"; the audit history keeps the removed record. Nothing is sent anywhere.`, confirmLabel: 'Remove', danger: true })
     if (!go) return
     try { await api.deleteStlPayout(l.id); await loadLedger(); showToast?.('Payout record removed', 'success') }
     catch (e) { showToast?.(e.message || 'Could not remove the record', 'error') }
@@ -330,8 +343,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const payoutText = () => {
     const lines = [`Short-term let manager payout · ${periodLabel}`]
     for (const r of payouts) {
-      lines.push(`${r.manager.name} · ${r.manager.percentage}% of ${r.manager.basis === 'gross' ? 'gross' : 'income after platform fees'} · pay ${fmtMoney(r.amount)}`)
+      const mine = correctionsFor(r.manager.id)
+      lines.push(`${r.manager.name} · ${r.manager.percentage}% of ${r.manager.basis === 'gross' ? 'gross' : 'income after platform fees'} · pay ${fmtMoney(payTotal(r))}${mine.length ? ` (${fmtMoney(r.amount)} this period, ${fmtMoney(carriedFor(r.manager.id))} corrections)` : ''}`)
       for (const p of r.properties) lines.push(`  ${p.property.name || p.property.address}: gross ${fmtMoney(p.gross)}, fees ${fmtMoney(p.platformFees)}, adjustments ${fmtMoney(p.adjustments)}, net ${fmtMoney(p.netAfterFees)} → ${fmtMoney(p.amount)}`)
+      for (const c of mine) lines.push(`  Correction ${fmtDateShort(c.period_from)} – ${fmtDateShort(c.period_to)}: paid ${fmtMoney(c.paid)}, now ${fmtMoney(c.current)} → ${fmtMoney(c.outstanding)}`)
     }
     return lines.join('\n')
   }
@@ -832,36 +847,76 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                               <td style={{ ...tdR, fontWeight: 600 }}>{fmtMoney(r.manager.basis === 'gross' ? r.gross : r.netAfterFees)}</td>
                               <td style={tdR}>{r.manager.percentage}%</td>
                               <td style={{ ...tdR, fontWeight: 700, color: T.gold, fontSize: 15 }}>
-                                {fmtMoney(r.amount)}
                                 {(() => {
                                   const paid = findPaidPayout(ledger, r.manager.id, range.from, range.to)
                                   if (paid) {
-                                    const drift = Math.abs(Number(paid.amount) - r.amount) >= 0.01
+                                    const carried = Math.round(snapshotCorrections(paid.breakdown).reduce((sum, c) => sum + (Number(c.amount) || 0), 0) * 100) / 100
+                                    const paidForPeriod = Math.round((Number(paid.amount) - carried) * 100) / 100
+                                    const drift = Math.round((r.amount - paidForPeriod) * 100) / 100
                                     return (
-                                      <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, marginTop: 4, color: T.green, whiteSpace: 'normal' }}>
-                                        Paid {fmtMoney(paid.amount)} on {fmtDateShort(paid.paid_on)}
-                                        {drift && <div style={{ color: T.amber, fontWeight: 400 }}>now computes {fmtMoney(r.amount)}; the ledger keeps what was paid</div>}
-                                      </div>
+                                      <>
+                                        {fmtMoney(paid.amount)}
+                                        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, marginTop: 4, color: T.green, whiteSpace: 'normal' }}>
+                                          Locked · paid on {fmtDateShort(paid.paid_on)}{carried ? ` · includes ${fmtMoney(carried)} of corrections` : ''}
+                                          {Math.abs(drift) >= 0.01 && <div style={{ color: T.amber, fontWeight: 400 }}>now computes {fmtMoney(r.amount)}; the {fmtMoney(drift)} difference carries into the next open pay run</div>}
+                                        </div>
+                                      </>
                                     )
                                   }
-                                  if (!canEditCompany(r.manager.company_id) || !range.from || !range.to) return null
+                                  const mine = correctionsFor(r.manager.id)
+                                  const carried = carriedFor(r.manager.id)
+                                  const total = payTotal(r)
                                   return (
-                                    <div style={{ marginTop: 6 }}>
-                                      <button className="btn btn-gold" style={{ fontSize: 10, padding: '4px 10px' }} onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id}>
-                                        {markingPaid === r.manager.id ? 'Saving…' : 'Mark as paid'}
-                                      </button>
-                                    </div>
+                                    <>
+                                      {fmtMoney(total)}
+                                      {mine.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 400, marginTop: 4, color: T.muted, whiteSpace: 'normal' }}>{fmtMoney(r.amount)} this period {carried < 0 ? 'less' : 'plus'} {fmtMoney(Math.abs(carried))} carried from {mine.length} locked period{mine.length === 1 ? '' : 's'}</div>}
+                                      {canEditCompany(r.manager.company_id) && range.from && range.to && (
+                                        total < 0
+                                          ? <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 400, color: T.amber, whiteSpace: 'normal', marginTop: 6 }}>Corrections exceed this period's fee; nothing to pay. The balance carries until a period can absorb it.</div>
+                                          : (
+                                            <div style={{ marginTop: 6 }}>
+                                              <button className="btn btn-gold" style={{ fontSize: 10, padding: '4px 10px' }} onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id}>
+                                                {markingPaid === r.manager.id ? 'Saving…' : 'Mark as paid'}
+                                              </button>
+                                            </div>
+                                          )
+                                      )}
+                                    </>
                                   )
                                 })()}
                               </td>
                             </tr>
-                            {r.properties.filter(pp => pp.gross || pp.adjustments).map(pp => (
-                              <tr key={pp.property.id}>
-                                <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.property.name || pp.property.address}<span style={{ fontSize: 10, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-pp.platformFees)}</span></td>
-                                <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.base)}</td><td style={tdR}></td>
-                                <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.amount)}</td>
-                              </tr>
-                            ))}
+                            {(() => {
+                              const paid = findPaidPayout(ledger, r.manager.id, range.from, range.to)
+                              if (paid) {
+                                // A locked period shows the figures as paid, never the live recomputation.
+                                return snapshotRooms(paid.breakdown).filter(pp => pp.gross || pp.adjustments).map(pp => (
+                                  <tr key={pp.property_id}>
+                                    <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.name}<span style={{ fontSize: 10, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-(pp.platform_fees || 0))} · {pp.bookings} booking{pp.bookings === 1 ? '' : 's'} · as paid</span></td>
+                                    <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.base)}</td><td style={tdR}></td>
+                                    <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.amount)}</td>
+                                  </tr>
+                                ))
+                              }
+                              return (
+                                <>
+                                  {r.properties.filter(pp => pp.gross || pp.adjustments).map(pp => (
+                                    <tr key={pp.property.id}>
+                                      <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.property.name || pp.property.address}<span style={{ fontSize: 10, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-pp.platformFees)}</span></td>
+                                      <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.base)}</td><td style={tdR}></td>
+                                      <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.amount)}</td>
+                                    </tr>
+                                  ))}
+                                  {correctionsFor(r.manager.id).map(c => (
+                                    <tr key={c.payout.id}>
+                                      <td style={{ ...td, color: c.outstanding < 0 ? T.red : T.green, paddingLeft: 24, whiteSpace: 'normal' }}>Correction · {fmtDateShort(c.period_from)} – {fmtDateShort(c.period_to)}<span style={{ fontSize: 10, color: T.faint }}> · paid {fmtMoney(c.paid)}, now computes {fmtMoney(c.current)}{c.settled ? `, ${fmtMoney(c.settled)} already carried` : ''}</span></td>
+                                      <td style={tdR}></td><td style={tdR}></td>
+                                      <td style={{ ...tdR, color: c.outstanding < 0 ? T.red : T.green }}>{fmtMoney(c.outstanding)}</td>
+                                    </tr>
+                                  ))}
+                                </>
+                              )
+                            })()}
                           </Fragment>
                         ))}
                       </tbody>
@@ -871,14 +926,37 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                     <div style={{ marginTop: 14 }}>
                       <div style={{ ...monoLabel(T), marginBottom: 6 }}>Payout history · {visibleLedger.length} recorded</div>
                       <div style={{ maxHeight: 220, overflowY: 'auto' }}>
-                        {visibleLedger.slice(0, 40).map(l => (
-                          <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', borderBottom: `1px solid ${T.border}`, fontFamily: MONO, fontSize: 11 }}>
-                            <span style={{ color: T.muted, whiteSpace: 'nowrap', minWidth: 140 }}>{fmtDateShort(l.period_from)} – {fmtDateShort(l.period_to)}</span>
-                            <span style={{ color: T.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.manager_name} <span style={{ color: T.faint }}>· {Number(l.percentage)}% of {fmtMoney(l.base_amount)} · paid {fmtDateShort(l.paid_on)}{stlCompanies.length > 1 && coById[l.company_id] ? ` · ${coById[l.company_id].abbr || coById[l.company_id].name}` : ''}</span></span>
-                            <span style={{ color: T.gold, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtMoney(l.amount)}</span>
-                            {canEditCompany(l.company_id) && <button onClick={() => removePaid(l)} aria-label="Remove payout record" title="Remove payout record" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, display: 'inline-flex', padding: 0 }}><Icon name="trash" size={13} /></button>}
-                          </div>
-                        ))}
+                        {visibleLedger.slice(0, 40).map(l => {
+                          const rooms = snapshotRooms(l.breakdown), carried = snapshotCorrections(l.breakdown)
+                          const open = openPayout === l.id
+                          return (
+                            <div key={l.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', fontFamily: MONO, fontSize: 11 }}>
+                                <span style={{ color: T.muted, whiteSpace: 'nowrap', minWidth: 140 }}>{fmtDateShort(l.period_from)} – {fmtDateShort(l.period_to)}</span>
+                                <span style={{ color: T.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.manager_name} <span style={{ color: T.faint }}>· {Number(l.percentage)}% of {fmtMoney(l.base_amount)} · paid {fmtDateShort(l.paid_on)}{carried.length ? ` · ${carried.length} correction${carried.length === 1 ? '' : 's'} carried` : ''}{stlCompanies.length > 1 && coById[l.company_id] ? ` · ${coById[l.company_id].abbr || coById[l.company_id].name}` : ''}</span></span>
+                                <span style={{ color: T.gold, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtMoney(l.amount)}</span>
+                                <button className="btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => setOpenPayout(open ? null : l.id)} aria-expanded={open}>{open ? 'Hide' : 'Details'}</button>
+                                {canEditCompany(l.company_id) && <button onClick={() => removePaid(l)} aria-label="Remove payout record" title="Remove payout record (unlocks the period)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, display: 'inline-flex', padding: 0 }}><Icon name="trash" size={13} /></button>}
+                              </div>
+                              {open && (
+                                <div style={{ padding: '2px 0 10px 12px', fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.7 }}>
+                                  {rooms.map(rm => (
+                                    <div key={rm.property_id}>
+                                      <div style={{ color: T.text }}>{rm.name} · gross {fmtMoney(rm.gross)} · fees {fmtMoney(-(rm.platform_fees || 0))}{rm.adjustments ? ` · adjustments ${fmtMoney(rm.adjustments)}` : ''} · base {fmtMoney(rm.base)} → {fmtMoney(rm.amount)}</div>
+                                      {(rm.booking_lines || []).map((bl, i) => (
+                                        <div key={i} style={{ paddingLeft: 12 }}>{fmtDateShort(bl.arrival)} – {fmtDateShort(bl.departure)} · {bl.guest} · {bl.channel} · {bl.reference} · gross {fmtMoney(bl.gross)} · fee {fmtMoney(-bl.fees)} · net {fmtMoney(bl.net)}</div>
+                                      ))}
+                                      {!(rm.booking_lines || []).length && <div style={{ paddingLeft: 12, color: T.faint }}>Booking list not stored for this run ({rm.bookings} booking{rm.bookings === 1 ? '' : 's'}).</div>}
+                                    </div>
+                                  ))}
+                                  {carried.map(c => (
+                                    <div key={c.payout_id} style={{ color: c.amount < 0 ? T.red : T.green }}>Correction for {fmtDateShort(c.period_from)} – {fmtDateShort(c.period_to)}: paid {fmtMoney(c.paid)}, recomputed {fmtMoney(c.current)} → {fmtMoney(c.amount)}</div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}

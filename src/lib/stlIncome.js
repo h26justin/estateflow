@@ -555,10 +555,79 @@ export function findPaidPayout(ledger = [], managerId, from, to) {
 }
 // The snapshot stored with a ledger row, so a later rate change or a
 // late-arriving Booking.com invoice cannot restate what was actually paid.
-export function payoutSnapshot(row) {
-  return row.properties.map(pp => ({
-    property_id: pp.property.id, name: pp.property.name || pp.property.address || '',
-    gross: pp.gross, platform_fees: pp.platformFees, adjustments: pp.adjustments, net_after_fees: pp.netAfterFees,
-    base: pp.base, amount: pp.amount, bookings: pp.bookings, nights: pp.nights,
-  }))
+// Each room carries the bookings that made up its figures (booking_lines) so
+// a pay run can be read back booking by booking, and `corrections` lists the
+// earlier locked periods this payment settles (see payoutCorrections).
+// Older rows stored a bare array of rooms; snapshotRooms / snapshotCorrections
+// read both shapes.
+export function payoutSnapshot(row, { bookings = [], rates = null, from = null, to = null, corrections = [] } = {}) {
+  const rooms = row.properties.map(pp => {
+    const lines = bookings
+      .filter(b => b.property_id === pp.property.id && isRevenueBooking(b) && inRange(b.arrival, from, to))
+      .sort((a, b) => String(a.arrival).localeCompare(String(b.arrival)) || String(a.id).localeCompare(String(b.id)))
+      .map(b => ({
+        reference: bookingReference(b), guest: guestDisplayName(b.guest_name), channel: channelLabel(b.source),
+        arrival: String(b.arrival).slice(0, 10), departure: String(b.departure).slice(0, 10), nights: bookingNights(b),
+        gross: round2(num(b.total_amount)), fees: effectiveFees(b, rates).total, net: bookingNetAfterFees(b, rates),
+      }))
+    return {
+      property_id: pp.property.id, name: pp.property.name || pp.property.address || '',
+      gross: pp.gross, platform_fees: pp.platformFees, adjustments: pp.adjustments, net_after_fees: pp.netAfterFees,
+      base: pp.base, amount: pp.amount, bookings: pp.bookings, nights: pp.nights,
+      booking_lines: lines,
+    }
+  })
+  return {
+    rooms,
+    corrections: corrections.map(c => ({
+      payout_id: c.payout.id, period_from: c.period_from, period_to: c.period_to,
+      paid: c.paid, current: c.current, amount: c.outstanding,
+    })),
+  }
+}
+export function snapshotRooms(snapshot) { return Array.isArray(snapshot) ? snapshot : (snapshot?.rooms || []) }
+export function snapshotCorrections(snapshot) { return Array.isArray(snapshot) ? [] : (snapshot?.corrections || []) }
+
+// A locked pay run is never restated. When the bookings behind it change
+// later (a cancellation that arrives after the run was paid, a refund entered
+// against one of its bookings, a Booking.com invoice landing) the difference
+// between what the period computes now and what was paid for it becomes a
+// correction, carried into the next open pay run and settled there. The rooms
+// in the snapshot define the period's scope (a room re-assigned since does
+// not move history); the stored rate and basis are used, so a later rate
+// change is not a correction. A correction stays outstanding until a later
+// ledger row records it in its snapshot, so it can only ever be paid once.
+//
+// Returns one row per locked period with something outstanding, oldest
+// first: { payout, manager_id, period_from, period_to, paid, current,
+// settled, outstanding }. `paid` is what that row paid for its own period
+// (its amount less any corrections it carried for earlier periods).
+export function payoutCorrections(ledger = [], bookings = [], adjustments = [], { rates = null, excludeFrom = null, excludeTo = null } = {}) {
+  const day = d => String(d || '').slice(0, 10)
+  const out = []
+  for (const l of ledger) {
+    if (!l.manager_id) continue
+    const from = day(l.period_from), to = day(l.period_to)
+    if (excludeFrom && excludeTo && from === excludeFrom && to === excludeTo) continue
+    const rooms = snapshotRooms(l.breakdown)
+    if (rooms.length === 0) continue
+    let base = 0
+    for (const r of rooms) {
+      const own = bookings.filter(b => b.property_id === r.property_id)
+      const ownAdj = adjustments.filter(a => a.property_id === r.property_id)
+      const s = summariseStl(own, ownAdj, { from, to, rates })
+      base += l.basis === 'gross' ? s.gross : s.netAfterFees
+    }
+    const current = round2(Math.max(0, base) * (num(l.percentage) / 100))
+    const carried = snapshotCorrections(l.breakdown).reduce((s, c) => s + num(c.amount), 0)
+    const paid = round2(num(l.amount) - carried)
+    const settled = round2(ledger.filter(o => o.id !== l.id)
+      .flatMap(o => snapshotCorrections(o.breakdown))
+      .filter(c => c.payout_id === l.id)
+      .reduce((s, c) => s + num(c.amount), 0))
+    const outstanding = round2(current - paid - settled)
+    if (Math.abs(outstanding) < 0.005) continue
+    out.push({ payout: l, manager_id: l.manager_id, period_from: from, period_to: to, paid, current, settled, outstanding })
+  }
+  return out.sort((a, b) => a.period_from.localeCompare(b.period_from) || a.period_to.localeCompare(b.period_to))
 }

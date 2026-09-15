@@ -299,11 +299,12 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
               Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
               {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'partial' && <span style={{ color: T.amber, marginLeft: 6 }}>· partial</span>}
               {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
             </div>
           )}
-          {connection.last_sync_status === 'error' && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
@@ -537,11 +538,12 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
               Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
               {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'partial' && <span style={{ color: T.amber, marginLeft: 6 }}>· partial</span>}
               {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
             </div>
           )}
-          {connection.last_sync_status === 'error' && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
