@@ -94,6 +94,7 @@ import { propValue } from './lib/propertyValue'
 import { isHoldingCompany } from './lib/companyPnl'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
 import { normaliseQuery, matchesQuery } from './lib/propertySearch'
+import { useScrollRestoreOnClear } from './lib/useScrollRestoreOnClear'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
 import { complianceStatusFor, complianceBadge, propertyComplianceSummary } from './lib/complianceStatus'
 import { canonicalCertType } from './lib/complianceCatalogue'
@@ -1721,6 +1722,8 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userAccess, isPlatformAdmin, user?.id])
 
+  // Portfolio search: put the user back where they were once it is cleared.
+  useScrollRestoreOnClear(Boolean(searchQ) || statusFilter !== 'all')
   const filtered = useMemo(()=>{
     const f = properties.filter(p=>{
       if(!showArchived && p.archived_at) return false
@@ -4764,6 +4767,9 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   const [arrearsOnly, setArrearsOnly] = useState(false)
   const hasQuery = normaliseQuery(searchQ).length > 0
   const narrowing = hasQuery || statusFilter !== 'all' || arrearsOnly
+  // Clearing a search brings the user back to the company and position they
+  // were working through, not the top of the page.
+  useScrollRestoreOnClear(narrowing)
   function clearSearchAndFilters() { setSearchQ(''); setStatusFilter('all'); setArrearsOnly(false) }
 
   // Properties the tracker shows at all: anything with payment history or
