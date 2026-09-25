@@ -32,17 +32,21 @@ export async function fetchStatementImportContext(propertyIds, statementDate) {
   const from = statementDate ? new Date(new Date(statementDate).getTime() - 60 * 86400000).toISOString().slice(0, 10) : null
   const to = statementDate ? new Date(new Date(statementDate).getTime() + 60 * 86400000).toISOString().slice(0, 10) : null
   for (const part of chunk(ids)) {
-    const [rec, exp] = await Promise.all([
+    const [rec, exp, rows] = await Promise.all([
       supabase.from('rent_receipts').select('source_ref').in('property_id', part).not('source_ref', 'is', null).limit(5000),
       (() => {
         let q = supabase.from('property_expenses').select('property_id, amount, date, source_ref, category').in('property_id', part).is('deleted_at', null)
         if (from) q = q.gte('date', from).lte('date', to)
         return q.limit(5000)
       })(),
+      // The previous importer stamped its reference on the rent period too.
+      supabase.from('rent_payments').select('source_ref').in('property_id', part).not('source_ref', 'is', null).limit(5000),
     ])
     if (rec.error) throw rec.error
     if (exp.error) throw exp.error
+    if (rows.error) throw rows.error
     for (const r of rec.data || []) knownRefs.add(r.source_ref)
+    for (const r of rows.data || []) knownRefs.add(r.source_ref)
     for (const e of exp.data || []) {
       if (e.source_ref) knownRefs.add(e.source_ref)
       if (e.category === 'agent_fees') existingFees.push(e)
@@ -64,6 +68,17 @@ export async function findPreviousStatementImports({ agent, statementRef, finger
     const { data, error } = await supabase.from('statement_imports').select('id, created_at, statement_ref, statement_date, agent, filename, import_batch_id, summary').eq('agent', agent).eq('statement_ref', String(statementRef)).limit(5)
     if (error && !/statement_imports|schema cache|does not exist/i.test(error.message)) throw error
     for (const d of data || []) if (!hits.some(h => h.id === d.id)) hits.push(d)
+  }
+  // Imports made by the previous importer have no statement_imports row but
+  // label their receipts "<agent> statement <ref>" (" (payment n of m)" on
+  // split lines).
+  if (agent && statementRef) {
+    const label = `${agent} statement ${statementRef}`
+    const { data } = await supabase.from('rent_receipts').select('created_at, import_batch_id, reference')
+      .or(`reference.eq."${label}",reference.like."${label} (%"`).order('created_at').limit(1)
+    for (const d of data || []) if (!hits.some(h => h.import_batch_id && h.import_batch_id === d.import_batch_id)) {
+      hits.push({ id: `legacy:${d.import_batch_id || d.created_at}`, created_at: d.created_at, statement_ref: String(statementRef), agent, filename: null, import_batch_id: d.import_batch_id, legacy: true })
+    }
   }
   if (!hits.length) return []
   const { data: batches } = await supabase.from('import_batches').select('id, reverted_at').in('id', hits.map(h => h.import_batch_id).filter(Boolean))
