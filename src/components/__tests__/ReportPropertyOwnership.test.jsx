@@ -89,6 +89,11 @@ describe('Property ownership report', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     try {
       renderReport()
+      // Wait for the shareholder feed to land before exporting: the CSV button
+      // renders before fetchAllShareholders resolves, so clicking on the button
+      // alone raced the data on slower CI runners and exported the
+      // "No shareholders recorded" fallback.
+      await screen.findByText('Your share 60.00% (via Group Holdings Ltd)')
       fireEvent.click(await screen.findByText('↓ CSV'))
       const lines = blobs[0].split('\n')
       expect(lines[0]).toContain('"Your effective share %"')
