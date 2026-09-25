@@ -199,6 +199,13 @@ export async function revertImportBatch(batchId) {
     throw new Error(`Could not restore previous values, nothing deleted: ${problems.join('; ')}`)
   }
 
+  // Receipts first: their allocations point at rent periods, and a
+  // current_rent allocation may not lose its period (rent_alloc_target_chk),
+  // so deleting a period under a live allocation would fail. Allocations
+  // cascade with their receipt.
+  const rec = await supabase.from('rent_receipts').delete().eq('import_batch_id', batchId).select('id')
+  if (rec.error) throw rec.error
+
   // Rows this batch CREATED still carry its id; the ones it updated no longer
   // do, because the restore above put their original import_batch_id back.
   const [rent, exp] = await Promise.all([
@@ -214,6 +221,7 @@ export async function revertImportBatch(batchId) {
 
   return {
     rentDeleted: (rent.data || []).length,
+    receiptsDeleted: (rec.data || []).length,
     expensesDeleted: (exp.data || []).length,
     restored: undo.length,
   }

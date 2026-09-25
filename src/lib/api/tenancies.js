@@ -158,9 +158,12 @@ export async function createReceipt(receipt, allocations = [], { allowUnallocate
   if (receipt.kind == null || receipt.kind === 'receipt') {
     const from = new Date(receipt.received_date); from.setDate(from.getDate() - 4)
     const to = new Date(receipt.received_date); to.setDate(to.getDate() + 4)
-    const { data: near } = await supabase.from('rent_receipts').select('id, received_date, amount, kind, source, source_ref')
+    const { data: near } = await supabase.from('rent_receipts').select('id, received_date, amount, kind, source, source_ref, import_batch_id')
       .eq('property_id', receipt.property_id).gte('received_date', from.toISOString().slice(0, 10)).lte('received_date', to.toISOString().slice(0, 10))
-    const dup = possibleDuplicate(near || [], { ...receipt, amount })
+    // Receipts from the same import batch are separate lines of one statement
+    // (two housemates paying £300 each), not duplicates of each other.
+    const others = (near || []).filter(n => !receipt.import_batch_id || n.import_batch_id !== receipt.import_batch_id)
+    const dup = possibleDuplicate(others, { ...receipt, amount })
     if (dup) {
       review_status = 'needs_review'
       review_reason = `Possible duplicate of the ${dup.source} receipt for the same amount on ${dup.received_date}`
