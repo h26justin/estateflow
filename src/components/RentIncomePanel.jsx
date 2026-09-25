@@ -51,6 +51,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
   )
 
   const backfillMonths = chrono.filter(mo => mo.needsBackfill > 0)
+  const overpaid = chrono.reduce((a, mo) => a + (mo.excess || 0), 0)
   const recent = months.slice(0, 3) // newest first: this month and the two before
 
   return (
@@ -110,7 +111,12 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
           </div>
           {backfillMonths.length > 0 && (
             <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
-              Collected is understated where a month was marked paid with no amount: {backfillMonths.map(mo => `${mo.label.slice(0, 3)} ${mo.needsBackfill}`).join(' · ')}. Enter the amounts in the Rent Tracker.
+              Left out of due and collected until the amount is entered (marked paid with no amount): {backfillMonths.map(mo => `${mo.label.slice(0, 3)} ${mo.needsBackfill} (${fmt(mo.backfillRent)})`).join(' · ')}. Enter the amounts in the Rent Tracker.
+            </div>
+          )}
+          {overpaid > 0.005 && (
+            <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
+              Received above the rent due for a period ({fmt(overpaid)} this year) is not counted as collected, so one overpayment cannot hide another tenant's arrears.
             </div>
           )}
         </div>

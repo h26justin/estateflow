@@ -34,12 +34,14 @@
 import { propertyRefurbSummary } from './refurbs'
 
 // ── Status grouping ──────────────────────────────────────────────────────
-// We collapse the 6 deal statuses into 3 buckets that match real cashflow
+// We collapse the 8 deal statuses into 3 buckets that match real cashflow
 // states. 'dead' is excluded from cashflow entirely.
 export const STATUS_GROUP = {
   analysing:   'pipeline',
   offer_made:  'pipeline',
   under_offer: 'pipeline',
+  conveyancing:      'pipeline',  // solicitors working, no money committed yet
+  ready_to_exchange: 'pipeline',  // deposit not yet paid until exchange
   exchanged:   'committed',  // 10% deposit paid, 90% due at completion
   completed:   'refurb',     // purchase done, refurb to come
   dead:        null,         // exclude

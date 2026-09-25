@@ -56,7 +56,7 @@ describe('RentIncomePanel', () => {
 
   it('footnotes months marked paid with no amount', () => {
     render(<RentIncomePanel months={months} companies={companies} />)
-    expect(screen.getByText(/marked paid with no amount: Jul 2\./)).toBeTruthy()
+    expect(screen.getByText(/marked paid with no amount\): Jul 2 \(/)).toBeTruthy()
   })
 
   it('opens the Rent Tracker from the header button and renders nothing without months', () => {
