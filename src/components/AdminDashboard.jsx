@@ -5,6 +5,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
+import { fmtTimeAgo } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
 
@@ -784,6 +785,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
     })
   }, [users, search])
 
+  // Active in the last 7 days -> full-strength text so the column scans at a glance
+  const recentlyActive = u => u.last_active_at && (Date.now() - new Date(u.last_active_at).getTime()) < 7*24*60*60*1000
+
   // Users with NO companies
   const orphanUsers = useMemo(() => users.filter(u => getUserCompanies(u).all.length === 0), [users, companies, accessRows])
 
@@ -849,9 +853,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   }
 
   function exportCSV() {
-    const rows = [['Name','Email','Phone','Companies','Signed up'],...users.map(u=>{
+    const rows = [['Name','Email','Phone','Companies','Signed up','Last signed in','Last active'],...users.map(u=>{
       const cos = getUserCompanies(u).all.map(c=>c.name).join(', ')
-      return [userName(u), u.email, u.profile?.phone||'', cos, u.created_at?new Date(u.created_at).toLocaleDateString('en-GB'):'']
+      return [userName(u), u.email, u.profile?.phone||'', cos, u.created_at?new Date(u.created_at).toLocaleDateString('en-GB'):'', u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleString('en-GB'):'', u.last_active_at?new Date(u.last_active_at).toLocaleString('en-GB'):'']
     })]
     const csvSafe = v => {
       const s = String(v == null ? '' : v)
@@ -1032,6 +1036,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                         {userName(u) && u.profile?.phone ? ' · ' : ''}
                         {u.profile?.phone ? u.profile.phone : null}
                         {!userName(u) && !u.profile?.phone ? `signed up ${u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}` : null}
+                        {u.last_active_at ? ` · active ${fmtTimeAgo(u.last_active_at)}` : ' · never signed in'}
                       </div>
                     </div>
                   </div>
@@ -1054,9 +1059,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
             {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
             <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
-            <div style={{minWidth:760}}>
-            <div style={{display:'grid',gridTemplateColumns:'1.4fr 220px 110px 280px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-              {['User','Companies','Signed up','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+            <div style={{minWidth:860}}>
+            <div style={{display:'grid',gridTemplateColumns:'1.4fr 200px 100px 110px 280px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+              {['User','Companies','Signed up','Last active','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
             {filteredUsers.map(u=>{
               const { all: userCos } = getUserCompanies(u)
@@ -1065,7 +1070,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               const name = userName(u)
               const phone = u?.profile?.phone
               return (
-                <div key={u.id} style={{display:'grid',gridTemplateColumns:'1.4fr 220px 110px 280px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
+                <div key={u.id} style={{display:'grid',gridTemplateColumns:'1.4fr 200px 100px 110px 280px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
                     <div style={{width:34,height:34,borderRadius:17,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:13,fontWeight:700,color:orphan?T.amber:T.gold,flexShrink:0}}>
                       {userInitial(u)}
@@ -1092,6 +1097,10 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                   </div>
                   <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
                     {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
+                  </div>
+                  <div style={{fontFamily:mono,fontSize:11,color:recentlyActive(u)?T.text:T.muted}}
+                       title={u.last_active_at?`Last active ${new Date(u.last_active_at).toLocaleString('en-GB')}${u.last_sign_in_at?` · last signed in ${new Date(u.last_sign_in_at).toLocaleString('en-GB')}`:''}`:'Never signed in'}>
+                    {u.last_active_at ? fmtTimeAgo(u.last_active_at) : <span style={{color:T.faint}}>never</span>}
                   </div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                     <button onClick={async ()=>{
@@ -1253,6 +1262,7 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
         </div>
         <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:2}}>
           signed up {user.created_at?new Date(user.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
+          {user.last_active_at ? ` · active ${fmtTimeAgo(user.last_active_at)}` : ''}
         </div>
       </div>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>

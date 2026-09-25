@@ -105,6 +105,28 @@ export function tenancyForPeriod(tenancies, start, end) {
 
 // Days inside [start,end] that are collectible: covered by the tenancy and not
 // inside any non-chargeable period.
+// Labels for non_chargeable_periods.reason (the DB check constraint lists the
+// same keys). 'not_owned' added 15 Sept 2026 for 10 Elms West: months before
+// the purchase completed must never read as missed rent.
+export const NON_CHARGEABLE_REASONS = Object.freeze([
+  { v: 'not_owned',     l: 'Not owned / before ownership' },
+  { v: 'on_market',     l: 'On rental market' },
+  { v: 'vacant',        l: 'Vacant' },
+  { v: 'refurbishment', l: 'Refurbishment' },
+  { v: 'rent_free',     l: 'Agreed rent-free' },
+  { v: 'other',         l: 'Other' },
+])
+export const NON_CHARGEABLE_REASON_LABEL = Object.freeze(Object.fromEntries(NON_CHARGEABLE_REASONS.map(r => [r.v, r.l])))
+// The first approved period overlapping [start, end], for the explanation.
+export function nonChargeablePeriodFor(periods, start, end) {
+  return (periods || []).find(p => p.start_date <= end && (!p.end_date || p.end_date >= start)) || null
+}
+function nonChargeableWhy(periods, start, end) {
+  const p = nonChargeablePeriodFor(periods, start, end)
+  const l = p && NON_CHARGEABLE_REASON_LABEL[p.reason]
+  return l ? `${l} (approved non-chargeable period)` : 'Approved non-chargeable period'
+}
+
 export function collectibleDays(start, end, tenancy, nonChargeable) {
   let n = 0
   const total = daysBetween(start, end)
@@ -210,7 +232,8 @@ export function evaluatePeriod(row, ctx) {
     const allStartAfter = recorded.length && recorded.every(t => t.tenancy_start > end)
     const why = allEndedBefore ? 'After tenancy end' : allStartAfter ? 'Before tenancy start' : recorded.length ? 'Between tenancies'
       : property?.status === 'vacant' ? 'Property vacant' : property?.status === 'refurb' ? 'Property under refurbishment'
-      : property?.status === 'let_agreed' ? 'Let agreed, tenancy not started' : 'No tenancy covers this period'
+      : property?.status === 'let_agreed' ? 'Let agreed, tenancy not started'
+      : property?.status === 'on_rental_market' ? 'On rental market, no tenant yet' : 'No tenancy covers this period'
     // Money recorded without a tenancy still counts as received so nothing
     // that was collected disappears.
     if (base.received && base.received > 0 && !activeOverride) {
@@ -222,7 +245,7 @@ export function evaluatePeriod(row, ctx) {
   const cDays = collectibleDays(start, end, tenancy, nonChargeable)
   base.collectibleDays = cDays
   if (cDays === 0) {
-    const why = start < tenancy.tenancy_start ? 'Before tenancy start' : (tenancy.tenancy_end && start > tenancy.tenancy_end) ? 'After tenancy end' : 'Approved non-chargeable period'
+    const why = start < tenancy.tenancy_start ? 'Before tenancy start' : (tenancy.tenancy_end && start > tenancy.tenancy_end) ? 'After tenancy end' : nonChargeableWhy(nonChargeable, start, end)
     return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: [why] }, activeOverride)
   }
 
@@ -236,7 +259,11 @@ export function evaluatePeriod(row, ctx) {
   expected = round2(expected)
   if (activeOverride?.expected_amount != null) expected = round2(activeOverride.expected_amount)
   base.expected = expected
-  if (cDays < base.totalDays) base.reasons.push(`${cDays} of ${base.totalDays} days collectible`)
+  if (cDays < base.totalDays) {
+    const ncp = nonChargeablePeriodFor(nonChargeable, start, end)
+    const lbl = ncp && NON_CHARGEABLE_REASON_LABEL[ncp.reason]
+    base.reasons.push(`${cDays} of ${base.totalDays} days collectible${lbl ? ` (${lbl} ${ncp.start_date} to ${ncp.end_date || 'ongoing'})` : ''}`)
+  }
   if (base.fallback) base.reasons.push('No tenancy record: using the property\'s rent and due day')
 
   // Shares for mixed funding.
@@ -327,6 +354,19 @@ export function groupByMonth(evals) {
 //   • paid-with-no-amount periods excluded (Needs Backfill)
 //   • partial payments count up to the collectible amount; excess reported separately
 //   • historic arrears never enter this figure
+//
+// rateContribution() is the single per-period rule. The Rent Tracker, Reports
+// and the dashboard Rental Income section all go through it, so a period can
+// never count one way on one screen and another way on the next.
+const RATED_STATES = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED]
+export function rateContribution(e) {
+  if (!e || e.needsBackfill) return null
+  if (!RATED_STATES.includes(e.state)) return null
+  if (e.expected == null) return null
+  const rec = e.received == null ? 0 : e.received
+  return { due: e.expected, received: round2(Math.min(rec, e.expected)), excess: round2(Math.max(0, rec - e.expected)) }
+}
+
 export function collectionStats(evals, { from = null, to = null, asOf = isoToday() } = {}) {
   const out = { due: 0, received: 0, outstanding: 0, excess: 0, rate: null, periods: 0,
     counts: { paid: 0, due: 0, part_paid: 0, missed: 0, not_collectible: 0, stl: 0, legacy: 0, future: 0, needsBackfill: 0 } }
@@ -335,14 +375,13 @@ export function collectionStats(evals, { from = null, to = null, asOf = isoToday
     if (to && e.periodStart > to) continue
     out.counts[e.state] = (out.counts[e.state] || 0) + 1
     if (e.needsBackfill) { out.counts.needsBackfill++; continue }
-    if (![STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(e.state)) continue
+    const c = rateContribution(e)
+    if (!c) continue
     if (e.dueDate && e.dueDate > asOf) continue
-    if (e.expected == null) continue
-    const rec = e.received == null ? 0 : e.received
     out.periods++
-    out.due = round2(out.due + e.expected)
-    out.received = round2(out.received + Math.min(rec, e.expected))
-    out.excess = round2(out.excess + Math.max(0, rec - e.expected))
+    out.due = round2(out.due + c.due)
+    out.received = round2(out.received + c.received)
+    out.excess = round2(out.excess + c.excess)
   }
   out.outstanding = round2(Math.max(0, out.due - out.received))
   out.rate = out.due > 0 ? Math.round((out.received / out.due) * 1000) / 10 : null

@@ -95,6 +95,13 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
   // Escape hatch: a cash buyer with a small bridging loan can reveal the
   // mortgage fields without un-ticking cash.
   const [revealMortgage, setRevealMortgage] = useState(false)
+  // On Rental Market: the date the change takes effect. Going ON the market
+  // it is the first day rent is not expected; coming OFF it (e.g. to Rented)
+  // it is the tenancy start, when rent is expected again.
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const [statusDate, setStatusDate] = useState(todayIso)
+  const prevStatus = prop?.id ? prop.status : null
+  const marketChange = form.status !== prevStatus && (form.status === 'on_rental_market' || prevStatus === 'on_rental_market')
   const showMortgage = !isCash || revealMortgage
 
   // Drives inline required-field highlighting — set once the user has tried
@@ -150,8 +157,13 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         ...(p.isCheckDate ? { issue_date: p.value } : { expiry_date: p.value }),
       }))
 
+    // Carried to the save handler, which opens/closes the dated on-market
+    // period after the property write succeeds. Not a column.
+    const _statusChange = marketChange ? { from: prevStatus, to: form.status, date: statusDate || todayIso } : null
+
     onSave({
       ...clean,
+      _statusChange,
       purchase_price:parseFloat(clean.purchase_price)||0,
       // Completion date. Null (not '') when blank so the date column stays
       // empty rather than erroring on an invalid date literal.
@@ -207,6 +219,17 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           {triedSave && !form.address && <span id="pm-address-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
         </div>
         <div className="g2"><div><label htmlFor="pm-prop-type">Property Type</label><input id="pm-prop-type" value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label htmlFor="pm-status">Status</label><select id="pm-status" value={form.status} onChange={e=>s('status',e.target.value)}>{PROPERTY_STATUSES.map(x=><option key={x} value={x}>{PROPERTY_STATUS_LABELS[x]}</option>)}</select></div></div>
+        {marketChange && (
+          <div style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:'10px 12px'}}>
+            <label htmlFor="pm-status-date">{form.status === 'on_rental_market' ? 'On the market from' : (form.status === 'rented' || form.status === 'let_agreed') ? 'Tenancy starts' : 'Off the market from'}</label>
+            <input id="pm-status-date" type="date" value={statusDate} onChange={e=>setStatusDate(e.target.value)}/>
+            <span style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginTop:4,lineHeight:1.5}}>
+              {form.status === 'on_rental_market'
+                ? 'Rent is not expected from this date and the months will not count against collection %. Earlier months are unchanged.'
+                : 'The on-market period ends the day before this date; rent is expected again from it.'}
+            </span>
+          </div>
+        )}
         <div><label htmlFor="pm-managed-by">Managed By</label>
           <select id="pm-managed-by" value={form.managed_by_agent_id||''} onChange={e=>{
             const agent = agents.find(a=>a.id===e.target.value)

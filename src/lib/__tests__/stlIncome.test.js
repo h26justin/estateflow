@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isRevenueBooking, channelLabel, bookingNights, summariseStl, ytd, periodRange, periodDays,
-  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, isNoCharge, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
+  guestDisplayName, bookingReference, bookingStatusLabel, unitCount, nightsInRange, addDaysISO, roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, payoutCorrections, snapshotRooms, snapshotCorrections, isNoCharge, bookingMatches, bookingFees, bookingNetAfterFees, feeDeductedAtSource, managerPayouts, fortnightRange, observedChannelRates, effectiveFees } from '../stlIncome'
 
 const bk = (over = {}) => ({
   id: 'b1', property_id: 'p1', provider: 'hostaway', source: 'Airbnb', status: 'new',
@@ -503,9 +503,75 @@ describe('payout ledger helpers', () => {
     expect(findPaidPayout(ledger, 'm2', '2026-08-31', '2026-09-13')).toBeNull()
     expect(findPaidPayout(ledger, null, '2026-08-31', '2026-09-13')).toBeNull()
   })
-  it('payoutSnapshot freezes the per-room figures', () => {
-    const snap = payoutSnapshot({ properties: [{ property: { id: 'p1', name: 'Room 1' }, gross: 100, platformFees: 15, adjustments: 0, netAfterFees: 85, base: 85, amount: 10.2, bookings: 2, nights: 3 }] })
-    expect(snap).toEqual([{ property_id: 'p1', name: 'Room 1', gross: 100, platform_fees: 15, adjustments: 0, net_after_fees: 85, base: 85, amount: 10.2, bookings: 2, nights: 3 }])
+  it('payoutSnapshot freezes the per-room figures and lists the bookings behind them', () => {
+    const row = { properties: [{ property: { id: 'p1', name: 'Room 1' }, gross: 100, platformFees: 15, adjustments: 0, netAfterFees: 85, base: 85, amount: 10.2, bookings: 2, nights: 3 }] }
+    const bks = [
+      { id: 'a', property_id: 'p1', status: 'new', source: 'Airbnb', guest_name: 'Ann Lee', arrival: '2026-08-03', departure: '2026-08-05', total_amount: 60, channel_commission: 9, hostaway_reservation_id: 1 },
+      { id: 'b', property_id: 'p1', status: 'cancelled', source: 'Airbnb', guest_name: 'Bob', arrival: '2026-08-06', departure: '2026-08-07', total_amount: 40, hostaway_reservation_id: 2 },
+      { id: 'c', property_id: 'p2', status: 'new', source: 'Direct', guest_name: 'Cy', arrival: '2026-08-06', departure: '2026-08-07', total_amount: 40, hostaway_reservation_id: 3 },
+    ]
+    const snap = payoutSnapshot(row, { bookings: bks, from: '2026-08-01', to: '2026-08-31' })
+    expect(snapshotRooms(snap)).toHaveLength(1)
+    expect(snapshotRooms(snap)[0]).toMatchObject({ property_id: 'p1', name: 'Room 1', gross: 100, platform_fees: 15, base: 85, amount: 10.2, bookings: 2, nights: 3 })
+    expect(snapshotRooms(snap)[0].booking_lines).toEqual([{ reference: 'Hostaway #1', guest: 'A. Lee', channel: 'Airbnb', arrival: '2026-08-03', departure: '2026-08-05', nights: 2, gross: 60, fees: 9, net: 51 }])
+    expect(snapshotCorrections(snap)).toEqual([])
+    // Old rows stored a bare array; both readers cope.
+    expect(snapshotRooms([{ property_id: 'p9' }])).toEqual([{ property_id: 'p9' }])
+    expect(snapshotCorrections([{ property_id: 'p9' }])).toEqual([])
+  })
+})
+
+describe('locked pay runs and carried corrections (15 Sep 2026 ruling)', () => {
+  const props = [{ id: 'p1', stl_manager_id: 'm1' }]
+  const managers = [{ id: 'm1', name: 'Stacey', percentage: 12, basis: 'net_after_platform_fees', active: true }]
+  const bk = (id, arrival, departure, total, fee, status = 'new') => ({ id, property_id: 'p1', status, source: 'Direct', guest_name: id, arrival, departure, total_amount: total, channel_commission: fee, hostaway_reservation_id: id })
+  const period = { from: '2026-08-31', to: '2026-09-13' }
+  const paidRun = (bookings, id = 'L1', extra = {}) => {
+    const [r] = managerPayouts(bookings, [], props, managers, period)
+    return { id, manager_id: 'm1', period_from: period.from, period_to: period.to, amount: r.amount, base_amount: r.base, percentage: 12, basis: 'net_after_platform_fees', breakdown: payoutSnapshot(r, { bookings, ...period }), ...extra }
+  }
+  it('a paid period with unchanged bookings has nothing outstanding', () => {
+    const bookings = [bk(1, '2026-09-01', '2026-09-04', 300, 0), bk(2, '2026-09-05', '2026-09-08', 200, 0)]
+    const ledger = [paidRun(bookings)]
+    expect(ledger[0].amount).toBe(60)
+    expect(payoutCorrections(ledger, bookings, [])).toEqual([])
+  })
+  it('a cancellation arriving after the run was paid becomes a negative correction; a refund adjustment too', () => {
+    const bookings = [bk(1, '2026-09-01', '2026-09-04', 300, 0), bk(2, '2026-09-05', '2026-09-08', 200, 0)]
+    const ledger = [paidRun(bookings)]
+    const after = [bookings[0], { ...bookings[1], status: 'cancelled' }]
+    const [c] = payoutCorrections(ledger, after, [])
+    expect(c).toMatchObject({ manager_id: 'm1', period_from: '2026-08-31', period_to: '2026-09-13', paid: 60, current: 36, settled: 0, outstanding: -24 })
+    const refund = [{ property_id: 'p1', adjustment_date: '2026-09-02', amount: -100, kind: 'refund' }]
+    expect(payoutCorrections(ledger, bookings, refund)[0].outstanding).toBe(-12)
+  })
+  it('the locked row itself is never restated: the correction is carried once and then settled', () => {
+    const bookings = [bk(1, '2026-09-01', '2026-09-04', 300, 0), bk(2, '2026-09-05', '2026-09-08', 200, 0)]
+    const first = paidRun(bookings)
+    const after = [bookings[0], { ...bookings[1], status: 'cancelled' }, bk(3, '2026-09-15', '2026-09-18', 500, 0)]
+    const open = { from: '2026-09-14', to: '2026-09-27' }
+    const corrections = payoutCorrections([first], after, [], { excludeFrom: open.from, excludeTo: open.to })
+    expect(corrections).toHaveLength(1)
+    const [r] = managerPayouts(after, [], props, managers, open)
+    expect(r.amount).toBe(60)
+    const total = r.amount + corrections.reduce((s, c) => s + c.outstanding, 0)
+    expect(total).toBe(36)
+    const second = { id: 'L2', manager_id: 'm1', period_from: open.from, period_to: open.to, amount: total, percentage: 12, basis: 'net_after_platform_fees', breakdown: payoutSnapshot(r, { bookings: after, ...open, corrections }) }
+    expect(snapshotCorrections(second.breakdown)).toEqual([{ payout_id: 'L1', period_from: '2026-08-31', period_to: '2026-09-13', paid: 60, current: 36, amount: -24 }])
+    // Now nothing is outstanding on either period, and the first row still says 60.
+    expect(payoutCorrections([first, second], after, [])).toEqual([])
+    expect(first.amount).toBe(60)
+    // The second row paid 60 for its own period once its carried correction is netted off.
+    const later = [...after, { ...after[2], id: 4, hostaway_reservation_id: 4, arrival: '2026-09-20', departure: '2026-09-21', total_amount: 100 }]
+    const [c2] = payoutCorrections([first, second], later, [])
+    expect(c2).toMatchObject({ payout: second, paid: 60, current: 72, outstanding: 12 })
+  })
+  it('uses the stored rate and the snapshot rooms, so a rate change or re-assignment is not a correction', () => {
+    const bookings = [bk(1, '2026-09-01', '2026-09-04', 300, 0)]
+    const ledger = [paidRun(bookings)]
+    expect(payoutCorrections(ledger, bookings, [], { rates: null })).toEqual([])
+    const rowFromOtherRoom = { ...bookings[0], id: 9, property_id: 'p2', hostaway_reservation_id: 9 }
+    expect(payoutCorrections(ledger, [...bookings, rowFromOtherRoom], [])).toEqual([])
   })
 })
 

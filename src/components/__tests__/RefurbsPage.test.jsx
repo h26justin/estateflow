@@ -6,6 +6,7 @@ import RefurbsPage, { RefurbPropertyTab } from '../RefurbsPage'
 // Writes go through lib/api; the page never reads from it (projects arrive
 // embedded on properties), so a thin mock is enough to exercise the UI.
 vi.mock('../../lib/api', () => ({
+  fetchRefurbInvoices: vi.fn(async () => []),
   fetchRefurbMilestones: vi.fn(async () => [
     { id: 'm1', milestone_key: 'keys_received', label: 'Keys received', sort_order: 1, is_enabled: true, completed: true, completed_date: '2026-08-18' },
     { id: 'm2', milestone_key: 'strip_out', label: 'Strip out', sort_order: 2, is_enabled: true, completed: false },

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
+import { groupNotifications } from '../lib/notificationsGroup'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
 const TYPE_ICON = {
@@ -96,6 +97,19 @@ export default function NotificationCentre() {
     try { await api.markAllNotificationsRead() } catch(e) {}
   }
 
+  async function handleSnooze(n, e) {
+    e.stopPropagation()
+    setItems(prev => prev.filter(x => x.id !== n.id))
+    if (!n.read_at) setUnread(u => Math.max(0, u - 1))
+    try { await api.snoozeNotification(n.id, 7) } catch(e) {}
+  }
+  async function handleClearGroup(type, e) {
+    e.stopPropagation()
+    const gone = items.filter(x => x.type === type)
+    setItems(prev => prev.filter(x => x.type !== type))
+    setUnread(u => Math.max(0, u - gone.filter(x => !x.read_at).length))
+    try { await api.clearNotificationsOfType(type) } catch(e) {}
+  }
   async function handleDismiss(id, e) {
     e.stopPropagation()
     const wasUnread = !items.find(x => x.id === id)?.read_at
@@ -181,11 +195,24 @@ export default function NotificationCentre() {
                   </div>
                 </div>
               ) : (
-                items.map((n, i) => (
+                groupNotifications(items).map(g => (
+                  <Fragment key={g.type}>
+                    {g.items.length > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px 4px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
+                        <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>
+                          {g.label} · {g.items.length}{g.unread ? ` · ${g.unread} unread` : ''}
+                        </span>
+                        <button onClick={e => handleClearGroup(g.type, e)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: mono, fontSize: 10, color: T.muted, textDecoration: 'underline' }}>
+                          Clear all
+                        </button>
+                      </div>
+                    )}
+                    {g.items.map((n, i) => (
                   <div key={n.id} onClick={() => handleClick(n)}
                     style={{
                       padding: '12px 16px',
-                      borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : 'none',
+                      borderBottom: i < g.items.length - 1 ? `1px solid ${T.border}` : 'none',
                       cursor: n.link ? 'pointer' : 'default',
                       display: 'flex', gap: 12, alignItems: 'flex-start',
                       background: !n.read_at ? T.gold + '0A' : 'transparent',
@@ -229,6 +256,8 @@ export default function NotificationCentre() {
                         </a>
                       )}
                     </div>
+                    <button onClick={e => handleSnooze(n, e)} title="Snooze for a week"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, fontFamily: mono, fontSize: 9, padding: 4, alignSelf: 'flex-start' }} aria-label="Snooze notification for 7 days">zz</button>
                     <button onClick={e => handleDismiss(n.id, e)}
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer',
@@ -242,6 +271,8 @@ export default function NotificationCentre() {
                       }}/>
                     )}
                   </div>
+                    ))}
+                  </Fragment>
                 ))
               )}
             </div>

@@ -55,6 +55,10 @@
 //   • dedupe on (hostaway_connection_id, hostaway_reservation_id); the
 //     created segment id is remembered in stl_bookings.rent_payment_id so
 //     re-syncs update in place and cancellations delete the segment
+//   • one reservation can never abort the run: two live bookings on the same
+//     room and nights are reported as a conflict (last_sync_status
+//     'partial'), per-booking errors are collected and retried, and live
+//     bookings left without a segment are repaired at the end of each run
 //
 // Rate limits: Hostaway allows 15 req/10s per IP and 20 req/10s per
 // account — paginated calls are spaced ~750ms apart.
@@ -241,7 +245,109 @@ async function withToken<T>(admin: any, conn: any, fn: (token: string) => Promis
 }
 
 // ── The sync itself ────────────────────────────────────────────────────────
-async function syncConnection(admin: any, conn: any): Promise<{ bookings: number; created: number; updated: number; removed: number; skippedUnmapped: number }> {
+type SyncResult = { bookings: number; created: number; updated: number; removed: number; skippedUnmapped: number; repaired: number; conflicts: string[]; errors: string[] }
+type SegmentOutcome = 'created' | 'updated' | 'removed' | 'conflict' | 'none'
+
+const isUniqueViolation = (e: any) => e?.code === '23505' || /duplicate key value/i.test(String(e?.message || ''))
+
+// Statuses stl_bookings rows carry for a live booking (Hostaway + Lodgify).
+const ROW_ACTIVE = new Set([...ACTIVE_STATUSES, 'Booked'])
+
+function buildSegment(o: { propertyId: string; userId: string; arrival: string; departure: string; total: number | null; channel: string; guest: string | null; ref: string }) {
+  // Last night of the stay, so a same-day changeover's next arrival doesn't
+  // overlap this segment in the Day Tracker.
+  const periodEnd = o.departure > o.arrival ? minusOneDay(o.departure) : o.arrival
+  return {
+    property_id: o.propertyId,
+    user_id: o.userId,
+    ...monthParts(o.arrival),
+    // 'paid' here; the stl_segment_status_guard trigger holds it at
+    // 'pending' until the last night has passed (2026-09-07 migration).
+    status: 'paid',
+    amount: o.total,
+    notes: `STL · ${o.channel} · ${o.guest || 'Guest'} · ${o.arrival} → ${o.departure} · ${o.ref}`,
+    period_start: o.arrival,
+    period_end: periodEnd,
+  }
+}
+
+// Write (or refresh) the rent segment for a live booking row without ever
+// throwing on the (property, period_start, period_end) unique index.
+//
+// Two bookings on the same room for the same nights happen: Booking.com
+// re-lets a cancelled night to a new guest before we have processed the
+// cancellation, or the room really is double-booked. Before 15 Sept 2026
+// the insert threw, the whole run aborted, and the cron kept reporting
+// success while the ExH feed stood still for eight days. Now: if the
+// existing segment belongs to a booking that is still live we record a
+// conflict and count only the earlier booking; if it is orphaned or its
+// booking has since cancelled we take the segment over.
+async function writeSegment(admin: any, row: any, segment: any, label: string, conflicts: string[]): Promise<SegmentOutcome> {
+  if (row.rent_payment_id) {
+    const { data: seg, error } = await admin.from('rent_payments')
+      .update(segment).eq('id', row.rent_payment_id).select('id').maybeSingle()
+    if (error) {
+      if (!isUniqueViolation(error)) throw error
+      conflicts.push(`${label} has moved onto nights another booking already holds; its segment was left as it was`)
+      return 'conflict'
+    }
+    if (seg) return 'updated'
+    // Segment was deleted manually — fall through and recreate it.
+  }
+
+  const { data: existing } = await admin.from('rent_payments').select('id')
+    .eq('property_id', segment.property_id).eq('period_start', segment.period_start).eq('period_end', segment.period_end)
+    .maybeSingle()
+  if (existing) {
+    const { data: owner } = await admin.from('stl_bookings')
+      .select('id, hostaway_reservation_id, lodgify_booking_id, guest_name, status')
+      .eq('rent_payment_id', existing.id).neq('id', row.id).maybeSingle()
+    if (owner && ROW_ACTIVE.has(String(owner.status))) {
+      conflicts.push(`${label} and #${owner.hostaway_reservation_id ?? owner.lodgify_booking_id} ${owner.guest_name || 'Guest'} are both booked for the same nights; only the earlier booking is counted as income until one of them is cancelled`)
+      return 'conflict'
+    }
+    const { error: adoptErr } = await admin.from('rent_payments').update(segment).eq('id', existing.id)
+    if (adoptErr) throw adoptErr
+    if (owner) await admin.from('stl_bookings').update({ rent_payment_id: null }).eq('id', owner.id)
+    await admin.from('stl_bookings').update({ rent_payment_id: existing.id }).eq('id', row.id)
+    return 'updated'
+  }
+
+  const { data: seg, error: segErr } = await admin.from('rent_payments').insert(segment).select('id').single()
+  if (segErr) {
+    if (isUniqueViolation(segErr)) { conflicts.push(`${label}: another segment already covers these nights`); return 'conflict' }
+    throw segErr
+  }
+  await admin.from('stl_bookings').update({ rent_payment_id: seg.id }).eq('id', row.id)
+  return 'created'
+}
+
+// Live bookings that still have no segment (a conflict that has since
+// cleared, or a cancellation that arrived after the re-let): give them their
+// segment now so a same-night clash heals itself on the next run.
+async function repairMissingSegments(admin: any, conn: any, conflicts: string[], errors: string[]): Promise<number> {
+  const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+  const { data: rows } = await admin.from('stl_bookings').select('*')
+    .eq('hostaway_connection_id', conn.id).is('rent_payment_id', null)
+    .in('status', [...ACTIVE_STATUSES]).gte('arrival', since)
+    .order('created_at', { ascending: true })
+  let repaired = 0
+  for (const row of (rows || [])) {
+    if (!row.arrival || !row.departure) continue
+    const label = `#${row.hostaway_reservation_id} ${row.guest_name || 'Guest'} (${row.source || 'Hostaway'}) ${row.arrival} → ${row.departure}`
+    try {
+      const segment = buildSegment({ propertyId: row.property_id, userId: row.user_id, arrival: row.arrival, departure: row.departure,
+        total: row.total_amount == null ? null : Number(row.total_amount), channel: row.source || 'Hostaway', guest: row.guest_name, ref: `Hostaway #${row.hostaway_reservation_id}` })
+      const outcome = await writeSegment(admin, row, segment, label, conflicts)
+      if (outcome === 'created' || outcome === 'updated') repaired++
+    } catch (e) {
+      errors.push(`${label}: ${(e as Error).message}`)
+    }
+  }
+  return repaired
+}
+
+async function syncConnection(admin: any, conn: any): Promise<SyncResult> {
   const { data: mappings } = await admin.from('hostaway_property_mappings')
     .select('hostaway_listing_id, property_id')
     .eq('connection_id', conn.id)
@@ -280,8 +386,18 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
   })
 
   let created = 0, updated = 0, removed = 0, skippedUnmapped = 0
+  const conflicts: string[] = []
+  const errors: string[] = []
 
-  for (const r of reservations) {
+  // Cancellations first, so a night that has been re-let to a new guest is
+  // freed before the new booking asks for it.
+  const ordered = [...reservations].sort((a, b) => {
+    const la = ACTIVE_STATUSES.has(a.status) && !a.cancellationDate ? 1 : 0
+    const lb = ACTIVE_STATUSES.has(b.status) && !b.cancellationDate ? 1 : 0
+    return la - lb || (Number(a.id) || 0) - (Number(b.id) || 0)
+  })
+
+  for (const r of ordered) {
     const listingId = Number(r.listingMapId)
     const propertyId = propMap.get(listingId)
     if (!propertyId) { skippedUnmapped++; continue }
@@ -290,6 +406,26 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
     const departure = dateOnly(r.departureDate)
     if (!arrival || !departure || !r.id) continue
 
+    // One reservation must never take the whole run down: problems are
+    // collected and reported on the connection row instead.
+    try {
+      const outcome = await syncReservation(admin, conn, r, propertyId, listingId, arrival, departure, conflicts)
+      if (outcome === 'created') created++
+      else if (outcome === 'updated') updated++
+      else if (outcome === 'removed') removed++
+    } catch (e) {
+      errors.push(`#${r.id} ${r.guestName || 'Guest'} ${arrival}: ${(e as Error).message}`)
+    }
+  }
+
+  const repaired = await repairMissingSegments(admin, conn, conflicts, errors)
+
+  return { bookings: reservations.length, created, updated, removed, skippedUnmapped, repaired, conflicts, errors }
+}
+
+// Upsert one Hostaway reservation into stl_bookings and keep its rent
+// segment in step with it. Returns what happened to the segment.
+async function syncReservation(admin: any, conn: any, r: any, propertyId: string, listingId: number, arrival: string, departure: string, conflicts: string[]): Promise<SegmentOutcome> {
     const total = toNum(r.totalPrice)
     const isActive = ACTIVE_STATUSES.has(r.status) && !r.cancellationDate
 
@@ -352,48 +488,37 @@ async function syncConnection(admin: any, conn: any): Promise<{ bookings: number
     }, { onConflict: 'hostaway_connection_id,hostaway_reservation_id' }).select().single()
     if (upErr) throw upErr
 
-    if (isActive) {
-      // STL bookings are paid upfront (the channel collects before the
-      // stay), so every confirmed reservation counts as income immediately —
-      // no pending/partial split. The UI shows STL segments in their own
-      // colour via the stl_bookings link, not via status.
-      const rentStatus = 'paid'
-
-      // Last night of the stay, so a same-day changeover's next arrival
-      // doesn't overlap this segment in the Day Tracker.
-      const periodEnd = departure > arrival ? minusOneDay(departure) : arrival
-      const segment = {
-        property_id: propertyId,
-        user_id: conn.user_id,
-        ...monthParts(arrival),
-        status: rentStatus,
-        amount: total,
-        notes: `STL · ${channelLabel(r)} · ${r.guestName || 'Guest'} · ${arrival} → ${departure} · Hostaway #${r.id}`,
-        period_start: arrival,
-        period_end: periodEnd,
-      }
-
-      if (row.rent_payment_id) {
-        const { data: seg } = await admin.from('rent_payments')
-          .update(segment).eq('id', row.rent_payment_id).select('id').maybeSingle()
-        if (seg) { updated++; continue }
-        // Segment was deleted manually — fall through and recreate it.
-      }
-      const { data: seg, error: segErr } = await admin.from('rent_payments')
-        .insert(segment).select('id').single()
-      if (segErr) throw segErr
-      await admin.from('stl_bookings').update({ rent_payment_id: seg.id }).eq('id', row.id)
-      created++
-    } else if (row.rent_payment_id) {
+    if (!isActive) {
+      if (!row.rent_payment_id) return 'none'
       // Cancelled / declined / expired after we recorded it — remove the
       // revenue segment (hard delete, same as deleteRentSegment in the app).
       await admin.from('rent_payments').delete().eq('id', row.rent_payment_id)
       await admin.from('stl_bookings').update({ rent_payment_id: null }).eq('id', row.id)
-      removed++
+      return 'removed'
     }
-  }
 
-  return { bookings: reservations.length, created, updated, removed, skippedUnmapped }
+    // STL bookings are collected upfront by the channel, so every confirmed
+    // reservation is written as income; the database trigger keeps it
+    // 'pending' until the stay has finished.
+    const segment = buildSegment({ propertyId, userId: conn.user_id, arrival, departure, total, channel: channelLabel(r), guest: r.guestName || null, ref: `Hostaway #${r.id}` })
+    const label = `#${r.id} ${r.guestName || 'Guest'} (${channelLabel(r)}) ${arrival} → ${departure}`
+    return await writeSegment(admin, row, segment, label, conflicts)
+}
+
+// What the run did, written to the connection so the Integrations panel can
+// show it. 'partial' = the run completed but some bookings could not be
+// written as income (same-night conflicts, or a per-booking error that will
+// be retried because last_synced_at is not advanced when anything errored).
+async function recordSyncOutcome(admin: any, conn: any, r: SyncResult) {
+  const now = new Date().toISOString()
+  const notes: string[] = []
+  if (r.errors.length) notes.push(`${r.errors.length} booking(s) could not be updated and will be retried: ${r.errors.slice(0, 5).join(' · ')}${r.errors.length > 5 ? ' …' : ''}`)
+  if (r.conflicts.length) notes.push(`${r.conflicts.length} same-night booking clash(es): ${r.conflicts.slice(0, 5).join(' · ')}${r.conflicts.length > 5 ? ' …' : ''}`)
+  const patch: Record<string, unknown> = { updated_at: now }
+  if (r.errors.length) { patch.last_sync_status = 'partial'; patch.last_sync_error = notes.join(' | ') }
+  else if (r.conflicts.length) { patch.last_synced_at = now; patch.last_sync_status = 'partial'; patch.last_sync_error = notes.join(' | ') }
+  else { patch.last_synced_at = now; patch.last_sync_status = 'ok'; patch.last_sync_error = null }
+  await admin.from('hostaway_connections').update(patch).eq('id', conn.id)
 }
 
 serve(async (req) => {
@@ -412,11 +537,7 @@ serve(async (req) => {
       try {
         const r = await syncConnection(admin, conn)
         results[conn.id] = r
-        await admin.from('hostaway_connections').update({
-          last_synced_at: new Date().toISOString(),
-          last_sync_status: 'ok', last_sync_error: null,
-          updated_at: new Date().toISOString(),
-        }).eq('id', conn.id)
+        await recordSyncOutcome(admin, conn, r)
       } catch (e) {
         results[conn.id] = { error: (e as Error).message }
         await admin.from('hostaway_connections').update({
@@ -537,11 +658,7 @@ serve(async (req) => {
       if (!conn) return jsonError(404, 'Not connected to Hostaway yet')
       try {
         const r = await syncConnection(admin, conn)
-        await admin.from('hostaway_connections').update({
-          last_synced_at: new Date().toISOString(),
-          last_sync_status: 'ok', last_sync_error: null,
-          updated_at: new Date().toISOString(),
-        }).eq('id', conn.id)
+        await recordSyncOutcome(admin, conn, r)
         return jsonResp(200, r)
       } catch (e) {
         await admin.from('hostaway_connections').update({
