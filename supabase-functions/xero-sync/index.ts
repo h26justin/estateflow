@@ -69,6 +69,25 @@ async function refreshIfNeeded(admin: any, conn: any) {
   return t.access_token
 }
 
+// Xero's JSON gives Date as "/Date(1439434356790+0000)/" and DateString as ISO.
+function xeroDateISO(t: any): string | null {
+  if (t?.DateString) return String(t.DateString).slice(0, 10)
+  const m = /\/Date\((\d+)/.exec(String(t?.Date || ''))
+  if (m) return new Date(Number(m[1])).toISOString().slice(0, 10)
+  const s = String(t?.Date || '')
+  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null
+}
+// Our expense categories are a short fixed list; Xero account codes and line
+// descriptions are free text. Keyword rules, 'other' when nothing matches.
+function categoriseXeroSpend(accountCode: string | undefined, text: string): string {
+  const s = `${accountCode || ''} ${text || ''}`.toLowerCase()
+  if (/insurance/.test(s)) return 'insurance'
+  if (/mortgage|loan interest|\binterest\b/.test(s)) return 'mortgage'
+  if (/management fee|letting fee|\bagent|agency|propertunity|\brms\b|\bpne\b/.test(s)) return 'agent_fees'
+  if (/repair|plumb|electric|boiler|roof|leak|glazing|handyman|decorat|joiner|maintenance|clean|gas safe|eicr|epc/.test(s)) return 'repairs'
+  return 'other'
+}
+
 async function xeroFetch(token: string, tenantId: string, path: string, init: RequestInit = {}) {
   return await fetch(`https://api.xero.com/api.xro/2.0/${path}`, {
     ...init,
@@ -776,6 +795,64 @@ serve(async (req) => {
           if (page > 200) break
         }
       }
+    }
+
+    // ── PULL: Xero SPEND bank transactions → property_expenses ──────────
+    // Properly's P&L reads property_expenses, and until September 2026 that
+    // table held ~£8k against ~£60k/month of rent because spend lives in
+    // Xero. When pull_expenses is on, every SPEND bank transaction carrying
+    // this company's Property tracking option becomes one property_expenses
+    // row, keyed by Xero id in xero_sync_map so it is never pulled twice and
+    // never pushed back (the push loop above skips anything in the map).
+    if (settings.pull_expenses && trackingCategoryId) {
+      const optionToProperty: Record<string, string> = {}
+      for (const [pid, oid] of Object.entries(trackingOptionMap)) optionToProperty[oid] = pid
+      const { data: knownRows } = await admin.from('xero_sync_map').select('xero_id')
+        .eq('user_id', caller.id).eq('company_id', companyId).eq('entity_type', 'expense')
+      const known = new Set<string>((knownRows || []).map((r: any) => r.xero_id))
+      const since = String(settings.pull_expenses_since || `${new Date().getUTCFullYear()}-01-01`).slice(0, 10)
+      const [sy, sm, sd] = since.split('-').map(Number)
+      const where = encodeURIComponent(`Type=="SPEND"&&Status=="AUTHORISED"&&Date>=DateTime(${sy},${sm},${sd})`)
+      let page = 1, pulled = 0, skippedNoProperty = 0
+      while (true) {
+        const r = await xeroFetch(accessToken, conn.tenant_id, `BankTransactions?where=${where}&page=${page}`)
+        if (!r.ok) { errors.push(`expense pull failed: ${await xeroErrorSummary(r)}`); break }
+        const j = await r.json()
+        const list = j.BankTransactions || []
+        if (list.length === 0) break
+        for (const t of list) {
+          if (known.has(t.BankTransactionID)) continue
+          const line = (t.LineItems || [])[0] || {}
+          const opt = (line.Tracking || []).find((x: any) => x.TrackingCategoryID === trackingCategoryId)?.TrackingOptionID
+          const propertyId = opt ? optionToProperty[opt] : null
+          if (!propertyId || !propMap.has(propertyId)) { skippedNoProperty++; continue }
+          const date = xeroDateISO(t)
+          if (!date) { skippedNoProperty++; continue }
+          const amount = Number(t.Total ?? t.SubTotal ?? line.LineAmount ?? 0)
+          if (!(amount > 0)) continue
+          const contact = t.Contact?.Name || ''
+          const description = [contact, line.Description || t.Reference || ''].filter(Boolean).join(' · ').slice(0, 200)
+          const { data: ins, error: insErr } = await admin.from('property_expenses').insert({
+            property_id: propertyId, user_id: caller.id,
+            category: categoriseXeroSpend(line.AccountCode, `${contact} ${line.Description || ''} ${t.Reference || ''}`),
+            description: description || 'Xero expense', amount, date,
+            notes: `Pulled from Xero · ${t.BankTransactionID}`, source_ref: `xero:${t.BankTransactionID}`,
+            xero_reconciled: t.IsReconciled === true, xero_reconciled_at: t.IsReconciled === true ? new Date().toISOString() : null,
+          }).select('id').single()
+          if (insErr || !ins) { failed++; errors.push(`expense pull ${t.BankTransactionID}: ${insErr?.message || 'insert failed'}`); continue }
+          await admin.from('xero_sync_map').upsert({
+            user_id: caller.id, company_id: companyId, entity_type: 'expense', local_id: ins.id,
+            xero_id: t.BankTransactionID, xero_kind: 'BankTransaction',
+            last_xero_fingerprint: `${amount.toFixed(2)}|${date}`, last_xero_synced_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,company_id,entity_type,local_id' })
+          known.add(t.BankTransactionID); pulled++
+        }
+        if (list.length < 100) break
+        page++
+        if (page > 200) { errors.push('expense pull capped at 200 pages'); break }
+      }
+      created += pulled
+      if (skippedNoProperty) errors.push(`expense pull: ${skippedNoProperty} SPEND transaction(s) skipped — no Property tracking option we recognise`)
     }
 
     // Finalise log + connection

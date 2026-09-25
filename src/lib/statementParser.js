@@ -5,10 +5,132 @@ function parseCurrency(str) {
   return parseFloat(String(str).replace(/[^0-9.]/g, '')) || 0
 }
 
-export function detectFormat(text) {
-  if (text.includes('PNE') || text.includes('Propertunity') || text.includes('Management Commission')) return 'PNE'
-  if (text.includes('ROOK') || text.includes('rookmatthewssayer') || text.includes('Rook Matthews')) return 'RMS'
-  return 'UNKNOWN'
+// ── Format detection ─────────────────────────────────────────────────────────
+// Detect by the shape of the statement, not by brand words: the current PNE
+// template no longer says "PNE" or "Propertunity" anywhere in its text, and the
+// current RMS template carries the agent's name only in a logo image. Each
+// signature is scored; a verdict needs at least two independent hits so a
+// stray word cannot flip it. detectFormat keeps its old string return value;
+// detectFormatDetail explains the decision for error messages and logs.
+const PNE_SIGNS = [
+  /Rent for the month/i, /Statement No\s*[:.]/i, /Management\s+Commission/i, /PAYMENT AMOUNT/i,
+  /Propertunity/i, /\bPNE\b/, /Our Invoice/i, /Balance from previous statement/i,
+]
+const RMS_SIGNS = [
+  /Rook Matthews/i, /rookmatthewssayer/i, /\bROOK\b/, /STATEMENT\/INVOICE/i, /Rent Receipt/i,
+  /Payment made to Owner/i, /Letting Agent Fee/i, /-RMS-/, /Balance Brought Forward from Previous Statement/i,
+  /Received from .+? - \d{2}\/\d{2}\/\d{4} to \d{2}\/\d{2}\/\d{4}/i, /FEE INVOICE/i,
+]
+export function detectFormatDetail(text) {
+  const t = String(text || '')
+  const pne = PNE_SIGNS.filter(re => re.test(t)).map(re => re.source)
+  const rms = RMS_SIGNS.filter(re => re.test(t)).map(re => re.source)
+  let format = 'UNKNOWN'
+  if (pne.length >= 2 && pne.length > rms.length) format = 'PNE'
+  else if (rms.length >= 2 && rms.length >= pne.length) format = 'RMS'
+  else if (pne.length === 1 && rms.length === 0 && /Rent for the month/i.test(t)) format = 'PNE'
+  else if (rms.length === 1 && pne.length === 0 && /Rent Receipt/i.test(t)) format = 'RMS'
+  return { format, pneHits: pne.length, rmsHits: rms.length, pneMatched: pne, rmsMatched: rms, chars: t.length }
+}
+export function detectFormat(text) { return detectFormatDetail(text).format }
+
+// Repair line breaks the extractor may still leave inside a cell: a wrapped
+// "Management / Commission x%" pair, and a fee line whose "of £X" wrapped.
+export function normaliseStatementText(text) {
+  return String(text || '')
+    // "Management" / "Commission 12.00% ..." wrapped over two baselines. The
+    // word Management may share a baseline with the property name on the
+    // left ("13, Lumley Street  Management"), so it is cut onto its own line.
+    .replace(/[ \t]*Management[ \t]*\n\s*Commission/gi, '\nManagement Commission')
+    // "... Commission 12.00%  £60.00  £0.00  £60.00" / "of £500.00" on the next line
+    .replace(/(Management Commission\s+[\d.]+%[^\n]*)\n\s*(of\s+[\u00A3][\d,]+\.?\d*)/gi, '$1 $2')
+}
+
+// One entry point: detect, parse with the right parser, and explain the
+// outcome. `parsed` is null when the format is unknown or nothing was found.
+export function parseStatement(rawText) {
+  const text = normaliseStatementText(rawText)
+  const detail = detectFormatDetail(text)
+  let parsed = null
+  if (detail.format === 'PNE') parsed = parsePNE(text)
+  else if (detail.format === 'RMS') {
+    parsed = parseRMSInvoice(text)
+    if (!parsed.items.length) parsed = parseRMS(text)     // older RMS layout
+  }
+  const rent = parsed ? parsed.items.filter(i => i.type === 'rent').length : 0
+  const fees = parsed ? parsed.items.filter(i => i.type === 'fee').length : 0
+  const other = parsed ? parsed.items.length - rent - fees : 0
+  let problem = null
+  if (detail.chars < 40) problem = 'The PDF has no readable text. It looks like a scanned image; ask the agent for the original PDF, or use the email inbox which reads scans.'
+  else if (detail.format === 'UNKNOWN') problem = `Could not recognise the statement layout (PNE signs: ${detail.pneHits}, RMS signs: ${detail.rmsHits}). Only PNE / Propertunity and Rook Matthews Sayer statements are supported.`
+  else if (parsed && parsed.items.length === 0) problem = `Recognised a ${detail.format} statement but found no rent or fee lines. The layout may have changed; the PDF text has been logged for review.`
+  return { format: detail.format, detail, parsed, counts: { rent, fees, other }, problem }
+}
+
+// ── RMS "STATEMENT/INVOICE" layout (2026) ───────────────────────────────────
+// One row per event with columns separated by two or more spaces:
+//   Date  Property  Tenancy  Description  Money In  Money Out
+// The description carries the period: "31/08/2026 - 29/09/2026 Rent Receipt"
+// or "31/08/2026 - 29/09/2026 Letting Agent Fee @7.0%". The FEE INVOICE block
+// below repeats the fees with VAT split, so parsing stops there.
+export function parseRMSInvoice(text) {
+  var lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean)
+  var result = { format: 'RMS', statementNo: '', date: '', company: '', totalIncome: 0, totalFees: 0, paymentAmount: 0, items: [] }
+  var dateRow = /^(\d{2}\/\d{2}\/\d{4})\s+(.*)$/
+  var periodRe = /(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})\s+(.*)$/
+  var tenancyRe = /^(.*?)\s*(\d{2}\/\d{2}\/\d{4})\s+to\s+(\d{2}\/\d{2}\/\d{4})/
+  var amt = /^-?[\d,]+\.\d{2}$/
+  var postcode = /,?\s*\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/
+  var inFeeInvoice = false
+  var lastProperty = ''
+  var lastTenant = ''
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i]
+    var rm = l.match(/Reference:\s*(\S+)/i); if (rm) result.statementNo = rm[1]
+    var dm = l.match(/^Date:\s*(\d{2}\/\d{2}\/\d{4})/i); if (dm) result.date = dm[1]
+    if (!result.company && /(?:Property Group|Limited|Ltd)\b/i.test(l) && !/Rook|VAT|Reference/i.test(l)) result.company = l
+    if (/^FEE INVOICE\b/i.test(l)) { inFeeInvoice = true; continue }
+    if (inFeeInvoice) continue
+    var pay = l.match(/Payment made to Owner\s+([\d,]+\.\d{2})/i)
+    if (pay) { result.paymentAmount = parseCurrency(pay[1]); continue }
+    var row = l.match(dateRow)
+    if (!row) continue
+    var cells = row[2].split(/\s{2,}/).map(c => c.trim()).filter(Boolean)
+    if (!cells.length) continue
+    var amountCell = cells[cells.length - 1]
+    if (!amt.test(amountCell)) continue
+    var amount = parseCurrency(amountCell)
+    var desc = cells.length >= 2 ? cells[cells.length - 2] : ''
+    var property = '', tenant = ''
+    for (var c = 0; c < cells.length - 2; c++) {
+      var tm = cells[c].match(tenancyRe)
+      if (tm) { tenant = tm[1].trim(); continue }
+      if (!property) property = cells[c].replace(postcode, '').trim()
+    }
+    if (property) lastProperty = property; else property = lastProperty
+    if (tenant) lastTenant = tenant; else tenant = lastTenant
+    var pm = desc.match(periodRe)
+    var period = pm ? pm[1] + ' to ' + pm[2] : result.date
+    var what = pm ? pm[3] : desc
+    if (/Rent Receipt|Rent Received|^Rent\b/i.test(what)) {
+      if (amount > 0 && amount < 1000000) {
+        result.items.push({ propertyName: property, type: 'rent', amount: amount, tenant: tenant, period: period,
+          description: 'Rent ' + period + (tenant ? ' \u2014 ' + tenant : ''), include: true, matched: false, propertyId: null, editAmount: amount })
+        result.totalIncome += amount
+      }
+    } else if (/Fee|Commission/i.test(what)) {
+      var pct = what.match(/@\s*([\d.]+)%/)
+      result.items.push({ propertyName: property, type: 'fee', amount: amount, tenant: '', period: period,
+        description: what.replace(/\s+/g, ' ').trim() + (pct ? '' : ''), include: true, matched: false, propertyId: null, editAmount: amount })
+      result.totalFees += amount
+    } else if (/Balance|Totals?/i.test(what)) {
+      continue
+    } else if (amount > 0 && amount < 1000000) {
+      result.items.push({ propertyName: property, type: 'maintenance', amount: amount, tenant: '', period: period,
+        description: what.replace(/\s+/g, ' ').trim(), include: true, matched: false, propertyId: null, editAmount: amount })
+    }
+  }
+  return result
 }
 
 export function parsePNE(text) {
@@ -23,7 +145,8 @@ export function parsePNE(text) {
   var payRe    = /PAYMENT AMOUNT\s*[\u00A3]?([\d,]+\.?\d*)/i
   var rentRe   = /Rent for the month\s+(\d{2}\/\d{2}\/\d{4})\s+to\s+(\d{2}\/\d{2}\/\d{4})/i
   var amtRe    = /[\u00A3]([\d,]+\.?\d*)/
-  var commRe   = /Management Commission\s+([\d.]+)%\s+of\s+[\u00A3]([\d,]+\.?\d*)/i
+  // 'of £X' may follow the percentage directly or trail the amounts (wrapped cell)
+  var commRe   = /Management Commission\s+([\d.]+)%(?:[^\n]*?\bof\s+[\u00A3]([\d,]+\.?\d*))?/i
   var commAmt  = /[\u00A3]([\d,]+\.?\d*)\s*[\u00A3]0/
   var expRe    = /^Expenditure\s*$/i
   var expAmt   = /^Expenditure\s+Amount/i
@@ -122,8 +245,11 @@ export function parsePNE(text) {
     }
 
     // Management fee line
+    // The 2026 PNE template has no 'Expenditure' heading before the fee
+    // block, so a commission line counts wherever it appears; the regex
+    // ("Management Commission x% of £y") can never match an income line.
     var commM = line.match(commRe)
-    if (commM && inExpenditure) {
+    if (commM) {
       var ca = line.match(commAmt)
       if (ca) {
         var camount = parseCurrency(ca[1])
@@ -221,7 +347,7 @@ export function parseRMS(text) {
       var am = line.match(amtRe)
       if (am) {
         var amount = parseCurrency(am[1])
-        if (amount > 0 && amount < 50000) {
+        if (amount > 0 && amount < 1000000) {
           var period = rentM[2] + ' to ' + rentM[3]
           result.items.push({
             propertyName: propName, type: 'rent',
@@ -258,7 +384,7 @@ export function parseRMS(text) {
       var ma = line.match(amtRe)
       if (ma) {
         var mamount = parseCurrency(ma[1])
-        if (mamount > 0 && mamount < 50000) {
+        if (mamount > 0 && mamount < 1000000) {
           result.items.push({
             propertyName: propName3, type: 'maintenance',
             amount: mamount, tenant: '', period: result.date,
@@ -290,6 +416,10 @@ var STREET_ABBR = {
 export function normaliseStatementName(str) {
   return String(str || '').toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
+    // "47 B, Somerset Street" and "47B Somerset Street" are the same unit: a
+    // number followed by a lone letter (a-f, the usual sub-address suffixes)
+    // is one token, so the letter is never lost as a separate word.
+    .replace(/\b(\d+) ([a-f])\b/g, '$1$2')
     .split(' ')
     .filter(Boolean)
     .map(function (w) { return STREET_ABBR[w] || w })
@@ -368,17 +498,17 @@ export function matchProperties(items, properties, aliases) {
     if (norm && known[al.property_id]) aliasMap[norm] = al.property_id
   })
 
-  var flatRe = /(?:flat|room|unit)\s*(\d+[ab]?)/i
+  var flatRe = /(?:flat|room|unit)\s*(\d+\s?[a-f]?)\b/i
   var numRe  = /^(\d+)\s/
   // Extract all plausible unit/flat numbers from a string
   function extractNumbers(str) {
     var nums = new Set()
     // "Flat 5", "Room 3", "Unit 12"
-    var fm = str.match(/(?:flat|room|unit)\s*(\d+[ab]?)/gi)
-    if (fm) fm.forEach(function(m) { var n = m.match(/(\d+[ab]?)/i); if (n) nums.add(n[1].toLowerCase()) })
+    var fm = str.match(/(?:flat|room|unit)\s*(\d+\s?[a-f]?)\b/gi)
+    if (fm) fm.forEach(function(m) { var n = m.match(/(\d+)\s?([a-f]?)\b/i); if (n) nums.add((n[1] + n[2]).toLowerCase()) })
     // Leading number: "5 Watts Moses House" or "24 Watts Moses House"
-    var lm = str.match(/^(\d+)\s/)
-    if (lm) nums.add(lm[1])
+    var lm = str.match(/^(\d+)\s?([a-f])?\b/i)
+    if (lm) nums.add((lm[1] + (lm[2] || '')).toLowerCase())
     // "No. 5" or "No 5"
     var nm = str.match(/No\.?\s*(\d+)/gi)
     if (nm) nm.forEach(function(m) { var n = m.match(/(\d+)/); if (n) nums.add(n[1]) })
@@ -559,4 +689,33 @@ export function matchProperties(items, properties, aliases) {
       matchScore: bestScore
     })
   })
+}
+
+// ── Same property, same period, several lines ───────────────────────────────
+// A statement can carry two or more rent lines for one property and period
+// (a part payment and the balance, or two housemates paying separately). The
+// importer keeps ONE rent row per period, so those lines are merged into a
+// single item whose amount is the sum, while `parts` keeps every original
+// line so each can still be recorded as its own receipt. Fee and maintenance
+// lines are left alone. Order is preserved; excluded lines are untouched.
+export function mergeSamePeriodRent(items) {
+  const out = []
+  const byKey = new Map()
+  for (const it of items || []) {
+    if (!it || it.type !== 'rent' || !it.include || !it.propertyId) { out.push(it); continue }
+    const key = `${it.propertyId}|${it.period}`
+    const seen = byKey.get(key)
+    if (!seen) {
+      const merged = { ...it, parts: [{ ...it }] }
+      byKey.set(key, merged); out.push(merged)
+    } else {
+      seen.parts.push({ ...it })
+      seen.editAmount = Math.round((Number(seen.editAmount) + Number(it.editAmount)) * 100) / 100
+      seen.amount = Math.round((Number(seen.amount) + Number(it.amount)) * 100) / 100
+      const tenants = [...new Set(seen.parts.map(x => x.tenant).filter(Boolean))]
+      seen.tenant = tenants.join(' + ')
+      seen.description = `Rent ${it.period} (${seen.parts.length} payments)${tenants.length ? ' \u2014 ' + tenants.join(', ') : ''}`
+    }
+  }
+  return out
 }

@@ -299,11 +299,12 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
               Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
               {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'partial' && <span style={{ color: T.amber, marginLeft: 6 }}>· partial</span>}
               {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
             </div>
           )}
-          {connection.last_sync_status === 'error' && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
@@ -537,11 +538,12 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
               Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
               {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'partial' && <span style={{ color: T.amber, marginLeft: 6 }}>· partial</span>}
               {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
             </div>
           )}
-          {connection.last_sync_status === 'error' && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
@@ -731,7 +733,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       setSettings(s || {
         sync_rent: true, sync_expenses: true, sync_mortgage_interest: false,
         sync_tracking_categories: true, sync_real_tenant_contacts: false,
-        pull_reconciliation: true,
+        pull_reconciliation: true, pull_expenses: false,
         per_property_bank_accounts: {},
       })
       setAccounts(accts || [])
@@ -801,13 +803,14 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         <Toggle keyName="sync_expenses"             label="Property expenses → Xero (SPEND)" desc="Pushes every property_expenses row as a bank transaction (expense)." />
         <Toggle keyName="sync_mortgage_interest"    label="Mortgage interest accruals → Xero (SPEND)" desc="Monthly: mortgage_amount × rate ÷ 12, posted as a SPEND. Useful for Section 24 prep." />
         <Toggle keyName="sync_deposits_separate"    label="Tenancy deposits → separate Xero account" desc="Posts deposit_amount from tenancy_details as a RECEIVE against a liability account (or whatever you pick below). Otherwise deposits don't sync at all." />
-        <Toggle keyName="sync_refurb_separate"      label="Refurb costs → separate Xero account" desc="Posts every paid refurb_costs row as a SPEND against a capex/refurb account. Off by default — many landlords prefer to lump refurbs into general expenses." />
+        <Toggle keyName="sync_refurb_separate"      label="Refurb costs → separate Xero account" desc="Posts refurb spend as SPEND against a capex/refurb account. Off by default — many landlords prefer to lump refurbs into general expenses. Note: this currently reads the legacy per-trade refurb lines; payments logged on the new Refurbs page will be pushed once the sync moves over." />
         <Toggle keyName="sync_tracking_categories"  label="Use Xero Tracking Categories per property" desc='Creates (or reuses) a "Property" tracking category in Xero and tags every transaction with it. Lets you run P&L by property in Xero.' />
         <Toggle keyName="sync_real_tenant_contacts" label="Use real tenant/supplier names" desc="Off: contacts appear as 'Property X — Tenant' / '— Supplier' (privacy-safe). On: uses tenant_names from tenancy_details. Update your tenant privacy notice if enabling." />
         <Toggle keyName="sync_real_tenant_emails"   label="Also push tenant email + phone to Xero contact" desc="Only meaningful if 'real names' is on. Adds email + mobile to each Xero contact. Carries higher GDPR risk — get tenant consent first." />
       </Section>
 
       <Section title="What to pull back (Xero → Properly)">
+        <Toggle keyName="pull_expenses" label="← Pull expenses from Xero (SPEND)" desc="Mirrors every Xero bank spend that carries this company's Property tracking option into Properly's expenses, once, so the P&L stops being income-only. Needs tracking categories on. Off by default." />
         <Toggle keyName="pull_reconciliation"  label="Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
         <Toggle keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to Properly. Off by default — leave off if you treat Properly as the source of truth." />
       </Section>

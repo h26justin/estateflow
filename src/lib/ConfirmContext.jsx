@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
-import { MONO } from './styles'
+import { MONO, Z } from './styles'
 import { useTheme } from './ThemeContext'
 import FocusTrap from './FocusTrap'
 
@@ -84,7 +84,7 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
   const [value, setValue] = useState(state.defaultValue)
   const mono = MONO
   return (
-    <div className="overlay" onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
+    <div className="overlay" style={{ zIndex: Z.confirm }} onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
       <FocusTrap onEscape={onCancel}>
         <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" style={{ maxWidth: 420 }}>
         <div style={{ padding: '24px 28px 0' }}>

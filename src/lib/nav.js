@@ -24,7 +24,19 @@
 export const ALL_NAV = [
   { key: 'dashboard',      label: 'Dashboard',      icon: 'home',         short: 'Home',      required: true,  group: 'Overview',    mobileRank: 0 },
   { key: 'properties',     label: 'Portfolio',      icon: 'building',     short: 'Portfolio', required: true,  group: 'Portfolio',   mobileRank: 0 },
+  // Refurbs (2026-09): every refurbishment across every company in one
+  // place, agreed price versus payments. Sits under Portfolio on Justin's
+  // ruling. Listed in AUTO_ENABLE_NAV_KEYS below so accounts whose stored
+  // nav_items predate it get it switched on once. mobileRank 9 so it never
+  // displaces an existing bottom-bar slot.
+  { key: 'refurbs',        label: 'Refurbs',        icon: 'hammer',       short: 'Refurbs',   required: false, group: 'Portfolio',   mobileRank: 9 },
   { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
+  // Short-term-let booking income (Hostaway / Lodgify), kept out of the
+  // residential collection rate. Added 2026-09: users whose stored nav_items
+  // predate it must switch it on in Settings -> Navigation (the seed default
+  // includes it for new accounts). mobileRank 8 so it never displaces an
+  // existing bottom-bar slot.
+  { key: 'stl',            label: 'Short-Term Let Income', icon: 'bed',   short: 'STL',       required: false, group: 'Money',       mobileRank: 8 },
   { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
   { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 4 },
   // 'compliance' replaced the old top-level 'insurance' entry (2026-08) —
@@ -37,6 +49,18 @@ export const ALL_NAV = [
   { key: 'renters-rights', label: 'Renters Rights', icon: 'scale',        short: 'RRA',       required: false, group: 'Growth & AI', mobileRank: 7, flag: 'renters_rights' },
   { key: 'settings',       label: 'Settings',       icon: 'settings',     short: 'Settings',  required: true,  group: 'System',      mobileRank: 0 },
 ]
+
+// Items added after launch that existing accounts should see without having
+// to find the toggle. On load, App.jsx adds any of these that a stored list
+// lacks, and records a `seen:<key>` marker in the same list so it happens
+// once: if the user later switches the item off, the marker keeps it off.
+// Markers are inert everywhere else (nothing renders a key that is not in
+// ALL_NAV). Remove a key from here once every account has the marker.
+// 'stl' added 2026-09-15: Short-Term Let Income was left off this list, so
+// accounts that saved their navigation before it existed saw the link during
+// load (the default list has it) and lost it once their stored prefs arrived.
+export const AUTO_ENABLE_NAV_KEYS = ['refurbs', 'stl']
+export const navSeenMarker = key => `seen:${key}`
 
 // The one default list, used both as the runtime pref fallback and as the
 // seed when the first toggle is saved. Flag-gated items are excluded — the
@@ -87,6 +111,7 @@ export const VIEW_LABELS = {
   feedback: 'Feedback',
   detail: 'Property',
   'import': 'Import Statement',
+  'statement-audit': 'Rental Statement Audit',
   'import-data': 'Import Historic Data',
   'bulk-add': 'Add Block of Flats',
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense, Fragment } from 'react'
 import { useIsMobile } from '../lib/useWindowSize'
+import { SignedPhoto } from '../lib/SignedPhoto'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO, statusPill } from '../lib/styles'
@@ -20,6 +21,7 @@ import CompanyInboxPanel from './CompanyInboxPanel'
 import InspectionsPanel from './InspectionsPanel'
 import IntegrationsPanel from './IntegrationsPanel'
 import TwoFactorPanel from './TwoFactorPanel'
+import ApiAccessPanel from './ApiAccessPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
@@ -27,6 +29,8 @@ import { supabase } from '../lib/supabase'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import MoneyInput from '../lib/MoneyInput'
+import RolePermissionsModal from './RolePermissionsModal'
+import { canDo, ROLE_OPTIONS, ROLE_OPTION_LABELS, roleFromAccessRow, roleUpdateFor, isAdminDemotion } from '../lib/permissions'
 import { canUseInvestorFeatures } from '../lib/tierGating'
 
 
@@ -652,7 +656,7 @@ function BookkeepingTabBody({ companies, properties = [], T, mono }) {
 }
 
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
-export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = [], activeFlags = new Set(), companySubs = [], activeCompanyId = null}) {
+export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = [], activeFlags = new Set(), companySubs = [], activeCompanyId = null, permissionsMap = null, devModeActive = false}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
   const [saving, setSaving] = useState(null)
@@ -998,6 +1002,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             </div>
           </div>
           <TwoFactorPanel T={T}/>
+          <ApiAccessPanel T={T}/>
           <SecurityDataPanel user={user} T={T} showToast={showToast}/>
         </>
       )}
@@ -1424,7 +1429,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           {isAdmin&&(
             <div style={sectionStyle}>
               <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>User Access</div>
-              <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:4}}>Manage who can access each company in your portfolio.</div>
+              <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:4}}>Manage who can access each company in your portfolio, and what each member may do there (Viewer, Rent Tracker Editor, Editor or Admin).</div>
               <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:16}}>Signed in as <span style={{color:T.gold}}>{user?.email}</span></div>
               <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAccessModal(true)}>Manage User Access</button>
             </div>
@@ -1440,7 +1445,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       </div>{/* /settings content */}
       </div>{/* /settings flex row */}
 
-      {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast}/>}
+      {showAccessModal&&<AccessModal companies={companies} onClose={()=>setShowAccessModal(false)} showToast={showToast} user={user} permissionsMap={permissionsMap} devModeActive={devModeActive}/>}
     </div>
   )
 }
@@ -1541,6 +1546,7 @@ const DOC_CATEGORIES = [
   {value:'inventory',   label:'Inventory',           icon:'📋'},
   {value:'legal',       label:'Legal',               icon:'⚖️'},
   {value:'maintenance', label:'Maintenance',         icon:'🔧'},
+  {value:'photos',      label:'Photos',              icon:'📷'},
   {value:'other',       label:'Other',               icon:'📄'},
 ]
 
@@ -1682,6 +1688,10 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
   }
 
   const filtered = filterCategory==='all' ? docs : docs.filter(d=>d.category===filterCategory)
+  // Photos (e.g. carried across from a converted deal, or uploaded under the
+  // Photos category) render as a thumbnail gallery; everything else is a row.
+  const photoDocs = filtered.filter(d => d.category === 'photos')
+  const listDocs  = filtered.filter(d => d.category !== 'photos')
   const byCategory = DOC_CATEGORIES.reduce((acc,cat)=>{
     const catDocs = filtered.filter(d=>d.category===cat.value)
     if (catDocs.length>0) acc[cat.value] = catDocs
@@ -1744,16 +1754,35 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         ))}
       </div>}
 
+      {/* Photo gallery */}
+      {!loading && photoDocs.length>0 && (
+        <div style={{marginBottom:14}}>
+          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Photos ({photoDocs.length})</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))',gap:10}}>
+            {photoDocs.map(doc=>(
+              <div key={doc.id} style={{position:'relative',minWidth:0}}>
+                <SignedPhoto path={doc.file_path} url={doc.file_url} alt={doc.name||'Photo'}
+                  style={{width:'100%',aspectRatio:'4 / 3',objectFit:'cover',borderRadius:10,border:`1px solid ${T.border}`,display:'block'}}/>
+                {isAdmin&&<button onClick={()=>handleDelete(doc)} aria-label="Move photo to Trash" title="Move to Trash"
+                  style={{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:11,border:'none',background:'rgba(0,0,0,0.6)',color:'white',cursor:'pointer',fontSize:12,lineHeight:1,padding:0}}>×</button>}
+                <div style={{fontFamily:MONO,fontSize:10,color:T.text,marginTop:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{doc.name}</div>
+                <div style={{fontFamily:MONO,fontSize:9,color:T.muted}}>{formatDate(doc.created_at)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Document list */}
       {loading
         ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
-        : filtered.length===0
-          ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',padding:32,
+        : listDocs.length===0
+          ? (photoDocs.length===0 && <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',padding:32,
               background:T.bg,borderRadius:12}}>
               No documents yet. Upload tenancy agreements, certificates and other files here.
-            </div>
+            </div>)
           : <div style={{display:'grid',gap:8}}>
-              {filtered.map(doc=>{
+              {listDocs.map(doc=>{
                 const cat = getCatInfo(doc.category)
                 const isPDF = doc.file_type?.includes('pdf') || doc.name?.endsWith('.pdf')
                 const isImage = doc.file_type?.includes('image')
@@ -2405,13 +2434,31 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
 // ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
 
 // ── USER ACCESS MANAGEMENT ────────────────────────────────────────────────────
-function AccessModal({companies, onClose, showToast}) {
+// Index user_company_access rows two ways: user -> [companyId] for the access
+// pills, and "userId:companyId" -> row for the per-company role selector.
+function indexAccessRows(rows) {
+  const access = {}, rowMap = {}
+  rows.forEach(row => {
+    if (!row.company_id) return
+    if (!access[row.user_id]) access[row.user_id] = []
+    access[row.user_id].push(row.company_id)
+    rowMap[row.user_id + ':' + row.company_id] = row
+  })
+  return { access, rowMap }
+}
+
+// user: the signed-in user (own row is locked). permissionsMap/devModeActive:
+// from App.jsx, decide per company whether this user may change roles there
+// (manage_users, or owner, or platform admin in dev mode).
+function AccessModal({companies, onClose, showToast, user, permissionsMap = null, devModeActive = false}) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const mono = MONO
   const [users, setUsers]           = useState([])
   const [access, setAccess]         = useState({})
+  const [rowMap, setRowMap]         = useState({})   // "userId:companyId" -> access row
+  const [roleTarget, setRoleTarget] = useState(null) // { user, company, accessRow } for RolePermissionsModal
   const [invites, setInvites]       = useState([])
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState(null)
@@ -2435,12 +2482,9 @@ function AccessModal({companies, onClose, showToast}) {
       const myCompanyIds = new Set((companies || []).map(c => c.id))
       const relevantRows = rows.filter(r => myCompanyIds.has(r.company_id))
 
-      const map = {}
-      relevantRows.forEach(row => {
-        if (!map[row.user_id]) map[row.user_id] = []
-        if (row.company_id) map[row.user_id].push(row.company_id)
-      })
-      setAccess(map)
+      const indexed = indexAccessRows(relevantRows)
+      setAccess(indexed.access)
+      setRowMap(indexed.rowMap)
 
       // Only show users who ALREADY have access to one of my companies.
       // Do NOT expose the platform-wide user list to non-platform-admins.
@@ -2469,6 +2513,18 @@ function AccessModal({companies, onClose, showToast}) {
     setLoading(false)
   }
 
+  // Re-read only the access rows (not the user list or invites) so the role
+  // shown is what the database holds, not what we hoped to save.
+  async function reloadRows() {
+    try {
+      const rows = await api.fetchAllAccessRows()
+      const myCompanyIds = new Set((companies || []).map(c => c.id))
+      const indexed = indexAccessRows(rows.filter(r => myCompanyIds.has(r.company_id)))
+      setAccess(indexed.access)
+      setRowMap(indexed.rowMap)
+    } catch(e) { /* keep the optimistic state; the toast already reported the save */ }
+  }
+
   async function toggleCompany(userId, companyId, userEmail) {
     const has = (access[userId]||[]).includes(companyId)
     setSaving(userId + companyId)
@@ -2482,7 +2538,37 @@ function AccessModal({companies, onClose, showToast}) {
           : [...(prev[userId]||[]), companyId]
       }))
       showToast('Access updated')
+      await reloadRows()
     } catch(e) { showToast(e.message,'error') }
+    setSaving(null)
+  }
+
+  // Change one member's role on one company. "Rent Tracker Editor" is stored
+  // as viewer + {view_rent, edit_rent} overrides (see roleUpdateFor). Demoting
+  // an admin is the one change that asks first.
+  async function changeRole(u, co, option) {
+    const key = u.id + ':' + co.id
+    const current = roleFromAccessRow(rowMap[key])
+    if (option === current) return
+    if (isAdminDemotion(current, option)) {
+      const ok = await confirmDialog({
+        title: `Remove admin rights from ${u.email}?`,
+        body: `They will become ${ROLE_OPTION_LABELS[option]} on ${co.name} and lose the ability to manage users and company settings there.`,
+        confirmLabel: 'Change role', destructive: true,
+      })
+      if (!ok) return
+    }
+    setSaving(key + ':role')
+    try {
+      const { role, overrides } = roleUpdateFor(option)
+      await api.updateUserRole(u.id, co.id, role, overrides)
+      setRowMap(prev => ({
+        ...prev,
+        [key]: { ...(prev[key] || { user_id: u.id, company_id: co.id, email: u.email }), role, permissions: overrides, is_admin: role === 'admin' },
+      }))
+      showToast(`${u.email} is now ${ROLE_OPTION_LABELS[option]} on ${co.abbr || co.name}`)
+      await reloadRows()
+    } catch(e) { showToast(e.message || 'Could not change role', 'error') }
     setSaving(null)
   }
 
@@ -2677,6 +2763,51 @@ function AccessModal({companies, onClose, showToast}) {
                               )
                             })}
                           </div>
+
+                          {/* Per-company role. Locked for the company owner, for
+                              your own row, and where you lack manage_users. */}
+                          {(access[u.id]||[]).length>0 && (
+                            <div style={{marginTop:12,paddingTop:10,borderTop:`1px solid ${T.border}`,display:'grid',gap:6}}>
+                              <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Role per company</div>
+                              {companies.filter(co=>(access[u.id]||[]).includes(co.id)).map(co=>{
+                                const key = u.id+':'+co.id
+                                const row = rowMap[key]
+                                const current = roleFromAccessRow(row)
+                                const isCompanyOwner = co.owner_id === u.id || current === 'owner'
+                                const isSelf = !!user?.id && u.id === user.id
+                                const canManage = devModeActive || canDo(permissionsMap, co.id, 'manage_users')
+                                const locked = isCompanyOwner || isSelf || !canManage
+                                const lockReason = isCompanyOwner ? 'The company owner always has full access'
+                                  : isSelf ? 'You cannot change your own role'
+                                  : 'Only an owner or admin of this company can change roles'
+                                const busyHere = saving === key+':role'
+                                return (
+                                  <div key={co.id} style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                                    <span style={{fontFamily:mono,fontSize:10,color:co.color||T.gold,minWidth:56}}>{co.abbr}</span>
+                                    {locked
+                                      ? <span title={lockReason} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,border:`1px solid ${T.border}`,color:T.muted,background:T.surface}}>
+                                          {isCompanyOwner ? 'Owner' : (ROLE_OPTION_LABELS[current] || current)}
+                                        </span>
+                                      : <select value={current} disabled={!!saving} aria-label={`Role for ${u.email} on ${co.name}`}
+                                          onChange={e=>changeRole(u,co,e.target.value)}
+                                          style={{fontFamily:mono,fontSize:11,padding:'4px 8px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,cursor:saving?'wait':'pointer'}}>
+                                          {ROLE_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                                        </select>}
+                                    {busyHere && <span style={{fontFamily:mono,fontSize:9,color:T.muted}}>Saving…</span>}
+                                    {!locked && !busyHere && (
+                                      <button onClick={()=>setRoleTarget({user:u,company:co,accessRow:row})}
+                                        style={{fontFamily:mono,fontSize:10,color:T.gold,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
+                                        Advanced…
+                                      </button>
+                                    )}
+                                    <span style={{fontFamily:mono,fontSize:9,color:T.faint}}>
+                                      {isCompanyOwner ? '' : (ROLE_OPTIONS.find(o=>o.value===current)?.hint || '')}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2720,6 +2851,23 @@ function AccessModal({companies, onClose, showToast}) {
           <button className="btn btn-ghost" style={{width:'100%',marginTop:16,fontSize:12}} onClick={onClose}>Close</button>
         </div>
       </div>
+
+      {/* Advanced per-key overrides for one member on one company. Reuses the
+          platform-admin modal; its z-index sits above this overlay. */}
+      {roleTarget && (
+        <RolePermissionsModal
+          user={roleTarget.user}
+          company={roleTarget.company}
+          accessRow={roleTarget.accessRow}
+          showToast={showToast}
+          onClose={()=>setRoleTarget(null)}
+          onSaved={(newRow)=>{
+            const key = roleTarget.user.id+':'+roleTarget.company.id
+            setRowMap(prev=>({ ...prev, [key]: { ...(prev[key]||{ user_id: roleTarget.user.id, company_id: roleTarget.company.id }), role: newRow.role, permissions: newRow.permissions, is_admin: newRow.is_admin } }))
+            setRoleTarget(null)
+            reloadRows()
+          }}/>
+      )}
     </div>
   )
 }

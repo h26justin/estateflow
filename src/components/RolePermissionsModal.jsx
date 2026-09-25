@@ -21,7 +21,7 @@ const ROLE_INFO = {
   viewer: {
     icon: '👁',
     color: '#7B68EE',
-    description: 'Read-only access to properties, rent, and compliance. Cannot edit anything. Tenant personal data is hidden by default.',
+    description: 'Read-only access to properties, rent, and compliance. Cannot edit anything. Tenant personal data is hidden by default. Turn on "Edit rent records" under Advanced to make a Rent Tracker Editor.',
   },
 }
 

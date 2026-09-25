@@ -1,0 +1,222 @@
+Mr Example Landlord
+EXH Property Group Limited  10th August 2026
+Unit 14, Gardner Industrial Estate, Kent House Lane
+Beckenham  Statement No : 99
+BR3 1QU
+Statement
+Income  Amount  VAT  Gross
+35, Henley Road
+Rent for the month 31/07/2026 to 30/08/2026 - Tenant A  £635.00  £0.00  £635.00
+7 Watts Moses House, High Street East
+Rent for the month 30/03/2026 to 29/04/2026 - Tenant B
+£200.00  £0.00  £200.00
+Tenant (wrapped name)
+Rent for the month 30/04/2026 to 29/05/2026 - Tenant B
+£400.00  £0.00  £400.00
+Tenant (wrapped name)
+Rent for the month 30/07/2026 to 29/08/2026 - Tenant B
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+8 Watts Moses House, High Street East
+Rent for the month 20/07/2026 to 19/08/2026 - Tenant C
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+9 Watts Moses House, High Street East
+Rent for the month 01/08/2026 to 31/08/2026 - Tenant D
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+14 Watts Moses House, High Street East
+Rent for the month 03/08/2026 to 02/09/2026 - Tenant E
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+16 Watts Moses House, High Street East
+Rent for the month 27/07/2026 to 26/08/2026 - Tenant F
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+19 Watts Moses House, High Street East
+Rent for the month 29/07/2026 to 28/08/2026 - Tenant G
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+
+--- PAGE BREAK ---
+
+21 Watts Moses House, High Street East
+Rent for the month 05/08/2026 to 04/09/2026 - Tenant H
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+22 Watts Moses House, High Street East
+Rent for the month 27/07/2026 to 26/08/2026 - Tenant I
+£500.00  £0.00  £500.00
+raymond Nwagbara
+23 Watts Moses House, High Street East
+Rent for the month 30/07/2026 to 29/08/2026 - Tenant J
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+26 Watts Moses House, High Street East
+Rent for the month 19/07/2026 to 18/08/2026 - Tenant K  £500.00  £0.00  £500.00
+28 Watts Moses House, High Street East
+Rent for the month 22/06/2026 to 21/07/2026 - Tenant L
+£200.00  £0.00  £200.00
+Tenant (wrapped name)
+Rent for the month 22/07/2026 to 21/08/2026 - Tenant L
+£100.00  £0.00  £100.00
+Tenant (wrapped name)
+31 Watts Moses House, High Street East
+Rent for the month 22/07/2026 to 21/08/2026 - Tenant M
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+37 Watts Moses House, High Street East
+Rent for the month 01/08/2026 to 31/08/2026 - Tenant E
+£500.00  £0.00  £500.00
+daniel Enabulele
+39 Watts Moses House, High Street East
+Rent for the month 30/07/2026 to 29/08/2026 - Tenant N
+£500.00  £0.00  £500.00
+Tenant (wrapped name)
+41 Watts Moses House, High Street East
+Rent for the month 01/08/2026 to 31/08/2026 - Tenant O  £500.00  £0.00  £500.00
+The Lounge, Watts Moses House, High Street East
+Rent for the month 19/04/2026 to 18/05/2026 - Tenant P
+£200.00  £0.00  £200.00
+Tenant (wrapped name)
+Rent for the month 19/07/2026 to 18/08/2026 - Tenant P
+£1,000.00  £0.00  £1,000.00
+Tenant (wrapped name)
+13, Lumley Street
+Rent for the month 01/07/2026 to 31/07/2026 - Tenant Q  £600.00  £0.00  £600.00
+47 B, Somerset Street
+Rent for the month 01/08/2026 to 31/08/2026 - Tenant R
+£550.00  £0.00  £550.00
+Tenant (wrapped name)
+47A, Somerset Street
+Rent for the month 01/08/2026 to 31/08/2026 - Tenant R
+£550.00  £0.00  £550.00
+Tenant (wrapped name)
+Flat 1, St. Georges House
+Rent for the month 01/08/2026 to 31/08/2026 - Tenant S  £650.00  £0.00  £650.00
+Flat 3, St. Georges House
+Rent for the month 28/07/2026 to 27/08/2026 - Tenant T
+£660.00  £0.00  £660.00
+Tenant (wrapped name)
+
+--- PAGE BREAK ---
+
+Flat 4, St. Georges House
+Rent for the month 30/07/2026 to 29/08/2026 - Tenant U
+£900.00  £0.00  £900.00
+Tenant (wrapped name)
+Flat 7, St. Georges House
+Rent for the month 02/08/2026 to 01/09/2026 - Tenant V  £700.00  £0.00  £700.00
+Flat 8, St. Georges House
+Rent for the month 01/08/2026 to 31/08/2026 - Tenant W
+£560.00  £0.00  £560.00
+Tenant (wrapped name)
+Flat 9, St. Georges House
+Rent for the month 06/08/2026 to 05/09/2026 - Tenant X
+£750.00  £0.00  £750.00
+Tenant (wrapped name)
+5, Thomas Street
+Rent for the month 25/07/2026 to 24/08/2026 - Tenant Y
+£650.00  £0.00  £650.00
+Tenant (wrapped name)
+£16,305.00  £0.00 £16,305.00
+Expenditure  Amount  VAT  Gross
+35, Henley Road
+Management Commission 12.00% of £635.00  £76.20  £0.00  £76.20
+7 Watts Moses House, High Street East
+Management Commission 12.00% of £1,100.00  £132.00  £0.00  £132.00
+8 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+9 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+14 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+16 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+19 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+21 Watts Moses House, High Street East
+Management Commission 10.00% of £500.00  £50.00  £0.00  £50.00
+22 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+23 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+26 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+28 Watts Moses House, High Street East
+Management Commission 12.00% of £300.00  £36.00  £0.00  £36.00
+
+--- PAGE BREAK ---
+
+31 Watts Moses House, High Street East
+Management
+Commission 12.00%  £60.00  £0.00  £60.00
+of £500.00
+37 Watts Moses House, High Street East
+Management
+Commission 12.00%  £60.00  £0.00  £60.00
+of £500.00
+39 Watts Moses House, High Street East
+Management
+Commission 12.00%  £60.00  £0.00  £60.00
+of £500.00
+41 Watts Moses House, High Street East
+Management
+Commission 12.00%  £60.00  £0.00  £60.00
+of £500.00
+The Lounge, Watts Moses House, High Street East
+Management
+Commission 12.00%  £144.00  £0.00  £144.00
+of £1,200.00
+13, Lumley Street
+Management
+Commission 12.00%  £72.00  £0.00  £72.00
+of £600.00
+47 B, Somerset Street
+Management
+Commission 12.00%  £66.00  £0.00  £66.00
+of £550.00
+47A, Somerset Street
+Management
+Commission 12.00%  £66.00  £0.00  £66.00
+of £550.00
+Flat 1, St. Georges House
+Management
+Commission 12.00%  £78.00  £0.00  £78.00
+of £650.00
+Flat 3, St. Georges House
+Management
+Commission 12.00%  £79.20  £0.00  £79.20
+of £660.00
+Flat 4, St. Georges House
+Management
+Commission 12.00%  £108.00  £0.00  £108.00
+of £900.00
+Flat 7, St. Georges House
+Management
+Commission 12.00%  £84.00  £0.00  £84.00
+of £700.00
+
+--- PAGE BREAK ---
+
+Flat 8, St. Georges House
+Management
+Commission 12.00%  £67.20  £0.00  £67.20
+of £560.00
+Flat 9, St. Georges House
+Management
+Commission 12.00%  £90.00  £0.00  £90.00
+of £750.00
+5, Thomas Street
+Management
+Commission 12.00%  £78.00  £0.00  £78.00
+of £650.00
+£1,946.60  £0.00  £1,946.60
+Summary
+Balance from previous statement  £0.00
+New Balance  £14,358.40
+PAYMENT AMOUNT  £14,358.40
+The amount shown will be transferred to your designated bank account as agreed.
+Our Invoice
+Date  Invoice No.  Fees
+10/08/2026  INV4188  £1,946.60

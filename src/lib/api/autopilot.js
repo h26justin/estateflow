@@ -17,6 +17,7 @@ export async function listAutopilotActions({ status = 'open', companyId = null, 
     .limit(limit)
   if (status) q = q.eq('status', status)
   if (companyId) q = q.eq('company_id', companyId)
+  q = q.or(`snoozed_until.is.null,snoozed_until.lt.${new Date().toISOString()}`)   // snoozed actions leave the list until their date
   const { data, error } = await q
   if (error) throw error
   // Severity ordering for the panel: high → medium → low.
@@ -61,4 +62,34 @@ export async function dismissAutopilotAction(id) {
     .select('id')
   if (error) throw error
   if (!data?.length) throw new Error('Could not dismiss this action — its company may be suspended.')
+}
+
+// Bulk variants for "everything I am looking at". Same RLS as the singles;
+// rows the policy blocks (a suspended company) are simply not returned.
+async function bulkSetStatus(ids, status) {
+  if (!ids?.length) return 0
+  const { data, error } = await supabase
+    .from('autopilot_actions')
+    .update({ status, updated_at: new Date().toISOString() })
+    .in('id', ids)
+    .select('id')
+  if (error) throw error
+  return data?.length || 0
+}
+export const bulkActOnAutopilotActions = ids => bulkSetStatus(ids, 'acted')
+export const bulkDismissAutopilotActions = ids => bulkSetStatus(ids, 'dismissed')
+
+// Hide an action until a date. It stays 'open' so the generator does not
+// treat it as a decision and suppress a genuine recurrence; it just leaves
+// the list.
+export async function snoozeAutopilotAction(id, days = 30) {
+  const until = new Date(Date.now() + days * 86_400_000).toISOString()
+  const { data, error } = await supabase
+    .from('autopilot_actions')
+    .update({ snoozed_until: until, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id')
+  if (error) throw error
+  if (!data?.length) throw new Error('Could not snooze this action — its company may be suspended.')
+  return until
 }

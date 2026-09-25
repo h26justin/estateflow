@@ -3,8 +3,16 @@ import { useState, useEffect, useMemo, useCallback, useRef, memo, lazy, Suspense
 import { useTheme } from './lib/ThemeContext'
 import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
-import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS } from './lib/nav'
+import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS, AUTO_ENABLE_NAV_KEYS, navSeenMarker } from './lib/nav'
 import { REPORT_CATALOGUE } from './lib/reportCatalogue'
+import { monthDominantStatus, defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from './lib/rentStats'
+import { canDo } from './lib/permissions'
+import { propertyNeedsTenancy } from './lib/tenancyUtils'
+import { evaluateProperty, groupByMonth, collectionStats, arrearsSummary, portfolioStats, STATE_LABEL, GO_LIVE } from './lib/rentEngine'
+import { rentMonthSnapshot, monthRate } from './lib/rentForecast'
+import { resolveWidgetPrefs } from './lib/dashboardPrefs'
+import RentIncomePanel from './components/RentIncomePanel'
+import { activePlan } from './lib/paymentPlans'
 // FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
@@ -33,6 +41,10 @@ const RentHistoryTab       = lazyNamed(tenancyModule, 'RentHistoryTab')
 const TenancyRenewalAlert  = lazyNamed(tenancyModule, 'TenancyRenewalAlert')
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
 import TenantInbox from './components/TenantInbox'
+import TenancyPanel from './components/TenancyPanel'
+import ReceiptsPanel from './components/ReceiptsPanel'
+import ArrearsPanel from './components/ArrearsPanel'
+import ReviewQueuePanel from './components/ReviewQueuePanel'
 // Heavy / rarely-on-first-paint pages — code-split via React.lazy so they
 // don't bloat the initial bundle. Each one drops into its own chunk and
 // only fetches when the user navigates there.
@@ -41,10 +53,14 @@ const AdminDashboard  = lazy(() => import('./components/AdminDashboard'))
 const MarketingSite   = lazy(() => import('./components/MarketingSite'))
 const TenantPortal    = lazy(() => import('./components/TenantPortal'))
 const DealsPage       = lazy(() => import('./components/DealsPage'))
+const refurbsModule   = () => import('./components/RefurbsPage')
+const RefurbsPage     = lazy(refurbsModule)
+const RefurbPropertyTab = lazyNamed(refurbsModule, 'RefurbPropertyTab')
 const DayTrackerPage  = lazy(() => import('./components/DayTrackerPage'))
 const PropertyMap     = lazy(() => import('./components/PropertyMap'))
 const CompliancePage  = lazy(() => import('./components/CompliancePage'))
 const MtdItsaPage     = lazy(() => import('./components/MtdItsaPage'))
+const ShortTermLetIncomePage = lazy(() => import('./components/ShortTermLetIncomePage'))
 const AutopilotWidget = lazyNamed(() => import('./components/AutopilotPanel'), 'AutopilotWidget')
 const AutopilotPage   = lazyNamed(() => import('./components/AutopilotPanel'), 'AutopilotPage')
 const RentersRightsCopilot = lazyNamed(() => import('./components/RentersRightsCopilot'), 'RentersRightsCopilot')
@@ -54,6 +70,9 @@ const RentCollectionPanel = lazyNamed(() => import('./components/RentCollectionP
 const ESignPanel      = lazy(() => import('./components/ESignPanel'))
 const ReferencingPanel = lazy(() => import('./components/ReferencingPanel'))
 const StatementImporter = lazyNamed(() => import('./components/StatementImporter'), 'StatementImporter')
+// Standalone rental-statement / bank reconciliation audit register (2026-09).
+// Reads and writes only its own statement_audit_* tables.
+const StatementAuditPage = lazy(() => import('./components/StatementAuditPage'))
 const DataImporter = lazyNamed(() => import('./components/DataImporter'), 'DataImporter')
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
@@ -70,10 +89,12 @@ import ActionMenu from './components/ActionMenu'
 const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModal'))
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
-import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
+import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied, planOnMarketPeriods } from './lib/propertyStatus'
 import { propValue } from './lib/propertyValue'
 import { isHoldingCompany } from './lib/companyPnl'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
+import { normaliseQuery, matchesQuery } from './lib/propertySearch'
+import { useScrollRestoreOnClear } from './lib/useScrollRestoreOnClear'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
 import { complianceStatusFor, complianceBadge, propertyComplianceSummary } from './lib/complianceStatus'
 import { canonicalCertType } from './lib/complianceCatalogue'
@@ -86,6 +107,7 @@ import { Icon, ICON_NAMES } from './lib/icons'
 import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
+import PropertySearchBar from './components/PropertySearchBar'
 import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
 import TenantReferenceModal from './components/TenantReferenceModal'
 import BankConnectionsModal from './components/BankConnectionsModal'
@@ -148,38 +170,21 @@ function calcMonthlyProfit(p) {
   return (p.rent_pcm||0)-calcMonthlyMortgage(p)-(p.insurance||0)/12
 }
 
-// Permission helper — check if current user can perform action on a company
-// permissionsMap: { [companyId]: { edit_properties: true, view_financial: false, ... } }
-// Fail-CLOSED: if we have no permission record for the company, deny the action.
-// The map is loaded together with the user's companies; once it's loaded but
-// missing a company entry that means the user is not a collaborator on it.
-// (The OWNER of a company gets an implicit allow via `permissionsMap.__owner`
-// — see loader. For platform admins, callers should bypass canDo entirely.)
-function canDo(permissionsMap, companyId, permissionKey) {
-  if (!companyId) return true  // no company context = global / personal action
-  if (!permissionsMap) return false  // not loaded yet → deny by default
-  if (permissionsMap.__owner?.[companyId]) return true  // owner can do anything
-  const perms = permissionsMap[companyId]
-  if (!perms) return false  // collaborator row missing → no access
-  return perms[permissionKey] === true
-}
+// canDo(permissionsMap, companyId, key) lives in src/lib/permissions.js so the
+// components that gate write surfaces (Day Tracker, importers, Team & Access)
+// share one fail-closed implementation with App.jsx.
 
 const STATUS_CFG = {
   rented:       {label:'Rented',       bg:'#0D2B1F',fg:'#2ECC8A',dot:'#2ECC8A'},
   short_term_let:{label:'Short-Term Let',bg:'#1E142B',fg:'#9B6FDE',dot:'#9B6FDE'}, // purple — matches STL_COLOR booking segments
   notice_given: {label:'Notice given', bg:'#2B200A',fg:'#F0B850',dot:'#F0B850'},  // amber — still rented but vacancy looming
   let_agreed:   {label:'Let agreed',   bg:'#2B250A',fg:'#C8A84B',dot:'#C8A84B'},  // gold — contracts being signed, not yet rented
+  on_rental_market:{label:'On rental market',bg:'#0A242B',fg:'#3AA7B8',dot:'#3AA7B8'}, // teal: being marketed, distinct from vacant red
   vacant:       {label:'Vacant',       bg:'#2B1010',fg:'#E05555',dot:'#E05555'},
   purchased:    {label:'Purchased',    bg:'#2B200A',fg:'#E0943A',dot:'#E0943A'},
   refurb:       {label:'Refurbing',    bg:'#0A1A2B',fg:'#4B8FE0',dot:'#4B8FE0'},
   sold:         {label:'Sold',         bg:'#1A1A2B',fg:'#9B8AC2',dot:'#9B8AC2'},
 }
-const REFURB_CFG = {
-  complete:     {label:'Complete',    color:'#2ECC8A'},
-  'in-progress':{label:'In Progress', color:'#E0943A'},
-  planned:      {label:'Planned',     color:'#4B8FE0'},
-}
-
 const Badge = memo(({status}) => {
   const { T } = useTheme()
   const c = STATUS_CFG[status]||STATUS_CFG.purchased
@@ -249,15 +254,35 @@ const BreakdownRow = memo(({item, T}) => {
   )
 })
 
-const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabel}) => {
+const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavigate,navLabel}) => {
   const [open,setOpen] = useState(false)
+  const [alignRight,setAlignRight] = useState(false)
   const { T } = useTheme()
+  const rootRef = useRef(null)
+  // The breakdown opens as an overlay panel below the card rather than
+  // inline, so expanding one KPI card never changes the height of its row
+  // or shoves the page about. Close on outside click or Escape.
+  //
+  // The panel is wider than the card (PANEL_MIN) so every row and note is
+  // read in full with no scrolling; cards near the right edge of the
+  // viewport anchor the panel to their right edge so it stays on screen.
+  const PANEL_MIN = 560
+  useEffect(() => {
+    if (!open) return
+    const r = rootRef.current?.getBoundingClientRect()
+    setAlignRight(!!r && r.left + PANEL_MIN > window.innerWidth - 16)
+    const onDown = e => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
+    const onKey = e => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
   // Cards with a breakdown keep click = expand; navigation gets its own
   // explicit link so the two affordances never fight. Cards without a
   // breakdown navigate on click directly.
   const clickable = breakdown || onNavigate
   return (
-    <div style={{background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
+    <div ref={rootRef} style={{position:'relative',zIndex:open?30:undefined,background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
       onClick={breakdown?()=>setOpen(o=>!o):(onNavigate||undefined)}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         {/* Redesign: a known icon name renders the hairline glyph in a tinted
@@ -280,13 +305,55 @@ const StatCard = memo(({icon,label,value,sub,accent,breakdown,onNavigate,navLabe
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
       {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
-      {open&&breakdown&&(
-        <div style={{marginTop:14,borderTop:`1px solid ${T.border}`,paddingTop:12,display:'grid',gap:4}}>
-          {breakdown.map((item,i)=>(
+      {/* Optional 2-column strip of small label/value pairs on the card face,
+          for cards whose story needs a few figures at a glance (e.g. the last
+          three months of rent) rather than one sub-line. */}
+      {/* Optional compact table on the card face: `table.columns` are the
+          header labels, each row has `cells` (one per column) and optional
+          per-cell `colors`; `strong` bolds the row. First column left-aligned,
+          the rest right-aligned so figures line up. */}
+      {table&&table.rows.length>0&&(
+        <div style={{marginTop:10,overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto'}}>
+            <thead>
+              <tr>
+                {table.columns.map((c,i)=>(
+                  <th key={'h'+i} style={{fontFamily:MONO,fontSize:8,fontWeight:400,color:T.faint,textTransform:'uppercase',letterSpacing:'0.06em',textAlign:i?'right':'left',padding:`0 0 4px ${i?6:0}px`,whiteSpace:'nowrap'}}>{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((r,ri)=>(
+                <tr key={ri}>
+                  {r.cells.map((cell,ci)=>(
+                    <td key={ci} style={{fontFamily:MONO,fontSize:10,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {strip&&strip.length>0&&(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px 12px',marginTop:10}}>
+          {strip.map((s,i)=>(
             <div key={i}>
+              <div style={{fontFamily:MONO,fontSize:9,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>{s.label}</div>
+              <div style={{fontFamily:MONO,fontSize:12,color:s.color||T.text}}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {open&&breakdown&&(
+        <div onClick={e=>e.stopPropagation()}
+          style={{position:'absolute',top:'calc(100% + 6px)',...(alignRight?{right:0}:{left:0}),
+            width:`max(100%, min(${PANEL_MIN}px, calc(100vw - 32px)))`,
+            zIndex:30,background:T.card,border:`1px solid ${T.gold}`,borderRadius:12,padding:'14px 18px 16px',boxShadow:'0 12px 32px rgba(0,0,0,0.14)',display:'grid',gap:5,cursor:'default'}}>
+          {breakdown.map((item,i)=>(
+            <div key={i} style={{minWidth:0}}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
               <BreakdownRow item={item} T={T}/>
-              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2}}>{item.note}</div>}
+              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
             </div>
           ))}
         </div>
@@ -342,99 +409,62 @@ function getStatusColor(status) {
 // text sat at ~1.8:1 on paid-green). STL/pending keep their purple identity
 // via a matching hand-tuned pair (purple isn't in the shared STATUS set).
 const STL_PAIR = { light: { text:'#6E44B8', bg:'#F0EAFB' }, dark: { text:'#B89BEF', bg:'#241A38' } }
+// A short-term-let booking whose stay has not finished yet: recorded, not yet
+// income (see 2026-09-07_stl_pending_until_stayed.sql). Same hue, lighter.
+const STL_PENDING_PAIR = { light: { text:'#8F73CF', bg:'#F8F5FD' }, dark: { text:'#9C86D4', bg:'#1B1529' } }
 function rentStatusPair(status, darkMode) {
   if (status === 'pending') return darkMode ? STL_PAIR.dark : STL_PAIR.light
   const key = { paid:'ok', overdue:'bad', missed:'bad', late:'warn', partial:'warn', refurb:'info' }[status] || 'void'
   return statusColors(key, darkMode)
 }
 
+// Traffic-light pair for an engine state (Stage 3). Legacy months keep the
+// old status colours; short-term lets keep purple; grey is shared with void.
+function enginePair(m, darkMode) {
+  if (!m) return null
+  if (m.state === 'stl') return darkMode ? STL_PAIR.dark : STL_PAIR.light
+  if (m.state === 'legacy') return rentStatusPair(m.evals?.[0]?.legacyStatus || 'void', darkMode)
+  const key = { paid:'ok', due:'warn', part_paid:'warn', missed:'bad', not_collectible:'void' }[m.state] || 'void'
+  return statusColors(key, darkMode)
+}
+
 // Short-term-let revenue keeps its own colour so STL and long-term income
-// read differently at a glance even though both are status 'paid'. A paid
-// segment is "STL" when a Lodgify booking links to it (stl_bookings join
-// on fetchProperties).
+// read differently at a glance even though both are status 'paid'.
 const STL_COLOR = '#9B6FDE'
-function stlPaymentIds(property) {
-  return new Set((property?.stl_bookings || []).map(b => b.rent_payment_id).filter(Boolean))
-}
-
-// A month can now hold several dated rent segments (tenant changeover, partial
-// payment + balance). For the year-strip dot and per-month stat counts we
-// collapse a month's segments to one "dominant" status. Problems surface first
-// (overdue/late), otherwise paid > refurb > void > future.
-const MONTH_STATUS_PRIORITY = ['overdue','missed','late','partial','paid','pending','refurb','void','future']
-function monthDominantStatus(segs) {
-  for (const s of MONTH_STATUS_PRIORITY) {
-    if (segs.some(p => p.status === s)) return s
-  }
-  return segs[0]?.status || 'void'
-}
-
-// Default year for rent year-filters: the current year when it has data,
-// otherwise the most recent year that does. Never blindly "latest year with
-// rows": future months are pre-generated ~6 months ahead
-// (ensureFutureRentMonths), so from July onwards the latest year is NEXT
-// year, which made the Rent Tracker open on it.
-function defaultRentYear(payments) {
-  const years = [...new Set(payments.map(p => p.year))].sort()
-  if (years.length === 0) return null
-  const currentYear = new Date().getFullYear()
-  return years.includes(currentYear) ? currentYear : years[years.length - 1]
-}
-
-// Month-level stats for a set of rent segments (optionally scoped to a year).
-// Counts collapse a month's segments to its dominant status so a month split
-// across several segments (tenant changeover, partial payment + balance)
-// counts once. Income sums the actual paid amounts; the rent_pcm fallback for
-// legacy amount-less paid rows applies once per month, never per segment.
-// Shared by the Rent Tracker overview, the property Rent tab and the
-// Overview "Rent at a glance" card so all three agree.
-function getMonthlyRentStats(payments, year, rentPcm) {
-  const scoped = year ? payments.filter(p => p.year === year) : payments
-  const byMonth = {}
-  for (const p of scoped) {
-    const key = `${p.year}-${p.month}`
-    ;(byMonth[key] ||= []).push(p)
-  }
-  // Time-aware counts: future months are pre-created as voids
-  // (ensureFutureRentMonths) and STL bookings create future PAID months, so
-  // anything feeding a "how are we collecting" rate must only look at months
-  // up to the current one. voidM is past-months-only for the same reason —
-  // an empty August that hasn't happened yet isn't a void.
-  const _now = new Date()
-  const _curKey = _now.getFullYear() * 12 + _now.getMonth() + 1
-  let paid = 0, missed = 0, late = 0, refurb = 0, voidM = 0, income = 0, paidToDate = 0
-  for (const key in byMonth) {
-    const segs = byMonth[key]
-    const dom = monthDominantStatus(segs)
-    const [ky, km] = key.split('-').map(Number)
-    const isFuture = (ky * 12 + km) > _curKey
-    if (dom === 'paid') { paid++; if (!isFuture) paidToDate++ }
-    else if (dom === 'overdue' || dom === 'missed') missed++
-    else if (dom === 'late' || dom === 'partial') late++   // partial = attention bucket
-    else if (dom === 'refurb') refurb++
-    else if (dom === 'void') { if (!isFuture) voidM++ }
-    // Income credits actual amounts from paid AND partial segments (matching the
-    // Reports module); the rent_pcm fallback only covers a legacy amount-less
-    // PAID row, never a partial (a partial without an amount contributes £0).
-    const fullPaidSegs = segs.filter(p => p.status === 'paid')
-    const incomeSegs = segs.filter(p => p.status === 'paid' || p.status === 'partial')
-    const monthIncome = incomeSegs.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-    income += monthIncome > 0 ? monthIncome : (fullPaidSegs.length ? (rentPcm || 0) : 0)
-  }
-  return { paid, missed, late, refurb, voidM, income, paidToDate }
-}
+// Rent arithmetic (month collapse, default year, monthly stats, STL ids) lives
+// in lib/rentStats.js so it is unit-tested and shared; see the import above.
 
 // ── DAY POPOVER ──────────────────────────────────────────────────────────────
-function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
+function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, monthEval, property, canEdit, onChanged, showToast }) {
   const { T, darkMode } = useTheme()
   const mono = MONO
+  const [ovOpen, setOvOpen] = useState(false)
+  const [ovState, setOvState] = useState('not_collectible')
+  const [ovReason, setOvReason] = useState('')
+  const [ovSaving, setOvSaving] = useState(false)
+  const fmtGBP = n => n == null ? '—' : `£${Number(n).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}`
+  const fmtD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—'
+  async function saveOverride() {
+    if (!monthEval || ovSaving) return
+    if (ovReason.trim().length < 3) { showToast?.('Give a reason for the override', 'error'); return }
+    const target = monthEval.evals.find(e => e.state === monthEval.state) || monthEval.evals[0]
+    setOvSaving(true)
+    try {
+      await api.createRentOverride({ rent_payment_id: target.id, property_id: property.id, state: ovState, reason: ovReason })
+      showToast?.('Override recorded')
+      onChanged?.(); onClose()
+    } catch (e) { showToast?.(e.message || 'Override failed', 'error') }
+    setOvSaving(false)
+  }
   const year = payment.year, month = payment.month
   const days = new Date(year, month, 0).getDate()
   const firstDow = (new Date(year, month-1, 1).getDay() + 6) % 7
 
   // Paid STL segments render as the pseudo-status 'stl' (purple) so
   // short-term-let days read differently from long-term rent.
-  const segStatus = p => (p.status === 'paid' && stlIds?.has(p.id)) ? 'stl' : p.status
+  const segStatus = p => stlIds?.has(p.id)
+    ? (p.status === 'paid' ? 'stl' : p.status === 'pending' ? 'stl_pending' : p.status)
+    : p.status
 
   function getDayStatus(day) {
     const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
@@ -455,7 +485,9 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
   // restate the legacy raw hues with white labels).
   const pairFor = (status) => status === 'stl'
     ? (darkMode ? STL_PAIR.dark : STL_PAIR.light)
-    : rentStatusPair(status, darkMode)
+    : status === 'stl_pending'
+      ? (darkMode ? STL_PENDING_PAIR.dark : STL_PENDING_PAIR.light)
+      : rentStatusPair(status, darkMode)
   const monthName = new Date(year, month-1).toLocaleString('en-GB', {month:'long', year:'numeric'})
   const cells = []
   for (let i = 0; i < firstDow; i++) cells.push(null)
@@ -474,6 +506,74 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
           <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{monthName}</div>
           <button onClick={onClose} aria-label="Close day view" style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1,padding:'6px 8px',margin:'-6px -8px'}}>×</button>
         </div>
+        {monthEval && (() => {
+          const m = monthEval
+          const pair = enginePair(m, darkMode)
+          const ev = m.evals.find(e => e.state === m.state) || m.evals[0]
+          const benefit = ev?.tenancy && ev.tenancy.payment_source && ev.tenancy.payment_source !== 'tenant'
+          const allocs = m.evals.flatMap(e => e.allocations || [])
+          const rows = m.state === 'legacy' ? [
+            ['Legacy status', ev?.legacyStatus || '—'],
+            ['Amount recorded', fmtGBP(ev?.legacyAmount)],
+          ] : m.state === 'stl' ? [
+            ['Booked income', fmtGBP(m.received)],
+          ] : [
+            ['Rent expected', fmtGBP(m.expected)],
+            ...(benefit ? [['Tenant share', fmtGBP(m.evals.reduce((a,e)=>a+(e.tenantShare||0),0))],['Benefit share', fmtGBP(m.evals.reduce((a,e)=>a+(e.benefitShare||0),0))]] : []),
+            ['Received', m.needsBackfill ? 'Paid, amount not entered' : fmtGBP(m.received)],
+            ['Outstanding', fmtGBP(m.outstanding)],
+            ...(m.excess > 0 ? [['Overpaid', fmtGBP(m.excess)]] : []),
+            ...(ev?.dueDate ? [['Due', `${fmtD(ev.dueDate)} · window to ${fmtD(ev.windowEnd)}${ev.benefitDue ? ` · benefit ${fmtD(ev.benefitDue)}` : ''}`]] : []),
+          ]
+          return (
+            <div style={{marginBottom:12,paddingBottom:12,borderBottom:`1px solid ${T.border}`}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:pair?.bg,color:pair?.text,border:`1px solid ${pair?.text}44`}}>{STATE_LABEL[m.state] || m.state}</span>
+                {m.needsBackfill && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.amber+'22',color:T.amber}}>Needs backfill</span>}
+                {m.state === 'legacy' && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.border,color:T.muted}}>Legacy data</span>}
+                {m.override && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.blue+'22',color:T.blue}}>Override</span>}
+                {ev?.fallback && <span title="No tenancy record yet: using the property's rent and due day" style={{fontFamily:mono,fontSize:9,color:T.muted}}>no tenancy record</span>}
+              </div>
+              <div style={{display:'grid',gap:4}}>
+                {rows.map(([l,v])=>(
+                  <div key={l} style={{display:'flex',justifyContent:'space-between',gap:10,fontFamily:mono,fontSize:11}}>
+                    <span style={{color:T.muted}}>{l}</span><span style={{color:T.text,fontWeight:600,textAlign:'right'}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              {allocs.length > 0 && (
+                <div style={{marginTop:8}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Receipts</div>
+                  {allocs.map(a=>(
+                    <div key={a.id} style={{display:'flex',justifyContent:'space-between',fontFamily:mono,fontSize:10,color:T.text}}>
+                      <span>{fmtD(a.receipt?.received_date)} · {(a.receipt?.payer||'tenant').replace('_',' ')}{a.receipt?.kind && a.receipt.kind!=='receipt' ? ` · ${a.receipt.kind}` : ''}</span>
+                      <span style={{color:Number(a.amount)<0?T.red:T.text}}>{fmtGBP(a.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {ev?.reasons?.length > 0 && <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:6}}>{ev.reasons.join(' · ')}</div>}
+              {m.override && <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:4}}>Override by {m.override.created_by ? 'a user' : 'system'} on {new Date(m.override.created_at).toLocaleDateString('en-GB')}: {m.override.reason}</div>}
+              {canEdit && m.state !== 'legacy' && m.state !== 'stl' && m.state !== 'future' && (
+                ovOpen ? (
+                  <div style={{marginTop:8,display:'grid',gap:6}}>
+                    <select value={ovState} onChange={e=>setOvState(e.target.value)} style={{fontFamily:mono,fontSize:11}}>
+                      {['paid','due','part_paid','missed','not_collectible'].map(k=><option key={k} value={k}>{STATE_LABEL[k]}</option>)}
+                      {m.override && <option value="clear">Remove override</option>}
+                    </select>
+                    <textarea value={ovReason} onChange={e=>setOvReason(e.target.value)} rows={2} placeholder="Reason (required, recorded with your name and the time)" style={{fontFamily:mono,fontSize:11,resize:'vertical'}}/>
+                    <div style={{display:'flex',gap:6}}>
+                      <button className="btn btn-gold" style={{fontSize:11}} onClick={saveOverride} disabled={ovSaving}>{ovSaving?'Saving…':'Save override'}</button>
+                      <button className="btn" style={{fontSize:11}} onClick={()=>setOvOpen(false)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button className="btn" style={{fontSize:10,marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</button>
+                )
+              )}
+            </div>
+          )
+        })()}
         <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:4}}>
           {['M','T','W','T','F','S','S'].map((d,i)=>(
             <div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{d}</div>
@@ -506,19 +606,25 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker }) {
           ))}
           {payment.period_start&&<div style={{fontFamily:mono,fontSize:9,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
         </div>
-        <button onClick={()=>{onClose();if(onDayTracker)onDayTracker()}}
-          style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
-            border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>
-          View full day tracker →
-        </button>
+        {onDayTracker
+          ? <button onClick={()=>{onClose();onDayTracker()}}
+              style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
+                border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>
+              View full day tracker →
+            </button>
+          : <div style={{fontFamily:mono,fontSize:10,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
       </div>
     </div>
   )
 }
 
-const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
+const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, property, canEdit, onChanged, showToast}) => {
   const { darkMode } = useTheme()
   const [popover, setPopover] = useState(null)
+  // Stage 3: when the property is supplied the tiles come from the rent
+  // engine (tenancy dates, due windows, receipts, overrides). The legacy
+  // month-collapse path below remains for callers that only have payments.
+  const engineMonths = useMemo(() => property ? groupByMonth(evaluateProperty(property)) : null, [property])
   if (!payments?.length) return null
   const scoped = filterYear ? payments.filter(m=>m.year===filterYear) : payments
   // Collapse multiple segments per month into one representative dot.
@@ -528,8 +634,9 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
     if (!byMonth.has(key)) byMonth.set(key, [])
     byMonth.get(key).push(p)
   }
+  const evalByKey = new Map((engineMonths || []).map(m => [`${m.year}-${m.month}`, m]))
   const filtered = [...byMonth.values()]
-    .map(segs => ({ ...segs[0], status: monthDominantStatus(segs), isStl: !!stlIds && segs.some(s => stlIds.has(s.id)) }))
+    .map(segs => ({ ...segs[0], status: monthDominantStatus(segs), isStl: !!stlIds && segs.some(s => stlIds.has(s.id)), eng: evalByKey.get(`${segs[0].year}-${segs[0].month}`) || null }))
     .sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month)
   const now = new Date()
   const currentYear = now.getFullYear()
@@ -541,18 +648,24 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
         const isFuture = m.year > currentYear || (m.year === currentYear && m.month > currentMonth)
         const isCurrent = m.year === currentYear && m.month === currentMonth
         const isStlPaid = m.isStl && m.status === 'paid'
+        const isStlPending = m.isStl && m.status === 'pending'
         // Redesign: full 3-letter month name in the cell, STATUS TINT as the
         // fill with the AA text colour for the label (the previous raw-hue
         // fill + white label read at ~1.8:1 on paid-green), gold outline for
         // the current month, hatched fill for future months.
-        const pair = isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : rentStatusPair(m.status, darkMode)
+        const eng = m.eng && m.eng.state !== 'future' ? m.eng : null
+        const pair = eng ? enginePair(eng, darkMode) : (isStlPaid ? (darkMode ? STL_PAIR.dark : STL_PAIR.light) : isStlPending ? (darkMode ? STL_PENDING_PAIR.dark : STL_PENDING_PAIR.light) : rentStatusPair(m.status, darkMode))
         const name = MONTH_NAMES[(m.month||1)-1]
-        const statusLabel = isFuture ? 'future' : (isStlPaid ? 'short-term let, paid' : (m.status || 'void'))
+        const statusLabel = isFuture ? 'future' : eng ? `${STATE_LABEL[eng.state]}${eng.needsBackfill ? ', needs backfill' : ''}${eng.override ? ', overridden' : ''}${eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) ? ', payment plan' : ''}` : (isStlPaid ? 'short-term let, paid' : isStlPending ? 'short-term let, booked, stay not yet completed' : (m.status || 'void'))
+        const isGrey = eng && eng.state === 'not_collectible'
+        const isLegacy = eng && eng.state === 'legacy'
         const boxStyle = isFuture
           ? { background:'repeating-linear-gradient(135deg, rgba(128,128,128,0.10) 0 5px, transparent 5px 10px)', border:'1px dashed rgba(128,128,128,0.40)', cursor:'default' }
           : isCurrent
             ? { background:pair.bg, border:`2px solid #B8902F`, cursor:'pointer' }
             : { background:pair.bg, border:`1px solid ${pair.text}55`, cursor:'pointer' }
+        if (isGrey) boxStyle.background = `repeating-linear-gradient(135deg, ${pair.text}22 0 4px, ${pair.bg} 4px 8px)`
+        if (isLegacy) boxStyle.borderBottom = `2px dotted ${pair.text}88`
         const letterColor = isFuture ? 'rgba(128,128,128,0.6)' : pair.text
         return (
           // A real <button>: these cells are the primary interaction on the
@@ -560,20 +673,23 @@ const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds}) => {
           // appeared on touch.
           <button key={m.id} type="button"
             aria-label={`${m.month_label || `${name} ${m.year}`}: ${statusLabel}${isFuture ? '' : ' — open day view'}`}
-            title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL booked (paid)' : m.status} — click for day view`}
+            title={isFuture ? `${m.month_label}: future` : `${m.month_label}: ${isStlPaid ? 'STL stayed (paid)' : isStlPending ? 'STL booked, not yet stayed' : m.status} — click for day view`}
             disabled={isFuture}
             onClick={!isFuture ? (e)=>{e.stopPropagation();setPopover(m)} : undefined}
-            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',padding:0,
+            style={{width:44,height:30,borderRadius:7,transition:'transform 0.15s, box-shadow 0.15s',padding:0,position:'relative',
               display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,...boxStyle}}
             onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${pair.text}55`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
             <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
+            {eng?.needsBackfill && <span aria-hidden="true" style={{position:'absolute',top:2,right:3,width:6,height:6,borderRadius:'50%',background:'#E0943A'}}/>}
+            {eng?.override && <span aria-hidden="true" style={{position:'absolute',bottom:2,right:3,width:6,height:6,borderRadius:'50%',border:`1.5px solid ${pair.text}`}}/>}
+            {eng && eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) && <span aria-hidden="true" title="Historic arrears on a payment plan" style={{position:'absolute',top:2,left:3,width:6,height:6,borderRadius:'50%',background:'#4B8FE0'}}/>}
           </button>
         )
       })}
     </div>
-    {popover&&<DayPopover payment={popover} allPayments={payments} stlIds={stlIds} onClose={()=>setPopover(null)} onDayTracker={onDayTracker}/>}
+    {popover&&<DayPopover payment={popover} allPayments={payments} stlIds={stlIds} onClose={()=>setPopover(null)} onDayTracker={onDayTracker} monthEval={popover.eng||null} property={property} canEdit={canEdit} onChanged={onChanged} showToast={showToast}/>}
   </>
 }
 const Spinner = () => {
@@ -728,6 +844,7 @@ export default function App() {
   // Loaded best-effort after boot; empty map degrades to "no deduction".
   const [tenanciesByProp, setTenanciesByProp] = useState({})
   const [view,        setView]         = useState('dashboard')
+  const [importDocs, setImportDocs] = useState(null) // emailed statement ids to open in the importer
   const [selectedId,  setSelectedId]   = useState(null)
   const [detailTab,   setDetailTab]    = useState('overview')
   // Selected report id when drilled into a specific report. Lifted up here
@@ -765,6 +882,9 @@ export default function App() {
   // drops off the Deals page (it now lives in the portfolio as a property).
   // Bumping convertRefreshKey tells DealsPage to reload + return to its list.
   const [convertSourceDealId, setConvertSourceDealId] = useState(null)
+  // The full deal record, so the refurb budget, dates and BRRR end value
+  // can become a refurb project once the property row exists.
+  const [convertSourceDeal, setConvertSourceDeal] = useState(null)
   const [convertRefreshKey,   setConvertRefreshKey]   = useState(0)
   const [toast,       setToast]        = useState(null)
   const [editingPayment, setEditingPayment] = useState(null)  // {payment, propId}
@@ -816,6 +936,7 @@ export default function App() {
   // add a new section, add it in BOTH places (the render fn list at
   // ~line 1750, plus the three constants here).
   const SECTION_META = {
+    rent_income:        { icon:'pound',          label:'Rental Income',               description:'Due vs collected by month, year to date, with a per-company split' },
     kpi_grid:           { icon:'pie-chart',      label:'KPI cards',                   description:'Portfolio value, monthly rent, arrears, and other key metrics' },
     by_company:         { icon:'grid',           label:'By Company',                  description:'A card per company with its property/rent stats' },
     smart_alerts:       { icon:'alert-triangle', label:'Items needing attention',     description:'Smart alerts: overdue rent, expiring compliance, vacant properties' },
@@ -826,13 +947,18 @@ export default function App() {
     portfolio_modeller: { icon:'trending-up',    label:'Portfolio What-If Modeller',  description:'Model rent changes, refinancing, and other scenarios' },
     company_documents:  { icon:'folder',         label:'Company Documents',           description:'Documents stored at company level (only shows when a company is selected)' },
   }
-  const SECTION_DEFAULT_ORDER   = ['smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
-  const SECTION_DEFAULT_ENABLED = { kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
+  // Rental Income leads the page for every user who has not positioned it
+  // (ruled 8 Sep 2026: new section, everyone should see it first). Being the
+  // first default key, the resolver inserts it at the top of any saved layout
+  // that lacks it; once saved from Customize > Sections, the user's order wins.
+  const SECTION_DEFAULT_ORDER   = ['rent_income','smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
+  const SECTION_DEFAULT_ENABLED = { rent_income:true, kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
   const WIDGET_META = {
     portfolio_value:    { icon:'home', label:'Portfolio Value',         description:'Total property value and unrealised gains' },
-    monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Rent per month, occupancy, annualised' },
-    arrears:            { icon:'alert-triangle', label:'Total Arrears',           description:'Overdue rent and vacant properties' },
+    monthly_rent:       { icon:'pound', label:'Monthly Rental Income',   description:'Rent expected this month from tenancies, contracted and annualised totals, next month ahead' },
+    rent_received:      { icon:'receipt', label:'Rent Collected',         description:'Compact due / collected / outstanding table for the last three months and year to date (the Rental Income section shows this in full)' },
+    arrears:          { icon:'alert-triangle', label:'Total Arrears',           description:'Overdue rent and vacant properties' },
     refurb:             { icon:'hammer', label:'In Refurbishment',        description:'Properties under renovation' },
     mortgages:          { icon:'landmark', label:'Mortgages Outstanding',   description:'Debt, equity and repayment costs' },
     cashflow_forecast:  { icon:'wallet', label:'Cash Committed', description:'Total cash out across deals + properties, with 90-day urgency split' },
@@ -841,8 +967,10 @@ export default function App() {
     property_count:     { icon:'home', label:'Property Count',          description:'Total properties with rented/vacant split' },
     occupancy_rate:     { icon:'pie-chart', label:'Occupancy Rate',          description:'Occupancy % and vacancy cost' },
   }
-  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
-  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
+  const WIDGET_DEFAULT_ORDER   = ['portfolio_value','monthly_rent','rent_received','arrears','refurb','mortgages','cashflow_forecast','insurance_renewals','compliance_status','property_count','occupancy_rate']
+  // rent_received is off by default now that the Rental Income section carries
+  // the same figures in full; it stays available for anyone who hides the section.
+  const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, rent_received:false, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
 
   // Developer mode toggle — lets a platform admin choose to "see everything"
   // (bypasses per-company permissions). Default OFF on every login: more
@@ -1031,8 +1159,13 @@ export default function App() {
       if (parts[0] === 'admin') {
         return { view: 'admin', adminTab: parts[1] || null }
       }
-      if (parts[0] === 'import') return { view: 'import' }
+      // #/import and the emailed-statement link #/import?docs=a,b (legacy #/import-statement)
+      if (/^import(-statement)?(\?|$)/.test(parts[0] || '')) {
+        const q = new URLSearchParams(parts[0].split('?')[1] || '')
+        return { view: 'import', importDocs: (q.get('docs') || '').split(',').filter(Boolean) }
+      }
       if (parts[0] === 'import-data') return { view: 'import-data' }
+      if (parts[0] === 'statement-audit') return { view: 'statement-audit' }
       if (parts[0] === 'properties' && parts[1] === 'bulk') return { view: 'bulk-add' }
       // Compliance is the renamed top-level Insurance page (2026-08).
       // Sub-views are addressable (#/compliance/<sub>); the legacy
@@ -1061,7 +1194,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','rent','deals','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import','import-data']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','stl','deals','refurbs','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import','import-data','statement-audit']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -1069,6 +1202,7 @@ export default function App() {
     const initial = parseHash()
     if (initial.view && initial.view !== 'dashboard') setView(initial.view === 'admin' ? 'dashboard' : initial.view)
     if (initial.selectedId) setSelectedId(initial.selectedId)
+    if (initial.importDocs?.length) setImportDocs(initial.importDocs)
     if (initial.detailTab) setDetailTab(initial.detailTab)
     if (initial.portfolioTab) setPortfolioTab(initial.portfolioTab)
     if (initial.selectedReportId) setSelectedReportId(initial.selectedReportId)
@@ -1091,6 +1225,7 @@ export default function App() {
       setShowAdmin(false)
       setView(parsed.view || 'dashboard')
       setSelectedId(parsed.selectedId || null)
+      setImportDocs(parsed.importDocs?.length ? parsed.importDocs : null)
       // Always reflect the report id from the URL (including clearing it
       // when the user pops back from a specific report to the catalogue).
       setSelectedReportId(parsed.selectedReportId || null)
@@ -1158,6 +1293,8 @@ export default function App() {
     // DealsPage owns its sub-view / deal-detail URL segments the same way
     // (#/deals/pipeline, #/deals/deal/<id>).
     if (view === 'deals' && /^#\/deals(\/|$)/.test(window.location.hash)) return
+    // RefurbsPage owns #/refurbs/list|board|payments and #/refurbs/project/<id>.
+    if (view === 'refurbs' && /^#\/refurbs(\/|$)/.test(window.location.hash)) return
     if (window.location.hash !== target) {
       // Push a history entry only when the *place* changes (view, property,
       // report). Intra-page tab flips (detailTab, portfolioTab) REPLACE the
@@ -1285,7 +1422,19 @@ export default function App() {
         // Nav / yield / account prefs from the same row.
         // Stored prefs may predate the Insurance → Compliance rename (2026-08);
         // map the old key so nobody loses the entry from their rail.
-        if (prof?.nav_items && prof.nav_items.length > 0) setUserNavPrefs(prof.nav_items.map(k => k === 'insurance' ? 'compliance' : k))
+        if (prof?.nav_items && prof.nav_items.length > 0) {
+          let prefs = prof.nav_items.map(k => k === 'insurance' ? 'compliance' : k)
+          // Items introduced after this account saved its list (e.g. Refurbs,
+          // 2026-09) appear once automatically, with a seen-marker so a later
+          // opt-out sticks. Persisted best-effort; the rail updates regardless.
+          const missing = AUTO_ENABLE_NAV_KEYS.filter(k => !prefs.includes(k) && !prefs.includes(navSeenMarker(k)))
+          if (missing.length > 0) {
+            prefs = [...prefs, ...missing, ...missing.map(navSeenMarker)]
+            supabase.from('user_profiles').update({ nav_items: prefs, updated_at: new Date().toISOString() }).eq('user_id', user.id)
+              .then(({ error }) => { if (error) console.error('nav auto-enable persist failed', error) })
+          }
+          setUserNavPrefs(prefs)
+        }
         else setUserNavPrefs(DEFAULT_NAV_KEYS)
         if (prof?.yield_basis) setYieldBasis(prof.yield_basis)
         setAccountType(prof?.account_type || null)
@@ -1356,6 +1505,11 @@ export default function App() {
               ...targetAccessEmail.map(a => a.company_id),
             ])
             visibleProps = props.filter(p => targetCompanyIds.has(p.company_id))
+            // Until 2026-09-08 only the properties were filtered, so the
+            // company chips, the By Company cards and the "N companies"
+            // summary still showed every company the admin could see, each
+            // with zero properties, next to the impersonated user's data.
+            visibleCos = cos.filter(c => targetCompanyIds.has(c.id))
           } catch(e) { console.error('Impersonation filter failed', e) }
         }
         // ─── Suspended-company access control ────────────────────────────
@@ -1574,12 +1728,16 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userAccess, isPlatformAdmin, user?.id])
 
+  // Portfolio search: put the user back where they were once it is cleared.
+  useScrollRestoreOnClear(Boolean(searchQ) || statusFilter !== 'all')
   const filtered = useMemo(()=>{
     const f = properties.filter(p=>{
       if(!showArchived && p.archived_at) return false
       if(coFilter!=='all'&&p.company_id!==coFilter) return false
       if(statusFilter!=='all'&&p.status!==statusFilter) return false
-      if(searchQ&&!(p.name||'').toLowerCase().includes(searchQ.toLowerCase())&&!(p.address||'').toLowerCase().includes(searchQ.toLowerCase())) return false
+      // Name, address, building, unit, company and tenant name — every
+      // whitespace-separated token must match somewhere (lib/propertySearch).
+      if(searchQ&&!matchesQuery(p, searchQ)) return false
       return true
     })
     // Sort
@@ -1620,8 +1778,9 @@ export default function App() {
   // "Room 10") — the same order the Company / Name sort displays. Persists a
   // fresh sort_order for every property, so every view that renders the
   // canonical array (Day Tracker, dashboards, dropdowns) reads it too.
-  function resetCustomOrder() {
-    if (!window.confirm('Reset the custom order to the default (company → building → unit)? This overwrites any drag ordering.')) return
+  async function resetCustomOrder() {
+    const ok = await confirmDialog({ title: 'Reset the custom order?', body: 'Every property goes back to the default order (company → building → unit). Any drag ordering you have done is overwritten.', confirmLabel: 'Reset order', danger: true })
+    if (!ok) return
     const natSort = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
     const ordered = [...properties].sort((a, b) => {
       const coA = a.company?.name || '', coB = b.company?.name || ''
@@ -1674,9 +1833,21 @@ export default function App() {
     noticeGiven:         dashProps.filter(p=>p.status==='notice_given').length,
     letAgreed:           dashProps.filter(p=>p.status==='let_agreed').length,
     vacant:              dashProps.filter(p=>p.status==='vacant').length,
+    onMarket:            dashProps.filter(p=>p.status==='on_rental_market').length,
     inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
     total:               dashProps.length,
   }),[dashProps])
+
+  // Forecast vs received rent for this month and the two before it, plus next
+  // month's forecast, for the dashboard's Rent Forecast / Rent Received cards.
+  // Runs the rent engine over the filtered properties so the cards agree with
+  // the Rent Tracker; only the rows in those four months are evaluated.
+  // `ytd` covers January to this month (newest first) for the Rental Income
+  // section; `months` is its first three for the KPI card.
+  const rentSnapshot = useMemo(() => {
+    const ytd = rentMonthSnapshot(dashProps, { count: new Date().getMonth() + 1 })
+    return { ytd, months: ytd.slice(0, 3), next: rentMonthSnapshot(dashProps, { count: 1, offset: 1 })[0] }
+  }, [dashProps])
 
   // Property stats per company — operating companies only. A holding company
   // owns companies, not properties, so it has no property stats: including it
@@ -1811,6 +1982,7 @@ export default function App() {
       { id:'act:add-bulk',   icon:'building', label:'Add Block of Flats',   group:'create', action:()=>openWorkflow('bulk-add') },
       { id:'act:add-co',     icon:'grid', label:'Add Company',          group:'create', action:()=>setShowAddCo(true) },
       { id:'act:import',     icon:'file-text', label:'Import Statement',     group:'create', action:()=>openWorkflow('import') },
+      { id:'act:stmt-audit', icon:'clipboard-check', label:'Rental Statement Audit', group:'create', action:()=>openWorkflow('statement-audit') },
       { id:'act:import-data', icon:'upload', label:'Import Historic Data', group:'create', action:()=>openWorkflow('import-data') },
       { id:'act:scan-receipt', icon:'receipt', label:'Scan Receipt',       group:'create', keywords:'expense camera ocr', action:()=>setShowReceiptScan(true) },
       { id:'act:dark',       icon:'moon', label: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
@@ -1944,7 +2116,7 @@ export default function App() {
     }
   }
   function openWorkflow(key){
-    workflowOrigin.current = (view === 'import' || view === 'import-data' || view === 'bulk-add') ? 'dashboard' : view
+    workflowOrigin.current = (view === 'import' || view === 'import-data' || view === 'bulk-add' || view === 'statement-audit') ? 'dashboard' : view
     setSelectedId(null)
     setView(key)
   }
@@ -1963,7 +2135,7 @@ export default function App() {
     try{
       // Strip the compliance payload from the property write — it gets
       // persisted separately into compliance_items below.
-      const { _compliance = [], ...propData } = formData
+      const { _compliance = [], _statusChange = null, ...propData } = formData
       let propId
       if(editProp?.id){
         const updated=await api.updateProperty(editProp.id, propData)
@@ -1981,10 +2153,45 @@ export default function App() {
         // doing by hand. Best-effort: the property is already saved, so a
         // failed deal-delete shouldn't block the success path.
         if (convertSourceDealId) {
+          // Carry the refurb across as a project: the deal's refurb budget
+          // becomes the agreed price, its refurb dates the schedule, and
+          // the BRRR end value the expected value after. Best-effort.
+          const d = convertSourceDeal
+          if (d && (Number(d.refurb_cost) > 0 || d.refurb_start_date || d.refurb_end_date)) {
+            try {
+              const project = await api.createRefurbProject({
+                property_id: propId, company_id: created.company_id || d.company_id || null,
+                title: 'Refurbishment', stage: 'planned',
+                agreed_price: Number(d.refurb_cost) || 0,
+                start_date: d.refurb_start_date || null, target_end_date: d.refurb_end_date || null,
+                expected_value_after: Number(d.brrr_end_value) || null,
+                expected_rent_after: Number(d.monthly_rent) || null,
+                funding: d.purchase_type === 'bridge' ? 'bridge' : d.purchase_type === 'cash' ? 'cash' : 'mortgage',
+              })
+              setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_projects:[...(p.refurb_projects||[]),project],refurb_status:'planned'}:p))
+            } catch (e) {
+              console.error('failed to create refurb project from deal', e)
+              showToast('Property added — add the refurb on its Refurb tab', 'error')
+            }
+          }
+          setConvertSourceDeal(null)
+          // Carry the deal's photos and documents onto the new property
+          // first (copied into this user's folder), then retire the deal.
+          let carried = null
+          try { carried = await api.carryDealAttachmentsToProperty(convertSourceDealId, created.id, user.id) }
+          catch (e) { console.error('failed to carry deal attachments', e) }
           try {
             await api.deleteDeal(convertSourceDealId, user.id)
             setConvertRefreshKey(k => k + 1) // tell DealsPage to refresh its list
-            showToast('Property added — deal moved to Trash')
+            const parts = []
+            if (carried?.photos) parts.push(`${carried.photos} photo${carried.photos === 1 ? '' : 's'}`)
+            if (carried?.documents) parts.push(`${carried.documents} document${carried.documents === 1 ? '' : 's'}`)
+            showToast(parts.length
+              ? `Property added — ${parts.join(' and ')} carried across, deal moved to Trash`
+              : 'Property added — deal moved to Trash')
+            if (carried?.failed?.length) {
+              showToast(`${carried.failed.length} attachment${carried.failed.length === 1 ? '' : 's'} could not be carried across — still on the deal in Trash`, 'error')
+            }
           } catch (e) {
             console.error('failed to retire converted deal', e)
             showToast('Property added — but the deal could not be removed, delete it manually', 'error')
@@ -1992,6 +2199,27 @@ export default function App() {
           setConvertSourceDealId(null)
         } else {
           showToast('Property added')
+        }
+      }
+
+      // On Rental Market: open / close the dated non-chargeable period so the
+      // months on the market never count against collection %, and rent is
+      // expected again from the tenancy start. Only the dates of this change
+      // are touched; earlier months keep their history.
+      if (_statusChange && propId) {
+        try {
+          const existing = properties.find(p=>p.id===propId)?.non_chargeable_periods || []
+          const plan = planOnMarketPeriods({ ..._statusChange, periods: existing })
+          let periods = [...existing]
+          if (plan.create) periods = [await api.createNonChargeablePeriod({ ...plan.create, property_id: propId }), ...periods]
+          for (const c of plan.close) { const u = await api.updateNonChargeablePeriod(c.id, { end_date: c.end_date }); periods = periods.map(x=>x.id===u.id?u:x) }
+          for (const id of plan.remove) { await api.deleteNonChargeablePeriod(id); periods = periods.filter(x=>x.id!==id) }
+          if (plan.create || plan.close.length || plan.remove.length) {
+            setProperties(prev=>prev.map(p=>p.id===propId?{...p,non_chargeable_periods:periods}:p))
+          }
+        } catch (e) {
+          console.error('failed to record on-market period', e)
+          showToast('Status saved, but the on-market dates were not recorded. Add them on the Rent tab (non-chargeable periods).', 'error')
         }
       }
 
@@ -2152,47 +2380,6 @@ export default function App() {
     setRenameCoSaving(false)
   }
 
-  async function handleAddPhase(propId,phase){
-    try{
-      const created=await api.createRefurbPhase(propId,phase)
-      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_phases:[...(p.refurb_phases||[]),created]}:p))
-    }catch(e){showToast(e.message,'error')}
-  }
-
-  async function handleAddCost(propId,cost){
-    try{
-      const created=await api.createRefurbCost(propId,cost)
-      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_costs:[...(p.refurb_costs||[]),created]}:p))
-    }catch(e){showToast(e.message,'error')}
-  }
-
-  async function handleUpdatePhase(propId, phaseId, fields){
-    try{
-      const updated=await api.updateRefurbPhase(phaseId, fields)
-      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_phases:(p.refurb_phases||[]).map(ph=>ph.id===phaseId?updated:ph)}:p))
-    }catch(e){showToast(e.message,'error')}
-  }
-  async function handleDeletePhase(propId, phaseId){
-    if(!await confirmDialog({ title: 'Delete refurb phase?', confirmLabel: 'Delete', destructive: true })) return
-    try{
-      await api.deleteRefurbPhase(phaseId)
-      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_phases:(p.refurb_phases||[]).filter(ph=>ph.id!==phaseId)}:p))
-    }catch(e){showToast(e.message,'error')}
-  }
-  async function handleUpdateCost(propId, costId, fields){
-    try{
-      const updated=await api.updateRefurbCost(costId, fields)
-      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_costs:(p.refurb_costs||[]).map(c=>c.id===costId?updated:c)}:p))
-    }catch(e){showToast(e.message,'error')}
-  }
-  async function handleDeleteCost(propId, costId){
-    if(!await confirmDialog({ title: 'Delete cost entry?', confirmLabel: 'Delete', destructive: true })) return
-    try{
-      await api.deleteRefurbCost(costId)
-      setProperties(prev=>prev.map(p=>p.id===propId?{...p,refurb_costs:(p.refurb_costs||[]).filter(c=>c.id!==costId)}:p))
-    }catch(e){showToast(e.message,'error')}
-  }
-
   async function handleUpdatePropField(id,field,value){
     try{
       await api.updateProperty(id,{[field]:value})
@@ -2251,9 +2438,9 @@ export default function App() {
           async function convertType() {
             const toHolding=!holding
             if (toHolding && cProps.length>0) return showToast(`${c.name} has ${cProps.length} properties — move them to another company before converting to a holding company`,'error')
-            if (!window.confirm(toHolding
+            if (!(await confirmDialog({ title: toHolding ? `Make ${c.name} a holding company?` : `Make ${c.name} an operating company?`, body: (toHolding
               ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
-              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`)) return
+              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`), confirmLabel: toHolding ? 'Make holding company' : 'Make operating company' }))) return
             try {
               const row=await api.updateCompany(c.id,{company_type:toHolding?'holding':'operating'})
               setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))
@@ -2479,8 +2666,20 @@ export default function App() {
                   </span>}
           </div>
 
-          {/* Desktop nav now lives in the left rail; spacer pushes actions right */}
-          {!isMobile&&<div style={{flex:1}}/>}
+          {/* Desktop nav lives in the left rail, so the middle of the header
+              is free for the property search — the most common thing anyone
+              does on landing (dashboard → a specific property). It doubles as
+              the spacer that pushes the action cluster right. "/" focuses it. */}
+          {!isMobile&&(
+            <div style={{flex:1,display:'flex',justifyContent:'center',minWidth:0,padding:'0 16px'}}>
+              <PropertySearchBar
+                properties={activeProperties}
+                onOpen={p=>openDetail(p)}
+                slashToFocus
+                placeholder="Search properties by name, address or tenant…"
+                style={{width:'100%',maxWidth:440}}/>
+            </div>
+          )}
 
           {/* Mobile: current page title */}
           {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
@@ -2509,6 +2708,7 @@ export default function App() {
                         {icon:'building',label:'Add Block of Flats', action:()=>openWorkflow('bulk-add')},
                         {icon:'grid',label:'Add Company',     action:()=>setShowAddCo(true)},
                         {icon:'file-text',label:'Import Statement',action:()=>openWorkflow('import')},
+                        {icon:'clipboard-check',label:'Rental Statement Audit',action:()=>openWorkflow('statement-audit')},
                         {icon:'upload',label:'Import Historic Data',action:()=>openWorkflow('import-data')},
                         {icon:'receipt',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
                         // For these three "drill into a property" actions:
@@ -2696,6 +2896,7 @@ export default function App() {
                 {icon:'building',label:'Add Block of Flats', action:()=>{openWorkflow('bulk-add');setShowDrawer(false)}},
                 {icon:'grid',label:'Add Company',     action:()=>{setShowAddCo(true);setShowDrawer(false)}},
                 {icon:'file-text',label:'Import Statement',action:()=>{openWorkflow('import');setShowDrawer(false)}},
+                {icon:'clipboard-check',label:'Rental Statement Audit',action:()=>{openWorkflow('statement-audit');setShowDrawer(false)}},
                 {icon:'upload',label:'Import Historic Data',action:()=>{openWorkflow('import-data');setShowDrawer(false)}},
                 {icon:'receipt',label:'Scan Receipt',    action:()=>{setShowReceiptScan(true);setShowDrawer(false)}},
                 {icon:'pound',label:'Log Expense',     action:()=>{
@@ -2787,6 +2988,17 @@ export default function App() {
                       </>
                     : <button className="btn btn-gold" onClick={()=>{setEditProp(null);setShowAddProp(true)}}>Add your first property</button>}
                 </div>
+              </div>
+            )}
+            {/* Mobile property search. The header bar has no room for it at
+                phone widths (logo + title + actions already fill 52px), so on
+                mobile it sits at the top of the dashboard instead. */}
+            {isMobile && activeProperties.length > 0 && (
+              <div style={{marginBottom:14}}>
+                <PropertySearchBar
+                  properties={activeProperties}
+                  onOpen={p=>openDetail(p)}
+                  placeholder="Search properties…"/>
               </div>
             )}
             <div style={{marginBottom:isMobile?14:20,minWidth:0}}>
@@ -2881,6 +3093,12 @@ export default function App() {
               // ───────────────────────────────────────────────────────────────
 
               const SECTION_DEFS = {
+                rent_income: {
+                  icon: 'pound',
+                  label: 'Rental Income',
+                  description: 'Due vs collected by month, year to date, with a per-company split',
+                  render: () => <RentIncomePanel months={rentSnapshot.ytd} companies={companyStats} onOpenRent={()=>setView('rent')} isMobile={isMobile}/>,
+                },
                 kpi_grid: {
                   icon: 'pie-chart',
                   label: 'KPI cards',
@@ -3013,13 +3231,11 @@ export default function App() {
               // Previously redeclared here, which caused the customise modal
               // to silently miss new sections (e.g. portfolio_insights).
               // Resolve current section prefs, filling in any missing keys from defaults.
-              const savedSections = sectionPrefs || []
-              const savedKeys = new Set(savedSections.map(s => s.key))
-              const resolvedSections = [
-                ...savedSections.filter(s => SECTION_DEFS[s.key]),       // saved order, drop unknown keys
-                ...SECTION_DEFAULT_ORDER.filter(k => !savedKeys.has(k))  // append any new keys at end
-                  .map(k => ({ key: k, enabled: SECTION_DEFAULT_ENABLED[k] !== false })),
-              ]
+              // Same resolver as the KPI widgets: a section the user has never
+              // saved lands where the default order puts it (Rental Income sits
+              // just above the KPI cards), not at the bottom of the page.
+              const resolvedSections = resolveWidgetPrefs(sectionPrefs, SECTION_DEFAULT_ORDER, SECTION_DEFAULT_ENABLED)
+                .filter(s => SECTION_DEFS[s.key])
 
               // ── Renderers for each section. Defined here to keep closures
               //    over dashProps/companies/etc lexically simple.
@@ -3041,16 +3257,102 @@ export default function App() {
                       ]}
                     />
                   )},
-                  monthly_rent: { icon:'pound', label:'Monthly Rental Income', render: () => (
-                    <StatCard icon="pound" label="Monthly Rental Income" value={fmt(stats.monthlyRent)} sub={fmt(stats.monthlyRent*12)+'/yr'} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
-                      breakdown={[
-                        ...companyStats.map(c=>({label:c.name, value:fmt(c.monthlyRent), color:c.color})),
-                        {label:'Annual total', value:fmt(stats.monthlyRent*12), color:T.green},
-                        {label:'Rented units', value:`${stats.rented} of ${stats.total}`},
-                        {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
-                      ]}
-                    />
-                  )},
+                  monthly_rent: { icon:'pound', label:'Monthly Rental Income', render: () => {
+                    // One card for "what should this month bring in": the
+                    // headline is the rent engine's collectible rent for the
+                    // month (tenancy-aware, prorated for move-ins/outs, voids
+                    // and non-chargeable periods). The contracted rent_pcm
+                    // total, annualised figure and next month's forecast sit on
+                    // the face; the previous separate Rent Forecast card was
+                    // retired because it duplicated this one.
+                    // This card answers "what should come in"; what HAS come
+                    // in lives on Rent Collected, so nothing is repeated.
+                    const cur = rentSnapshot.months[0]
+                    const next = rentSnapshot.next
+                    const hasPeriods = cur.periods > 0
+                    const headline = hasPeriods ? cur.expected : stats.monthlyRent
+                    const gap = cur.expected - stats.monthlyRent
+                    const sub = !hasPeriods ? `${cur.label} · no rent periods yet, showing contracted rent`
+                      : Math.abs(gap) < 1 ? `Expected ${cur.label} · matches contracted rent`
+                      : `Expected ${cur.label} · ${fmt(Math.abs(gap))} ${gap > 0 ? 'above' : 'below'} contracted`
+                    return (
+                      <StatCard icon="pound" label="Monthly Rental Income" value={fmt(headline)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
+                        strip={[
+                          {label:'Contracted', value:`${fmt(stats.monthlyRent)}/mo`},
+                          {label:`${next.label.slice(0,3)} forecast`, value:fmt(next.expected), color:T.gold},
+                          {label:'Annualised', value:`${fmt(stats.monthlyRent*12)}/yr`},
+                          {label:'Rented', value:`${stats.rented} of ${stats.total}`},
+                        ]}
+                        breakdown={[
+                          {label:`Expected ${cur.label}`, value:fmt(cur.expected), color:T.green, note:'What the tenancies say is due this month: mid-month move-ins and move-outs, voids and approved non-chargeable periods are prorated'},
+                          {label:'Contracted monthly rent', value:fmt(stats.monthlyRent), note:'Sum of the monthly rent on every rented or notice-given property'},
+                          {label:'Expected vs contracted', value:`${gap >= 0 ? '+' : '-'}${fmt(Math.abs(gap))}`, color:Math.abs(gap) < 1 ? T.muted : gap > 0 ? T.green : T.amber},
+                          {label:'Annualised (contracted)', value:fmt(stats.monthlyRent*12), color:T.green},
+                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.gold, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
+                          {label:'Rented units', value:`${stats.rented} of ${stats.total}`, separator:true},
+                          {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
+                          ...companyStats.map(c=>({label:`${c.name} · expected ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color, separator:c===companyStats[0]})),
+                        ]}
+                      />
+                    )
+                  }},
+                  rent_received: { icon:'receipt', label:'Rent Collected', render: () => {
+                    // What HAS come in: this month's collected rent with its
+                    // percentage and outstanding, and the two previous months
+                    // on the face. By rent period (the month the rent is for,
+                    // as the Rent Tracker lays it out). Short-term-let income
+                    // is excluded from the headline and footnoted.
+                    //
+                    // Colour semantics: green = money in; the warning colours
+                    // are reserved for COMPLETED months whose collection window
+                    // has closed. This month mid-collection is never red.
+                    const [cur, prev, prev2] = rentSnapshot.months
+                    const rate = monthRate(cur)
+                    const completedColor = r => r == null ? T.muted : r >= 95 ? T.green : r >= 80 ? T.amber : T.red
+                    const stlTotal = cur.stlReceived + prev.stlReceived + prev2.stlReceived
+                    const sub = cur.expected > 0
+                      ? `${cur.label} · ${rate}% of ${fmt(cur.expected)} · ${fmt(cur.outstanding)} outstanding`
+                      : `${cur.label} · ${cur.periods === 0 ? 'no rent periods yet' : 'nothing expected'}`
+                    // Card face: one row per month (oldest first, this month
+                    // bold) plus year to date: Due · Collected · Outstanding · %.
+                    const ytd = rentSnapshot.ytd.reduce((a, mo) => ({ expected: a.expected + mo.expected, received: a.received + mo.received }), { expected: 0, received: 0 })
+                    ytd.outstanding = Math.max(0, ytd.expected - ytd.received)
+                    const tableRow = (mo, isCurrent, label) => {
+                      const r = monthRate(mo)
+                      const col = isCurrent ? T.green : completedColor(r)
+                      return { strong: isCurrent, cells: [label, fmt(mo.expected), fmt(mo.received), fmt(mo.outstanding), r == null ? '–' : `${r}%`],
+                        colors: [isCurrent ? T.text : T.muted, T.text, T.green, mo.outstanding > 0 ? (isCurrent ? T.amber : col) : T.green, col] }
+                    }
+                    const table = { columns: ['Month', 'Due', 'Collected', 'Outstanding', '%'], rows: [
+                      tableRow(prev2, false, prev2.label.slice(0,3)), tableRow(prev, false, prev.label.slice(0,3)), tableRow(cur, true, `${cur.label.slice(0,3)} so far`),
+                      tableRow(ytd, true, `${cur.year} YTD`),
+                    ] }
+                    const monthRow = (mo, isCurrent) => {
+                      const r = monthRate(mo)
+                      return {
+                        label: `${mo.label}${isCurrent ? ' (so far)' : ''}`,
+                        value: fmt(mo.received),
+                        color: isCurrent ? T.green : completedColor(r),
+                        note: mo.expected > 0
+                          ? `${r}% of ${fmt(mo.expected)} expected${mo.outstanding > 0 ? ` · ${fmt(mo.outstanding)} outstanding` : ''}${mo.needsBackfill > 0 ? ` · ${mo.needsBackfill} paid with no amount` : ''}`
+                          : (mo.periods === 0 ? 'No rent periods recorded' : 'Nothing expected'),
+                      }
+                    }
+                    return (
+                      <StatCard icon="receipt" label="Rent Collected" value={fmt(cur.received)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
+                        table={table}
+                        breakdown={[
+                          monthRow(cur, true),
+                          monthRow(prev, false),
+                          monthRow(prev2, false),
+                          {label:'Three-month total', value:fmt(cur.received + prev.received + prev2.received), color:T.green, separator:true, note:'Figures are by rent period, the month the rent is for, matching the Rent Tracker'},
+                          ...(cur.needsBackfill > 0 ? [{label:`${cur.needsBackfill} paid ${cur.needsBackfill===1?'period':'periods'} with no amount this month`, value:'⚠', color:T.amber, note:'Marked paid in the Rent Tracker without a figure, so collected is understated until the amounts are entered'}] : []),
+                          ...companyStats.map(c=>({label:`${c.name} · collected ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.received || 0), color:c.color, separator:c===companyStats[0]})),
+                          ...(stlTotal > 0 ? [{label:'Short-term let income (excluded above)', value:fmt(stlTotal), color:'#9B6FDE', separator:true, note:'Booking income over the same three months, reported in full on the Short-Term Let Income page'}] : []),
+                        ]}
+                      />
+                    )
+                  }},
                   arrears: { icon:'alert-triangle', label:'Total Arrears', render: () => (
                     <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                       breakdown={[
@@ -3141,7 +3443,7 @@ export default function App() {
                           {label:'Later (90+ days)', value:fmt(cashAgg.byBucket['91+']?.cashOut || 0), color:T.muted, separator:true},
                           {label:'Pipeline (no date set)', value:fmt(pipelineCash), color:T.muted, note:'Deals still being analysed/offered. Set expected completion dates to move these into the dated buckets above.'},
                           {label:'Total cash out across all live items', value:fmt(cashAgg.totalCashOut), color:T.gold, separator:true},
-                          ...(cashAgg.propertyRefurbBudgeted > 0 ? [{label:`${cashAgg.propertyRefurbBudgeted} property(ies) using budgeted fallback`, value:'⚠', color:T.amber, note:'Add itemised refurb costs (paid/unpaid) for more accuracy'}] : []),
+                          ...(cashAgg.propertyRefurbUndated > 0 ? [{label:`${cashAgg.propertyRefurbUndated} refurb${cashAgg.propertyRefurbUndated===1?'':'s'} without a target finish date`, value:'⚠', color:T.amber, note:'Set a target finish on the Refurbs page to place it in the 90-day view'}] : []),
                         ]}
                       />
                     )
@@ -3224,6 +3526,7 @@ export default function App() {
                         breakdown={[
                           {label:'Occupied', value:stats.rented, color:T.green},
                           {label:'Vacant', value:stats.vacant, color:T.amber},
+                          ...(stats.onMarket ? [{label:'On rental market', value:stats.onMarket, color:'#3AA7B8', note:'Being marketed, rent not expected yet'}] : []),
                           {label:'Occupancy %', value:rate+'%', color:rate>=90?T.green:T.amber},
                           {label:'Vacancy cost (est)', value:fmt(dashProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0))+'/mo lost', color:T.red},
                         ]}
@@ -3263,29 +3566,18 @@ export default function App() {
                     )
                   }},
                 }
-                // Default widget config
-                const DEFAULT_WIDGETS = [
-                  { key:'portfolio_value', enabled:true },
-                  { key:'monthly_rent', enabled:true },
-                  { key:'arrears', enabled:true },
-                  { key:'refurb', enabled:true },
-                  { key:'mortgages', enabled:true },
-                  { key:'cashflow_forecast', enabled:true },
-                  { key:'insurance_renewals', enabled:true },
-                  { key:'compliance_status', enabled:true },
-                  { key:'property_count', enabled:false },
-                  { key:'occupancy_rate', enabled:false },
-                ]
-                const currentWidgets = widgetPrefs || DEFAULT_WIDGETS
-                // Add any new widget keys that aren't in saved prefs (default to disabled so existing users aren't surprised)
-                const knownKeys = new Set(currentWidgets.map(w=>w.key))
-                Object.keys(WIDGET_DEFS).forEach(k => {
-                  if (!knownKeys.has(k)) currentWidgets.push({ key:k, enabled:false })
-                })
+                // Saved layout + defaults, resolved by the same helper the
+                // Customize modal uses: a widget the user has never saved is
+                // slotted where the default order puts it (the rent cards sit
+                // beside Monthly Rental Income, not on a row of their own) and
+                // starts with its default enabled flag.
+                const currentWidgets = resolveWidgetPrefs(widgetPrefs, WIDGET_DEFAULT_ORDER, WIDGET_DEFAULT_ENABLED)
                 const enabledWidgets = currentWidgets.filter(w => w.enabled && WIDGET_DEFS[w.key])
                 const count = enabledWidgets.length
                 return (
                   <div style={{marginBottom:20}}>
+                    {/* Rows stretch to even heights; a card's detail panel is an
+                        overlay (see StatCard) so opening one never resizes the row. */}
                     <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10}}>
                       {enabledWidgets.map(w => (
                         <div key={w.key} style={{display:'contents'}}>{WIDGET_DEFS[w.key].render()}</div>
@@ -3375,12 +3667,13 @@ export default function App() {
                 const isCash = deal.purchase_type === 'cash'
                 const mortgageAmount = isCash ? 0 : Math.round(price * (1 - depPct / 100))
                 const depositAmount  = isCash ? price : Math.round(price * depPct / 100)
-                // Stamp duty: use the user's override if they set one,
-                // otherwise use whatever's stored in stamp_duty (calculator
-                // writes the auto-computed value here on save).
+                // Stamp duty: the user's override if they set one, otherwise
+                // the SDLT calculator on the deal's flags. (There is no
+                // stamp_duty column on deals — the previous fallback read one
+                // and silently converted every non-overridden deal with £0.)
                 const sd = deal.stamp_duty_override != null
                   ? num(deal.stamp_duty_override)
-                  : num(deal.stamp_duty)
+                  : api.calcStampDuty(price, deal.is_additional_property, deal.is_first_time_buyer)
                 const prefill = {
                   // UI hint — lets PropertyModal start with the mortgage block
                   // hidden for cash deals. Stripped before save (no column).
@@ -3391,7 +3684,6 @@ export default function App() {
                   company_id:  deal.company_id || '',
                   // Money
                   purchase_price:  price || '',
-                  refurb_cost:     num(deal.refurb_cost) || '',
                   stamp_duty:      sd || '',
                   legal_fees:      num(deal.legal_fees) || '',
                   mortgage_amount: mortgageAmount || '',
@@ -3415,6 +3707,7 @@ export default function App() {
                 // Remember which deal this came from. Once the property is
                 // saved we soft-delete this deal so it leaves the Deals page.
                 setConvertSourceDealId(deal.id)
+                setConvertSourceDeal(deal)
                 setShowAddProp(true)
                 showToast('Deal data pre-filled — review and save')
               }}/>
@@ -3470,7 +3763,11 @@ export default function App() {
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive} title={!canDo(permissionsMap, activeCoTab, 'edit_properties') && !devModeActive ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
-              <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search name or address…" style={{flex:'1 1 200px',minWidth:0,maxWidth:'100%',width:'auto',padding:'7px 12px',fontSize:12}}/>
+              <div style={{flex:'1 1 220px',minWidth:0,maxWidth:'100%',position:'relative',display:'flex',alignItems:'center'}}>
+                <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} aria-label="Search properties" placeholder="Search name, address, building, unit or tenant…" style={{flex:1,minWidth:0,width:'auto',padding:'7px 30px 7px 12px',fontSize:12}}/>
+                {searchQ&&<button type="button" onClick={()=>setSearchQ('')} aria-label="Clear search" title="Clear search"
+                  style={{position:'absolute',right:6,background:'transparent',border:'none',cursor:'pointer',color:T.muted,fontSize:14,lineHeight:1,padding:'2px 4px'}}>×</button>}
+              </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
                   <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
@@ -3543,15 +3840,21 @@ export default function App() {
           {/* Standalone Companies view removed — Companies now lives solely
               as a Portfolio sub-tab (#/properties/companies); legacy #/companies
               deep links are mapped across in parseHash. */}
-          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData}/>}
-          {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}/>}
-          {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null}/>}
+          {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData} showToast={showToast} canSeed={cid=>canDo(permissionsMap, cid, 'edit_tenancies') || devModeActive} canEditRent={cid=>canDo(permissionsMap, cid, 'edit_rent') || devModeActive}/>}
+          {view==='stl'&&<ShortTermLetIncomePage companies={companies} properties={activeProperties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} openDetail={openDetail} onPropertyUpdated={(id, patch)=>setProperties(prev=>prev.map(p=>p.id===id?{...p,...patch}:p))}/>}
+          {view==='refurbs'&&<RefurbsPage user={user} companies={companies} properties={activeProperties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} openDetail={openDetail} onPropertyPatch={(id, patch)=>setProperties(prev=>prev.map(p=>p.id===id?{...p,...patch}:p))}/>}
+          {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}
+            canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
+          {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null} permissionsMap={permissionsMap} devModeActive={devModeActive}/>}
           {view==='reports'&&<div className="fade"><ReportsPage properties={properties} companies={companies} companySettings={companySettings} user={user} activeFlags={activeFlags} selectedReportId={selectedReportId} onSelectReport={setSelectedReportId}/></div>}
           {view==='mtd'&&<div className="fade"><MtdItsaPage properties={activeProperties} accountType={accountType}/></div>}
           {view==='compliance'&&<div className="fade"><CompliancePage user={user} companies={companies} properties={activeProperties} companySettings={companySettings} showToast={showToast} openDetail={(p)=>openDetail(p,'compliance')}/></div>}
           {view==='feedback'&&<div className="fade"><FeedbackPage user={user} showToast={showToast}/></div>}
-          {view==='import'&&<StatementImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
-          {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}/>}
+          {view==='import'&&<StatementImporter asPage initialDocIds={importDocs} properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
+            canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
+          {view==='statement-audit'&&<StatementAuditPage user={user} showToast={showToast} onClose={closeWorkflow}/>}
+          {view==='import-data'&&<DataImporter asPage properties={activeProperties} companies={companies} showToast={showToast} onClose={()=>{closeWorkflow(); refreshData()}}
+            canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='bulk-add'&&<BulkAddPropertyModal asPage
             companies={companies.filter(c=>!isHoldingCompany(c))}
             onClose={closeWorkflow}
@@ -3717,9 +4020,9 @@ export default function App() {
                       </div>
 
                       {/* Year of dots */}
-                      <RentDots payments={payments} filterYear={focusYear} stlIds={stlPaymentIds(selected)}
+                      <RentDots payments={payments} filterYear={focusYear} stlIds={stlPaymentIds(selected)} property={selected}
                         onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})}
-                        onDayTracker={()=>setView('daytracker')}/>
+                        onDayTracker={(canDo(permissionsMap, selected.company_id, 'edit_rent') || devModeActive) ? ()=>setView('daytracker') : undefined}/>
 
                       {/* YTD summary — compact 4-stat grid */}
                       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginTop:14}}>
@@ -3815,8 +4118,8 @@ export default function App() {
                     <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
                   </div>}
                 </div>}
-                {detailTab==='refurb'&&<RefurbTab prop={selected} onAddPhase={handleAddPhase} onAddCost={handleAddCost} onUpdatePhase={handleUpdatePhase} onDeletePhase={handleDeletePhase} onUpdateCost={handleUpdateCost} onDeleteCost={handleDeleteCost} onUpdateField={handleUpdatePropField} isAdmin={isAdmin} user={user}/>}
-                {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')}/>}
+                {detailTab==='refurb'&&<RefurbPropertyTab property={selected} companies={companies} properties={properties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} onPropertyPatch={(id, patch)=>setProperties(prev=>prev.map(p=>p.id===id?{...p,...patch}:p))} openRefurbs={()=>{setSelectedId(null);setView('refurbs')}}/>}
+                {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')} canEdit={canDo(permissionsMap, selected.company_id, 'edit_rent') || devModeActive}/>}
                 {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditFinancial={canDo(permissionsMap, selected.company_id, 'edit_financial') || devModeActive}/>}
                 {false&&<div style={{display:'grid',gap:12}}>
                   {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
@@ -3881,7 +4184,7 @@ export default function App() {
                           <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.gold}}>EARLY</span>
                         </button>
                       </div>
-                      {subTab==='details'      &&<TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/>}
+                      {subTab==='details'      &&<><TenancyPanel property={selected} showToast={showToast} canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive} onChanged={t=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,tenancies:t}:p))}/><TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/></>}
                       {subTab==='right-to-rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='deposit'      &&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='notices'      &&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T} property={selected}/>}
@@ -4084,7 +4387,9 @@ export default function App() {
         // light mode, the shipped default) + clear of the mobile bottom bar
         // and iPhone safe area. Errors persist (no auto-dismiss), so always
         // offer an explicit close.
-        const tint = toast.type==='error'?T.red:T.green
+        // 'info' is the muted variant for notices that are neither a success
+        // nor a failure (e.g. a read-only click on the Day Tracker).
+        const tint = toast.type==='error'?T.red:toast.type==='info'?T.muted:T.green
         return <div
           role={toast.type==='error'?'alert':'status'}
           aria-live={toast.type==='error'?'assertive':'polite'}
@@ -4149,151 +4454,6 @@ export default function App() {
   )
 }
 
-function RefurbTab({prop,onAddPhase,onAddCost,onUpdatePhase,onDeletePhase,onUpdateCost,onDeleteCost,onUpdateField,isAdmin,user}){
-  const { T } = useTheme()
-  const [phaseForm,setPhaseForm]=useState({name:'',start_date:'',end_date:'',done:false,notes:''})
-  const [costForm,setCostForm]=useState({trade:'',cost:'',paid:false,date:'',notes:''})
-  const [showPF,setShowPF]=useState(false)
-  const [showCF,setShowCF]=useState(false)
-  const [editingPhaseId,setEditingPhaseId]=useState(null)
-  const [editingCostId,setEditingCostId]=useState(null)
-  const [phaseEdit,setPhaseEdit]=useState({})
-  const [costEdit,setCostEdit]=useState({})
-  const phases=prop.refurb_phases||[]
-  const costs=prop.refurb_costs||[]
-  const totalCost=costs.reduce((s,i)=>s+(parseFloat(i.cost)||0),0)
-  const paidCost=costs.filter(i=>i.paid).reduce((s,i)=>s+(parseFloat(i.cost)||0),0)
-
-  function startEditPhase(ph){ setEditingPhaseId(ph.id); setPhaseEdit({name:ph.name||'',start_date:ph.start_date||'',end_date:ph.end_date||'',done:!!ph.done,notes:ph.notes||''}) }
-  function startEditCost(c){ setEditingCostId(c.id); setCostEdit({trade:c.trade||'',cost:c.cost||'',paid:!!c.paid,date:c.date||'',notes:c.notes||''}) }
-  function savePhaseEdit(){ if(phaseEdit.name){ onUpdatePhase(prop.id, editingPhaseId, phaseEdit); setEditingPhaseId(null) } }
-  function saveCostEdit(){ if(costEdit.trade){ onUpdateCost(prop.id, editingCostId, {...costEdit, cost:parseFloat(costEdit.cost)||0}); setEditingCostId(null) } }
-
-  const iconBtn = {fontFamily:MONO,fontSize:11,padding:'4px 8px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:6,cursor:'pointer',color:T.muted}
-
-  return <div>
-    <div className="card" style={{padding:'14px 18px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
-      <div>
-        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Refurb Status</div>
-        <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:REFURB_CFG[prop.refurb_status]?.color||'#C8A84B'}}>{REFURB_CFG[prop.refurb_status]?.label||prop.refurb_status}</div>
-      </div>
-      <div style={{display:'flex',gap:20}}>
-        <div style={{textAlign:'right'}}><div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Total Cost</div><div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:T.amber}}>{fmt(totalCost)}</div></div>
-        <div style={{textAlign:'right'}}><div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Paid Out</div><div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:T.green}}>{fmt(paidCost)}</div></div>
-      </div>
-      <select value={prop.refurb_status} onChange={e=>onUpdateField(prop.id,'refurb_status',e.target.value)} style={{width:'auto',fontSize:11,padding:'6px 10px'}}>
-        <option value="planned">Planned</option><option value="in-progress">In Progress</option><option value="complete">Complete</option>
-      </select>
-    </div>
-    <div style={{marginBottom:16}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Phases</div>
-        <button className="btn btn-ghost" style={{fontSize:10,padding:'5px 10px'}} onClick={()=>setShowPF(v=>!v)}>+ Add Phase</button>
-      </div>
-      {showPF&&<div className="card" style={{padding:'14px 16px',marginBottom:10}}>
-        <div className="g2" style={{marginBottom:10}}>
-          <div><label>Phase Name</label><input value={phaseForm.name} onChange={e=>setPhaseForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Strip Out"/></div>
-          <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:18}}><input type="checkbox" checked={phaseForm.done} onChange={e=>setPhaseForm(f=>({...f,done:e.target.checked}))} style={{width:'auto'}}/><label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Complete</label></div>
-        </div>
-        <div className="g2" style={{marginBottom:10}}>
-          <div><label>Start Date</label><input type="date" value={phaseForm.start_date} onChange={e=>setPhaseForm(f=>({...f,start_date:e.target.value}))}/></div>
-          <div><label>End Date</label><input type="date" value={phaseForm.end_date} onChange={e=>setPhaseForm(f=>({...f,end_date:e.target.value}))}/></div>
-        </div>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{if(phaseForm.name){onAddPhase(prop.id,phaseForm);setPhaseForm({name:'',start_date:'',end_date:'',done:false,notes:''});setShowPF(false)}}}>Add Phase</button>
-      </div>}
-      {phases.length===0&&!showPF&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'12px 0'}}>No phases yet.</div>}
-      {phases.map(ph=>(
-        editingPhaseId===ph.id ? (
-          <div key={ph.id} className="card" style={{padding:'14px 16px',marginBottom:8,border:`1px solid ${T.gold}44`}}>
-            <div className="g2" style={{marginBottom:10}}>
-              <div><label>Phase Name</label><input value={phaseEdit.name} onChange={e=>setPhaseEdit(f=>({...f,name:e.target.value}))}/></div>
-              <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:18}}><input type="checkbox" checked={phaseEdit.done} onChange={e=>setPhaseEdit(f=>({...f,done:e.target.checked}))} style={{width:'auto'}}/><label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Complete</label></div>
-            </div>
-            <div className="g2" style={{marginBottom:10}}>
-              <div><label>Start Date</label><input type="date" value={phaseEdit.start_date} onChange={e=>setPhaseEdit(f=>({...f,start_date:e.target.value}))}/></div>
-              <div><label>End Date</label><input type="date" value={phaseEdit.end_date} onChange={e=>setPhaseEdit(f=>({...f,end_date:e.target.value}))}/></div>
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <button className="btn btn-gold" style={{fontSize:11}} onClick={savePhaseEdit}>Save</button>
-              <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setEditingPhaseId(null)}>Cancel</button>
-            </div>
-          </div>
-        ) : (
-          <div key={ph.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
-            <div style={{width:10,height:10,borderRadius:'50%',background:ph.done?'#2ECC8A':'#E0943A',flexShrink:0}}/>
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{ph.name}</div>{(ph.start_date||ph.end_date)&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{ph.start_date||'?'} -&gt; {ph.end_date||'ongoing'}</div>}</div>
-            <button onClick={()=>onUpdatePhase(prop.id, ph.id, {done:!ph.done})} title={ph.done?'Mark in progress':'Mark complete'}
-              style={{...iconBtn,color:ph.done?'#2ECC8A':'#E0943A',borderColor:(ph.done?'#2ECC8A':'#E0943A')+'44'}}>
-              {ph.done?'Done':'In Progress'}
-            </button>
-            {isAdmin&&<>
-              <button onClick={()=>startEditPhase(ph)} style={iconBtn} title="Edit">✎</button>
-              <button onClick={()=>onDeletePhase(prop.id, ph.id)} style={iconBtn} title="Delete"
-                onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
-                onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>🗑</button>
-            </>}
-          </div>
-        )
-      ))}
-    </div>
-    <div>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-        <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Trade Costs</div>
-        <button className="btn btn-ghost" style={{fontSize:10,padding:'5px 10px'}} onClick={()=>setShowCF(v=>!v)}>+ Add Cost</button>
-      </div>
-      {showCF&&<div className="card" style={{padding:'14px 16px',marginBottom:10}}>
-        <div className="g2" style={{marginBottom:10}}>
-          <div><label>Trade / Description</label><input value={costForm.trade} onChange={e=>setCostForm(f=>({...f,trade:e.target.value}))} placeholder="e.g. Plumber"/></div>
-          <div><label>Cost</label><MoneyInput prefix="£" value={costForm.cost} onChange={v=>setCostForm(f=>({...f,cost:v}))} placeholder="0"/></div>
-        </div>
-        <div className="g2" style={{marginBottom:10}}>
-          <div><label>Date</label><input type="date" value={costForm.date} onChange={e=>setCostForm(f=>({...f,date:e.target.value}))}/></div>
-          <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:18}}><input type="checkbox" checked={costForm.paid} onChange={e=>setCostForm(f=>({...f,paid:e.target.checked}))} style={{width:'auto'}}/><label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Paid</label></div>
-        </div>
-        <div style={{marginBottom:10}}><label>Notes</label><input value={costForm.notes} onChange={e=>setCostForm(f=>({...f,notes:e.target.value}))} placeholder="Optional"/></div>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{if(costForm.trade){onAddCost(prop.id,{...costForm,cost:parseFloat(costForm.cost)||0});setCostForm({trade:'',cost:'',paid:false,date:'',notes:''});setShowCF(false)}}}>Add Cost</button>
-      </div>}
-      {costs.length===0&&!showCF&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'12px 0'}}>No costs logged yet.</div>}
-      {costs.map(item=>(
-        editingCostId===item.id ? (
-          <div key={item.id} className="card" style={{padding:'14px 16px',marginBottom:8,border:`1px solid ${T.gold}44`}}>
-            <div className="g2" style={{marginBottom:10}}>
-              <div><label>Trade / Description</label><input value={costEdit.trade} onChange={e=>setCostEdit(f=>({...f,trade:e.target.value}))}/></div>
-              <div><label>Cost</label><MoneyInput prefix="£" value={costEdit.cost} onChange={v=>setCostEdit(f=>({...f,cost:v}))}/></div>
-            </div>
-            <div className="g2" style={{marginBottom:10}}>
-              <div><label>Date</label><input type="date" value={costEdit.date} onChange={e=>setCostEdit(f=>({...f,date:e.target.value}))}/></div>
-              <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:18}}><input type="checkbox" checked={costEdit.paid} onChange={e=>setCostEdit(f=>({...f,paid:e.target.checked}))} style={{width:'auto'}}/><label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Paid</label></div>
-            </div>
-            <div style={{marginBottom:10}}><label>Notes</label><input value={costEdit.notes} onChange={e=>setCostEdit(f=>({...f,notes:e.target.value}))}/></div>
-            <div style={{display:'flex',gap:8}}>
-              <button className="btn btn-gold" style={{fontSize:11}} onClick={saveCostEdit}>Save</button>
-              <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setEditingCostId(null)}>Cancel</button>
-            </div>
-          </div>
-        ) : (
-          <div key={item.id} className="card" style={{padding:'12px 16px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{item.trade}</div>{item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{item.notes}</div>}{item.date&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint}}>{item.date}</div>}</div>
-            <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:item.paid?'#2ECC8A':'#E0943A'}}>{fmt(item.cost)}</div>
-            <button onClick={()=>onUpdateCost(prop.id, item.id, {paid:!item.paid})} title={item.paid?'Mark unpaid':'Mark paid'}
-              style={{...iconBtn,color:item.paid?'#2ECC8A':'#E0943A',borderColor:(item.paid?'#2ECC8A':'#E0943A')+'44'}}>
-              {item.paid?'Paid':'Unpaid'}
-            </button>
-            {isAdmin&&<>
-              <button onClick={()=>startEditCost(item)} style={iconBtn} title="Edit">✎</button>
-              <button onClick={()=>onDeleteCost(prop.id, item.id)} style={iconBtn} title="Delete"
-                onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
-                onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>🗑</button>
-            </>}
-          </div>
-        )
-      ))}
-    </div>
-    <div style={{marginTop:20}}>
-      <NotesTimeline propertyId={prop.id} isAdmin={isAdmin} user={user} showToast={()=>{}} category="refurb"/>
-    </div>
-  </div>
-}
 // (ComplianceMatrix moved to components/CompliancePage.jsx — the matrix is
 // now a sub-view of the top-level Compliance page.)
 
@@ -4585,7 +4745,38 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 }
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
-function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh}) {
+// Month counts and money received for a set of properties, from the rent
+// engine (Stage 3+). Short-term lets are excluded (own page). Pre-2026 months
+// keep their legacy status and amount but are counted so "All years" still
+// adds up.
+function engineSummary(props, year) {
+  const acc = { paid: 0, due: 0, missed: 0, nc: 0, backfill: 0, legacy: 0, received: 0 }
+  for (const p of props) {
+    if (p.status === 'short_term_let') continue
+    const months = groupByMonth(evaluateProperty(p)).filter(m => (!year || m.year === year) && m.state !== 'future')
+    for (const m of months) {
+      if (m.state === 'legacy') {
+        acc.legacy++
+        const ls = m.evals[0]?.legacyStatus
+        if (ls === 'paid') acc.paid++
+        else if (ls === 'overdue' || ls === 'missed') acc.missed++
+        else if (ls === 'late' || ls === 'partial') acc.due++
+        acc.received += m.evals.reduce((t, e) => t + (e.legacyAmount || 0), 0)
+        continue
+      }
+      if (m.state === 'paid') acc.paid++
+      else if (m.state === 'due' || m.state === 'part_paid') acc.due++
+      else if (m.state === 'missed') acc.missed++
+      else if (m.state === 'not_collectible') acc.nc++
+      if (m.needsBackfill) acc.backfill++
+      acc.received += m.received || 0
+    }
+  }
+  acc.received = Math.round(acc.received * 100) / 100
+  return acc
+}
+
+function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh, showToast, canSeed, canEditRent}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
   const [showRentReview, setShowRentReview] = useState(false)
@@ -4595,10 +4786,43 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
   // to focus on a subset; identical UX to the dashboard's dashCoFilter.
   const [coFilter, setCoFilter] = useState([])
 
+  // Search + optional filters (Rent Tracker stage 1). The text search uses
+  // the shared matcher in lib/propertySearch (name, address, building,
+  // unit, company, tenant name); status and arrears narrow further.
+  // Tenancy status / payment source / payment plan / benefit type filters
+  // are later stages and will sit alongside these.
+  const [searchQ, setSearchQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [arrearsOnly, setArrearsOnly] = useState(false)
+  const hasQuery = normaliseQuery(searchQ).length > 0
+  const narrowing = hasQuery || statusFilter !== 'all' || arrearsOnly
+  // Clearing a search brings the user back to the company and position they
+  // were working through, not the top of the page.
+  useScrollRestoreOnClear(narrowing)
+  function clearSearchAndFilters() { setSearchQ(''); setStatusFilter('all'); setArrearsOnly(false) }
+
+  // Properties the tracker shows at all: anything with payment history or
+  // currently earning rent (the pre-existing rule, now applied once).
+  const trackedProps = useMemo(
+    () => properties.filter(p => p.rent_payments?.length>0 || isPropertyEarningRent(p.status)),
+    [properties],
+  )
+  const visibleProps = useMemo(() => {
+    const tokens = normaliseQuery(searchQ)
+    return trackedProps.filter(p =>
+      (statusFilter === 'all' || p.status === statusFilter) &&
+      (!arrearsOnly || (Number(p.arrears)||0) > 0) &&
+      matchesQuery(p, tokens))
+  }, [trackedProps, searchQ, statusFilter, arrearsOnly])
+  // Company pills on top of that
+  const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
+  const shownProps = visCos.flatMap(c => visibleProps.filter(p => p.company_id===c.id))
+
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
   const allYears = [...new Set(allPayments.map(p=>p.year))].sort()
   const [globalYear, setGlobalYear] = useState(() => defaultRentYear(allPayments))
+  const [showReview, setShowReview] = useState(false)
   const [expandedCompanies, setExpandedCompanies] = useState({})
 
   function toggleCompany(id) {
@@ -4610,15 +4834,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 
   // Company totals for selected year
   function getCompanyTotals(companyProps, year) {
-    return companyProps.reduce((acc, p) => {
-      const s = getStats(p.rent_payments||[], year, p.rent_pcm)
-      acc.paid    += s.paid
-      acc.missed  += s.missed
-      acc.late += s.late
-      acc.refurb  += s.refurb
-      acc.income  += s.income
-      return acc
-    }, {paid:0, missed:0, late:0, refurb:0, income:0})
+    const e = engineSummary(companyProps, year)
+    return { paid: e.paid, due: e.due, missed: e.missed, nc: e.nc, backfill: e.backfill, income: e.received }
   }
 
   return (
@@ -4628,7 +4845,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:STL_COLOR,l:'STL'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
                 <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
               </span>
@@ -4689,10 +4906,46 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       {showBankConnect && <BankConnectionsModal onClose={()=>setShowBankConnect(false)}/>}
       {showBankInbox && <BankInboxModal onClose={()=>{setShowBankInbox(false); onRefresh?.()}} properties={properties} onMatched={onRefresh}/>}
 
-      {/* Portfolio rent summary tiles (respects the company filter + year) */}
+      {/* Search + filters. Same input / pill styling as the Portfolio view. */}
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:narrowing?8:18}}>
+        <div style={{flex:'1 1 240px',minWidth:0,maxWidth:'100%',position:'relative',display:'flex',alignItems:'center'}}>
+          <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} aria-label="Search rent tracker"
+            placeholder={isMobile ? 'Search properties or tenants…' : 'Search name, address, building, unit or tenant…'}
+            style={{flex:1,minWidth:0,width:'auto',padding:'8px 30px 8px 12px',fontSize:12}}/>
+          {searchQ&&<button type="button" onClick={()=>setSearchQ('')} aria-label="Clear search" title="Clear search"
+            style={{position:'absolute',right:6,background:'transparent',border:'none',cursor:'pointer',color:T.muted,fontSize:14,lineHeight:1,padding:'2px 4px'}}>×</button>}
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+          {isMobile ? (
+            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} aria-label="Filter by property status"
+              style={{fontFamily:MONO,fontSize:11,padding:'6px 10px',borderRadius:20,border:`1px solid ${statusFilter==='all'?T.border:T.gold}`,
+                background:statusFilter==='all'?'transparent':T.gold+'22',color:statusFilter==='all'?T.muted:T.gold,cursor:'pointer'}}>
+              <option value="all">All Status</option>
+              {PROPERTY_STATUSES.map(f=><option key={f} value={f}>{PROPERTY_STATUS_LABELS[f] || f}</option>)}
+            </select>
+          ) : ['all', ...PROPERTY_STATUSES].map(f=>(
+            <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
+          ))}
+          <div style={{width:1,alignSelf:'stretch',background:T.border,margin:'0 2px'}}/>
+          <button onClick={()=>setArrearsOnly(v=>!v)} aria-pressed={arrearsOnly} title="Only show properties with arrears"
+            style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+              border:`1px solid ${arrearsOnly?T.red:T.border}`,background:arrearsOnly?T.red+'22':'transparent',color:arrearsOnly?T.red:T.muted,fontWeight:arrearsOnly?700:400}}>
+            {arrearsOnly?'✓ ':''}⚠ Arrears
+          </button>
+          {/* Later stages: tenancy status / payment source / payment plan / benefit type filters go here. */}
+        </div>
+      </div>
+      {narrowing && (
+        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:14,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+          <span>{shownProps.length} of {trackedProps.length} properties match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
+          <button type="button" onClick={clearSearchAndFilters}
+            style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.gold,padding:0,textDecoration:'underline'}}>Clear</button>
+        </div>
+      )}
+
+      {/* Portfolio rent summary tiles (respects the company filter, search, status / arrears filters + year) */}
       {(() => {
-        const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
-        const visProps = visCos.flatMap(c => properties.filter(p => p.company_id===c.id && (p.rent_payments?.length>0 || isPropertyEarningRent(p.status))))
+        const visProps = shownProps
         if (!visProps.length) return null
         const agg = visProps.reduce((a,p)=>{ const s=getStats(p.rent_payments||[], globalYear, p.rent_pcm); a.paid+=s.paid; a.paidToDate+=s.paidToDate; a.missed+=s.missed; a.late+=s.late; a.voidM+=s.voidM; a.income+=s.income; return a }, {paid:0,paidToDate:0,missed:0,late:0,voidM:0,income:0})
         // Collection rate counts VOID months against the portfolio: of every
@@ -4701,13 +4954,26 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         // pre-created future voids aren't losses yet, and prepaid future STL
         // bookings aren't collections yet. Refurb months are deliberately
         // out (not lettable).
-        const tracked = agg.paidToDate + agg.missed + agg.late + agg.voidM
-        const rate = tracked ? Math.round((agg.paidToDate / tracked) * 100) : null
-        const tiles = [
-          { label: globalYear ? `Collected · ${globalYear}` : 'Collected · all years', value: fmt(agg.income), accent: T.green },
-          { label: 'Collection rate', value: rate === null ? '—' : `${rate}%`, accent: rate === null ? T.muted : rate>=95?T.green:rate>=85?T.amber:T.red },
+        const rate = legacyCollectionRate(agg)
+        const fmtPct = v => v == null ? '—' : `${v}%`
+        // Stage 4: for the go-live year onwards the tiles come from the rent
+        // engine (value-based, due-date aware, STL and non-collectible
+        // excluded). Earlier years keep the legacy month count, labelled.
+        const nowYear = new Date().getFullYear()
+        const legacyYear = !!globalYear && globalYear < Number(GO_LIVE.slice(0,4))
+        const ps = legacyYear ? null : portfolioStats(visProps.filter(p=>p.status!=='short_term_let'), { year: globalYear || nowYear })
+        const tiles = legacyYear ? [
+          { label: `Collected · ${globalYear} · legacy data`, value: fmt(agg.income), accent: T.green },
+          { label: 'Collection rate · legacy month count', value: rate === null ? '—' : `${rate}%`, accent: rate === null ? T.muted : rate>=95?T.green:rate>=85?T.amber:T.red },
           { label: 'Months paid', value: agg.paid, accent: T.text },
           { label: 'Missed / late / void', value: `${agg.missed} / ${agg.late} / ${agg.voidM}`, accent: (agg.missed>0)?T.red:(agg.late>0)?T.amber:T.muted },
+        ] : [
+          { label: `Collection rate · ${globalYear || nowYear} to date`, value: fmtPct(ps.ytd.rate), accent: ps.ytd.rate == null ? T.muted : ps.ytd.rate>=95?T.green:ps.ytd.rate>=85?T.amber:T.red,
+            sub: `Month to date ${fmtPct(ps.mtd.rate)} · ${ps.ytd.periods} periods due` },
+          { label: 'Collectible rent due', value: fmt(ps.ytd.due), accent: T.text, sub: `${ps.ytd.counts.not_collectible} not collectible · ${ps.legacyCount ? `${ps.legacyCount} legacy` : 'short-term lets excluded'}` },
+          { label: 'Current rent received', value: fmt(ps.ytd.received), accent: T.green, sub: ps.ytd.excess > 0 ? `+${fmt(ps.ytd.excess)} overpaid` : `${ps.ytd.counts.paid} paid · ${ps.ytd.counts.part_paid} part paid` },
+          { label: 'Current rent outstanding', value: fmt(ps.ytd.outstanding), accent: ps.ytd.outstanding > 0 ? T.red : T.green,
+            sub: `${ps.ytd.counts.missed} missed · ${ps.ytd.counts.due} due · historic arrears ${fmt(ps.arrears.balance)}${ps.needsBackfill.length ? ` · ${ps.needsBackfill.length} need backfill` : ''}` },
         ]
         return (
           <div className="summary-cards" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:isMobile?14:20}}>
@@ -4715,11 +4981,26 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <div key={t.label} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'16px 18px'}}>
                 <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{t.label}</div>
                 <div style={{fontFamily:MONO,fontSize:20,fontWeight:500,color:t.accent,letterSpacing:'-0.01em'}}>{t.value}</div>
+                {t.sub && <div style={{fontFamily:MONO,fontSize:9,color:T.muted,marginTop:4}}>{t.sub}</div>}
               </div>
             ))}
           </div>
         )
       })()}
+
+      {/* Receipts awaiting a human decision (Stage 5) */}
+      {(() => {
+        const pending = shownProps.flatMap(p => p.rent_receipts || []).filter(r => r.review_status === 'needs_review')
+        if (!pending.length) return null
+        return (
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,padding:'10px 14px',border:`1px solid ${T.amber}55`,background:T.amber+'12',borderRadius:12}}>
+            <span style={{fontFamily:MONO,fontSize:11,color:T.amber,fontWeight:700}}>{pending.length} receipt{pending.length===1?'':'s'} to review</span>
+            <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>unallocated money or possible duplicates, held until someone decides</span>
+            <button className="btn btn-gold" style={{fontSize:11,marginLeft:'auto'}} onClick={()=>setShowReview(true)}>Review</button>
+          </div>
+        )
+      })()}
+      {showReview && <ReviewQueuePanel companies={visCos} properties={shownProps} companyIds={visCos.map(c=>c.id)} canEdit={visCos.some(c=>canEditRent?.(c.id))} showToast={showToast} onClose={()=>setShowReview(false)} onChanged={onRefresh}/>}
 
       {/* Company filter pills (only render if there's more than one
           company to choose from — saves vertical space for solo landlords) */}
@@ -4757,12 +5038,16 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         </div>
       )}
 
-      {/* Companies — filtered by the pill row above */}
-      {(coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))).map(c=>{
-        const cps = properties.filter(p=>p.company_id===c.id&&(p.rent_payments?.length>0||isPropertyEarningRent(p.status)))
+      {/* Companies — filtered by the pill row above, then by search / status / arrears */}
+      {visCos.map(c=>{
+        // Short-term lets are reported under Short-Term Let Income, not here.
+        const cps = visibleProps.filter(p=>p.company_id===c.id&&p.status!=='short_term_let')
         if (!cps.length) return null
         const totals = getCompanyTotals(cps, globalYear)
-        const isOpen = expandedCompanies[c.id] !== false // default open
+        // Default open; while a search is active every company with a
+        // match is forced open so results are never hidden in a collapsed
+        // accordion.
+        const isOpen = hasQuery || expandedCompanies[c.id] !== false
 
         return (
           <div key={c.id} style={{marginBottom:20}}>
@@ -4776,15 +5061,36 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <h2 style={{fontSize:15,fontWeight:700}}>{c.name}</h2>
                   <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{cps.length} properties</span>
+                  {(() => {
+                    // Tenancy coverage for this company: how many earning units
+                    // still have no tenancy record, and how many drafts await a
+                    // human. Seeding creates DRAFTS only (needs_confirmation).
+                    const missing = cps.filter(p => propertyNeedsTenancy(p.status) && !(p.tenancies||[]).length).length
+                    const drafts = cps.filter(p => (p.tenancies||[]).some(t => t.needs_confirmation)).length
+                    return (<>
+                      {drafts>0 && <span style={{fontFamily:MONO,fontSize:10,color:T.amber}}>{drafts} tenanc{drafts===1?'y':'ies'} to confirm</span>}
+                      {missing>0 && canSeed?.(c.id) && (
+                        <button onClick={async e=>{ e.stopPropagation();
+                            try { const r = await api.seedTenanciesFromProperties(c.id, properties)
+                              showToast?.(`${r.created} draft tenanc${r.created===1?'y':'ies'} created${r.skipped?`, ${r.skipped} already had one`:''}${r.failed.length?`, ${r.failed.length} failed`:''}. Confirm each in the property's Tenancy tab.`)
+                              onRefresh?.() } catch(err) { showToast?.(err.message||'Seeding failed','error') } }}
+                          style={{fontFamily:MONO,fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,cursor:'pointer'}}
+                          title="Create a draft tenancy for every rented unit from its property fields">
+                          Seed {missing} tenanc{missing===1?'y':'ies'}
+                        </button>
+                      )}
+                    </>)
+                  })()}
                 </div>
               </div>
               {/* Company summary for selected year */}
               <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
                 {[
                   {v:totals.paid,   c:T.green, l:'paid'},
+                  {v:totals.due,    c:T.amber, l:'due'},
                   {v:totals.missed, c:T.red,   l:'missed'},
-                  {v:totals.late,c:T.amber, l:'late'},
-                  {v:totals.refurb, c:T.blue,  l:'refurb'},
+                  {v:totals.nc,     c:T.faint, l:'not collectible'},
+                  {v:totals.backfill, c:'#E0943A', l:'need amount'},
                 ].filter(x=>x.v>0).map(x=>(
                   <span key={x.l} style={{fontFamily:MONO,fontSize:11,color:x.c,fontWeight:600}}>
                     {x.v} {x.l}
@@ -4835,11 +5141,8 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                   // "whole block" line for multi-unit buildings (HMOs, STL
                   // blocks like Piers View).
                   const bgRent = group.items.reduce((s,p) => s + (Number(p.rent_pcm)||0), 0)
-                  const bgStats = group.items.reduce((acc, p) => {
-                    const s = getStats(p.rent_payments||[], globalYear, p.rent_pcm)
-                    acc.income += s.income; acc.paid += s.paid; acc.missed += s.missed; acc.late += s.late
-                    return acc
-                  }, { income:0, paid:0, missed:0, late:0 })
+                  const bgE = engineSummary(group.items, globalYear)
+                  const bgStats = { income: bgE.received, paid: bgE.paid, missed: bgE.missed, late: bgE.due }
                   return (
                     <div key={group.key}>
                       {isBuilding && (
@@ -4862,7 +5165,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                               <span style={{ fontSize: 10, fontWeight: 700, color: T.red }}>{bgStats.missed} missed</span>
                             )}
                             {bgStats.late > 0 && (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: T.amber }}>{bgStats.late} late</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: T.amber }}>{bgStats.late} due</span>
                             )}
                             <span style={{ fontSize: 10, color: T.muted }}>
                               {globalYear ? `${globalYear} revenue` : 'all-years revenue'}
@@ -4892,33 +5195,47 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
                                   <span style={{fontSize:13,fontWeight:600}}>
                                     {/* When grouped under a building, drop the redundant
-                                        building suffix from each row's display name. */}
-                                    {isBuilding ? (p.name.split(',')[0].trim() || p.name) : p.name}
+                                        building suffix from each row's display name —
+                                        unless a search is active, when the full name is
+                                        what tells "Flat 1" apart from its namesakes. */}
+                                    {isBuilding && !hasQuery ? (p.name.split(',')[0].trim() || p.name) : p.name}
                                   </span>
+                                  {hasQuery && p.company && (
+                                    <span title={p.company.name}
+                                      style={{fontFamily:MONO,fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:10,
+                                        border:`1px solid ${(p.company.color||T.gold)}55`,background:(p.company.color||T.gold)+'22',color:p.company.color||T.gold}}>
+                                      {p.company.abbr || p.company.name}
+                                    </span>
+                                  )}
                                   {(p.arrears||0)>0&&<span style={{fontFamily:MONO,fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
                                 </div>
+                                {hasQuery && (p.address || p.tenant_name) && (
+                                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:3,overflowWrap:'anywhere'}}>
+                                    {p.address}{p.address && p.tenant_name ? ' · ' : ''}{p.tenant_name ? `Tenant: ${p.tenant_name}` : ''}
+                                  </div>
+                                )}
                                 <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>
                                   {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                                 </div>
-                                <RentDots payments={p.rent_payments||[]} stlIds={stlPaymentIds(p)} filterYear={globalYear} onDayTracker={onDayTracker}/>
+                                <RentDots payments={p.rent_payments||[]} stlIds={stlPaymentIds(p)} filterYear={globalYear} onDayTracker={onDayTracker} property={p} canEdit={canEditRent?.(p.company_id)} onChanged={onRefresh} showToast={showToast}/>
                               </div>
                               {/* Right: stats + badge */}
                               <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
                                 <Badge status={p.status}/>
                                 <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                                  {[
-                                    {v:s.paid,    c:T.green, l:'P'},
-                                    {v:s.missed,  c:T.red,   l:'M'},
-                                    {v:s.late, c:T.amber, l:'L'},
-                                    {v:s.refurb,  c:T.blue,  l:'R'},
-                                  ].map(x=>(
-                                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.v>0?x.c:T.faint}}>
+                                  {(() => { const e = engineSummary([p], globalYear); return [
+                                    {v:e.paid,   c:T.green, l:'paid'},
+                                    {v:e.due,    c:T.amber, l:'due'},
+                                    {v:e.missed, c:T.red,   l:'missed'},
+                                    {v:e.nc,     c:T.faint, l:'n/c'},
+                                  ] })().map(x=>(
+                                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.v>0?x.c:T.faint}} title={x.l==='n/c'?'not collectible (vacant, refurbishment, before or after the tenancy)':x.l}>
                                       {x.v} {x.l}
                                     </span>
                                   ))}
                                 </div>
-                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}}>
-                                  {fmt(s.income)}
+                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}} title="Received this year (amounts entered)">
+                                  {fmt(engineSummary([p], globalYear).received)}
                                 </div>
                               </div>
                             </div>
@@ -4934,10 +5251,24 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         )
       })}
 
-      {companies.every(c=>!properties.some(p=>p.company_id===c.id))&&
+      {/* Empty / no-results states */}
+      {properties.length === 0 ? (
         <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
-          No properties found.
-        </div>}
+          No properties yet. Add a property on the Portfolio view to start tracking rent.
+        </div>
+      ) : trackedProps.length === 0 ? (
+        <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
+          No properties are tracking rent yet. Set a property to Rented or log a payment and it will appear here.
+        </div>
+      ) : shownProps.length === 0 && (
+        <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
+          {hasQuery ? <>No properties match <span style={{color:T.text}}>"{searchQ.trim()}"</span></> : 'No properties match these filters'}
+          {coFilter.length > 0 ? ' in the selected companies.' : '.'}
+          {narrowing && (
+            <><br/><button type="button" className="btn btn-ghost" style={{fontSize:11,marginTop:12}} onClick={clearSearchAndFilters}>Clear search &amp; filters</button></>
+          )}
+        </div>
+      )}
 
       {showRentReview && (
         <RentReviewModal
@@ -4953,7 +5284,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 }
 
 // ─── RENT TAB ────────────────────────────────────────────────────────────────
-function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties, onDayTracker}) {
+function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties, onDayTracker, canEdit = true}) {
   const { T } = useTheme()
   const payments = selected.rent_payments || []
   const years = [...new Set(payments.map(p=>p.year))].sort()
@@ -4987,7 +5318,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
         {/* Year filter buttons */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:12}}>
           <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
-            Payment History <span style={{fontSize:9}}>(click dot to update)</span>
+            Payment History <span style={{fontSize:9}}>{canEdit ? '(click dot to update)' : '(read-only)'}</span>
           </div>
           <div style={{display:'flex',gap:6}}>
             <button onClick={()=>setFilterYear(null)}
@@ -5006,11 +5337,18 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
         </div>
 
         {/* Dots */}
-        <RentDots payments={payments} stlIds={stlPaymentIds(selected)} onUpdate={m=>setEditingPayment({payment:m,propId:selected.id})} filterYear={filterYear} onDayTracker={onDayTracker}/>
+        {/* Without edit_rent the dots stay readable but the Day view (the
+            live rent editor) is not offered, and the legacy payment modal
+            is never opened. */}
+        <RentDots payments={payments} stlIds={stlPaymentIds(selected)}
+          onUpdate={canEdit ? m=>setEditingPayment({payment:m,propId:selected.id}) : ()=>showToast('You have read-only access to rent for this company','info')}
+          filterYear={filterYear} onDayTracker={canEdit ? onDayTracker : undefined}
+          property={selected} canEdit={canEdit} showToast={showToast}
+          onChanged={()=>api.fetchRentOverrides(selected.id).then(o=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,rent_overrides:o}:p))).catch(()=>{})}/>
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:STL_COLOR,l:'STL'},{c:T.red,l:'Missed'},{c:T.amber,l:'Late'},{c:T.blue,l:'Refurb'},{c:T.faint,l:'Void'}].map(x=>(
+          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
             <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>
@@ -5023,14 +5361,28 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
             {filterYear ? `${filterYear} Summary` : 'All Time Summary'}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
-            {[
-              {l:'Months Paid',    v:paid,    c:T.green,  sub:fmt(totalIncome)},
-              {l:'Months Missed',  v:missed,  c:T.red,    sub:fmt(missed*(selected.rent_pcm||0))},
-              {l:'Months Late', v:late, c:T.amber,  sub:fmt(lateIncome)},
-              {l:'Months Refurb',  v:refurb,  c:T.blue,   sub:''},
-              {l:'Months Void',    v:voidM,   c:T.faint,  sub:''},
-              {l:'Total Received', v:fmt(totalIncome), c:T.gold, sub:`${paid} months`, big:true},
-            ].map((item,i)=>(
+                        {(() => {
+              const legacyYear = !!filterYear && filterYear < Number(GO_LIVE.slice(0,4))
+              if (legacyYear || selected.status === 'short_term_let') return [
+                {l:'Months Paid',    v:paid,    c:T.green,  sub:fmt(totalIncome)},
+                {l:'Months Missed',  v:missed,  c:T.red,    sub:fmt(missed*(selected.rent_pcm||0))},
+                {l:'Months Late', v:late, c:T.amber,  sub:fmt(lateIncome)},
+                {l:'Months Refurb',  v:refurb,  c:T.blue,   sub:''},
+                {l:'Months Void',    v:voidM,   c:T.faint,  sub:''},
+                {l:'Total Received', v:fmt(totalIncome), c:T.gold, sub:legacyYear ? 'legacy data' : `${paid} months`, big:true},
+              ]
+              const evals = evaluateProperty(selected).filter(e => !filterYear || e.year === filterYear)
+              const cs = collectionStats(evals)
+              const ar = arrearsSummary(selected)
+              return [
+                {l:'Collection rate', v: cs.rate == null ? '—' : `${cs.rate}%`, c: cs.rate == null ? T.muted : cs.rate>=95?T.green:cs.rate>=85?T.amber:T.red, sub:`${cs.periods} periods due`},
+                {l:'Collectible due', v:fmt(cs.due), c:T.text, sub:`${cs.counts.not_collectible} not collectible`},
+                {l:'Received', v:fmt(cs.received), c:T.green, sub: cs.excess>0 ? `+${fmt(cs.excess)} overpaid` : `${cs.counts.paid} paid`},
+                {l:'Outstanding', v:fmt(cs.outstanding), c: cs.outstanding>0?T.red:T.green, sub:`${cs.counts.missed} missed · ${cs.counts.due + cs.counts.part_paid} due`},
+                {l:'Historic arrears', v:fmt(ar.balance), c: ar.balance>0?T.amber:T.muted, sub: ar.paid>0 ? `${fmt(ar.paid)} paid off` : (ar.opening ? 'opening balance' : 'none recorded')},
+                {l:'Needs backfill', v:cs.counts.needsBackfill, c: cs.counts.needsBackfill>0?T.amber:T.muted, sub: cs.counts.legacy ? `${cs.counts.legacy} legacy months` : 'paid months missing an amount'},
+              ]
+            })().map((item,i)=>(
               <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
                 <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
                 <div style={{fontFamily:MONO,fontSize:item.big?15:17,fontWeight:700,color:item.c}}>{item.v}</div>
@@ -5040,6 +5392,12 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
           </div>
         </div>
       </div>}
+
+      {/* Arrears in three figures + payment plan (Stage 5) */}
+      <ArrearsPanel property={selected} showToast={showToast} canEdit={canEdit} onChanged={pl=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,payment_plans:pl}:p))}/>
+
+      {/* Receipts: dated cash events with allocations (Stage 2) */}
+      <ReceiptsPanel property={selected} tenancies={selected.tenancies} showToast={showToast} canEdit={canEdit} onChanged={r=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,rent_receipts:r}:p))}/>
 
       {/* Notes Timeline */}
       <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} category="rent"/>

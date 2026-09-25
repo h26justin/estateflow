@@ -4,13 +4,17 @@ import { supabase } from '../lib/supabase'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
-import { detectFormat, parsePNE, parseRMS, matchProperties, normaliseStatementName } from '../lib/statementParser'
+import { parseStatement, matchProperties, normaliseStatementName, mergeSamePeriodRent } from '../lib/statementParser'
+import { linesFromTextItems, textFromPages } from '../lib/pdfText'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import FocusTrap from '../lib/FocusTrap'
 import MoneyInput from '../lib/MoneyInput'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { naturalCompare } from '../lib/addressUtils'
+import { sourceRef } from '../lib/csvImport'
+import { findOverlappingPaid, periodsIntersect } from '../lib/rentStats'
+import { parseLooseDate } from '../lib/tenancyUtils'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',minimumFractionDigits:2}).format(n||0)
@@ -36,35 +40,34 @@ async function extractPDFText(file) {
     throw new Error(e?.message || 'The file does not appear to be a valid PDF')
   }
 
-  let fullText = ''
+  // Rebuild reading-order lines per page. The viewport transform applies the
+  // page rotation, so a landscape statement saved with /Rotate 90 (the 2026
+  // RMS layout) reads correctly, and cells whose text wraps stay together.
+  const pages = []
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
+    const viewport = page.getViewport({ scale: 1 })
     const content = await page.getTextContent()
-    // Preserve layout by sorting items by Y then X position
-    const items = content.items.sort((a,b) => {
-      const yDiff = Math.round(b.transform[5]) - Math.round(a.transform[5])
-      return yDiff !== 0 ? yDiff : a.transform[4] - b.transform[4]
-    })
-    let lastY = null
-    for (const item of items) {
-      const y = Math.round(item.transform[5])
-      if (lastY !== null && Math.abs(y - lastY) > 3) fullText += '\n'
-      fullText += item.str + ' '
-      lastY = y
-    }
-    fullText += '\n\n--- PAGE BREAK ---\n\n'
+    pages.push(linesFromTextItems(content.items, viewport.transform))
   }
-  return fullText
+  return textFromPages(pages)
 }
 
 // Parsers imported from lib/statementParser.js
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
-export function StatementImporter({properties, companies, showToast, onClose, asPage = false}) {
+// canEditRent: optional (companyId) => boolean from App.jsx (edit_rent per
+// company). When absent every company is treated as writable, matching the
+// pre-permission behaviour of this importer.
+export function StatementImporter({properties, companies, showToast, onClose, asPage = false, initialDocIds = null, canEditRent}) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const [step, setStep] = useState('upload') // upload | preview | importing | done
   const [format, setFormat] = useState(null)
+  const [fileName, setFileName] = useState('')
+  const [sourceDoc, setSourceDoc] = useState(null)   // emailed statement being imported
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [inbox, setInbox] = useState(null)           // emailed statements awaiting review
   const [parsed, setParsed] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
@@ -83,6 +86,36 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     return () => { live = false }
   }, [])
 
+  // Emailed statements: list them, and open one straight into the same
+  // parse-and-review flow as a manual upload.
+  useEffect(() => {
+    let live = true
+    api.fetchStatementInbox((companies || []).map(c => c.id))
+      .then(rows => { if (live) setInbox(rows) })
+      .catch(e => { console.error('StatementImporter:fetchStatementInbox', e); if (live) setInbox([]) })
+    return () => { live = false }
+  }, [companies])
+  async function openFromDocument(doc) {
+    setLoading(true)
+    try {
+      const url = await api.getDocumentSignedUrl(doc.file_path, 300)
+      const resp = await fetch(url)
+      if (!resp.ok) throw new Error(`Could not download the statement (${resp.status})`)
+      const blob = await resp.blob()
+      const file = new File([blob], doc.name || 'statement.pdf', { type: doc.file_type || 'application/pdf' })
+      setSourceDoc(doc)
+      await handleFile(file)
+    } catch (e) {
+      showToast(e?.message || 'Could not open the emailed statement', 'error')
+      setLoading(false)
+    }
+  }
+  useEffect(() => {
+    if (!initialDocIds?.length || !inbox?.length || sourceDoc || step !== 'upload') return
+    const doc = inbox.find(d => initialDocIds.includes(d.id))
+    if (doc) openFromDocument(doc)
+  }, [initialDocIds, inbox]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleFile(file) {
     if (!file || !file.name.endsWith('.pdf')) {
       showToast('Please select a PDF file', 'error')
@@ -91,17 +124,21 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     setLoading(true)
     try {
       const text = await extractPDFText(file)
-      const fmt = detectFormat(text)
-      let parsed = fmt === 'PNE' ? parsePNE(text) : fmt === 'RMS' ? parseRMS(text) : null
-
-      if (!parsed) {
-        showToast('Could not detect statement format (PNE or RMS)', 'error')
+      const res = parseStatement(text)
+      if (!res.parsed || res.problem) {
+        // Leave a trace for support: which signatures matched and how much text
+        // there was, without dumping tenant data into the console.
+        console.warn('StatementImporter: cannot import', file.name, res.detail)
+        showToast(res.problem || 'Could not read this statement', 'error')
         setLoading(false)
         return
       }
+      const fmt = res.format
+      const parsed = res.parsed
 
       const matched = matchProperties(parsed.items, properties, aliases)
       setFormat(fmt)
+      setFileName(file.name)
       setParsed(parsed)
       setItems(matched)
       setStep('preview')
@@ -160,101 +197,230 @@ export function StatementImporter({properties, companies, showToast, onClose, as
 
   async function handleImport() {
     setStep('importing')
-    const results = { rent: 0, fees: 0, maintenance: 0, learned: 0, errors: [] }
+    const results = { rent: 0, fees: 0, maintenance: 0, learned: 0, skipped: 0, errors: [], batchId: null }
+    const stmtKey = String(parsed?.statementNo || parsed?.date || fileName || 'statement').trim()
+    const toIso = (d, m, y) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const todayIso = new Date().toISOString().split('T')[0]
 
-    for (const item of items) {
+    const {data: {user}} = await supabase.auth.getUser()
+
+    // Every statement import is a batch, written FIRST so anything that lands
+    // is attributable and reversible (Data import → History → Revert). Before
+    // this, statement rows carried no provenance at all.
+    // Company for the batch history filter: the company most of the matched
+    // properties belong to (a statement is per landlord, so normally all).
+    const companyIds = items.filter(i => i.include && i.propertyId)
+      .map(i => properties.find(p => p.id === i.propertyId)?.company_id).filter(Boolean)
+    const companyId = companyIds.length
+      ? [...new Set(companyIds)].sort((a, b) => companyIds.filter(x => x === a).length - companyIds.filter(x => x === b).length).pop()
+      : null
+    let batch = null
+    try {
+      const { data, error } = await supabase.from('import_batches').insert({
+        user_id: user.id, company_id: companyId, kind: 'mixed', source: 'statement',
+        filename: fileName || null,
+        notes: `${format || 'Agent'} statement ${stmtKey}. Rent and fees revert with the batch; maintenance jobs do not.`,
+      }).select().single()
+      if (error) throw error
+      batch = data
+      results.batchId = batch.id
+    } catch (e) {
+      // A missing batch row must not block logging the money, but say so.
+      console.error('StatementImporter:import_batches', e)
+      results.errors.push(`Could not record an import batch (${e.message}); rows were still written but cannot be reverted as a group.`)
+    }
+    const undo = []
+    let created = 0, updated = 0
+
+    // Several rent lines for one property and period (part payment + balance,
+    // housemates paying separately) become one rent row worth the sum, with a
+    // receipt per original line. Without this the second line overwrote the
+    // first and its receipt was refused as a duplicate.
+    const work = mergeSamePeriodRent(items)
+    setProgress({ done: 0, total: work.filter(i => i.include).length })
+    for (const item of work) {
+      if (item.include) setProgress(pr => ({ ...pr, done: pr.done + 1 }))
       if (!item.include) continue
       if (!item.propertyId) {
         results.errors.push(`No property match for: ${item.propertyName}`)
         continue
       }
+      // Per-row permission check at commit time. The button is disabled when
+      // any included row is blocked, but this keeps a stale click from writing
+      // rows that RLS would reject one at a time with a less useful error.
+      if (!canWriteProperty(item.propertyId)) {
+        results.errors.push(`${item.propertyName}: you have read-only access to rent for this company`)
+        continue
+      }
 
       try {
-        const {data: {user}} = await supabase.auth.getUser()
-
         if (item.type === 'rent') {
-          // Parse period dates — format is "DD/MM/YYYY to DD/MM/YYYY"
+          // Period is "DD/MM/YYYY to DD/MM/YYYY"
           const periodParts = item.period.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2})\/(\d{2})\/(\d{4})/)
           const dateMatch = item.period.match(/(\d{2})\/(\d{2})\/(\d{4})/)
-          if (dateMatch) {
-            const year = parseInt(dateMatch[3])
-            const month = parseInt(dateMatch[2])
-            const monthLabel = new Date(year, month-1).toLocaleString('en-GB', {month:'short', year:'numeric'})
+          if (!dateMatch) {
+            results.errors.push(`${item.propertyName}: could not read the rent period "${item.period}"`)
+            continue
+          }
+          const year = parseInt(dateMatch[3])
+          const month = parseInt(dateMatch[2])
+          const monthLabel = new Date(year, month-1).toLocaleString('en-GB', {month:'short', year:'numeric'})
+          const monthStart = `${year}-${String(month).padStart(2,'0')}-01`
+          const monthEnd   = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year, month, 0).getDate()).padStart(2,'0')}`
+          const periodStart = periodParts ? toIso(periodParts[1], periodParts[2], periodParts[3]) : monthStart
+          const periodEnd   = periodParts ? toIso(periodParts[4], periodParts[5], periodParts[6]) : monthEnd
+          const ref = sourceRef('stmt', [format, stmtKey, item.propertyId, periodStart, periodEnd])
 
-            // Convert DD/MM/YYYY to YYYY-MM-DD for storage
-            const toIso = (d,m,y) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-            const periodStart = periodParts ? toIso(periodParts[1], periodParts[2], periodParts[3]) : null
-            const periodEnd   = periodParts ? toIso(periodParts[4], periodParts[5], periodParts[6]) : null
+          // Candidate rows: anything on this property whose period shares a
+          // day with the statement period (across month boundaries — a 7 May
+          // to 6 Jun cycle must see June's row), plus legacy whole-month rows
+          // for the arrival month that carry no period dates.
+          const {data: candidates, error: qErr} = await supabase.from('rent_payments')
+            .select('id, period_start, period_end, status, amount, source_ref, import_batch_id')
+            .eq('property_id', item.propertyId)
+            .or(`and(period_start.lte.${periodEnd},period_end.gte.${periodStart}),and(year.eq.${year},month.eq.${month},period_start.is.null)`)
+            .order('period_start', { ascending: true, nullsFirst: true })
+          if (qErr) throw qErr
+          const rows = candidates || []
 
-            // A month can hold several dated segments (tenant changeover,
-            // partial payments), so never blindly update the first row —
-            // only update a row whose period actually intersects the
-            // statement's period, or the legacy whole-month (NULL period)
-            // row. Anything else gets a new segment inserted.
-            const {data: monthRows} = await supabase.from('rent_payments')
-              .select('id, period_start, period_end')
-              .eq('property_id', item.propertyId).eq('year', year).eq('month', month)
-              .order('period_start', { ascending: true, nullsFirst: true })
-            const rows = monthRows || []
-            let existing = null
-            if (periodStart && periodEnd) {
-              existing = rows.find(r => r.period_start && r.period_end && r.period_start <= periodEnd && r.period_end >= periodStart)
-                || rows.find(r => !r.period_start)
-            } else if (rows.length === 1) {
-              existing = rows[0]
-            } else {
-              // Several segments and no statement period — only the legacy
-              // whole-month row is safe to overwrite.
-              existing = rows.find(r => !r.period_start)
+          // Same statement line already imported → nothing to do.
+          if (rows.some(r => r.source_ref === ref)) { results.skipped++; continue }
+
+          // Prefer a row with exactly these bounds, then a legacy whole-month
+          // row, then an intersecting non-paid row (a pre-generated void).
+          const exact = rows.find(r => r.period_start === periodStart && r.period_end === periodEnd)
+          const legacy = rows.find(r => !r.period_start)
+          const fillable = rows.find(r => r.status !== 'paid' && periodsIntersect(r.period_start, r.period_end, periodStart, periodEnd))
+          const existing = exact || legacy || fillable || null
+
+          // Double-count guard: a DIFFERENT paid row with a real amount already
+          // covers some of these days. Never overwrite money with money.
+          const clash = findOverlappingPaid(rows, periodStart, periodEnd, existing?.id || null)
+          if (clash) {
+            results.errors.push(`${item.propertyName}: rent of £${Number(clash.amount).toFixed(2)} is already recorded for ${clash.period_start} to ${clash.period_end}, which covers some of the same days as ${periodStart} to ${periodEnd}. Skipped so it is not counted twice.`)
+            results.skipped++
+            continue
+          }
+          if (existing && existing.status === 'paid' && existing.amount != null
+              && Number(existing.amount) === Number(item.editAmount)) {
+            // Already recorded with the same figure (e.g. keyed by hand).
+            // Stamp provenance so the next import recognises it, but change
+            // nothing financial.
+            if (!existing.source_ref) {
+              await supabase.from('rent_payments').update({ source_ref: ref }).eq('id', existing.id)
             }
+            results.skipped++
+            continue
+          }
 
-            // Default to whole-month period bounds when the statement
-            // doesn't carry explicit dates.
-            const monthStart = `${year}-${String(month).padStart(2,'0')}-01`
-            const monthEnd   = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year, month, 0).getDate()).padStart(2,'0')}`
-
-            if (existing) {
-              await supabase.from('rent_payments').update({
-                status:'paid', amount:item.editAmount,
-                ...(periodStart && { period_start: periodStart }),
-                ...(periodEnd   && { period_end:   periodEnd }),
-              }).eq('id', existing.id)
-            } else {
-              await supabase.from('rent_payments').insert({
-                property_id: item.propertyId, user_id: user.id,
-                month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount,
-                period_start: periodStart || monthStart,
-                period_end:   periodEnd   || monthEnd,
-              })
+          let periodRowId = existing?.id || null
+          if (existing) {
+            undo.push({ table: 'rent_payments', id: existing.id, status: existing.status, amount: existing.amount,
+                        period_start: existing.period_start, period_end: existing.period_end,
+                        source_ref: existing.source_ref, import_batch_id: existing.import_batch_id })
+            const { error } = await supabase.from('rent_payments').update({
+              status: 'paid', amount: item.editAmount,
+              period_start: periodStart, period_end: periodEnd,
+              source_ref: ref, ...(batch ? { import_batch_id: batch.id } : {}),
+            }).eq('id', existing.id)
+            if (error) throw error
+            updated++
+          } else {
+            const { data: ins, error } = await supabase.from('rent_payments').insert({
+              property_id: item.propertyId, user_id: user.id,
+              month_label: monthLabel, year, month, status: 'paid', amount: item.editAmount,
+              period_start: periodStart, period_end: periodEnd,
+              source_ref: ref, ...(batch ? { import_batch_id: batch.id } : {}),
+            }).select('id').single()
+            if (error) {
+              if (error.code === '23505') { results.skipped++; continue }
+              throw error
             }
-            results.rent++
+            periodRowId = ins?.id || null
+            created++
+          }
+          results.rent++
+          // The statement line is also a RECEIPT: dated money allocated to the
+          // period, so the traffic-light engine and the collection rate read
+          // it directly. Same source_ref, so a re-import is refused by the
+          // unique index rather than duplicated.
+          const received = parseLooseDate(parsed?.date) || periodEnd
+          const parts = item.parts && item.parts.length > 1 ? item.parts : [item]
+          for (let pi = 0; pi < parts.length; pi++) {
+            const part = parts[pi]
+            const partRef = parts.length > 1 ? `${ref}:${pi + 1}` : ref
+            try {
+              await api.createReceipt({
+                property_id: item.propertyId, company_id: companyId, received_date: received,
+                amount: part.editAmount, payer: 'tenant', source: 'statement', source_ref: partRef,
+                import_batch_id: batch?.id || null, reference: `${format || 'Agent'} statement ${stmtKey}${parts.length > 1 ? ` (payment ${pi + 1} of ${parts.length})` : ''}`,
+                notes: part.tenant ? `Tenant on statement: ${part.tenant}` : null,
+              }, periodRowId ? [{ target: 'current_rent', rent_payment_id: periodRowId, amount: part.editAmount }] : [], { allowUnallocated: !periodRowId })
+            } catch (e) {
+              if (!/already been recorded/i.test(e.message || '')) results.errors.push(`${item.propertyName}: rent logged but the receipt could not be recorded (${e.message})`)
+            }
           }
         }
 
         if (item.type === 'fee') {
-          const dateMatch = item.period.match(new RegExp('(\\d{2})\\/(\\d{2})\\/(\\d{4})')) || item.date?.match(new RegExp('(\\w+)\\s+(\\d{4})'))
-          const expDate = dateMatch ? `${dateMatch[3]||new Date().getFullYear()}-${(dateMatch[2]||'01').padStart(2,'0')}-01` : new Date().toISOString().split('T')[0]
-
-          await supabase.from('property_expenses').insert({
+          // Date the fee on the statement date (PNE "10th August 2026", RMS
+          // "02/09/2026"); fall back to the start of the fee's period, then
+          // today. Previously PNE fees landed on the import day.
+          const periodStart = (item.period || '').match(/(\d{2})\/(\d{2})\/(\d{4})/)
+          const expDate = parseLooseDate(parsed?.date)
+            || (periodStart ? `${periodStart[3]}-${periodStart[2]}-${periodStart[1]}` : null)
+            || todayIso
+          const ref = sourceRef('stmtfee', [format, stmtKey, item.propertyId, item.description || '', item.editAmount, expDate])
+          // Fees imported before source references existed have no ref to
+          // collide with, so also treat a fee of the same amount on the same
+          // property within 45 days as already recorded, and stamp it.
+          const from = new Date(expDate); from.setDate(from.getDate() - 45)
+          const to = new Date(expDate); to.setDate(to.getDate() + 45)
+          const { data: priorFees } = await supabase.from('property_expenses')
+            .select('id, source_ref').eq('property_id', item.propertyId).eq('category', 'agent_fees').eq('amount', item.editAmount)
+            .is('deleted_at', null).gte('date', from.toISOString().slice(0, 10)).lte('date', to.toISOString().slice(0, 10)).limit(1)
+          if (priorFees && priorFees.length) {
+            if (!priorFees[0].source_ref) await supabase.from('property_expenses').update({ source_ref: ref }).eq('id', priorFees[0].id)
+            results.skipped++
+            continue
+          }
+          const { error } = await supabase.from('property_expenses').insert({
             property_id: item.propertyId, user_id: user.id,
             category: 'agent_fees',
             description: item.description || 'Management fee',
             amount: item.editAmount,
             date: expDate,
+            source_ref: ref, ...(batch ? { import_batch_id: batch.id } : {}),
           })
+          if (error) {
+            // Unique (user, source_ref): this fee line was imported before.
+            if (error.code === '23505') { results.skipped++; continue }
+            throw error
+          }
+          created++
           results.fees++
         }
 
         if (item.type === 'maintenance') {
-          await supabase.from('maintenance_jobs').insert({
+          // maintenance_jobs has no source_ref column, so the statement key is
+          // carried in the description and checked before inserting.
+          const description = `From ${format || 'agent'} statement ${stmtKey}`
+          const title = item.description || 'Maintenance'
+          const { data: dupes, error: dErr } = await supabase.from('maintenance_jobs')
+            .select('id').eq('property_id', item.propertyId).eq('title', title)
+            .eq('actual_cost', item.editAmount).eq('description', description).is('deleted_at', null).limit(1)
+          if (dErr) throw dErr
+          if (dupes && dupes.length) { results.skipped++; continue }
+          const { error } = await supabase.from('maintenance_jobs').insert({
             property_id: item.propertyId, user_id: user.id,
-            title: item.description || 'Maintenance',
+            title, description,
             category: 'other',
             priority: 'medium',
             status: 'complete',
             actual_cost: item.editAmount,
-            date_raised: new Date().toISOString().split('T')[0],
+            date_raised: todayIso,
           })
+          if (error) throw error
           results.maintenance++
         }
       } catch(e) {
@@ -262,7 +428,18 @@ export function StatementImporter({properties, companies, showToast, onClose, as
       }
     }
 
+    if (batch) {
+      await supabase.from('import_batches').update({
+        rows_created: created, rows_updated: updated, rows_skipped: results.skipped,
+        meta: { undo, failed_count: results.errors.length },
+      }).eq('id', batch.id).then(({ error }) => { if (error) console.error('StatementImporter:batch update', error) })
+    }
+
     results.learned = await learnAliases(items.filter(i => i.include))
+    if (sourceDoc) {
+      try { await api.markStatementImported(sourceDoc.id, { batch_id: batch?.id || null, rent: results.rent, fees: results.fees, skipped: results.skipped }) }
+      catch (e) { console.error('StatementImporter:markStatementImported', e) }
+    }
 
     setImportResults(results)
     setStep('done')
@@ -274,6 +451,18 @@ export function StatementImporter({properties, companies, showToast, onClose, as
 
   const includedItems = items.filter(i => i.include)
   const unmatchedItems = items.filter(i => i.include && !i.propertyId)
+
+  // ── edit_rent gate ────────────────────────────────────────────────────
+  // A statement can carry several landlords' properties, so the target
+  // company is only known per matched line. Gate the whole workflow on having
+  // edit_rent SOMEWHERE (otherwise nothing could ever be written) and the
+  // commit button on every matched line being writable.
+  const canWriteCompany = (companyId) => typeof canEditRent === 'function' ? !!canEditRent(companyId) : true
+  const canWriteProperty = (propertyId) => canWriteCompany(properties.find(p => p.id === propertyId)?.company_id)
+  const canEditAnyRent = typeof canEditRent !== 'function' || (companies || []).some(c => canWriteCompany(c.id))
+  const blockedByPermission = includedItems.filter(i => i.propertyId && !canWriteProperty(i.propertyId))
+  const readyCount = includedItems.filter(i => i.propertyId).length
+  const commitBlocked = !canEditAnyRent || blockedByPermission.length > 0
   const totalToImport = includedItems.reduce((s,i) => s + (i.type==='rent' ? i.editAmount : 0), 0)
 
   // Header + steps + content, shared between the routed page (#/import) and
@@ -289,7 +478,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
               <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                 {step==='upload'&&'Upload a PNE or RMS rental statement PDF'}
                 {step==='preview'&&`${format} Statement · ${parsed?.date} · ${items.length} items found`}
-                {step==='importing'&&'Importing data…'}
+                {step==='importing'&&(progress.total ? `Importing ${progress.done} of ${progress.total} lines…` : 'Importing data…')}
                 {step==='done'&&'Import complete'}
               </div>
             </div>
@@ -322,6 +511,27 @@ export function StatementImporter({properties, companies, showToast, onClose, as
           {/* STEP 1: UPLOAD */}
           {step==='upload'&&(
             <div>
+              {inbox && inbox.length > 0 && (
+                <div style={{marginBottom:16,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 16px'}}>
+                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Statements received by email</div>
+                  <div style={{display:'grid',gap:6}}>
+                    {inbox.slice(0,12).map(d=>{
+                      const done = d.extracted_fields?.import?.at
+                      const co = (companies||[]).find(c=>c.id===d.property?.company_id)
+                      return (
+                        <div key={d.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:T.bg,borderRadius:8,flexWrap:'wrap'}}>
+                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted,width:84}}>{new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                          <span style={{fontSize:12,color:T.text,flex:1,minWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.name}</span>
+                          {co && <span style={{fontFamily:MONO,fontSize:9,color:co.color||T.gold}}>{co.abbr||co.name}</span>}
+                          {done
+                            ? <span style={{fontFamily:MONO,fontSize:10,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                            : <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</button>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <div
                 onClick={()=>fileRef.current?.click()}
                 style={{border:`2px dashed ${T.border}`,borderRadius:12,padding:40,textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}
@@ -338,6 +548,12 @@ export function StatementImporter({properties, companies, showToast, onClose, as
               </div>
               <input ref={fileRef} type="file" accept=".pdf" style={{display:'none'}}
                 onChange={e=>e.target.files[0]&&handleFile(e.target.files[0])}/>
+
+              {!canEditAnyRent&&(
+                <div style={{marginTop:14,padding:'10px 12px',background:T.amber+'14',border:`1px solid ${T.amber}55`,borderRadius:8,fontFamily:MONO,fontSize:11,color:T.muted}}>
+                  You have read-only access to rent in every company you can see, so a statement can be reviewed here but not imported. Ask an admin for the Rent Tracker Editor role.
+                </div>
+              )}
 
               {loading&&(
                 <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.gold,fontSize:12}}>
@@ -507,6 +723,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                   {l:'Rent payments logged', v:importResults.rent, c:T.green},
                   {l:'Management fees logged', v:importResults.fees, c:T.amber},
                   {l:'Maintenance jobs logged', v:importResults.maintenance, c:T.blue},
+                  {l:'Already recorded, skipped', v:importResults.skipped||0, c:T.muted},
                 ].map((item,i)=>(
                   <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 14px',background:T.surface,borderRadius:8}}>
                     <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
@@ -538,11 +755,15 @@ export function StatementImporter({properties, companies, showToast, onClose, as
             <div style={{flex:1,fontFamily:MONO,fontSize:11,color:T.muted}}>
               {includedItems.length} items selected · {fmt(totalToImport)} rent to log
               {unmatchedItems.length>0&&<span style={{color:T.amber}}> · {unmatchedItems.length} unmatched</span>}
+              {blockedByPermission.length>0&&<div style={{color:T.amber,marginTop:4}}>
+                {blockedByPermission.length} item{blockedByPermission.length!==1?'s':''} matched to a company where you have read-only access to rent. Untick {blockedByPermission.length!==1?'them':'it'} or ask an admin for the Rent Tracker Editor role.
+              </div>}
             </div>
             <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setStep('upload')}>← Back</button>
             <button className="btn btn-gold" style={{fontSize:11}} onClick={handleImport}
-              disabled={includedItems.filter(i=>i.propertyId).length===0}>
-              Confirm Import ({includedItems.filter(i=>i.propertyId).length} items)
+              disabled={readyCount===0 || commitBlocked}
+              title={commitBlocked ? 'You have read-only access to rent for one or more of these companies' : ''}>
+              Confirm Import ({readyCount} items)
             </button>
           </div>
         )}

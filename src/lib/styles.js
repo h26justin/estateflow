@@ -243,7 +243,7 @@ export const statusPill = (key, darkMode) => {
 // its layer from here; existing values are being migrated opportunistically.
 // Ladder (low → high):
 //   header 100 · rail 120 · menuBackdrop 199 · menu/overlay 200 · drawer 300
-//   popover 500 · adminOverlay 800 · banner 900 · toast 999 · topmost 2000
+//   popover 500 · adminOverlay 800 · banner 900 · confirm 950 · toast 999 · topmost 2000
 export const Z = {
   header: 100,
   rail: 120,
@@ -254,6 +254,10 @@ export const Z = {
   popover: 500,
   adminOverlay: 800,
   banner: 900,
+  // The app-wide confirm dialog (ConfirmContext) is raised from inside every
+  // other layer, including the Platform Admin overlay (300) and its own modals
+  // (600-800), so it must clear all of them. Toasts still show above it.
+  confirm: 950,
   toast: 999,
   topmost: 2000,
 }
