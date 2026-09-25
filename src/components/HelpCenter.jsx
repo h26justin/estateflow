@@ -103,10 +103,11 @@ const GUIDES = [
       "Click \"Save Changes\". The property detail page will show updated monthly mortgage costs and profit figures.",
       "Tip: After a remortgage, also update the Deposit field if you released or added equity.",
     ]},
-  { id: 10, cat: 'properties', title: 'Changing property status', tags: ['status','purchased','rented','vacant','refurb'],
+  { id: 10, cat: 'properties', title: 'Changing property status', tags: ['status','purchased','rented','vacant','refurb','on rental market','marketing'],
     steps: [
       "Open the property and click \"Edit\".",
-      "Find the \"Status\" dropdown. Options are: Purchased, Refurb, Rented, and Vacant.",
+      "Find the \"Status\" dropdown. Options are: Purchased, Refurb, Let agreed, Rented, Short-Term Let, Notice given, On rental market, Vacant and Sold.",
+      "On rental market means the property is ready and being advertised but no tenant is paying yet. When you choose it, enter the date it went on the market: rent is not expected from that date and those months do not count against your collection %. When a tenant moves in, set the status to Rented and enter the tenancy start date: rent is expected again from that day. Earlier months keep their history.",
       "Select the new status and click \"Save Changes\".",
       "Status affects how the property appears across the app: Rented properties count toward rental income, Vacant properties trigger alerts, and Refurb properties appear in refurbishment tracking.",
       "The rent calendar will show \"refurb\" or \"void\" markers based on the status you set.",

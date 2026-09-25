@@ -89,7 +89,7 @@ import ActionMenu from './components/ActionMenu'
 const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModal'))
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
-import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied } from './lib/propertyStatus'
+import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied, planOnMarketPeriods } from './lib/propertyStatus'
 import { propValue } from './lib/propertyValue'
 import { isHoldingCompany } from './lib/companyPnl'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
@@ -179,6 +179,7 @@ const STATUS_CFG = {
   short_term_let:{label:'Short-Term Let',bg:'#1E142B',fg:'#9B6FDE',dot:'#9B6FDE'}, // purple — matches STL_COLOR booking segments
   notice_given: {label:'Notice given', bg:'#2B200A',fg:'#F0B850',dot:'#F0B850'},  // amber — still rented but vacancy looming
   let_agreed:   {label:'Let agreed',   bg:'#2B250A',fg:'#C8A84B',dot:'#C8A84B'},  // gold — contracts being signed, not yet rented
+  on_rental_market:{label:'On rental market',bg:'#0A242B',fg:'#3AA7B8',dot:'#3AA7B8'}, // teal: being marketed, distinct from vacant red
   vacant:       {label:'Vacant',       bg:'#2B1010',fg:'#E05555',dot:'#E05555'},
   purchased:    {label:'Purchased',    bg:'#2B200A',fg:'#E0943A',dot:'#E0943A'},
   refurb:       {label:'Refurbing',    bg:'#0A1A2B',fg:'#4B8FE0',dot:'#4B8FE0'},
@@ -1827,6 +1828,7 @@ export default function App() {
     noticeGiven:         dashProps.filter(p=>p.status==='notice_given').length,
     letAgreed:           dashProps.filter(p=>p.status==='let_agreed').length,
     vacant:              dashProps.filter(p=>p.status==='vacant').length,
+    onMarket:            dashProps.filter(p=>p.status==='on_rental_market').length,
     inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
     total:               dashProps.length,
   }),[dashProps])
@@ -2128,7 +2130,7 @@ export default function App() {
     try{
       // Strip the compliance payload from the property write — it gets
       // persisted separately into compliance_items below.
-      const { _compliance = [], ...propData } = formData
+      const { _compliance = [], _statusChange = null, ...propData } = formData
       let propId
       if(editProp?.id){
         const updated=await api.updateProperty(editProp.id, propData)
@@ -2192,6 +2194,27 @@ export default function App() {
           setConvertSourceDealId(null)
         } else {
           showToast('Property added')
+        }
+      }
+
+      // On Rental Market: open / close the dated non-chargeable period so the
+      // months on the market never count against collection %, and rent is
+      // expected again from the tenancy start. Only the dates of this change
+      // are touched; earlier months keep their history.
+      if (_statusChange && propId) {
+        try {
+          const existing = properties.find(p=>p.id===propId)?.non_chargeable_periods || []
+          const plan = planOnMarketPeriods({ ..._statusChange, periods: existing })
+          let periods = [...existing]
+          if (plan.create) periods = [await api.createNonChargeablePeriod({ ...plan.create, property_id: propId }), ...periods]
+          for (const c of plan.close) { const u = await api.updateNonChargeablePeriod(c.id, { end_date: c.end_date }); periods = periods.map(x=>x.id===u.id?u:x) }
+          for (const id of plan.remove) { await api.deleteNonChargeablePeriod(id); periods = periods.filter(x=>x.id!==id) }
+          if (plan.create || plan.close.length || plan.remove.length) {
+            setProperties(prev=>prev.map(p=>p.id===propId?{...p,non_chargeable_periods:periods}:p))
+          }
+        } catch (e) {
+          console.error('failed to record on-market period', e)
+          showToast('Status saved, but the on-market dates were not recorded. Add them on the Rent tab (non-chargeable periods).', 'error')
         }
       }
 
@@ -3498,6 +3521,7 @@ export default function App() {
                         breakdown={[
                           {label:'Occupied', value:stats.rented, color:T.green},
                           {label:'Vacant', value:stats.vacant, color:T.amber},
+                          ...(stats.onMarket ? [{label:'On rental market', value:stats.onMarket, color:'#3AA7B8', note:'Being marketed, rent not expected yet'}] : []),
                           {label:'Occupancy %', value:rate+'%', color:rate>=90?T.green:T.amber},
                           {label:'Vacancy cost (est)', value:fmt(dashProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0))+'/mo lost', color:T.red},
                         ]}
