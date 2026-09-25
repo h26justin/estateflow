@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import {
   parseForImport, reviewRows, planImport, planSummary, statusCounts, targetPeriod, matchCompany,
-  matchTenancy, statementFingerprint, auditLines, REVIEW_STATUS,
+  matchTenancy, statementFingerprint, auditLines, legacyRentRef, REVIEW_STATUS,
 } from '../statementImport'
 
 const fixture = f => readFileSync(new URL('./fixtures/' + f, import.meta.url), 'utf8')
@@ -106,6 +106,23 @@ describe('review rows', () => {
     const known = new Set(first.rows.map(r => r.ref))
     const again = reviewRows(rmsParsed(), { properties: [jubilee()], companies: COMPANIES, knownRefs: known }, { [first.rows[0].lineNo]: { confirmed: true } })
     expect(again.rows.every(r => r.status === REVIEW_STATUS.DUPLICATE && !r.include)).toBe(true)
+  })
+  it('a line imported by the previous importer (old reference) is a Duplicate', () => {
+    const parsed = rmsParsed()
+    const legacy = legacyRentRef(parsed.header, 'jub', '2026-08-31', '2026-09-29')
+    const { rows } = reviewRows(parsed, { properties: [jubilee()], companies: COMPANIES, knownRefs: new Set([legacy]) })
+    const rent = rows.find(r => r.kind === 'rent')
+    expect(rent.status).toBe(REVIEW_STATUS.DUPLICATE)
+    expect(rent.reasons[0]).toMatch(/earlier import/)
+  })
+  it('the same amount already receipted on the period is a probable Duplicate (the Statement 71 case)', () => {
+    const cyc = { id: 'cyc', year: 2026, month: 8, month_label: 'Aug 2026', period_start: '2026-08-31', period_end: '2026-09-29', status: 'paid', amount: 600 }
+    const p = jubilee({ rent_payments: [cyc], rent_receipts: [{ id: 'r', amount: 600, rent_allocations: [{ rent_payment_id: 'cyc', target: 'current_rent', amount: 600 }] }] })
+    const { rows } = reviewRows(rmsParsed(), { properties: [p], companies: COMPANIES, today: '2026-09-25' })
+    const rent = rows.find(r => r.kind === 'rent')
+    expect(rent.status).toBe(REVIEW_STATUS.DUPLICATE)
+    expect(rent.include).toBe(false)
+    expect(rent.reasons.join(' ')).toMatch(/already recorded on Aug 2026/)
   })
   it('a period already marked paid by hand for the same amount is a Duplicate, never overwritten', () => {
     const p = jubilee({ rent_payments: [month('sep', 2026, 9, 'paid', 600)] })

@@ -153,10 +153,19 @@ export function matchTenancy(property, start, end, tenantName) {
 
 function currentRentReceived(property, rowId) {
   let s = 0, n = 0
+  const amounts = []
   for (const r of property?.rent_receipts || []) for (const a of r.rent_allocations || []) {
-    if (a.rent_payment_id === rowId && a.target === 'current_rent') { s += Number(a.amount) || 0; n++ }
+    if (a.rent_payment_id === rowId && a.target === 'current_rent') { s += Number(a.amount) || 0; n++; amounts.push(round2(a.amount)) }
   }
-  return { received: round2(s), allocations: n }
+  return { received: round2(s), allocations: n, amounts }
+}
+
+// The reference the previous importer (before 25 Sep 2026) stamped on a
+// statement rent line: sourceRef('stmt', [format, statement number or date,
+// property, period start, period end]), with ":n" on split parts. Checked so
+// a statement imported the old way is recognised as already imported.
+export function legacyRentRef(header, propertyId, start, end) {
+  return sourceRef('stmt', [header.agent, String(header.statementRef || header.statementDate || ''), propertyId, start, end])
 }
 
 // What the Rent Tracker already says about the target period.
@@ -179,6 +188,7 @@ export function periodPosition(property, row, today = isoToday()) {
     legacyManual,
     paidNoAmount: !alloc.allocations && row.status === 'paid' && !(Number(row.amount) > 0),
     allocations: alloc.allocations,
+    receiptAmounts: alloc.amounts,
     state: ev.state,
   }
 }
@@ -248,6 +258,14 @@ export function reviewRows(parsed, ctx, overrides = {}) {
       else if (property) {
         target = targetPeriod(property, periodStart, periodEnd)
         position = periodPosition(property, target?.row, today)
+        // Imported before by the previous importer (its own reference).
+        const legacy = legacyRentRef(header, propertyId, periodStart, periodEnd)
+        if (known.has(legacy) || known.has(`${legacy}:1`)) { hard = REVIEW_STATUS.DUPLICATE; reasons.unshift('Already imported from this statement (earlier import)') }
+        // The same amount is already receipted against this period, from any
+        // statement or entered by hand: probably the same money.
+        else if ((position.receiptAmounts || []).some(a => Math.abs(a - amount) < 0.005)) {
+          soft = REVIEW_STATUS.DUPLICATE; reasons.push(`A receipt of ${gbp(amount)} is already recorded on ${periodLabel(target)}`)
+        }
         if (target?.row && !target.exact && target.overlapDays < daysBetween(periodStart, periodEnd) / 2) { review = true; reasons.push(`Statement period only partly overlaps ${periodLabel(target)}`) }
         if (position.legacyManual) {
           if (Math.abs(position.legacyAmount - amount) < 0.005) { soft = REVIEW_STATUS.DUPLICATE; reasons.push(`${periodLabel(target)} is already marked paid by hand for ${gbp(position.legacyAmount)}`) }
