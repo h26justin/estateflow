@@ -56,7 +56,10 @@ export const ALL_NAV = [
 // once: if the user later switches the item off, the marker keeps it off.
 // Markers are inert everywhere else (nothing renders a key that is not in
 // ALL_NAV). Remove a key from here once every account has the marker.
-export const AUTO_ENABLE_NAV_KEYS = ['refurbs']
+// 'stl' added 2026-09-15: Short-Term Let Income was left off this list, so
+// accounts that saved their navigation before it existed saw the link during
+// load (the default list has it) and lost it once their stored prefs arrived.
+export const AUTO_ENABLE_NAV_KEYS = ['refurbs', 'stl']
 export const navSeenMarker = key => `seen:${key}`
 
 // The one default list, used both as the runtime pref fallback and as the
@@ -108,6 +111,7 @@ export const VIEW_LABELS = {
   feedback: 'Feedback',
   detail: 'Property',
   'import': 'Import Statement',
+  'statement-audit': 'Rental Statement Audit',
   'import-data': 'Import Historic Data',
   'bulk-add': 'Add Block of Flats',
 }

@@ -1,0 +1,61 @@
+Mr Example Landlord
+EXH Property Group Limited  28th April 2026
+Unit 14, Gardner Industrial Estate, Kent House Lane
+Beckenham  Statement No : 87
+BR3 1QU
+Statement
+Income  Amount  VAT  Gross
+24, Avonmouth Road
+Rent 10/05/2026 - 22/05/2026 - Tenant C1  £345.00  £0.00  £345.00
+Rent for the month 10/04/2026 to 09/05/2026 - Tenant C2  £530.00  £0.00  £530.00
+1a Watts Moses House, High Street East
+Rent for the month 30/04/2026 to 29/05/2026 - Tenant C3  £550.00  £0.00  £550.00
+4 Watts Moses House, High Street East
+Rent for the month 21/04/2026 to 20/05/2026 - Tenant C4
+£500.00  £0.00  £500.00
+18 Watts Moses House, High Street East
+Rent Arrears From 19 Watts Moses - Tenant C5  £300.00  £0.00  £300.00
+Rent for the month 12/04/2026 to 11/05/2026 - Tenant C5  £500.00  £0.00  £500.00
+31 Watts Moses House, High Street East
+Rent for the month 22/04/2026 to 21/05/2026 - Tenant C6
+£500.00  £0.00  £500.00
+Flat 6, St. Georges House
+Rent for the month 01/04/2026 to 30/04/2026 - Tenant C7
+£900.00  £0.00  £900.00
+Rent for the month 01/05/2026 to 31/05/2026 - Tenant C7
+£900.00  £0.00  £900.00
+Flat 7, St. Georges House
+Rent for the month 02/04/2026 to 01/05/2026 - Tenant C8  £700.00  £0.00  £700.00
+Flat 10, St. Georges House
+
+--- PAGE BREAK ---
+
+Rent for the month 15/04/2026 to 14/05/2026 - Tenant C9
+£900.00  £0.00  £900.00
+£6,625.00  £0.00  £6,625.00
+Expenditure  Amount  VAT  Gross
+24, Avonmouth Road
+Management Commission 12.00% of £875.00  £105.00  £0.00  £105.00
+1a Watts Moses House, High Street East
+Management Commission 12.00% of £550.00  £66.00  £0.00  £66.00
+4 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+18 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+31 Watts Moses House, High Street East
+Management Commission 12.00% of £500.00  £60.00  £0.00  £60.00
+Flat 6, St. Georges House
+Management Commission 12.00% of £1,800.00  £216.00  £0.00  £216.00
+Flat 7, St. Georges House
+Management Commission 12.00% of £700.00  £84.00  £0.00  £84.00
+Flat 10, St. Georges House
+Management Commission 12.00% of £900.00  £108.00  £0.00  £108.00
+£759.00  £0.00  £759.00
+Summary
+Balance from previous statement  £0.00
+New Balance  £5,866.00
+PAYMENT AMOUNT  £5,866.00
+The amount shown will be transferred to your designated bank account as agreed.
+Our Invoice
+Date  Invoice No.  Fees
+28/04/2026  INV3864  £759.00

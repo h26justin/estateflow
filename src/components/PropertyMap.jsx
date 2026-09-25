@@ -46,6 +46,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
     short_term_let: '#9B6FDE',  // purple — matches the STL booking colour
     notice_given:   '#F0B850',  // amber — still rented but vacancy looming
     let_agreed:   '#C8A84B',  // gold — contracts being signed
+    on_rental_market: '#3AA7B8', // teal — being marketed
     vacant:       '#E05555',
     purchased:    '#E0943A',
     refurb:       '#4B8FE0',

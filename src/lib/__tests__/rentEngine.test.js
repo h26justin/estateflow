@@ -107,6 +107,47 @@ describe('period states', () => {
     expect(e.state).toBe(STATE.NOT_COLLECTIBLE)
     expect(collectionStats([e]).due).toBe(0)
   })
+  it('10 Elms West: months before completion are Not owned, refurbishment follows, April is prorated (15 Sep 2026 ruling)', () => {
+    // No tenancy entered yet, so the property falls back to "rented from
+    // 1 Jan 2026"; the approved periods must still take every day out.
+    const periods = [
+      { start_date: '2026-01-01', end_date: '2026-04-26', reason: 'not_owned' },
+      { start_date: '2026-04-27', end_date: '2026-06-30', reason: 'refurbishment' },
+    ]
+    const c = ctx({ tenancies: [], nonChargeable: periods, today: '2026-09-15' })
+    const feb = evaluatePeriod(month('feb', 2026, 2, 'void'), c)
+    expect(feb.state).toBe(STATE.NOT_COLLECTIBLE)
+    expect(feb.reasons.join(' ')).toMatch(/Not owned \/ before ownership/)
+    const apr = evaluatePeriod(month('apr', 2026, 4, 'void'), c)
+    expect(apr.state).toBe(STATE.NOT_COLLECTIBLE)   // 26 days not owned + 4 days refurbishment = nothing collectible
+    const may = evaluatePeriod(month('may', 2026, 5, 'void'), c)
+    expect(may.state).toBe(STATE.NOT_COLLECTIBLE)
+    expect(may.reasons.join(' ')).toMatch(/Refurbishment/)
+    const jul = evaluatePeriod(month('jul', 2026, 7, 'void'), c)
+    expect(jul.state).toBe(STATE.MISSED)              // after 30 June the fallback tenancy applies until real dates are entered
+    const stats = collectionStats([feb, apr, may, jul])
+    expect(stats.due).toBe(500)                       // only July is in the denominator
+  })
+  it('On Rental Market: only the dated market period is excluded; the new tenancy is due from its start (25 Sep 2026 ruling)', () => {
+    // Rented to June, on the market 1 Jul, new tenant from 15 Aug. The
+    // status is now Rented again and there is no tenancy record, so the
+    // fallback applies; the closed on_market period must still take July and
+    // 1-14 August out, while June stays collectible history.
+    const periods = [{ start_date: '2026-07-01', end_date: '2026-08-14', reason: 'on_market' }]
+    const c = ctx({ tenancies: [], nonChargeable: periods, today: '2026-09-20' })
+    const jun = evaluatePeriod(month('jun', 2026, 6, 'paid', 500), c)
+    const jul = evaluatePeriod(month('jul', 2026, 7, 'void'), c)
+    const aug = evaluatePeriod(month('aug', 2026, 8, 'void'), c)
+    const sep = evaluatePeriod(month('sep', 2026, 9, 'paid', 500), c)
+    expect(jun.state).toBe(STATE.PAID)
+    expect(jul.state).toBe(STATE.NOT_COLLECTIBLE)
+    expect(jul.reasons.join(' ')).toMatch(/On rental market/)
+    expect(aug.expected).toBe(274.19)                 // 17 of 31 days from the tenancy start
+    expect(sep.state).toBe(STATE.PAID)
+    const stats = collectionStats([jun, jul, aug, sep], { asOf: '2026-09-20' })
+    expect(stats.due).toBe(1274.19)                   // July never enters the denominator
+    expect(stats.received).toBe(1000)
+  })
   it('refurbishment period on a tenanted unit is Not collectible', () => {
     const e = evaluatePeriod(month('m4', 2026, 4, 'void'), ctx({ nonChargeable: [{ start_date: '2026-03-20', end_date: '2026-04-30', reason: 'refurbishment' }] }))
     expect(e.state).toBe(STATE.NOT_COLLECTIBLE); expect(e.reasons[0]).toMatch(/non-chargeable/)

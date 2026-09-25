@@ -11,6 +11,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
+import { NON_CHARGEABLE_REASONS, NON_CHARGEABLE_REASON_LABEL } from '../lib/rentEngine'
 import {
   TENANCY_STATUSES, PAYMENT_SOURCES, RENT_FREQUENCIES, BENEFIT_FREQUENCIES, DEFAULT_PAYMENT_WINDOW_DAYS,
   usesBenefit, benefitSplitCheck, tenancyDraftFromProperty, currentTenancy,
@@ -265,7 +266,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
               <Field l="From"><input type="date" value={periodForm.start_date} onChange={e => setPeriodForm(f => ({ ...f, start_date: e.target.value }))} /></Field>
               <Field l="To" hint="(blank = ongoing)"><input type="date" value={periodForm.end_date || ''} onChange={e => setPeriodForm(f => ({ ...f, end_date: e.target.value }))} /></Field>
               <Field l="Reason"><select value={periodForm.reason} onChange={e => setPeriodForm(f => ({ ...f, reason: e.target.value }))}>
-                <option value="vacant">Vacant</option><option value="refurbishment">Refurbishment</option><option value="rent_free">Agreed rent-free</option><option value="other">Other</option>
+                {NON_CHARGEABLE_REASONS.map(r => <option key={r.v} value={r.v}>{r.l}</option>)}
               </select></Field>
             </div>
             <div style={{ marginBottom: 10 }}><label>Notes</label><input value={periodForm.notes || ''} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} /></div>
@@ -281,7 +282,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
             <Icon name="calendar" size={14} color={T.muted} />
             <div style={{ flex: 1, fontSize: 13, color: T.text }}>
               {fmtDate(p.start_date)} → {p.end_date ? fmtDate(p.end_date) : 'ongoing'}
-              <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginLeft: 8 }}>{{ vacant: 'Vacant', refurbishment: 'Refurbishment', rent_free: 'Rent-free', other: 'Other' }[p.reason] || p.reason}{p.notes ? ` · ${p.notes}` : ''}</span>
+              <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginLeft: 8 }}>{NON_CHARGEABLE_REASON_LABEL[p.reason] || p.reason}{p.notes ? ` · ${p.notes}` : ''}</span>
             </div>
             {canEdit && <button className="btn" style={{ fontSize: 11 }} onClick={() => setPeriodForm({ id: p.id, start_date: p.start_date, end_date: p.end_date || '', reason: p.reason, notes: p.notes || '' })}>Edit</button>}
             {canEdit && <button className="btn" style={{ fontSize: 11, color: T.red }} onClick={() => removePeriod(p)} aria-label="Remove period">✕</button>}

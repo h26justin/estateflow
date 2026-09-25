@@ -299,11 +299,12 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
               Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
               {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'partial' && <span style={{ color: T.amber, marginLeft: 6 }}>· partial</span>}
               {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
             </div>
           )}
-          {connection.last_sync_status === 'error' && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
@@ -537,11 +538,12 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
             <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
               Last sync: {new Date(connection.last_synced_at).toLocaleString('en-GB')}
               {connection.last_sync_status === 'error' && <span style={{ color: T.red, marginLeft: 6 }}>· error</span>}
+              {connection.last_sync_status === 'partial' && <span style={{ color: T.amber, marginLeft: 6 }}>· partial</span>}
               {connection.last_sync_status === 'ok' && <span style={{ color: T.green, marginLeft: 6 }}>✓</span>}
             </div>
           )}
-          {connection.last_sync_status === 'error' && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+          {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
+            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
             <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
@@ -731,7 +733,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       setSettings(s || {
         sync_rent: true, sync_expenses: true, sync_mortgage_interest: false,
         sync_tracking_categories: true, sync_real_tenant_contacts: false,
-        pull_reconciliation: true,
+        pull_reconciliation: true, pull_expenses: false,
         per_property_bank_accounts: {},
       })
       setAccounts(accts || [])
@@ -808,6 +810,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       </Section>
 
       <Section title="What to pull back (Xero → Properly)">
+        <Toggle keyName="pull_expenses" label="← Pull expenses from Xero (SPEND)" desc="Mirrors every Xero bank spend that carries this company's Property tracking option into Properly's expenses, once, so the P&L stops being income-only. Needs tracking categories on. Off by default." />
         <Toggle keyName="pull_reconciliation"  label="Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
         <Toggle keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to Properly. Off by default — leave off if you treat Properly as the source of truth." />
       </Section>

@@ -84,7 +84,7 @@ export function isPeriodicText(v) {
 // Map a property's current status to a tenancy status for the seed.
 export function tenancyStatusFromProperty(propertyStatus) {
   if (propertyStatus === 'notice_given') return 'notice_given'
-  if (propertyStatus === 'vacant') return 'vacant'
+  if (propertyStatus === 'vacant' || propertyStatus === 'on_rental_market') return 'vacant'
   if (propertyStatus === 'refurb') return 'refurbishment'
   return 'rented'
 }

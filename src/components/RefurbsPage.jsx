@@ -12,7 +12,8 @@
 // The DB mirrors properties.refurb_cost (= paid) and refurb_status by
 // trigger; mirrorFields() reproduces that locally.
 //
-// URL: #/refurbs | #/refurbs/board | #/refurbs/payments | #/refurbs/project/<id>
+// URL: #/refurbs | #/refurbs/board | #/refurbs/payments | #/refurbs/invoices |
+//      #/refurbs/invoices/import | #/refurbs/invoice/<id> | #/refurbs/project/<id>
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
@@ -26,6 +27,8 @@ import {
   projectTotals, daysLeft, isOverdue, suggestStage, mirrorFields,
   projectsFromProperties, summariseProjects, ledgerLines, knownPayees, isActiveProject,
 } from '../lib/refurbs'
+import { invoicedByProject, outstandingOn } from '../lib/refurbInvoices'
+import { useRefurbInvoices, allLinesOf, ImportRefurbInvoice, InvoiceList, InvoiceDetail, ProjectInvoices } from './RefurbInvoices'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -35,7 +38,7 @@ const fmtLine = n => {
 }
 const fmtDate = d => d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 const todayISO = () => new Date().toISOString().slice(0, 10)
-const ACTIVE_VIEWS = ['list', 'board', 'payments']
+const ACTIVE_VIEWS = ['list', 'board', 'payments', 'invoices']
 
 // ── Shared: permissions + mutations ────────────────────────────────────────
 function useCanEdit(permissionsMap, devModeActive) {
@@ -212,7 +215,7 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, onCreate, onCan
 }
 
 // ── Project detail ─────────────────────────────────────────────────────────
-function ProjectDetail({ project, property, company, canEdit, payees, mutations, onBack, onDelete, embedded = false, T, isMobile }) {
+function ProjectDetail({ project, property, company, canEdit, payees, mutations, onBack, onDelete, embedded = false, invoices = [], allLines = [], onOpenInvoice, T, isMobile }) {
   const confirmDialog = useConfirm()
   const t = projectTotals(project)
   const today = new Date()
@@ -226,6 +229,9 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   const [editingLine, setEditingLine] = useState(null)
   const [lineEdit, setLineEdit] = useState({})
   const lines = (project.refurb_lines || []).filter(l => !l.deleted_at)
+  // Invoiced sits beside Agreed and Paid and never changes either (25 Sep
+  // 2026 ruling): only a variation extra raises Agreed, only payments Paid.
+  const invoiced = useMemo(() => invoicedByProject(invoices).get(project.id) || 0, [invoices, project.id])
   const extras = lines.filter(l => l.kind === 'extra').sort((a, b) => String(a.date).localeCompare(String(b.date)))
   const payments = lines.filter(l => l.kind !== 'extra').sort((a, b) => String(a.date).localeCompare(String(b.date)))
 
@@ -378,13 +384,17 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
     )}
 
     {/* Summary strip */}
-    <div style={{ ...panel, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 14 }}>
+    <div style={{ ...panel, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${invoiced ? 6 : 5}, 1fr)`, gap: 14 }}>
       <Metric label="Agreed" value={fmt(t.agreed)} T={T} />
+      {invoiced !== 0 && <Metric label="Invoiced" value={fmt(invoiced)} color={T.blue} T={T} />}
       <Metric label="Extras" value={fmt(t.extras)} color={t.extras > 0 ? T.amber : T.muted} T={T} />
       <Metric label="Paid" value={fmt(t.paid)} color={T.green} T={T} />
       <Metric label="Remaining" value={t.overpaid > 0 ? `${fmt(t.overpaid)} over` : fmt(t.remaining)} color={t.overpaid > 0 ? T.red : T.gold} T={T} />
       <div><Metric label="Progress" value={`${t.pct}%`} T={T} /><Progress pct={t.pct} tone={tone} T={T} height={5} max={200} /></div>
     </div>
+
+    {/* Traceability: which contractor invoices generated this refurb's cost. */}
+    <ProjectInvoices project={project} invoices={invoices} lines={allLines} onOpenInvoice={onOpenInvoice} T={T} />
 
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr', gap: 14 }}>
       <div>
@@ -639,11 +649,16 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
     if (parts[0] !== 'refurbs') return null
     if (parts[1] === 'project' && parts[2]) return { projectId: parts[2] }
+    if (parts[1] === 'invoice' && parts[2]) return { sub: 'invoices', invoiceId: parts[2] }
+    if (parts[1] === 'invoices' && parts[2] === 'import') return { sub: 'invoices', importing: true }
     return { sub: ACTIVE_VIEWS.includes(parts[1]) ? parts[1] : 'list' }
   }
   const initial = parseHash()
   const [sub, setSub] = useState(initial?.sub || 'list')
   const [selectedId, setSelectedId] = useState(initial?.projectId || null)
+  const [invoiceId, setInvoiceId] = useState(initial?.invoiceId || null)
+  const [importing, setImporting] = useState(!!initial?.importing)
+  const { invoices, setInvoices } = useRefurbInvoices(showToast)
   const [coFilter, setCoFilter] = useState('all')
   const [showDone, setShowDone] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -651,11 +666,14 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
 
   // URL sync (RefurbsPage owns #/refurbs/…, mirrors DealsPage).
   useEffect(() => {
-    const target = selectedId ? `#/refurbs/project/${selectedId}` : sub === 'list' ? '#/refurbs' : `#/refurbs/${sub}`
+    const target = selectedId ? `#/refurbs/project/${selectedId}`
+      : invoiceId ? `#/refurbs/invoice/${invoiceId}`
+      : importing ? '#/refurbs/invoices/import'
+      : sub === 'list' ? '#/refurbs' : `#/refurbs/${sub}`
     if (window.location.hash !== target) window.location.hash = target
-  }, [sub, selectedId])
+  }, [sub, selectedId, invoiceId, importing])
   useEffect(() => {
-    const onHash = () => { const h = parseHash(); if (!h) return; setSelectedId(h.projectId || null); if (h.sub) setSub(h.sub) }
+    const onHash = () => { const h = parseHash(); if (!h) return; setSelectedId(h.projectId || null); setInvoiceId(h.invoiceId || null); setImporting(!!h.importing); if (h.sub) setSub(h.sub) }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -665,6 +683,30 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   const summary = useMemo(() => summariseProjects(filtered), [filtered])
   const payees = useMemo(() => knownPayees(allProjects), [allProjects])
   const selected = selectedId ? allProjects.find(p => p.id === selectedId) : null
+  const allLines = useMemo(() => allLinesOf(allProjects), [allProjects])
+  const coInvoices = useMemo(() => coFilter === 'all' ? invoices : invoices.filter(i => i.company_id === coFilter), [invoices, coFilter])
+  const invoicesUnpaid = useMemo(() => coInvoices.reduce((s, i) => s + outstandingOn(i, allLines), 0), [coInvoices, allLines])
+  const selectedInvoice = invoiceId ? invoices.find(i => i.id === invoiceId) : null
+
+  // Patch refurb lines created or removed by invoice actions into App state,
+  // property by property, with the refurb_cost mirror recomputed.
+  const applyLineChanges = useCallback((added = [], removed = []) => {
+    const removedIds = new Set(removed.map(l => l.id))
+    const touched = new Map()
+    for (const l of [...added, ...removed]) {
+      const proj = allProjects.find(p => p.id === l.project_id)
+      if (proj) touched.set(proj.property_id, true)
+    }
+    for (const propertyId of touched.keys()) {
+      const prop = properties.find(p => p.id === propertyId)
+      const next = (prop?.refurb_projects || []).map(p => ({
+        ...p,
+        refurb_lines: [...(p.refurb_lines || []).filter(l => !removedIds.has(l.id)), ...added.filter(l => l.project_id === p.id)],
+      }))
+      onPropertyPatch(propertyId, { refurb_projects: next, ...(mirrorFields(next) || {}) })
+    }
+  }, [allProjects, properties, onPropertyPatch])
+  const openInvoice = inv => { setSelectedId(null); setImporting(false); setSub('invoices'); setInvoiceId(inv.id) }
 
   const stageOrder = { in_progress: 0, snagging: 1, planned: 2, on_hold: 3, complete: 4 }
   const listed = useMemo(() => filtered
@@ -698,13 +740,38 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     </div>
     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
       <div style={{ display: 'inline-flex', background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden' }}>
-        {[['list', 'List'], ['board', 'Board'], ['payments', 'Payments']].map(([k, l]) => (
-          <button key={k} onClick={() => { setSub(k); setSelectedId(null) }}
+        {[['list', 'List'], ['board', 'Board'], ['payments', 'Payments'], ['invoices', 'Invoices']].map(([k, l]) => (
+          <button key={k} onClick={() => { setSub(k); setSelectedId(null); setInvoiceId(null); setImporting(false) }}
             style={{ fontFamily: mono, fontSize: 11.5, padding: '7px 14px', border: 'none', cursor: 'pointer', background: sub === k && !selectedId ? T.gold : 'transparent', color: sub === k && !selectedId ? '#fff' : T.muted }}>{l}</button>
         ))}
       </div>
+      <button onClick={() => { setImporting(true); setSub('invoices'); setSelectedId(null); setInvoiceId(null) }} style={{ ...btn(T), padding: '8px 14px', fontSize: 12 }}>Import refurb invoice</button>
       <button onClick={() => { setCreating(true); setSelectedId(null) }} style={{ ...btn(T, 'gold'), padding: '8px 16px', fontSize: 12 }}>+ New Refurb</button>
     </div>
+  </div>
+
+  if (sub === 'invoices' && importing) return <div className="fade">
+    {pageHead}
+    <ImportRefurbInvoice properties={properties} companies={companies} invoices={invoices} canEditFor={canEditFor} mutations={mutations}
+      defaultCompanyId={coFilter !== 'all' ? coFilter : null} showToast={showToast} T={T} isMobile={isMobile}
+      onCancel={() => setImporting(false)}
+      onCreated={({ invoice, extras }) => {
+        setInvoices(list => [invoice, ...list])
+        if (extras.length) applyLineChanges(extras, [])
+        setImporting(false); setInvoiceId(invoice.id)
+        showToast?.(`${invoice.doc_kind === 'credit_note' ? 'Credit note' : 'Invoice'} saved across ${(invoice.refurb_invoice_allocations || []).length} ${(invoice.refurb_invoice_allocations || []).length === 1 ? 'property' : 'properties'}. Nothing marked paid.`)
+      }} />
+  </div>
+
+  if (sub === 'invoices' && selectedInvoice) return <div className="fade">
+    {pageHead}
+    <InvoiceDetail invoice={selectedInvoice} properties={properties} companies={companies} projects={allProjects} lines={allLines}
+      canEdit={canEditFor(selectedInvoice.company_id)} showToast={showToast} T={T} isMobile={isMobile}
+      onBack={() => setInvoiceId(null)}
+      onUpdated={inv => setInvoices(list => list.map(i => i.id === inv.id ? inv : i))}
+      onDeleted={(inv, removedExtras) => { setInvoices(list => list.filter(i => i.id !== inv.id)); applyLineChanges([], removedExtras); setInvoiceId(null); showToast?.('Invoice deleted') }}
+      onLinesAdded={created => applyLineChanges(created, [])}
+      onOpenProject={p => { setInvoiceId(null); setSelectedId(p.id) }} />
   </div>
 
   if (selected) {
@@ -712,7 +779,8 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     return <div className="fade">
       {pageHead}
       <ProjectDetail project={selected} property={selected.property} company={selected.property?.company} canEdit={canEdit} payees={payees}
-        mutations={mutations} onBack={() => setSelectedId(null)} onDelete={() => handleDelete(selected)} T={T} isMobile={isMobile} />
+        mutations={mutations} onBack={() => setSelectedId(null)} onDelete={() => handleDelete(selected)}
+        invoices={invoices} allLines={allLines} onOpenInvoice={openInvoice} T={T} isMobile={isMobile} />
       {openDetail && <div style={{ marginTop: 8 }}><button onClick={() => openDetail(selected.property, 'refurb')} style={btn(T)}>Open property →</button></div>}
     </div>
   }
@@ -735,12 +803,13 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
       ))}
     </div>}
 
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
       {stat('Active refurbs', summary.active)}
       {stat('Agreed total', fmt(summary.agreed))}
       {stat('Paid so far', fmt(summary.paid), T.green)}
       {stat('Remaining to pay', fmt(summary.remaining), T.gold)}
       {stat('Over budget', summary.overBudget, summary.overBudget > 0 ? T.red : T.muted)}
+      {stat('Invoices unpaid', fmt(invoicesUnpaid), invoicesUnpaid > 0 ? T.blue : T.muted)}
     </div>
 
     {(summary.overdue > 0 || summary.noPrice > 0) && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -771,6 +840,9 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     {sub === 'board' && <Board projects={filtered} canEdit={filtered.every(p => canEditFor(p.property?.company_id))} onOpen={p => setSelectedId(p.id)} onStage={handleStage} T={T} />}
 
     {sub === 'payments' && <Ledger projects={filtered} onOpen={p => setSelectedId(p.id)} T={T} isMobile={isMobile} />}
+
+    {sub === 'invoices' && <InvoiceList invoices={coInvoices} companies={companies} lines={allLines} onOpen={openInvoice}
+      canImport={companies.some(c => canEditFor(c.id))} onImport={() => setImporting(true)} T={T} isMobile={isMobile} />}
   </div>
 }
 
@@ -806,6 +878,9 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
   useEffect(() => { if (selectedId && !projects.find(p => p.id === selectedId)) setSelectedId(active[0]?.id || projects[0]?.id || null) }, [projects.length])
   const selected = projects.find(p => p.id === selectedId) || null
   const payees = useMemo(() => knownPayees(projectsFromProperties(properties)), [properties])
+  const { invoices } = useRefurbInvoices(showToast)
+  const allLines = useMemo(() => allLinesOf(projectsFromProperties(properties)), [properties])
+  const openInvoice = inv => { window.location.hash = `#/refurbs/invoice/${inv.id}`; openRefurbs?.() }
 
   async function handleCreate(_pid, fields) {
     const created = await mutations.createProject(property.id, fields)
@@ -842,6 +917,7 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
       </div>
     </div>}
     {selected && <ProjectDetail project={selected} property={property} company={property.company} canEdit={canEdit} payees={payees}
-      mutations={mutations} onDelete={() => handleDelete(selected)} embedded T={T} isMobile={isMobile} />}
+      mutations={mutations} onDelete={() => handleDelete(selected)} embedded
+      invoices={invoices} allLines={allLines} onOpenInvoice={openInvoice} T={T} isMobile={isMobile} />}
   </div>
 }

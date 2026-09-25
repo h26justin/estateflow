@@ -113,9 +113,11 @@ describe('Short-Term Let Income page', () => {
     const last = new Date(y, m, 0).getDate()
     api.fetchStlPayouts.mockResolvedValueOnce([{ id: 'L1', company_id: 'cA', manager_id: 'mgr1', manager_name: 'Stacey', period_from: `${y}-${String(m).padStart(2, '0')}-01`, period_to: `${y}-${String(m).padStart(2, '0')}-${last}`, amount: 99.99, base_amount: 833.25, percentage: 12, basis: 'net_after_platform_fees', paid_on: TODAY, breakdown: [] }])
     renderPage()
-    expect(await screen.findByText(/Paid £99\.99 on/)).toBeInTheDocument()
+    expect(await screen.findByText(/Locked · paid on/)).toBeInTheDocument()
+    expect(screen.getAllByText('£99.99').length).toBeGreaterThan(0)          // the ledger amount (pay run + history), not the live recomputation
     expect(screen.queryByRole('button', { name: 'Mark as paid' })).toBeNull()
     expect(screen.getByText(/now computes/)).toBeInTheDocument()   // 99.99 is not what 12% works out to
+    expect(screen.getByText(/carries into the next open pay run/)).toBeInTheDocument()
     expect(screen.getByText(/Payout history · 1 recorded/)).toBeInTheDocument()
   })
 })
