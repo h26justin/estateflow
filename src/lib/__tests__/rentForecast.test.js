@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { rentMonthSnapshot, recentMonthKeys, monthRate, monthLabel } from '../rentForecast'
+import { evaluateProperty, collectionStats } from '../rentEngine'
 
 // Dashboard "Rent Forecast" / "Rent Received" arithmetic. These lean on the
 // rent engine, so the scenarios here only pin what the snapshot adds on top:
@@ -84,9 +85,61 @@ describe('rentMonthSnapshot', () => {
     const p = prop({ rent_payments: [month('aug', 2026, 8, 'paid', null)] })
     const [, aug] = rentMonthSnapshot([p], { asOf: '2026-09-08' })
     expect(aug.needsBackfill).toBe(1)
-    expect(aug.expected).toBe(600)
+    // Excluded from BOTH due and collected, as in the Rent Tracker: it must
+    // never read as GBP 0 collected and drag the percentage down.
+    expect(aug.expected).toBe(0)
     expect(aug.received).toBe(0)
+    expect(aug.backfillRent).toBe(600)
+    expect(monthRate(aug)).toBeNull()
     expect(aug.byCompany.coA.needsBackfill).toBe(1)
+  })
+
+  it('a backfill month does not dilute the other properties\' rate', () => {
+    const a = prop({ id: 'a', rent_payments: [month('a8', 2026, 8, 'paid', 600)] })
+    const b = prop({ id: 'b', rent_payments: [month('b8', 2026, 8, 'paid', null)] })
+    const [, aug] = rentMonthSnapshot([a, b], { asOf: '2026-09-08' })
+    expect(aug.expected).toBe(600); expect(aug.received).toBe(600); expect(monthRate(aug)).toBe(100)
+  })
+
+  it('caps collected per period so an overpayment cannot hide another tenant\'s arrears', () => {
+    const a = prop({ id: 'a', rent_payments: [month('a8', 2026, 8, 'paid', 900)] })
+    const b = prop({ id: 'b', rent_payments: [month('b8', 2026, 8, 'void')] })
+    const [, aug] = rentMonthSnapshot([a, b], { asOf: '2026-09-08' })
+    expect(aug.expected).toBe(1200); expect(aug.received).toBe(600)
+    expect(aug.outstanding).toBe(600); expect(aug.excess).toBe(300)
+  })
+
+  it('money on a non-chargeable period is shown apart, not as collected rent', () => {
+    const p = prop({
+      non_chargeable_periods: [{ id: 'n1', start_date: '2026-08-01', end_date: '2026-08-31', reason: 'refurbishment' }],
+      rent_payments: [month('aug', 2026, 8, 'paid', 200)],
+    })
+    const [, aug] = rentMonthSnapshot([p], { asOf: '2026-09-08' })
+    expect(aug.expected).toBe(0); expect(aug.received).toBe(0); expect(aug.otherReceived).toBe(200)
+  })
+
+  it('an override to not collectible removes the period from due', () => {
+    const p = prop({
+      rent_payments: [month('aug', 2026, 8, 'void')],
+      rent_overrides: [{ id: 'o1', rent_payment_id: 'aug', state: 'not_collectible', reason: 'agreed', created_at: '2026-09-01T00:00:00Z' }],
+    })
+    const [, aug] = rentMonthSnapshot([p], { asOf: '2026-09-08' })
+    expect(aug.expected).toBe(0); expect(aug.outstanding).toBe(0)
+  })
+
+  it('agrees with the Rent Tracker collection rate for completed months', () => {
+    const props = [
+      prop({ id: 'a', rent_payments: [month('a7', 2026, 7, 'paid', 600), month('a8', 2026, 8, 'partial', 250)] }),
+      prop({ id: 'b', rent_payments: [month('b7', 2026, 7, 'paid', null), month('b8', 2026, 8, 'paid', 800)] }),
+      prop({ id: 'c', rent_payments: [month('c7', 2026, 7, 'void'), month('c8', 2026, 8, 'paid', 600)] }),
+    ]
+    const [, aug, jul] = rentMonthSnapshot(props, { asOf: '2026-09-08' })
+    for (const mo of [jul, aug]) {
+      const mm = String(mo.month).padStart(2, '0')
+      const evals = props.flatMap(p => evaluateProperty(p, { today: '2026-09-08' }))
+      const cs = collectionStats(evals, { from: `2026-${mm}-01`, to: `2026-${mm}-31`, asOf: '2026-09-08' })
+      expect(mo.expected).toBe(cs.due); expect(mo.received).toBe(cs.received)
+    }
   })
 
   it('keeps short-term-let income out of the headline but reports it separately', () => {

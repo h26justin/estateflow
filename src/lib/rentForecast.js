@@ -23,7 +23,7 @@
 // Short-Term Let Income page. It is still returned (stlReceived) so a card can
 // show it as a footnote.
 
-import { evaluateProperty, monthBounds, isoToday, STATE } from './rentEngine'
+import { evaluateProperty, monthBounds, isoToday, STATE, rateContribution } from './rentEngine'
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const round2 = n => Math.round((Number(n) || 0) * 100) / 100
@@ -46,7 +46,7 @@ function emptyMonth(year, month) {
   return {
     year, month, key: `${year}-${month}`, label: monthLabel(year, month),
     expected: 0, received: 0, outstanding: 0,
-    stlReceived: 0, needsBackfill: 0, periods: 0, propertiesWithRows: 0,
+    stlReceived: 0, needsBackfill: 0, backfillRent: 0, excess: 0, otherReceived: 0, periods: 0, propertiesWithRows: 0,
     byCompany: {},
   }
 }
@@ -86,16 +86,30 @@ export function rentMonthSnapshot(properties, { asOf = isoToday(), count = 3, of
         mo.periods++
         const rec = e.received == null ? 0 : e.received
         if (e.state === STATE.STL) { mo.stlReceived = round2(mo.stlReceived + rec); continue }
-        if (e.needsBackfill) { mo.needsBackfill++; cs.needsBackfill++ }
-        // LEGACY (pre go-live) and NOT_COLLECTIBLE periods carry no
-        // expectation; money recorded against them still counts as received.
-        // A period with recorded money but no tenancy already comes back PAID
-        // with expected = received, so it is not double-handled here.
-        const exp = e.expected == null ? 0 : e.expected
-        mo.expected = round2(mo.expected + exp)
-        mo.received = round2(mo.received + rec)
-        cs.expected = round2(cs.expected + exp)
-        cs.received = round2(cs.received + rec)
+        // Paid with no amount: excluded from BOTH due and collected (decision
+        // 2, 2 Sep 2026), the same as the Rent Tracker. Counting its rent as
+        // due with GBP 0 collected is what dragged Jan 2026 to ~57%.
+        if (e.needsBackfill) {
+          mo.needsBackfill++; cs.needsBackfill++
+          mo.backfillRent = round2(mo.backfillRent + (Number(e.expected) || 0))
+          continue
+        }
+        const c = rateContribution(e)
+        if (c) {
+          // Collected is capped at each period's own due, so one tenant's
+          // overpayment never hides another tenant's arrears. The surplus is
+          // reported separately.
+          mo.expected = round2(mo.expected + c.due); mo.received = round2(mo.received + c.received); mo.excess = round2(mo.excess + c.excess)
+          cs.expected = round2(cs.expected + c.due); cs.received = round2(cs.received + c.received)
+        } else if (e.state === STATE.LEGACY) {
+          // Pre go-live months carry no expectation; what came in still shows.
+          mo.received = round2(mo.received + rec); cs.received = round2(cs.received + rec)
+        } else if (rec > 0) {
+          // Money recorded against a period that is not collectible (an
+          // approved non-chargeable period, or overridden). Kept visible but
+          // out of the collection rate.
+          mo.otherReceived = round2(mo.otherReceived + rec)
+        }
       }
     }
   }

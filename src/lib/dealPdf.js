@@ -13,10 +13,11 @@
 import * as api from './api'
 import { loadCdnScript } from './loadCdnScript'
 import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from './dealMetrics'
+import { DEAL_STATUS_LABEL, legalStepText, showsLegalStep } from './dealStages'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
-const STATUS_LABEL   = { analysing:'Analysing', offer_made:'Offer made', under_offer:'Under offer', exchanged:'Exchanged', completed:'Completed', dead:'Dead' }
+const STATUS_LABEL   = DEAL_STATUS_LABEL
 const DEAL_TYPE_LABEL = { btl:'Buy-to-Let', hmo:'HMO', sa:'Serviced Apartment', brrr:'BRRR', flip:'Flip' }
 const PURCHASE_LABEL = { cash:'Cash purchase', mortgage:'Mortgage', bridge:'Bridging finance' }
 const STAGE_LABEL = {
@@ -420,6 +421,17 @@ export async function exportDealPdf({ deal, company }) {
     ['Refurb end', dateGB(deal.refurb_end_date)],
   ].filter(r => r[1])
   if (timeline.length) { sectionTitle('Timeline'); kvRows(timeline) }
+
+  // ── where the purchase is up to ────────────────────────────────────────
+  const progress = [
+    ['Stage', STATUS_LABEL[deal.status] || deal.status],
+    showsLegalStep(deal.status) ? ['Current legal step', legalStepText(deal.legal_step)] : null,
+  ].filter(r => r && r[1])
+  const nextAction = deal.next_action && String(deal.next_action).trim()
+  if (progress.length > 1 || nextAction) {
+    sectionTitle('Where it is up to'); kvRows(progress)
+    if (nextAction) { ensure(6); setFont(9.5, 'normal', MUTED); text('Next action / blocker', M, y); y += 5; paragraph(nextAction) }
+  }
 
   // ── purchase tracker ───────────────────────────────────────────────────
   const enabled = milestones.filter(x => x.is_enabled !== false)

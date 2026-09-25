@@ -17,19 +17,14 @@ import { SignedPhoto } from '../lib/SignedPhoto'
 import { exportDealPdf } from '../lib/dealPdf'
 import CopyDealModal from './modals/CopyDealModal'
 import { summariseCopy } from '../lib/dealCopy'
+import { DEAL_STATUS_CFG, LEGAL_STEPS, LEGAL_STEP_LABEL, legalStepText, showsLegalStep } from '../lib/dealStages'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
 const mono = MONO
 
-const STATUS_CFG = {
-  analysing:  { label:'Analysing',   color:'#4B8FE0' },
-  offer_made: { label:'Offer made',  color:'#E0943A' },
-  under_offer:{ label:'Under offer', color:'#9B59B6' },
-  exchanged:  { label:'Exchanged',   color:'#C8A84B' },
-  completed:  { label:'Completed',   color:'#2ECC8A' },
-  dead:       { label:'Dead',        color:'#E05555' },
-}
+// Stage list lives in src/lib/dealStages.js (shared with the PDF pack).
+const STATUS_CFG = DEAL_STATUS_CFG
 
 const DEAL_TYPES = ['btl','hmo','sa','brrr','flip']
 const DEAL_TYPE_LABELS = { btl:'Buy-to-Let', hmo:'HMO', sa:'Serviced Apartment', brrr:'BRRR', flip:'Flip' }
@@ -666,6 +661,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                           <DocCountBadge counts={counts} T={T}/>
                         </div>
                         {deal.address && <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:8}}>{deal.address}</div>}
+                        <DealProgressLine deal={deal} T={T}/>
                         <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
                           <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Purchase</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(deal.purchase_price)}</div></div>
                           <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Gross yield</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grossYield>=6?T.green:grossYield>=4?T.amber:T.red}}>{fmtPct(grossYield)}</div></div>
@@ -1051,6 +1047,14 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const sectionCard = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
+  // Change a field and save it straight away. The ref is updated first: the
+  // effect that mirrors form into formRef only runs after the re-render, so
+  // set() followed by handleSave() used to save the PREVIOUS stage.
+  const setAndSave = (field, value) => {
+    formRef.current = { ...formRef.current, [field]: value }
+    set(field, value)
+    handleSave()
+  }
   const num = (field) => parseFloat(form[field]) || 0
 
   // ── CALCULATIONS ────────────────────────────────────────────────────────────
@@ -1139,7 +1143,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           ) : showJustSaved ? (
             <span style={{fontFamily:mono,fontSize:10,color:T.green}}>Saved ✓</span>
           ) : null}
-          <select value={form.status} onChange={e=>{set('status',e.target.value);handleSave()}}
+          <select value={form.status} onChange={e=>setAndSave('status',e.target.value)} aria-label="Deal stage"
             style={{fontFamily:mono,fontSize:11,background:sc.color+'22',border:`1px solid ${sc.color}44`,color:sc.color,borderRadius:8,padding:'6px 10px',fontWeight:700}}>
             {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
           </select>
@@ -1185,11 +1189,37 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           }}
           placeholder="Property address (auto-names deal)"
           style={{flex:2,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
-        <select value={form.company_id||''} onChange={e=>{set('company_id',e.target.value||null);handleSave()}}
+        <select value={form.company_id||''} onChange={e=>setAndSave('company_id',e.target.value||null)}
           style={{flex:1,minWidth:160,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
           <option value="">Unassigned company</option>
           {companies.map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
         </select>
+      </div>
+
+      {/* Where the purchase is up to: legal step (conveyancing only, optional)
+          and what is holding it up. Above the tabs so it shows on the
+          Purchase Tracker and everywhere else in the deal. */}
+      <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap',alignItems:'flex-end'}}>
+        {showsLegalStep(form.status) && (
+          <label style={{flex:1,minWidth:220}}>
+            <span style={sect}>Current legal step (optional)</span>
+            <select value={form.legal_step||''} onChange={e=>setAndSave('legal_step',e.target.value||null)} aria-label="Current legal step"
+              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
+              <option value="">Not set</option>
+              {LEGAL_STEPS.map((st,i)=>(<option key={st.key} value={st.key}>{i+1}. {st.label}</option>))}
+            </select>
+          </label>
+        )}
+        {!showsLegalStep(form.status) && form.legal_step && (
+          <div style={{fontFamily:mono,fontSize:10,color:T.muted,alignSelf:'center'}}>Last legal step: {LEGAL_STEP_LABEL[form.legal_step]||form.legal_step}</div>
+        )}
+        <label style={{flex:2,minWidth:260}}>
+          <span style={sect}>Next action / blocker</span>
+          <input value={form.next_action||''} onChange={e=>set('next_action',e.target.value)} onBlur={autoSave}
+            aria-label="Next action or blocker" maxLength={500}
+            placeholder="e.g. Waiting on seller's replies to enquiries"
+            style={{width:'100%',boxSizing:'border-box',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${form.next_action?T.amber+'88':T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
+        </label>
       </div>
 
       {/* Tabs */}
@@ -2422,6 +2452,20 @@ function CompareModal({ deals, companies, onClose }) {
 }
 
 // ── DEAL PIPELINE KANBAN ──────────────────────────────────────────────────────
+// Legal step (while conveyancing) and next action / blocker, for list and
+// board cards. Renders nothing when neither is set.
+function DealProgressLine({ deal, T, compact = false }) {
+  const step = showsLegalStep(deal.status) ? legalStepText(deal.legal_step) : null
+  const next = (deal.next_action || '').trim()
+  if (!step && !next) return null
+  return (
+    <div style={{display:'flex',flexDirection:compact?'column':'row',gap:compact?3:12,flexWrap:'wrap',marginBottom:compact?6:8,fontFamily:mono,fontSize:compact?9:10}}>
+      {step && <span style={{color:DEAL_STATUS_CFG.conveyancing.color}}>Legal: {step}</span>}
+      {next && <span style={{color:T.amber}} title={next}>Next: {compact && next.length > 60 ? next.slice(0, 57) + '…' : next}</span>}
+    </div>
+  )
+}
+
 function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
   // Columns come straight from STATUS_CFG so the board can never drift from
   // the status list again. It previously hard-coded 'offer' and 'complete'
@@ -2482,6 +2526,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                       {co && (
                         <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.gold, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
                       )}
+                      <DealProgressLine deal={deal} T={T} compact/>
                       {/* Price */}
                       {deal.purchase_price > 0 && (
                         <div style={{ fontFamily:MONO, fontSize:11, color:T.text, fontWeight:600, marginBottom:2 }}>{fmt(deal.purchase_price)}</div>
