@@ -1032,7 +1032,7 @@ const ALLOWED_MIME = new Set([
   // emails (statement importer)
   'message/rfc822', 'application/vnd.ms-outlook',
 ])
-function validateUpload(file) {
+export function validateUpload(file) {
   if (!file) throw new Error('No file selected.')
   if (file.size === 0) throw new Error('That file is empty (0 bytes).')
   const isImage = (file.type || '').startsWith('image/')
