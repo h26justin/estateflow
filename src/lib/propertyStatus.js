@@ -12,6 +12,11 @@
 //   short_term_let— operated as short-term accommodation (Airbnb/Lodgify);
 //                   income arrives as booking payments, not monthly rent
 //   notice_given  — tenant has given notice, still paying rent for now
+//   on_rental_market — ready to rent and being marketed; no tenant paying,
+//                   rent not expected. The non-collectible months are held
+//                   as a DATED non_chargeable_periods row (reason on_market)
+//                   opened and closed on the status change, so switching
+//                   status never rewrites earlier months.
 //   vacant        — empty, no tenant lined up
 //   sold          — disposed of, not in the active portfolio
 
@@ -24,6 +29,7 @@ export const PROPERTY_STATUSES = [
   'rented',
   'short_term_let',
   'notice_given',
+  'on_rental_market',
   'vacant',
   'sold',
 ]
@@ -37,6 +43,7 @@ export const PROPERTY_STATUS_LABELS = {
   rented:         'Rented',
   short_term_let: 'Short-Term Let',
   notice_given:   'Notice given',
+  on_rental_market: 'On rental market',
   vacant:       'Vacant',
   sold:         'Sold',
 }
@@ -52,6 +59,7 @@ export const PROPERTY_STATUS_TONE = {
   rented:         'positive',
   short_term_let: 'positive',  // operating and earning via bookings
   notice_given:   'caution',   // still rented but vacancy looming
+  on_rental_market: 'caution', // actively being let: a heads-up, not a problem yet
   vacant:       'negative',
   sold:         'inactive',
 }
@@ -99,6 +107,52 @@ export function isPropertyOccupied(status) {
  */
 export function isPropertyVacant(status) {
   return status === 'vacant'
+}
+
+/**
+ * Is this property ready to rent and being marketed for a tenant?
+ * Kept apart from vacant: it is empty, but it is in hand.
+ */
+export function isPropertyOnMarket(status) {
+  return status === 'on_rental_market'
+}
+
+// ── On Rental Market periods ─────────────────────────────────────────────
+// Status changes into or out of On Rental Market open or close a dated
+// non_chargeable_periods row (reason 'on_market'). Pure planner: returns
+// what to write, the caller writes it.
+//
+//   from, to   previous and new property status (from null = new property)
+//   date       ISO date the change takes effect: first day on the market, or
+//              the tenancy start / first day off the market
+//   periods    the property's existing non_chargeable_periods
+//
+// Returns { create: row|null, close: [{ id, end_date }], remove: [id] }.
+// Closing ends the period the day BEFORE `date`, so rent is expected again
+// from the tenancy start. A period that would end before it began (put on
+// the market and let on the same day) covered nothing and is removed.
+export const ON_MARKET_REASON = 'on_market'
+function dayBefore(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const t = new Date(Date.UTC(y, m - 1, d) - 86400000)
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`
+}
+export function planOnMarketPeriods({ from, to, date, periods = [] }) {
+  const out = { create: null, close: [], remove: [] }
+  if (!date || from === to) return out
+  const open = (periods || []).filter(p => p.reason === ON_MARKET_REASON && !p.end_date)
+  if (to === 'on_rental_market') {
+    if (!open.length) out.create = { reason: ON_MARKET_REASON, start_date: date, end_date: null, notes: 'Opened automatically: status set to On rental market' }
+    return out
+  }
+  if (from === 'on_rental_market') {
+    const end = dayBefore(date)
+    for (const p of open) {
+      if (end < p.start_date) out.remove.push(p.id)
+      else out.close.push({ id: p.id, end_date: end })
+    }
+  }
+  return out
 }
 
 /**

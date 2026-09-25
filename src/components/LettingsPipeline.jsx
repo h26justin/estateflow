@@ -230,11 +230,11 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                 setNewForm(f => ({ ...f, property_id: e.target.value, company_id: prop?.company_id || '', agreed_rent: prop?.rent_pcm || '' }))
               }}>
                 <option value="">Select property…</option>
-                {properties.filter(p => p.status === 'vacant' || p.status === 'refurb').map(p => (
+                {properties.filter(p => p.status === 'on_rental_market' || p.status === 'vacant' || p.status === 'refurb').map(p => (
                   <option key={p.id} value={p.id}>{p.name || p.address}</option>
                 ))}
                 <option disabled>── All properties ──</option>
-                {properties.filter(p => p.status !== 'vacant' && p.status !== 'refurb').map(p => (
+                {properties.filter(p => p.status !== 'on_rental_market' && p.status !== 'vacant' && p.status !== 'refurb').map(p => (
                   <option key={p.id} value={p.id}>{p.name || p.address}</option>
                 ))}
               </select>

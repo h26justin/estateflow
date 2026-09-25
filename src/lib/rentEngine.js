@@ -110,6 +110,7 @@ export function tenancyForPeriod(tenancies, start, end) {
 // the purchase completed must never read as missed rent.
 export const NON_CHARGEABLE_REASONS = Object.freeze([
   { v: 'not_owned',     l: 'Not owned / before ownership' },
+  { v: 'on_market',     l: 'On rental market' },
   { v: 'vacant',        l: 'Vacant' },
   { v: 'refurbishment', l: 'Refurbishment' },
   { v: 'rent_free',     l: 'Agreed rent-free' },
@@ -231,7 +232,8 @@ export function evaluatePeriod(row, ctx) {
     const allStartAfter = recorded.length && recorded.every(t => t.tenancy_start > end)
     const why = allEndedBefore ? 'After tenancy end' : allStartAfter ? 'Before tenancy start' : recorded.length ? 'Between tenancies'
       : property?.status === 'vacant' ? 'Property vacant' : property?.status === 'refurb' ? 'Property under refurbishment'
-      : property?.status === 'let_agreed' ? 'Let agreed, tenancy not started' : 'No tenancy covers this period'
+      : property?.status === 'let_agreed' ? 'Let agreed, tenancy not started'
+      : property?.status === 'on_rental_market' ? 'On rental market, no tenant yet' : 'No tenancy covers this period'
     // Money recorded without a tenancy still counts as received so nothing
     // that was collected disappears.
     if (base.received && base.received > 0 && !activeOverride) {
