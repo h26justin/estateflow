@@ -13,7 +13,7 @@
     "build:spa": "vite build"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.116.0",
+    "@supabase/supabase-js": "^2.117.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^1.0.12",
     "react": "^18.3.1",
@@ -23,7 +23,7 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@vitejs/plugin-react": "^4.3.0",
-    "eslint": "^10.10.0",
+    "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
     "vite": "^5.3.1",
