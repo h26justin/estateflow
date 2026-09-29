@@ -34,7 +34,7 @@ describe('ExternalLoansPage', () => {
     api.fetchExternalLoans.mockResolvedValueOnce([])
     renderPage()
     expect(await screen.findByText('No external loans yet')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('+ New loan'))
+    fireEvent.click(screen.getByRole('button', { name: /New loan/ }))
     fireEvent.change(screen.getByPlaceholderText('Lender name'), { target: { value: 'A Private Lender' } })
     const [amount, rate] = screen.getAllByPlaceholderText('0')
     fireEvent.change(amount, { target: { value: '50000' } })
@@ -51,7 +51,7 @@ describe('ExternalLoansPage', () => {
   it('offers capital + interest or interest only, each with its monthly payment', async () => {
     api.fetchExternalLoans.mockResolvedValueOnce([])
     renderPage()
-    fireEvent.click(await screen.findByText('+ New loan'))
+    fireEvent.click(await screen.findByRole('button', { name: /New loan/ }))
     fireEvent.change(screen.getByPlaceholderText('Lender name'), { target: { value: 'A Lender' } })
     const [amount, rate] = screen.getAllByPlaceholderText('0')
     fireEvent.change(amount, { target: { value: '500000' } })
@@ -79,5 +79,18 @@ describe('ExternalLoansPage', () => {
     fireEvent.click(screen.getByLabelText('Tick off payment 1 as paid'))
     await waitFor(() => expect(api.tickExternalLoanPayment).toHaveBeenCalledWith('L1', expect.objectContaining({ period: 1, amount: 2261.36, due_date: '2099-02-15' })))
     expect(await screen.findByLabelText('Untick payment 1')).toBeChecked()
+  })
+})
+
+describe('ExternalLoansPage PDF', () => {
+  it('downloads a statement for the loan on screen', async () => {
+    const exportLoansPdf = vi.fn(async () => ({ pages: 1 }))
+    vi.doMock('../../lib/loanPdf', () => ({ exportLoansPdf }))
+    api.fetchExternalLoans.mockResolvedValueOnce([loan])
+    window.location.hash = '#/loans/L1'
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Download PDF statement/ }))
+    await waitFor(() => expect(exportLoansPdf).toHaveBeenCalled())
+    expect(exportLoansPdf.mock.calls[0][0].loans.map(l => l.id)).toEqual(['L1'])
   })
 })

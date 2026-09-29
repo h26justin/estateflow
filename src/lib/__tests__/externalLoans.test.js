@@ -151,3 +151,14 @@ describe('validateLoan', () => {
     expect(validateLoan({ ...ok, first_payment_date: '2025-12-01' })).toMatch(/before/)
   })
 })
+
+describe('statementLines', () => {
+  it('labels each line paid, overdue, due or upcoming', async () => {
+    const { statementLines } = await import('../externalLoans')
+    const loan = { ...base, term_months: 4, external_loan_payments: [{ period: 1, amount: 12000, paid_date: '2026-02-20' }] }
+    const lines = statementLines(loan, '2026-03-20')
+    expect(lines.map(l => l.status)).toEqual(['paid', 'overdue', 'due', 'upcoming'])
+    expect(lines[0]).toMatchObject({ paid_date: '2026-02-20', paid_amount: 12000 })
+    expect(lines[1].paid_date).toBeNull()
+  })
+})

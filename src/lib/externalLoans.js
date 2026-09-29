@@ -223,3 +223,20 @@ export function validateLoan(f) {
   if (f?.first_payment_date && isISO(f.first_payment_date) && f.first_payment_date < f.received_date) return 'First payment cannot be before the money came in'
   return null
 }
+
+/**
+ * One line per scheduled payment for a statement (PDF or screen), with a
+ * plain-words status: 'paid' | 'overdue' | 'due' (next unpaid, not late) |
+ * 'upcoming'. Paid lines carry the date and amount actually recorded.
+ */
+export function statementLines(loan, today = todayISO()) {
+  const s = loanStatus(loan, today)
+  const nextPeriod = s.rows.find(r => !r.paid && !r.overdue)?.period ?? null
+  return s.rows.map(r => ({
+    period: r.period, due_date: r.due_date, payment: r.payment, interest: r.interest,
+    principal: r.principal, balance: r.balance,
+    status: r.paid ? 'paid' : r.overdue ? 'overdue' : r.period === nextPeriod ? 'due' : 'upcoming',
+    paid_date: r.paid?.paid_date || null,
+    paid_amount: r.paid ? num(r.paid.amount ?? r.payment) : null,
+  }))
+}
