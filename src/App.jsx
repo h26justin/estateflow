@@ -92,7 +92,7 @@ import { aggregateDeals } from './lib/dealCashflow'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied, planOnMarketPeriods } from './lib/propertyStatus'
 import { propValue } from './lib/propertyValue'
 import { isHoldingCompany } from './lib/companyPnl'
-import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, buildingKeyFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
 import { normaliseQuery, matchesQuery } from './lib/propertySearch'
 import { useScrollRestoreOnClear } from './lib/useScrollRestoreOnClear'
 import { ChromeLogo, ChromeIcon } from './components/Logo'
@@ -4603,7 +4603,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
   const buildingCounts = new Map()
   if (!isCustomSort) {
     for (const p of items) {
-      const tail = buildingTailFromName(p.name)
+      const tail = buildingKeyFromName(p.name)
       if (tail) buildingCounts.set(tail, (buildingCounts.get(tail) || 0) + 1)
     }
   }
@@ -4619,7 +4619,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
     // group-sort without losing the parent's company ordering.
     const tagged = items.map((p, i) => ({
       p, i,
-      tail: buildingTailFromName(p.name) || null,
+      tail: buildingKeyFromName(p.name) || null,
     }))
     // Determine which company each building first appears in so groups
     // stay anchored to their owning company in the company-sorted view.
@@ -4650,10 +4650,10 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
         // Building grouping: header when the *previous* item had a different
         // building tail and this building has 2+ properties in the visible
         // list. Indent the row itself if it belongs to a multi-unit building.
-        const tail = !isCustomSort ? buildingTailFromName(p.name) : null
+        const tail = !isCustomSort ? buildingKeyFromName(p.name) : null
         const buildingSize = tail ? (buildingCounts.get(tail) || 0) : 0
         const inBuilding = buildingSize > 1
-        const prevTail = prev ? buildingTailFromName(prev.name) : null
+        const prevTail = prev ? buildingKeyFromName(prev.name) : null
         const showBuildingHeader = inBuilding && tail !== prevTail
         // Inside a multi-unit building, drop the redundant suffix from the
         // displayed name (so "Room 1, Watts Moses House" → "Room 1").
@@ -4674,7 +4674,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           {showBuildingHeader&&(
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
               <Icon name="building" size={14} color={T.muted}/>
-              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{tail}</span>
+              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{buildingTailFromName(p.name)}</span>
               <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {buildingSize} units</span>
             </div>
           )}
@@ -5111,7 +5111,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                 const indexByTail = new Map()
                 for (const p of cps) {
                   const tail = buildingTailFromName(p.name)
-                  const key = tail || `__solo__${p.id}`
+                  const key = buildingKeyFromName(p.name) || `__solo__${p.id}`
                   if (!indexByTail.has(key)) {
                     indexByTail.set(key, groups.length)
                     groups.push({ key, name: tail, items: [] })

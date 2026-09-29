@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, naturalCompare, groupPropertiesByBuilding, sortPropertiesCanonically } from '../addressUtils'
+import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, buildingKeyFromName, naturalCompare, groupPropertiesByBuilding, sortPropertiesCanonically } from '../addressUtils'
 
 describe('groupKeyForAddress', () => {
   it('returns null for empty input', () => {
@@ -190,5 +190,34 @@ describe('buildingTailFromName', () => {
     expect(buildingTailFromName('')).toBeNull()
     expect(buildingTailFromName(null)).toBeNull()
     expect(buildingTailFromName('Foo,   ')).toBeNull()  // comma with whitespace tail
+  })
+})
+
+describe('buildingKeyFromName', () => {
+  it('normalises case, punctuation and spacing in the building tail', () => {
+    expect(buildingKeyFromName('Room 2A, 10 Elms West')).toBe('10 elms west')
+    expect(buildingKeyFromName('4A, 10, Elms West')).toBe('10 elms west')
+    expect(buildingKeyFromName('Flat 1, 10 elms  west.')).toBe('10 elms west')
+  })
+
+  it('keeps different buildings apart', () => {
+    expect(buildingKeyFromName('Flat 1, 2 Park Road')).not.toBe(buildingKeyFromName('Flat 1, 22 Park Road'))
+  })
+
+  it('returns null for standalone names', () => {
+    expect(buildingKeyFromName('13 Lumley Street')).toBeNull()
+    expect(buildingKeyFromName('Foo, ,.')).toBeNull()
+    expect(buildingKeyFromName(null)).toBeNull()
+  })
+
+  it('groups a unit with a stray comma under its building', () => {
+    const groups = groupPropertiesByBuilding([
+      { id: 'a', name: 'Room 3B, 10 Elms West' },
+      { id: 'b', name: '4A, 10, Elms West' },
+      { id: 'c', name: 'Room 4B, 10 Elms West' },
+    ])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].items.map(p => p.id)).toEqual(['b', 'a', 'c'])
+    expect(groups[0].tail).toBe('10 Elms West')
   })
 })
