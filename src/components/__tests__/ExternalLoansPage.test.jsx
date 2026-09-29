@@ -48,6 +48,29 @@ describe('ExternalLoansPage', () => {
     expect(api.createExternalLoan.mock.calls[0][0]).toMatchObject({ company_id: 'c1', lender_name: 'A Private Lender', principal: 50000, annual_rate: 8, term_months: 24 })
   })
 
+  it('offers capital + interest or interest only, each with its monthly payment', async () => {
+    api.fetchExternalLoans.mockResolvedValueOnce([])
+    renderPage()
+    fireEvent.click(await screen.findByText('+ New loan'))
+    fireEvent.change(screen.getByPlaceholderText('Lender name'), { target: { value: 'A Lender' } })
+    const [amount, rate] = screen.getAllByPlaceholderText('0')
+    fireEvent.change(amount, { target: { value: '500000' } })
+    fireEvent.change(rate, { target: { value: '3' } })
+    fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '6' } }) // 6 years
+    const radios = screen.getAllByRole('radio')
+    expect(radios.map(r => r.textContent)).toEqual([
+      expect.stringContaining('Capital + interest'), expect.stringContaining('Interest only'),
+    ])
+    expect(radios[0]).toHaveTextContent('£7,596.84 a month')
+    expect(radios[1]).toHaveTextContent('£1,250.00 a month')
+    expect(radios[0]).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(radios[1])
+    expect(screen.getByRole('radio', { name: /Interest only/ })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByText('Add loan'))
+    await waitFor(() => expect(api.createExternalLoan).toHaveBeenCalled())
+    expect(api.createExternalLoan.mock.calls[0][0]).toMatchObject({ repayment_type: 'interest_only', term_months: 72, principal: 500000 })
+  })
+
   it('ticks a month off from the schedule', async () => {
     api.fetchExternalLoans.mockResolvedValueOnce([loan])
     window.location.hash = '#/loans/L1'
