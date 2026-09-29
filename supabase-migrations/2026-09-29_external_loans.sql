@@ -112,9 +112,15 @@ revoke all on public.external_loans from anon;
 revoke all on public.external_loan_payments from anon;
 grant select, insert, update on public.external_loans to authenticated;
 grant select, insert, update on public.external_loan_payments to authenticated;
+-- Supabase default privileges hand authenticated DELETE/TRUNCATE on new
+-- tables; take them back so soft delete is the only way out.
+revoke delete, truncate, references, trigger on public.external_loans from authenticated;
+revoke delete, truncate, references, trigger on public.external_loan_payments from authenticated;
 
 notify pgrst, 'reload schema';
 
 -- Verification:
 -- select relname, relrowsecurity from pg_class where relname in ('external_loans','external_loan_payments');
 -- select tablename, policyname, cmd from pg_policies where tablename like 'external_loan%' order by 1, 3;
+-- Applied to production 2026-09-29 (external_loans + external_loans_tighten_grants);
+-- verified: RLS on, 6 policies, authenticated = INSERT,SELECT,UPDATE only, anon none.
