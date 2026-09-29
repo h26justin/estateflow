@@ -73,6 +73,23 @@ export function buildingTailFromName(name) {
 }
 
 /**
+ * Grouping key for a property's building: the name's building tail with
+ * case, punctuation and spacing normalised, so a typo in one unit's name
+ * doesn't split it off from the rest of its building. Group on this key;
+ * display the tail from buildingTailFromName.
+ *
+ *   "Room 2A, 10 Elms West"   → "10 elms west"
+ *   "4A, 10, Elms West"       → "10 elms west"  (stray comma)
+ *   "Flat 1, 10 elms  west."  → "10 elms west"
+ *   "13 Lumley Street"        → null  (no comma)
+ */
+export function buildingKeyFromName(name) {
+  const tail = buildingTailFromName(name)
+  if (!tail) return null
+  return tail.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() || null
+}
+
+/**
  * Group a list of properties by their building tail. Standalone
  * properties (no comma in the name) become single-item groups; properties
  * that share a tail (e.g. all the "Room N, Watts Moses House") become
@@ -103,7 +120,7 @@ export function groupPropertiesByBuilding(items) {
     const tail = buildingTailFromName(p?.name)
     // Solo properties each get their own group keyed by a unique id so they
     // never merge with other solos.
-    const key = tail || `__solo__${p?.id ?? Math.random()}`
+    const key = buildingKeyFromName(p?.name) || `__solo__${p?.id ?? Math.random()}`
     if (!indexByKey.has(key)) {
       indexByKey.set(key, groups.length)
       groups.push({ tail, name: tail, items: [] })
