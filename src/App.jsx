@@ -73,6 +73,7 @@ const StatementImporter = lazyNamed(() => import('./components/StatementImporter
 // Standalone rental-statement / bank reconciliation audit register (2026-09).
 // Reads and writes only its own statement_audit_* tables.
 const StatementAuditPage = lazy(() => import('./components/StatementAuditPage'))
+const ExternalLoansPage = lazy(() => import('./components/ExternalLoansPage'))
 const DataImporter = lazyNamed(() => import('./components/DataImporter'), 'DataImporter')
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
@@ -1194,7 +1195,7 @@ export default function App() {
       // Unknown hashes (e.g. a stray #pricing from a marketing/blog link
       // opened while signed in) must not become a view — an unmatched view
       // key renders an empty main area. Fall back to the dashboard.
-      const KNOWN_VIEWS = ['dashboard','properties','rent','stl','deals','refurbs','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import','import-data','statement-audit']
+      const KNOWN_VIEWS = ['dashboard','properties','rent','stl','deals','refurbs','loans','compliance','reports','mtd','autopilot','renters-rights','settings','daytracker','feedback','detail','import','import-data','statement-audit']
       return { view: KNOWN_VIEWS.includes(parts[0]) ? parts[0] : 'dashboard' }
     }
 
@@ -1295,6 +1296,8 @@ export default function App() {
     if (view === 'deals' && /^#\/deals(\/|$)/.test(window.location.hash)) return
     // RefurbsPage owns #/refurbs/list|board|payments and #/refurbs/project/<id>.
     if (view === 'refurbs' && /^#\/refurbs(\/|$)/.test(window.location.hash)) return
+    // ExternalLoansPage owns #/loans/new and #/loans/<id>.
+    if (view === 'loans' && /^#\/loans(\/|$)/.test(window.location.hash)) return
     if (window.location.hash !== target) {
       // Push a history entry only when the *place* changes (view, property,
       // report). Intra-page tab flips (detailTab, portfolioTab) REPLACE the
@@ -3843,6 +3846,7 @@ export default function App() {
           {view==='rent'&&<RentTrackerOverview companies={companies} properties={activeProperties} fmt={fmt} openDetail={openDetail} onDayTracker={()=>setView('daytracker')} yieldBasis={yieldBasis} onRefresh={refreshData} showToast={showToast} canSeed={cid=>canDo(permissionsMap, cid, 'edit_tenancies') || devModeActive} canEditRent={cid=>canDo(permissionsMap, cid, 'edit_rent') || devModeActive}/>}
           {view==='stl'&&<ShortTermLetIncomePage companies={companies} properties={activeProperties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} openDetail={openDetail} onPropertyUpdated={(id, patch)=>setProperties(prev=>prev.map(p=>p.id===id?{...p,...patch}:p))}/>}
           {view==='refurbs'&&<RefurbsPage user={user} companies={companies} properties={activeProperties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} openDetail={openDetail} onPropertyPatch={(id, patch)=>setProperties(prev=>prev.map(p=>p.id===id?{...p,...patch}:p))}/>}
+          {view==='loans'&&<ExternalLoansPage companies={companies} properties={activeProperties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} openDetail={openDetail}/>}
           {view==='daytracker'&&<DayTrackerPage companies={companies} properties={activeProperties} setProperties={setProperties} showToast={showToast} onBack={()=>setView('rent')}
             canEdit={companyId => canDo(permissionsMap, companyId, 'edit_rent') || devModeActive}/>}
           {view==='settings'&&<SettingsPage companies={companies} setCompanies={setCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} user={user} showToast={showToast} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} darkMode={darkMode} setDarkMode={setDarkMode} userNavPrefs={userNavPrefs} setUserNavPrefs={setUserNavPrefs} yieldBasis={yieldBasis} setYieldBasis={setYieldBasis} accountType={accountType} setAccountType={setAccountType} properties={activeProperties} activeFlags={activeFlags} companySubs={companySubs} activeCompanyId={activeCoTab||null} permissionsMap={permissionsMap} devModeActive={devModeActive}/>}
