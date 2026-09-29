@@ -9,7 +9,8 @@
 //
 // URL: #/loans | #/loans/new | #/loans/<id>
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, card as cardStyle, inp, monoLabel, statusPill } from '../lib/styles'
+import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { useIsMobile } from '../lib/useWindowSize'
@@ -33,10 +34,15 @@ const termLabel = m => {
   return `${n} mo`
 }
 
-const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '7px 9px', outline: 'none', width: '100%', boxSizing: 'border-box' })
+// Shared house recipes (lib/styles + the .btn classes in App.jsx), so this
+// page reads like Compliance, Short-Term Let Income and Reports.
+const inputStyle = T => inp(T)
+// Pill buttons as on the Short-Term Let Income page: gold = primary action
+// (ink text on gold), ghost = secondary, danger = destructive.
 const btn = (T, kind = 'ghost') => ({
-  fontFamily: mono, fontSize: 11, fontWeight: kind === 'gold' ? 700 : 500, padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
-  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#fff' : kind === 'danger' ? T.red : T.muted,
+  fontFamily: mono, fontSize: 11, fontWeight: kind === 'gold' ? 700 : 500, padding: '7px 14px', borderRadius: 20, cursor: 'pointer',
+  display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', transition: 'all 0.18s',
+  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#1C2830' : kind === 'danger' ? T.red : T.text,
   border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`,
 })
 // The form offers two ways to repay. Rolled-up stays in the engine but only
@@ -46,7 +52,9 @@ const REPAYMENT_CHOICES = [
   { value: 'interest_only', title: 'Interest only',      sub: 'Capital repaid at the end' },
   { value: 'rolled_up',     title: 'Rolled up',          sub: 'All repaid at the end' },
 ]
-const card = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 16 })
+const card = T => cardStyle(T)
+const thStyle = T => ({ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', fontWeight: 400 })
+const tdStyle = T => ({ fontFamily: mono, fontSize: 12, color: T.text, padding: '9px 10px', borderBottom: `1px solid ${T.border}`, verticalAlign: 'middle', fontVariantNumeric: 'tabular-nums' })
 
 function CoChip({ company, T }) {
   if (!company) return null
@@ -54,24 +62,27 @@ function CoChip({ company, T }) {
   return <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '22', color: col, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
-function StatusChip({ status, T }) {
-  const cfg = { active: ['Running', T.green], overdue: ['Overdue', T.red], repaid: ['Repaid', T.muted] }[status] || ['—', T.muted]
-  return <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: cfg[1] + '22', color: cfg[1], border: `1px solid ${cfg[1]}44`, whiteSpace: 'nowrap' }}>{cfg[0]}</span>
+// Status pills use the redesign's semantic palette (always with a label).
+function StatusChip({ status }) {
+  const { darkMode } = useTheme()
+  const [label, key] = { active: ['Running', 'ok'], overdue: ['Overdue', 'bad'], repaid: ['Repaid', 'void'] }[status] || ['-', 'void']
+  return <span style={{ ...statusPill(key, darkMode), fontSize: 10, padding: '2px 9px' }}>{label}</span>
 }
 
-function Stat({ label, value, color, sub, T }) {
-  return <div style={{ ...card(T), padding: '12px 14px' }}>
-    <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>{label}</div>
-    <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: color || T.text, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-    {sub && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>{sub}</div>}
+// KPI tile, same recipe as the Short-Term Let Income page.
+function Stat({ label, value, color, sub, T, isMobile }) {
+  return <div style={{ ...card(T), padding: isMobile ? '12px 14px' : '16px 18px', borderTop: color ? `3px solid ${color}` : undefined }}>
+    <div style={{ ...monoLabel(T), marginBottom: 6 }}>{label}</div>
+    <div style={{ fontFamily: mono, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: color || T.text, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    {sub && <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 4 }}>{sub}</div>}
   </div>
 }
 
 function Field({ label, hint, children, T }) {
   return <label style={{ display: 'block' }}>
-    <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted, marginBottom: 5 }}>{label}</div>
+    <span style={monoLabel(T)}>{label}</span>
     {children}
-    {hint && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 4 }}>{hint}</div>}
+    {hint && <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 4 }}>{hint}</div>}
   </label>
 }
 
@@ -112,7 +123,7 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
   const ist = inputStyle(T)
   return <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1.6fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
     <div style={{ ...card(T), display: 'grid', gap: 14 }}>
-      <div style={{ fontSize: 16, fontWeight: 700 }}>{initial?.id ? 'Edit loan' : 'New external loan'}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>{initial?.id ? 'Edit loan' : 'New external loan'}</div>
       <div style={grid}>
         <Field label="Who is it from" T={T}>
           <input style={ist} value={f.lender_name} onChange={e => set('lender_name', e.target.value)} placeholder="Lender name" autoFocus />
@@ -217,7 +228,7 @@ function ScheduleRow({ row, canEdit, onTick, onUntick, onUpdateTick, T, isMobile
   const [busy, setBusy] = useState(false)
   const paid = !!row.paid
   const tone = paid ? T.green : row.overdue ? T.red : T.text
-  const td = { padding: '8px 10px', borderTop: `1px solid ${T.border}`, fontFamily: mono, fontSize: 12, fontVariantNumeric: 'tabular-nums', verticalAlign: 'middle' }
+  const td = tdStyle(T)
 
   async function toggle() {
     if (!canEdit || busy) return
@@ -260,22 +271,22 @@ function ScheduleRow({ row, canEdit, onTick, onUntick, onUpdateTick, T, isMobile
   </tr>
 }
 
-function LoanDetail({ loan, company, property, canEdit, onBack, onEdit, onDelete, onTick, onUntick, onUpdateTick, openDetail, T, isMobile }) {
+function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onBack, onEdit, onDelete, onTick, onUntick, onUpdateTick, openDetail, T, isMobile }) {
   const s = useMemo(() => loanStatus(loan), [loan])
   const [showAll, setShowAll] = useState(false)
   // Long schedules: show everything up to the next unpaid row plus a year.
   const cutoff = s.nextDue ? s.nextDue.period + 11 : s.periods
   const rows = showAll ? s.rows : s.rows.filter(r => r.period <= cutoff || !r.paid && r.overdue)
-  const th = { padding: '8px 10px', fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, textAlign: 'left', fontWeight: 600 }
+  const th = thStyle(T)
   const pct = s.periods ? Math.round(s.paidCount / s.periods * 100) : 0
 
   return <div className="fade">
-    <button onClick={onBack} style={{ ...btn(T), marginBottom: 12 }}>← All loans</button>
+    <button onClick={onBack} className="btn btn-ghost" style={{ ...btn(T), marginBottom: 14 }}><Icon name="chevron-left" size={13} /> All loans</button>
     <div style={{ ...card(T), marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{loan.lender_name}</h2>
+            <h2 style={{ margin: 0, fontSize: isMobile ? 18 : 22, fontWeight: 700, letterSpacing: '-0.02em' }}>{loan.lender_name}</h2>
             <StatusChip status={s.status} T={T} />
             <CoChip company={company} T={T} />
           </div>
@@ -289,17 +300,20 @@ function LoanDetail({ loan, company, property, canEdit, onBack, onEdit, onDelete
           {loan.purpose && <div style={{ fontSize: 13, marginTop: 6 }}>{loan.purpose}</div>}
           {loan.notes && <div style={{ fontSize: 12, color: T.muted, marginTop: 4, whiteSpace: 'pre-wrap' }}>{loan.notes}</div>}
         </div>
-        {canEdit && <div style={{ display: 'flex', gap: 8 }}>
-          <button style={btn(T)} onClick={onEdit}>Edit</button>
-          <button style={btn(T, 'danger')} onClick={onDelete}>Delete</button>
-        </div>}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-gold" style={btn(T, 'gold')} onClick={onDownload} disabled={pdfBusy} title="Download a statement to send to the lender: loan terms, payments made and still to come">
+            <Icon name="download" size={13} /> {pdfBusy ? 'Preparing PDF…' : 'Download PDF statement'}
+          </button>
+          {canEdit && <button className="btn btn-ghost" style={btn(T)} onClick={onEdit}>Edit</button>}
+          {canEdit && <button className="btn" style={btn(T, 'danger')} onClick={onDelete}>Delete</button>}
+        </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 10, marginTop: 14 }}>
-        <Stat T={T} label={loan.repayment_type === 'rolled_up' ? 'Repaid at end' : 'Monthly payment'} value={fmtP(loan.repayment_type === 'rolled_up' ? s.totalRepayable : s.regularPayment)} color={T.gold} />
-        <Stat T={T} label="Capital outstanding" value={fmt(s.outstanding)} />
-        <Stat T={T} label="Paid so far" value={fmt(s.paidToDate)} color={T.green} sub={`${s.paidCount} of ${s.periods} payments`} />
-        <Stat T={T} label="Total interest" value={fmt(s.totalInterest)} sub={`${fmt(s.totalRepayable)} to repay in all`} />
-        <Stat T={T} label={s.overdueCount ? 'Overdue' : 'Next due'} value={s.overdueCount ? fmtP(s.overdueAmount) : s.nextDue ? fmtDate(s.nextDue.due_date) : 'Repaid'}
+        <Stat T={T} isMobile={isMobile} label={loan.repayment_type === 'rolled_up' ? 'Repaid at end' : 'Monthly payment'} value={fmtP(loan.repayment_type === 'rolled_up' ? s.totalRepayable : s.regularPayment)} color={T.gold} />
+        <Stat T={T} isMobile={isMobile} label="Capital outstanding" value={fmt(s.outstanding)} />
+        <Stat T={T} isMobile={isMobile} label="Paid so far" value={fmt(s.paidToDate)} color={T.green} sub={`${s.paidCount} of ${s.periods} payments`} />
+        <Stat T={T} isMobile={isMobile} label="Total interest" value={fmt(s.totalInterest)} sub={`${fmt(s.totalRepayable)} to repay in all`} />
+        <Stat T={T} isMobile={isMobile} label={s.overdueCount ? 'Overdue' : 'Next due'} value={s.overdueCount ? fmtP(s.overdueAmount) : s.nextDue ? fmtDate(s.nextDue.due_date) : 'Repaid'}
           color={s.overdueCount ? T.red : undefined} sub={s.overdueCount ? `${s.overdueCount} payment${s.overdueCount === 1 ? '' : 's'}` : s.nextDue ? fmtP(s.nextDue.payment) : null} />
       </div>
       <div style={{ height: 6, background: T.bg, borderRadius: 3, overflow: 'hidden', marginTop: 14, border: `1px solid ${T.border}` }}>
@@ -328,7 +342,7 @@ function LoanDetail({ loan, company, property, canEdit, onBack, onEdit, onDelete
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────
-export default function ExternalLoansPage({ companies = [], properties = [], permissionsMap, devModeActive = false, showToast, openDetail }) {
+export default function ExternalLoansPage({ companies = [], companySettings = {}, properties = [], permissionsMap, devModeActive = false, showToast, openDetail }) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
   const confirmDialog = useConfirm()
@@ -351,6 +365,20 @@ export default function ExternalLoansPage({ companies = [], properties = [], per
   const [loading, setLoading] = useState(true)
   const [coFilter, setCoFilter] = useState('all')
   const [showRepaid, setShowRepaid] = useState(false)
+  const [pdfBusy, setPdfBusy] = useState(null) // 'one' | 'all' | null
+
+  // The PDF module (and jsPDF behind it) loads only when first used.
+  async function downloadPdf(list, which = 'all') {
+    setPdfBusy(which)
+    try {
+      const { exportLoansPdf } = await import('../lib/loanPdf')
+      await exportLoansPdf({ loans: list, companies, companySettings, properties, companyId: coFilter === 'all' ? null : coFilter })
+    } catch (e) {
+      console.error('loan PDF failed', e)
+      showToast?.('Could not create the PDF. ' + (e?.message || ''), 'error')
+    }
+    setPdfBusy(null)
+  }
 
   useEffect(() => {
     let live = true
@@ -434,12 +462,20 @@ export default function ExternalLoansPage({ companies = [], properties = [], per
 
   const pageHead = <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
     <div>
-      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>External Loans</h1>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
+      <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>External Loans</h1>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
         {summary.active} running · {fmt(summary.outstanding)} capital outstanding · {fmt(summary.monthlyOutgoing)} a month
       </div>
     </div>
-    {editableCompanies.length > 0 && mode === 'list' && <button onClick={() => setMode('new')} style={{ ...btn(T, 'gold'), padding: '8px 16px', fontSize: 12 }}>+ New loan</button>}
+    {mode === 'list' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      {filtered.length > 0 && <button onClick={() => downloadPdf(filtered)} disabled={!!pdfBusy} className="btn btn-ghost" title="Download a PDF of every loan shown, with each loan's payment schedule"
+        style={{ ...btn(T), padding: '8px 14px' }}>
+        <Icon name="download" size={13} /> {pdfBusy === 'all' ? 'Preparing PDF…' : 'Download PDF'}
+      </button>}
+      {editableCompanies.length > 0 && <button onClick={() => setMode('new')} className="btn btn-gold" style={{ ...btn(T, 'gold'), fontSize: 12, padding: '8px 16px' }}>
+        <Icon name="plus" size={13} /> New loan
+      </button>}
+    </div>}
   </div>
 
   if (mode === 'new') return <div className="fade">{pageHead}
@@ -459,11 +495,11 @@ export default function ExternalLoansPage({ companies = [], properties = [], per
   if (mode === 'view' && selected) return <div>{pageHead}
     <LoanDetail loan={selected} company={coById.get(selected.company_id)} property={propById.get(selected.property_id)} canEdit={canEditFor(selected.company_id)}
       onBack={() => { setSelectedId(null); setMode('list') }} onEdit={() => setMode('edit')} onDelete={handleDelete}
-      onTick={tickFor(selected)} onUntick={untickFor(selected)} onUpdateTick={updateTickFor(selected)} openDetail={openDetail} T={T} isMobile={isMobile} />
+      onDownload={() => downloadPdf([selected], 'one')} pdfBusy={pdfBusy === 'one'} onTick={tickFor(selected)} onUntick={untickFor(selected)} onUpdateTick={updateTickFor(selected)} openDetail={openDetail} T={T} isMobile={isMobile} />
   </div>
 
-  const th = { padding: '8px 12px', fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, textAlign: 'left', fontWeight: 600 }
-  const td = { padding: '10px 12px', borderTop: `1px solid ${T.border}`, fontFamily: mono, fontSize: 12, fontVariantNumeric: 'tabular-nums' }
+  const th = thStyle(T)
+  const td = tdStyle(T)
 
   return <div className="fade">
     {pageHead}
@@ -479,19 +515,20 @@ export default function ExternalLoansPage({ companies = [], properties = [], per
     </div>}
 
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
-      <Stat T={T} label="Loans running" value={summary.active} sub={`${fmt(summary.borrowed)} borrowed`} />
-      <Stat T={T} label="Capital outstanding" value={fmt(summary.outstanding)} color={T.gold} />
-      <Stat T={T} label="Monthly payments" value={fmt(summary.monthlyOutgoing)} />
-      <Stat T={T} label="Due next 30 days" value={fmt(summary.dueNext30)} />
-      <Stat T={T} label="Overdue" value={summary.overdueCount ? fmt(summary.overdueAmount) : 'None'} color={summary.overdueCount ? T.red : T.green}
+      <Stat T={T} isMobile={isMobile} label="Loans running" value={summary.active} sub={`${fmt(summary.borrowed)} borrowed`} />
+      <Stat T={T} isMobile={isMobile} label="Capital outstanding" value={fmt(summary.outstanding)} color={T.gold} />
+      <Stat T={T} isMobile={isMobile} label="Monthly payments" value={fmt(summary.monthlyOutgoing)} />
+      <Stat T={T} isMobile={isMobile} label="Due next 30 days" value={fmt(summary.dueNext30)} />
+      <Stat T={T} isMobile={isMobile} label="Overdue" value={summary.overdueCount ? fmt(summary.overdueAmount) : 'None'} color={summary.overdueCount ? T.red : T.green}
         sub={summary.overdueCount ? `${summary.overdueCount} payment${summary.overdueCount === 1 ? '' : 's'} not ticked` : null} />
     </div>
 
     {loading ? <div style={{ ...card(T), textAlign: 'center', color: T.muted, fontFamily: mono, fontSize: 12 }}>Loading…</div>
-    : loans.length === 0 ? <div style={{ ...card(T), textAlign: 'center', padding: 36 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>No external loans yet</div>
-      <div style={{ fontSize: 13, color: T.muted, marginBottom: 14 }}>Add a loan from a private lender, director or family member. Properly works out the monthly payment and you tick each one off once it is paid.</div>
-      {editableCompanies.length > 0 && <button onClick={() => setMode('new')} style={{ ...btn(T, 'gold'), padding: '8px 16px', fontSize: 12 }}>+ Add your first loan</button>}
+    : loans.length === 0 ? <div style={{ ...card(T), textAlign: 'center', padding: '40px 20px' }}>
+      <Icon name="wallet" size={28} color={T.faint} />
+      <div style={{ fontFamily: mono, fontSize: 13, color: T.text, marginTop: 10, fontWeight: 600 }}>No external loans yet</div>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, maxWidth: 460, margin: '6px auto 14px' }}>Add a loan from a private lender, director or family member. Properly works out the monthly payment and you tick each one off once it is paid.</div>
+      {editableCompanies.length > 0 && <button onClick={() => setMode('new')} className="btn btn-gold" style={{ ...btn(T, 'gold'), fontSize: 12, padding: '8px 16px' }}><Icon name="plus" size={13} /> Add your first loan</button>}
     </div>
     : <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,2fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
       <div style={{ ...card(T), padding: 0, overflowX: 'auto' }}>
