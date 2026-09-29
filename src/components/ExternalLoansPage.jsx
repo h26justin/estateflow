@@ -39,6 +39,13 @@ const btn = (T, kind = 'ghost') => ({
   background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#fff' : kind === 'danger' ? T.red : T.muted,
   border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`,
 })
+// The form offers two ways to repay. Rolled-up stays in the engine but only
+// appears here when editing a loan that already uses it.
+const REPAYMENT_CHOICES = [
+  { value: 'repayment',     title: 'Capital + interest', sub: 'Cleared by the last payment' },
+  { value: 'interest_only', title: 'Interest only',      sub: 'Capital repaid at the end' },
+  { value: 'rolled_up',     title: 'Rolled up',          sub: 'All repaid at the end' },
+]
 const card = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 16 })
 
 function CoChip({ company, T }) {
@@ -145,11 +152,22 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
         <Field label="Interest rate (per year)" T={T}>
           <MoneyInput suffix="%" value={f.annual_rate} onChange={v => set('annual_rate', v)} style={ist} placeholder="0" />
         </Field>
-        <Field label="How it is repaid" T={T}>
-          <select style={ist} value={f.repayment_type} onChange={e => set('repayment_type', e.target.value)}>
-            {REPAYMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </Field>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <Field label="How it is repaid" T={T}>
+            <div role="radiogroup" aria-label="How it is repaid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {REPAYMENT_CHOICES.filter(c => c.value !== 'rolled_up' || f.repayment_type === 'rolled_up').map(c => {
+                const on = f.repayment_type === c.value
+                const pay = monthlyPayment({ ...draft, repayment_type: c.value })
+                return <button key={c.value} type="button" role="radio" aria-checked={on} onClick={() => set('repayment_type', c.value)}
+                  style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', background: on ? T.gold + '1f' : T.bg, border: `1.5px solid ${on ? T.gold : T.border}`, color: T.text }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{c.title}</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>{c.sub}</div>
+                  {c.value !== 'rolled_up' && <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: on ? T.gold : T.muted, marginTop: 6 }}>{pay > 0 ? `${fmtP(pay)} a month` : '—'}</div>}
+                </button>
+              })}
+            </div>
+          </Field>
+        </div>
         <Field label="First payment due" hint="Defaults to one month after the money came in" T={T}>
           <input type="date" style={ist} value={f.first_payment_date || ''} onChange={e => set('first_payment_date', e.target.value)} />
         </Field>
