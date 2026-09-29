@@ -37,6 +37,11 @@ export const ALL_NAV = [
   // includes it for new accounts). mobileRank 8 so it never displaces an
   // existing bottom-bar slot.
   { key: 'stl',            label: 'Short-Term Let Income', icon: 'bed',   short: 'STL',       required: false, group: 'Money',       mobileRank: 8 },
+  // External Loans (2026-09): money lent into a company from outside the
+  // mortgage book, with the monthly schedule and a tick per payment. In
+  // AUTO_ENABLE_NAV_KEYS so existing accounts get it once. mobileRank 10 so
+  // it never displaces an existing bottom-bar slot.
+  { key: 'loans',          label: 'External Loans', icon: 'wallet',       short: 'Loans',     required: false, group: 'Money',       mobileRank: 10 },
   { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
   { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 4 },
   // 'compliance' replaced the old top-level 'insurance' entry (2026-08) —
@@ -59,7 +64,7 @@ export const ALL_NAV = [
 // 'stl' added 2026-09-15: Short-Term Let Income was left off this list, so
 // accounts that saved their navigation before it existed saw the link during
 // load (the default list has it) and lost it once their stored prefs arrived.
-export const AUTO_ENABLE_NAV_KEYS = ['refurbs', 'stl']
+export const AUTO_ENABLE_NAV_KEYS = ['refurbs', 'stl', 'loans']
 export const navSeenMarker = key => `seen:${key}`
 
 // The one default list, used both as the runtime pref fallback and as the
