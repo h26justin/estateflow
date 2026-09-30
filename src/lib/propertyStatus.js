@@ -117,6 +117,46 @@ export function isPropertyOnMarket(status) {
   return status === 'on_rental_market'
 }
 
+/**
+ * Can this property be let right now?
+ *
+ * purchased and refurb units aren't ready for a tenant, and sold ones are
+ * gone, so none of them belong in an occupancy denominator. Everything else
+ * is lettable: occupied, or empty (let agreed, on the market, vacant).
+ *
+ * Used by: occupancy %.
+ */
+export function isPropertyLettable(status) {
+  return status !== 'purchased' && status !== 'refurb' && status !== 'sold'
+}
+
+/**
+ * Occupancy over lettable units, with the empty lettable units split out so
+ * the headline % can be read alongside what's let agreed / on the market.
+ * One summary for the dashboard card and the Occupancy report so the two
+ * can never disagree.
+ */
+export function occupancySummary(props = []) {
+  const count = s => props.filter(p => p.status === s).length
+  const lettable = props.filter(p => isPropertyLettable(p.status)).length
+  const occupied = props.filter(p => isPropertyOccupied(p.status)).length
+  return {
+    total: props.length,
+    lettable,
+    occupied,
+    rate: lettable > 0 ? (occupied / lettable) * 100 : 0,
+    rented: count('rented'),
+    shortTermLet: count('short_term_let'),
+    noticeGiven: count('notice_given'),
+    letAgreed: count('let_agreed'),
+    onMarket: count('on_rental_market'),
+    vacant: count('vacant'),
+    notLettable: props.length - lettable,
+    refurb: count('refurb'),
+    purchased: count('purchased'),
+  }
+}
+
 // ── On Rental Market periods ─────────────────────────────────────────────
 // Status changes into or out of On Rental Market open or close a dated
 // non_chargeable_periods row (reason 'on_market'). Pure planner: returns

@@ -6,7 +6,7 @@ import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
-import { isPropertyEarningRent, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
+import { isPropertyEarningRent, isPropertyOccupied, isPropertyLettable, occupancySummary, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
 import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
@@ -1023,8 +1023,8 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Yield Comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
     }
     case 'occupancy': {
-      const rented=filtProps.filter(p=>isPropertyEarningRent(p.status)).length,vacant=filtProps.filter(p=>p.status==='vacant').length,rate=filtProps.length>0?(rented/filtProps.length)*100:0
-      return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(rate)],['Rented',rented.toString()],['Vacant',vacant.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,p.status||'—',fmt(p.rent_pcm),isPropertyEarningRent(p.status)?'Yes':'No']) }
+      const o=occupancySummary(filtProps)
+      return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(o.rate)],['Occupied',`${o.occupied} of ${o.lettable} lettable`],['Let agreed',o.letAgreed.toString()],['On rental market',o.onMarket.toString()],['Vacant',o.vacant.toString()],['Not lettable (refurb/purchased)',o.notLettable.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,PROPERTY_STATUS_LABELS[p.status]||p.status||'—',fmt(p.rent_pcm),!isPropertyLettable(p.status)?'Not lettable':isPropertyOccupied(p.status)?'Yes':'No']) }
     }
     case 'rent_collect': {
       const d = rentCollectionData(filtProps, filtRent, range)
@@ -2672,15 +2672,16 @@ function ReportYieldComparison({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
 
 function ReportOccupancy({ filtProps, T, accent, fmt }) {
   const total = filtProps.length
-  const rented = filtProps.filter(p=>isPropertyEarningRent(p.status)).length
-  const vacant = filtProps.filter(p=>p.status==='vacant').length
-  const rate = total>0?(rented/total)*100:0
+  const o = occupancySummary(filtProps)
+  const { occupied, lettable, vacant, rate } = o
   const voidCost = filtProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0)
   return (
     <>
       <StatCards T={T} items={[
         {label:'Occupancy rate',value:`${rate.toFixed(1)}%`,color:rate>=90?T.green:rate>=70?T.amber:T.red},
-        {label:'Rented',value:rented,color:T.green},
+        {label:'Occupied',value:`${occupied} of ${lettable}`,color:T.green},
+        {label:'Let agreed',value:o.letAgreed,color:T.amber},
+        {label:'On rental market',value:o.onMarket,color:T.amber},
         {label:'Vacant',value:vacant,color:T.red},
         {label:'Monthly void cost',value:fmt(voidCost),color:vacant>0?T.red:T.green},
       ]}/>
@@ -2691,22 +2692,30 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
             <DonutChart T={T} accent={accent}
               percent={rate}
               value={`${rate.toFixed(0)}%`}
-              sublabel={`${rented} of ${total}`}
+              sublabel={`${occupied} of ${lettable} lettable`}
               label="OCCUPIED"
               color={rate >= 90 ? T.green : rate >= 70 ? T.amber : T.red}
               size={200}/>
             <div style={{display:'flex',flexDirection:'column',gap:12,fontFamily:mono,fontSize:12,minWidth:160}}>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
-                <span style={{color:T.muted}}>Rented</span>
-                <span style={{color:T.green,fontWeight:700}}>{rented}</span>
+                <span style={{color:T.muted}}>Occupied</span>
+                <span style={{color:T.green,fontWeight:700}}>{occupied}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>Let agreed</span>
+                <span style={{color:T.amber,fontWeight:700}}>{o.letAgreed}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>On rental market</span>
+                <span style={{color:T.amber,fontWeight:700}}>{o.onMarket}</span>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
                 <span style={{color:T.muted}}>Vacant</span>
                 <span style={{color:T.red,fontWeight:700}}>{vacant}</span>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
-                <span style={{color:T.muted}}>Other</span>
-                <span style={{color:T.text,fontWeight:700}}>{total - rented - vacant}</span>
+                <span style={{color:T.muted}}>Not lettable</span>
+                <span style={{color:T.muted,fontWeight:700}}>{o.notLettable}</span>
               </div>
               <div style={{height:1,background:T.border,margin:'4px 0'}}/>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
@@ -2722,9 +2731,9 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
         headers={[{label:'Property'},{label:'Status',width:'120px'},{label:'Monthly rent',right:true,width:'130px'},{label:'Occupied',width:'100px'}]}
         rows={filtProps.sort((a,b)=>a.status==='vacant'?-1:1).map(p=>[
           p.name,
-          {v:p.status||'unknown',color:isPropertyEarningRent(p.status)?T.green:T.red},
+          {v:PROPERTY_STATUS_LABELS[p.status]||p.status||'unknown',color:!isPropertyLettable(p.status)?T.muted:isPropertyOccupied(p.status)?T.green:T.red},
           {v:fmt(p.rent_pcm),right:true},
-          {v:isPropertyEarningRent(p.status)?'Yes':'No',color:isPropertyEarningRent(p.status)?T.green:T.red},
+          {v:!isPropertyLettable(p.status)?'Not lettable':isPropertyOccupied(p.status)?'Yes':'No',color:!isPropertyLettable(p.status)?T.muted:isPropertyOccupied(p.status)?T.green:T.red},
         ])}
       />
     </>
