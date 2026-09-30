@@ -2189,7 +2189,9 @@ export async function uploadCompanyLogo(companyId, file) {
   await supabase.storage.from('public-assets').remove([path]).catch(()=>{})
   const { error: upErr } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true })
   if (upErr) throw upErr
-  const { data: { publicUrl } } = supabase.storage.from('public-assets').getPublicUrl(path)
+  const { data } = supabase.storage.from('public-assets').getPublicUrl(path)
+  // Same path on replace, so version the URL or the CDN keeps serving the old logo.
+  const publicUrl = `${data.publicUrl}?v=${Date.now()}`
   const { error } = await supabase.from('company_settings').upsert(
     { company_id: companyId, logo_url: publicUrl, logo_path: path },
     { onConflict: 'company_id' }
