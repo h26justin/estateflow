@@ -4166,10 +4166,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
 
   async function removeLogo(companyId) {
     try {
-      await supabase.from('company_settings').upsert(
-        { company_id: companyId, logo_url: null, logo_path: null },
-        { onConflict: 'company_id' }
-      )
+      await api.saveReportSettings(companyId, { logo_url: null, logo_path: null })
       setCompanySettings(prev => ({
         ...prev,
         [companyId]: { ...(prev[companyId]||{}), logo_url: null }

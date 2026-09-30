@@ -692,10 +692,20 @@ export function getEffectivePermissions(accessRow, isOwner = false) {
 }
 
 
+// company_settings.user_id is NOT NULL and marks the company owner. Postgres
+// checks NOT NULL on an upsert's candidate row before ON CONFLICT, so an upsert
+// without user_id always fails, and one with the caller's id would hand
+// ownership to whichever team member saved. Update the existing row instead,
+// and only insert (owned by the company's owner) when there is none.
 export async function upsertCompanySettings(companyId, settings) {
-  const userId = await uid()
+  const { data: updated, error: updErr } = await supabase.from('company_settings')
+    .update(settings).eq('company_id', companyId).select()
+  if (updErr) throw updErr
+  if (updated?.length) return updated[0]
+  const { data: co } = await supabase.from('companies').select('user_id').eq('id', companyId).maybeSingle()
+  const userId = co?.user_id || await uid()
   const { data, error } = await supabase.from('company_settings')
-    .upsert({ ...settings, company_id: companyId, user_id: userId }, { onConflict: 'company_id' })
+    .insert({ ...settings, company_id: companyId, user_id: userId })
     .select().single()
   if (error) throw error
   return data
@@ -2117,11 +2127,7 @@ export async function saveMilestoneDefaults(userId, email, config) {
 
 // ── COMPANY BRANDING & REPORT SETTINGS ───────────────────────────────────────
 export async function saveReportSettings(companyId, settings) {
-  const { error } = await supabase.from('company_settings').upsert(
-    { company_id: companyId, ...settings, updated_at: new Date().toISOString() },
-    { onConflict: 'company_id' }
-  )
-  if (error) throw error
+  await upsertCompanySettings(companyId, { ...settings, updated_at: new Date().toISOString() })
 }
 
 
@@ -2171,11 +2177,7 @@ export async function fetchAllExpenses(userId) {
 }
 
 export async function saveCompanyYearType(companyId, yearType) {
-  const { error } = await supabase.from('company_settings').upsert(
-    { company_id: companyId, year_type: yearType },
-    { onConflict: 'company_id' }
-  )
-  if (error) throw error
+  await upsertCompanySettings(companyId, { year_type: yearType })
 }
 
 export async function uploadCompanyLogo(companyId, file) {
@@ -2192,11 +2194,7 @@ export async function uploadCompanyLogo(companyId, file) {
   const { data } = supabase.storage.from('public-assets').getPublicUrl(path)
   // Same path on replace, so version the URL or the CDN keeps serving the old logo.
   const publicUrl = `${data.publicUrl}?v=${Date.now()}`
-  const { error } = await supabase.from('company_settings').upsert(
-    { company_id: companyId, logo_url: publicUrl, logo_path: path },
-    { onConflict: 'company_id' }
-  )
-  if (error) throw error
+  await upsertCompanySettings(companyId, { logo_url: publicUrl, logo_path: path })
   return publicUrl
 }
 
@@ -2376,11 +2374,7 @@ export async function fetchCompanyBankDetails(companyId) {
 }
 
 export async function saveCompanyBankDetails(companyId, details) {
-  const { error } = await supabase.from('company_settings').upsert(
-    { company_id: companyId, ...details },
-    { onConflict: 'company_id' }
-  )
-  if (error) throw error
+  await upsertCompanySettings(companyId, details)
 }
 
 export async function saveCompanySubdomain(companyId, subdomain) {
@@ -2737,9 +2731,7 @@ export async function fetchAllTenantMessages(propertyId) {
 }
 
 export async function saveTenantNotificationEmail(companyId, email) {
-  const { error } = await supabase.from('company_settings')
-    .upsert({ company_id: companyId, tenant_notification_email: email }, { onConflict: 'company_id' })
-  if (error) throw error
+  await upsertCompanySettings(companyId, { tenant_notification_email: email })
 }
 
 // ── RIGHT TO RENT ─────────────────────────────────────────────────────────────
