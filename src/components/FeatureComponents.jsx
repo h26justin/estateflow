@@ -3973,6 +3973,7 @@ function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCo
   const [logoPreview, setLogoPreview] = useState(null)
   const [savingColor, setSavingColor] = useState(false)
   const [colorDraft, setColorDraft]   = useState(null)
+  const colorSaveTimer = useRef(null)
 
   const co = companies.find(c => c.id === selectedCo)
   const cs = companySettings[selectedCo] || {}
@@ -3981,8 +3982,23 @@ function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCo
     if (selectedCo && companySettings[selectedCo]) {
       setLogoPreview(companySettings[selectedCo].logo_url || null)
     }
-    setColorDraft(null)
   }, [selectedCo, companySettings])
+
+  useEffect(() => {
+    clearTimeout(colorSaveTimer.current)
+    setColorDraft(null)
+  }, [selectedCo])
+
+  useEffect(() => () => clearTimeout(colorSaveTimer.current), [])
+
+  // The native picker fires input continuously while dragging and blur is
+  // unreliable (Chrome blurs as the picker opens), so show the draft live and
+  // save once the user has stopped moving it.
+  function pickCustomColor(value) {
+    setColorDraft(value)
+    clearTimeout(colorSaveTimer.current)
+    colorSaveTimer.current = setTimeout(() => updateCompanyColor(value), 500)
+  }
 
   async function updateCompanyColor(newColor) {
     if (!co || !newColor) return
@@ -4116,10 +4132,9 @@ function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCo
             {/* Custom colour picker + hex input */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                <input type="color" value={co.color || '#C8A84B'}
-                  onChange={e => setColorDraft(e.target.value)}
-                  onBlur={e => updateCompanyColor(e.target.value)}
-                  disabled={savingColor}
+                <input type="color"
+                  value={colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft) ? colorDraft : (co.color || '#C8A84B')}
+                  onChange={e => pickCustomColor(e.target.value)}
                   style={{ width: 48, height: 36, border: `1px solid ${T.border}`, borderRadius: 8, cursor: 'pointer', background: 'transparent', padding: 2 }}/>
                 <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Custom</span>
               </label>
