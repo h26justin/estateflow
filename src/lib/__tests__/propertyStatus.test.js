@@ -123,3 +123,21 @@ describe('On Rental Market', () => {
     expect(plan).toEqual({ create: null, close: [], remove: [] })
   })
 })
+
+describe('occupancySummary', () => {
+  const mk = (s, n) => Array.from({ length: n }, () => ({ status: s }))
+  it('divides occupied units by lettable units, leaving refurb and purchased out', async () => {
+    const { occupancySummary, isPropertyLettable } = await import('../propertyStatus')
+    const props = [...mk('rented', 98), ...mk('short_term_let', 15), ...mk('notice_given', 2), ...mk('refurb', 17),
+      ...mk('vacant', 7), ...mk('on_rental_market', 4), ...mk('let_agreed', 1)]
+    const s = occupancySummary(props)
+    expect(s).toMatchObject({ total: 144, lettable: 127, occupied: 115, letAgreed: 1, onMarket: 4, vacant: 7, notLettable: 17, refurb: 17 })
+    expect(Math.round(s.rate)).toBe(91)
+    expect(isPropertyLettable('purchased')).toBe(false)
+    expect(isPropertyLettable('let_agreed')).toBe(true)
+  })
+  it('is 0% with no lettable units rather than dividing by zero', async () => {
+    const { occupancySummary } = await import('../propertyStatus')
+    expect(occupancySummary(mk('refurb', 3)).rate).toBe(0)
+  })
+})
