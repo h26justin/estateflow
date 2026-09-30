@@ -3196,8 +3196,11 @@ export async function fetchMyPermissionsMap(isDeveloper = false) {
   }
 }
 
-// ── DASHBOARD WIDGET PREFS ────────────────────────────────────────────────────
-// Stored per-user in user_profiles.dashboard_widgets as JSONB array of { key, enabled }
+// ── DASHBOARD WIDGET + SECTION PREFS ─────────────────────────────────────────
+// Stored per-user in user_profiles as JSONB arrays of { key, enabled }:
+// dashboard_widgets (KPI cards) and dashboard_sections (page sections).
+// Section order used to live only in localStorage, so it was lost on another
+// device, browser, private window or storage clear.
 export async function fetchWidgetPrefs() {
   try {
     const u = (await supabase.auth.getUser()).data.user
@@ -3207,12 +3210,31 @@ export async function fetchWidgetPrefs() {
   } catch(e) { return null }
 }
 
-export async function saveWidgetPrefs(widgets) {
+export async function fetchSectionPrefs() {
   try {
     const u = (await supabase.auth.getUser()).data.user
-    if (!u) return
-    await supabase.from('user_profiles').update({ dashboard_widgets: widgets }).eq('user_id', u.id)
-  } catch(e) { console.error('save widget prefs failed', e) }
+    if (!u) return null
+    const { data } = await supabase.from('user_profiles').select('dashboard_sections').eq('user_id', u.id).maybeSingle()
+    return data?.dashboard_sections || null
+  } catch(e) { return null }
+}
+
+// Upsert, not update: a user without a user_profiles row would otherwise
+// "save" zero rows and report success.
+async function saveDashboardPref(column, value) {
+  const u = (await supabase.auth.getUser()).data.user
+  if (!u) throw new Error('Not signed in')
+  const { error } = await supabase.from('user_profiles')
+    .upsert({ user_id: u.id, [column]: value }, { onConflict: 'user_id' })
+  if (error) throw error
+}
+
+export async function saveWidgetPrefs(widgets) {
+  await saveDashboardPref('dashboard_widgets', widgets)
+}
+
+export async function saveSectionPrefs(sections) {
+  await saveDashboardPref('dashboard_sections', sections)
 }
 
 

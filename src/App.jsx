@@ -1451,6 +1451,7 @@ export default function App() {
             api.fetchMyPermissionsMap(devActiveEarly),
             api.fetchMyActiveFlags().catch(()=>new Set()),
             api.fetchWidgetPrefs().catch(()=>null),
+            api.fetchSectionPrefs().catch(()=>null),
           ]).catch(e => { logError('loadData:permissions+flags', e); return null }),
           loadUserTheme(user.id, user.email).catch(()=>{}),
           api.fetchAnnouncements().catch(e => { logError('loadData:announcements', e); return [] }),
@@ -1459,7 +1460,7 @@ export default function App() {
           api.fetchMyCompanies().catch(()=>[]),
         ])
         if (permBatch) {
-          const [permMap, flags, widgets] = permBatch
+          const [permMap, flags, widgets, sections] = permBatch
           // Stamp an __owner map onto permissionsMap so canDo() can grant
           // implicit allow to the company owner without having to look up
           // ownership in every check site. (Owners typically don't have a
@@ -1469,14 +1470,22 @@ export default function App() {
           setPermissionsMap({ ...(permMap || {}), __owner: ownerMap })
           setActiveFlags(flags)
           setWidgetPrefs(widgets)
+          // Section order lives on the profile. Older saves exist only in this
+          // browser's localStorage: adopt one and copy it up once.
+          if (sections) setSectionPrefs(sections)
+          else {
+            try {
+              const raw = localStorage.getItem(`ownproperly_section_prefs_${user.id}`)
+              const local = raw ? JSON.parse(raw) : null
+              if (Array.isArray(local) && local.length) {
+                setSectionPrefs(local)
+                api.saveSectionPrefs(local).catch(e => logError('saveSectionPrefs:migrate', e))
+              }
+            } catch(e) { /* non-fatal — fall back to defaults */ }
+          }
         }
         setAnnouncements(anns)
         if (!onboarded) setShowTour(true)
-        // Load dashboard section preferences from localStorage (per-user keyed)
-        try {
-          const raw = localStorage.getItem(`ownproperly_section_prefs_${user.id}`)
-          if (raw) setSectionPrefs(JSON.parse(raw))
-        } catch(e) { /* non-fatal — fall back to defaults */ }
 
         // (Invite redemption ran at the top of loadData, before the access
         // fetches, so any newly granted companies are already in scope.)
@@ -4321,27 +4330,24 @@ export default function App() {
         currentSectionPrefs={sectionPrefs}
         defaultSectionOrder={SECTION_DEFAULT_ORDER}
         defaultSectionEnabled={SECTION_DEFAULT_ENABLED}
-        onSaveSections={(newPrefs) => {
-          setSectionPrefs(newPrefs)
-          try { localStorage.setItem(`ownproperly_section_prefs_${user.id}`, JSON.stringify(newPrefs)) } catch(e) {}
+        onSave={async (sections, widgets) => {
+          setSectionPrefs(sections)
+          setWidgetPrefs(widgets)
+          // Don't pretend it's saved if the API call failed — the user
+          // would see "Dashboard saved" and then their changes vanish on
+          // next refresh with no clue why.
+          try {
+            await Promise.all([api.saveSectionPrefs(sections), api.saveWidgetPrefs(widgets)])
+            showToast('Dashboard saved')
+          } catch (e) {
+            logError('saveDashboardPrefs', e)
+            showToast('Dashboard not saved — ' + (e.message || 'try again'), 'error')
+          }
         }}
         widgetDefs={WIDGET_META}
         currentWidgetPrefs={widgetPrefs}
         defaultWidgetOrder={WIDGET_DEFAULT_ORDER}
         defaultWidgetEnabled={WIDGET_DEFAULT_ENABLED}
-        onSaveWidgets={async (newPrefs) => {
-          setWidgetPrefs(newPrefs)
-          // Don't pretend it's saved if the API call failed — the user
-          // would see "Dashboard saved" and then their changes vanish on
-          // next refresh with no clue why.
-          try {
-            await api.saveWidgetPrefs(newPrefs)
-            showToast('Dashboard saved')
-          } catch (e) {
-            logError('saveWidgetPrefs', e)
-            showToast('Dashboard not saved — ' + (e.message || 'try again'), 'error')
-          }
-        }}
         onClose={() => setShowCustomizeDash(false)}
         T={T}
       />}
