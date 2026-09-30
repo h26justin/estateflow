@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { propValue } from '../lib/propertyValue'
 import { loadCdnScript } from '../lib/loadCdnScript'
+import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -927,82 +928,41 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
   async function exportPDF() {
     setExporting(true)
-    await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-    const { jsPDF } = window.jspdf
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const W = 210
-    const gold = [200,168,75], dark = [11,13,20], muted = [107,113,145], white = [228,224,216], green = [46,204,138], red = [224,85,85]
-
-    // Header
-    doc.setFillColor(...dark); doc.rect(0, 0, W, 42, 'F')
-    doc.setFillColor(...gold); doc.rect(0, 0, 4, 42, 'F')
-    doc.setTextColor(...gold); doc.setFontSize(20); doc.setFont('helvetica','bold')
-    doc.text('Properly', 14, 16)
-    doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal')
-    doc.text('ownproperly.com', 14, 21)
-    doc.setTextColor(...white); doc.setFontSize(13); doc.setFont('helvetica','bold')
-    doc.text('Rent Review Scenario', 14, 32)
-    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...muted)
-    const scopeLabel = scope === 'all' ? 'All properties' : scope === 'rented' ? 'Rented only' : (companies.find(c => c.id === scope)?.name || 'Selected')
-    doc.text(`${scopeLabel} · Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`, 14, 38)
-
-    let y = 54
-
-    // Summary
-    doc.setFontSize(9); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
-    doc.text('GLOBAL RENT INCREASE', 14, y); y += 6
-    doc.setFontSize(18); doc.setTextColor(...gold); doc.setFont('helvetica','bold')
-    doc.text(`${globalPct > 0 ? '+' : ''}${globalPct.toFixed(1)}%`, 14, y); y += 10
-
-    const cards = [
-      { l: 'Current monthly',  v: fmt(totals.current), c: white },
-      { l: 'New monthly',      v: fmt(totals.next),    c: gold  },
-      { l: 'Monthly delta',    v: (monthlyDelta >= 0 ? '+' : '') + fmt(monthlyDelta), c: monthlyDelta >= 0 ? green : red },
-      { l: 'Annual delta',     v: (annualDelta  >= 0 ? '+' : '') + fmt(annualDelta),  c: annualDelta  >= 0 ? green : red },
-      { l: 'Current yield',    v: currentYield.toFixed(2) + '%', c: white },
-      { l: 'New yield',        v: newYield.toFixed(2) + '%',     c: gold  },
-    ]
-    const cw = (W - 28 - 10) / 3
-    cards.forEach((k, i) => {
-      const col = i % 3, row = Math.floor(i / 3)
-      const cx = 14 + col * (cw + 5), cy = y + row * 20
-      doc.setDrawColor(60,60,70); doc.roundedRect(cx, cy, cw, 18, 2, 2)
-      doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
-      doc.text(k.l.toUpperCase(), cx + 3, cy + 5)
-      doc.setFontSize(11); doc.setTextColor(...k.c); doc.setFont('helvetica','bold')
-      doc.text(k.v, cx + 3, cy + 13)
-    })
-    y += 46
-
-    // Table
-    doc.setFontSize(9); doc.setTextColor(...muted); doc.setFont('helvetica','normal')
-    doc.text('PER-PROPERTY BREAKDOWN', 14, y); y += 6
-    doc.setFillColor(240,240,245); doc.rect(14, y - 4, W - 28, 8, 'F')
-    doc.setFontSize(8); doc.setTextColor(...dark); doc.setFont('helvetica','bold')
-    doc.text('Property', 16, y + 1)
-    doc.text('Current', 100, y + 1, { align: 'right' })
-    doc.text('New',     130, y + 1, { align: 'right' })
-    doc.text('Δ/mo',    160, y + 1, { align: 'right' })
-    doc.text('Tenancy', 194, y + 1, { align: 'right' })
-    y += 7
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...dark)
-    rows.forEach(r => {
-      if (y > 280) { doc.addPage(); y = 20 }
-      const name = r.p.name.length > 44 ? r.p.name.slice(0,41) + '…' : r.p.name
-      doc.text(name, 16, y)
-      doc.text(fmt(r.current), 100, y, { align: 'right' })
-      doc.text(fmt(r.next),    130, y, { align: 'right' })
-      const deltaStr = (r.delta >= 0 ? '+' : '') + fmt(r.delta)
-      if (r.delta >= 0) doc.setTextColor(...green); else doc.setTextColor(...red)
-      doc.text(deltaStr, 160, y, { align: 'right' })
-      doc.setTextColor(...dark)
-      doc.text(r.badge.label.length > 18 ? r.badge.label.slice(0,17)+'…' : r.badge.label, 194, y, { align: 'right' })
-      y += 5.5
-    })
-
-    doc.save(`rent-review-${new Date().toISOString().slice(0,10)}.pdf`)
-    setExporting(false)
+    try {
+      await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
+      const { jsPDF } = window.jspdf
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const scopeCo = companies.find(c => c.id === scope)
+      const scopeLabel = scope === 'all' ? 'All properties' : scope === 'rented' ? 'Rented only' : (scopeCo?.name || 'Selected')
+      const mark = await loadPdfImage('/icon-512.png', 256)
+      const k = createPdfWriter(doc, { accent: hexToRgb(scopeCo?.color), mark, footerLabel: `Rent review scenario - ${scopeLabel}` })
+      const signed = v => (v >= 0 ? '+' : '') + fmt(v)
+      const pctTxt = p => `${p > 0 ? '+' : ''}${Number(p).toFixed(1)}%`
+      k.letterhead({ title: scopeLabel, subtitle: 'Rent review scenario', meta: [`Global increase ${pctTxt(globalPct)}`, 'Generated ' + k.generatedOn()] })
+      k.kpis([
+        { label: 'Current monthly', value: fmt(totals.current) },
+        { label: 'New monthly', value: fmt(totals.next) },
+        { label: 'Monthly change', value: signed(monthlyDelta), color: monthlyDelta >= 0 ? PALETTE.green : PALETTE.red },
+        { label: 'Annual change', value: signed(annualDelta), color: annualDelta >= 0 ? PALETTE.green : PALETTE.red },
+        { label: 'Current yield', value: currentYield.toFixed(2) + '%' },
+        { label: 'New yield', value: newYield.toFixed(2) + '%' },
+      ])
+      k.heading('Per-property breakdown')
+      k.table({
+        headers: ['Property', 'Increase', 'Current', 'New', 'Change / mo', 'Tenancy'],
+        rows: rows.map(r => ({
+          cells: [r.p.name, pctTxt(r.pct), fmt(r.current), fmt(r.next), signed(r.delta), r.badge.label],
+          colors: [null, null, null, null, r.delta >= 0 ? PALETTE.green : PALETTE.red, PALETTE.muted],
+        })),
+        totals: ['Total', '', fmt(totals.current), fmt(totals.next), signed(monthlyDelta), ''],
+      })
+      k.finish()
+      doc.save(`rent-review-${new Date().toISOString().slice(0,10)}.pdf`)
+    } catch (e) {
+      console.error('Rent review PDF failed', e)
+    } finally {
+      setExporting(false)
+    }
   }
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
