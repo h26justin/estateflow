@@ -15,8 +15,8 @@ import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
 
 export default function CustomizeDashModal({
   initialTab = 'sections',
-  sectionDefs, currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled, onSaveSections,
-  widgetDefs, currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled, onSaveWidgets,
+  sectionDefs, currentSectionPrefs, defaultSectionOrder, defaultSectionEnabled,
+  widgetDefs, currentWidgetPrefs, defaultWidgetOrder, defaultWidgetEnabled, onSave,
   onClose, T,
 }) {
   const mono = MONO
@@ -77,8 +77,7 @@ export default function CustomizeDashModal({
     }
   }
   function handleSave() {
-    onSaveSections(sections)
-    onSaveWidgets(widgets)
+    onSave(sections, widgets)
     onClose()
   }
 
