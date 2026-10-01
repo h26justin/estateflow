@@ -14,12 +14,16 @@
 // n/c counts and what came in this year. The counts follow engineSummary()
 // there: every month of the year that has started, from the rent engine.
 // On top of the tracker it shows what is owed: outstanding on every missed
-// month since go-live plus any open historic arrears balance.
+// month since go-live plus any open historic arrears balance, and for the last
+// four months the rent due against the rent collected, per property and per
+// company, so a shortfall is visible month by month.
 //
-// Outward-facing: it goes to the agent, so no tenant names, notes, values or
-// mortgage figures. Just the property, its status and the rent.
+// It goes to the managing agent, who already deals with the tenants, so the
+// tenant's name is shown to say who to chase. No notes, values or mortgage
+// figures.
 
-import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, STATE } from './rentEngine'
+import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE } from './rentEngine'
+import { summariseStl, managerPayouts, observedChannelRates, unitCount } from './stlIncome'
 import { tenancyForDate } from './tenancyUtils'
 import { buildingTailFromName, buildingKeyFromName } from './addressUtils'
 
@@ -116,7 +120,65 @@ function propertyCard(p, { asOf, year, thisMo }) {
   }
   const arrears = Math.max(0, arrearsSummary(p).balance)
   const t = tenancyForDate(p.tenancies || [], asOf)
+
+  // Shortfall = rent still unpaid on months whose payment window has closed
+  // (Missed), measured two ways: this calendar year, and since the current
+  // tenancy began. Rent is only tracked from go-live, so a tenancy that
+  // started earlier is measured from go-live and says so.
+  const tenancy = t || [...(p.tenancies || [])].filter(x => x.status !== 'ended' && x.tenancy_start)
+    .sort((a, b) => (a.tenancy_start < b.tenancy_start ? 1 : -1))[0] || null
+  const tenancyStart = tenancy?.tenancy_start || (p.tenant_since ? String(p.tenant_since).slice(0, 10) : null)
+  const yearStart = `${year}-01-01`
+  let shortfallYear = 0, shortfallTenancy = 0
+  for (const e of evals) {
+    if (e.state !== STATE.MISSED || !(e.outstanding > 0)) continue
+    if (e.periodStart >= yearStart) shortfallYear = round2(shortfallYear + e.outstanding)
+    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round2(shortfallTenancy + e.outstanding)
+  }
+
+  // Last 4 months (this month and the three before): rent due to be
+  // collected against what came in, so the shortfall shows month by month.
+  // A month the tracker shows Paid without the money recorded against it
+  // (marked paid with no amount, or overridden to Paid) counts as collected
+  // in full so the strip never contradicts its tile; it is flagged so the
+  // reader knows the amount was not entered.
+  const recent = recentMonths(thisMo).map(mo => {
+    const r = tiles.find(x => x.year === mo.year && x.month === mo.month)
+    const rated = r && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(r.state)
+    const due = rated ? round2(r.expected) : 0
+    const received = round2(r?.received || 0)
+    const paidUnrecorded = !!(rated && r.state === STATE.PAID && received < due)
+    const collected = paidUnrecorded ? due : received
+    const gap = round2(Math.max(0, due - collected))
+    // Rent still inside its payment window is not a shortfall yet.
+    const open = r && (r.state === STATE.DUE || r.state === STATE.PART_PAID)
+    return { ...mo, state: r?.state || null, due, collected, shortfall: open ? 0 : gap, stillDue: open ? gap : 0, assumed: paidUnrecorded }
+  })
   const cur = tiles.find(x => x.year === thisMo.year && x.month === thisMo.month) || null
+
+  // Year to date and this month, on the Rent Tracker's collection basis:
+  // collectible rent whose due date has been reached, and what came in
+  // against it (capped per period, so an overpayment never hides arrears).
+  // A period the tracker shows Paid without the money recorded against it
+  // (paid with no amount, or overridden to Paid) counts as collected in full,
+  // so these figures never contradict the tiles.
+  const RATED = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED]
+  const collectedOf = e => (e.state === STATE.PAID && (e.received || 0) < e.expected ? e.expected : Math.min(e.received || 0, e.expected))
+  // Year to date counts settled periods only: paid, or missed (payment
+  // window closed). Rent still inside its window is neither late nor in, so
+  // it stays out and due = collected + owed exactly.
+  let yearDue = 0, yearCollected = 0
+  if (!isStl) for (const e of evals) {
+    if (![STATE.PAID, STATE.MISSED].includes(e.state) || e.expected == null || e.periodStart < yearStart) continue
+    yearDue = round2(yearDue + e.expected); yearCollected = round2(yearCollected + collectedOf(e))
+  }
+  const mb = monthBounds(thisMo.year, thisMo.month)
+  let monthDue = 0, monthCollected = 0
+  if (!isStl) for (const e of evals) {
+    if (e.periodStart < mb.start || e.periodStart > mb.end || !RATED.includes(e.state) || e.expected == null) continue
+    monthDue = round2(monthDue + e.expected); monthCollected = round2(monthCollected + collectedOf(e))
+  }
+  const firstMissed = evals.filter(e => e.state === STATE.MISSED && e.outstanding > 0).sort((a, b) => (a.periodStart < b.periodStart ? -1 : 1))[0]
 
   return {
     id: p.id,
@@ -139,7 +201,30 @@ function propertyCard(p, { asOf, year, thisMo }) {
     owed,
     missedMonths,
     arrears: round2(arrears),
+    recent,
+    shortfallYear,
+    shortfallTenancy: tenancyStart ? shortfallTenancy : null,
+    tenancyStart,
+    // The tenancy began before rent tracking did, so its shortfall is from go-live.
+    tenancyBeforeTracking: !!(tenancyStart && tenancyStart < GO_LIVE),
+    tenant: isLet(p.status) && !isStl ? (t?.tenant_name || tenancy?.tenant_name || p.tenant_name || null) : null,
+    yearDue,
+    yearCollected,
+    monthDue, monthCollected, monthStill: round2(Math.max(0, monthDue - monthCollected)),
+    oldestMissed: firstMissed ? monthName({ year: Number(firstMissed.periodStart.slice(0, 4)), month: Number(firstMissed.periodStart.slice(5, 7)) }) : null,
+    lettable: !['refurb'].includes(p.status),
   }
+}
+
+// This month and the three before it, oldest first.
+function recentMonths(thisMo, count = 4) {
+  const out = []
+  for (let i = count - 1; i >= 0; i--) {
+    const idx = thisMo.year * 12 + thisMo.month - 1 - i
+    const year = Math.floor(idx / 12), month = (idx % 12) + 1
+    out.push({ year, month, label: MONTH_SHORT[month - 1] })
+  }
+  return out
 }
 
 // Buildings: 2+ units sharing a name tail ("Room 1, Piers View") group under
@@ -172,7 +257,7 @@ function groupBuildings(cards) {
  * @param {object[]} [opts.companies] company rows ({ id, name, color, logo_url })
  * @param {string}   [opts.asOf]     ISO date, default today
  */
-export function buildAgentReport(properties, { agent, companies = [], asOf = isoToday() } = {}) {
+export function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null } = {}) {
   const thisMo = monthKey(asOf)
   const year = thisMo.year
   const scoped = (properties || []).filter(p =>
@@ -198,6 +283,24 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     g.received = round2(g.cards.filter(c => !c.stl).reduce((s, c) => s + c.received, 0))
     g.owed = round2(g.cards.reduce((s, c) => s + c.owed + c.arrears, 0))
     g.groups = groupBuildings(g.cards)
+    // Company last-4-months totals, long-term lets only (as the tracker).
+    // The shortfall is summed property by property, so one tenant's
+    // overpayment never hides another's shortfall.
+    const lt = g.cards.filter(c => !c.stl)
+    g.recent = recentMonths(thisMo).map((mo, i) => ({
+      ...mo,
+      due: round2(lt.reduce((s, c) => s + c.recent[i].due, 0)),
+      collected: round2(lt.reduce((s, c) => s + c.recent[i].collected, 0)),
+      shortfall: round2(lt.reduce((s, c) => s + c.recent[i].shortfall, 0)),
+      stillDue: round2(lt.reduce((s, c) => s + c.recent[i].stillDue, 0)),
+    }))
+    g.shortfall4 = round2(g.recent.reduce((s, r) => s + r.shortfall, 0))
+    g.shortfallYear = round2(g.cards.reduce((s, c) => s + c.shortfallYear, 0))
+    g.shortfallTenancy = round2(g.cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0))
+    g.noTenancyStart = g.cards.filter(c => c.let && !c.stl && !c.tenancyStart).length
+    Object.assign(g, rollUp(g.cards))
+    g.missedMonths = g.cards.reduce((s, c) => s + c.missedMonths, 0)
+    g.notLet = g.cards.filter(c => !c.let).length
   }
 
   const units = cards.length
@@ -218,8 +321,10 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     year,
     thisMonth: { ...thisMo, label: monthName(thisMo) },
     months: MONTH_SHORT.map((label, i) => ({ month: i + 1, label })),
+    recentMonths: recentMonths(thisMo),
     lines: cards,
     byCompany,
+    stl: stl ? stlSection(scoped.filter(p => p.status === 'short_term_let'), stl, { asOf, year }) : [],
     owing,
     notLet,
     summary: {
@@ -234,6 +339,83 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       arrears: round2(cards.reduce((s, c) => s + c.arrears, 0)),
       owingCount: owing.length,
       yearReceived: round2(byCompany.reduce((s, g) => s + g.received, 0)),
+      // Last 4 months across every company: what fell short once the payment
+      // window closed, and what is still inside it.
+      shortfall4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.shortfall, 0), 0)),
+      stillDue4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.stillDue, 0), 0)),
+      due4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.due, 0), 0)),
+      missedMonths: cards.reduce((s, c) => s + c.missedMonths, 0),
+      shortfallYear: round2(cards.reduce((s, c) => s + c.shortfallYear, 0)),
+      shortfallTenancy: round2(cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0)),
+      noTenancyStart: cards.filter(c => c.let && !c.stl && !c.tenancyStart).length,
+      ...rollUp(cards),
     },
   }
+}
+
+// Rent roll, year-to-date and this-month figures over a set of cards.
+// Long-term lets only; short-term lets have their own section.
+function rollUp(cards) {
+  const lt = cards.filter(c => !c.stl)
+  const sum = f => round2(lt.reduce((s, c) => s + (f(c) || 0), 0))
+  const yearDue = sum(c => c.yearDue), yearCollected = sum(c => c.yearCollected)
+  return {
+    rentRoll: sum(c => (c.let ? c.rent : 0)),
+    emptyCost: sum(c => (!c.let && c.lettable ? c.rent : 0)),
+    refurbRent: sum(c => (!c.let && !c.lettable ? c.rent : 0)),
+    yearDue, yearCollected,
+    yearRate: yearDue > 0 ? Math.min(100, Math.round((yearCollected / yearDue) * 1000) / 10) : null,
+    monthDue: sum(c => c.monthDue), monthCollected: sum(c => c.monthCollected), monthStill: sum(c => c.monthStill),
+  }
+}
+
+// Short-term lets, one block per building: this month and the year so far,
+// with nights, occupancy, average nightly rate, booking value, platform fees,
+// income after fees, the manager's fee and what is left for the owner. Same
+// arithmetic as the Short-Term Let Income page (stlIncome.js).
+function stlSection(stlProps, { bookings = [], adjustments = [], managers = [], mappings = [] }, { asOf, year }) {
+  if (!stlProps.length) return []
+  const today = new Date(`${asOf}T12:00:00Z`)
+  const rates = observedChannelRates(bookings)
+  const groups = new Map()
+  for (const p of stlProps) {
+    const key = `${p.company_id}|${buildingKeyFromName(p.name) || p.id}`
+    if (!groups.has(key)) groups.set(key, { name: buildingTailFromName(p.name) || p.name, company: p.company?.name || '', companyId: p.company_id, props: [] })
+    groups.get(key).props.push(p)
+  }
+  const [y, m] = asOf.split('-').map(Number)
+  const monthFrom = `${asOf.slice(0, 7)}-01`
+  const monthTo = monthBounds(y, m).end
+  const out = []
+  for (const g of groups.values()) {
+    const ids = new Set(g.props.map(p => p.id))
+    const own = bookings.filter(b => ids.has(b.property_id))
+    const ownAdj = adjustments.filter(a => ids.has(a.property_id))
+    let rooms = 0
+    for (const p of g.props) { const u = unitCount(p, bookings, mappings); if (u) rooms += u }
+    const period = (from, to) => {
+      const sm = summariseStl(own, ownAdj, { from, to, roomCount: rooms || null, rates, today })
+      const pay = managerPayouts(own, ownAdj, g.props, managers, { from, to, rates })
+      const managerFee = round2(pay.reduce((s, r) => s + r.amount, 0))
+      return {
+        bookings: sm.bookings, nights: sm.nights,
+        occupancy: sm.occupancyToDate ?? sm.occupancyAchieved ?? sm.occupancy,
+        adr: sm.adr, gross: sm.gross, platformFees: sm.platformFees, netAfterFees: sm.netAfterFees,
+        managerFee, toOwner: round2(sm.netAfterFees - managerFee), months: sm.months,
+      }
+    }
+    const yearSum = period(`${year}-01-01`, asOf)
+    out.push({
+      ...g, rooms, totalRooms: g.props.length,
+      manager: managers.find(mg => g.props.some(p => p.stl_manager_id === mg.id)) || null,
+      month: period(monthFrom, monthTo),
+      year: yearSum,
+      // Month by month from January, each month's own figures.
+      byMonth: Array.from({ length: m }, (_, i) => {
+        const mm = String(i + 1).padStart(2, '0')
+        return { label: MONTH_SHORT[i], ...period(`${y}-${mm}-01`, monthBounds(y, i + 1).end) }
+      }),
+    })
+  }
+  return out
 }
