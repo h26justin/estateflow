@@ -12,8 +12,9 @@
 // The DB mirrors properties.refurb_cost (= paid) and refurb_status by
 // trigger; mirrorFields() reproduces that locally.
 //
-// URL: #/refurbs | #/refurbs/board | #/refurbs/payments | #/refurbs/invoices |
-//      #/refurbs/invoices/import | #/refurbs/invoice/<id> | #/refurbs/project/<id>
+// URL: #/refurbs (cards) | #/refurbs/list | #/refurbs/board | #/refurbs/payments |
+//      #/refurbs/invoices | #/refurbs/invoices/import | #/refurbs/invoice/<id> |
+//      #/refurbs/project/<id>/<section>[/<stageId>]  (the workspace, refurbs/RefurbWorkspace.jsx)
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
@@ -28,7 +29,10 @@ import {
   projectsFromProperties, summariseProjects, ledgerLines, knownPayees, isActiveProject,
 } from '../lib/refurbs'
 import { invoicedByProject, outstandingOn } from '../lib/refurbInvoices'
+import { BUILT_IN_TEMPLATES, PROJECT_TYPES, filterProjects, distinctValues, journeySummary, forecastFinalCost } from '../lib/refurbWorkspace'
 import { useRefurbInvoices, allLinesOf, ImportRefurbInvoice, InvoiceList, InvoiceDetail, ProjectInvoices } from './RefurbInvoices'
+import RefurbWorkspace, { WORKSPACE_TABS } from './refurbs/RefurbWorkspace'
+import { CoverImage } from './refurbs/CoverPhoto'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -38,7 +42,7 @@ const fmtLine = n => {
 }
 const fmtDate = d => d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 const todayISO = () => new Date().toISOString().slice(0, 10)
-const ACTIVE_VIEWS = ['list', 'board', 'payments', 'invoices']
+const ACTIVE_VIEWS = ['cards', 'list', 'board', 'payments', 'invoices']
 
 // ── Shared: permissions + mutations ────────────────────────────────────────
 function useCanEdit(permissionsMap, devModeActive) {
@@ -64,9 +68,9 @@ function useRefurbMutations({ properties, onPropertyPatch, showToast }) {
     catch (e) { console.error(e); showToast?.(e.message || 'Something went wrong', 'error'); return null }
   }
 
-  const createProject = wrap(async (propertyId, fields) => {
+  const createProject = wrap(async (propertyId, fields, opts) => {
     const prop = (propsRef.current || []).find(p => p.id === propertyId)
-    const created = await api.createRefurbProject({ property_id: propertyId, company_id: prop?.company_id || null, ...fields })
+    const created = await api.createRefurbProject({ property_id: propertyId, company_id: prop?.company_id || null, ...fields }, opts)
     patch(propertyId, [...projectsOf(propertyId), created])
     return created
   })
@@ -144,12 +148,16 @@ const btn = (T, kind = 'ghost') => ({
 })
 
 // ── New refurb form ────────────────────────────────────────────────────────
-function NewRefurbForm({ properties, companies, fixedPropertyId, onCreate, onCancel, T }) {
+function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = 'residential', templates = [], people = [], onCreate, onCancel, T }) {
   const [propertyId, setPropertyId] = useState(fixedPropertyId || '')
+  const [type, setType] = useState(defaultType)
+  const [title, setTitle] = useState('')
   const [price, setPrice] = useState('')
   const [contractor, setContractor] = useState('')
+  const [manager, setManager] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
+  const [journey, setJourney] = useState('builtin')
   const [saving, setSaving] = useState(false)
   const byCompany = useMemo(() => {
     const groups = new Map()
@@ -162,24 +170,31 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, onCreate, onCan
     return groups
   }, [properties])
   const coName = id => companies.find(c => c.id === id)?.name || 'No company'
+  const prop = properties.find(p => p.id === propertyId)
+  const saved = templates.filter(t => !t.company_id || t.company_id === prop?.company_id)
 
   async function submit() {
     if (!propertyId) return
     setSaving(true)
+    const tpl = journey === 'builtin' ? BUILT_IN_TEMPLATES[type]
+      : journey === 'none' ? null
+      : (() => { const t = saved.find(x => x.id === journey); return t ? { name: t.name, stages: t.stages } : null })()
     await onCreate(propertyId, {
-      title: 'Refurbishment', stage: 'planned',
+      title: title.trim() || 'Refurbishment', stage: 'planned', project_type: type,
       agreed_price: Number(price) || 0,
       contractor_name: contractor.trim() || null,
-      start_date: start || null, target_end_date: end || null,
-    })
+      project_manager_name: manager.trim() || null,
+      start_date: start || null, target_end_date: end || null, original_end_date: end || null,
+    }, tpl)
     setSaving(false)
   }
 
+  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 12, padding: 18, marginBottom: 16 }}>
     <div style={{ fontFamily: mono, fontSize: 11, color: T.gold, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>New refurb</div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
       {!fixedPropertyId && <div>
-        <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }}>Property</label>
+        <label style={lbl}>Property</label>
         <select value={propertyId} onChange={e => setPropertyId(e.target.value)} style={inputStyle(T)}>
           <option value="">Choose a property</option>
           {[...byCompany.entries()].map(([cid, list]) => (
@@ -190,32 +205,55 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, onCreate, onCan
         </select>
       </div>}
       <div>
-        <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }}>Agreed price</label>
+        <label style={lbl}>Type</label>
+        <select value={type} onChange={e => setType(e.target.value)} style={inputStyle(T)}>
+          {PROJECT_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+      <div>
+        <label style={lbl}>Project name (optional)</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Full refurb and rewire" style={inputStyle(T)} />
+      </div>
+      <div>
+        <label style={lbl}>Agreed price</label>
         <MoneyInput prefix="£" value={price} onChange={v => setPrice(v == null ? '' : v)} placeholder="0" style={inputStyle(T)} />
       </div>
       <div>
-        <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }}>Contractor</label>
-        <input value={contractor} onChange={e => setContractor(e.target.value)} placeholder="e.g. GLB Builders" style={inputStyle(T)} />
+        <label style={lbl}>Main contractor</label>
+        <input list="refurb-payees" value={contractor} onChange={e => setContractor(e.target.value)} placeholder="e.g. GLB Builders" style={inputStyle(T)} />
       </div>
       <div>
-        <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }}>Start</label>
+        <label style={lbl}>Project manager</label>
+        <input list="refurb-new-people" value={manager} onChange={e => setManager(e.target.value)} placeholder="Name" style={inputStyle(T)} />
+        <datalist id="refurb-new-people">{people.map(p => <option key={p} value={p} />)}</datalist>
+      </div>
+      <div>
+        <label style={lbl}>Planned start</label>
         <input type="date" value={start} onChange={e => setStart(e.target.value)} style={inputStyle(T)} />
       </div>
       <div>
-        <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }}>Target finish</label>
+        <label style={lbl}>Planned completion</label>
         <input type="date" value={end} onChange={e => setEnd(e.target.value)} style={inputStyle(T)} />
+      </div>
+      <div>
+        <label style={lbl}>Journey</label>
+        <select value={journey} onChange={e => setJourney(e.target.value)} style={inputStyle(T)}>
+          <option value="builtin">{type === 'commercial' ? 'Commercial' : 'Residential'} template</option>
+          {saved.map(t => <option key={t.id} value={t.id}>Saved: {t.name}</option>)}
+          <option value="none">Choose later</option>
+        </select>
       </div>
     </div>
     <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
       <button onClick={submit} disabled={!propertyId || saving} style={{ ...btn(T, 'gold'), opacity: !propertyId || saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Create refurb'}</button>
       <button onClick={onCancel} style={btn(T)}>Cancel</button>
     </div>
-    <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10 }}>You can leave the price blank and add it later. Payments and extras are logged on the refurb itself.</div>
+    <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10 }}>Only the property is required. The cover photo, stages, dates and payments are added in the workspace.</div>
   </div>
 }
 
 // ── Project detail ─────────────────────────────────────────────────────────
-function ProjectDetail({ project, property, company, canEdit, payees, mutations, onBack, onDelete, embedded = false, invoices = [], allLines = [], onOpenInvoice, T, isMobile }) {
+function ProjectDetail({ project, property, company, canEdit, payees, mutations, onBack, onDelete, embedded = false, costsOnly = false, invoices = [], allLines = [], onOpenInvoice, T, isMobile }) {
   const confirmDialog = useConfirm()
   const t = projectTotals(project)
   const today = new Date()
@@ -236,6 +274,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   const payments = lines.filter(l => l.kind !== 'extra').sort((a, b) => String(a.date).localeCompare(String(b.date)))
 
   useEffect(() => {
+    if (costsOnly) return undefined
     let alive = true
     api.fetchRefurbMilestones(project.id).then(rows => {
       if (!alive) return
@@ -244,7 +283,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
       } else setMilestones(rows)
     }).catch(() => alive && setMilestones([]))
     return () => { alive = false }
-  }, [project.id, canEdit])
+  }, [project.id, canEdit, costsOnly])
 
   function detailForm(p) {
     return {
@@ -347,8 +386,8 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   return <div className="fade">
     <datalist id="refurb-payees">{payees.map(p => <option key={p} value={p} />)}</datalist>
 
-    {/* Header */}
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+    {/* Header (the workspace has its own when costsOnly) */}
+    {!costsOnly && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
       <div style={{ minWidth: 0 }}>
         {!embedded && <button onClick={onBack} style={{ ...btn(T), marginBottom: 8 }}>← All refurbs</button>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -371,7 +410,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         </select>
         {canEdit && <button onClick={onDelete} style={btn(T, 'danger')}>Delete</button>}
       </div>
-    </div>
+    </div>}
 
     {suggest === 'complete' && project.stage !== 'complete' && (
       <div style={{ background: T.green + '15', border: `1px solid ${T.green}55`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -396,7 +435,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
     {/* Traceability: which contractor invoices generated this refurb's cost. */}
     <ProjectInvoices project={project} invoices={invoices} lines={allLines} onOpenInvoice={onOpenInvoice} T={T} />
 
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.6fr 1fr', gap: 14 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile || costsOnly ? '1fr' : '1.6fr 1fr', gap: 14 }}>
       <div>
         {/* Agreed price */}
         <div style={panel}>
@@ -438,7 +477,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         </div>
       </div>
 
-      <div>
+      {!costsOnly && <div>
         {/* Details */}
         <div style={panel}>
           <div style={ph}><span>Details</span></div>
@@ -478,7 +517,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
             </button>
           ))}
         </div>
-      </div>
+      </div>}
     </div>
   </div>
 }
@@ -507,7 +546,7 @@ function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit =
 }
 
 // ── List row ───────────────────────────────────────────────────────────────
-function ProjectRow({ project, canEdit, onOpen, onQuickPay, T, isMobile }) {
+function ProjectRow({ project, journey, canEdit, onOpen, onQuickPay, T, isMobile }) {
   const t = projectTotals(project)
   const today = new Date()
   const days = daysLeft(project, today)
@@ -523,6 +562,13 @@ function ProjectRow({ project, canEdit, onOpen, onQuickPay, T, isMobile }) {
         {project.contractor_name && <span style={{ fontFamily: mono, fontSize: 10, padding: '2px 8px', borderRadius: 20, background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>{project.contractor_name}</span>}
         {t.over && <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red + '22', color: T.red }}>{fmt(t.extras)} over</span>}
         {t.agreed <= 0 && <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.amber + '22', color: T.amber }}>No price yet</span>}
+        {journey?.overdueTasks?.length > 0 && <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red + '22', color: T.red }}>{journey.overdueTasks.length} overdue</span>}
+        {journey?.blocked?.length > 0 && <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red + '22', color: T.red }}>{journey.blocked.length} blocked</span>}
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>
+        {journey?.current ? `${journey.current.name} · works ${journey.progress.pct}% · ` : journey?.progress?.hasJourney ? `All stages complete · ` : ''}
+        {project.project_manager_name ? `PM ${project.project_manager_name} · ` : ''}
+        {project.next_action ? `Next: ${project.next_action}` : ''}
       </div>
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>
         {p?.address && p.address !== p.name ? `${p.address} · ` : ''}
@@ -534,7 +580,7 @@ function ProjectRow({ project, canEdit, onOpen, onQuickPay, T, isMobile }) {
         <Metric label="Extras" value={fmt(t.extras)} color={t.extras > 0 ? T.amber : T.muted} T={T} />
         <Metric label="Paid" value={fmt(t.paid)} color={T.green} T={T} />
         <Metric label="Remaining" value={t.overpaid > 0 ? `${fmt(t.overpaid)} over` : fmt(t.remaining)} color={t.overpaid > 0 ? T.red : T.gold} T={T} />
-        <Metric label="Progress" value={`${t.pct}%`} T={T} />
+        <Metric label="Paid %" value={`${t.pct}%`} T={T} />
       </div>
       <Progress pct={t.pct} tone={tone} T={T} />
     </div>
@@ -637,7 +683,74 @@ function Ledger({ projects, onOpen, T, isMobile }) {
   </div>
 }
 
+// ── Card (default view) ───────────────────────────────────────────────────
+function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T }) {
+  const t = projectTotals(project)
+  const p = project.property
+  const days = daysLeft(project)
+  const ffc = forecastFinalCost({ agreed: t.agreed, invoiced, committed: 0, override: project.forecast_cost_override })
+  const wp = journey?.progress
+  const overdue = journey?.overdueTasks?.length || 0
+  const blocked = journey?.blocked?.length || 0
+  return <button onClick={onOpen} style={{ textAlign: 'left', background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 0, overflow: 'hidden', cursor: 'pointer', color: T.text, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <div style={{ position: 'relative', height: 150, overflow: 'hidden', background: T.bg }}>
+      <CoverImage url={coverUrl} crop={cover?.crop} T={T} compact />
+      <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 5 }}>
+        <StageChip stage={project.stage} T={T} />
+        {project.archived_at && <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#000a', color: '#fff' }}>Archived</span>}
+      </div>
+      {(overdue > 0 || blocked > 0) && <div style={{ position: 'absolute', top: 8, right: 8, fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red, color: '#fff' }}>
+        {[overdue ? `${overdue} overdue` : null, blocked ? `${blocked} blocked` : null].filter(Boolean).join(' · ')}
+      </div>}
+    </div>
+    <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'baseline' }}>
+        <b style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.title && project.title !== 'Refurbishment' ? project.title : (p?.name || p?.address || 'Property')}</b>
+        <CoChip company={p?.company} T={T} />
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {[p?.address || p?.name, project.project_type === 'commercial' ? 'Commercial' : 'Residential'].filter(Boolean).join(' · ')}
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }}>
+        PM {project.project_manager_name || '—'} · {project.contractor_name || 'No contractor'}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginTop: 2 }}>
+        <span>{journey?.current ? journey.current.name : wp?.hasJourney ? 'All stages complete' : <span style={{ color: T.faint }}>No journey yet</span>}</span>
+        <b>{wp?.hasJourney ? `${wp.pct}%` : ''}</b>
+      </div>
+      {wp?.hasJourney && <Progress pct={wp.pct} tone="ok" T={T} height={5} max={9999} />}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 4 }}>
+        <Metric label="Start" value={project.start_date ? fmtDate(project.start_date) : '—'} T={T} />
+        <Metric label="Forecast finish" value={project.target_end_date ? fmtDate(project.target_end_date) : '—'} color={days != null && days < 0 && project.stage !== 'complete' ? T.red : undefined} T={T} />
+        <Metric label="Agreed budget" value={fmt(t.agreed)} T={T} />
+        <Metric label="Forecast cost" value={fmt(ffc.value)} color={ffc.variance > 0 ? T.red : undefined} T={T} />
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: project.next_action ? T.gold : T.faint, marginTop: 'auto', paddingTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {project.next_action ? `Next: ${project.next_action}` : 'No next action set'}
+      </div>
+    </div>
+  </button>
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────
+const VIEWS = [['cards', 'Cards'], ['list', 'List'], ['board', 'Board'], ['payments', 'Payments'], ['invoices', 'Invoices']]
+const TAB_KEYS = WORKSPACE_TABS.map(([k]) => k)
+
+function parseRefurbHash() {
+  const parts = window.location.hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean)
+  if (parts[0] !== 'refurbs') return null
+  if (parts[1] === 'project' && parts[2]) return { projectId: parts[2], section: TAB_KEYS.includes(parts[3]) ? parts[3] : 'overview', stageId: parts[4] || null }
+  if (parts[1] === 'invoice' && parts[2]) return { sub: 'invoices', invoiceId: parts[2] }
+  if (parts[1] === 'invoices' && parts[2] === 'import') return { sub: 'invoices', importing: true }
+  return { sub: ACTIVE_VIEWS.includes(parts[1]) ? parts[1] : 'cards' }
+}
+
+const FILTER_KEY = 'refurbs.filters.v1'
+const loadFilters = () => {
+  try { return { type: 'residential', q: '', companyId: 'all', status: 'active', contractor: 'all', manager: 'all', from: '', to: '', archived: false, ...JSON.parse(sessionStorage.getItem(FILTER_KEY) || '{}') } }
+  catch (_) { return { type: 'residential', q: '', companyId: 'all', status: 'active', contractor: 'all', manager: 'all', from: '', to: '', archived: false } }
+}
+
 export default function RefurbsPage({ user, companies = [], properties = [], permissionsMap, devModeActive = false, showToast, openDetail, onPropertyPatch }) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
@@ -645,51 +758,93 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   const canEditFor = useCanEdit(permissionsMap, devModeActive)
   const mutations = useRefurbMutations({ properties, onPropertyPatch, showToast })
 
-  const parseHash = () => {
-    const parts = window.location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)
-    if (parts[0] !== 'refurbs') return null
-    if (parts[1] === 'project' && parts[2]) return { projectId: parts[2] }
-    if (parts[1] === 'invoice' && parts[2]) return { sub: 'invoices', invoiceId: parts[2] }
-    if (parts[1] === 'invoices' && parts[2] === 'import') return { sub: 'invoices', importing: true }
-    return { sub: ACTIVE_VIEWS.includes(parts[1]) ? parts[1] : 'list' }
-  }
-  const initial = parseHash()
-  const [sub, setSub] = useState(initial?.sub || 'list')
+  const initial = parseRefurbHash()
+  const [sub, setSub] = useState(initial?.sub || 'cards')
   const [selectedId, setSelectedId] = useState(initial?.projectId || null)
+  const [section, setSection] = useState(initial?.section || 'overview')
+  const [stageId, setStageId] = useState(initial?.stageId || null)
   const [invoiceId, setInvoiceId] = useState(initial?.invoiceId || null)
   const [importing, setImporting] = useState(!!initial?.importing)
   const { invoices, setInvoices } = useRefurbInvoices(showToast)
-  const [coFilter, setCoFilter] = useState('all')
-  const [showDone, setShowDone] = useState(false)
+  const [filters, setFilters] = useState(loadFilters)
   const [creating, setCreating] = useState(false)
   const [quickPayFor, setQuickPayFor] = useState(null)
+  const [portfolio, setPortfolio] = useState({ stages: [], tasks: [], covers: [], loaded: false })
+  const [coverUrls, setCoverUrls] = useState(new Map())
+  const [templates, setTemplates] = useState([])
+  const setFilter = (k, v) => setFilters(f => ({ ...f, [k]: v }))
+  useEffect(() => { try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(filters)) } catch (_) { /* per-tab convenience only */ } }, [filters])
 
-  // URL sync (RefurbsPage owns #/refurbs/…, mirrors DealsPage).
+  // URL sync: the hash always says which project and section is open, so
+  // coming back from an attachment, the property page or a search lands in
+  // the same place.
   useEffect(() => {
-    const target = selectedId ? `#/refurbs/project/${selectedId}`
+    const target = selectedId ? `#/refurbs/project/${selectedId}/${section}${stageId ? `/${stageId}` : ''}`
       : invoiceId ? `#/refurbs/invoice/${invoiceId}`
       : importing ? '#/refurbs/invoices/import'
-      : sub === 'list' ? '#/refurbs' : `#/refurbs/${sub}`
+      : sub === 'cards' ? '#/refurbs' : `#/refurbs/${sub}`
     if (window.location.hash !== target) window.location.hash = target
-  }, [sub, selectedId, invoiceId, importing])
+  }, [sub, selectedId, section, stageId, invoiceId, importing])
   useEffect(() => {
-    const onHash = () => { const h = parseHash(); if (!h) return; setSelectedId(h.projectId || null); setInvoiceId(h.invoiceId || null); setImporting(!!h.importing); if (h.sub) setSub(h.sub) }
+    const onHash = () => {
+      const h = parseRefurbHash(); if (!h) return
+      setSelectedId(h.projectId || null); setSection(h.section || 'overview'); setStageId(h.stageId || null)
+      setInvoiceId(h.invoiceId || null); setImporting(!!h.importing); if (h.sub) setSub(h.sub)
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
+  // Portfolio journey data for the cards, plus signed cover URLs.
+  useEffect(() => {
+    let alive = true
+    api.fetchRefurbPortfolio().then(async d => {
+      if (!alive) return
+      setPortfolio({ ...d, loaded: true })
+      try { const urls = await api.signRefurbPaths(d.covers.map(c => c.file_path)); if (alive) setCoverUrls(urls) } catch (_) { /* covers fall back to placeholder */ }
+    }).catch(e => { console.error(e); if (alive) setPortfolio(p => ({ ...p, loaded: true })) })
+    api.fetchRefurbTemplates().then(t => alive && setTemplates(t)).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const onJourneyChange = useCallback((projectId, { stages, tasks, cover }) => {
+    setPortfolio(p => ({
+      ...p,
+      stages: [...p.stages.filter(s => s.project_id !== projectId), ...stages],
+      tasks: [...p.tasks.filter(t => t.project_id !== projectId), ...tasks],
+      covers: [...p.covers.filter(c => c.project_id !== projectId), ...(cover ? [cover] : [])],
+    }))
+    if (cover?.file_path) setCoverUrls(m => {
+      if (m.has(cover.file_path)) return m
+      api.signRefurbPaths([cover.file_path]).then(u => setCoverUrls(prev => new Map([...prev, ...u]))).catch(() => {})
+      return m
+    })
+  }, [])
+
   const allProjects = useMemo(() => projectsFromProperties(properties), [properties])
-  const filtered = useMemo(() => coFilter === 'all' ? allProjects : allProjects.filter(p => p.property?.company_id === coFilter), [allProjects, coFilter])
+  const typed = useMemo(() => filterProjects(allProjects, { type: filters.type, archived: filters.archived }), [allProjects, filters.type, filters.archived])
+  const filtered = useMemo(() => filterProjects(allProjects, filters), [allProjects, filters])
   const summary = useMemo(() => summariseProjects(filtered), [filtered])
   const payees = useMemo(() => knownPayees(allProjects), [allProjects])
+  const contractors = useMemo(() => distinctValues(typed, 'contractor_name'), [typed])
+  const managers = useMemo(() => distinctValues(typed, 'project_manager_name'), [typed])
+  const people = useMemo(() => [...new Set([
+    ...distinctValues(allProjects, 'project_manager_name'),
+    ...portfolio.stages.map(s => (s.responsible_name || '').trim()).filter(Boolean),
+  ])], [allProjects, portfolio.stages])
   const selected = selectedId ? allProjects.find(p => p.id === selectedId) : null
   const allLines = useMemo(() => allLinesOf(allProjects), [allProjects])
-  const coInvoices = useMemo(() => coFilter === 'all' ? invoices : invoices.filter(i => i.company_id === coFilter), [invoices, coFilter])
+  const invoicedMap = useMemo(() => invoicedByProject(invoices), [invoices])
+  const coInvoices = useMemo(() => filters.companyId === 'all' ? invoices : invoices.filter(i => i.company_id === filters.companyId), [invoices, filters.companyId])
   const invoicesUnpaid = useMemo(() => coInvoices.reduce((s, i) => s + outstandingOn(i, allLines), 0), [coInvoices, allLines])
   const selectedInvoice = invoiceId ? invoices.find(i => i.id === invoiceId) : null
+  const journeys = useMemo(() => {
+    const m = new Map()
+    for (const p of filtered) m.set(p.id, journeySummary(p, portfolio.stages, portfolio.tasks))
+    return m
+  }, [filtered, portfolio.stages, portfolio.tasks])
+  const coverOf = p => portfolio.covers.find(c => c.id === p.cover_file_id) || null
 
-  // Patch refurb lines created or removed by invoice actions into App state,
-  // property by property, with the refurb_cost mirror recomputed.
   const applyLineChanges = useCallback((added = [], removed = []) => {
     const removedIds = new Set(removed.map(l => l.id))
     const touched = new Map()
@@ -707,18 +862,18 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     }
   }, [allProjects, properties, onPropertyPatch])
   const openInvoice = inv => { setSelectedId(null); setImporting(false); setSub('invoices'); setInvoiceId(inv.id) }
+  const openProject = (p, sec = 'overview') => { setSelectedId(p.id); setSection(sec); setStageId(null) }
 
   const stageOrder = { in_progress: 0, snagging: 1, planned: 2, on_hold: 3, complete: 4 }
-  const listed = useMemo(() => filtered
-    .filter(p => showDone || p.stage !== 'complete')
-    .sort((a, b) => (stageOrder[a.stage] - stageOrder[b.stage]) || String(a.target_end_date || '9999').localeCompare(String(b.target_end_date || '9999'))), [filtered, showDone])
+  const listed = useMemo(() => [...filtered]
+    .sort((a, b) => (stageOrder[a.stage] - stageOrder[b.stage]) || String(a.target_end_date || '9999').localeCompare(String(b.target_end_date || '9999'))), [filtered])
 
-  async function handleCreate(propertyId, fields) {
-    const created = await mutations.createProject(propertyId, fields)
-    if (created) { setCreating(false); setSelectedId(created.id); showToast?.('Refurb created') }
+  async function handleCreate(propertyId, fields, template) {
+    const created = await createWithJourney(mutations, propertyId, fields, template, showToast)
+    if (created) { setCreating(false); openProject(created); showToast?.('Refurb created. Add a cover photo and dates in the workspace.') }
   }
   async function handleDelete(project) {
-    if (!await confirmDialog({ title: 'Delete this refurb?', body: 'The refurb and its payments move to Trash. The property keeps its other data.', confirmLabel: 'Delete', destructive: true })) return
+    if (!await confirmDialog({ title: 'Delete this refurb?', body: 'The refurb, its payments, journey and files move to Trash. The property keeps its other data.', confirmLabel: 'Delete', destructive: true })) return
     const ok = await mutations.deleteProject(project.property_id, project.id)
     if (ok) { setSelectedId(null); showToast?.('Refurb deleted') }
   }
@@ -731,16 +886,24 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     await mutations.updateProject(p.property_id, projectId, fields)
   }
 
+  const typeToggle = <div role="tablist" aria-label="Project type" style={{ display: 'inline-flex', background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
+    {PROJECT_TYPES.map(o => <button key={o.value} role="tab" aria-selected={filters.type === o.value} onClick={() => { setFilter('type', o.value); setSelectedId(null) }}
+      style={{ fontSize: 13, fontWeight: filters.type === o.value ? 700 : 500, padding: '8px 18px', border: 'none', cursor: 'pointer', background: filters.type === o.value ? T.gold : 'transparent', color: filters.type === o.value ? '#fff' : T.muted }}>{o.label}</button>)}
+  </div>
+
   const pageHead = <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-    <div>
-      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>Refurbs</h1>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
-        {summary.active} active · {summary.overBudget} over budget · {fmt(summary.remaining)} remaining to pay
+    <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>Refurbs</h1>
+        {!selected && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
+          {summary.active} active · {summary.overBudget} over budget · {fmt(summary.remaining)} remaining to pay
+        </div>}
       </div>
+      {typeToggle}
     </div>
     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-      <div style={{ display: 'inline-flex', background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden' }}>
-        {[['list', 'List'], ['board', 'Board'], ['payments', 'Payments'], ['invoices', 'Invoices']].map(([k, l]) => (
+      <div style={{ display: 'inline-flex', background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden', flexWrap: 'wrap' }}>
+        {VIEWS.map(([k, l]) => (
           <button key={k} onClick={() => { setSub(k); setSelectedId(null); setInvoiceId(null); setImporting(false) }}
             style={{ fontFamily: mono, fontSize: 11.5, padding: '7px 14px', border: 'none', cursor: 'pointer', background: sub === k && !selectedId ? T.gold : 'transparent', color: sub === k && !selectedId ? '#fff' : T.muted }}>{l}</button>
         ))}
@@ -753,7 +916,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   if (sub === 'invoices' && importing) return <div className="fade">
     {pageHead}
     <ImportRefurbInvoice properties={properties} companies={companies} invoices={invoices} canEditFor={canEditFor} mutations={mutations}
-      defaultCompanyId={coFilter !== 'all' ? coFilter : null} showToast={showToast} T={T} isMobile={isMobile}
+      defaultCompanyId={filters.companyId !== 'all' ? filters.companyId : null} showToast={showToast} T={T} isMobile={isMobile}
       onCancel={() => setImporting(false)}
       onCreated={({ invoice, extras }) => {
         setInvoices(list => [invoice, ...list])
@@ -771,17 +934,35 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
       onUpdated={inv => setInvoices(list => list.map(i => i.id === inv.id ? inv : i))}
       onDeleted={(inv, removedExtras) => { setInvoices(list => list.filter(i => i.id !== inv.id)); applyLineChanges([], removedExtras); setInvoiceId(null); showToast?.('Invoice deleted') }}
       onLinesAdded={created => applyLineChanges(created, [])}
-      onOpenProject={p => { setInvoiceId(null); setSelectedId(p.id) }} />
+      onOpenProject={p => { setInvoiceId(null); openProject(p, 'costs') }} />
+  </div>
+
+  if (selectedId && !selected) return <div className="fade">
+    {pageHead}
+    <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{properties.length ? 'This refurb is not available' : 'Loading…'}</div>
+      {properties.length > 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12 }}>It may have been deleted, or it belongs to a company you no longer have access to.</div>}
+      <button onClick={() => setSelectedId(null)} style={btn(T)}>← All refurbs</button>
+    </div>
   </div>
 
   if (selected) {
     const canEdit = canEditFor(selected.property?.company_id)
     return <div className="fade">
       {pageHead}
-      <ProjectDetail project={selected} property={selected.property} company={selected.property?.company} canEdit={canEdit} payees={payees}
-        mutations={mutations} onBack={() => setSelectedId(null)} onDelete={() => handleDelete(selected)}
-        invoices={invoices} allLines={allLines} onOpenInvoice={openInvoice} T={T} isMobile={isMobile} />
-      {openDetail && <div style={{ marginTop: 8 }}><button onClick={() => openDetail(selected.property, 'refurb')} style={btn(T)}>Open property →</button></div>}
+      <RefurbWorkspace key={selected.id} project={selected} property={selected.property} company={selected.property?.company} canEdit={canEdit}
+        mutations={mutations} invoices={invoices} allLines={allLines} people={people} templates={templates}
+        section={section} stageId={stageId}
+        onSection={s => { setSection(s); setStageId(null) }}
+        onOpenStage={id => { setStageId(id); if (id && section === 'overview') setSection('journey') }}
+        onBack={() => setSelectedId(null)} onDelete={() => handleDelete(selected)}
+        onOpenProperty={openDetail ? () => openDetail(selected.property, 'refurb') : null}
+        onOpenDeal={selected.deal_id ? () => { window.location.hash = `#/deals/deal/${selected.deal_id}` } : null}
+        coverUrl={coverOf(selected) ? coverUrls.get(coverOf(selected).file_path) : null}
+        onJourneyChange={onJourneyChange} showToast={showToast} T={T} isMobile={isMobile}
+        renderCosts={() => <ProjectDetail project={selected} property={selected.property} company={selected.property?.company} canEdit={canEdit} payees={payees}
+          mutations={mutations} onDelete={() => handleDelete(selected)} embedded costsOnly
+          invoices={invoices} allLines={allLines} onOpenInvoice={openInvoice} T={T} isMobile={isMobile} />} />
     </div>
   }
 
@@ -789,21 +970,13 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 4 }}>{label}</div>
     <div style={{ fontFamily: mono, fontSize: 19, fontWeight: 700, color: color || T.text, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
   </div>
+  const fsel = { ...inputStyle(T), width: 'auto', minWidth: 120 }
+  const activeFilters = ['q', 'contractor', 'manager', 'from', 'to'].some(k => filters[k] && filters[k] !== 'all') || filters.companyId !== 'all' || filters.status !== 'active'
 
   return <div className="fade">
     {pageHead}
 
-    {companies.length > 1 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
-      <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
-      {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => (
-        <button key={c.id} onClick={() => setCoFilter(c.id)}
-          style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`, background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent', color: coFilter === c.id ? (c.color || T.gold) : T.muted }}>
-          {c.abbr || c.name}
-        </button>
-      ))}
-    </div>}
-
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: 10, marginBottom: 14 }}>
       {stat('Active refurbs', summary.active)}
       {stat('Agreed total', fmt(summary.agreed))}
       {stat('Paid so far', fmt(summary.paid), T.green)}
@@ -812,38 +985,79 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
       {stat('Invoices unpaid', fmt(invoicesUnpaid), invoicesUnpaid > 0 ? T.blue : T.muted)}
     </div>
 
-    {(summary.overdue > 0 || summary.noPrice > 0) && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-      {summary.overdue > 0 && <span style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 20, background: T.amber + '22', color: T.amber }}>{summary.overdue} past target finish</span>}
-      {summary.noPrice > 0 && <span style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 20, background: T.blue + '22', color: T.blue }}>{summary.noPrice} without an agreed price</span>}
+    {/* Search and filters */}
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+      <input value={filters.q} onChange={e => setFilter('q', e.target.value)} placeholder="Search address, contractor, PM…" aria-label="Search refurbs" style={{ ...inputStyle(T), width: isMobile ? '100%' : 240 }} />
+      {companies.length > 1 && <select value={filters.companyId} onChange={e => setFilter('companyId', e.target.value)} style={fsel} aria-label="Company">
+        <option value="all">All companies</option>{companies.map(c => <option key={c.id} value={c.id}>{c.abbr || c.name}</option>)}
+      </select>}
+      <select value={filters.status} onChange={e => setFilter('status', e.target.value)} style={fsel} aria-label="Status">
+        <option value="active">Active</option><option value="all">All statuses</option>
+        {STAGES.map(s => <option key={s} value={s}>{STAGE_CFG[s].label}</option>)}
+      </select>
+      <select value={filters.contractor} onChange={e => setFilter('contractor', e.target.value)} style={fsel} aria-label="Contractor">
+        <option value="all">All contractors</option>{contractors.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+      <select value={filters.manager} onChange={e => setFilter('manager', e.target.value)} style={fsel} aria-label="Project manager">
+        <option value="all">All project managers</option>{managers.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+      <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'inline-flex', gap: 4, alignItems: 'center' }}>Finish from
+        <input type="date" value={filters.from} onChange={e => setFilter('from', e.target.value)} style={{ ...inputStyle(T), width: 'auto' }} /></label>
+      <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'inline-flex', gap: 4, alignItems: 'center' }}>to
+        <input type="date" value={filters.to} onChange={e => setFilter('to', e.target.value)} style={{ ...inputStyle(T), width: 'auto' }} /></label>
+      <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+        <input type="checkbox" checked={filters.archived} onChange={e => setFilter('archived', e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Archived only
+      </label>
+      {activeFilters && <button onClick={() => setFilters(f => ({ ...f, q: '', companyId: 'all', status: 'active', contractor: 'all', manager: 'all', from: '', to: '' }))} style={btn(T)}>Clear filters</button>}
+    </div>
+
+    {creating && <NewRefurbForm properties={properties.filter(p => canEditFor(p.company_id))} companies={companies} defaultType={filters.type} templates={templates} people={people}
+      onCreate={handleCreate} onCancel={() => setCreating(false)} T={T} />}
+    <datalist id="refurb-payees">{payees.map(p => <option key={p} value={p} />)}</datalist>
+
+    {(sub === 'cards' || sub === 'list') && listed.length === 0 && !creating && <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 28, textAlign: 'center' }}>
+      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{filters.archived ? 'Nothing archived' : activeFilters ? 'No refurbs match these filters' : `No ${filters.type} refurbs on the go`}</div>
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14 }}>{activeFilters ? 'Clear the filters to see everything.' : 'Start one with the property and, if you have it, the price agreed with the builder.'}</div>
+      {!filters.archived && <button onClick={() => setCreating(true)} style={btn(T, 'gold')}>+ New Refurb</button>}
     </div>}
 
-    {creating && <NewRefurbForm properties={properties.filter(p => canEditFor(p.company_id))} companies={companies} onCreate={handleCreate} onCancel={() => setCreating(false)} T={T} />}
+    {sub === 'cards' && listed.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
+      {listed.map(p => <ProjectCard key={p.id} project={p} journey={journeys.get(p.id)} cover={coverOf(p)} coverUrl={coverOf(p) ? coverUrls.get(coverOf(p).file_path) : null}
+        invoiced={invoicedMap.get(p.id) || 0} onOpen={() => openProject(p)} T={T} />)}
+    </div>}
 
     {sub === 'list' && <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>List view · {listed.length} {listed.length === 1 ? 'refurb' : 'refurbs'}</span>
-        <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-          <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Show completed ({summary.complete})
-        </label>
-      </div>
-      {listed.length === 0 && !creating && <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 28, textAlign: 'center' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No refurbs on the go</div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14 }}>Start one with the price you agreed with the builder, then log payments as they go out.</div>
-        <button onClick={() => setCreating(true)} style={btn(T, 'gold')}>+ New Refurb</button>
-      </div>}
+      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 }}>List view · {listed.length} {listed.length === 1 ? 'refurb' : 'refurbs'}</div>
       {listed.map(p => <div key={p.id}>
-        <ProjectRow project={p} canEdit={canEditFor(p.property?.company_id)} onOpen={() => setSelectedId(p.id)} onQuickPay={() => setQuickPayFor(quickPayFor === p.id ? null : p.id)} T={T} isMobile={isMobile} />
+        <ProjectRow project={p} journey={journeys.get(p.id)} canEdit={canEditFor(p.property?.company_id)} onOpen={() => openProject(p)} onQuickPay={() => setQuickPayFor(quickPayFor === p.id ? null : p.id)} T={T} isMobile={isMobile} />
         {quickPayFor === p.id && <InlineQuickPay project={p} mutations={mutations} onDone={() => setQuickPayFor(null)} T={T} isMobile={isMobile} />}
       </div>)}
     </div>}
 
-    {sub === 'board' && <Board projects={filtered} canEdit={filtered.every(p => canEditFor(p.property?.company_id))} onOpen={p => setSelectedId(p.id)} onStage={handleStage} T={T} />}
+    {sub === 'board' && <Board projects={filterProjects(allProjects, { ...filters, status: 'all' })} canEdit={allProjects.every(p => canEditFor(p.property?.company_id))} onOpen={p => openProject(p)} onStage={handleStage} T={T} />}
 
-    {sub === 'payments' && <Ledger projects={filtered} onOpen={p => setSelectedId(p.id)} T={T} isMobile={isMobile} />}
+    {sub === 'payments' && <Ledger projects={filterProjects(allProjects, { ...filters, status: 'all' })} onOpen={p => openProject(p, 'costs')} T={T} isMobile={isMobile} />}
 
     {sub === 'invoices' && <InvoiceList invoices={coInvoices} companies={companies} lines={allLines} onOpen={openInvoice}
       canImport={companies.some(c => canEditFor(c.id))} onImport={() => setImporting(true)} T={T} isMobile={isMobile} />}
   </div>
+}
+
+// Create a refurb and, when a template is chosen, seed its journey. The
+// project is saved first; a failed journey seed leaves a project with no
+// stages, which the workspace offers to start again.
+async function createWithJourney(mutations, propertyId, fields, template, showToast) {
+  const created = await mutations.createProject(propertyId, fields, { seedMilestones: !template })
+  if (!created || !template || !(template.stages || []).length) return created
+  try {
+    await api.applyRefurbTemplate(created.id, template)
+    const updated = await mutations.updateProject(propertyId, created.id, { template_name: template.name })
+    return updated || created
+  } catch (e) {
+    console.error(e)
+    showToast?.('Refurb saved, but its journey could not be created. Start it from the Journey tab.', 'error')
+    return created
+  }
 }
 
 // Row-level quick payment without opening the refurb.
@@ -882,8 +1096,8 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
   const allLines = useMemo(() => allLinesOf(projectsFromProperties(properties)), [properties])
   const openInvoice = inv => { window.location.hash = `#/refurbs/invoice/${inv.id}`; openRefurbs?.() }
 
-  async function handleCreate(_pid, fields) {
-    const created = await mutations.createProject(property.id, fields)
+  async function handleCreate(_pid, fields, template) {
+    const created = await createWithJourney(mutations, property.id, fields, template, showToast)
     if (created) { setCreating(false); setSelectedId(created.id); showToast?.('Refurb created') }
   }
   async function handleDelete(project) {
@@ -904,6 +1118,7 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
         })}
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
+        {openRefurbs && selected && <button onClick={() => { window.location.hash = `#/refurbs/project/${selected.id}/overview`; openRefurbs() }} style={btn(T, 'gold')}>Open workspace →</button>}
         {openRefurbs && <button onClick={openRefurbs} style={btn(T)}>All refurbs →</button>}
         {canEdit && <button onClick={() => setCreating(v => !v)} style={btn(T, 'gold')}>+ New refurb</button>}
       </div>

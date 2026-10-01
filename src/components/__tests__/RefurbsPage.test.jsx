@@ -3,8 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ThemeProvider } from '../../lib/ThemeContext'
 import RefurbsPage, { RefurbPropertyTab } from '../RefurbsPage'
 
-// Writes go through lib/api; the page never reads from it (projects arrive
-// embedded on properties), so a thin mock is enough to exercise the UI.
+// Projects arrive embedded on properties; the workspace (stages, tasks,
+// history, files) loads per project through lib/api, mocked here.
+const wsStages = [
+  { id: 's1', project_id: 'r1', name: 'Strip Out', sort_order: 1, status: 'complete', weight: 1, planned_start: '2026-08-18', planned_end: '2026-08-25' },
+  { id: 's2', project_id: 'r1', name: 'First Fix', sort_order: 2, status: 'in_progress', weight: 1, progress_pct: 50, planned_start: '2026-08-26', planned_end: '2026-09-10' },
+  { id: 's3', project_id: 'r1', name: 'Plastering', sort_order: 3, status: 'not_started', weight: 1, planned_start: '2026-09-11', planned_end: '2026-09-20' },
+]
 vi.mock('../../lib/api', () => ({
   fetchRefurbInvoices: vi.fn(async () => []),
   fetchRefurbMilestones: vi.fn(async () => [
@@ -19,6 +24,17 @@ vi.mock('../../lib/api', () => ({
   createRefurbLine: vi.fn(async (projectId, line) => ({ id: 'l-new', project_id: projectId, ...line })),
   updateRefurbLine: vi.fn(async (id, fields) => ({ id, ...fields })),
   deleteRefurbLine: vi.fn(async () => {}),
+  fetchRefurbPortfolio: vi.fn(async () => ({ stages: wsStages, tasks: [{ id: 't1', project_id: 'r1', kind: 'task', title: 'Order boiler', status: 'open', due_date: '2026-01-01' }], covers: [] })),
+  signRefurbPaths: vi.fn(async () => new Map()),
+  fetchRefurbTemplates: vi.fn(async () => []),
+  fetchRefurbWorkspace: vi.fn(async () => ({ stages: wsStages, deps: [], tasks: [], updates: [], events: [], files: [] })),
+  currentRefurbActor: vi.fn(async () => ({ id: 'u', name: 'Test User' })),
+  fetchContractors: vi.fn(async () => [{ id: 'k1', name: 'GLB Builders', company_id: 'c1' }]),
+  logRefurbEvents: vi.fn(async (projectId, evs) => (Array.isArray(evs) ? evs : [evs]).map((e, i) => ({ id: 'e' + i + Math.random(), project_id: projectId, created_at: new Date().toISOString(), ...e }))),
+  applyRefurbTemplate: vi.fn(async (projectId, tpl) => tpl.stages.map((s, i) => ({ id: 'n' + i, project_id: projectId, name: s.name, sort_order: i + 1, status: 'not_started', weight: 1 }))),
+  createRefurbStage: vi.fn(async (projectId, f) => ({ id: 'ns', project_id: projectId, status: 'not_started', weight: 1, ...f })),
+  updateRefurbStage: vi.fn(async (id, f) => ({ ...wsStages.find(s => s.id === id), ...f })),
+  updateRefurbStages: vi.fn(async ups => ups.map(u => ({ ...wsStages.find(s => s.id === u.id), ...u.fields }))),
 }))
 
 const companies = [
@@ -46,39 +62,61 @@ function renderPage(extra = {}) {
   return render(<ThemeProvider><RefurbsPage {...props} /></ThemeProvider>)
 }
 
-beforeEach(() => { window.location.hash = '#/refurbs' })
+beforeEach(() => { window.location.hash = '#/refurbs'; sessionStorage.clear() })
 
 describe('RefurbsPage', () => {
-  it('shows the programme numbers for active refurbs only', () => {
+  it('shows active refurbs as cards with journey progress, completed ones on request', async () => {
     renderPage()
     expect(screen.getByRole('heading', { name: 'Refurbs' })).toBeInTheDocument()
     // Header line: 1 active, 1 over budget (extras), £10,800 remaining (31,800 - 21,000)
     expect(screen.getByText(/1 active · 1 over budget · £10,800 remaining to pay/)).toBeInTheDocument()
     expect(screen.getByText('Flat 3 Douro Terrace')).toBeInTheDocument()
-    // Completed refurbs are hidden until asked for
+    // Current stage + works progress come from the journey: (1 + 0.5 + 0) / 3 = 50%
+    expect(await screen.findByText('First Fix')).toBeInTheDocument()
+    expect(screen.getByText('50%')).toBeInTheDocument()
+    expect(screen.getByText('1 overdue')).toBeInTheDocument()
     expect(screen.queryByText('6 Garfield Street')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText(/Show completed/))
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'all' } })
     expect(screen.getByText('6 Garfield Street')).toBeInTheDocument()
   })
 
-  it('opens a refurb and shows agreed price, extras, payments and milestones', async () => {
+  it('splits Residential and Commercial projects', () => {
     renderPage()
-    fireEvent.click(screen.getByText('Open →'))
+    expect(screen.getByText('Flat 3 Douro Terrace')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Commercial' }))
+    expect(screen.queryByText('Flat 3 Douro Terrace')).not.toBeInTheDocument()
+    expect(screen.getByText(/No commercial refurbs on the go/)).toBeInTheDocument()
+  })
+
+  it('opens the workspace on a card and keeps the section in the URL', async () => {
+    renderPage()
+    fireEvent.click(screen.getByText('Flat 3 Douro Terrace'))
+    expect(await screen.findByRole('tab', { name: 'Journey & Timeline' })).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/refurbs/project/r1/overview')
+    expect(await screen.findByText('Needs attention')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Costs' }))
+    expect(window.location.hash).toBe('#/refurbs/project/r1/costs')
     expect(await screen.findByText('Original quote')).toBeInTheDocument()
     expect(screen.getByText('Rewire')).toBeInTheDocument()
     expect(screen.getByText('Deposit')).toBeInTheDocument()
-    expect(screen.getByText('Total agreed')).toBeInTheDocument()
-    expect(await screen.findByText('Keys received')).toBeInTheDocument()
-    expect(window.location.hash).toBe('#/refurbs/project/r1')
+    expect(screen.getByText('Revised approved budget')).toBeInTheDocument()
   })
 
-  it('logs a payment through the quick-add and patches the property', async () => {
+  it('restores the project and section from the URL', async () => {
+    window.location.hash = '#/refurbs/project/r1/journey'
+    renderPage()
+    expect(await screen.findByText('Stages')).toBeInTheDocument()
+    expect(screen.getByText(/How works progress is worked out/)).toBeInTheDocument()
+    // Legacy checklist with a ticked item is still visible
+    expect(await screen.findByText('Earlier checklist')).toBeInTheDocument()
+  })
+
+  it('logs a payment through the quick-add on Costs and patches the property', async () => {
     const onPropertyPatch = vi.fn()
     const api = await import('../../lib/api')
+    window.location.hash = '#/refurbs/project/r1/costs'
     renderPage({ onPropertyPatch })
-    fireEvent.click(screen.getByText('Open →'))
     await screen.findByText('Original quote')
-    // The payment quick-add is the block titled "Log a payment"
     const block = screen.getByText('Log a payment').parentElement
     const inputs = block.querySelectorAll('input')
     fireEvent.change(inputs[0], { target: { value: '5000' } })
@@ -100,14 +138,53 @@ describe('RefurbsPage', () => {
     expect(screen.getAllByText('Nothing here')).toHaveLength(3) // planned, snagging, on hold are empty
     fireEvent.click(screen.getByText('Payments'))
     expect(screen.getByText('Export CSV')).toBeInTheDocument()
-    // Extras are hidden from the money view by default
     expect(screen.queryByText('Rewire')).not.toBeInTheDocument()
     expect(screen.getByText('Stage payments')).toBeInTheDocument()
   })
 
   it('hides write controls for a read-only collaborator', () => {
     renderPage({ permissionsMap: { c1: { view_financial: true }, c2: { view_financial: true } } })
+    fireEvent.click(screen.getByText('List'))
     expect(screen.queryByText('+ Payment')).not.toBeInTheDocument()
+  })
+
+  it('creates a refurb with the residential journey', async () => {
+    const api = await import('../../lib/api')
+    renderPage()
+    fireEvent.click(screen.getAllByText('+ New Refurb')[0])
+    const form = screen.getByText('Create refurb').closest('div').parentElement
+    fireEvent.change(form.querySelector('select'), { target: { value: 'p2' } })
+    fireEvent.click(screen.getByText('Create refurb'))
+    await waitFor(() => expect(api.applyRefurbTemplate).toHaveBeenCalled())
+    expect(api.createRefurbProject.mock.calls.at(-1)[0]).toMatchObject({ property_id: 'p2', project_type: 'residential', stage: 'planned' })
+    expect(api.createRefurbProject.mock.calls.at(-1)[1]).toEqual({ seedMilestones: false })
+    const tpl = api.applyRefurbTemplate.mock.calls.at(-1)[1]
+    expect(tpl.stages.map(s => s.name)[0]).toBe('Scope & Survey')
+    expect(tpl.stages).toHaveLength(12)
+  })
+
+  it('moving a stage finish asks before moving the stages that wait for it', async () => {
+    const api = await import('../../lib/api')
+    api.fetchRefurbWorkspace.mockResolvedValueOnce({
+      stages: wsStages.map(x => ({ ...x })),
+      deps: [{ id: 'd1', project_id: 'r1', stage_id: 's3', depends_on_id: 's2', lag_days: 0 }],
+      tasks: [], updates: [], events: [], files: [],
+    })
+    window.location.hash = '#/refurbs/project/r1/journey/s2'
+    renderPage()
+    const finish = await screen.findByLabelText('Forecast finish')
+    fireEvent.change(finish, { target: { value: '2026-09-20' } })
+    fireEvent.blur(finish)
+    await waitFor(() => expect(api.updateRefurbStage).toHaveBeenCalledWith('s2', { forecast_end: '2026-09-20' }))
+    // Plastering (11-20 Sep) must now start 21 Sep: 9-day duration kept
+    expect(await screen.findByText('This change affects later work')).toBeInTheDocument()
+    expect(screen.getByText(/21 Sept? – 30 Sept?/)).toBeInTheDocument()
+    // 30 Sep 2026 is before the 2099 forecast completion, so no reason is asked for
+    fireEvent.click(screen.getByText('Apply revised dates'))
+    await waitFor(() => expect(api.updateRefurbStages).toHaveBeenCalledWith([{ id: 's3', fields: { forecast_start: '2026-09-21', forecast_end: '2026-09-30' } }]))
+    const logged = api.logRefurbEvents.mock.calls.flatMap(c => c[1])
+    expect(logged.some(e => e.action === 'dates_cascaded' && e.new_value === '2026-09-30')).toBe(true)
+    expect(logged.some(e => e.field === 'forecast_end' && e.new_value === '2026-09-20' && e.stage_id === 's2')).toBe(true)
   })
 })
 
