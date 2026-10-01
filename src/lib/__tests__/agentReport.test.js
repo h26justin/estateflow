@@ -94,6 +94,17 @@ describe('buildAgentReport', () => {
     expect(g.recent[3].stillDue).toBe(1000)
   })
 
+  it('counts a month the tracker shows Paid as collected even when no amount was recorded', () => {
+    const over = buildAgentReport([prop('o', {
+      rent_payments: [month('o', 7, 'unpaid'), month('o', 8, 'unpaid')],
+      rent_overrides: [{ id: 'x1', rent_payment_id: 'o-7', state: 'paid', reason: 'agent confirmed', created_at: '2026-08-01' }],
+    })], { agent: AGENT, asOf })
+    const jul = over.lines[0].recent.find(m => m.label === 'Jul')
+    expect(jul).toMatchObject({ state: 'paid', collected: 500, shortfall: 0, assumed: true })
+    const aug = over.lines[0].recent.find(m => m.label === 'Aug')
+    expect(aug).toMatchObject({ state: 'missed', collected: 0, shortfall: 500 })
+  })
+
   it('formats the due day like the tracker', () => {
     expect(dueDayLabel('28')).toBe('28th')
     expect(dueDayLabel(2)).toBe('2nd')

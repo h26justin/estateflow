@@ -121,17 +121,21 @@ function propertyCard(p, { asOf, year, thisMo }) {
 
   // Last 4 months (this month and the three before): rent due to be
   // collected against what came in, so the shortfall shows month by month.
-  // A paid month with no amount counts as collected in full, as the tracker
-  // shows it Paid; it is flagged so the reader knows the figure is assumed.
+  // A month the tracker shows Paid without the money recorded against it
+  // (marked paid with no amount, or overridden to Paid) counts as collected
+  // in full so the strip never contradicts its tile; it is flagged so the
+  // reader knows the amount was not entered.
   const recent = recentMonths(thisMo).map(mo => {
     const r = tiles.find(x => x.year === mo.year && x.month === mo.month)
     const rated = r && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(r.state)
     const due = rated ? round2(r.expected) : 0
-    const collected = rated && r.needsBackfill ? due : round2(r?.received || 0)
+    const received = round2(r?.received || 0)
+    const paidUnrecorded = !!(rated && r.state === STATE.PAID && received < due)
+    const collected = paidUnrecorded ? due : received
     const gap = round2(Math.max(0, due - collected))
     // Rent still inside its payment window is not a shortfall yet.
     const open = r && (r.state === STATE.DUE || r.state === STATE.PART_PAID)
-    return { ...mo, state: r?.state || null, due, collected, shortfall: open ? 0 : gap, stillDue: open ? gap : 0, assumed: !!(rated && r.needsBackfill) }
+    return { ...mo, state: r?.state || null, due, collected, shortfall: open ? 0 : gap, stillDue: open ? gap : 0, assumed: paidUnrecorded }
   })
   const cur = tiles.find(x => x.year === thisMo.year && x.month === thisMo.month) || null
 
@@ -238,6 +242,9 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       shortfall: round2(lt.reduce((s, c) => s + c.recent[i].shortfall, 0)),
       stillDue: round2(lt.reduce((s, c) => s + c.recent[i].stillDue, 0)),
     }))
+    g.shortfall4 = round2(g.recent.reduce((s, r) => s + r.shortfall, 0))
+    g.missedMonths = g.cards.reduce((s, c) => s + c.missedMonths, 0)
+    g.notLet = g.cards.filter(c => !c.let).length
   }
 
   const units = cards.length
@@ -275,6 +282,12 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       arrears: round2(cards.reduce((s, c) => s + c.arrears, 0)),
       owingCount: owing.length,
       yearReceived: round2(byCompany.reduce((s, g) => s + g.received, 0)),
+      // Last 4 months across every company: what fell short once the payment
+      // window closed, and what is still inside it.
+      shortfall4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.shortfall, 0), 0)),
+      stillDue4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.stillDue, 0), 0)),
+      due4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.due, 0), 0)),
+      missedMonths: cards.reduce((s, c) => s + c.missedMonths, 0),
     },
   }
 }

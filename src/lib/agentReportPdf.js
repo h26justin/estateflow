@@ -152,12 +152,32 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   }
 
   function pill(label, color, xr, yy) {
-    font(6.6, 'bold', color)
-    const w = width(label) + 6.4, h = 4.4, x = xr - w
-    doc.setFillColor(...mix(color, WHITE, 0.12)); doc.roundedRect(x, yy, w, h, 2.2, 2.2, 'F')
-    doc.setDrawColor(...mix(color, WHITE, 0.3)); doc.setLineWidth(0.2); doc.roundedRect(x, yy, w, h, 2.2, 2.2, 'S')
-    doc.setFillColor(...color); doc.circle(x + 2.3, yy + h / 2, 0.6, 'F')
-    font(6.6, 'bold', color); text(label, x + 3.7, yy + 3.05)
+    font(8.4, 'bold', color)
+    const w = width(label) + 9, h = 6.2, x = xr - w
+    doc.setFillColor(...mix(color, WHITE, 0.12)); doc.roundedRect(x, yy, w, h, 3.1, 3.1, 'F')
+    doc.setDrawColor(...mix(color, WHITE, 0.4)); doc.setLineWidth(0.3); doc.roundedRect(x, yy, w, h, 3.1, 3.1, 'S')
+    doc.setFillColor(...color); doc.circle(x + 3.2, yy + h / 2, 0.9, 'F')
+    font(8.4, 'bold', color); text(label, x + 5.2, yy + 4.25)
+    return x
+  }
+
+  // Status guide: one tile per status with how many properties are in it.
+  // Every status is always shown (zeros greyed) so the row reads the same
+  // week to week.
+  const STATUS_ORDER = [['rented', 'Rented'], ['notice_given', 'Notice given'], ['let_agreed', 'Let agreed'], ['on_rental_market', 'On rental market'], ['vacant', 'Vacant'], ['refurb', 'Refurbing'], ['short_term_let', 'Short-term let']]
+  function statusGuide(cards, title) {
+    const gap = 2.6, n = STATUS_ORDER.length, tw = (CW - gap * (n - 1)) / n, th = 15
+    font(6.6, 'bold', P.muted); text(title, M, y + 3); y += 5
+    STATUS_ORDER.forEach(([k, label], i) => {
+      const count = cards.filter(c => c.status === k).length
+      const col = count ? (PILL[k] || P.muted) : mix(P.faint, WHITE, 0.6)
+      const x = M + i * (tw + gap)
+      doc.setFillColor(...mix(count ? col : P.faint, WHITE, count ? 0.1 : 0.05)); doc.roundedRect(x, y, tw, th, 1.8, 1.8, 'F')
+      doc.setFillColor(...col); doc.rect(x, y + 2, 0.9, th - 4, 'F')
+      font(14, 'bold', col); text(String(count), x + tw / 2, y + 8.2, { align: 'center' })
+      font(6.2, 'bold', count ? col : mix(P.faint, WHITE, 0.7)); text(fit(label, tw - 2), x + tw / 2, y + 12.4, { align: 'center' })
+    })
+    y += th + 5
   }
 
   // ── Heading ─────────────────────────────────────────────────────────
@@ -176,16 +196,26 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   doc.setFillColor(...P.gold); doc.rect(M, y - 0.5, 28, 1, 'F')
   y += 5
 
-  // One line of headline figures.
-  const head = [
-    { t: `${s.letUnits} of ${s.units} let`, color: TILE.paid[0] },
-    { t: `${s.notLetUnits} not let`, color: s.notLetUnits ? TILE.due[0] : P.faint },
-    { t: `${model.thisMonth.label} rent in ${money0(s.received)} of ${money0(s.expected)}`, color: P.ink },
-    { t: s.owed + s.arrears > 0 ? `Owed ${money0(s.owed + s.arrears)} across ${s.owingCount} ${s.owingCount === 1 ? 'property' : 'properties'}` : 'Nothing owed', color: s.owed + s.arrears > 0 ? TILE.missed[0] : TILE.paid[0] },
+  // Headline tiles: where the team is falling short, first.
+  const tilesTop = [
+    { label: 'Shortfall, last 4 months', value: money0(s.shortfall4), sub: s.due4 ? `of ${money0(s.due4)} due, payment window closed` : 'nothing due', color: s.shortfall4 > 0 ? TILE.missed[0] : TILE.paid[0] },
+    { label: 'Rent owed', value: money0(s.owed + s.arrears), sub: `${s.missedMonths} missed ${s.missedMonths === 1 ? 'month' : 'months'}, ${s.owingCount} ${s.owingCount === 1 ? 'property' : 'properties'}`, color: s.owed + s.arrears > 0 ? TILE.missed[0] : TILE.paid[0] },
+    { label: 'Not let', value: `${s.notLetUnits} of ${s.units}`, sub: `${s.letUnits} let (${s.occupancy ?? 0}%)`, color: s.notLetUnits > 0 ? TILE.due[0] : TILE.paid[0] },
+    { label: 'Still in payment window', value: money0(s.stillDue4), sub: 'due, not yet late', color: s.stillDue4 > 0 ? TILE.due[0] : TILE.paid[0] },
   ]
-  let hx = M
-  head.forEach(h => { font(8.2, 'bold', h.color); text(h.t, hx, y + 3.2); hx += width(h.t) + 7 })
-  y += 7
+  {
+    const gap = 4, kw = (CW - gap * 3) / 4
+    tilesTop.forEach((k, j) => {
+      const x = M + j * (kw + gap)
+      doc.setFillColor(...mix(k.color, WHITE, 0.07)); doc.roundedRect(x, y, kw, 19, 2, 2, 'F')
+      doc.setFillColor(...k.color); doc.rect(x + 4, y + 3.2, 7, 0.8, 'F')
+      font(6.3, 'bold', P.muted); text(k.label.toUpperCase(), x + 4, y + 7.6)
+      font(13, 'bold', k.color); text(fit(k.value, kw - 7), x + 4, y + 13.4)
+      font(6.2, 'normal', P.faint); text(fit(k.sub, kw - 7), x + 4, y + 17)
+    })
+    y += 24
+  }
+  statusGuide(model.lines, `STATUS OF ALL ${s.units} PROPERTIES`)
 
   // Key, as on the tracker.
   let kx = M
@@ -199,39 +229,77 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   font(6.4, 'normal', P.muted); text('This month', kx + 7.2, y + 2.7)
   y += 6
   font(6.4, 'normal', P.muted)
-  text('Under each property: the last 4 months, rent collected of rent due. Red = shortfall (window closed), amber = still in its window, * = paid, no amount entered.', M, y + 2.7)
+  text('Last 4 months = rent collected of rent due. Red = shortfall (payment window closed), amber = still in its window, * = marked paid but no amount entered.', M, y + 2.7)
   y += 8
 
-  // ── Cover: one line per company ─────────────────────────────────────
-  const coverRow = (cells, yy, bold, color) => {
-    const xs = [M + 4, M + 92, M + 118, M + 140, M + 162, W - M - 4]
-    cells.forEach((c, i) => {
-      if (c == null) return
-      const v = typeof c === 'object' ? c : { t: c }
-      font(bold ? 6.6 : 8, bold ? 'bold' : (v.bold ? 'bold' : 'normal'), v.color || color || P.slate)
-      text(i === 0 ? fit(v.t, 84) : v.t, xs[i], yy, i === 0 ? undefined : { align: 'right' })
+  // A cover table that carries on over pages. cols: [{ label, w (mm), align }]
+  function coverTable(title, sub, cols, rows, emptyText) {
+    ensure(24)
+    font(10.5, 'bold'); text(title, M, y + 4)
+    if (sub) { font(7.2, 'normal', P.muted); text(sub, W - M, y + 4, { align: 'right' }) }
+    doc.setFillColor(...P.gold); doc.rect(M, y + 6.2, 20, 0.8, 'F')
+    y += 10
+    const xs = []; let acc = M
+    cols.forEach(c => { xs.push(acc); acc += c.w })
+    const head = () => {
+      doc.setFillColor(...P.head); doc.rect(M, y, CW, 6.6, 'F')
+      cols.forEach((c, i) => { font(6.2, 'bold', P.muted); text(c.label.toUpperCase(), c.align === 'right' ? xs[i] + c.w - 3 : xs[i] + 3, y + 4.4, c.align === 'right' ? { align: 'right' } : undefined) })
+      y += 6.6
+    }
+    head()
+    if (!rows.length) { font(8, 'normal', TILE.paid[0]); text(emptyText, M + 3, y + 5); y += 10; return }
+    rows.forEach(r => {
+      if (y + 6.4 > BOTTOM) { newPage(); head() }
+      if (r.bar) { doc.setFillColor(...r.bar); doc.rect(M, y + 1.4, 1, 3.6, 'F') }
+      r.cells.forEach((cell, i) => {
+        const c = typeof cell === 'object' && cell !== null ? cell : { t: cell }
+        font(7.6, c.bold ? 'bold' : 'normal', c.color || P.slate)
+        text(fit(c.t ?? '', cols[i].w - 5), cols[i].align === 'right' ? xs[i] + cols[i].w - 3 : xs[i] + 3, y + 4.3, cols[i].align === 'right' ? { align: 'right' } : undefined)
+      })
+      doc.setDrawColor(...P.rule); doc.setLineWidth(0.15); doc.line(M, y + 6.4, W - M, y + 6.4)
+      y += 6.4
     })
+    y += 7
   }
-  doc.setFillColor(...P.head); doc.rect(M, y, CW, 7, 'F')
-  coverRow(['COMPANY', 'PROPERTIES', 'LET', 'NOT LET', `${model.year} IN`, 'OWED'], y + 4.6, true, P.muted)
-  y += 7
-  for (const g of model.byCompany) {
-    const accent = brandColour(g.color)
-    const let_ = g.cards.filter(c => c.let).length
-    doc.setDrawColor(...P.rule); doc.setLineWidth(0.2); doc.line(M, y + 8, W - M, y + 8)
-    doc.setFillColor(...accent); doc.rect(M, y + 1.6, 1.2, 4.8, 'F')
-    coverRow([{ t: g.company, bold: true, color: P.ink }, String(g.cards.length), { t: String(let_), color: TILE.paid[0] },
-      { t: String(g.cards.length - let_), color: g.cards.length - let_ ? TILE.due[0] : P.faint },
-      { t: money0(g.received), color: P.gold, bold: true },
-      { t: g.owed > 0 ? money0(g.owed) : '-', color: g.owed > 0 ? TILE.missed[0] : P.faint, bold: g.owed > 0 }], y + 5.2)
-    y += 8
-  }
+  const red = v => ({ t: v > 0 ? money0(v) : '-', color: v > 0 ? TILE.missed[0] : P.faint, bold: v > 0 })
+
+  coverTable('By company', 'worst first', [
+    { label: 'Company', w: 62 }, { label: 'Properties', w: 20, align: 'right' }, { label: 'Not let', w: 18, align: 'right' },
+    { label: 'Missed months', w: 24, align: 'right' }, { label: 'Shortfall 4 mo', w: 30, align: 'right' }, { label: 'Owed', w: 32, align: 'right' },
+  ], [...model.byCompany].sort((a, b) => (b.owed + b.shortfall4) - (a.owed + a.shortfall4)).map(g => ({
+    bar: brandColour(g.color),
+    cells: [{ t: g.company, bold: true, color: P.ink }, String(g.cards.length),
+      { t: String(g.notLet), color: g.notLet ? TILE.due[0] : P.faint, bold: g.notLet > 0 },
+      { t: String(g.missedMonths), color: g.missedMonths ? TILE.missed[0] : P.faint, bold: g.missedMonths > 0 },
+      red(g.shortfall4), red(g.owed)],
+  })), '')
+
+  coverTable('Rent owed', 'every property with rent unpaid after its payment window', [
+    { label: 'Property', w: 62 }, { label: 'Company', w: 46 }, { label: 'Months missed', w: 22, align: 'right' },
+    { label: 'Shortfall 4 mo', w: 26, align: 'right' }, { label: 'Owed', w: 30, align: 'right' },
+  ], model.owing.map(c => ({
+    bar: brandColour(model.byCompany.find(g => g.companyId === c.companyId)?.color),
+    cells: [{ t: c.name, bold: true, color: P.ink }, c.company, String(c.missedMonths || '-'),
+      red(c.recent.reduce((t, r) => t + r.shortfall, 0)), red(c.owed + c.arrears)],
+  })), 'Nothing owed: every collectible month is paid.')
+
+  const daysEmpty = c => c.vacantSince ? Math.max(0, Math.round((Date.parse(model.asOf) - Date.parse(c.vacantSince)) / 864e5)) : null
+  coverTable('Not let', 'longest empty first', [
+    { label: 'Property', w: 62 }, { label: 'Company', w: 46 }, { label: 'Status', w: 30 },
+    { label: 'Empty since', w: 26, align: 'right' }, { label: 'Rent lost /mo', w: 22, align: 'right' },
+  ], [...model.notLet].sort((a, b) => (daysEmpty(b) ?? -1) - (daysEmpty(a) ?? -1)).map(c => ({
+    bar: brandColour(model.byCompany.find(g => g.companyId === c.companyId)?.color),
+    cells: [{ t: c.name, bold: true, color: P.ink }, c.company, { t: c.letLabel, color: PILL[c.status] || P.muted, bold: true },
+      c.vacantSince ? `${dateShort(c.vacantSince)} (${daysEmpty(c)}d)` : 'not recorded',
+      { t: c.rent > 0 ? money0(c.rent) : '-', color: c.rent > 0 ? TILE.due[0] : P.faint }],
+  })), 'Every property is let.')
+
   font(7, 'normal', P.faint)
-  text('Each company starts on its own page.', M, y + 6)
+  ensure(10); text('Each company follows on its own page, with every property and its rent month by month.', M, y + 2)
 
   // ── Company pages ───────────────────────────────────────────────────
   const TW = 10.6, TH = 6.4, TG = 1.0          // month tiles
-  const CARD_H = 29
+  const CARD_H = 33
   const RIGHT = W - M - 4
   let accent = P.gold, tint = P.tile, tintSoft = [251, 250, 247]
 
@@ -251,11 +319,13 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
     text(`${g.cards.length} ${g.cards.length === 1 ? 'property' : 'properties'} - ${let_} let - rent tracker ${model.year}`, W / 2, yy + 10, { align: 'center' })
     yy += 16
     // Totals, centred.
+    // Shortfalls first: this report is for seeing where collection falls short.
     const items = [
-      ...[['paid', 'paid'], ['due', 'due'], ['missed', 'missed'], ['nc', 'not collectible'], ['backfill', 'need amount']]
-        .filter(([k]) => g.counts[k] > 0).map(([k, l]) => ({ t: `${g.counts[k]} ${l}`, color: COUNT_COLOR[k] })),
-      { t: `${money0(g.received)} received`, color: P.gold },
-      ...(g.owed > 0 ? [{ t: `${money0(g.owed)} owed`, color: TILE.missed[0] }] : []),
+      { t: g.owed > 0 ? `${money0(g.owed)} owed` : 'nothing owed', color: g.owed > 0 ? TILE.missed[0] : TILE.paid[0] },
+      { t: `${money0(g.shortfall4)} short, last 4 months`, color: g.shortfall4 > 0 ? TILE.missed[0] : P.faint },
+      { t: `${g.missedMonths} missed ${g.missedMonths === 1 ? 'month' : 'months'}`, color: g.missedMonths ? TILE.missed[0] : P.faint },
+      { t: `${g.notLet} not let`, color: g.notLet ? TILE.due[0] : P.faint },
+      { t: `${money0(g.received)} received ${model.year}`, color: P.gold },
     ]
     font(8, 'bold'); const runW = items.reduce((w, it) => w + width(it.t), 0) + (items.length - 1) * 5
     doc.setFillColor(...tint); doc.roundedRect(M, yy, CW, 9, 2, 2, 'F')
@@ -347,19 +417,25 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
     font(8.8, 'bold'); text(fit(indent ? (c.name.split(',')[0].trim() || c.name) : c.name, 135 - (indent ? 5 : 0)), lx, y + 5.4)
     font(6.8, 'normal', P.muted); text(`${money0(c.rent)}/mo  -  Due ${c.dueDay || '-'}`, lx, y + 9.4)
     c.months.forEach((m, i) => tile(lx + i * (TW + TG), y + 11.8, TW, TH, m))
-    if (!c.stl) recentStrip(c.recent, lx, y + 20.4)
+    if (!c.stl) {
+      font(5.6, 'bold', P.muted); text('LAST 4 MONTHS: COLLECTED OF DUE', lx, y + 22)
+      recentStrip(c.recent, lx, y + 23.4)
+    }
 
-    pill(c.letLabel, PILL[c.status] || P.muted, RIGHT, y + 2.4)
+    font(5.6, 'bold', P.muted); text('STATUS', RIGHT, y + 3.4, { align: 'right' })
+    pill(c.letLabel, PILL[c.status] || P.muted, RIGHT, y + 4.4)
     const cnt = [['paid', 'paid'], ['due', 'due'], ['missed', 'missed'], ['nc', 'n/c']]
       .map(([k, l]) => ({ t: `${c.counts[k]} ${l}`, color: c.counts[k] > 0 ? COUNT_COLOR[k] : P.faint }))
-    countRun(cnt, RIGHT, y + 10.6, 6.6, 2.6)
-    font(9, 'bold', P.gold); text(money0(c.received), RIGHT, y + 15.6, { align: 'right' })
+    font(5.6, 'bold', P.muted); text(`MONTHS IN ${model.year}`, RIGHT, y + 14, { align: 'right' })
+    countRun(cnt, RIGHT, y + 17.2, 6.8, 2.6)
+    font(5.6, 'bold', P.muted); text(`RECEIVED IN ${model.year}`, RIGHT, y + 21.4, { align: 'right' })
+    font(9.5, 'bold', P.gold); text(money0(c.received), RIGHT, y + 25.4, { align: 'right' })
     const owed = c.owed + c.arrears
     if (owed > 0) {
       const bits = []
-      if (c.owed > 0) bits.push(`${money0(c.owed)} owed (${c.missedMonths} ${c.missedMonths === 1 ? 'month' : 'months'})`)
+      if (c.owed > 0) bits.push(`${money0(c.owed)} owed (${c.missedMonths} missed ${c.missedMonths === 1 ? 'month' : 'months'})`)
       if (c.arrears > 0) bits.push(`${money0(c.arrears)} older arrears`)
-      font(6.8, 'bold', TILE.missed[0]); text(bits.join('  -  '), RIGHT, y + 20, { align: 'right' })
+      font(7, 'bold', TILE.missed[0]); text(bits.join('  -  '), RIGHT, y + 29.8, { align: 'right' })
     }
     y += CARD_H
   }
@@ -372,6 +448,7 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
     onNewPage = null
     newPage()
     companyTitle(g)
+    statusGuide(g.cards, `STATUS OF ${g.cards.length} ${g.cards.length === 1 ? 'PROPERTY' : 'PROPERTIES'}`)
     recentTable(g)
     onNewPage = () => companyRunningHead(g)
     stripe = 0
