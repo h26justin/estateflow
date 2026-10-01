@@ -128,9 +128,38 @@ describe('buildAgentReport', () => {
     expect(dueDayLabel(null)).toBe(null)
   })
 
-  it('never carries tenant names', () => {
-    const withTenant = buildAgentReport([prop('9', { tenant_name: 'Jane Tenant' })], { agent: AGENT, asOf })
-    expect(JSON.stringify(withTenant)).not.toContain('Jane Tenant')
+  it('names the tenant on let properties only, so the agent knows who to chase', () => {
+    const r2 = buildAgentReport([prop('9', { tenant_name: 'Jane Tenant' }), prop('8', { status: 'vacant', tenant_name: 'Old Tenant' })], { agent: AGENT, asOf })
+    expect(r2.lines.find(l => l.name === 'Flat 9').tenant).toBe('Jane Tenant')
+    expect(r2.lines.find(l => l.name === 'Flat 8').tenant).toBe(null)
+  })
+
+  it('totals the year to date, this month, the rent roll and what empty properties cost', () => {
+    expect(r.summary.rentRoll).toBe(1000)          // Flat 1 + Flat 2 (STL rooms excluded)
+    expect(r.summary.emptyCost).toBe(500)          // Flat 3 vacant
+    expect(r.summary.yearDue).toBe(2000)           // Aug + Sep for Flats 1 and 2; October is still in its window
+    expect(r.summary.yearCollected).toBe(1500)
+    expect(r.summary.yearRate).toBe(75)
+    expect(r.summary.yearDue).toBe(r.summary.yearCollected + r.summary.shortfallYear)
+    expect(r.summary.monthDue).toBe(1000)
+    expect(r.summary.monthStill).toBe(1000)
+    expect(r.lines.find(l => l.name === 'Flat 2').oldestMissed).toBe('Sep 2026')
+  })
+
+  it('builds the short-term let section from bookings, fees and the manager', () => {
+    const bookings = [
+      { id: 'b1', property_id: '6', status: 'confirmed', source: 'airbnb', arrival: '2026-10-01', departure: '2026-10-03', total_amount: 200, channel_commission: 30, hostaway_listing_id: 'L6' },
+      { id: 'b2', property_id: '7', status: 'confirmed', source: 'airbnb', arrival: '2026-09-10', departure: '2026-09-12', total_amount: 100, channel_commission: 15, hostaway_listing_id: 'L7' },
+    ]
+    const withStl = buildAgentReport(props.map(p => p.status === 'short_term_let' ? { ...p, stl_manager_id: 'm1' } : p), {
+      agent: AGENT, asOf, stl: { bookings, adjustments: [], managers: [{ id: 'm1', name: 'Stacey', percentage: 10, basis: 'net_after_platform_fees', active: true }], mappings: [] },
+    })
+    const b = withStl.stl[0]
+    expect(b.name).toBe('Piers View')
+    expect(b.rooms).toBe(2)
+    expect(b.month).toMatchObject({ gross: 200, platformFees: 30, netAfterFees: 170, managerFee: 17, toOwner: 153 })
+    expect(b.year).toMatchObject({ gross: 300, netAfterFees: 255, toOwner: 229.5, nights: 4 })
+    expect(b.year.adr).toBe(75)
   })
 })
 

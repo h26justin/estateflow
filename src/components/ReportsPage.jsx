@@ -122,6 +122,21 @@ export default function ReportsPage({ properties, companies, companySettings, us
   // Agent weekly report: which letting agent it is for (null = the agent
   // managing the most properties).
   const [reportAgentId, setReportAgentId] = useState(null)
+  // Short-term-let bookings for the agent report, loaded only when it opens.
+  const [agentStl, setAgentStl] = useState(null)
+  useEffect(() => {
+    if (activeReport?.id !== 'agent_weekly' || agentStl) return
+    const stlProps = (properties || []).filter(p => p.status === 'short_term_let' && !p.deleted_at)
+    if (!stlProps.length) { setAgentStl({ bookings: [], adjustments: [], managers: [], mappings: [] }); return }
+    const ids = stlProps.map(p => p.id)
+    const coIds = [...new Set(stlProps.map(p => p.company_id).filter(Boolean))]
+    Promise.all([
+      api.fetchStlIncomeBookings({ propertyIds: ids }).catch(() => []),
+      api.fetchStlAdjustments({ propertyIds: ids }).catch(() => []),
+      api.fetchStlManagers(coIds).catch(() => []),
+      api.fetchHostawayMappings().catch(() => []),
+    ]).then(([bookings, adjustments, managers, mappings]) => setAgentStl({ bookings, adjustments, managers, mappings }))
+  }, [activeReport?.id, properties, agentStl])
   const [pnlInc, setPnlInc] = useState({ fees: true, expenses: true, mortgage: true, ct: true, divTax: false, fullOcc: false, estRents: false })
 
   // All data
@@ -405,7 +420,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             </select>
           )}
           <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}
-            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly, pnlForecast, pnlMyShare, pnlInc, epcCerts: filtEpc, reportAgentId, companySettings }}/>
+            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly, pnlForecast, pnlMyShare, pnlInc, epcCerts: filtEpc, reportAgentId, companySettings, agentStl }}/>
         </div>
       </div>
 
@@ -422,14 +437,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} filtEpc={filtEpc} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
         shareholders={shareholders} agents={agents} companies={companies} selectedCompany={selectedCompany} user={user}
         pnlMonthly={pnlMonthly} setPnlMonthly={setPnlMonthly} pnlForecast={pnlForecast} setPnlForecast={setPnlForecast} pnlMyShare={pnlMyShare} setPnlMyShare={setPnlMyShare} pnlInc={pnlInc} setPnlInc={setPnlInc}
-        reportAgentId={reportAgentId} setReportAgentId={setReportAgentId} companySettings={companySettings}/>}
+        reportAgentId={reportAgentId} setReportAgentId={setReportAgentId} companySettings={companySettings} agentStl={agentStl}/>}
     </div>
   )
 }
 
 // ── REPORT BODY ROUTER ────────────────────────────────────────────────────────
-function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId, companySettings }) {
-  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId, companySettings }
+function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId, companySettings, agentStl }) {
+  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId, companySettings, agentStl }
   const map = {
     pnl: <ReportPnL {...props}/>,
     company_pnl: <ReportCompanyPnL {...props}/>,
@@ -540,7 +555,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
   const [exporting, setExporting] = useState(false)
   function exportCSV() {
     if (reportId === 'agent_weekly') {
-      const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId, companies, extras?.companySettings)
+      const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId, companies, extras?.companySettings, extras?.agentStl)
       if (!model) return
       const csv = agentReportCsv(model).map(r=>r.map(v=>`"${csvSafe(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
       const url = URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
@@ -560,7 +575,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
     setExporting(true)
     if (reportId === 'agent_weekly') {
       try {
-        const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId, companies, extras?.companySettings)
+        const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId, companies, extras?.companySettings, extras?.agentStl)
         if (!model) throw new Error('no letting agent manages these properties')
         await downloadAgentReportPdf(model, Object.fromEntries(model.byCompany.map(g => [g.companyId, g.logoUrl]).filter(([, u]) => u)))
       } catch(e) { console.error('PDF export failed', e); showAppToast('PDF export failed — ' + (e?.message || 'unknown'), 'error') }
@@ -2436,11 +2451,11 @@ function agentsWithProperties(props, agents) {
   return (agents || []).map(a => ({ ...a, count: props.filter(p => managedByAgent(p, a)).length }))
     .filter(a => a.count > 0).sort((a, b) => b.count - a.count)
 }
-function agentReportModel(props, agents, agentId, companies = [], companySettings = {}) {
+function agentReportModel(props, agents, agentId, companies = [], companySettings = {}, stl = null) {
   const list = agentsWithProperties(props || [], agents)
   const agent = list.find(a => a.id === agentId) || list[0]
   const cos = (companies || []).map(c => ({ ...c, logo_url: companySettings?.[c.id]?.logo_url || null }))
-  return agent ? buildAgentReport(props, { agent, companies: cos }) : null
+  return agent ? buildAgentReport(props, { agent, companies: cos, stl }) : null
 }
 function agentReportCsv(model) {
   const rows = [['Company', 'Property', 'Status', 'Rent pcm', 'Due', ...model.months.map(m => `${m.label} ${model.year}`), 'Paid', 'Due', 'Missed', 'N/C', `Received ${model.year}`, 'Owed', 'Older arrears',
@@ -2478,9 +2493,9 @@ function AgentMonthTiles({ months, T }) {
   )
 }
 
-function ReportAgentWeekly({ filtProps, agents, companies, companySettings, reportAgentId, setReportAgentId, T, fmt }) {
+function ReportAgentWeekly({ filtProps, agents, companies, companySettings, reportAgentId, setReportAgentId, agentStl, T, fmt }) {
   const list = useMemo(() => agentsWithProperties(filtProps, agents), [filtProps, agents])
-  const model = useMemo(() => agentReportModel(filtProps, agents, reportAgentId, companies, companySettings), [filtProps, agents, reportAgentId, companies, companySettings])
+  const model = useMemo(() => agentReportModel(filtProps, agents, reportAgentId, companies, companySettings, agentStl), [filtProps, agents, reportAgentId, companies, companySettings, agentStl])
   if (!model) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center'}}>No letting agent is linked to these properties. Set the managing agent on each property to use this report.</div>
   const s = model.summary
   const countColor = { paid: T.green, due: T.amber, missed: T.red, nc: T.faint, backfill: '#E0943A' }
@@ -2495,10 +2510,10 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
         <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>Rent tracker for {model.year}, position at {model.asOf}. The PDF is the one the agent gets by email.</span>
       </div>
       <StatCards T={T} items={[
-        {label:'Let',value:`${s.letUnits} of ${s.units}`,sub:s.occupancy==null?'':`${s.occupancy}% occupancy`,color:T.green},
-        {label:`${model.thisMonth.label} rent in`,value:`${fmt(s.received)} of ${fmt(s.expected)}`,sub:s.rate==null?'nothing due yet':`${s.rate}%`,color:T.text},
-        {label:'Rent owed',value:fmt(s.owed+s.arrears),sub:`${s.owingCount} ${s.owingCount===1?'property':'properties'}`,color:s.owed+s.arrears>0?T.red:T.green},
-        {label:'Not let',value:s.notLetUnits,color:s.notLetUnits>0?T.amber:T.green},
+        {label:`Due ${model.year} so far`,value:fmt(s.yearDue),sub:`${fmt(s.yearCollected)} collected`,color:T.text},
+        {label:'Collected %',value:s.yearRate==null?'—':`${Math.round(s.yearRate)}%`,color:s.yearRate==null?T.muted:s.yearRate>=95?T.green:s.yearRate>=85?T.amber:T.red},
+        {label:'Rent owed',value:fmt(s.shortfallYear+s.arrears),sub:`${s.owingCount} ${s.owingCount===1?'property':'properties'}, ${s.missedMonths} missed months`,color:s.shortfallYear+s.arrears>0?T.red:T.green},
+        {label:'Not let',value:`${s.notLetUnits} of ${s.units}`,sub:`${fmt(s.emptyCost)}/mo empty and ready to let`,color:s.notLetUnits>0?T.amber:T.green},
       ]}/>
       {model.byCompany.map(g => (
         <div key={g.companyId || g.company} style={{marginBottom:20}}>

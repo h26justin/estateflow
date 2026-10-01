@@ -18,10 +18,12 @@
 // four months the rent due against the rent collected, per property and per
 // company, so a shortfall is visible month by month.
 //
-// Outward-facing: it goes to the agent, so no tenant names, notes, values or
-// mortgage figures. Just the property, its status and the rent.
+// It goes to the managing agent, who already deals with the tenants, so the
+// tenant's name is shown to say who to chase. No notes, values or mortgage
+// figures.
 
-import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, STATE, GO_LIVE } from './rentEngine'
+import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE } from './rentEngine'
+import { summariseStl, managerPayouts, observedChannelRates, unitCount } from './stlIncome'
 import { tenancyForDate } from './tenancyUtils'
 import { buildingTailFromName, buildingKeyFromName } from './addressUtils'
 
@@ -154,6 +156,30 @@ function propertyCard(p, { asOf, year, thisMo }) {
   })
   const cur = tiles.find(x => x.year === thisMo.year && x.month === thisMo.month) || null
 
+  // Year to date and this month, on the Rent Tracker's collection basis:
+  // collectible rent whose due date has been reached, and what came in
+  // against it (capped per period, so an overpayment never hides arrears).
+  // A period the tracker shows Paid without the money recorded against it
+  // (paid with no amount, or overridden to Paid) counts as collected in full,
+  // so these figures never contradict the tiles.
+  const RATED = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED]
+  const collectedOf = e => (e.state === STATE.PAID && (e.received || 0) < e.expected ? e.expected : Math.min(e.received || 0, e.expected))
+  // Year to date counts settled periods only: paid, or missed (payment
+  // window closed). Rent still inside its window is neither late nor in, so
+  // it stays out and due = collected + owed exactly.
+  let yearDue = 0, yearCollected = 0
+  if (!isStl) for (const e of evals) {
+    if (![STATE.PAID, STATE.MISSED].includes(e.state) || e.expected == null || e.periodStart < yearStart) continue
+    yearDue = round2(yearDue + e.expected); yearCollected = round2(yearCollected + collectedOf(e))
+  }
+  const mb = monthBounds(thisMo.year, thisMo.month)
+  let monthDue = 0, monthCollected = 0
+  if (!isStl) for (const e of evals) {
+    if (e.periodStart < mb.start || e.periodStart > mb.end || !RATED.includes(e.state) || e.expected == null) continue
+    monthDue = round2(monthDue + e.expected); monthCollected = round2(monthCollected + collectedOf(e))
+  }
+  const firstMissed = evals.filter(e => e.state === STATE.MISSED && e.outstanding > 0).sort((a, b) => (a.periodStart < b.periodStart ? -1 : 1))[0]
+
   return {
     id: p.id,
     name: String(p.name || p.address || 'Property').trim(),
@@ -181,6 +207,12 @@ function propertyCard(p, { asOf, year, thisMo }) {
     tenancyStart,
     // The tenancy began before rent tracking did, so its shortfall is from go-live.
     tenancyBeforeTracking: !!(tenancyStart && tenancyStart < GO_LIVE),
+    tenant: isLet(p.status) && !isStl ? (t?.tenant_name || tenancy?.tenant_name || p.tenant_name || null) : null,
+    yearDue,
+    yearCollected,
+    monthDue, monthCollected, monthStill: round2(Math.max(0, monthDue - monthCollected)),
+    oldestMissed: firstMissed ? monthName({ year: Number(firstMissed.periodStart.slice(0, 4)), month: Number(firstMissed.periodStart.slice(5, 7)) }) : null,
+    lettable: !['refurb'].includes(p.status),
   }
 }
 
@@ -225,7 +257,7 @@ function groupBuildings(cards) {
  * @param {object[]} [opts.companies] company rows ({ id, name, color, logo_url })
  * @param {string}   [opts.asOf]     ISO date, default today
  */
-export function buildAgentReport(properties, { agent, companies = [], asOf = isoToday() } = {}) {
+export function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null } = {}) {
   const thisMo = monthKey(asOf)
   const year = thisMo.year
   const scoped = (properties || []).filter(p =>
@@ -266,6 +298,7 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     g.shortfallYear = round2(g.cards.reduce((s, c) => s + c.shortfallYear, 0))
     g.shortfallTenancy = round2(g.cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0))
     g.noTenancyStart = g.cards.filter(c => c.let && !c.stl && !c.tenancyStart).length
+    Object.assign(g, rollUp(g.cards))
     g.missedMonths = g.cards.reduce((s, c) => s + c.missedMonths, 0)
     g.notLet = g.cards.filter(c => !c.let).length
   }
@@ -291,6 +324,7 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     recentMonths: recentMonths(thisMo),
     lines: cards,
     byCompany,
+    stl: stl ? stlSection(scoped.filter(p => p.status === 'short_term_let'), stl, { asOf, year }) : [],
     owing,
     notLet,
     summary: {
@@ -314,6 +348,74 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       shortfallYear: round2(cards.reduce((s, c) => s + c.shortfallYear, 0)),
       shortfallTenancy: round2(cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0)),
       noTenancyStart: cards.filter(c => c.let && !c.stl && !c.tenancyStart).length,
+      ...rollUp(cards),
     },
   }
+}
+
+// Rent roll, year-to-date and this-month figures over a set of cards.
+// Long-term lets only; short-term lets have their own section.
+function rollUp(cards) {
+  const lt = cards.filter(c => !c.stl)
+  const sum = f => round2(lt.reduce((s, c) => s + (f(c) || 0), 0))
+  const yearDue = sum(c => c.yearDue), yearCollected = sum(c => c.yearCollected)
+  return {
+    rentRoll: sum(c => (c.let ? c.rent : 0)),
+    emptyCost: sum(c => (!c.let && c.lettable ? c.rent : 0)),
+    refurbRent: sum(c => (!c.let && !c.lettable ? c.rent : 0)),
+    yearDue, yearCollected,
+    yearRate: yearDue > 0 ? Math.min(100, Math.round((yearCollected / yearDue) * 1000) / 10) : null,
+    monthDue: sum(c => c.monthDue), monthCollected: sum(c => c.monthCollected), monthStill: sum(c => c.monthStill),
+  }
+}
+
+// Short-term lets, one block per building: this month and the year so far,
+// with nights, occupancy, average nightly rate, booking value, platform fees,
+// income after fees, the manager's fee and what is left for the owner. Same
+// arithmetic as the Short-Term Let Income page (stlIncome.js).
+function stlSection(stlProps, { bookings = [], adjustments = [], managers = [], mappings = [] }, { asOf, year }) {
+  if (!stlProps.length) return []
+  const today = new Date(`${asOf}T12:00:00Z`)
+  const rates = observedChannelRates(bookings)
+  const groups = new Map()
+  for (const p of stlProps) {
+    const key = `${p.company_id}|${buildingKeyFromName(p.name) || p.id}`
+    if (!groups.has(key)) groups.set(key, { name: buildingTailFromName(p.name) || p.name, company: p.company?.name || '', companyId: p.company_id, props: [] })
+    groups.get(key).props.push(p)
+  }
+  const [y, m] = asOf.split('-').map(Number)
+  const monthFrom = `${asOf.slice(0, 7)}-01`
+  const monthTo = monthBounds(y, m).end
+  const out = []
+  for (const g of groups.values()) {
+    const ids = new Set(g.props.map(p => p.id))
+    const own = bookings.filter(b => ids.has(b.property_id))
+    const ownAdj = adjustments.filter(a => ids.has(a.property_id))
+    let rooms = 0
+    for (const p of g.props) { const u = unitCount(p, bookings, mappings); if (u) rooms += u }
+    const period = (from, to) => {
+      const sm = summariseStl(own, ownAdj, { from, to, roomCount: rooms || null, rates, today })
+      const pay = managerPayouts(own, ownAdj, g.props, managers, { from, to, rates })
+      const managerFee = round2(pay.reduce((s, r) => s + r.amount, 0))
+      return {
+        bookings: sm.bookings, nights: sm.nights,
+        occupancy: sm.occupancyToDate ?? sm.occupancyAchieved ?? sm.occupancy,
+        adr: sm.adr, gross: sm.gross, platformFees: sm.platformFees, netAfterFees: sm.netAfterFees,
+        managerFee, toOwner: round2(sm.netAfterFees - managerFee), months: sm.months,
+      }
+    }
+    const yearSum = period(`${year}-01-01`, asOf)
+    out.push({
+      ...g, rooms, totalRooms: g.props.length,
+      manager: managers.find(mg => g.props.some(p => p.stl_manager_id === mg.id)) || null,
+      month: period(monthFrom, monthTo),
+      year: yearSum,
+      // Month by month from January, each month's own figures.
+      byMonth: Array.from({ length: m }, (_, i) => {
+        const mm = String(i + 1).padStart(2, '0')
+        return { label: MONTH_SHORT[i], ...period(`${y}-${mm}-01`, monthBounds(y, i + 1).end) }
+      }),
+    })
+  }
+  return out
 }
