@@ -14,7 +14,9 @@
 // n/c counts and what came in this year. The counts follow engineSummary()
 // there: every month of the year that has started, from the rent engine.
 // On top of the tracker it shows what is owed: outstanding on every missed
-// month since go-live plus any open historic arrears balance.
+// month since go-live plus any open historic arrears balance, and for the last
+// four months the rent due against the rent collected, per property and per
+// company, so a shortfall is visible month by month.
 //
 // Outward-facing: it goes to the agent, so no tenant names, notes, values or
 // mortgage figures. Just the property, its status and the rent.
@@ -116,6 +118,21 @@ function propertyCard(p, { asOf, year, thisMo }) {
   }
   const arrears = Math.max(0, arrearsSummary(p).balance)
   const t = tenancyForDate(p.tenancies || [], asOf)
+
+  // Last 4 months (this month and the three before): rent due to be
+  // collected against what came in, so the shortfall shows month by month.
+  // A paid month with no amount counts as collected in full, as the tracker
+  // shows it Paid; it is flagged so the reader knows the figure is assumed.
+  const recent = recentMonths(thisMo).map(mo => {
+    const r = tiles.find(x => x.year === mo.year && x.month === mo.month)
+    const rated = r && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(r.state)
+    const due = rated ? round2(r.expected) : 0
+    const collected = rated && r.needsBackfill ? due : round2(r?.received || 0)
+    const gap = round2(Math.max(0, due - collected))
+    // Rent still inside its payment window is not a shortfall yet.
+    const open = r && (r.state === STATE.DUE || r.state === STATE.PART_PAID)
+    return { ...mo, state: r?.state || null, due, collected, shortfall: open ? 0 : gap, stillDue: open ? gap : 0, assumed: !!(rated && r.needsBackfill) }
+  })
   const cur = tiles.find(x => x.year === thisMo.year && x.month === thisMo.month) || null
 
   return {
@@ -139,7 +156,19 @@ function propertyCard(p, { asOf, year, thisMo }) {
     owed,
     missedMonths,
     arrears: round2(arrears),
+    recent,
   }
+}
+
+// This month and the three before it, oldest first.
+function recentMonths(thisMo, count = 4) {
+  const out = []
+  for (let i = count - 1; i >= 0; i--) {
+    const idx = thisMo.year * 12 + thisMo.month - 1 - i
+    const year = Math.floor(idx / 12), month = (idx % 12) + 1
+    out.push({ year, month, label: MONTH_SHORT[month - 1] })
+  }
+  return out
 }
 
 // Buildings: 2+ units sharing a name tail ("Room 1, Piers View") group under
@@ -198,6 +227,17 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     g.received = round2(g.cards.filter(c => !c.stl).reduce((s, c) => s + c.received, 0))
     g.owed = round2(g.cards.reduce((s, c) => s + c.owed + c.arrears, 0))
     g.groups = groupBuildings(g.cards)
+    // Company last-4-months totals, long-term lets only (as the tracker).
+    // The shortfall is summed property by property, so one tenant's
+    // overpayment never hides another's shortfall.
+    const lt = g.cards.filter(c => !c.stl)
+    g.recent = recentMonths(thisMo).map((mo, i) => ({
+      ...mo,
+      due: round2(lt.reduce((s, c) => s + c.recent[i].due, 0)),
+      collected: round2(lt.reduce((s, c) => s + c.recent[i].collected, 0)),
+      shortfall: round2(lt.reduce((s, c) => s + c.recent[i].shortfall, 0)),
+      stillDue: round2(lt.reduce((s, c) => s + c.recent[i].stillDue, 0)),
+    }))
   }
 
   const units = cards.length
@@ -218,6 +258,7 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     year,
     thisMonth: { ...thisMo, label: monthName(thisMo) },
     months: MONTH_SHORT.map((label, i) => ({ month: i + 1, label })),
+    recentMonths: recentMonths(thisMo),
     lines: cards,
     byCompany,
     owing,

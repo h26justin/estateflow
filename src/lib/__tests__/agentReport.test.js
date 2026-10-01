@@ -83,6 +83,17 @@ describe('buildAgentReport', () => {
     expect(f2.letLabel).toBe('Rented')
   })
 
+  it('shows the last 4 months as due against collected, shortfall only once the window has closed', () => {
+    const f2 = r.lines.find(l => l.name === 'Flat 2')
+    expect(f2.recent.map(m => m.label)).toEqual(['Jul', 'Aug', 'Sep', 'Oct'])
+    expect(f2.recent[1]).toMatchObject({ due: 500, collected: 500, shortfall: 0 })
+    expect(f2.recent[2]).toMatchObject({ due: 500, collected: 0, shortfall: 500, stillDue: 0 })
+    expect(f2.recent[3]).toMatchObject({ due: 500, collected: 0, shortfall: 0, stillDue: 500 })
+    const g = r.byCompany[0]
+    expect(g.recent[2].shortfall).toBe(500)
+    expect(g.recent[3].stillDue).toBe(1000)
+  })
+
   it('formats the due day like the tracker', () => {
     expect(dueDayLabel('28')).toBe('28th')
     expect(dueDayLabel(2)).toBe('2nd')

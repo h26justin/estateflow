@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { MONO } from '../lib/styles'
 import { REPORT_CATALOGUE } from '../lib/reportCatalogue'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
@@ -2443,11 +2443,13 @@ function agentReportModel(props, agents, agentId, companies = [], companySetting
   return agent ? buildAgentReport(props, { agent, companies: cos }) : null
 }
 function agentReportCsv(model) {
-  const rows = [['Company', 'Property', 'Status', 'Rent pcm', 'Due', ...model.months.map(m => `${m.label} ${model.year}`), 'Paid', 'Due', 'Missed', 'N/C', `Received ${model.year}`, 'Owed', 'Older arrears']]
+  const rows = [['Company', 'Property', 'Status', 'Rent pcm', 'Due', ...model.months.map(m => `${m.label} ${model.year}`), 'Paid', 'Due', 'Missed', 'N/C', `Received ${model.year}`, 'Owed', 'Older arrears',
+    ...model.recentMonths.flatMap(m => [`${m.label} ${m.year} due`, `${m.label} ${m.year} collected`, `${m.label} ${m.year} shortfall`])]]
   for (const l of model.lines) {
     rows.push([l.company, l.name, l.letLabel, l.rent || '', l.dueDay || '',
       ...l.months.map(m => m.future || !m.state ? '' : `${RENT_LABEL[m.state] || '-'}${m.received > 0 ? ` ${m.received}` : ''}`),
-      l.counts.paid, l.counts.due, l.counts.missed, l.counts.nc, l.received, l.owed || '', l.arrears || ''])
+      l.counts.paid, l.counts.due, l.counts.missed, l.counts.nc, l.received, l.owed || '', l.arrears || '',
+      ...l.recent.flatMap(r => [r.due, r.collected, r.shortfall])])
   }
   return rows
 }
@@ -2512,6 +2514,16 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
             </span>
           </div>
           <div style={{border:`1px solid ${T.border}`,borderTop:'none',borderRadius:'0 0 12px 12px',overflow:'hidden'}}>
+            <div style={{display:'grid',gridTemplateColumns:`140px repeat(${g.recent.length},1fr)`,gap:6,padding:'10px 16px',background:T.bg,borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:11,overflowX:'auto'}}>
+              <span style={{color:T.muted,fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em'}}>Last 4 months</span>
+              {g.recent.map(r => <span key={r.month} style={{color:T.muted,textAlign:'right'}}>{r.label} {r.year}</span>)}
+              {[['Rent due','due',T.text],['Collected','collected',T.green],['Still in window','stillDue',T.amber],['Shortfall','shortfall',T.red]].map(([l,k,col]) => (
+                <Fragment key={k}>
+                  <span style={{color:col,fontWeight:600}}>{l}</span>
+                  {g.recent.map(r => <span key={r.month} style={{textAlign:'right',color:(k==='shortfall'||k==='stillDue')&&!(r[k]>0)?T.muted:col,fontWeight:(k==='shortfall'||k==='stillDue')&&r[k]>0?700:400}}>{(k==='shortfall'||k==='stillDue')&&!(r[k]>0)?'—':fmt(r[k])}</span>)}
+                </Fragment>
+              ))}
+            </div>
             {g.groups.map(gr => (
               <div key={gr.key}>
                 {gr.building && (
@@ -2530,6 +2542,17 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
                       <div style={{fontSize:13,fontWeight:600,color:T.text}}>{gr.building ? (c.name.split(',')[0].trim() || c.name) : c.name}</div>
                       <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{fmt(c.rent)}/mo · Due {c.dueDay || '-'}</div>
                       <AgentMonthTiles months={c.months} T={T}/>
+                      {!c.stl && (
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6,fontFamily:mono,fontSize:10}}>
+                          {c.recent.map(r => (
+                            <span key={`${r.year}-${r.month}`} style={{padding:'3px 8px',borderRadius:6,background:(r.shortfall>0?T.red:r.stillDue>0?T.amber:T.green)+'14',color:T.text}}>
+                              {r.label} {r.due>0 ? `${fmt(r.collected)} of ${fmt(r.due)}${r.assumed?'*':''}` : 'nothing due'}
+                              {r.shortfall>0 && <b style={{color:T.red,marginLeft:6}}>-{fmt(r.shortfall)}</b>}
+                              {r.stillDue>0 && <b style={{color:T.amber,marginLeft:6}}>due</b>}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5}}>
                       <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:c.let?T.green:T.amber}}>● {c.letLabel}</span>

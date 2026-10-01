@@ -43,6 +43,14 @@ const PILL = {
 const ORANGE = hex('#E0943A')
 const CURRENT = hex('#B8902F')
 const COUNT_COLOR = { paid: TILE.paid[0], due: TILE.due[0], missed: TILE.missed[0], nc: P.faint, backfill: ORANGE }
+// A company's brand colour for its pages. Very light colours would vanish on
+// white paper, so they fall back to Properly gold.
+function brandColour(h) {
+  const c = hexToRgb(h)
+  if (!c) return P.gold
+  const lum = (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255
+  return lum > 0.8 ? P.gold : c
+}
 
 const money0 = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -84,7 +92,10 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   const fit = (str, w) => doc.splitTextToSize(clean(str), Math.max(w, 4))[0] || ''
   const width = str => doc.getTextWidth(clean(str))
   const img = (im, x, yy, w, h) => { try { doc.addImage(im.data, 'PNG', x, yy, w, h, undefined, 'FAST') } catch (_) { /* unreadable image */ } }
-  const paper = () => { doc.setFillColor(...WHITE); doc.rect(0, 0, W, H, 'F'); doc.setFillColor(...P.gold); doc.rect(0, 0, W, 2.5, 'F') }
+  // The page's brand colour: Properly gold on the cover, the company's own
+  // colour on its pages.
+  let brand = P.gold
+  const paper = () => { doc.setFillColor(...WHITE); doc.rect(0, 0, W, H, 'F'); doc.setFillColor(...brand); doc.rect(0, 0, W, 3, 'F') }
   let onNewPage = null
   const newPage = () => { doc.addPage(); paper(); y = 10; if (onNewPage) onNewPage() }
   const ensure = h => { if (y + h > BOTTOM) newPage() }
@@ -186,48 +197,133 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   font(6.4, 'normal', P.muted); text('Paid, amount needed', kx + 2.8, y + 2.7); kx += 2.8 + width('Paid, amount needed') + 5
   doc.setDrawColor(...CURRENT); doc.setLineWidth(0.55); doc.roundedRect(kx, y, 6, 3.6, 0.8, 0.8, 'S')
   font(6.4, 'normal', P.muted); text('This month', kx + 7.2, y + 2.7)
-  y += 9
+  y += 6
+  font(6.4, 'normal', P.muted)
+  text('Under each property: the last 4 months, rent collected of rent due. Red = shortfall (window closed), amber = still in its window, * = paid, no amount entered.', M, y + 2.7)
+  y += 8
 
-  // ── Companies ───────────────────────────────────────────────────────
-  const TW = 10.6, TH = 6.4, TG = 1.0          // month tiles
-  const CARD_H = 23.5
-  const RIGHT = W - M - 4
-
-  function companyHeader(g, continued = false) {
-    const accent = hex(g.color) || P.gold
-    const logo = !continued && logos[g.companyId]
-    const lb = logo ? fitBox(logo.w, logo.h, 26, 10) : null
-    const name = continued ? `${g.company} (continued)` : g.company
-    const props = `${g.cards.length} ${g.cards.length === 1 ? 'property' : 'properties'}`
-    const items = continued ? [] : [
-      ...[['paid', 'paid'], ['due', 'due'], ['missed', 'missed'], ['nc', 'not collectible'], ['backfill', 'need amount']]
-        .filter(([k]) => g.counts[k] > 0).map(([k, l]) => ({ t: `${g.counts[k]} ${l}`, color: COUNT_COLOR[k], bold: true })),
+  // ── Cover: one line per company ─────────────────────────────────────
+  const coverRow = (cells, yy, bold, color) => {
+    const xs = [M + 4, M + 92, M + 118, M + 140, M + 162, W - M - 4]
+    cells.forEach((c, i) => {
+      if (c == null) return
+      const v = typeof c === 'object' ? c : { t: c }
+      font(bold ? 6.6 : 8, bold ? 'bold' : (v.bold ? 'bold' : 'normal'), v.color || color || P.slate)
+      text(i === 0 ? fit(v.t, 84) : v.t, xs[i], yy, i === 0 ? undefined : { align: 'right' })
+    })
+  }
+  doc.setFillColor(...P.head); doc.rect(M, y, CW, 7, 'F')
+  coverRow(['COMPANY', 'PROPERTIES', 'LET', 'NOT LET', `${model.year} IN`, 'OWED'], y + 4.6, true, P.muted)
+  y += 7
+  for (const g of model.byCompany) {
+    const accent = brandColour(g.color)
+    const let_ = g.cards.filter(c => c.let).length
+    doc.setDrawColor(...P.rule); doc.setLineWidth(0.2); doc.line(M, y + 8, W - M, y + 8)
+    doc.setFillColor(...accent); doc.rect(M, y + 1.6, 1.2, 4.8, 'F')
+    coverRow([{ t: g.company, bold: true, color: P.ink }, String(g.cards.length), { t: String(let_), color: TILE.paid[0] },
+      { t: String(g.cards.length - let_), color: g.cards.length - let_ ? TILE.due[0] : P.faint },
       { t: money0(g.received), color: P.gold, bold: true },
-      ...(g.owed > 0 ? [{ t: `${money0(g.owed)} owed`, color: TILE.missed[0], bold: true }] : []),
-    ]
-    // Measure: the totals sit beside the name when they fit, else below it.
-    const nameX = M + 8 + (lb ? lb.w + 4 : 0)
-    font(continued ? 9 : 11.5, 'bold'); const nameEnd = nameX + width(name) + 3
-    font(7, 'normal'); const propsEnd = nameEnd + width(props)
-    font(7.2, 'bold'); const runW = items.reduce((w, it) => w + width(it.t) + 3.2, 0)
-    const twoLine = items.length && propsEnd + 6 > W - M - 5 - runW
-    const h = continued ? 9 : twoLine ? 21 : 16
+      { t: g.owed > 0 ? money0(g.owed) : '-', color: g.owed > 0 ? TILE.missed[0] : P.faint, bold: g.owed > 0 }], y + 5.2)
+    y += 8
+  }
+  font(7, 'normal', P.faint)
+  text('Each company starts on its own page.', M, y + 6)
 
-    doc.setFillColor(...P.tile); doc.roundedRect(M, y, CW, h, 2, 2, 'F')
-    doc.setDrawColor(...P.border); doc.setLineWidth(0.25); doc.roundedRect(M, y, CW, h, 2, 2, 'S')
-    doc.setFillColor(...accent); doc.rect(M + 4, y + 2.5, 0.9, h - 5, 'F')
-    const top = twoLine ? 16 : h
-    if (lb) img(logo, M + 8, y + (top - lb.h) / 2 + (twoLine ? 0.5 : 0), lb.w, lb.h)
-    const by = y + top / 2 + (continued ? 1.2 : 1.6) + (twoLine ? 0.5 : 0)
-    font(continued ? 9 : 11.5, 'bold'); text(name, nameX, by)
-    font(7, 'normal', P.muted); text(props, nameEnd, by)
-    if (items.length) countRun(items, W - M - 5, twoLine ? y + h - 3.6 : y + h / 2 + 1.4, 7.2)
-    y += h + 1.5
+  // ── Company pages ───────────────────────────────────────────────────
+  const TW = 10.6, TH = 6.4, TG = 1.0          // month tiles
+  const CARD_H = 29
+  const RIGHT = W - M - 4
+  let accent = P.gold, tint = P.tile, tintSoft = [251, 250, 247]
+
+  // First page of a company: the logo large and centred, the name and the
+  // year's totals under it, all in the company's colour.
+  function companyTitle(g) {
+    let yy = 14
+    const logo = logos[g.companyId]
+    if (logo) {
+      const b = fitBox(logo.w, logo.h, 70, 38)
+      img(logo, (W - b.w) / 2, yy, b.w, b.h)
+      yy += b.h + 7
+    } else yy += 4
+    font(17, 'bold', P.ink); text(g.company, W / 2, yy + 4, { align: 'center' })
+    font(8.5, 'normal', P.muted)
+    const let_ = g.cards.filter(c => c.let).length
+    text(`${g.cards.length} ${g.cards.length === 1 ? 'property' : 'properties'} - ${let_} let - rent tracker ${model.year}`, W / 2, yy + 10, { align: 'center' })
+    yy += 16
+    // Totals, centred.
+    const items = [
+      ...[['paid', 'paid'], ['due', 'due'], ['missed', 'missed'], ['nc', 'not collectible'], ['backfill', 'need amount']]
+        .filter(([k]) => g.counts[k] > 0).map(([k, l]) => ({ t: `${g.counts[k]} ${l}`, color: COUNT_COLOR[k] })),
+      { t: `${money0(g.received)} received`, color: P.gold },
+      ...(g.owed > 0 ? [{ t: `${money0(g.owed)} owed`, color: TILE.missed[0] }] : []),
+    ]
+    font(8, 'bold'); const runW = items.reduce((w, it) => w + width(it.t), 0) + (items.length - 1) * 5
+    doc.setFillColor(...tint); doc.roundedRect(M, yy, CW, 9, 2, 2, 'F')
+    let x = (W - runW) / 2
+    items.forEach(it => { font(8, 'bold', it.color); text(it.t, x, yy + 5.9); x += width(it.t) + 5 })
+    yy += 13
+    doc.setFillColor(...accent); doc.rect(M, yy, CW, 0.8, 'F')
+    y = yy + 4
+  }
+
+  // Following pages: a slim running head so the reader knows whose page it is.
+  function companyRunningHead(g) {
+    const logo = logos[g.companyId]
+    let x = M
+    if (logo) { const b = fitBox(logo.w, logo.h, 16, 8); img(logo, M, 6.5 + (8 - b.h) / 2, b.w, b.h); x = M + b.w + 3 }
+    font(9.5, 'bold', P.ink); text(g.company, x, 12)
+    const cx = x + width(g.company) + 3
+    font(7, 'normal', P.muted); text('continued', cx, 12)
+    doc.setFillColor(...accent); doc.rect(M, 16, CW, 0.6, 'F')
+    y = 19
+  }
+
+  // Last 4 months under a property's tiles: one box per month, each three
+  // tiles wide, reading "Sep  \u00A3400 of \u00A3477" with any shortfall in red.
+  function recentStrip(recent, x, yy) {
+    const bw = 3 * (TW + TG) - TG, bh = 5.4
+    recent.forEach((r, i) => {
+      const bx = x + i * (bw + TG)
+      const short = r.shortfall > 0, open = r.stillDue > 0
+      doc.setFillColor(...(short ? TILE.missed[1] : open ? TILE.due[1] : r.due > 0 ? TILE.paid[1] : P.tile)); doc.roundedRect(bx, yy, bw, bh, 1, 1, 'F')
+      font(5.9, 'bold', P.ink); text(r.label, bx + 1.6, yy + 3.7)
+      font(5.9, 'normal', P.slate)
+      text(r.due > 0 ? `${money0(r.collected)} of ${money0(r.due)}${r.assumed ? '*' : ''}` : (r.collected > 0 ? `${money0(r.collected)} in` : 'nothing due'), bx + 8, yy + 3.7)
+      if (short) { font(5.9, 'bold', TILE.missed[0]); text(`-${money0(r.shortfall)}`, bx + bw - 1.4, yy + 3.7, { align: 'right' }) }
+      else if (open) { font(5.9, 'bold', TILE.due[0]); text('due', bx + bw - 1.4, yy + 3.7, { align: 'right' }) }
+    })
+  }
+
+  // Company box: due, collected and shortfall for each of the last 4 months.
+  function recentTable(g) {
+    const rows = [['Rent due', 'due', P.ink], ['Collected', 'collected', TILE.paid[0]], ['Still in window', 'stillDue', TILE.due[0]], ['Shortfall', 'shortfall', TILE.missed[0]]]
+    const labelW = 34, colW = (CW - labelW - 8) / 5
+    const h = 7 + rows.length * 6 + 2
+    doc.setDrawColor(...mix(accent, WHITE, 0.4)); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, h, 2, 2, 'S')
+    doc.setFillColor(...tint); doc.roundedRect(M, y, CW, 7, 2, 2, 'F'); doc.rect(M, y + 4, CW, 3, 'F')
+    font(6.8, 'bold', P.muted); text('LAST 4 MONTHS', M + 4, y + 4.7)
+    const totals = { due: 0, collected: 0, shortfall: 0, stillDue: 0 }
+    g.recent.forEach(r => { for (const k in totals) totals[k] += r[k] })
+    const cols = [...g.recent.map(r => ({ head: `${r.label} ${r.year}${r.month === model.thisMonth.month && r.year === model.thisMonth.year ? ' (this month)' : ''}`, v: r })), { head: 'Total', v: totals }]
+    cols.forEach((c, i) => { font(6.6, 'bold', P.muted); text(c.head, M + labelW + 4 + (i + 1) * colW, y + 4.7, { align: 'right' }) })
+    rows.forEach(([label, k, color], ri) => {
+      const ry = y + 7 + ri * 6 + 4.3
+      if (ri) { doc.setDrawColor(...P.rule); doc.setLineWidth(0.15); doc.line(M + 3, ry - 4.3, W - M - 3, ry - 4.3) }
+      font(7.6, 'bold', color); text(label, M + 4, ry)
+      cols.forEach((c, i) => {
+        const v = c.v[k]
+        const gapRow = k === 'shortfall' || k === 'stillDue'
+        font(7.8, i === cols.length - 1 || (gapRow && v > 0) ? 'bold' : 'normal', gapRow && !(v > 0) ? P.faint : color)
+        text(gapRow && !(v > 0) ? '-' : money0(v), M + labelW + 4 + (i + 1) * colW, ry, { align: 'right' })
+      })
+    })
+    y += h + 5
   }
 
   function buildingHeader(gr) {
     ensure(7 + CARD_H)
-    doc.setFillColor(...P.head); doc.rect(M, y, CW, 6.6, 'F')
+    doc.setFillColor(...tint); doc.rect(M, y, CW, 6.6, 'F')
+    doc.setFillColor(...accent); doc.rect(M, y, 1, 6.6, 'F')
     font(7.6, 'bold'); text(gr.name, M + 5, y + 4.4)
     const nx = M + 5 + width(gr.name) + 2
     font(6.8, 'normal', P.muted); text(`- ${gr.cards.length} units - ${money0(gr.rent)}/mo`, nx, y + 4.4)
@@ -243,14 +339,15 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   function card(c, indent) {
     ensure(CARD_H)
     const x0 = M + (indent ? 5 : 0), w0 = CW - (indent ? 5 : 0)
-    doc.setFillColor(...(stripe++ % 2 === 0 ? WHITE : [251, 250, 247])); doc.rect(x0, y, w0, CARD_H, 'F')
-    if (indent) { doc.setFillColor(...mix(P.gold, WHITE, 0.25)); doc.rect(x0, y, 0.5, CARD_H, 'F') }
+    doc.setFillColor(...(stripe++ % 2 === 0 ? WHITE : tintSoft)); doc.rect(x0, y, w0, CARD_H, 'F')
+    if (indent) { doc.setFillColor(...mix(accent, WHITE, 0.35)); doc.rect(x0, y, 0.6, CARD_H, 'F') }
     doc.setDrawColor(...P.rule); doc.setLineWidth(0.2); doc.line(x0, y + CARD_H, x0 + w0, y + CARD_H)
 
     const lx = x0 + 4
     font(8.8, 'bold'); text(fit(indent ? (c.name.split(',')[0].trim() || c.name) : c.name, 135 - (indent ? 5 : 0)), lx, y + 5.4)
     font(6.8, 'normal', P.muted); text(`${money0(c.rent)}/mo  -  Due ${c.dueDay || '-'}`, lx, y + 9.4)
     c.months.forEach((m, i) => tile(lx + i * (TW + TG), y + 11.8, TW, TH, m))
+    if (!c.stl) recentStrip(c.recent, lx, y + 20.4)
 
     pill(c.letLabel, PILL[c.status] || P.muted, RIGHT, y + 2.4)
     const cnt = [['paid', 'paid'], ['due', 'due'], ['missed', 'missed'], ['nc', 'n/c']]
@@ -268,17 +365,21 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   }
 
   for (const g of model.byCompany) {
-    // Keep the header with its first card.
-    ensure(16 + 1.5 + CARD_H + (g.groups[0]?.building ? 6.6 : 0))
-    companyHeader(g)
-    onNewPage = () => companyHeader(g, true)
+    accent = brandColour(g.color)
+    tint = mix(accent, WHITE, 0.08)
+    tintSoft = mix(accent, WHITE, 0.035)
+    brand = accent
+    onNewPage = null
+    newPage()
+    companyTitle(g)
+    recentTable(g)
+    onNewPage = () => companyRunningHead(g)
     stripe = 0
     for (const gr of g.groups) {
       if (gr.building) buildingHeader(gr)
       for (const c of gr.cards) card(c, gr.building)
     }
     onNewPage = null
-    y += 6
   }
   if (!model.byCompany.length) { font(9, 'normal', P.muted); text('No properties are managed by this agent.', M, y + 5) }
 
