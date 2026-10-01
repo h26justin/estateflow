@@ -6,11 +6,11 @@ import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
-import { isPropertyEarningRent, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
+import { isPropertyEarningRent, isPropertyOccupied, isPropertyLettable, occupancySummary, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
 import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
-import { loadCdnScript } from '../lib/loadCdnScript'
+import { renderReportPDF, renderYearEndPackPDF } from '../lib/reportPdf'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
 import { buildOwnershipRegister, ownersLabel } from '../lib/ownershipReport'
@@ -18,8 +18,6 @@ import { planToC, fmtCostRange, BELOW_C } from '../lib/epcUpgrade'
 import { EPC_BAND_COLOR } from '../lib/complianceCatalogue'
 import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport'
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
-
-const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
 // "£12,000" at small sizes.
@@ -1048,8 +1046,8 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       return { title:'Yield Comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
     }
     case 'occupancy': {
-      const rented=filtProps.filter(p=>isPropertyEarningRent(p.status)).length,vacant=filtProps.filter(p=>p.status==='vacant').length,rate=filtProps.length>0?(rented/filtProps.length)*100:0
-      return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(rate)],['Rented',rented.toString()],['Vacant',vacant.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,p.status||'—',fmt(p.rent_pcm),isPropertyEarningRent(p.status)?'Yes':'No']) }
+      const o=occupancySummary(filtProps)
+      return { title:'Occupancy Rate Report', kpis:[['Occupancy rate',fmtPct(o.rate)],['Occupied',`${o.occupied} of ${o.lettable} lettable`],['Let agreed',o.letAgreed.toString()],['On rental market',o.onMarket.toString()],['Vacant',o.vacant.toString()],['Not lettable (refurb/purchased)',o.notLettable.toString()]], headers:['Property','Status','Monthly Rent','Occupied'], rows:filtProps.map(p=>[p.name,PROPERTY_STATUS_LABELS[p.status]||p.status||'—',fmt(p.rent_pcm),!isPropertyLettable(p.status)?'Not lettable':isPropertyOccupied(p.status)?'Yes':'No']) }
     }
     case 'rent_collect': {
       const d = rentCollectionData(filtProps, filtRent, range)
@@ -1177,453 +1175,6 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
 }
 
 // ── RENDER PDF ─────────────────────────────────────────────────────────────────
-async function renderReportPDF({ title, kpis, headers, rows, totals, note, sections, reportName, company, period, companyColor, categoryAccent, logoUrl }) {
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-  const { jsPDF } = window.jspdf
-  const isLandscape = headers.length > 5
-  const doc = new jsPDF({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
-  const W = isLandscape ? 297 : 210
-  const H = isLandscape ? 210 : 297
-  const margin = 14
-  const cW = W - margin * 2
-
-  // Redesign palette (design/redesign-2026) — matches the in-app tokens.
-  const cream    = [244, 243, 239]   // paper #F4F3EF
-  const cardBg   = [255, 255, 255]
-  const border   = [228, 225, 217]   // #E4E1D9
-  const gold     = [184, 144, 47]    // #B8902F
-  const dark     = [28, 40, 48]      // ink #1C2830
-  const slate    = [20, 32, 42]      // brand slate #14202A
-  const muted    = [92, 102, 112]    // #5C6670
-  const faint    = [104, 109, 114]   // #686D72 (AA-safe)
-  const green    = [31, 157, 99]     // #1F9D63
-  const red      = [184, 57, 45]     // #B8392D
-  const amber    = [181, 114, 10]    // #B5720A
-  // Accent priority: company brand colour > category accent > gold default.
-  // Category accent comes from CAT_COLORS via ExportButtons so PDFs match
-  // the in-app catalogue card colour for that report.
-  const hexToRgb = h => (h || '').match(/[0-9a-f]{2}/gi)?.map(x => parseInt(x, 16))
-  const accent   = hexToRgb(companyColor) || hexToRgb(categoryAccent) || gold
-
-  // Load images
-  async function loadImg(url) {
-    try {
-      const r = await fetch(url); const b = await r.blob()
-      return await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(b) })
-    } catch(e) { return null }
-  }
-  let coLogo = logoUrl ? await loadImg(logoUrl) : null
-  let opLogo = null
-  try { opLogo = await loadImg('/icon-512.png') } catch(e) {}
-
-  // Helper: draw rounded rect card
-  function card(x, y, w, h) {
-    doc.setFillColor(...cardBg); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'F')
-    doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'S')
-  }
-
-  function addPage() { doc.addPage(); doc.setFillColor(...cream); doc.rect(0, 0, W, H, 'F'); return 14 }
-
-  // ── PAGE BACKGROUND ──────────────────────────────────────────────────────
-  doc.setFillColor(...cream); doc.rect(0, 0, W, H, 'F')
-
-  // Top accent stripe — catches the eye, branded to category/company.
-  doc.setFillColor(...accent); doc.rect(0, 0, W, 3, 'F')
-
-  // ── HEADER CARD ──────────────────────────────────────────────────────────
-  card(margin, 8, cW, 30)
-  // Company logo
-  let tx = margin + 8
-  if (coLogo) {
-    try { doc.addImage(coLogo, 'PNG', margin + 5, 12, 22, 11); tx = margin + 32 } catch(e) {}
-  } else if (opLogo) {
-    // No company logo (e.g. "All companies") — brand with the Properly mark.
-    try { doc.addImage(opLogo, 'PNG', margin + 6, 13, 11, 11); tx = margin + 22 } catch(e) {}
-  }
-  // Company name + report title
-  doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
-  doc.text(company || 'Portfolio Report', tx, 19)
-  doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(...muted)
-  doc.text(reportName || title, tx, 26)
-  // Right side: period + date
-  doc.setFontSize(8); doc.setTextColor(...faint); doc.setFont('helvetica', 'normal')
-  doc.text(period, W - margin - 6, 18, { align: 'right' })
-  doc.text(new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - margin - 6, 24, { align: 'right' })
-  // Accent bar at bottom of header card
-  doc.setFillColor(...accent); doc.rect(margin, 36.5, cW, 1, 'F')
-
-  let y = 44
-
-  // ── NOTE ─────────────────────────────────────────────────────────────────
-  if (note) {
-    doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
-    const noteLines = doc.splitTextToSize(note, cW - 14)
-    const nh = 4 + noteLines.length * 3.6
-    card(margin, y, cW, nh)
-    doc.setFillColor(...accent); doc.rect(margin, y, 1.5, nh, 'F')
-    doc.setTextColor(...slate)
-    doc.text(noteLines, margin + 6, y + 5)
-    y += nh + 5
-  }
-
-  // ── KPI CARDS ────────────────────────────────────────────────────────────
-  if (kpis.length > 0) {
-    const perRow = Math.min(kpis.length, 4)
-    const gap = 5
-    const cardRows = Math.ceil(kpis.length / perRow)
-    for (let row = 0; row < cardRows; row++) {
-      const rk = kpis.slice(row * perRow, (row + 1) * perRow)
-      const kw = (cW - (rk.length - 1) * gap) / rk.length
-      rk.forEach(([label, value], i) => {
-        const x = margin + i * (kw + gap)
-        card(x, y, kw, 18)
-        doc.setFillColor(...accent); doc.rect(x, y + 3, 1.2, 12, 'F')
-        doc.setFontSize(6.5); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal')
-        doc.text(String(label).toUpperCase(), x + 5, y + 6.5)
-        doc.setFontSize(13); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
-        // Wrap long KPI values (property names etc) instead of truncating.
-        const lines = doc.splitTextToSize(String(value || '—'), kw - 7).slice(0, 2)
-        doc.text(lines, x + 5, y + 14)
-      })
-      y += 24
-    }
-    y += 2
-  }
-
-  // ── TABLE CARD(S) ────────────────────────────────────────────────────────
-  // One report can carry several titled tables (data.sections) — e.g. the
-  // Company P&L's "P&L lines" + "Shareholder split". Reports without
-  // sections render their single headers/rows table exactly as before.
-
-  function drawSectionHeading(text) {
-    if (y > H - 45) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
-    doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
-    doc.text(text, margin, y + 4)
-    doc.setFillColor(...accent); doc.rect(margin, y + 6.5, 26, 0.9, 'F')
-    y += 12
-  }
-
-  function drawTable(tHeaders, tRows, tTotals) {
-    const colCount = tHeaders.length
-    // Two-column tables (P&L line items) give the label column most of the
-    // width; wider tables cap the first column like before.
-    const firstW = colCount <= 2 ? cW * 0.62 : Math.min(cW * 0.3, 65)
-    const otherW = (cW - firstW) / Math.max(colCount - 1, 1)
-    const colX = ci => ci === 0 ? margin : margin + firstW + (ci - 1) * otherW
-    const colWid = ci => ci === 0 ? firstW : otherW
-
-    // Table header
-    card(margin, y, cW, 8)
-    doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
-    tHeaders.forEach((h, ci) => {
-      if (ci === 0) doc.text(String(h).toUpperCase(), colX(ci) + 4, y + 5.5)
-      else doc.text(String(h).toUpperCase(), colX(ci) + colWid(ci) - 4, y + 5.5, { align: 'right' })
-    })
-    y += 9
-
-    // Rows — wrap long cells to up to 3 lines rather than truncating.
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
-    tRows.forEach((row, ri) => {
-      const wraps = row.map((cell, ci) => {
-        const val = String(cell != null ? cell : '')
-        const w = colWid(ci) - 8
-        return doc.splitTextToSize(val, w).slice(0, 3)
-      })
-      const lineCount = Math.max(1, ...wraps.map(w => w.length))
-      const rowH = Math.max(6.5, lineCount * 4.5)
-
-      if (y + rowH > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
-
-      if (ri % 2 === 0) { doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, rowH, 'F') }
-      doc.setDrawColor(...border); doc.setLineWidth(0.15)
-      doc.line(margin + 2, y + rowH - 1.5, margin + cW - 2, y + rowH - 1.5)
-
-      row.forEach((cell, ci) => {
-        const val = String(cell != null ? cell : '')
-        if (ci > 0) {
-          if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue') || val.includes('overdue')) doc.setTextColor(...red)
-          else if (val === 'Valid' || val === 'Yes' || val === 'Rented' || val === 'All clear') doc.setTextColor(...green)
-          else if (val.includes('Expiring')) doc.setTextColor(...amber)
-          else doc.setTextColor(...slate)
-        } else { doc.setTextColor(...dark) }
-
-        doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal')
-        const lines = wraps[ci]
-        if (ci === 0) doc.text(lines, colX(ci) + 4, y + 3.5)
-        else doc.text(lines, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
-      })
-      y += rowH
-    })
-
-    // Totals row
-    if (tTotals && tTotals.length > 0) {
-      if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = addPage() }
-      y += 1
-      doc.setFillColor(...accent); doc.rect(margin, y - 2, cW, 0.8, 'F')
-      card(margin, y - 0.5, cW, 8)
-      doc.setFontSize(8.5); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
-      tTotals.forEach((val, ci) => {
-        if (!val) return
-        if (ci === 0) doc.text(String(val), colX(ci) + 4, y + 4.5)
-        else doc.text(String(val), colX(ci) + colWid(ci) - 4, y + 4.5, { align: 'right' })
-      })
-      y += 10
-    }
-  }
-
-  if (sections && sections.length) {
-    for (const sec of sections) {
-      drawSectionHeading(sec.title)
-      drawTable(sec.headers, sec.rows, sec.totals)
-      y += 5
-    }
-  } else {
-    drawTable(headers, rows, totals)
-  }
-
-  // Footer on all pages
-  const pc = doc.internal.getNumberOfPages()
-  for (let p = 1; p <= pc; p++) { doc.setPage(p); addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark) }
-
-  doc.save(`${(reportName || title).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`)
-}
-
-function addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark) {
-  const fy = H - 18
-  const cW = W - margin * 2
-  // Card-style footer
-  doc.setFillColor(...cream); doc.rect(0, fy - 2, W, 20, 'F')
-  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin, fy, W - margin, fy)
-  doc.setFillColor(...accent); doc.rect(margin, fy, cW, 0.6, 'F')
-
-  // OwnProperly logo
-  if (opLogo) {
-    try { doc.addImage(opLogo, 'PNG', margin, fy + 2.5, 9, 9) } catch(e) {}
-  }
-  const lx = opLogo ? margin + 12 : margin
-  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
-  doc.text('Generated by Properly', lx, fy + 7)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(...muted)
-  doc.text('Property portfolios, properly', lx, fy + 11)
-  doc.setFontSize(6); doc.setTextColor(...faint)
-  doc.text('ownproperly.com', lx, fy + 14.5)
-
-  // Page number
-  const pc = doc.internal.getNumberOfPages()
-  const cp = doc.getCurrentPageInfo().pageNumber
-  doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal')
-  doc.text(`Page ${cp} of ${pc}`, W - margin, fy + 8, { align: 'right' })
-}
-
-// ── YEAR-END TAX PACK PDF ─────────────────────────────────────────────────────
-// Single document with: cover page · table of contents · one section per
-// report (with header, KPI grid, table, optional totals row, optional
-// note). Reuses the same colour palette and helpers as renderReportPDF
-// for visual consistency. Pages flow automatically when a section runs
-// long — no truncation.
-async function renderYearEndPackPDF({ reports, company, companyColor, logoUrl, period }) {
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-  const { jsPDF } = window.jspdf
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W = 210, H = 297, margin = 14, cW = W - margin * 2
-
-  // Redesign palette (design/redesign-2026) — kept in sync with the single-report
-  // renderer. Old values here were washed-out / sub-AA on the tax-pack export.
-  const cream = [244, 243, 239], cardBg = [255, 255, 255], border = [228, 225, 217]
-  const gold = [184, 144, 47], dark = [28, 40, 48], slate = [20, 32, 42]
-  const muted = [92, 102, 112], faint = [104, 109, 114]
-  const green = [31, 157, 99], red = [184, 57, 45], amber = [138, 86, 0]
-  const accent = companyColor
-    ? (companyColor.match(/[0-9a-f]{2}/gi)?.map(h => parseInt(h, 16)) || gold)
-    : gold
-
-  // Logo loaders (same as the single-report renderer).
-  async function loadImg(url) {
-    try {
-      const r = await fetch(url); const b = await r.blob()
-      return await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(b) })
-    } catch { return null }
-  }
-  const coLogo = logoUrl ? await loadImg(logoUrl) : null
-  let opLogo = null; try { opLogo = await loadImg('/icon-512.png') } catch {}
-
-  function card(x, y, w, h) {
-    doc.setFillColor(...cardBg); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'F')
-    doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.roundedRect(x, y, w, h, 2.5, 2.5, 'S')
-  }
-  function fillPage() { doc.setFillColor(...cream); doc.rect(0, 0, W, H, 'F') }
-  function newPage() { doc.addPage(); fillPage(); return 14 }
-
-  // ── COVER PAGE ───────────────────────────────────────────────────────
-  fillPage()
-  // Big gold band at top
-  doc.setFillColor(...accent); doc.rect(0, 0, W, 4, 'F')
-  if (coLogo) { try { doc.addImage(coLogo, 'PNG', margin, 22, 40, 20) } catch {} }
-  doc.setFontSize(32); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
-  doc.text('Year-End Tax Pack', margin, 70)
-  doc.setFontSize(13); doc.setFont('helvetica', 'normal'); doc.setTextColor(...muted)
-  doc.text(company, margin, 80)
-  doc.setFontSize(11); doc.text(period, margin, 88)
-  // Accent line
-  doc.setFillColor(...accent); doc.rect(margin, 95, 50, 0.8, 'F')
-
-  // What's included
-  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...slate)
-  doc.text('CONTENTS', margin, 110)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
-  reports.forEach((r, i) => {
-    doc.setTextColor(...muted)
-    doc.text(`${i + 1}.`, margin, 120 + i * 8)
-    doc.setTextColor(...dark)
-    doc.text(r.name, margin + 8, 120 + i * 8)
-    doc.setTextColor(...faint)
-    doc.text(String(r.data?.rows?.length || 0) + ' rows', W - margin, 120 + i * 8, { align: 'right' })
-  })
-
-  // Footer note
-  doc.setFontSize(8); doc.setTextColor(...faint); doc.setFont('helvetica', 'italic')
-  doc.text(
-    'Pass this pack to your accountant for self-assessment (SA105). Generated on ' +
-      new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) + '.',
-    margin, H - 30, { maxWidth: cW }
-  )
-  // OwnProperly footer credit (smaller than per-page footer)
-  if (opLogo) { try { doc.addImage(opLogo, 'PNG', margin, H - 18, 8, 8) } catch {} }
-  doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
-  doc.text('Generated by Properly', margin + (opLogo ? 11 : 0), H - 13)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(...faint)
-  doc.text('ownproperly.com · UK Landlord Portfolio Management', margin + (opLogo ? 11 : 0), H - 9.5)
-
-  // ── REPORT SECTIONS ──────────────────────────────────────────────────
-  for (const rep of reports) {
-    const d = rep.data
-    if (!d) continue
-    let y = newPage()
-
-    // Section header card
-    card(margin, 8, cW, 22)
-    doc.setFillColor(...accent); doc.rect(margin, 8, 1.5, 22, 'F')
-    doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(...dark)
-    doc.text(rep.name, margin + 6, 18)
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...muted)
-    doc.text(`${company} · ${period}`, margin + 6, 25)
-    doc.setFontSize(7); doc.setTextColor(...faint)
-    doc.text(new Date().toLocaleDateString('en-GB'), W - margin - 6, 18, { align: 'right' })
-    y = 36
-
-    // Optional note ribbon
-    if (d.note) {
-      card(margin, y, cW, 10)
-      doc.setFillColor(...accent); doc.rect(margin, y, 1.5, 10, 'F')
-      doc.setFontSize(7.5); doc.setTextColor(...slate); doc.setFont('helvetica', 'italic')
-      doc.text(d.note.length > 130 ? d.note.slice(0, 127) + '...' : d.note, margin + 6, y + 6.5)
-      y += 14
-    }
-
-    // KPIs
-    if (d.kpis?.length) {
-      const perRow = Math.min(d.kpis.length, 4)
-      const gap = 5
-      const cardRows = Math.ceil(d.kpis.length / perRow)
-      for (let row = 0; row < cardRows; row++) {
-        const rk = d.kpis.slice(row * perRow, (row + 1) * perRow)
-        const kw = (cW - (rk.length - 1) * gap) / rk.length
-        rk.forEach(([label, value], i) => {
-          const x = margin + i * (kw + gap)
-          card(x, y, kw, 18)
-          doc.setFillColor(...accent); doc.rect(x, y + 3, 1.2, 12, 'F')
-          doc.setFontSize(6.5); doc.setTextColor(...muted); doc.setFont('helvetica', 'normal')
-          doc.text(String(label).toUpperCase(), x + 5, y + 6.5)
-          doc.setFontSize(13); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
-          // Don't truncate — wrap to two lines if needed.
-          const lines = doc.splitTextToSize(String(value || '—'), kw - 7)
-          doc.text(lines.slice(0, 2), x + 5, y + 14)
-        })
-        y += 24
-      }
-      y += 2
-    }
-
-    // Table — same layout as single-report PDF but wrap (don't truncate)
-    if (d.headers?.length && d.rows?.length) {
-      const colCount = d.headers.length
-      const firstW = Math.min(cW * 0.34, 70)
-      const otherW = (cW - firstW) / Math.max(colCount - 1, 1)
-      const colX = ci => ci === 0 ? margin : margin + firstW + (ci - 1) * otherW
-      const colWid = ci => ci === 0 ? firstW : otherW
-
-      // Header row
-      card(margin, y, cW, 8)
-      doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica', 'bold')
-      d.headers.forEach((h, ci) => {
-        if (ci === 0) doc.text(String(h).toUpperCase(), colX(ci) + 4, y + 5.5)
-        else doc.text(String(h).toUpperCase(), colX(ci) + colWid(ci) - 4, y + 5.5, { align: 'right' })
-      })
-      y += 9
-
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5)
-      for (const row of d.rows) {
-        // Measure: how tall will this row be (allows wrapping for long property names)
-        const lineHeights = row.map((cell, ci) => {
-          const val = String(cell != null ? cell : '')
-          const w = colWid(ci) - 8
-          const lines = doc.splitTextToSize(val, w)
-          return Math.max(1, Math.min(lines.length, 2))
-        })
-        const rowH = Math.max(6.5, Math.max(...lineHeights) * 4.5)
-
-        if (y + rowH > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = newPage() }
-
-        // Subtle alternating background
-        if ((d.rows.indexOf(row)) % 2 === 0) {
-          doc.setFillColor(...cardBg); doc.rect(margin, y - 1.5, cW, rowH, 'F')
-        }
-        doc.setDrawColor(...border); doc.setLineWidth(0.15)
-        doc.line(margin + 2, y + rowH - 1.5, margin + cW - 2, y + rowH - 1.5)
-
-        row.forEach((cell, ci) => {
-          const val = String(cell != null ? cell : '')
-          // Colour by intent (same as renderReportPDF)
-          if (ci > 0) {
-            if (val.startsWith('-') || val.includes('EXPIRED') || val.includes('Overdue') || val.includes('overdue')) doc.setTextColor(...red)
-            else if (val === 'Valid' || val === 'Yes' || val === 'Rented' || val === 'All clear') doc.setTextColor(...green)
-            else if (val.includes('Expiring')) doc.setTextColor(...amber)
-            else doc.setTextColor(...slate)
-          } else { doc.setTextColor(...dark) }
-          doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal')
-          const w = colWid(ci) - 8
-          const lines = doc.splitTextToSize(val, w).slice(0, 2)
-          if (ci === 0) doc.text(lines, colX(ci) + 4, y + 3.5)
-          else doc.text(lines, colX(ci) + colWid(ci) - 4, y + 3.5, { align: 'right' })
-        })
-        y += rowH
-      }
-
-      // Totals row
-      if (d.totals?.length) {
-        if (y > H - 26) { addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark); y = newPage() }
-        y += 1
-        doc.setFillColor(...accent); doc.rect(margin, y - 2, cW, 0.8, 'F')
-        card(margin, y - 0.5, cW, 8)
-        doc.setFontSize(8.5); doc.setTextColor(...dark); doc.setFont('helvetica', 'bold')
-        d.totals.forEach((val, ci) => {
-          if (!val) return
-          if (ci === 0) doc.text(String(val), colX(ci) + 4, y + 4.5)
-          else doc.text(String(val), colX(ci) + colWid(ci) - 4, y + 4.5, { align: 'right' })
-        })
-      }
-    } else {
-      doc.setFontSize(10); doc.setTextColor(...muted); doc.setFont('helvetica', 'italic')
-      doc.text('No data for this period.', margin, y + 8)
-    }
-  }
-
-  // Footer on every page (cover excluded — has its own)
-  const pc = doc.internal.getNumberOfPages()
-  for (let p = 2; p <= pc; p++) { doc.setPage(p); addFooter(doc, W, H, margin, opLogo, cream, border, accent, muted, faint, dark) }
-
-  doc.save(`year-end-tax-pack-${company.replace(/[^a-zA-Z0-9]/g,'-').toLowerCase()}-${period.replace(/[^a-zA-Z0-9]/g,'-')}.pdf`)
-}
 
 function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   // Default: drive CSV off the same buildReportData() shape used for PDF
@@ -2697,15 +2248,16 @@ function ReportYieldComparison({ filtProps, filtExp, T, accent, fmt, fmtPct }) {
 
 function ReportOccupancy({ filtProps, T, accent, fmt }) {
   const total = filtProps.length
-  const rented = filtProps.filter(p=>isPropertyEarningRent(p.status)).length
-  const vacant = filtProps.filter(p=>p.status==='vacant').length
-  const rate = total>0?(rented/total)*100:0
+  const o = occupancySummary(filtProps)
+  const { occupied, lettable, vacant, rate } = o
   const voidCost = filtProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0)
   return (
     <>
       <StatCards T={T} items={[
         {label:'Occupancy rate',value:`${rate.toFixed(1)}%`,color:rate>=90?T.green:rate>=70?T.amber:T.red},
-        {label:'Rented',value:rented,color:T.green},
+        {label:'Occupied',value:`${occupied} of ${lettable}`,color:T.green},
+        {label:'Let agreed',value:o.letAgreed,color:T.amber},
+        {label:'On rental market',value:o.onMarket,color:T.amber},
         {label:'Vacant',value:vacant,color:T.red},
         {label:'Monthly void cost',value:fmt(voidCost),color:vacant>0?T.red:T.green},
       ]}/>
@@ -2716,22 +2268,30 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
             <DonutChart T={T} accent={accent}
               percent={rate}
               value={`${rate.toFixed(0)}%`}
-              sublabel={`${rented} of ${total}`}
+              sublabel={`${occupied} of ${lettable} lettable`}
               label="OCCUPIED"
               color={rate >= 90 ? T.green : rate >= 70 ? T.amber : T.red}
               size={200}/>
             <div style={{display:'flex',flexDirection:'column',gap:12,fontFamily:mono,fontSize:12,minWidth:160}}>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
-                <span style={{color:T.muted}}>Rented</span>
-                <span style={{color:T.green,fontWeight:700}}>{rented}</span>
+                <span style={{color:T.muted}}>Occupied</span>
+                <span style={{color:T.green,fontWeight:700}}>{occupied}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>Let agreed</span>
+                <span style={{color:T.amber,fontWeight:700}}>{o.letAgreed}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
+                <span style={{color:T.muted}}>On rental market</span>
+                <span style={{color:T.amber,fontWeight:700}}>{o.onMarket}</span>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
                 <span style={{color:T.muted}}>Vacant</span>
                 <span style={{color:T.red,fontWeight:700}}>{vacant}</span>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
-                <span style={{color:T.muted}}>Other</span>
-                <span style={{color:T.text,fontWeight:700}}>{total - rented - vacant}</span>
+                <span style={{color:T.muted}}>Not lettable</span>
+                <span style={{color:T.muted,fontWeight:700}}>{o.notLettable}</span>
               </div>
               <div style={{height:1,background:T.border,margin:'4px 0'}}/>
               <div style={{display:'flex',justifyContent:'space-between',gap:24}}>
@@ -2747,9 +2307,9 @@ function ReportOccupancy({ filtProps, T, accent, fmt }) {
         headers={[{label:'Property'},{label:'Status',width:'120px'},{label:'Monthly rent',right:true,width:'130px'},{label:'Occupied',width:'100px'}]}
         rows={filtProps.sort((a,b)=>a.status==='vacant'?-1:1).map(p=>[
           p.name,
-          {v:p.status||'unknown',color:isPropertyEarningRent(p.status)?T.green:T.red},
+          {v:PROPERTY_STATUS_LABELS[p.status]||p.status||'unknown',color:!isPropertyLettable(p.status)?T.muted:isPropertyOccupied(p.status)?T.green:T.red},
           {v:fmt(p.rent_pcm),right:true},
-          {v:isPropertyEarningRent(p.status)?'Yes':'No',color:isPropertyEarningRent(p.status)?T.green:T.red},
+          {v:!isPropertyLettable(p.status)?'Not lettable':isPropertyOccupied(p.status)?'Yes':'No',color:!isPropertyLettable(p.status)?T.muted:isPropertyOccupied(p.status)?T.green:T.red},
         ])}
       />
     </>

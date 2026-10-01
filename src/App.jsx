@@ -90,7 +90,7 @@ import ActionMenu from './components/ActionMenu'
 const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModal'))
 import MoneyInput from './lib/MoneyInput'
 import { aggregateDeals } from './lib/dealCashflow'
-import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied, planOnMarketPeriods } from './lib/propertyStatus'
+import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent, isPropertyOccupied, occupancySummary, planOnMarketPeriods } from './lib/propertyStatus'
 import { propValue } from './lib/propertyValue'
 import { isHoldingCompany } from './lib/companyPnl'
 import { groupKeyForAddress, flatKeyWithinBuilding, buildingTailFromName, buildingKeyFromName, naturalCompare, groupPropertiesByBuilding } from './lib/addressUtils'
@@ -1451,6 +1451,7 @@ export default function App() {
             api.fetchMyPermissionsMap(devActiveEarly),
             api.fetchMyActiveFlags().catch(()=>new Set()),
             api.fetchWidgetPrefs().catch(()=>null),
+            api.fetchSectionPrefs().catch(()=>null),
           ]).catch(e => { logError('loadData:permissions+flags', e); return null }),
           loadUserTheme(user.id, user.email).catch(()=>{}),
           api.fetchAnnouncements().catch(e => { logError('loadData:announcements', e); return [] }),
@@ -1459,7 +1460,7 @@ export default function App() {
           api.fetchMyCompanies().catch(()=>[]),
         ])
         if (permBatch) {
-          const [permMap, flags, widgets] = permBatch
+          const [permMap, flags, widgets, sections] = permBatch
           // Stamp an __owner map onto permissionsMap so canDo() can grant
           // implicit allow to the company owner without having to look up
           // ownership in every check site. (Owners typically don't have a
@@ -1469,14 +1470,22 @@ export default function App() {
           setPermissionsMap({ ...(permMap || {}), __owner: ownerMap })
           setActiveFlags(flags)
           setWidgetPrefs(widgets)
+          // Section order lives on the profile. Older saves exist only in this
+          // browser's localStorage: adopt one and copy it up once.
+          if (sections) setSectionPrefs(sections)
+          else {
+            try {
+              const raw = localStorage.getItem(`ownproperly_section_prefs_${user.id}`)
+              const local = raw ? JSON.parse(raw) : null
+              if (Array.isArray(local) && local.length) {
+                setSectionPrefs(local)
+                api.saveSectionPrefs(local).catch(e => logError('saveSectionPrefs:migrate', e))
+              }
+            } catch(e) { /* non-fatal — fall back to defaults */ }
+          }
         }
         setAnnouncements(anns)
         if (!onboarded) setShowTour(true)
-        // Load dashboard section preferences from localStorage (per-user keyed)
-        try {
-          const raw = localStorage.getItem(`ownproperly_section_prefs_${user.id}`)
-          if (raw) setSectionPrefs(JSON.parse(raw))
-        } catch(e) { /* non-fatal — fall back to defaults */ }
 
         // (Invite redemption ran at the top of loadData, before the access
         // fetches, so any newly granted companies are already in scope.)
@@ -1839,6 +1848,7 @@ export default function App() {
     onMarket:            dashProps.filter(p=>p.status==='on_rental_market').length,
     inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
     total:               dashProps.length,
+    occupancy:           occupancySummary(dashProps),
   }),[dashProps])
 
   // Forecast vs received rent for this month and the two before it, plus next
@@ -3293,7 +3303,7 @@ export default function App() {
                           {label:'Annualised (contracted)', value:fmt(stats.monthlyRent*12), color:T.green},
                           {label:`${next.label} forecast`, value:fmt(next.expected), color:T.gold, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
                           {label:'Rented units', value:`${stats.rented} of ${stats.total}`, separator:true},
-                          {label:'Occupancy rate', value:`${Math.round((stats.rented/Math.max(stats.total,1))*100)}%`, color:T.green},
+                          {label:'Occupancy rate', value:`${Math.round(stats.occupancy.rate)}%`, color:T.green, note:'Occupied units over lettable units (refurb and purchased left out)'},
                           ...companyStats.map(c=>({label:`${c.name} · expected ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color, separator:c===companyStats[0]})),
                         ]}
                       />
@@ -3523,15 +3533,32 @@ export default function App() {
                     />
                   )},
                   occupancy_rate: { icon:'pie-chart', label:'Occupancy Rate', render: () => {
-                    const rate = stats.total > 0 ? Math.round((stats.rented/stats.total)*100) : 0
+                    // Over lettable units only: refurb and purchased units
+                    // can't take a tenant yet, so they'd drag the % down for
+                    // no reason. The empty lettable units sit on the card face.
+                    const o = stats.occupancy
+                    const rate = Math.round(o.rate)
                     return (
-                      <StatCard icon="pie-chart" label="Occupancy Rate" value={rate+'%'} sub={`${stats.rented} of ${stats.total} rented`} accent={rate>=90?T.green:rate>=75?T.amber:T.red} onNavigate={()=>{setStatusFilter('vacant');setPortfolioTab('properties');setView('properties')}} navLabel="Vacant"
+                      <StatCard icon="pie-chart" label="Occupancy Rate" value={rate+'%'} sub={`${o.occupied} of ${o.lettable} lettable occupied`} accent={rate>=90?T.green:rate>=75?T.amber:T.red} onNavigate={()=>{setStatusFilter('vacant');setPortfolioTab('properties');setView('properties')}} navLabel="Vacant"
+                        strip={[
+                          {label:'Let agreed', value:o.letAgreed, color:o.letAgreed?T.amber:T.muted},
+                          {label:'On market', value:o.onMarket, color:o.onMarket?'#3AA7B8':T.muted},
+                          {label:'Vacant', value:o.vacant, color:o.vacant?T.red:T.muted},
+                          {label:'Not lettable', value:o.notLettable, color:T.muted},
+                        ]}
                         breakdown={[
-                          {label:'Occupied', value:stats.rented, color:T.green},
-                          {label:'Vacant', value:stats.vacant, color:T.amber},
-                          ...(stats.onMarket ? [{label:'On rental market', value:stats.onMarket, color:'#3AA7B8', note:'Being marketed, rent not expected yet'}] : []),
-                          {label:'Occupancy %', value:rate+'%', color:rate>=90?T.green:T.amber},
-                          {label:'Vacancy cost (est)', value:fmt(dashProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0))+'/mo lost', color:T.red},
+                          {label:'Rented', value:o.rented, color:T.green},
+                          ...(o.shortTermLet ? [{label:'Short-term let', value:o.shortTermLet, color:T.green}] : []),
+                          ...(o.noticeGiven ? [{label:'Notice given', value:o.noticeGiven, color:T.amber, note:'Tenant still paying through the notice period'}] : []),
+                          {label:'Occupied', value:o.occupied, color:T.green},
+                          {label:'Let agreed', value:o.letAgreed, color:T.amber, separator:true, note:'Tenant found, not moved in yet'},
+                          {label:'On rental market', value:o.onMarket, color:'#3AA7B8', note:'Being marketed, rent not expected yet'},
+                          {label:'Vacant', value:o.vacant, color:T.red},
+                          {label:'Lettable units', value:o.lettable},
+                          {label:'Occupancy %', value:rate+'%', color:rate>=90?T.green:T.amber, note:'Occupied over lettable units'},
+                          ...(o.refurb ? [{label:'In refurb (not counted)', value:o.refurb, color:T.muted, separator:true}] : []),
+                          ...(o.purchased ? [{label:'Purchased (not counted)', value:o.purchased, color:T.muted, separator:!o.refurb}] : []),
+                          {label:'Vacancy cost (est)', value:fmt(dashProps.filter(p=>p.status==='vacant').reduce((s,p)=>s+(p.rent_pcm||0),0))+'/mo lost', color:T.red, separator:true},
                         ]}
                       />
                     )
@@ -4303,27 +4330,24 @@ export default function App() {
         currentSectionPrefs={sectionPrefs}
         defaultSectionOrder={SECTION_DEFAULT_ORDER}
         defaultSectionEnabled={SECTION_DEFAULT_ENABLED}
-        onSaveSections={(newPrefs) => {
-          setSectionPrefs(newPrefs)
-          try { localStorage.setItem(`ownproperly_section_prefs_${user.id}`, JSON.stringify(newPrefs)) } catch(e) {}
+        onSave={async (sections, widgets) => {
+          setSectionPrefs(sections)
+          setWidgetPrefs(widgets)
+          // Don't pretend it's saved if the API call failed — the user
+          // would see "Dashboard saved" and then their changes vanish on
+          // next refresh with no clue why.
+          try {
+            await Promise.all([api.saveSectionPrefs(sections), api.saveWidgetPrefs(widgets)])
+            showToast('Dashboard saved')
+          } catch (e) {
+            logError('saveDashboardPrefs', e)
+            showToast('Dashboard not saved — ' + (e.message || 'try again'), 'error')
+          }
         }}
         widgetDefs={WIDGET_META}
         currentWidgetPrefs={widgetPrefs}
         defaultWidgetOrder={WIDGET_DEFAULT_ORDER}
         defaultWidgetEnabled={WIDGET_DEFAULT_ENABLED}
-        onSaveWidgets={async (newPrefs) => {
-          setWidgetPrefs(newPrefs)
-          // Don't pretend it's saved if the API call failed — the user
-          // would see "Dashboard saved" and then their changes vanish on
-          // next refresh with no clue why.
-          try {
-            await api.saveWidgetPrefs(newPrefs)
-            showToast('Dashboard saved')
-          } catch (e) {
-            logError('saveWidgetPrefs', e)
-            showToast('Dashboard not saved — ' + (e.message || 'try again'), 'error')
-          }
-        }}
         onClose={() => setShowCustomizeDash(false)}
         T={T}
       />}
