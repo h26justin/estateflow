@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { buildAgentReport, managedByAgent } from '../agentReport'
+import { buildAgentReport, managedByAgent, dueDayLabel } from '../agentReport'
 import { bundleAgentReport, OUT } from '../../../scripts/build-agent-report.mjs'
 import { readFileSync } from 'node:fs'
 
@@ -48,11 +48,16 @@ describe('buildAgentReport', () => {
     expect(r.lines.map(l => l.name)).not.toContain('Flat 5')
   })
 
-  it('folds short-term-let rooms into one line per building', () => {
-    const stl = r.lines.find(l => l.status === 'short_term_let')
-    expect(stl.name).toBe('Piers View (2 rooms)')
-    expect(stl.thisMonth.received).toBe(200)
-    expect(stl.grid['2026-10'].received).toBe(200)
+  it('groups by company with the company logo, and buildings within a company', () => {
+    const withCo = buildAgentReport(props, { agent: AGENT, asOf, companies: [{ id: 'c1', name: 'ExH Property Group', color: '#3b4a3f', logo_url: 'https://x/logo.png' }] })
+    expect(withCo.byCompany).toHaveLength(1)
+    const g = withCo.byCompany[0]
+    expect(g).toMatchObject({ company: 'ExH Property Group', color: '#3b4a3f', logoUrl: 'https://x/logo.png' })
+    const piers = g.groups.find(gr => gr.building)
+    expect(piers.name).toBe('Piers View')
+    expect(piers.cards).toHaveLength(2)
+    // Short-term lets stay out of the company's received total, as on the tracker.
+    expect(g.received).toBe(1500)
   })
 
   it('reports missed rent as owed but not rent that is still in its window', () => {
@@ -60,7 +65,6 @@ describe('buildAgentReport', () => {
     expect(r.summary.owed).toBe(500)
     const f1 = r.lines.find(l => l.name === 'Flat 1')
     expect(f1.thisMonth.state).toBe('due')
-    expect(f1.lastMonth.state).toBe('paid')
   })
 
   it('lists properties that are not let', () => {
@@ -68,10 +72,23 @@ describe('buildAgentReport', () => {
     expect(r.notLet[0].vacantSince).toBe('2026-08-01')
   })
 
-  it('builds a tracker grid from go-live to this month', () => {
-    expect(r.months[0]).toMatchObject({ year: 2026, month: 1 })
-    expect(r.months.at(-1)).toMatchObject({ year: 2026, month: 10 })
-    expect(r.lines.find(l => l.name === 'Flat 2').grid['2026-9'].state).toBe('missed')
+  it('lays out Jan to Dec of this year with the tracker counts', () => {
+    const f2 = r.lines.find(l => l.name === 'Flat 2')
+    expect(f2.months.map(m => m.label)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+    expect(f2.months[8]).toMatchObject({ state: 'missed' })
+    expect(f2.months[9]).toMatchObject({ current: true, state: 'due' })
+    expect(f2.months[10].future).toBe(true)
+    expect(f2.counts).toMatchObject({ paid: 1, due: 1, missed: 1 })
+    expect(f2.received).toBe(500)
+    expect(f2.letLabel).toBe('Rented')
+  })
+
+  it('formats the due day like the tracker', () => {
+    expect(dueDayLabel('28')).toBe('28th')
+    expect(dueDayLabel(2)).toBe('2nd')
+    expect(dueDayLabel(11)).toBe('11th')
+    expect(dueDayLabel('1st')).toBe('1st')
+    expect(dueDayLabel(null)).toBe(null)
   })
 
   it('never carries tenant names', () => {

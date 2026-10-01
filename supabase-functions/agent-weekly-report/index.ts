@@ -1,5 +1,5 @@
-// Agent weekly report: emails each letting agent a PDF of rent
-// status and let / not let for every property they look after. First user:
+// Agent weekly report: emails each letting agent a PDF of the Rent Tracker
+// for every property they look after. First user:
 // Gareth at Propertunity, Mondays 07:00 UK.
 //
 // Schedules live in public.agent_report_schedules (one row per owner + agent).
@@ -38,7 +38,7 @@ const LOGO_URL = 'https://www.ownproperly.com/icon-512.png'
 
 // Same joins the rent engine needs as fetchProperties (src/lib/api/_monolith.js).
 const PROPERTY_SELECT = 'id,user_id,company_id,name,address,status,rent_pcm,rent_due_day,tenancy_end,vacant_since,managed_by,managed_by_agent_id,deleted_at,archived_at,' +
-  'company:companies(id,name),' +
+  'company:companies(id,name,color),' +
   'rent_payments(id,property_id,year,month,month_label,status,amount,period_start,period_end),' +
   'stl_bookings(id,rent_payment_id),' +
   'rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount,payment_plan_id)),' +
@@ -58,11 +58,27 @@ function londonNow(d = new Date()) {
   return { weekday, hour: Number(p.hour), iso: `${p.year}-${p.month}-${p.day}` }
 }
 
-async function loadLogo(): Promise<string | null> {
+// A PNG as { data, w, h } for jsPDF (width and height from the IHDR chunk).
+// Anything that is not a PNG is skipped; the header then shows the name only.
+async function loadPng(url: string): Promise<{ data: string; w: number; h: number } | null> {
   try {
-    const r = await fetch(LOGO_URL); if (!r.ok) return null
-    return 'data:image/png;base64,' + b64encode(new Uint8Array(await r.arrayBuffer()))
+    const r = await fetch(url); if (!r.ok) return null
+    const b = new Uint8Array(await r.arrayBuffer())
+    if (b.length < 24 || b[0] !== 0x89 || b[1] !== 0x50 || b[2] !== 0x4E || b[3] !== 0x47) return null
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength)
+    return { data: 'data:image/png;base64,' + b64encode(b), w: dv.getUint32(16), h: dv.getUint32(20) }
   } catch (_) { return null }
+}
+
+// Company logos live in this project's public-assets bucket; nothing else is
+// fetched. Uploads can be thousands of pixels square, too big to decode inside
+// the edge CPU budget, so ask Storage for a 400px copy first.
+const LOGO_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/public-assets/`
+async function loadLogo(url: string) {
+  if (!url.startsWith(LOGO_PREFIX)) return null
+  const path = url.slice(LOGO_PREFIX.length).split('?')[0]
+  const small = `${SUPABASE_URL}/storage/v1/render/image/public/public-assets/${path}?width=400&height=400&resize=contain&format=origin`
+  return (await loadPng(small)) || (await loadPng(url))
 }
 
 function emailHtml(model: any) {
@@ -76,7 +92,7 @@ function emailHtml(model: any) {
   return `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:620px;margin:0 auto;padding:28px 22px;color:#1A2530">
     <div style="text-align:center;margin-bottom:22px"><img src="https://www.ownproperly.com/brand/email-lockup.png" alt="Properly" style="height:36px;width:auto"/></div>
-    <h2 style="margin:0 0 6px;font-size:20px">Weekly rent and lettings report</h2>
+    <h2 style="margin:0 0 6px;font-size:20px">Rent tracker report</h2>
     <p style="margin:0 0 18px;color:#5A6A7A;font-size:14px">${esc(dateLong(model.asOf))} &middot; ${s.units} properties managed by ${esc(model.agent?.name || 'you')}</p>
     <table style="width:100%;border-collapse:separate;border-spacing:6px 0;margin:0 -6px 20px"><tr>
       ${stat('Let', `${s.letUnits} of ${s.units}`)}
@@ -85,7 +101,7 @@ function emailHtml(model: any) {
     </tr></table>
     ${owing.length ? `<p style="margin:0;font-weight:700;font-size:14px">Rent owed</p>${list(owing)}` : '<p style="margin:0;font-size:14px;color:#1F9D63;font-weight:700">Nothing overdue this week.</p>'}
     ${notLet.length ? `<p style="margin:18px 0 0;font-weight:700;font-size:14px">Not let (${s.notLetUnits})</p>${list(notLet)}` : ''}
-    <p style="margin:22px 0 0;color:#5A6A7A;font-size:13px;line-height:1.6">The attached PDF has every property: whether it is let, last month's and this month's rent, and anything owed. Rent owed means collectible rent still unpaid after its payment window.</p>
+    <p style="margin:22px 0 0;color:#5A6A7A;font-size:13px;line-height:1.6">The attached PDF is the rent tracker for every property, company by company: its status, the rent for each month this year, what has come in and anything owed. Rent owed means collectible rent still unpaid after its payment window.</p>
     <p style="margin:26px 0 0;color:#9CA3AF;font-size:11px;text-align:center">Sent every week by Properly on behalf of the property owner.</p>
   </div>`
 }
@@ -132,7 +148,7 @@ serve(async (req) => {
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
 
   const results: any[] = []
-  let logo: string | null | undefined
+  let mark: { data: string; w: number; h: number } | null | undefined
   for (const sch of schedules || []) {
     const due = sch.enabled && sch.weekday === now.weekday && sch.send_hour === now.hour
       && !(sch.last_sent_at && londonNow(new Date(sch.last_sent_at)).iso === now.iso)
@@ -144,16 +160,27 @@ serve(async (req) => {
       const { data: props, error: pErr } = await admin.from('properties').select(PROPERTY_SELECT)
         .eq('user_id', sch.user_id).is('deleted_at', null).is('archived_at', null)
       if (pErr) throw new Error(pErr.message)
-      const model = buildAgentReport(props || [], { agent: sch.agent, asOf: now.iso })
+      const [{ data: cos }, { data: settings }] = await Promise.all([
+        admin.from('companies').select('id,name,color').eq('user_id', sch.user_id),
+        admin.from('company_settings').select('company_id,logo_url').eq('user_id', sch.user_id),
+      ])
+      const logoUrl = new Map((settings || []).map((r: any) => [r.company_id, r.logo_url]))
+      const companies = (cos || []).map((c: any) => ({ ...c, logo_url: logoUrl.get(c.id) || null }))
+      const model = buildAgentReport(props || [], { agent: sch.agent, companies, asOf: now.iso })
       if (dryRun) { results.push({ id: sch.id, summary: model.summary, lines: model.lines.length }); continue }
 
       const to = (preview ? sch.cc : sch.recipients).filter(validEmail)
       const cc = preview ? [] : (sch.cc || []).filter(validEmail)
       if (!to.length) throw new Error(preview ? 'no cc address to preview to' : 'no recipients')
-      if (logo === undefined) logo = await loadLogo()
-      const doc = drawAgentReportPdf(jsPDF, model, { logo })
+      if (mark === undefined) mark = await loadPng(LOGO_URL)
+      const logos: Record<string, unknown> = {}
+      await Promise.all(model.byCompany.map(async (g: any) => {
+        const im = g.logoUrl ? await loadLogo(String(g.logoUrl)) : null
+        if (im) logos[g.companyId] = im
+      }))
+      const doc = drawAgentReportPdf(jsPDF, model, { logos, mark })
       const pdf = b64encode(new Uint8Array(doc.output('arraybuffer')))
-      const subject = `${preview ? '[Preview] ' : ''}Weekly rent and lettings report - ${dateLong(model.asOf)}`
+      const subject = `${preview ? '[Preview] ' : ''}Rent tracker report - ${dateLong(model.asOf)}`
       await sendReport({ to, cc, replyTo: (sch.cc || []).find(validEmail), subject, html: emailHtml(model), filename: agentReportFilename(model), pdf })
       if (!preview) {
         await admin.from('agent_report_schedules').update({ last_sent_at: new Date().toISOString(), last_status: `sent ${model.summary.units} properties`, updated_at: new Date().toISOString() }).eq('id', sch.id)
