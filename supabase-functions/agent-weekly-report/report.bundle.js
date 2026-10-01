@@ -359,6 +359,363 @@ function arrearsSummary(property, opts = {}) {
   return { opening, paid, balance: round2(opening - paid) };
 }
 
+// src/lib/stlIncome.js
+var REVENUE_STATUSES = Object.freeze(/* @__PURE__ */ new Set(["new", "modified", "confirmed", "booked"]));
+var ADJUSTMENT_KINDS = Object.freeze([
+  { v: "refund", l: "Refund", negative: true, hint: "Money returned to the guest" },
+  { v: "chargeback", l: "Chargeback", negative: true, hint: "Card dispute clawed back by the channel" },
+  { v: "fee", l: "Fee", negative: false, hint: "Cleaning / damage / extra charge collected" },
+  { v: "payout_difference", l: "Payout difference", negative: false, hint: "Channel paid out more or less than the booking value" },
+  { v: "adjustment", l: "Other adjustment", negative: false, hint: "Anything else, either sign" }
+]);
+var KNOWN_CHANNELS = Object.freeze(["Airbnb", "Booking.com", "Vrbo", "Expedia", "Direct", "Other"]);
+function parseISO(d) {
+  if (!d) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));
+  if (!m) return null;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+function toISO(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+var DAY = 864e5;
+function daysBetween2(fromISO, toISO_) {
+  const a = parseISO(fromISO), b = parseISO(toISO_);
+  if (a == null || b == null) return 0;
+  return Math.round((b - a) / 864e5);
+}
+function periodDays(from, to) {
+  if (!from || !to) return 0;
+  const d = daysBetween2(from, to) + 1;
+  return d > 0 ? d : 0;
+}
+function monthKey(d) {
+  return d ? String(d).slice(0, 7) : null;
+}
+function inRange(d, from, to) {
+  if (!d) return false;
+  const s = String(d).slice(0, 10);
+  if (from && s < from) return false;
+  if (to && s > to) return false;
+  return true;
+}
+function lastDayOfMonth(y, m) {
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+function isRevenueBooking(b) {
+  if (!b) return false;
+  const s = String(b.status || "").toLowerCase();
+  if (!REVENUE_STATUSES.has(s)) return false;
+  if (b.cancellation_date || b.cancelled_at || b.canceled_at) return false;
+  if (isNoCharge(b)) return false;
+  return true;
+}
+function isNoCharge(b) {
+  if (!b) return false;
+  const s = String(b.status || "").toLowerCase();
+  if (!REVENUE_STATUSES.has(s)) return false;
+  if (b.cancellation_date || b.cancelled_at || b.canceled_at) return false;
+  if (b.total_amount == null || b.total_amount === "") return false;
+  const n = Number(b.total_amount);
+  return Number.isFinite(n) && n <= 0;
+}
+function channelLabel(source) {
+  const raw = String(source || "").trim();
+  if (!raw) return "Other";
+  const k = raw.toLowerCase().replace(/[\s._-]/g, "");
+  if (["direct", "directsite", "bookingengine", "manual", "oh", "ownwebsite", "wordpress", "hostaway"].includes(k)) return "Direct";
+  if (k === "bookingcom" || k === "booking") return "Booking.com";
+  if (k.startsWith("airbnb")) return "Airbnb";
+  if (k.startsWith("vrbo") || k === "homeaway" || k === "homeawayical") return "Vrbo";
+  if (k.startsWith("expedia")) return "Expedia";
+  if (k.startsWith("tripadvisor")) return "TripAdvisor";
+  return raw;
+}
+var FEE_DEDUCTED_AT_SOURCE = Object.freeze({ Airbnb: true, Vrbo: true, "Booking.com": false, Expedia: false, Direct: false, Other: false });
+function feeDeductedAtSource(channel) {
+  const c = channelLabel(channel);
+  return FEE_DEDUCTED_AT_SOURCE[c] ?? false;
+}
+function bookingFees(b) {
+  const channel = b?.channel_commission == null ? null : num(b.channel_commission);
+  const hostaway = b?.hostaway_commission == null ? null : num(b.hostaway_commission);
+  const known = channel != null || hostaway != null;
+  const total = round22((channel || 0) + (hostaway || 0));
+  return { channel: channel || 0, hostaway: hostaway || 0, total, known };
+}
+var DEFAULT_CHANNEL_RATES = Object.freeze({ "Booking.com": 15, Expedia: 15, Airbnb: 15.5, Vrbo: 8 });
+function observedChannelRates(bookings = []) {
+  const acc = /* @__PURE__ */ new Map();
+  for (const b of bookings) {
+    if (!isRevenueBooking(b)) continue;
+    const f = bookingFees(b);
+    if (!f.known || !f.channel) continue;
+    const c = channelLabel(b.source);
+    const row = acc.get(c) || { gross: 0, fees: 0 };
+    row.gross += num(b.total_amount);
+    row.fees += f.channel;
+    acc.set(c, row);
+  }
+  const out = {};
+  for (const [c, r] of acc) if (r.gross > 0) out[c] = round22(r.fees / r.gross * 100);
+  return out;
+}
+function effectiveFees(b, rates = null) {
+  const f = bookingFees(b);
+  if (f.known || !rates) return { ...f, estimated: false };
+  const c = channelLabel(b?.source);
+  if (feeDeductedAtSource(c) || c === "Direct" || c === "Other") return { ...f, estimated: false };
+  const pct2 = rates[c] ?? DEFAULT_CHANNEL_RATES[c];
+  if (!pct2) return { ...f, estimated: false };
+  const est = round22(num(b.total_amount) * pct2 / 100);
+  return { channel: est, hostaway: 0, total: est, known: false, estimated: true, rate: pct2 };
+}
+function bookingNights(b) {
+  if (!b?.arrival || !b?.departure) return 0;
+  const n = daysBetween2(b.arrival, b.departure);
+  return n > 0 ? n : 1;
+}
+function nightsInRange(b, from = null, to = null) {
+  if (!b?.arrival || !b?.departure) return 0;
+  const a = parseISO(b.arrival), d = parseISO(b.departure);
+  if (a == null || d == null) return 0;
+  let start = a;
+  let end = d > a ? d : a + DAY;
+  if (from) {
+    const f = parseISO(from);
+    if (f != null && f > start) start = f;
+  }
+  if (to) {
+    const t = parseISO(to);
+    if (t != null && t + DAY < end) end = t + DAY;
+  }
+  const n = Math.round((end - start) / DAY);
+  return n > 0 ? n : 0;
+}
+function addDaysISO(iso, n) {
+  const t = parseISO(iso);
+  if (t == null) return null;
+  const d = new Date(t + n * DAY);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+function unitCount(property, bookings = [], mappings = []) {
+  if (!property) return null;
+  const mapped = mappings.filter((m) => m.property_id === property.id).length;
+  if (mapped > 0) return mapped;
+  const seen = /* @__PURE__ */ new Set();
+  let any = false;
+  for (const b of bookings) {
+    if (b.property_id !== property.id) continue;
+    any = true;
+    const id = b.hostaway_listing_id ?? b.lodgify_property_id;
+    if (id != null) seen.add(String(id));
+  }
+  if (seen.size > 0) return seen.size;
+  return any ? null : 0;
+}
+var num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+var round22 = (n) => Math.round(n * 100) / 100;
+function monthKeysBetween(from, to) {
+  const keys = [];
+  if (!from || !to) return keys;
+  let [y, m] = from.slice(0, 7).split("-").map(Number);
+  const [ty, tm] = to.slice(0, 7).split("-").map(Number);
+  let guard = 0;
+  while ((y < ty || y === ty && m <= tm) && guard++ < 600) {
+    keys.push(`${y}-${String(m).padStart(2, "0")}`);
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+  return keys;
+}
+function summariseStl(bookings = [], adjustments = [], { from = null, to = null, roomCount = null, rates = null, today = /* @__PURE__ */ new Date() } = {}) {
+  const inPeriod = bookings.filter((b) => inRange(b.arrival, from, to));
+  const revenue = inPeriod.filter(isRevenueBooking);
+  const nonRevenue = inPeriod.filter((b) => !isRevenueBooking(b));
+  const adj = adjustments.filter((a) => inRange(a.adjustment_date, from, to));
+  const gross = round22(revenue.reduce((s, b) => s + num(b.total_amount), 0));
+  const nights = revenue.reduce((s, b) => s + bookingNights(b), 0);
+  const adjustmentsTotal = round22(adj.reduce((s, a) => s + num(a.amount), 0));
+  let channelFees = 0, hostawayFees = 0, feesDeducted = 0, feesInvoiced = 0, feesKnown = 0, feesEstimated = 0, feesEstimatedAmount = 0;
+  for (const b of revenue) {
+    const f = effectiveFees(b, rates);
+    if (f.known) feesKnown++;
+    if (f.estimated) {
+      feesEstimated++;
+      feesEstimatedAmount += f.total;
+    }
+    channelFees += f.channel;
+    hostawayFees += f.hostaway;
+    if (feeDeductedAtSource(b.source)) feesDeducted += f.total;
+    else feesInvoiced += f.total;
+  }
+  channelFees = round22(channelFees);
+  hostawayFees = round22(hostawayFees);
+  const platformFees = round22(channelFees + hostawayFees);
+  feesDeducted = round22(feesDeducted);
+  feesInvoiced = round22(feesInvoiced);
+  feesEstimatedAmount = round22(feesEstimatedAmount);
+  const netAfterFees = round22(gross - platformFees + adjustmentsTotal);
+  const payoutReceived = round22(gross - feesDeducted + adjustmentsTotal);
+  const net = netAfterFees;
+  const chan = /* @__PURE__ */ new Map();
+  for (const b of revenue) {
+    const c = channelLabel(b.source);
+    const row = chan.get(c) || { channel: c, gross: 0, fees: 0, bookings: 0, nights: 0, deductedAtSource: feeDeductedAtSource(c) };
+    row.gross += num(b.total_amount);
+    row.fees += effectiveFees(b, rates).total;
+    row.bookings += 1;
+    row.nights += bookingNights(b);
+    chan.set(c, row);
+  }
+  const byChannel = [...chan.values()].map((r) => ({
+    ...r,
+    gross: round22(r.gross),
+    fees: round22(r.fees),
+    net: round22(r.gross - r.fees),
+    feeRate: r.gross > 0 ? round22(r.fees / r.gross * 100) : 0,
+    share: gross > 0 ? r.gross / gross : 0
+  })).sort((a, b) => b.gross - a.gross);
+  let mFrom = from, mTo = to;
+  if (!mFrom || !mTo) {
+    const dates = [...revenue.map((b) => b.arrival), ...adj.map((a) => a.adjustment_date)].filter(Boolean).sort();
+    if (dates.length) {
+      mFrom = mFrom || dates[0];
+      mTo = mTo || dates[dates.length - 1];
+    }
+  }
+  const months = monthKeysBetween(mFrom, mTo).map((key) => ({
+    key,
+    year: Number(key.slice(0, 4)),
+    month: Number(key.slice(5, 7)),
+    gross: 0,
+    fees: 0,
+    adjustments: 0,
+    net: 0,
+    bookings: 0,
+    nights: 0
+  }));
+  const byKey = new Map(months.map((m) => [m.key, m]));
+  for (const b of revenue) {
+    const m = byKey.get(monthKey(b.arrival));
+    if (!m) continue;
+    m.gross += num(b.total_amount);
+    m.fees += effectiveFees(b, rates).total;
+    m.bookings += 1;
+    m.nights += bookingNights(b);
+  }
+  for (const a of adj) {
+    const m = byKey.get(monthKey(a.adjustment_date));
+    if (!m) continue;
+    m.adjustments += num(a.amount);
+  }
+  for (const m of months) {
+    m.gross = round22(m.gross);
+    m.fees = round22(m.fees);
+    m.adjustments = round22(m.adjustments);
+    m.net = round22(m.gross - m.fees + m.adjustments);
+  }
+  const days = periodDays(from, to);
+  const allRevenue = bookings.filter(isRevenueBooking);
+  const occupiedNights = allRevenue.reduce((s2, b) => s2 + nightsInRange(b, from, to), 0);
+  const occupancy = roomCount > 0 && days > 0 ? round22(occupiedNights / (roomCount * days) * 100) : null;
+  const adr = nights > 0 ? round22(gross / nights) : null;
+  const revpar = roomCount > 0 && days > 0 ? round22(gross / (roomCount * days)) : null;
+  const todayISO = today ? toISO(today) : null;
+  const lastNight = todayISO ? addDaysISO(todayISO, -1) : null;
+  const elapsedTo = lastNight && to && from && lastNight < to && lastNight >= from ? lastNight : null;
+  const elapsedDays = elapsedTo ? periodDays(from, elapsedTo) : 0;
+  const nightsToDate = elapsedTo ? allRevenue.reduce((s2, b) => s2 + nightsInRange(b, from, elapsedTo), 0) : 0;
+  const occupancyToDate = elapsedTo && roomCount > 0 && elapsedDays > 0 ? round22(nightsToDate / (roomCount * elapsedDays) * 100) : null;
+  let achievedDays = 0, achievedNights = 0;
+  for (const m of months) {
+    const mStart = `${m.key}-01`;
+    const mEnd = `${m.key}-${String(lastDayOfMonth(m.year, m.month)).padStart(2, "0")}`;
+    m.days = periodDays(mStart, mEnd);
+    m.occupiedNights = allRevenue.reduce((s2, b) => s2 + nightsInRange(b, mStart, mEnd), 0);
+    m.occupancy = roomCount > 0 && m.days > 0 ? round22(m.occupiedNights / (roomCount * m.days) * 100) : null;
+    m.adr = m.nights > 0 ? round22(m.gross / m.nights) : null;
+    m.revpar = roomCount > 0 && m.days > 0 ? round22(m.gross / (roomCount * m.days)) : null;
+    const traded = m.occupiedNights > 0 || m.bookings > 0;
+    const ran = lastNight && lastNight >= mStart ? lastNight < mEnd ? lastNight : mEnd : null;
+    if (traded && ran) {
+      achievedDays += periodDays(mStart, ran);
+      achievedNights += allRevenue.reduce((s2, b) => s2 + nightsInRange(b, mStart, ran), 0);
+    }
+  }
+  const occupancyAchieved = roomCount > 0 && achievedDays > 0 ? round22(achievedNights / (roomCount * achievedDays) * 100) : null;
+  return {
+    gross,
+    adjustmentsTotal,
+    net,
+    nights,
+    platformFees,
+    channelFees,
+    hostawayFees,
+    feesDeducted,
+    feesInvoiced,
+    feesKnown,
+    feesEstimated,
+    feesEstimatedAmount,
+    netAfterFees,
+    payoutReceived,
+    bookings: revenue.length,
+    nonRevenueCount: nonRevenue.length,
+    byChannel,
+    months,
+    occupancy,
+    periodDays: days,
+    roomCount: roomCount ?? null,
+    occupiedNights,
+    occupancyToDate,
+    nightsToDate,
+    elapsedDays,
+    occupancyAchieved,
+    achievedDays,
+    adr,
+    revpar,
+    revenueBookings: revenue,
+    nonRevenueBookings: nonRevenue,
+    adjustments: adj
+  };
+}
+function managerPayouts(bookings = [], adjustments = [], properties = [], managers = [], { from = null, to = null, rates = null } = {}) {
+  const byManager = /* @__PURE__ */ new Map();
+  for (const p of properties) {
+    if (!p.stl_manager_id) continue;
+    const m = managers.find((x) => x.id === p.stl_manager_id);
+    if (!m || m.active === false) continue;
+    const own = bookings.filter((b) => b.property_id === p.id);
+    const ownAdj = adjustments.filter((a) => a.property_id === p.id);
+    const sum = summariseStl(own, ownAdj, { from, to, rates });
+    const base = m.basis === "gross" ? sum.gross : sum.netAfterFees;
+    const amount = round22(Math.max(0, base) * (num(m.percentage) / 100));
+    const row = byManager.get(m.id) || { manager: m, properties: [], gross: 0, platformFees: 0, adjustments: 0, netAfterFees: 0, base: 0, amount: 0, bookings: 0, nights: 0, feesKnown: 0, feesUnknown: 0 };
+    row.properties.push({ property: p, gross: sum.gross, platformFees: sum.platformFees, adjustments: sum.adjustmentsTotal, netAfterFees: sum.netAfterFees, base: round22(base), amount, bookings: sum.bookings, nights: sum.nights });
+    row.gross = round22(row.gross + sum.gross);
+    row.platformFees = round22(row.platformFees + sum.platformFees);
+    row.adjustments = round22(row.adjustments + sum.adjustmentsTotal);
+    row.netAfterFees = round22(row.netAfterFees + sum.netAfterFees);
+    row.base = round22(row.base + base);
+    row.amount = round22(row.amount + amount);
+    row.bookings += sum.bookings;
+    row.nights += sum.nights;
+    row.feesKnown += sum.feesKnown;
+    row.feesUnknown += sum.bookings - sum.feesKnown - sum.feesEstimated;
+    row.feesEstimated = (row.feesEstimated || 0) + sum.feesEstimated;
+    byManager.set(m.id, row);
+  }
+  return [...byManager.values()].sort((a, b) => a.manager.name.localeCompare(b.manager.name));
+}
+
 // src/lib/addressUtils.js
 function buildingTailFromName(name) {
   if (!name) return null;
@@ -374,7 +731,7 @@ function buildingKeyFromName(name) {
 
 // src/lib/agentReport.js
 var MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-var round22 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+var round23 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 var REPORTED = ["rented", "notice_given", "let_agreed", "on_rental_market", "vacant", "refurb", "short_term_let"];
 var LET_LABEL = {
   rented: "Rented",
@@ -400,7 +757,7 @@ function dueDayLabel(v) {
   const suf = t >= 11 && t <= 13 ? "th" : { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th";
   return `${n}${suf}`;
 }
-function monthKey(iso) {
+function monthKey2(iso) {
   const [y, m] = iso.split("-").map(Number);
   return { year: y, month: m };
 }
@@ -450,13 +807,49 @@ function propertyCard(p, { asOf, year, thisMo }) {
   let owed = 0, missedMonths = 0;
   for (const e of evals) {
     if (e.state === STATE.MISSED && e.outstanding > 0) {
-      owed = round22(owed + e.outstanding);
+      owed = round23(owed + e.outstanding);
       missedMonths++;
     }
   }
   const arrears = Math.max(0, arrearsSummary(p).balance);
   const t = tenancyForDate(p.tenancies || [], asOf);
+  const tenancy = t || [...p.tenancies || []].filter((x) => x.status !== "ended" && x.tenancy_start).sort((a, b) => a.tenancy_start < b.tenancy_start ? 1 : -1)[0] || null;
+  const tenancyStart = tenancy?.tenancy_start || (p.tenant_since ? String(p.tenant_since).slice(0, 10) : null);
+  const yearStart = `${year}-01-01`;
+  let shortfallYear = 0, shortfallTenancy = 0;
+  for (const e of evals) {
+    if (e.state !== STATE.MISSED || !(e.outstanding > 0)) continue;
+    if (e.periodStart >= yearStart) shortfallYear = round23(shortfallYear + e.outstanding);
+    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round23(shortfallTenancy + e.outstanding);
+  }
+  const recent = recentMonths(thisMo).map((mo) => {
+    const r = tiles.find((x) => x.year === mo.year && x.month === mo.month);
+    const rated = r && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(r.state);
+    const due = rated ? round23(r.expected) : 0;
+    const received2 = round23(r?.received || 0);
+    const paidUnrecorded = !!(rated && r.state === STATE.PAID && received2 < due);
+    const collected = paidUnrecorded ? due : received2;
+    const gap = round23(Math.max(0, due - collected));
+    const open = r && (r.state === STATE.DUE || r.state === STATE.PART_PAID);
+    return { ...mo, state: r?.state || null, due, collected, shortfall: open ? 0 : gap, stillDue: open ? gap : 0, assumed: paidUnrecorded };
+  });
   const cur = tiles.find((x) => x.year === thisMo.year && x.month === thisMo.month) || null;
+  const RATED = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED];
+  const collectedOf = (e) => e.state === STATE.PAID && (e.received || 0) < e.expected ? e.expected : Math.min(e.received || 0, e.expected);
+  let yearDue = 0, yearCollected = 0;
+  if (!isStl) for (const e of evals) {
+    if (![STATE.PAID, STATE.MISSED].includes(e.state) || e.expected == null || e.periodStart < yearStart) continue;
+    yearDue = round23(yearDue + e.expected);
+    yearCollected = round23(yearCollected + collectedOf(e));
+  }
+  const mb = monthBounds(thisMo.year, thisMo.month);
+  let monthDue = 0, monthCollected = 0;
+  if (!isStl) for (const e of evals) {
+    if (e.periodStart < mb.start || e.periodStart > mb.end || !RATED.includes(e.state) || e.expected == null) continue;
+    monthDue = round23(monthDue + e.expected);
+    monthCollected = round23(monthCollected + collectedOf(e));
+  }
+  const firstMissed = evals.filter((e) => e.state === STATE.MISSED && e.outstanding > 0).sort((a, b) => a.periodStart < b.periodStart ? -1 : 1)[0];
   return {
     id: p.id,
     name: String(p.name || p.address || "Property").trim(),
@@ -469,16 +862,39 @@ function propertyCard(p, { asOf, year, thisMo }) {
     vacantSince: !isLet(p.status) ? p.vacant_since || null : null,
     tenancyEnd: p.status === "notice_given" ? t?.expected_move_out || t?.tenancy_end || p.tenancy_end || null : null,
     // The tracker shows the property's own rent and due day.
-    rent: Number(p.rent_pcm) || (t ? round22(monthlyRent(t)) : 0),
+    rent: Number(p.rent_pcm) || (t ? round23(monthlyRent(t)) : 0),
     dueDay: dueDayLabel(p.rent_due_day),
     months,
     counts,
-    received: round22(received),
+    received: round23(received),
     thisMonth: cur ? { state: cur.state, expected: cur.expected, received: cur.received, needsBackfill: cur.needsBackfill } : null,
     owed,
     missedMonths,
-    arrears: round22(arrears)
+    arrears: round23(arrears),
+    recent,
+    shortfallYear,
+    shortfallTenancy: tenancyStart ? shortfallTenancy : null,
+    tenancyStart,
+    // The tenancy began before rent tracking did, so its shortfall is from go-live.
+    tenancyBeforeTracking: !!(tenancyStart && tenancyStart < GO_LIVE),
+    tenant: isLet(p.status) && !isStl ? t?.tenant_name || tenancy?.tenant_name || p.tenant_name || null : null,
+    yearDue,
+    yearCollected,
+    monthDue,
+    monthCollected,
+    monthStill: round23(Math.max(0, monthDue - monthCollected)),
+    oldestMissed: firstMissed ? monthName({ year: Number(firstMissed.periodStart.slice(0, 4)), month: Number(firstMissed.periodStart.slice(5, 7)) }) : null,
+    lettable: !["refurb"].includes(p.status)
   };
+}
+function recentMonths(thisMo, count = 4) {
+  const out = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const idx = thisMo.year * 12 + thisMo.month - 1 - i;
+    const year = Math.floor(idx / 12), month = idx % 12 + 1;
+    out.push({ year, month, label: MONTH_SHORT[month - 1] });
+  }
+  return out;
 }
 function groupBuildings(cards) {
   const groups = [], byKey = /* @__PURE__ */ new Map();
@@ -494,16 +910,16 @@ function groupBuildings(cards) {
     g.building = g.cards.length > 1;
     if (g.building) {
       g.cards.sort((a, b) => a.name.localeCompare(b.name, "en-GB", { numeric: true }));
-      g.rent = round22(g.cards.reduce((s, c) => s + c.rent, 0));
-      g.received = round22(g.cards.reduce((s, c) => s + c.received, 0));
+      g.rent = round23(g.cards.reduce((s, c) => s + c.rent, 0));
+      g.received = round23(g.cards.reduce((s, c) => s + c.received, 0));
       g.missed = g.cards.reduce((s, c) => s + c.counts.missed, 0);
       g.due = g.cards.reduce((s, c) => s + c.counts.due, 0);
     }
   }
   return groups;
 }
-function buildAgentReport(properties, { agent, companies = [], asOf = isoToday() } = {}) {
-  const thisMo = monthKey(asOf);
+function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null } = {}) {
+  const thisMo = monthKey2(asOf);
   const year = thisMo.year;
   const scoped = (properties || []).filter((p) => !p.deleted_at && !p.archived_at && REPORTED.includes(p.status) && managedByAgent(p, agent));
   const cards = scoped.map((p) => propertyCard(p, { asOf, year, thisMo })).sort((a, b) => a.company.localeCompare(b.company) || a.name.localeCompare(b.name, "en-GB", { numeric: true }));
@@ -521,9 +937,24 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
   for (const g of byCompany) {
     const sum = (k) => g.cards.reduce((s, c) => s + c.counts[k], 0);
     g.counts = { paid: sum("paid"), due: sum("due"), missed: sum("missed"), nc: sum("nc"), backfill: sum("backfill") };
-    g.received = round22(g.cards.filter((c) => !c.stl).reduce((s, c) => s + c.received, 0));
-    g.owed = round22(g.cards.reduce((s, c) => s + c.owed + c.arrears, 0));
+    g.received = round23(g.cards.filter((c) => !c.stl).reduce((s, c) => s + c.received, 0));
+    g.owed = round23(g.cards.reduce((s, c) => s + c.owed + c.arrears, 0));
     g.groups = groupBuildings(g.cards);
+    const lt = g.cards.filter((c) => !c.stl);
+    g.recent = recentMonths(thisMo).map((mo, i) => ({
+      ...mo,
+      due: round23(lt.reduce((s, c) => s + c.recent[i].due, 0)),
+      collected: round23(lt.reduce((s, c) => s + c.recent[i].collected, 0)),
+      shortfall: round23(lt.reduce((s, c) => s + c.recent[i].shortfall, 0)),
+      stillDue: round23(lt.reduce((s, c) => s + c.recent[i].stillDue, 0))
+    }));
+    g.shortfall4 = round23(g.recent.reduce((s, r) => s + r.shortfall, 0));
+    g.shortfallYear = round23(g.cards.reduce((s, c) => s + c.shortfallYear, 0));
+    g.shortfallTenancy = round23(g.cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0));
+    g.noTenancyStart = g.cards.filter((c) => c.let && !c.stl && !c.tenancyStart).length;
+    Object.assign(g, rollUp(g.cards));
+    g.missedMonths = g.cards.reduce((s, c) => s + c.missedMonths, 0);
+    g.notLet = g.cards.filter((c) => !c.let).length;
   }
   const units = cards.length;
   const letUnits = cards.filter((c) => c.let).length;
@@ -531,8 +962,8 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
   for (const c of cards) {
     const m = c.thisMonth;
     if (!m || c.stl || [STATE.STL, STATE.NOT_COLLECTIBLE, STATE.LEGACY, STATE.FUTURE].includes(m.state) || m.needsBackfill) continue;
-    expected = round22(expected + (m.expected || 0));
-    received = round22(received + Math.min(m.received || 0, m.expected || 0));
+    expected = round23(expected + (m.expected || 0));
+    received = round23(received + Math.min(m.received || 0, m.expected || 0));
   }
   const owing = cards.filter((c) => c.owed > 0 || c.arrears > 0).sort((a, b) => b.owed + b.arrears - (a.owed + a.arrears));
   const notLet = cards.filter((c) => !c.let);
@@ -542,8 +973,10 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
     year,
     thisMonth: { ...thisMo, label: monthName(thisMo) },
     months: MONTH_SHORT.map((label, i) => ({ month: i + 1, label })),
+    recentMonths: recentMonths(thisMo),
     lines: cards,
     byCompany,
+    stl: stl ? stlSection(scoped.filter((p) => p.status === "short_term_let"), stl, { asOf, year }) : [],
     owing,
     notLet,
     summary: {
@@ -554,12 +987,95 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
       expected,
       received,
       rate: expected > 0 ? Math.min(100, Math.round(received / expected * 100)) : null,
-      owed: round22(cards.reduce((s, c) => s + c.owed, 0)),
-      arrears: round22(cards.reduce((s, c) => s + c.arrears, 0)),
+      owed: round23(cards.reduce((s, c) => s + c.owed, 0)),
+      arrears: round23(cards.reduce((s, c) => s + c.arrears, 0)),
       owingCount: owing.length,
-      yearReceived: round22(byCompany.reduce((s, g) => s + g.received, 0))
+      yearReceived: round23(byCompany.reduce((s, g) => s + g.received, 0)),
+      // Last 4 months across every company: what fell short once the payment
+      // window closed, and what is still inside it.
+      shortfall4: round23(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.shortfall, 0), 0)),
+      stillDue4: round23(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.stillDue, 0), 0)),
+      due4: round23(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.due, 0), 0)),
+      missedMonths: cards.reduce((s, c) => s + c.missedMonths, 0),
+      shortfallYear: round23(cards.reduce((s, c) => s + c.shortfallYear, 0)),
+      shortfallTenancy: round23(cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0)),
+      noTenancyStart: cards.filter((c) => c.let && !c.stl && !c.tenancyStart).length,
+      ...rollUp(cards)
     }
   };
+}
+function rollUp(cards) {
+  const lt = cards.filter((c) => !c.stl);
+  const sum = (f) => round23(lt.reduce((s, c) => s + (f(c) || 0), 0));
+  const yearDue = sum((c) => c.yearDue), yearCollected = sum((c) => c.yearCollected);
+  return {
+    rentRoll: sum((c) => c.let ? c.rent : 0),
+    emptyCost: sum((c) => !c.let && c.lettable ? c.rent : 0),
+    refurbRent: sum((c) => !c.let && !c.lettable ? c.rent : 0),
+    yearDue,
+    yearCollected,
+    yearRate: yearDue > 0 ? Math.min(100, Math.round(yearCollected / yearDue * 1e3) / 10) : null,
+    monthDue: sum((c) => c.monthDue),
+    monthCollected: sum((c) => c.monthCollected),
+    monthStill: sum((c) => c.monthStill)
+  };
+}
+function stlSection(stlProps, { bookings = [], adjustments = [], managers = [], mappings = [] }, { asOf, year }) {
+  if (!stlProps.length) return [];
+  const today = /* @__PURE__ */ new Date(`${asOf}T12:00:00Z`);
+  const rates = observedChannelRates(bookings);
+  const groups = /* @__PURE__ */ new Map();
+  for (const p of stlProps) {
+    const key = `${p.company_id}|${buildingKeyFromName(p.name) || p.id}`;
+    if (!groups.has(key)) groups.set(key, { name: buildingTailFromName(p.name) || p.name, company: p.company?.name || "", companyId: p.company_id, props: [] });
+    groups.get(key).props.push(p);
+  }
+  const [y, m] = asOf.split("-").map(Number);
+  const monthFrom = `${asOf.slice(0, 7)}-01`;
+  const monthTo = monthBounds(y, m).end;
+  const out = [];
+  for (const g of groups.values()) {
+    const ids = new Set(g.props.map((p) => p.id));
+    const own = bookings.filter((b) => ids.has(b.property_id));
+    const ownAdj = adjustments.filter((a) => ids.has(a.property_id));
+    let rooms = 0;
+    for (const p of g.props) {
+      const u = unitCount(p, bookings, mappings);
+      if (u) rooms += u;
+    }
+    const period = (from, to) => {
+      const sm = summariseStl(own, ownAdj, { from, to, roomCount: rooms || null, rates, today });
+      const pay = managerPayouts(own, ownAdj, g.props, managers, { from, to, rates });
+      const managerFee = round23(pay.reduce((s, r) => s + r.amount, 0));
+      return {
+        bookings: sm.bookings,
+        nights: sm.nights,
+        occupancy: sm.occupancyToDate ?? sm.occupancyAchieved ?? sm.occupancy,
+        adr: sm.adr,
+        gross: sm.gross,
+        platformFees: sm.platformFees,
+        netAfterFees: sm.netAfterFees,
+        managerFee,
+        toOwner: round23(sm.netAfterFees - managerFee),
+        months: sm.months
+      };
+    };
+    const yearSum = period(`${year}-01-01`, asOf);
+    out.push({
+      ...g,
+      rooms,
+      totalRooms: g.props.length,
+      manager: managers.find((mg) => g.props.some((p) => p.stl_manager_id === mg.id)) || null,
+      month: period(monthFrom, monthTo),
+      year: yearSum,
+      // Month by month from January, each month's own figures.
+      byMonth: Array.from({ length: m }, (_, i) => {
+        const mm = String(i + 1).padStart(2, "0");
+        return { label: MONTH_SHORT[i], ...period(`${y}-${mm}-01`, monthBounds(y, i + 1).end) };
+      })
+    });
+  }
+  return out;
 }
 
 // src/lib/reportPdfKit.js
@@ -592,12 +1108,12 @@ function fitBox(w, h, maxW, maxH) {
 var WHITE = [255, 255, 255];
 var hex = (h) => hexToRgb(h);
 var TILE = {
-  paid: [hex("#147A49"), hex("#E8F4EC")],
-  due: [hex("#8A5600"), hex("#FBF1E2")],
-  part_paid: [hex("#8A5600"), hex("#FBF1E2")],
-  missed: [hex("#A83328"), hex("#FAEAE8")],
-  not_collectible: [hex("#5C6168"), hex("#F1F0EC")],
-  stl: [hex("#6E44B8"), hex("#F0EAFB")]
+  paid: [hex("#147A49"), hex("#CFEBDB")],
+  due: [hex("#8A5600"), hex("#F6E2BF")],
+  part_paid: [hex("#8A5600"), hex("#F6E2BF")],
+  missed: [hex("#A83328"), hex("#F2C9C3")],
+  not_collectible: [hex("#5C6168"), hex("#E6E4DE")],
+  stl: [hex("#6E44B8"), hex("#E2D7F6")]
 };
 var LEGACY_KEY = { paid: "paid", overdue: "missed", missed: "missed", late: "due", partial: "due" };
 var PILL = {
@@ -609,10 +1125,19 @@ var PILL = {
   vacant: hex("#A83328"),
   refurb: hex("#2D6FA8")
 };
-var ORANGE = hex("#E0943A");
+var RED = TILE.missed[0];
+var GREEN = TILE.paid[0];
+var AMBER = TILE.due[0];
 var CURRENT = hex("#B8902F");
-var COUNT_COLOR = { paid: TILE.paid[0], due: TILE.due[0], missed: TILE.missed[0], nc: PALETTE.faint, backfill: ORANGE };
+var GO_LIVE_YEAR = GO_LIVE.slice(0, 4);
+function brandColour(h) {
+  const c = hexToRgb(h);
+  if (!c) return PALETTE.gold;
+  const lum = (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+  return lum > 0.8 ? PALETTE.gold : c;
+}
 var money0 = (n) => "\xA3" + Math.round(Number(n) || 0).toLocaleString("en-GB");
+var pct = (n) => n == null ? "-" : `${Math.round(n)}%`;
 var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 var MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -638,6 +1163,7 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const W = 210, H = 297, M = 12, CW = W - M * 2, BOTTOM = H - 16;
   const s = model.summary;
+  const monthLong = MONTHS_LONG[model.thisMonth.month - 1];
   let y = 0;
   const font = (size, style = "normal", color = PALETTE.ink) => {
     doc.setFontSize(size);
@@ -649,15 +1175,20 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   const width = (str) => doc.getTextWidth(clean(str));
   const img = (im, x, yy, w, h) => {
     try {
-      doc.addImage(im.data, "PNG", x, yy, w, h, void 0, "FAST");
+      doc.addImage(im.data, "PNG", x, yy, w, h, im.alias || void 0, "FAST");
     } catch (_) {
     }
   };
+  Object.entries(logos).forEach(([id, im]) => {
+    if (im) im.alias = `logo-${id}`;
+  });
+  if (mark) mark.alias = "properly-mark";
+  let brand = PALETTE.gold;
   const paper = () => {
     doc.setFillColor(...WHITE);
     doc.rect(0, 0, W, H, "F");
-    doc.setFillColor(...PALETTE.gold);
-    doc.rect(0, 0, W, 2.5, "F");
+    doc.setFillColor(...brand);
+    doc.rect(0, 0, W, 3, "F");
   };
   let onNewPage = null;
   const newPage = () => {
@@ -669,258 +1200,531 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   const ensure = (h) => {
     if (y + h > BOTTOM) newPage();
   };
-  function hatch(x, yy, w, h, color, step = 1.5) {
-    doc.setDrawColor(...color);
-    doc.setLineWidth(0.2);
-    for (let k = -h; k < w; k += step) {
-      let sx = x + k, sy = yy + h, ex = x + k + h, ey = yy;
-      if (sx < x) {
-        sy -= x - sx;
-        sx = x;
-      }
-      if (ex > x + w) {
-        ey += ex - (x + w);
-        ex = x + w;
-      }
-      if (sx < ex) doc.line(sx, sy, ex, ey);
+  function sectionTitle(title, sub, accent2 = PALETTE.gold) {
+    ensure(22);
+    font(12, "bold");
+    text(title, M, y + 5);
+    if (sub) {
+      font(7.6, "normal", PALETTE.muted);
+      text(sub, W - M, y + 5, { align: "right" });
     }
+    doc.setFillColor(...accent2);
+    doc.rect(M, y + 7.4, 22, 0.9, "F");
+    y += 12;
   }
-  function countRun(items, xr, yy, size, gap = 3.2) {
-    let x = xr;
-    for (let i = items.length - 1; i >= 0; i--) {
-      const it = items[i];
-      font(size, it.bold ? "bold" : "normal", it.color);
-      text(it.t, x, yy, { align: "right" });
-      x -= width(it.t) + gap;
+  function tiles(items, h = 21) {
+    ensure(h + 4);
+    const gap = 4, kw = (CW - gap * (items.length - 1)) / items.length;
+    items.forEach((k, j) => {
+      const x = M + j * (kw + gap), col = k.color || PALETTE.ink;
+      doc.setFillColor(...mix(col === PALETTE.ink ? PALETTE.faint : col, WHITE, 0.08));
+      doc.roundedRect(x, y, kw, h, 2, 2, "F");
+      doc.setFillColor(...col);
+      doc.rect(x, y + 3, 1.1, h - 6, "F");
+      font(6.6, "bold", PALETTE.muted);
+      text(k.label.toUpperCase(), x + 4.5, y + 6.2);
+      font(15, "bold", col);
+      text(fit(k.value, kw - 7), x + 4.5, y + 13.4);
+      if (k.sub) {
+        font(6.4, "normal", PALETTE.faint);
+        text(fit(k.sub, kw - 7), x + 4.5, y + 18);
+      }
+    });
+    y += h + 5;
+  }
+  const STATUS_ORDER = [["rented", "Rented"], ["notice_given", "Notice given"], ["let_agreed", "Let agreed"], ["on_rental_market", "On the market"], ["vacant", "Vacant"], ["refurb", "Refurbing"], ["short_term_let", "Short-term let"]];
+  function statusGuide(cards, title) {
+    ensure(26);
+    font(6.8, "bold", PALETTE.muted);
+    text(title, M, y + 3);
+    y += 5;
+    const gap = 2.6, n = STATUS_ORDER.length, tw = (CW - gap * (n - 1)) / n, th = 15;
+    STATUS_ORDER.forEach(([k, label], i) => {
+      const count = cards.filter((c) => c.status === k).length;
+      const col = count ? PILL[k] : mix(PALETTE.faint, WHITE, 0.6);
+      const x = M + i * (tw + gap);
+      doc.setFillColor(...mix(count ? col : PALETTE.faint, WHITE, count ? 0.1 : 0.05));
+      doc.roundedRect(x, y, tw, th, 1.8, 1.8, "F");
+      doc.setFillColor(...col);
+      doc.rect(x, y + 2, 0.9, th - 4, "F");
+      font(14, "bold", col);
+      text(String(count), x + tw / 2, y + 8.2, { align: "center" });
+      font(6.2, "bold", count ? col : mix(PALETTE.faint, WHITE, 0.7));
+      text(fit(label, tw - 2), x + tw / 2, y + 12.4, { align: "center" });
+    });
+    y += th + 6;
+  }
+  function table(cols, rows, { emptyText = "", totals = null, rh = 6.4, size = 7.6 } = {}) {
+    const xs = [];
+    let acc = M;
+    cols.forEach((c) => {
+      xs.push(acc);
+      acc += c.w;
+    });
+    const cx = (i, a) => a === "right" ? xs[i] + cols[i].w - 2.5 : xs[i] + 2.5;
+    const head = () => {
+      doc.setFillColor(...PALETTE.head);
+      doc.rect(M, y, CW, 6.6, "F");
+      cols.forEach((c, i) => {
+        font(6.2, "bold", PALETTE.muted);
+        text(c.label.toUpperCase(), cx(i, c.align), y + 4.4, c.align === "right" ? { align: "right" } : void 0);
+      });
+      y += 6.6;
+    };
+    ensure(16);
+    head();
+    if (!rows.length) {
+      font(8, "normal", GREEN);
+      text(emptyText, M + 3, y + 5);
+      y += 11;
+      return;
     }
-    return x;
+    const cell = (c, i, yy, bold) => {
+      const v = typeof c === "object" && c !== null ? c : { t: c };
+      font(v.size || size, v.bold || bold ? "bold" : "normal", v.color || PALETTE.slate);
+      text(fit(v.t ?? "", cols[i].w - 4), cx(i, cols[i].align), yy, cols[i].align === "right" ? { align: "right" } : void 0);
+    };
+    rows.forEach((r) => {
+      if (y + rh > BOTTOM) {
+        newPage();
+        head();
+      }
+      if (r.tint) {
+        doc.setFillColor(...r.tint);
+        doc.rect(M, y, CW, rh, "F");
+      }
+      if (r.bar) {
+        doc.setFillColor(...r.bar);
+        doc.rect(M, y + 1.2, 1, rh - 2.4, "F");
+      }
+      r.cells.forEach((c, i) => cell(c, i, y + rh / 2 + 1.3));
+      doc.setDrawColor(...PALETTE.rule);
+      doc.setLineWidth(0.15);
+      doc.line(M, y + rh, W - M, y + rh);
+      y += rh;
+    });
+    if (totals) {
+      if (y + 7 > BOTTOM) {
+        newPage();
+        head();
+      }
+      doc.setFillColor(...PALETTE.tile);
+      doc.rect(M, y, CW, 7, "F");
+      totals.forEach((c, i) => {
+        if (c != null && c !== "") cell(c, i, y + 4.7, true);
+      });
+      y += 7;
+    }
+    y += 6;
   }
-  function tile(x, yy, w, h, m) {
+  const red = (v) => ({ t: v > 0 ? money0(v) : "-", color: v > 0 ? RED : PALETTE.faint, bold: v > 0 });
+  const rateColour = (r) => r == null ? PALETTE.faint : r >= 95 ? GREEN : r >= 85 ? AMBER : RED;
+  paper();
+  y = 9;
+  let tx = M;
+  if (mark) {
+    const b = fitBox(mark.w, mark.h, 12, 12);
+    img(mark, M, y, b.w, b.h);
+    tx = M + b.w + 4;
+  }
+  font(18, "bold");
+  text("Rent report", tx, y + 6.5);
+  font(9.5, "normal", PALETTE.muted);
+  text(`${model.agent?.name || "Agent"} - ${s.units} properties - ${dateLong(model.asOf)}`, tx, y + 12);
+  y += 17;
+  doc.setDrawColor(...PALETTE.border);
+  doc.setLineWidth(0.25);
+  doc.line(M, y, W - M, y);
+  doc.setFillColor(...PALETTE.gold);
+  doc.rect(M, y - 0.5, 28, 1, "F");
+  y += 6;
+  sectionTitle(`Rent in ${model.year} so far`, "long-term lets, every month whose payment window has closed");
+  tiles([
+    { label: "Rent due", value: money0(s.yearDue), sub: `1 Jan to ${dateShort(model.asOf)}, window closed` },
+    { label: "Collected", value: money0(s.yearCollected), color: GREEN, sub: "received against that rent" },
+    { label: "Collected %", value: pct(s.yearRate), color: rateColour(s.yearRate), sub: "of the rent due" },
+    { label: "Owed", value: money0(s.shortfallYear + s.arrears), color: s.shortfallYear + s.arrears > 0 ? RED : GREEN, sub: `${s.missedMonths} missed months, ${s.owingCount} properties` }
+  ]);
+  sectionTitle(`${monthLong} ${model.year}`, "this month so far");
+  tiles([
+    { label: `Due in ${monthLong}`, value: money0(s.monthDue), sub: "rent for this month" },
+    { label: "Collected so far", value: money0(s.monthCollected), color: GREEN, sub: s.monthDue ? `${Math.round(s.monthCollected / s.monthDue * 100)}% of the month` : "" },
+    { label: "Still to come", value: money0(s.monthStill), color: s.monthStill > 0 ? AMBER : GREEN, sub: "due later this month" },
+    { label: "Rent roll", value: `${money0(s.rentRoll)}/mo`, sub: "monthly rent of the long-term lets" }
+  ]);
+  font(8, "normal", PALETTE.slate);
+  const emptyBits = [`Empty and ready to let: ${money0(s.emptyCost)}/mo of rent not coming in`];
+  if (s.refurbRent > 0) emptyBits.push(`in refurb: ${money0(s.refurbRent)}/mo once let`);
+  text(emptyBits.join("   -   "), M, y + 1);
+  y += 7;
+  statusGuide(model.lines, `STATUS OF ALL ${s.units} PROPERTIES`);
+  sectionTitle("By company", "worst collection first");
+  table([
+    { label: "Company", w: 46 },
+    { label: "Let", w: 16, align: "right" },
+    { label: "Rent roll", w: 22, align: "right" },
+    { label: `Due ${model.year}`, w: 24, align: "right" },
+    { label: "Collected", w: 24, align: "right" },
+    { label: "%", w: 14, align: "right" },
+    { label: "Owed", w: 20, align: "right" },
+    { label: "Empty /mo", w: 20, align: "right" }
+  ], [...model.byCompany].sort((a, b) => (a.yearRate ?? 101) - (b.yearRate ?? 101)).map((g) => ({
+    bar: brandColour(g.color),
+    cells: [
+      { t: g.company, bold: true, color: PALETTE.ink },
+      `${g.cards.filter((c) => c.let).length} of ${g.cards.length}`,
+      money0(g.rentRoll),
+      money0(g.yearDue),
+      { t: money0(g.yearCollected), color: GREEN },
+      { t: pct(g.yearRate), color: rateColour(g.yearRate), bold: true },
+      red(g.owed),
+      { t: g.emptyCost ? money0(g.emptyCost) : "-", color: g.emptyCost ? AMBER : PALETTE.faint }
+    ]
+  })), { totals: [{ t: "All companies" }, `${s.letUnits} of ${s.units}`, money0(s.rentRoll), money0(s.yearDue), { t: money0(s.yearCollected), color: GREEN }, { t: pct(s.yearRate), color: rateColour(s.yearRate) }, red(s.shortfallYear + s.arrears), { t: money0(s.emptyCost), color: AMBER }] });
+  if (model.stl?.length) {
+    sectionTitle("Short-term lets", `after platform fees and the manager's fee`);
+    table([
+      { label: "Building", w: 46 },
+      { label: "Rooms open", w: 20, align: "right" },
+      { label: `${MONTHS[model.thisMonth.month - 1]} occupancy`, w: 26, align: "right" },
+      { label: "Avg per night", w: 24, align: "right" },
+      { label: `${MONTHS[model.thisMonth.month - 1]} to owner`, w: 24, align: "right" },
+      { label: `${model.year} occupancy`, w: 22, align: "right" },
+      { label: `${model.year} to owner`, w: 24, align: "right" }
+    ], model.stl.map((b) => ({
+      bar: PILL.short_term_let,
+      cells: [
+        { t: b.name, bold: true, color: PALETTE.ink },
+        `${b.rooms} of ${b.totalRooms}`,
+        pct(b.month.occupancy),
+        b.year.adr ? money0(b.year.adr) : "-",
+        { t: money0(b.month.toOwner), color: GREEN },
+        pct(b.year.occupancy),
+        { t: money0(b.year.toOwner), color: GREEN, bold: true }
+      ]
+    })));
+  }
+  font(6.6, "normal", PALETTE.muted);
+  const notes = [
+    "Owed = rent still unpaid after its payment window. Due = collected + owed; rent still inside its window is shown under this month.",
+    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are counted as paid in full.`
+  ];
+  if (s.noTenancyStart) notes.push(`${s.noTenancyStart} let properties have no tenancy start date recorded yet.`);
+  ensure(notes.length * 3.6 + 4);
+  notes.forEach((n) => {
+    text(n, M, y + 2);
+    y += 3.6;
+  });
+  newPage();
+  font(16, "bold");
+  text("What needs doing", M, y + 6);
+  y += 12;
+  const owing = model.owing;
+  sectionTitle("Rent owed", `${owing.length} ${owing.length === 1 ? "property" : "properties"}, largest first`, RED);
+  table([
+    { label: "Property", w: 44 },
+    { label: "Company", w: 26 },
+    { label: "Tenant", w: 32 },
+    { label: "Missed", w: 13, align: "right" },
+    { label: "Since", w: 17, align: "right" },
+    { label: `Owed ${model.year}`, w: 22, align: "right" },
+    { label: "This tenancy", w: 32, align: "right" }
+  ], owing.map((c) => ({
+    bar: brandColour(model.byCompany.find((g) => g.companyId === c.companyId)?.color),
+    cells: [
+      { t: c.name, bold: true, color: PALETTE.ink },
+      shortCo(c.company),
+      c.tenant || { t: "not recorded", color: PALETTE.faint },
+      String(c.missedMonths || "-"),
+      c.oldestMissed || "-",
+      red(c.shortfallYear + c.arrears),
+      c.shortfallTenancy == null ? { t: "start unknown", color: PALETTE.faint } : { t: `${money0(c.shortfallTenancy)} since ${dateShort(c.tenancyStart)}`, color: c.shortfallTenancy > 0 ? RED : PALETTE.faint, size: 6.8 }
+    ]
+  })), { emptyText: "Nothing owed: every collectible month is paid.", totals: owing.length ? ["Total", "", "", String(s.missedMonths), "", red(s.shortfallYear + s.arrears), ""] : null });
+  const daysEmpty = (c) => c.vacantSince ? Math.max(0, Math.round((Date.parse(model.asOf) - Date.parse(c.vacantSince)) / 864e5)) : null;
+  const notLet = [...model.notLet].filter((c) => !c.stl).sort((a, b) => a.lettable === b.lettable ? (daysEmpty(b) ?? -1) - (daysEmpty(a) ?? -1) : a.lettable ? -1 : 1);
+  sectionTitle("Not let", "ready to let first, then refurbs", AMBER);
+  table([
+    { label: "Property", w: 52 },
+    { label: "Company", w: 30 },
+    { label: "Status", w: 30 },
+    { label: "Empty since", w: 30, align: "right" },
+    { label: "Rent /mo", w: 22, align: "right" },
+    { label: "Lost to date", w: 22, align: "right" }
+  ], notLet.map((c) => {
+    const d = daysEmpty(c);
+    return {
+      bar: brandColour(model.byCompany.find((g) => g.companyId === c.companyId)?.color),
+      cells: [
+        { t: c.name, bold: true, color: PALETTE.ink },
+        shortCo(c.company),
+        { t: c.letLabel, color: PILL[c.status] || PALETTE.muted, bold: true },
+        c.vacantSince ? `${dateShort(c.vacantSince)} (${d} days)` : { t: "not recorded", color: PALETTE.faint },
+        { t: c.rent ? money0(c.rent) : "no rent set", color: c.rent ? PALETTE.slate : PALETTE.faint },
+        { t: c.lettable && c.rent && d != null ? money0(c.rent * 12 / 365 * d) : "-", color: c.lettable && c.rent && d != null ? AMBER : PALETTE.faint }
+      ]
+    };
+  }), { emptyText: "Every property is let." });
+  const notice = model.lines.filter((c) => c.status === "notice_given");
+  if (notice.length) {
+    sectionTitle("Notice given", "still let, tenant leaving", AMBER);
+    table([
+      { label: "Property", w: 52 },
+      { label: "Company", w: 30 },
+      { label: "Tenant", w: 40 },
+      { label: "Leaving", w: 34, align: "right" },
+      { label: "Rent /mo", w: 30, align: "right" }
+    ], notice.map((c) => ({ cells: [{ t: c.name, bold: true, color: PALETTE.ink }, shortCo(c.company), c.tenant || { t: "not recorded", color: PALETTE.faint }, c.tenancyEnd ? dateShort(c.tenancyEnd) : { t: "date not recorded", color: PALETTE.faint }, money0(c.rent)] })));
+  }
+  let accent = PALETTE.gold, tint = PALETTE.tile;
+  function companyTitle(g) {
+    let yy = 13;
+    const logo = logos[g.companyId];
+    if (logo) {
+      const b = fitBox(logo.w, logo.h, 60, 32);
+      img(logo, (W - b.w) / 2, yy, b.w, b.h);
+      yy += b.h + 6;
+    }
+    font(17, "bold");
+    text(g.company, W / 2, yy + 4, { align: "center" });
+    font(8.5, "normal", PALETTE.muted);
+    text(`${g.cards.length} properties - ${g.cards.filter((c) => c.let).length} let - rent roll ${money0(g.rentRoll)}/mo`, W / 2, yy + 10, { align: "center" });
+    y = yy + 15;
+    doc.setFillColor(...accent);
+    doc.rect(M, y, CW, 0.8, "F");
+    y += 5;
+  }
+  function runningHead(g) {
+    const logo = logos[g.companyId];
+    let x = M;
+    if (logo) {
+      const b = fitBox(logo.w, logo.h, 16, 8);
+      img(logo, M, 6.5 + (8 - b.h) / 2, b.w, b.h);
+      x = M + b.w + 3;
+    }
+    font(9.5, "bold");
+    text(g.company, x, 12);
+    const cx = x + width(g.company) + 3;
+    font(7, "normal", PALETTE.muted);
+    text("continued", cx, 12);
+    doc.setFillColor(...accent);
+    doc.rect(M, 16, CW, 0.6, "F");
+    y = 19;
+  }
+  const COLS = { name: 50, tenant: 32, status: 24, rent: 15, owed: 18 };
+  const MW = (CW - COLS.name - COLS.tenant - COLS.status - COLS.rent - COLS.owed) / 12;
+  const RH = 6;
+  function registerHead() {
+    doc.setFillColor(...PALETTE.head);
+    doc.rect(M, y, CW, 6.6, "F");
+    font(6.2, "bold", PALETTE.muted);
+    let x = M;
+    text("PROPERTY", x + 2.5, y + 4.4);
+    x += COLS.name;
+    text("TENANT", x + 2, y + 4.4);
+    x += COLS.tenant;
+    text("STATUS", x + 2, y + 4.4);
+    x += COLS.status;
+    text("RENT", x + COLS.rent - 2, y + 4.4, { align: "right" });
+    x += COLS.rent;
+    MONTHS.forEach((m, i) => {
+      text(m[0], x + i * MW + MW / 2, y + 4.4, { align: "center" });
+    });
+    x += MW * 12;
+    text("OWED", x + COLS.owed - 2.5, y + 4.4, { align: "right" });
+    y += 6.6;
+  }
+  function monthSquare(x, yy, m) {
+    const w = MW - 1, h = RH - 2;
     if (m.future) {
-      hatch(x, yy, w, h, mix(PALETTE.faint, WHITE, 0.25));
-      doc.setDrawColor(...mix(PALETTE.faint, WHITE, 0.55));
-      doc.setLineWidth(0.2);
-      doc.setLineDashPattern([0.7, 0.6], 0);
-      doc.roundedRect(x, yy, w, h, 1.2, 1.2, "S");
-      doc.setLineDashPattern([], 0);
-      font(5.8, "bold", mix(PALETTE.faint, WHITE, 0.6));
-      text(m.label, x + w / 2, yy + h / 2 + 1, { align: "center" });
+      doc.setDrawColor(...mix(PALETTE.faint, WHITE, 0.35));
+      doc.setLineWidth(0.15);
+      doc.roundedRect(x, yy, w, h, 0.7, 0.7, "S");
       return;
     }
     const key = m.state === "legacy" ? LEGACY_KEY[m.legacyStatus] || "not_collectible" : m.state;
     const pair = TILE[key];
     if (!pair) {
       doc.setDrawColor(...PALETTE.rule);
-      doc.setLineWidth(0.2);
-      doc.roundedRect(x, yy, w, h, 1.2, 1.2, "S");
-      font(5.8, "bold", mix(PALETTE.faint, WHITE, 0.6));
-      text(m.label, x + w / 2, yy + h / 2 + 1, { align: "center" });
+      doc.setLineWidth(0.15);
+      doc.roundedRect(x, yy, w, h, 0.7, 0.7, "S");
       return;
     }
-    const [ink, fill] = pair;
-    doc.setFillColor(...fill);
-    doc.roundedRect(x, yy, w, h, 1.2, 1.2, "F");
-    if (key === "not_collectible") hatch(x + 0.3, yy + 0.3, w - 0.6, h - 0.6, mix(ink, WHITE, 0.22));
+    doc.setFillColor(...pair[1]);
+    doc.roundedRect(x, yy, w, h, 0.7, 0.7, "F");
+    if (key === "missed") {
+      doc.setFillColor(...pair[0]);
+      doc.roundedRect(x + w * 0.25, yy + h * 0.3, w * 0.5, h * 0.4, 0.3, 0.3, "F");
+    }
     if (m.current) {
       doc.setDrawColor(...CURRENT);
-      doc.setLineWidth(0.55);
-    } else {
-      doc.setDrawColor(...mix(ink, WHITE, 0.33));
-      doc.setLineWidth(0.2);
-    }
-    doc.roundedRect(x, yy, w, h, 1.2, 1.2, "S");
-    if (m.state === "legacy") {
-      doc.setDrawColor(...mix(ink, WHITE, 0.55));
-      doc.setLineWidth(0.3);
-      doc.setLineDashPattern([0.4, 0.4], 0);
-      doc.line(x + 1, yy + h - 0.4, x + w - 1, yy + h - 0.4);
-      doc.setLineDashPattern([], 0);
-    }
-    if (m.label) {
-      font(5.8, "bold", ink);
-      text(m.label, x + w / 2, yy + h / 2 + 1, { align: "center" });
-    }
-    if (m.needsBackfill) {
-      doc.setFillColor(...ORANGE);
-      doc.circle(x + w - 1.2, yy + 1.1, 0.65, "F");
-    }
-    if (m.override) {
-      doc.setDrawColor(...ink);
-      doc.setLineWidth(0.25);
-      doc.circle(x + w - 1.2, yy + h - 1.1, 0.6, "S");
+      doc.setLineWidth(0.45);
+      doc.roundedRect(x, yy, w, h, 0.7, 0.7, "S");
     }
   }
-  function pill(label, color, xr, yy) {
-    font(6.6, "bold", color);
-    const w = width(label) + 6.4, h = 4.4, x = xr - w;
-    doc.setFillColor(...mix(color, WHITE, 0.12));
-    doc.roundedRect(x, yy, w, h, 2.2, 2.2, "F");
-    doc.setDrawColor(...mix(color, WHITE, 0.3));
-    doc.setLineWidth(0.2);
-    doc.roundedRect(x, yy, w, h, 2.2, 2.2, "S");
-    doc.setFillColor(...color);
-    doc.circle(x + 2.3, yy + h / 2, 0.6, "F");
-    font(6.6, "bold", color);
-    text(label, x + 3.7, yy + 3.05);
-  }
-  paper();
-  y = 9;
-  let tx = M;
-  if (mark) {
-    const b = fitBox(mark.w, mark.h, 11, 11);
-    img(mark, M, y + 1, b.w, b.h);
-    tx = M + b.w + 4;
-  }
-  font(16, "bold");
-  text("Rent tracker report", tx, y + 6.5);
-  font(9.5, "normal", PALETTE.muted);
-  text(`${model.agent?.name || "Agent"} - ${s.units} ${s.units === 1 ? "property" : "properties"} - ${model.year}`, tx, y + 11.5);
-  font(8, "normal", PALETTE.faint);
-  text(dateLong(model.asOf), W - M, y + 5, { align: "right" });
-  text("Prepared by Properly", W - M, y + 9.4, { align: "right" });
-  y += 16;
-  doc.setDrawColor(...PALETTE.border);
-  doc.setLineWidth(0.25);
-  doc.line(M, y, W - M, y);
-  doc.setFillColor(...PALETTE.gold);
-  doc.rect(M, y - 0.5, 28, 1, "F");
-  y += 5;
-  const head = [
-    { t: `${s.letUnits} of ${s.units} let`, color: TILE.paid[0] },
-    { t: `${s.notLetUnits} not let`, color: s.notLetUnits ? TILE.due[0] : PALETTE.faint },
-    { t: `${model.thisMonth.label} rent in ${money0(s.received)} of ${money0(s.expected)}`, color: PALETTE.ink },
-    { t: s.owed + s.arrears > 0 ? `Owed ${money0(s.owed + s.arrears)} across ${s.owingCount} ${s.owingCount === 1 ? "property" : "properties"}` : "Nothing owed", color: s.owed + s.arrears > 0 ? TILE.missed[0] : TILE.paid[0] }
-  ];
-  let hx = M;
-  head.forEach((h) => {
-    font(8.2, "bold", h.color);
-    text(h.t, hx, y + 3.2);
-    hx += width(h.t) + 7;
-  });
-  y += 7;
-  let kx = M;
-  for (const [k, l] of [["paid", "Paid"], ["due", "Due / part paid"], ["missed", "Missed"], ["not_collectible", "Not collectible (hatched)"], ["stl", "Short-term let"]]) {
-    tile(kx, y, 6, 3.6, { label: "", state: k });
-    font(6.4, "normal", PALETTE.muted);
-    text(l, kx + 7.2, y + 2.7);
-    kx += 7.2 + width(l) + 5;
-  }
-  doc.setFillColor(...ORANGE);
-  doc.circle(kx + 1, y + 1.8, 0.8, "F");
-  font(6.4, "normal", PALETTE.muted);
-  text("Paid, amount needed", kx + 2.8, y + 2.7);
-  kx += 2.8 + width("Paid, amount needed") + 5;
-  doc.setDrawColor(...CURRENT);
-  doc.setLineWidth(0.55);
-  doc.roundedRect(kx, y, 6, 3.6, 0.8, 0.8, "S");
-  font(6.4, "normal", PALETTE.muted);
-  text("This month", kx + 7.2, y + 2.7);
-  y += 9;
-  const TW = 10.6, TH = 6.4, TG = 1;
-  const CARD_H = 23.5;
-  const RIGHT = W - M - 4;
-  function companyHeader(g, continued = false) {
-    const accent = hex(g.color) || PALETTE.gold;
-    const logo = !continued && logos[g.companyId];
-    const lb = logo ? fitBox(logo.w, logo.h, 26, 10) : null;
-    const name = continued ? `${g.company} (continued)` : g.company;
-    const props = `${g.cards.length} ${g.cards.length === 1 ? "property" : "properties"}`;
-    const items = continued ? [] : [
-      ...[["paid", "paid"], ["due", "due"], ["missed", "missed"], ["nc", "not collectible"], ["backfill", "need amount"]].filter(([k]) => g.counts[k] > 0).map(([k, l]) => ({ t: `${g.counts[k]} ${l}`, color: COUNT_COLOR[k], bold: true })),
-      { t: money0(g.received), color: PALETTE.gold, bold: true },
-      ...g.owed > 0 ? [{ t: `${money0(g.owed)} owed`, color: TILE.missed[0], bold: true }] : []
-    ];
-    const nameX = M + 8 + (lb ? lb.w + 4 : 0);
-    font(continued ? 9 : 11.5, "bold");
-    const nameEnd = nameX + width(name) + 3;
-    font(7, "normal");
-    const propsEnd = nameEnd + width(props);
+  function registerRow(c, indent) {
+    if (y + RH > BOTTOM) {
+      newPage();
+      registerHead();
+    }
+    const owed = c.shortfallYear + c.arrears;
+    const rowTint = owed > 0 ? mix(RED, WHITE, 0.06) : !c.let ? mix(AMBER, WHITE, 0.06) : null;
+    if (rowTint) {
+      doc.setFillColor(...rowTint);
+      doc.rect(M, y, CW, RH, "F");
+    }
+    let x = M;
+    const ty = y + RH / 2 + 1.2;
     font(7.2, "bold");
-    const runW = items.reduce((w, it) => w + width(it.t) + 3.2, 0);
-    const twoLine = items.length && propsEnd + 6 > W - M - 5 - runW;
-    const h = continued ? 9 : twoLine ? 21 : 16;
-    doc.setFillColor(...PALETTE.tile);
-    doc.roundedRect(M, y, CW, h, 2, 2, "F");
-    doc.setDrawColor(...PALETTE.border);
-    doc.setLineWidth(0.25);
-    doc.roundedRect(M, y, CW, h, 2, 2, "S");
-    doc.setFillColor(...accent);
-    doc.rect(M + 4, y + 2.5, 0.9, h - 5, "F");
-    const top = twoLine ? 16 : h;
-    if (lb) img(logo, M + 8, y + (top - lb.h) / 2 + (twoLine ? 0.5 : 0), lb.w, lb.h);
-    const by = y + top / 2 + (continued ? 1.2 : 1.6) + (twoLine ? 0.5 : 0);
-    font(continued ? 9 : 11.5, "bold");
-    text(name, nameX, by);
-    font(7, "normal", PALETTE.muted);
-    text(props, nameEnd, by);
-    if (items.length) countRun(items, W - M - 5, twoLine ? y + h - 3.6 : y + h / 2 + 1.4, 7.2);
-    y += h + 1.5;
-  }
-  function buildingHeader(gr) {
-    ensure(7 + CARD_H);
-    doc.setFillColor(...PALETTE.head);
-    doc.rect(M, y, CW, 6.6, "F");
-    font(7.6, "bold");
-    text(gr.name, M + 5, y + 4.4);
-    const nx = M + 5 + width(gr.name) + 2;
-    font(6.8, "normal", PALETTE.muted);
-    text(`- ${gr.cards.length} units - ${money0(gr.rent)}/mo`, nx, y + 4.4);
-    const items = [];
-    if (gr.missed) items.push({ t: `${gr.missed} missed`, color: TILE.missed[0], bold: true });
-    if (gr.due) items.push({ t: `${gr.due} due`, color: TILE.due[0], bold: true });
-    items.push({ t: `${model.year} revenue`, color: PALETTE.muted }, { t: money0(gr.received), color: PALETTE.gold, bold: true });
-    countRun(items, W - M - 5, y + 4.4, 6.8);
-    y += 6.6;
-  }
-  let stripe = 0;
-  function card(c, indent) {
-    ensure(CARD_H);
-    const x0 = M + (indent ? 5 : 0), w0 = CW - (indent ? 5 : 0);
-    doc.setFillColor(...stripe++ % 2 === 0 ? WHITE : [251, 250, 247]);
-    doc.rect(x0, y, w0, CARD_H, "F");
-    if (indent) {
-      doc.setFillColor(...mix(PALETTE.gold, WHITE, 0.25));
-      doc.rect(x0, y, 0.5, CARD_H, "F");
-    }
+    text(fit(indent ? `  ${c.name.split(",")[0].trim()}` : c.name, COLS.name - 3), x + 2.5, ty);
+    x += COLS.name;
+    font(6.8, "normal", c.tenant ? PALETTE.slate : PALETTE.faint);
+    text(fit(c.tenant || (c.let ? "not recorded" : "-"), COLS.tenant - 2), x + 2, ty);
+    x += COLS.tenant;
+    font(6.8, "bold", PILL[c.status] || PALETTE.muted);
+    text(fit(c.letLabel, COLS.status - 2), x + 2, ty);
+    x += COLS.status;
+    font(6.8, "normal", PALETTE.slate);
+    text(c.rent ? money0(c.rent) : "-", x + COLS.rent - 2, ty, { align: "right" });
+    x += COLS.rent;
+    c.months.forEach((m, i) => monthSquare(x + i * MW + 0.5, y + 1, m));
+    x += MW * 12;
+    font(7.2, owed > 0 ? "bold" : "normal", owed > 0 ? RED : PALETTE.faint);
+    text(owed > 0 ? money0(owed) : "-", x + COLS.owed - 2.5, ty, { align: "right" });
     doc.setDrawColor(...PALETTE.rule);
-    doc.setLineWidth(0.2);
-    doc.line(x0, y + CARD_H, x0 + w0, y + CARD_H);
-    const lx = x0 + 4;
-    font(8.8, "bold");
-    text(fit(indent ? c.name.split(",")[0].trim() || c.name : c.name, 135 - (indent ? 5 : 0)), lx, y + 5.4);
-    font(6.8, "normal", PALETTE.muted);
-    text(`${money0(c.rent)}/mo  -  Due ${c.dueDay || "-"}`, lx, y + 9.4);
-    c.months.forEach((m, i) => tile(lx + i * (TW + TG), y + 11.8, TW, TH, m));
-    pill(c.letLabel, PILL[c.status] || PALETTE.muted, RIGHT, y + 2.4);
-    const cnt = [["paid", "paid"], ["due", "due"], ["missed", "missed"], ["nc", "n/c"]].map(([k, l]) => ({ t: `${c.counts[k]} ${l}`, color: c.counts[k] > 0 ? COUNT_COLOR[k] : PALETTE.faint }));
-    countRun(cnt, RIGHT, y + 10.6, 6.6, 2.6);
-    font(9, "bold", PALETTE.gold);
-    text(money0(c.received), RIGHT, y + 15.6, { align: "right" });
-    const owed = c.owed + c.arrears;
-    if (owed > 0) {
-      const bits = [];
-      if (c.owed > 0) bits.push(`${money0(c.owed)} owed (${c.missedMonths} ${c.missedMonths === 1 ? "month" : "months"})`);
-      if (c.arrears > 0) bits.push(`${money0(c.arrears)} older arrears`);
-      font(6.8, "bold", TILE.missed[0]);
-      text(bits.join("  -  "), RIGHT, y + 20, { align: "right" });
+    doc.setLineWidth(0.15);
+    doc.line(M, y + RH, W - M, y + RH);
+    y += RH;
+  }
+  function registerKey() {
+    font(6.4, "normal", PALETTE.muted);
+    let kx = M;
+    for (const [k, l] of [["paid", "Paid"], ["due", "Due"], ["missed", "Missed"], ["not_collectible", "Nothing due (empty / refurb)"]]) {
+      monthSquare(kx, y - 2.6, { state: k });
+      text(l, kx + MW + 1, y);
+      kx += MW + 3 + width(l) + 4;
     }
-    y += CARD_H;
+    doc.setDrawColor(...CURRENT);
+    doc.setLineWidth(0.45);
+    doc.roundedRect(kx, y - 2.6, MW - 1, RH - 2, 0.7, 0.7, "S");
+    text("This month", kx + MW + 1, y);
+    kx += MW + 3 + width("This month") + 4;
+    doc.setFillColor(...mix(RED, WHITE, 0.12));
+    doc.rect(kx, y - 2.6, 4, 3.4, "F");
+    text("Owes rent", kx + 5.5, y);
+    kx += 5.5 + width("Owes rent") + 4;
+    doc.setFillColor(...mix(AMBER, WHITE, 0.12));
+    doc.rect(kx, y - 2.6, 4, 3.4, "F");
+    text("Not let", kx + 5.5, y);
+    y += 5;
   }
   for (const g of model.byCompany) {
-    ensure(16 + 1.5 + CARD_H + (g.groups[0]?.building ? 6.6 : 0));
-    companyHeader(g);
-    onNewPage = () => companyHeader(g, true);
-    stripe = 0;
+    accent = brandColour(g.color);
+    tint = mix(accent, WHITE, 0.08);
+    brand = accent;
+    onNewPage = null;
+    newPage();
+    companyTitle(g);
+    tiles([
+      { label: `Due ${model.year}`, value: money0(g.yearDue) },
+      { label: "Collected", value: money0(g.yearCollected), color: GREEN, sub: pct(g.yearRate) + " of rent due" },
+      { label: "Owed", value: money0(g.owed), color: g.owed > 0 ? RED : GREEN, sub: `${g.missedMonths} missed months` },
+      { label: `${monthLong} still to come`, value: money0(g.monthStill), color: g.monthStill > 0 ? AMBER : GREEN, sub: `${money0(g.monthCollected)} of ${money0(g.monthDue)} in` }
+    ], 19);
+    statusGuide(g.cards, "STATUS");
+    registerKey();
+    onNewPage = () => {
+      runningHead(g);
+      registerHead();
+    };
+    registerHead();
     for (const gr of g.groups) {
-      if (gr.building) buildingHeader(gr);
-      for (const c of gr.cards) card(c, gr.building);
+      const lt = gr.cards.filter((c) => !c.stl);
+      if (!lt.length) continue;
+      if (gr.building && lt.length > 1) {
+        if (y + RH * 2 > BOTTOM) newPage();
+        doc.setFillColor(...tint);
+        doc.rect(M, y, CW, 5.4, "F");
+        font(7, "bold", PALETTE.ink);
+        text(gr.name, M + 2.5, y + 3.8);
+        const nx = M + 2.5 + width(gr.name) + 2;
+        font(6.4, "normal", PALETTE.muted);
+        text(`${lt.length} units`, nx, y + 3.8);
+        y += 5.4;
+        lt.forEach((c) => registerRow(c, true));
+      } else lt.forEach((c) => registerRow(c, false));
+    }
+    const stlHere = model.stl?.filter((b) => b.companyId === g.companyId) || [];
+    for (const b of stlHere) {
+      if (y + RH > BOTTOM) newPage();
+      doc.setFillColor(...mix(PILL.short_term_let, WHITE, 0.07));
+      doc.rect(M, y, CW, RH, "F");
+      font(7.2, "bold", PALETTE.ink);
+      text(`${b.name} (${b.totalRooms} short-let rooms)`, M + 2.5, y + RH / 2 + 1.2);
+      font(6.8, "normal", PILL.short_term_let);
+      text("see the short-term let page", W - M - 2.5, y + RH / 2 + 1.2, { align: "right" });
+      y += RH;
     }
     onNewPage = null;
-    y += 6;
   }
-  if (!model.byCompany.length) {
-    font(9, "normal", PALETTE.muted);
-    text("No properties are managed by this agent.", M, y + 5);
+  for (const b of model.stl || []) {
+    const co = model.byCompany.find((g) => g.companyId === b.companyId);
+    accent = PILL.short_term_let;
+    brand = brandColour(co?.color);
+    onNewPage = null;
+    newPage();
+    font(16, "bold");
+    text(`${b.name} - short-term let`, M, y + 6);
+    font(8.5, "normal", PALETTE.muted);
+    text(`${b.company} - ${b.rooms} of ${b.totalRooms} rooms open for bookings${b.manager ? ` - managed by ${b.manager.name} at ${Number(b.manager.percentage)}% of income after platform fees` : ""}`, M, y + 12);
+    y += 18;
+    tiles([
+      { label: `${monthLong} occupancy`, value: pct(b.month.occupancy), sub: `${b.month.nights} nights booked`, color: PILL.short_term_let },
+      { label: "Average per night", value: b.year.adr ? money0(b.year.adr) : "-", sub: `${model.year} so far` },
+      { label: `${monthLong} to owner`, value: money0(b.month.toOwner), color: GREEN, sub: "after all fees" },
+      { label: `${model.year} to owner`, value: money0(b.year.toOwner), color: GREEN, sub: `${pct(b.year.occupancy)} occupancy` }
+    ]);
+    sectionTitle("Month by month", "bookings counted in the month the guest arrives", accent);
+    const mRows = b.byMonth.filter((m) => m.bookings || m.nights || m.gross);
+    table([
+      { label: "Month", w: 18 },
+      { label: "Nights", w: 16, align: "right" },
+      { label: "Occupancy", w: 20, align: "right" },
+      { label: "Avg /night", w: 20, align: "right" },
+      { label: "Booking value", w: 24, align: "right" },
+      { label: "Platform fees", w: 22, align: "right" },
+      { label: "After fees", w: 22, align: "right" },
+      { label: "Manager", w: 20, align: "right" },
+      { label: "To owner", w: 24, align: "right" }
+    ], mRows.map((m) => ({
+      cells: [
+        { t: m.label, bold: true, color: PALETTE.ink },
+        String(m.nights),
+        pct(m.occupancy),
+        m.adr ? money0(m.adr) : "-",
+        money0(m.gross),
+        { t: m.platformFees ? `-${money0(m.platformFees)}` : "-", color: PALETTE.muted },
+        money0(m.netAfterFees),
+        { t: m.managerFee ? `-${money0(m.managerFee)}` : "-", color: PALETTE.muted },
+        { t: money0(m.toOwner), color: GREEN, bold: true }
+      ]
+    })), {
+      emptyText: "No bookings yet this year.",
+      totals: [
+        `${model.year}`,
+        String(b.year.nights),
+        pct(b.year.occupancy),
+        b.year.adr ? money0(b.year.adr) : "-",
+        money0(b.year.gross),
+        { t: `-${money0(b.year.platformFees)}`, color: PALETTE.muted },
+        money0(b.year.netAfterFees),
+        { t: `-${money0(b.year.managerFee)}`, color: PALETTE.muted },
+        { t: money0(b.year.toOwner), color: GREEN }
+      ]
+    });
+    font(6.6, "normal", PALETTE.muted);
+    text("Occupancy = nights sold over nights available in the rooms open for bookings. Platform fees are the channel and Hostaway commission; where a channel has not reported yet they are estimated from its usual rate.", M, y, { maxWidth: CW });
+    y += 8;
   }
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
@@ -930,6 +1734,9 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
     text(`Page ${i} of ${pages}`, W - M, H - 7, { align: "right" });
   }
   return doc;
+}
+function shortCo(name) {
+  return String(name || "").replace(/\s+(Property Group|Group|Properties|Limited|Ltd)\.?$/i, "").trim() || name;
 }
 export {
   agentReportFilename,

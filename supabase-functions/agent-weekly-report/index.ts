@@ -37,14 +37,14 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const LOGO_URL = 'https://www.ownproperly.com/icon-512.png'
 
 // Same joins the rent engine needs as fetchProperties (src/lib/api/_monolith.js).
-const PROPERTY_SELECT = 'id,user_id,company_id,name,address,status,rent_pcm,rent_due_day,tenancy_end,vacant_since,managed_by,managed_by_agent_id,deleted_at,archived_at,' +
+const PROPERTY_SELECT = 'id,user_id,company_id,name,address,status,rent_pcm,rent_due_day,tenancy_end,tenant_since,tenant_name,stl_manager_id,vacant_since,managed_by,managed_by_agent_id,deleted_at,archived_at,' +
   'company:companies(id,name,color),' +
   'rent_payments(id,property_id,year,month,month_label,status,amount,period_start,period_end),' +
   'stl_bookings(id,rent_payment_id),' +
   'rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount,payment_plan_id)),' +
   'non_chargeable_periods(id,start_date,end_date,reason),' +
   'rent_overrides(id,rent_payment_id,state,reason,expected_amount,created_at),' +
-  'tenancies(id,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date)'
+  'tenancies(id,tenant_name,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date)'
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 const money0 = (n: number) => '\u00A3' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -70,6 +70,36 @@ async function loadPng(url: string): Promise<{ data: string; w: number; h: numbe
   } catch (_) { return null }
 }
 
+// Every row of a query, past PostgREST's 1,000-row page.
+async function allRows(build: (from: number, to: number) => any): Promise<any[]> {
+  const out: any[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build(from, from + 999)
+    if (error) throw new Error(error.message)
+    out.push(...(data || []))
+    if (!data || data.length < 1000) return out
+  }
+}
+
+// Short-term-let bookings, adjustments, managers and listing mappings for the
+// owner's short-let properties: what stlIncome.js needs for the STL section.
+async function loadStl(admin: any, props: any[]) {
+  const stl = props.filter(p => p.status === 'short_term_let')
+  if (!stl.length) return null
+  const ids = stl.map(p => p.id)
+  const coIds = [...new Set(stl.map(p => p.company_id).filter(Boolean))]
+  const [bookings, adjustments, managers, mappings] = await Promise.all([
+    allRows((a, b) => admin.from('stl_bookings')
+      .select('id,property_id,source,status,arrival,departure,total_amount,channel_commission,hostaway_commission,hostaway_listing_id,lodgify_property_id')
+      .in('property_id', ids).order('id').range(a, b)),
+    allRows((a, b) => admin.from('stl_adjustments').select('id,property_id,adjustment_date,amount,kind')
+      .in('property_id', ids).order('id').range(a, b)),
+    admin.from('stl_managers').select('id,company_id,name,percentage,basis,active').in('company_id', coIds).then((r: any) => r.data || []),
+    admin.from('hostaway_property_mappings').select('id,property_id,hostaway_listing_id').in('property_id', ids).then((r: any) => r.data || []),
+  ])
+  return { bookings, adjustments, managers, mappings }
+}
+
 // Company logos live in this project's public-assets bucket; nothing else is
 // fetched. Uploads can be thousands of pixels square, too big to decode inside
 // the edge CPU budget, so ask Storage for a 400px copy first.
@@ -81,32 +111,74 @@ async function loadLogo(url: string) {
   return (await loadPng(small)) || (await loadPng(url))
 }
 
+// Short money for headlines: £48.8k, £950.
+const moneyK = (n: number) => {
+  const v = Math.round(Number(n) || 0)
+  return Math.abs(v) >= 10000 ? `\u00A3${(v / 1000).toFixed(1).replace(/\.0$/, '')}k` : money0(v)
+}
+const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
+
+// The email is the headlines only; the PDF carries the detail. Every line
+// here is a count or total from the same model the PDF draws.
+export function emailHeadlines(model: any) {
+  const s = model.summary
+  const owedTotal = s.shortfallYear + s.arrears
+  const out: { tone: 'bad' | 'warn' | 'ok' | 'info'; title: string; text: string }[] = []
+
+  if (model.owing.length) {
+    const top = model.owing.slice(0, 3).map((c: any) => `${c.name} ${money0(c.shortfallYear + c.arrears)}`).join(', ')
+    out.push({ tone: 'bad', title: 'Rent owed', text: `${money0(owedTotal)} across ${plural(model.owing.length, 'property', 'properties')}. Largest: ${top}.` })
+  } else {
+    out.push({ tone: 'ok', title: 'Rent owed', text: 'Nothing overdue: every collectible month is paid.' })
+  }
+
+  const notLet = model.notLet.filter((c: any) => !c.stl)
+  if (notLet.length) {
+    const byLabel = new Map<string, number>()
+    for (const c of notLet) byLabel.set(c.letLabel, (byLabel.get(c.letLabel) || 0) + 1)
+    const parts = [...byLabel.entries()].sort((x, y) => y[1] - x[1]).map(([l, n]) => `${n} ${String(l).toLowerCase()}`).join(', ')
+    out.push({ tone: 'warn', title: 'Not let', text: `${notLet.length} of ${s.units}: ${parts}.` })
+  }
+
+  const notice = model.lines.filter((c: any) => c.status === 'notice_given')
+  if (notice.length) {
+    const next = notice.map((c: any) => c.tenancyEnd).filter(Boolean).sort()[0]
+    out.push({ tone: 'warn', title: 'Notice given', text: `${plural(notice.length, 'tenant')} leaving${next ? `, the first on ${dateLong(next)}` : ''}.` })
+  }
+
+  if (s.noTenancyStart) out.push({ tone: 'info', title: 'Records to complete', text: `${plural(s.noTenancyStart, 'let property', 'let properties')} with no tenancy start date.` })
+  return out
+}
+
+export function emailSubject(model: any, preview = false) {
+  const s = model.summary
+  const owed = s.shortfallYear + s.arrears
+  const head = model.owing.length ? `${moneyK(owed)} owed across ${plural(model.owing.length, 'property', 'properties')}` : 'nothing owed'
+  return `${preview ? '[Preview] ' : ''}Rent report ${dateLong(model.asOf)}: ${head}`
+}
+
 function emailHtml(model: any) {
   const s = model.summary
-  const list = (rows: string[]) => rows.length ? `<ul style="margin:6px 0 0;padding-left:18px;color:#1A2530;font-size:13px;line-height:1.7">${rows.join('')}</ul>` : ''
-  const owing = model.owing.slice(0, 8).map((l: any) => `<li>${esc(l.name)} <span style="color:#B8392D;font-weight:700">${money0(l.owed + l.arrears)}</span></li>`)
-  if (model.owing.length > 8) owing.push(`<li style="color:#5A6A7A">and ${model.owing.length - 8} more in the report</li>`)
-  const notLet = model.notLet.slice(0, 8).map((l: any) => `<li>${esc(l.name)} <span style="color:#5A6A7A">${esc(l.letLabel)}</span></li>`)
-  if (model.notLet.length > 8) notLet.push(`<li style="color:#5A6A7A">and ${model.notLet.length - 8} more in the report</li>`)
+  const tones: Record<string, string> = { bad: '#B8392D', warn: '#8A5600', ok: '#1F9D63', info: '#2D6FA8' }
   const stat = (label: string, value: string) => `<td style="padding:12px 14px;background:#F4F3EF;border-radius:8px;width:33%"><div style="font-size:10px;color:#5A6A7A;text-transform:uppercase;letter-spacing:0.08em">${label}</div><div style="font-size:18px;font-weight:700;color:#1A2530;margin-top:3px">${value}</div></td>`
+  const lines = emailHeadlines(model).map(h => `<tr><td style="padding:9px 0 9px 12px;border-left:3px solid ${tones[h.tone]};font-size:14px;line-height:1.5;color:#1A2530"><b style="color:${tones[h.tone]}">${esc(h.title)}.</b> ${esc(h.text)}</td></tr><tr><td style="height:6px"></td></tr>`).join('')
   return `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:620px;margin:0 auto;padding:28px 22px;color:#1A2530">
     <div style="text-align:center;margin-bottom:22px"><img src="https://www.ownproperly.com/brand/email-lockup.png" alt="Properly" style="height:36px;width:auto"/></div>
-    <h2 style="margin:0 0 6px;font-size:20px">Rent tracker report</h2>
+    <h2 style="margin:0 0 6px;font-size:20px">Rent report</h2>
     <p style="margin:0 0 18px;color:#5A6A7A;font-size:14px">${esc(dateLong(model.asOf))} &middot; ${s.units} properties managed by ${esc(model.agent?.name || 'you')}</p>
-    <table style="width:100%;border-collapse:separate;border-spacing:6px 0;margin:0 -6px 20px"><tr>
-      ${stat('Let', `${s.letUnits} of ${s.units}`)}
-      ${stat(`${esc(model.thisMonth.label)} rent in`, `${money0(s.received)} of ${money0(s.expected)}`)}
-      ${stat('Rent owed', money0(s.owed + s.arrears))}
+    <table style="width:100%;border-collapse:separate;border-spacing:6px 0;margin:0 -6px 22px"><tr>
+      ${stat(`Collected ${model.year}`, `${money0(s.yearCollected)} of ${money0(s.yearDue)}`)}
+      ${stat('Rent owed', money0(s.shortfallYear + s.arrears))}
+      ${stat('Not let', `${s.notLetUnits} of ${s.units}`)}
     </tr></table>
-    ${owing.length ? `<p style="margin:0;font-weight:700;font-size:14px">Rent owed</p>${list(owing)}` : '<p style="margin:0;font-size:14px;color:#1F9D63;font-weight:700">Nothing overdue this week.</p>'}
-    ${notLet.length ? `<p style="margin:18px 0 0;font-weight:700;font-size:14px">Not let (${s.notLetUnits})</p>${list(notLet)}` : ''}
-    <p style="margin:22px 0 0;color:#5A6A7A;font-size:13px;line-height:1.6">The attached PDF is the rent tracker for every property, company by company: its status, the rent for each month this year, what has come in and anything owed. Rent owed means collectible rent still unpaid after its payment window.</p>
+    <p style="margin:0 0 8px;font-weight:700;font-size:14px">This week</p>
+    <table style="width:100%;border-collapse:collapse">${lines}</table>
+    <p style="margin:18px 0 0;color:#5A6A7A;font-size:13px;line-height:1.6">The full detail, company by company, is in the attached PDF. Rent owed means rent still unpaid after its payment window.</p>
     <p style="margin:26px 0 0;color:#9CA3AF;font-size:11px;text-align:center">Sent every week by Properly on behalf of the property owner.</p>
   </div>`
 }
 
-// Gmail when the Workspace service account is configured, else Resend.
 async function sendReport({ to, cc, replyTo, subject, html, filename, pdf }: {
   to: string[]; cc: string[]; replyTo?: string; subject: string; html: string; filename: string; pdf: string
 }) {
@@ -166,8 +238,12 @@ serve(async (req) => {
       ])
       const logoUrl = new Map((settings || []).map((r: any) => [r.company_id, r.logo_url]))
       const companies = (cos || []).map((c: any) => ({ ...c, logo_url: logoUrl.get(c.id) || null }))
-      const model = buildAgentReport(props || [], { agent: sch.agent, companies, asOf: now.iso })
-      if (dryRun) { results.push({ id: sch.id, summary: model.summary, lines: model.lines.length }); continue }
+      const stl = await loadStl(admin, props || [])
+      const model = buildAgentReport(props || [], { agent: sch.agent, companies, asOf: now.iso, stl })
+      if (dryRun) {
+        const stlSummary = (model.stl || []).map((b: any) => ({ name: b.name, rooms: b.rooms, of: b.totalRooms, month: { ...b.month, months: undefined }, year: { ...b.year, months: undefined } }))
+        results.push({ id: sch.id, summary: model.summary, lines: model.lines.length, stl: stlSummary }); continue
+      }
 
       const to = (preview ? sch.cc : sch.recipients).filter(validEmail)
       const cc = preview ? [] : (sch.cc || []).filter(validEmail)
@@ -180,7 +256,7 @@ serve(async (req) => {
       }))
       const doc = drawAgentReportPdf(jsPDF, model, { logos, mark })
       const pdf = b64encode(new Uint8Array(doc.output('arraybuffer')))
-      const subject = `${preview ? '[Preview] ' : ''}Rent tracker report - ${dateLong(model.asOf)}`
+      const subject = emailSubject(model, preview)
       await sendReport({ to, cc, replyTo: (sch.cc || []).find(validEmail), subject, html: emailHtml(model), filename: agentReportFilename(model), pdf })
       if (!preview) {
         await admin.from('agent_report_schedules').update({ last_sent_at: new Date().toISOString(), last_status: `sent ${model.summary.units} properties`, updated_at: new Date().toISOString() }).eq('id', sch.id)
