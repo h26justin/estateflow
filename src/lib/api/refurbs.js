@@ -15,14 +15,18 @@ async function uid() {
 
 const PROJECT_SELECT = '*, refurb_lines(*)'
 
-export async function createRefurbProject(fields) {
+// seedMilestones: the old flat checklist. Projects created with a journey
+// (refurb workspace, Oct 2026) skip it; the journey's stages replace it.
+export async function createRefurbProject(fields, { seedMilestones = true } = {}) {
   const { data, error } = await supabase
     .from('refurb_projects')
     .insert({ ...fields, user_id: await uid() })
     .select(PROJECT_SELECT).single()
   if (error) throw error
   // Seed the checklist. Best effort: the project is already saved.
-  try { await initialiseRefurbMilestones(data.id) } catch (e) { console.error('refurb milestones seed failed', e) }
+  if (seedMilestones) {
+    try { await initialiseRefurbMilestones(data.id) } catch (e) { console.error('refurb milestones seed failed', e) }
+  }
   return { ...data, refurb_lines: data.refurb_lines || [] }
 }
 

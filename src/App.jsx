@@ -2177,6 +2177,7 @@ export default function App() {
                 title: 'Refurbishment', stage: 'planned',
                 agreed_price: Number(d.refurb_cost) || 0,
                 start_date: d.refurb_start_date || null, target_end_date: d.refurb_end_date || null,
+                original_end_date: d.refurb_end_date || null, deal_id: convertSourceDealId,
                 expected_value_after: Number(d.brrr_end_value) || null,
                 expected_rent_after: Number(d.monthly_rent) || null,
                 funding: d.purchase_type === 'bridge' ? 'bridge' : d.purchase_type === 'cash' ? 'cash' : 'mortgage',
