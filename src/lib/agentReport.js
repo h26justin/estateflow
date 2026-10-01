@@ -21,7 +21,7 @@
 // Outward-facing: it goes to the agent, so no tenant names, notes, values or
 // mortgage figures. Just the property, its status and the rent.
 
-import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, STATE } from './rentEngine'
+import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, STATE, GO_LIVE } from './rentEngine'
 import { tenancyForDate } from './tenancyUtils'
 import { buildingTailFromName, buildingKeyFromName } from './addressUtils'
 
@@ -119,6 +119,21 @@ function propertyCard(p, { asOf, year, thisMo }) {
   const arrears = Math.max(0, arrearsSummary(p).balance)
   const t = tenancyForDate(p.tenancies || [], asOf)
 
+  // Shortfall = rent still unpaid on months whose payment window has closed
+  // (Missed), measured two ways: this calendar year, and since the current
+  // tenancy began. Rent is only tracked from go-live, so a tenancy that
+  // started earlier is measured from go-live and says so.
+  const tenancy = t || [...(p.tenancies || [])].filter(x => x.status !== 'ended' && x.tenancy_start)
+    .sort((a, b) => (a.tenancy_start < b.tenancy_start ? 1 : -1))[0] || null
+  const tenancyStart = tenancy?.tenancy_start || (p.tenant_since ? String(p.tenant_since).slice(0, 10) : null)
+  const yearStart = `${year}-01-01`
+  let shortfallYear = 0, shortfallTenancy = 0
+  for (const e of evals) {
+    if (e.state !== STATE.MISSED || !(e.outstanding > 0)) continue
+    if (e.periodStart >= yearStart) shortfallYear = round2(shortfallYear + e.outstanding)
+    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round2(shortfallTenancy + e.outstanding)
+  }
+
   // Last 4 months (this month and the three before): rent due to be
   // collected against what came in, so the shortfall shows month by month.
   // A month the tracker shows Paid without the money recorded against it
@@ -161,6 +176,11 @@ function propertyCard(p, { asOf, year, thisMo }) {
     missedMonths,
     arrears: round2(arrears),
     recent,
+    shortfallYear,
+    shortfallTenancy: tenancyStart ? shortfallTenancy : null,
+    tenancyStart,
+    // The tenancy began before rent tracking did, so its shortfall is from go-live.
+    tenancyBeforeTracking: !!(tenancyStart && tenancyStart < GO_LIVE),
   }
 }
 
@@ -243,6 +263,9 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       stillDue: round2(lt.reduce((s, c) => s + c.recent[i].stillDue, 0)),
     }))
     g.shortfall4 = round2(g.recent.reduce((s, r) => s + r.shortfall, 0))
+    g.shortfallYear = round2(g.cards.reduce((s, c) => s + c.shortfallYear, 0))
+    g.shortfallTenancy = round2(g.cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0))
+    g.noTenancyStart = g.cards.filter(c => c.let && !c.stl && !c.tenancyStart).length
     g.missedMonths = g.cards.reduce((s, c) => s + c.missedMonths, 0)
     g.notLet = g.cards.filter(c => !c.let).length
   }
@@ -288,6 +311,9 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       stillDue4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.stillDue, 0), 0)),
       due4: round2(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.due, 0), 0)),
       missedMonths: cards.reduce((s, c) => s + c.missedMonths, 0),
+      shortfallYear: round2(cards.reduce((s, c) => s + c.shortfallYear, 0)),
+      shortfallTenancy: round2(cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0)),
+      noTenancyStart: cards.filter(c => c.let && !c.stl && !c.tenancyStart).length,
     },
   }
 }

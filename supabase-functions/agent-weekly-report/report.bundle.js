@@ -456,6 +456,15 @@ function propertyCard(p, { asOf, year, thisMo }) {
   }
   const arrears = Math.max(0, arrearsSummary(p).balance);
   const t = tenancyForDate(p.tenancies || [], asOf);
+  const tenancy = t || [...p.tenancies || []].filter((x) => x.status !== "ended" && x.tenancy_start).sort((a, b) => a.tenancy_start < b.tenancy_start ? 1 : -1)[0] || null;
+  const tenancyStart = tenancy?.tenancy_start || (p.tenant_since ? String(p.tenant_since).slice(0, 10) : null);
+  const yearStart = `${year}-01-01`;
+  let shortfallYear = 0, shortfallTenancy = 0;
+  for (const e of evals) {
+    if (e.state !== STATE.MISSED || !(e.outstanding > 0)) continue;
+    if (e.periodStart >= yearStart) shortfallYear = round22(shortfallYear + e.outstanding);
+    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round22(shortfallTenancy + e.outstanding);
+  }
   const recent = recentMonths(thisMo).map((mo) => {
     const r = tiles.find((x) => x.year === mo.year && x.month === mo.month);
     const rated = r && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(r.state);
@@ -489,7 +498,12 @@ function propertyCard(p, { asOf, year, thisMo }) {
     owed,
     missedMonths,
     arrears: round22(arrears),
-    recent
+    recent,
+    shortfallYear,
+    shortfallTenancy: tenancyStart ? shortfallTenancy : null,
+    tenancyStart,
+    // The tenancy began before rent tracking did, so its shortfall is from go-live.
+    tenancyBeforeTracking: !!(tenancyStart && tenancyStart < GO_LIVE)
   };
 }
 function recentMonths(thisMo, count = 4) {
@@ -554,6 +568,9 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
       stillDue: round22(lt.reduce((s, c) => s + c.recent[i].stillDue, 0))
     }));
     g.shortfall4 = round22(g.recent.reduce((s, r) => s + r.shortfall, 0));
+    g.shortfallYear = round22(g.cards.reduce((s, c) => s + c.shortfallYear, 0));
+    g.shortfallTenancy = round22(g.cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0));
+    g.noTenancyStart = g.cards.filter((c) => c.let && !c.stl && !c.tenancyStart).length;
     g.missedMonths = g.cards.reduce((s, c) => s + c.missedMonths, 0);
     g.notLet = g.cards.filter((c) => !c.let).length;
   }
@@ -596,7 +613,10 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
       shortfall4: round22(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.shortfall, 0), 0)),
       stillDue4: round22(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.stillDue, 0), 0)),
       due4: round22(byCompany.reduce((s, g) => s + g.recent.reduce((t, r) => t + r.due, 0), 0)),
-      missedMonths: cards.reduce((s, c) => s + c.missedMonths, 0)
+      missedMonths: cards.reduce((s, c) => s + c.missedMonths, 0),
+      shortfallYear: round22(cards.reduce((s, c) => s + c.shortfallYear, 0)),
+      shortfallTenancy: round22(cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0)),
+      noTenancyStart: cards.filter((c) => c.let && !c.stl && !c.tenancyStart).length
     }
   };
 }
@@ -649,6 +669,7 @@ var PILL = {
   refurb: hex("#2D6FA8")
 };
 var ORANGE = hex("#E0943A");
+var GO_LIVE_YEAR = GO_LIVE.slice(0, 4);
 var CURRENT = hex("#B8902F");
 var COUNT_COLOR = { paid: TILE.paid[0], due: TILE.due[0], missed: TILE.missed[0], nc: PALETTE.faint, backfill: ORANGE };
 function brandColour(h) {
@@ -854,7 +875,7 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   doc.rect(M, y - 0.5, 28, 1, "F");
   y += 5;
   const tilesTop = [
-    { label: "Shortfall, last 4 months", value: money0(s.shortfall4), sub: s.due4 ? `of ${money0(s.due4)} due, payment window closed` : "nothing due", color: s.shortfall4 > 0 ? TILE.missed[0] : TILE.paid[0] },
+    { label: `Shortfall ${model.year}`, value: money0(s.shortfallYear), sub: `this tenancy: ${money0(s.shortfallTenancy)}`, color: s.shortfallYear > 0 ? TILE.missed[0] : TILE.paid[0] },
     { label: "Rent owed", value: money0(s.owed + s.arrears), sub: `${s.missedMonths} missed ${s.missedMonths === 1 ? "month" : "months"}, ${s.owingCount} ${s.owingCount === 1 ? "property" : "properties"}`, color: s.owed + s.arrears > 0 ? TILE.missed[0] : TILE.paid[0] },
     { label: "Not let", value: `${s.notLetUnits} of ${s.units}`, sub: `${s.letUnits} let (${s.occupancy ?? 0}%)`, color: s.notLetUnits > 0 ? TILE.due[0] : TILE.paid[0] },
     { label: "Still in payment window", value: money0(s.stillDue4), sub: "due, not yet late", color: s.stillDue4 > 0 ? TILE.due[0] : TILE.paid[0] }
@@ -954,39 +975,50 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   }
   const red = (v) => ({ t: v > 0 ? money0(v) : "-", color: v > 0 ? TILE.missed[0] : PALETTE.faint, bold: v > 0 });
   coverTable("By company", "worst first", [
-    { label: "Company", w: 62 },
-    { label: "Properties", w: 20, align: "right" },
-    { label: "Not let", w: 18, align: "right" },
-    { label: "Missed months", w: 24, align: "right" },
-    { label: "Shortfall 4 mo", w: 30, align: "right" },
-    { label: "Owed", w: 32, align: "right" }
-  ], [...model.byCompany].sort((a, b) => b.owed + b.shortfall4 - (a.owed + a.shortfall4)).map((g) => ({
+    { label: "Company", w: 56 },
+    { label: "Properties", w: 18, align: "right" },
+    { label: "Not let", w: 16, align: "right" },
+    { label: "Missed months", w: 22, align: "right" },
+    { label: `Shortfall ${model.year}`, w: 26, align: "right" },
+    { label: "This tenancy", w: 26, align: "right" },
+    { label: "Owed", w: 22, align: "right" }
+  ], [...model.byCompany].sort((a, b) => b.owed + b.shortfallYear - (a.owed + a.shortfallYear)).map((g) => ({
     bar: brandColour(g.color),
     cells: [
       { t: g.company, bold: true, color: PALETTE.ink },
       String(g.cards.length),
       { t: String(g.notLet), color: g.notLet ? TILE.due[0] : PALETTE.faint, bold: g.notLet > 0 },
       { t: String(g.missedMonths), color: g.missedMonths ? TILE.missed[0] : PALETTE.faint, bold: g.missedMonths > 0 },
-      red(g.shortfall4),
+      red(g.shortfallYear),
+      red(g.shortfallTenancy),
       red(g.owed)
     ]
   })), "");
   coverTable("Rent owed", "every property with rent unpaid after its payment window", [
-    { label: "Property", w: 62 },
-    { label: "Company", w: 46 },
-    { label: "Months missed", w: 22, align: "right" },
-    { label: "Shortfall 4 mo", w: 26, align: "right" },
-    { label: "Owed", w: 30, align: "right" }
+    { label: "Property", w: 50 },
+    { label: "Company", w: 34 },
+    { label: "Tenancy since", w: 24, align: "right" },
+    { label: "Missed", w: 14, align: "right" },
+    { label: `Short ${model.year}`, w: 22, align: "right" },
+    { label: "This tenancy", w: 22, align: "right" },
+    { label: "Owed", w: 20, align: "right" }
   ], model.owing.map((c) => ({
     bar: brandColour(model.byCompany.find((g) => g.companyId === c.companyId)?.color),
     cells: [
       { t: c.name, bold: true, color: PALETTE.ink },
       c.company,
+      { t: c.tenancyStart ? `${dateShort(c.tenancyStart)}${c.tenancyBeforeTracking ? "*" : ""}` : "not recorded", color: c.tenancyStart ? PALETTE.slate : PALETTE.faint },
       String(c.missedMonths || "-"),
-      red(c.recent.reduce((t, r) => t + r.shortfall, 0)),
+      red(c.shortfallYear),
+      c.shortfallTenancy == null ? { t: "start unknown", color: PALETTE.faint } : red(c.shortfallTenancy),
       red(c.owed + c.arrears)
     ]
   })), "Nothing owed: every collectible month is paid.");
+  if (model.owing.some((c) => c.tenancyBeforeTracking)) {
+    font(6.4, "normal", PALETTE.muted);
+    text(`* tenancy began before rent tracking started (1 Jan ${GO_LIVE_YEAR}), so its shortfall is counted from then.`, M, y - 3.5);
+    y += 2;
+  }
   const daysEmpty = (c) => c.vacantSince ? Math.max(0, Math.round((Date.parse(model.asOf) - Date.parse(c.vacantSince)) / 864e5)) : null;
   coverTable("Not let", "longest empty first", [
     { label: "Property", w: 62 },
@@ -1008,7 +1040,7 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   ensure(10);
   text("Each company follows on its own page, with every property and its rent month by month.", M, y + 2);
   const TW = 10.6, TH = 6.4, TG = 1;
-  const CARD_H = 33;
+  const CARD_H = 34;
   const RIGHT = W - M - 4;
   let accent = PALETTE.gold, tint = PALETTE.tile, tintSoft = [251, 250, 247];
   function companyTitle(g) {
@@ -1027,7 +1059,8 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
     yy += 16;
     const items = [
       { t: g.owed > 0 ? `${money0(g.owed)} owed` : "nothing owed", color: g.owed > 0 ? TILE.missed[0] : TILE.paid[0] },
-      { t: `${money0(g.shortfall4)} short, last 4 months`, color: g.shortfall4 > 0 ? TILE.missed[0] : PALETTE.faint },
+      { t: `${money0(g.shortfallYear)} short in ${model.year}`, color: g.shortfallYear > 0 ? TILE.missed[0] : PALETTE.faint },
+      { t: `${money0(g.shortfallTenancy)} this tenancy`, color: g.shortfallTenancy > 0 ? TILE.missed[0] : PALETTE.faint },
       { t: `${g.missedMonths} missed ${g.missedMonths === 1 ? "month" : "months"}`, color: g.missedMonths ? TILE.missed[0] : PALETTE.faint },
       { t: `${g.notLet} not let`, color: g.notLet ? TILE.due[0] : PALETTE.faint },
       { t: `${money0(g.received)} received ${model.year}`, color: PALETTE.gold }
@@ -1179,10 +1212,15 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
     const owed = c.owed + c.arrears;
     if (owed > 0) {
       const bits = [];
-      if (c.owed > 0) bits.push(`${money0(c.owed)} owed (${c.missedMonths} missed ${c.missedMonths === 1 ? "month" : "months"})`);
+      if (c.shortfallYear > 0) bits.push(`${money0(c.shortfallYear)} short in ${model.year}`);
+      if (c.shortfallTenancy != null && c.shortfallTenancy > 0) bits.push(`${money0(c.shortfallTenancy)} this tenancy`);
       if (c.arrears > 0) bits.push(`${money0(c.arrears)} older arrears`);
-      font(7, "bold", TILE.missed[0]);
-      text(bits.join("  -  "), RIGHT, y + 29.8, { align: "right" });
+      font(6.8, "bold", TILE.missed[0]);
+      bits.slice(0, 2).forEach((b, i) => text(b, RIGHT, y + 28.9 + i * 3, { align: "right" }));
+    }
+    if (c.let && !c.stl) {
+      font(6.2, "normal", PALETTE.muted);
+      text(c.tenancyStart ? `Tenancy since ${dateShort(c.tenancyStart)}` : "Tenancy start not recorded", lx + 140 - (indent ? 5 : 0), y + 9.4, { align: "right" });
     }
     y += CARD_H;
   }

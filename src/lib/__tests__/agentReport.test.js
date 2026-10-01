@@ -105,6 +105,21 @@ describe('buildAgentReport', () => {
     expect(aug).toMatchObject({ state: 'missed', collected: 0, shortfall: 500 })
   })
 
+  it('measures the shortfall for the year and since the current tenancy began', () => {
+    const t = buildAgentReport([prop('t', {
+      rent_payments: [month('t', 5, 'unpaid'), month('t', 6, 'unpaid'), month('t', 7, 'paid', 500)],
+      tenancies: [{ id: 'tn', tenancy_start: '2026-06-01', rent_amount: 500, rent_frequency: 'monthly', rent_due_day: 1, status: 'active' }],
+    })], { agent: AGENT, asOf })
+    const c = t.lines[0]
+    expect(c.tenancyStart).toBe('2026-06-01')
+    expect(c.shortfallTenancy).toBe(500)   // June only; May was before this tenancy
+    expect(c.shortfallYear).toBe(500)      // May is not collectible (before the tenancy), June missed
+    const none = buildAgentReport([prop('n', { rent_payments: [month('n', 8, 'unpaid')] })], { agent: AGENT, asOf })
+    expect(none.lines[0]).toMatchObject({ tenancyStart: null, shortfallTenancy: null, shortfallYear: 500 })
+    const since = buildAgentReport([prop('s', { tenant_since: '2024-03-01', rent_payments: [month('s', 8, 'unpaid')] })], { agent: AGENT, asOf })
+    expect(since.lines[0]).toMatchObject({ tenancyStart: '2024-03-01', tenancyBeforeTracking: true, shortfallTenancy: 500 })
+  })
+
   it('formats the due day like the tracker', () => {
     expect(dueDayLabel('28')).toBe('28th')
     expect(dueDayLabel(2)).toBe('2nd')

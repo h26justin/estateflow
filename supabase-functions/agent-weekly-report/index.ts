@@ -37,7 +37,7 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const LOGO_URL = 'https://www.ownproperly.com/icon-512.png'
 
 // Same joins the rent engine needs as fetchProperties (src/lib/api/_monolith.js).
-const PROPERTY_SELECT = 'id,user_id,company_id,name,address,status,rent_pcm,rent_due_day,tenancy_end,vacant_since,managed_by,managed_by_agent_id,deleted_at,archived_at,' +
+const PROPERTY_SELECT = 'id,user_id,company_id,name,address,status,rent_pcm,rent_due_day,tenancy_end,tenant_since,vacant_since,managed_by,managed_by_agent_id,deleted_at,archived_at,' +
   'company:companies(id,name,color),' +
   'rent_payments(id,property_id,year,month,month_label,status,amount,period_start,period_end),' +
   'stl_bookings(id,rent_payment_id),' +

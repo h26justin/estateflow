@@ -2444,12 +2444,14 @@ function agentReportModel(props, agents, agentId, companies = [], companySetting
 }
 function agentReportCsv(model) {
   const rows = [['Company', 'Property', 'Status', 'Rent pcm', 'Due', ...model.months.map(m => `${m.label} ${model.year}`), 'Paid', 'Due', 'Missed', 'N/C', `Received ${model.year}`, 'Owed', 'Older arrears',
-    ...model.recentMonths.flatMap(m => [`${m.label} ${m.year} due`, `${m.label} ${m.year} collected`, `${m.label} ${m.year} shortfall`])]]
+    ...model.recentMonths.flatMap(m => [`${m.label} ${m.year} due`, `${m.label} ${m.year} collected`, `${m.label} ${m.year} shortfall`]),
+    'Tenancy since', `Shortfall ${model.year}`, 'Shortfall this tenancy']]
   for (const l of model.lines) {
     rows.push([l.company, l.name, l.letLabel, l.rent || '', l.dueDay || '',
       ...l.months.map(m => m.future || !m.state ? '' : `${RENT_LABEL[m.state] || '-'}${m.received > 0 ? ` ${m.received}` : ''}`),
       l.counts.paid, l.counts.due, l.counts.missed, l.counts.nc, l.received, l.owed || '', l.arrears || '',
-      ...l.recent.flatMap(r => [r.due, r.collected, r.shortfall])])
+      ...l.recent.flatMap(r => [r.due, r.collected, r.shortfall]),
+      l.tenancyStart || '', l.shortfallYear, l.shortfallTenancy ?? ''])
   }
   return rows
 }
@@ -2560,7 +2562,9 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
                         {[['paid','paid'],['due','due'],['missed','missed'],['nc','n/c']].map(([k,l])=><span key={k} style={{color:c.counts[k]>0?countColor[k]:T.faint}}>{c.counts[k]} {l}</span>)}
                       </span>
                       <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(c.received)}</span>
-                      {c.owed+c.arrears>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.owed+c.arrears)} owed</span>}
+                      {c.shortfallYear>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.shortfallYear)} short in {model.year}</span>}
+                      {c.shortfallTenancy>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.shortfallTenancy)} this tenancy</span>}
+                      {c.let && !c.stl && <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{c.tenancyStart ? `Tenancy since ${c.tenancyStart}` : 'Tenancy start not recorded'}</span>}
                     </div>
                   </div>
                 ))}

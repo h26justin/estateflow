@@ -13,6 +13,7 @@
 
 import { loadCdnScript } from './loadCdnScript'
 import { PALETTE as P, fitBox, hexToRgb, mix, loadPdfImage } from './reportPdfKit'
+import { GO_LIVE } from './rentEngine'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -41,6 +42,7 @@ const PILL = {
   refurb:           hex('#2D6FA8'),
 }
 const ORANGE = hex('#E0943A')
+const GO_LIVE_YEAR = GO_LIVE.slice(0, 4)
 const CURRENT = hex('#B8902F')
 const COUNT_COLOR = { paid: TILE.paid[0], due: TILE.due[0], missed: TILE.missed[0], nc: P.faint, backfill: ORANGE }
 // A company's brand colour for its pages. Very light colours would vanish on
@@ -198,7 +200,7 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
 
   // Headline tiles: where the team is falling short, first.
   const tilesTop = [
-    { label: 'Shortfall, last 4 months', value: money0(s.shortfall4), sub: s.due4 ? `of ${money0(s.due4)} due, payment window closed` : 'nothing due', color: s.shortfall4 > 0 ? TILE.missed[0] : TILE.paid[0] },
+    { label: `Shortfall ${model.year}`, value: money0(s.shortfallYear), sub: `this tenancy: ${money0(s.shortfallTenancy)}`, color: s.shortfallYear > 0 ? TILE.missed[0] : TILE.paid[0] },
     { label: 'Rent owed', value: money0(s.owed + s.arrears), sub: `${s.missedMonths} missed ${s.missedMonths === 1 ? 'month' : 'months'}, ${s.owingCount} ${s.owingCount === 1 ? 'property' : 'properties'}`, color: s.owed + s.arrears > 0 ? TILE.missed[0] : TILE.paid[0] },
     { label: 'Not let', value: `${s.notLetUnits} of ${s.units}`, sub: `${s.letUnits} let (${s.occupancy ?? 0}%)`, color: s.notLetUnits > 0 ? TILE.due[0] : TILE.paid[0] },
     { label: 'Still in payment window', value: money0(s.stillDue4), sub: 'due, not yet late', color: s.stillDue4 > 0 ? TILE.due[0] : TILE.paid[0] },
@@ -264,24 +266,31 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   const red = v => ({ t: v > 0 ? money0(v) : '-', color: v > 0 ? TILE.missed[0] : P.faint, bold: v > 0 })
 
   coverTable('By company', 'worst first', [
-    { label: 'Company', w: 62 }, { label: 'Properties', w: 20, align: 'right' }, { label: 'Not let', w: 18, align: 'right' },
-    { label: 'Missed months', w: 24, align: 'right' }, { label: 'Shortfall 4 mo', w: 30, align: 'right' }, { label: 'Owed', w: 32, align: 'right' },
-  ], [...model.byCompany].sort((a, b) => (b.owed + b.shortfall4) - (a.owed + a.shortfall4)).map(g => ({
+    { label: 'Company', w: 56 }, { label: 'Properties', w: 18, align: 'right' }, { label: 'Not let', w: 16, align: 'right' },
+    { label: 'Missed months', w: 22, align: 'right' }, { label: `Shortfall ${model.year}`, w: 26, align: 'right' },
+    { label: 'This tenancy', w: 26, align: 'right' }, { label: 'Owed', w: 22, align: 'right' },
+  ], [...model.byCompany].sort((a, b) => (b.owed + b.shortfallYear) - (a.owed + a.shortfallYear)).map(g => ({
     bar: brandColour(g.color),
     cells: [{ t: g.company, bold: true, color: P.ink }, String(g.cards.length),
       { t: String(g.notLet), color: g.notLet ? TILE.due[0] : P.faint, bold: g.notLet > 0 },
       { t: String(g.missedMonths), color: g.missedMonths ? TILE.missed[0] : P.faint, bold: g.missedMonths > 0 },
-      red(g.shortfall4), red(g.owed)],
+      red(g.shortfallYear), red(g.shortfallTenancy), red(g.owed)],
   })), '')
 
   coverTable('Rent owed', 'every property with rent unpaid after its payment window', [
-    { label: 'Property', w: 62 }, { label: 'Company', w: 46 }, { label: 'Months missed', w: 22, align: 'right' },
-    { label: 'Shortfall 4 mo', w: 26, align: 'right' }, { label: 'Owed', w: 30, align: 'right' },
+    { label: 'Property', w: 50 }, { label: 'Company', w: 34 }, { label: 'Tenancy since', w: 24, align: 'right' },
+    { label: 'Missed', w: 14, align: 'right' }, { label: `Short ${model.year}`, w: 22, align: 'right' },
+    { label: 'This tenancy', w: 22, align: 'right' }, { label: 'Owed', w: 20, align: 'right' },
   ], model.owing.map(c => ({
     bar: brandColour(model.byCompany.find(g => g.companyId === c.companyId)?.color),
-    cells: [{ t: c.name, bold: true, color: P.ink }, c.company, String(c.missedMonths || '-'),
-      red(c.recent.reduce((t, r) => t + r.shortfall, 0)), red(c.owed + c.arrears)],
+    cells: [{ t: c.name, bold: true, color: P.ink }, c.company,
+      { t: c.tenancyStart ? `${dateShort(c.tenancyStart)}${c.tenancyBeforeTracking ? '*' : ''}` : 'not recorded', color: c.tenancyStart ? P.slate : P.faint },
+      String(c.missedMonths || '-'), red(c.shortfallYear),
+      c.shortfallTenancy == null ? { t: 'start unknown', color: P.faint } : red(c.shortfallTenancy), red(c.owed + c.arrears)],
   })), 'Nothing owed: every collectible month is paid.')
+  if (model.owing.some(c => c.tenancyBeforeTracking)) {
+    font(6.4, 'normal', P.muted); text(`* tenancy began before rent tracking started (1 Jan ${GO_LIVE_YEAR}), so its shortfall is counted from then.`, M, y - 3.5); y += 2
+  }
 
   const daysEmpty = c => c.vacantSince ? Math.max(0, Math.round((Date.parse(model.asOf) - Date.parse(c.vacantSince)) / 864e5)) : null
   coverTable('Not let', 'longest empty first', [
@@ -299,7 +308,7 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
 
   // ── Company pages ───────────────────────────────────────────────────
   const TW = 10.6, TH = 6.4, TG = 1.0          // month tiles
-  const CARD_H = 33
+  const CARD_H = 34
   const RIGHT = W - M - 4
   let accent = P.gold, tint = P.tile, tintSoft = [251, 250, 247]
 
@@ -322,7 +331,8 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
     // Shortfalls first: this report is for seeing where collection falls short.
     const items = [
       { t: g.owed > 0 ? `${money0(g.owed)} owed` : 'nothing owed', color: g.owed > 0 ? TILE.missed[0] : TILE.paid[0] },
-      { t: `${money0(g.shortfall4)} short, last 4 months`, color: g.shortfall4 > 0 ? TILE.missed[0] : P.faint },
+      { t: `${money0(g.shortfallYear)} short in ${model.year}`, color: g.shortfallYear > 0 ? TILE.missed[0] : P.faint },
+      { t: `${money0(g.shortfallTenancy)} this tenancy`, color: g.shortfallTenancy > 0 ? TILE.missed[0] : P.faint },
       { t: `${g.missedMonths} missed ${g.missedMonths === 1 ? 'month' : 'months'}`, color: g.missedMonths ? TILE.missed[0] : P.faint },
       { t: `${g.notLet} not let`, color: g.notLet ? TILE.due[0] : P.faint },
       { t: `${money0(g.received)} received ${model.year}`, color: P.gold },
@@ -433,9 +443,15 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
     const owed = c.owed + c.arrears
     if (owed > 0) {
       const bits = []
-      if (c.owed > 0) bits.push(`${money0(c.owed)} owed (${c.missedMonths} missed ${c.missedMonths === 1 ? 'month' : 'months'})`)
+      if (c.shortfallYear > 0) bits.push(`${money0(c.shortfallYear)} short in ${model.year}`)
+      if (c.shortfallTenancy != null && c.shortfallTenancy > 0) bits.push(`${money0(c.shortfallTenancy)} this tenancy`)
       if (c.arrears > 0) bits.push(`${money0(c.arrears)} older arrears`)
-      font(7, 'bold', TILE.missed[0]); text(bits.join('  -  '), RIGHT, y + 29.8, { align: 'right' })
+      font(6.8, 'bold', TILE.missed[0])
+      bits.slice(0, 2).forEach((b, i) => text(b, RIGHT, y + 28.9 + i * 3, { align: 'right' }))
+    }
+    if (c.let && !c.stl) {
+      font(6.2, 'normal', P.muted)
+      text(c.tenancyStart ? `Tenancy since ${dateShort(c.tenancyStart)}` : 'Tenancy start not recorded', lx + 140 - (indent ? 5 : 0), y + 9.4, { align: 'right' })
     }
     y += CARD_H
   }
