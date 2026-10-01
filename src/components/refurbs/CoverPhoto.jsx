@@ -64,9 +64,12 @@ function CropModal({ url, crop, aspect, onClose, onSave, T }) {
     const rect = frame.current.getBoundingClientRect()
     // Dragging the photo right reveals more of its left side: the focal
     // point moves left. Scaled by zoom so it tracks the finger.
-    const dx = (e.clientX - drag.current.x) / rect.width * 100 / drag.current.start.zoom
-    const dy = (e.clientY - drag.current.y) / rect.height * 100 / drag.current.start.zoom
-    setC(prev => normaliseCrop({ ...prev, x: drag.current.start.x - dx, y: drag.current.start.y - dy }))
+    // Read the drag origin now: React may run the updater after pointerup
+    // has already cleared drag.current.
+    const { start } = drag.current
+    const dx = (e.clientX - drag.current.x) / rect.width * 100 / start.zoom
+    const dy = (e.clientY - drag.current.y) / rect.height * 100 / start.zoom
+    setC(prev => normaliseCrop({ ...prev, x: start.x - dx, y: start.y - dy }))
   }
   function up() { drag.current = null }
 
