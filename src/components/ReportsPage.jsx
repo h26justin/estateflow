@@ -405,7 +405,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             </select>
           )}
           <ExportButtons reportId={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} range={range} companies={companies} co={co} cs={cs} T={T} accent={accent} reportName={activeReport?.name}
-            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly, pnlForecast, pnlMyShare, pnlInc, epcCerts: filtEpc, reportAgentId }}/>
+            extras={{ shareholders, agents, companies, selectedCompany, user, year, yearType, pnlMonthly, pnlForecast, pnlMyShare, pnlInc, epcCerts: filtEpc, reportAgentId, companySettings }}/>
         </div>
       </div>
 
@@ -422,14 +422,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
       {!loading && <ReportBody id={activeReport?.id} filtProps={filtProps} filtExp={filtExp} filtRent={filtRent} filtComp={filtComp} filtMaint={filtMaint} filtTen={filtTen} filtEpc={filtEpc} range={range} year={year} yearType={yearType} T={T} accent={accent} fmt={fmt} fmtPct={fmtPct}
         shareholders={shareholders} agents={agents} companies={companies} selectedCompany={selectedCompany} user={user}
         pnlMonthly={pnlMonthly} setPnlMonthly={setPnlMonthly} pnlForecast={pnlForecast} setPnlForecast={setPnlForecast} pnlMyShare={pnlMyShare} setPnlMyShare={setPnlMyShare} pnlInc={pnlInc} setPnlInc={setPnlInc}
-        reportAgentId={reportAgentId} setReportAgentId={setReportAgentId}/>}
+        reportAgentId={reportAgentId} setReportAgentId={setReportAgentId} companySettings={companySettings}/>}
     </div>
   )
 }
 
 // ── REPORT BODY ROUTER ────────────────────────────────────────────────────────
-function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId }) {
-  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId }
+function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId, companySettings }) {
+  const props = { filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, filtEpc, range, year, yearType, T, accent, fmt, fmtPct, shareholders, agents, companies, selectedCompany, user, pnlMonthly, setPnlMonthly, pnlForecast, setPnlForecast, pnlMyShare, setPnlMyShare, pnlInc, setPnlInc, reportAgentId, setReportAgentId, companySettings }
   const map = {
     pnl: <ReportPnL {...props}/>,
     company_pnl: <ReportCompanyPnL {...props}/>,
@@ -540,7 +540,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
   const [exporting, setExporting] = useState(false)
   function exportCSV() {
     if (reportId === 'agent_weekly') {
-      const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId)
+      const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId, companies, extras?.companySettings)
       if (!model) return
       const csv = agentReportCsv(model).map(r=>r.map(v=>`"${csvSafe(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
       const url = URL.createObjectURL(new Blob([csv],{type:'text/csv'}))
@@ -560,9 +560,9 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
     setExporting(true)
     if (reportId === 'agent_weekly') {
       try {
-        const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId)
+        const model = agentReportModel(filtProps, extras?.agents, extras?.reportAgentId, companies, extras?.companySettings)
         if (!model) throw new Error('no letting agent manages these properties')
-        await downloadAgentReportPdf(model)
+        await downloadAgentReportPdf(model, Object.fromEntries(model.byCompany.map(g => [g.companyId, g.logoUrl]).filter(([, u]) => u)))
       } catch(e) { console.error('PDF export failed', e); showAppToast('PDF export failed — ' + (e?.message || 'unknown'), 'error') }
       setExporting(false)
       return
@@ -2436,27 +2436,50 @@ function agentsWithProperties(props, agents) {
   return (agents || []).map(a => ({ ...a, count: props.filter(p => managedByAgent(p, a)).length }))
     .filter(a => a.count > 0).sort((a, b) => b.count - a.count)
 }
-function agentReportModel(props, agents, agentId) {
+function agentReportModel(props, agents, agentId, companies = [], companySettings = {}) {
   const list = agentsWithProperties(props || [], agents)
   const agent = list.find(a => a.id === agentId) || list[0]
-  return agent ? buildAgentReport(props, { agent }) : null
+  const cos = (companies || []).map(c => ({ ...c, logo_url: companySettings?.[c.id]?.logo_url || null }))
+  return agent ? buildAgentReport(props, { agent, companies: cos }) : null
 }
 function agentReportCsv(model) {
-  const rows = [['Company', 'Property', 'Status', 'Rent pcm', ...model.months.map(m => `${m.label} ${m.year}`), 'Owed', 'Older arrears']]
+  const rows = [['Company', 'Property', 'Status', 'Rent pcm', 'Due', ...model.months.map(m => `${m.label} ${model.year}`), 'Paid', 'Due', 'Missed', 'N/C', `Received ${model.year}`, 'Owed', 'Older arrears']]
   for (const l of model.lines) {
-    rows.push([l.company, l.name, l.letLabel, l.rent || '',
-      ...model.months.map(m => { const t = l.grid?.[m.key]; return t ? `${RENT_LABEL[t.state] || '-'}${t.received > 0 ? ` ${t.received}` : ''}` : '' }),
-      l.owed || '', l.arrears || ''])
+    rows.push([l.company, l.name, l.letLabel, l.rent || '', l.dueDay || '',
+      ...l.months.map(m => m.future || !m.state ? '' : `${RENT_LABEL[m.state] || '-'}${m.received > 0 ? ` ${m.received}` : ''}`),
+      l.counts.paid, l.counts.due, l.counts.missed, l.counts.nc, l.received, l.owed || '', l.arrears || ''])
   }
   return rows
 }
 
-function ReportAgentWeekly({ filtProps, agents, reportAgentId, setReportAgentId, T, accent, fmt }) {
+// The PDF's month tiles, on screen.
+function AgentMonthTiles({ months, T }) {
+  const pair = st => ({ paid: [T.green, T.green + '1f'], due: [T.amber, T.amber + '1f'], part_paid: [T.amber, T.amber + '1f'], missed: [T.red, T.red + '1f'], stl: [T.purple || T.blue, (T.purple || T.blue) + '1f'], not_collectible: [T.muted, T.muted + '14'], legacy: [T.muted, T.muted + '14'] }[st])
+  return (
+    <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:6}}>
+      {months.map(m => {
+        const c = !m.future && pair(m.state)
+        return (
+          <span key={m.month} title={m.future ? 'future' : (RENT_LABEL[m.state] || 'no rent row')}
+            style={{width:38,height:24,borderRadius:6,display:'inline-flex',alignItems:'center',justifyContent:'center',position:'relative',
+              fontFamily:mono,fontSize:9,fontWeight:700,color:c ? c[0] : T.faint,
+              background:m.future ? `repeating-linear-gradient(135deg, ${T.border} 0 4px, transparent 4px 8px)` : m.state==='not_collectible' ? `repeating-linear-gradient(135deg, ${T.muted}22 0 4px, ${c[1]} 4px 8px)` : c ? c[1] : 'transparent',
+              border:m.current ? `2px solid ${T.gold}` : m.future ? `1px dashed ${T.border}` : `1px solid ${c ? c[0] + '55' : T.border}`}}>
+            {m.label}
+            {m.needsBackfill && <span style={{position:'absolute',top:2,right:2,width:5,height:5,borderRadius:'50%',background:'#E0943A'}}/>}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function ReportAgentWeekly({ filtProps, agents, companies, companySettings, reportAgentId, setReportAgentId, T, fmt }) {
   const list = useMemo(() => agentsWithProperties(filtProps, agents), [filtProps, agents])
-  const model = useMemo(() => agentReportModel(filtProps, agents, reportAgentId), [filtProps, agents, reportAgentId])
+  const model = useMemo(() => agentReportModel(filtProps, agents, reportAgentId, companies, companySettings), [filtProps, agents, reportAgentId, companies, companySettings])
   if (!model) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center'}}>No letting agent is linked to these properties. Set the managing agent on each property to use this report.</div>
   const s = model.summary
-  const tileColor = st => ({ paid: T.green, part_paid: T.amber, missed: T.red, due: T.muted, stl: T.purple || T.blue }[st] || T.muted)
+  const countColor = { paid: T.green, due: T.amber, missed: T.red, nc: T.faint, backfill: '#E0943A' }
   return (
     <>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
@@ -2465,7 +2488,7 @@ function ReportAgentWeekly({ filtProps, agents, reportAgentId, setReportAgentId,
           style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}>
           {list.map(a=><option key={a.id} value={a.id}>{a.name} ({a.count})</option>)}
         </select>
-        <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>Position at {model.asOf}. The PDF is the one the agent gets by email.</span>
+        <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>Rent tracker for {model.year}, position at {model.asOf}. The PDF is the one the agent gets by email.</span>
       </div>
       <StatCards T={T} items={[
         {label:'Let',value:`${s.letUnits} of ${s.units}`,sub:s.occupancy==null?'':`${s.occupancy}% occupancy`,color:T.green},
@@ -2473,21 +2496,56 @@ function ReportAgentWeekly({ filtProps, agents, reportAgentId, setReportAgentId,
         {label:'Rent owed',value:fmt(s.owed+s.arrears),sub:`${s.owingCount} ${s.owingCount===1?'property':'properties'}`,color:s.owed+s.arrears>0?T.red:T.green},
         {label:'Not let',value:s.notLetUnits,color:s.notLetUnits>0?T.amber:T.green},
       ]}/>
-      <SectionTitle title="Rent owed" T={T}/>
-      <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Company'},{label:'Months missed',right:true,width:'110px'},{label:'Owed',right:true,width:'100px'},{label:'Older arrears',right:true,width:'110px'}]}
-        rows={model.owing.map(l=>[l.name,l.company,{v:l.missedMonths||'—',right:true},{v:l.owed>0?fmt(l.owed):'—',color:l.owed>0?T.red:T.muted,bold:l.owed>0},{v:l.arrears>0?fmt(l.arrears):'—',color:l.arrears>0?T.amber:T.muted}])}/>
-      <SectionTitle title="Not let" T={T}/>
-      <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Company'},{label:'Status',width:'130px'},{label:'Empty since',width:'120px'},{label:'Rent pcm',right:true,width:'100px'}]}
-        rows={model.notLet.map(l=>[l.name,l.company,{v:l.letLabel,color:T.amber},l.vacantSince||'—',{v:l.rent>0?fmt(l.rent):'—',color:T.muted}])}/>
-      <SectionTitle title="Rent tracker" T={T}/>
-      <ReportTable T={T} accent={accent}
-        headers={[{label:'Property',width:'220px'},{label:'Status',width:'110px'},...model.months.map(m=>({label:m.label,right:true,width:'64px'})),{label:'Owed',right:true,width:'90px'}]}
-        rows={model.lines.map(l=>[l.name,{v:l.letLabel,color:T.muted},
-          ...model.months.map(m=>{const t=l.grid?.[m.key]; if(!t||!RENT_LABEL[t.state]||RENT_LABEL[t.state]==='-') return {v:'—',color:T.muted}
-            return {v:t.received>0?fmt(t.received):RENT_LABEL[t.state],color:tileColor(t.state),bold:t.state==='missed'}}),
-          {v:l.owed+l.arrears>0?fmt(l.owed+l.arrears):'—',color:l.owed+l.arrears>0?T.red:T.muted,bold:l.owed+l.arrears>0}])}/>
+      {model.byCompany.map(g => (
+        <div key={g.companyId || g.company} style={{marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',background:T.card,border:`1px solid ${T.border}`,borderRadius:'12px 12px 0 0',padding:'12px 16px'}}>
+            <div style={{width:3,height:20,background:g.color||T.gold,borderRadius:2}}/>
+            {g.logoUrl && <img src={g.logoUrl} alt="" style={{height:26,maxWidth:80,objectFit:'contain'}}/>}
+            <span style={{fontSize:15,fontWeight:700,color:T.text}}>{g.company}</span>
+            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{g.cards.length} properties</span>
+            <span style={{marginLeft:'auto',display:'flex',gap:14,flexWrap:'wrap',alignItems:'center'}}>
+              {[['paid','paid'],['due','due'],['missed','missed'],['nc','not collectible'],['backfill','need amount']].filter(([k])=>g.counts[k]>0).map(([k,l])=>(
+                <span key={k} style={{fontFamily:mono,fontSize:11,fontWeight:600,color:countColor[k]}}>{g.counts[k]} {l}</span>
+              ))}
+              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(g.received)}</span>
+              {g.owed>0 && <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.red}}>{fmt(g.owed)} owed</span>}
+            </span>
+          </div>
+          <div style={{border:`1px solid ${T.border}`,borderTop:'none',borderRadius:'0 0 12px 12px',overflow:'hidden'}}>
+            {g.groups.map(gr => (
+              <div key={gr.key}>
+                {gr.building && (
+                  <div style={{padding:'8px 16px',background:T.bg,borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:11,display:'flex',gap:10,flexWrap:'wrap'}}>
+                    <b style={{color:T.text}}>{gr.name}</b><span style={{color:T.muted}}>· {gr.cards.length} units · {fmt(gr.rent)}/mo</span>
+                    <span style={{marginLeft:'auto',display:'flex',gap:10}}>
+                      {gr.missed>0&&<span style={{color:T.red,fontWeight:700}}>{gr.missed} missed</span>}
+                      {gr.due>0&&<span style={{color:T.amber,fontWeight:700}}>{gr.due} due</span>}
+                      <span style={{color:T.gold,fontWeight:700}}>{fmt(gr.received)}</span>
+                    </span>
+                  </div>
+                )}
+                {gr.cards.map(c => (
+                  <div key={c.id} style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap',padding:`12px 16px 12px ${gr.building?28:16}px`,borderBottom:`1px solid ${T.border}`,background:T.card}}>
+                    <div style={{minWidth:200}}>
+                      <div style={{fontSize:13,fontWeight:600,color:T.text}}>{gr.building ? (c.name.split(',')[0].trim() || c.name) : c.name}</div>
+                      <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{fmt(c.rent)}/mo · Due {c.dueDay || '-'}</div>
+                      <AgentMonthTiles months={c.months} T={T}/>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5}}>
+                      <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:c.let?T.green:T.amber}}>● {c.letLabel}</span>
+                      <span style={{display:'flex',gap:8,fontFamily:mono,fontSize:10}}>
+                        {[['paid','paid'],['due','due'],['missed','missed'],['nc','n/c']].map(([k,l])=><span key={k} style={{color:c.counts[k]>0?countColor[k]:T.faint}}>{c.counts[k]} {l}</span>)}
+                      </span>
+                      <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(c.received)}</span>
+                      {c.owed+c.arrears>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.owed+c.arrears)} owed</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </>
   )
 }

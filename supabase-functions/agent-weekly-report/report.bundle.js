@@ -359,18 +359,31 @@ function arrearsSummary(property, opts = {}) {
   return { opening, paid, balance: round2(opening - paid) };
 }
 
+// src/lib/addressUtils.js
+function buildingTailFromName(name) {
+  if (!name) return null;
+  const i = String(name).indexOf(",");
+  if (i < 0) return null;
+  return name.slice(i + 1).trim() || null;
+}
+function buildingKeyFromName(name) {
+  const tail = buildingTailFromName(name);
+  if (!tail) return null;
+  return tail.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() || null;
+}
+
 // src/lib/agentReport.js
 var MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 var round22 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 var REPORTED = ["rented", "notice_given", "let_agreed", "on_rental_market", "vacant", "refurb", "short_term_let"];
 var LET_LABEL = {
-  rented: "Let",
+  rented: "Rented",
   notice_given: "Notice given",
-  short_term_let: "Short-term let",
+  short_term_let: "Short-Term Let",
   let_agreed: "Let agreed",
-  on_rental_market: "On the market",
+  on_rental_market: "On rental market",
   vacant: "Vacant",
-  refurb: "Refurb"
+  refurb: "Refurbing"
 };
 var isLet = (status) => status === "rented" || status === "notice_given" || status === "short_term_let";
 function managedByAgent(p, agent) {
@@ -379,31 +392,61 @@ function managedByAgent(p, agent) {
   const name = String(p.managed_by || "").trim().toLowerCase();
   return !!name && name === String(agent.name || "").trim().toLowerCase();
 }
-function stlBuilding(p) {
-  const n = String(p.name || "").trim();
-  const m = n.match(/^(room|unit|flat)\s*[\w-]+\s*,\s*(.+)$/i);
-  return m ? m[2].trim() : n;
+function dueDayLabel(v) {
+  if (v == null || v === "") return null;
+  const s = String(v).trim();
+  if (!/^\d{1,2}$/.test(s)) return s;
+  const n = Number(s), t = n % 100;
+  const suf = t >= 11 && t <= 13 ? "th" : { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th";
+  return `${n}${suf}`;
 }
 function monthKey(iso) {
   const [y, m] = iso.split("-").map(Number);
   return { year: y, month: m };
 }
-function prevMonth({ year, month }) {
-  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
-}
 function monthName({ year, month }) {
   return `${MONTH_SHORT[month - 1]} ${year}`;
 }
-function propertyLine(p, { asOf, thisMo, lastMo, months }) {
+function propertyCard(p, { asOf, year, thisMo }) {
   const evals = evaluateProperty(p, { today: asOf });
   const tiles = groupByMonth(evals);
-  const grid = {};
-  for (const mo of months) {
-    const t2 = tiles.find((x) => x.year === mo.year && x.month === mo.month);
-    if (t2) grid[mo.key] = { state: t2.state, expected: t2.expected, received: t2.received, outstanding: t2.outstanding, needsBackfill: t2.needsBackfill };
+  const isStl = p.status === "short_term_let";
+  const months = [];
+  const counts = { paid: 0, due: 0, missed: 0, nc: 0, backfill: 0 };
+  let received = 0;
+  for (let m = 1; m <= 12; m++) {
+    const t2 = tiles.find((x) => x.year === year && x.month === m);
+    const future = year > thisMo.year || year === thisMo.year && m > thisMo.month;
+    const state = future ? "future" : t2 ? t2.state : null;
+    months.push({
+      month: m,
+      label: MONTH_SHORT[m - 1],
+      state,
+      future,
+      current: year === thisMo.year && m === thisMo.month,
+      received: t2?.received || 0,
+      expected: t2?.expected || 0,
+      outstanding: t2?.outstanding || 0,
+      needsBackfill: !!t2?.needsBackfill,
+      override: !!t2?.override,
+      legacyStatus: t2?.evals?.[0]?.legacyStatus || null
+    });
+    if (!t2 || future) continue;
+    if (t2.state === STATE.LEGACY) {
+      const ls = t2.evals?.[0]?.legacyStatus;
+      if (ls === "paid") counts.paid++;
+      else if (ls === "overdue" || ls === "missed") counts.missed++;
+      else if (ls === "late" || ls === "partial") counts.due++;
+      received += t2.evals.reduce((s, e) => s + (e.legacyAmount || 0), 0);
+      continue;
+    }
+    if (t2.state === STATE.PAID) counts.paid++;
+    else if (t2.state === STATE.DUE || t2.state === STATE.PART_PAID) counts.due++;
+    else if (t2.state === STATE.MISSED) counts.missed++;
+    else if (t2.state === STATE.NOT_COLLECTIBLE) counts.nc++;
+    if (t2.needsBackfill) counts.backfill++;
+    received += t2.received || 0;
   }
-  const tile = (mo) => tiles.find((t2) => t2.year === mo.year && t2.month === mo.month) || null;
-  const cur = tile(thisMo), prev = tile(lastMo);
   let owed = 0, missedMonths = 0;
   for (const e of evals) {
     if (e.state === STATE.MISSED && e.outstanding > 0) {
@@ -411,10 +454,9 @@ function propertyLine(p, { asOf, thisMo, lastMo, months }) {
       missedMonths++;
     }
   }
-  const arrears = arrearsSummary(p).balance;
+  const arrears = Math.max(0, arrearsSummary(p).balance);
   const t = tenancyForDate(p.tenancies || [], asOf);
-  const rent = t ? round22(monthlyRent(t)) : Number(p.rent_pcm) || 0;
-  const dueDay = t?.rent_due_day || p.rent_due_day || null;
+  const cur = tiles.find((x) => x.year === thisMo.year && x.month === thisMo.month) || null;
   return {
     id: p.id,
     name: String(p.name || p.address || "Property").trim(),
@@ -423,99 +465,84 @@ function propertyLine(p, { asOf, thisMo, lastMo, months }) {
     status: p.status,
     letLabel: LET_LABEL[p.status] || p.status,
     let: isLet(p.status),
+    stl: isStl,
     vacantSince: !isLet(p.status) ? p.vacant_since || null : null,
     tenancyEnd: p.status === "notice_given" ? t?.expected_move_out || t?.tenancy_end || p.tenancy_end || null : null,
-    rent,
-    dueDay,
-    thisMonth: cur ? { state: cur.state, expected: cur.expected, received: cur.received, outstanding: cur.outstanding, needsBackfill: cur.needsBackfill } : null,
-    lastMonth: prev ? { state: prev.state, expected: prev.expected, received: prev.received, outstanding: prev.outstanding, needsBackfill: prev.needsBackfill } : null,
+    // The tracker shows the property's own rent and due day.
+    rent: Number(p.rent_pcm) || (t ? round22(monthlyRent(t)) : 0),
+    dueDay: dueDayLabel(p.rent_due_day),
+    months,
+    counts,
+    received: round22(received),
+    thisMonth: cur ? { state: cur.state, expected: cur.expected, received: cur.received, needsBackfill: cur.needsBackfill } : null,
     owed,
     missedMonths,
-    arrears: arrears > 0 ? arrears : 0,
-    rooms: 1,
-    grid
+    arrears: round22(arrears)
   };
 }
-function foldStl(lines) {
-  const out = [], byBuilding = /* @__PURE__ */ new Map();
-  for (const l of lines) {
-    if (l.status !== "short_term_let") {
-      out.push(l);
-      continue;
+function groupBuildings(cards) {
+  const groups = [], byKey = /* @__PURE__ */ new Map();
+  for (const c of cards) {
+    const key = buildingKeyFromName(c.name) || `__solo__${c.id}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, groups.length);
+      groups.push({ key, name: buildingTailFromName(c.name) || c.name, cards: [] });
     }
-    const key = `${l.companyId}|${l._building}`;
-    let g = byBuilding.get(key);
-    if (!g) {
-      g = {
-        ...l,
-        name: l._building,
-        rooms: 0,
-        rent: 0,
-        owed: 0,
-        missedMonths: 0,
-        arrears: 0,
-        thisMonth: { state: STATE.STL, expected: 0, received: 0, outstanding: 0 },
-        lastMonth: { state: STATE.STL, expected: 0, received: 0, outstanding: 0 },
-        grid: {}
-      };
-      byBuilding.set(key, g);
-      out.push(g);
-    }
-    for (const [k, t] of Object.entries(l.grid || {})) {
-      const cell = g.grid[k] ||= { state: STATE.STL, expected: 0, received: 0, outstanding: 0 };
-      cell.received = round22(cell.received + (t.received || 0));
-    }
-    g.rooms++;
-    g.thisMonth.received = round22(g.thisMonth.received + (l.thisMonth?.received || 0));
-    g.lastMonth.received = round22(g.lastMonth.received + (l.lastMonth?.received || 0));
+    groups[byKey.get(key)].cards.push(c);
   }
-  for (const g of byBuilding.values()) if (g.rooms > 1) g.name = `${g.name} (${g.rooms} rooms)`;
-  return out;
+  for (const g of groups) {
+    g.building = g.cards.length > 1;
+    if (g.building) {
+      g.cards.sort((a, b) => a.name.localeCompare(b.name, "en-GB", { numeric: true }));
+      g.rent = round22(g.cards.reduce((s, c) => s + c.rent, 0));
+      g.received = round22(g.cards.reduce((s, c) => s + c.received, 0));
+      g.missed = g.cards.reduce((s, c) => s + c.counts.missed, 0);
+      g.due = g.cards.reduce((s, c) => s + c.counts.due, 0);
+    }
+  }
+  return groups;
 }
-function buildAgentReport(properties, { agent, asOf = isoToday() } = {}) {
+function buildAgentReport(properties, { agent, companies = [], asOf = isoToday() } = {}) {
   const thisMo = monthKey(asOf);
-  const lastMo = prevMonth(thisMo);
-  const months = [];
-  const [gy, gm] = GO_LIVE.split("-").map(Number);
-  const endIdx = thisMo.year * 12 + thisMo.month - 1;
-  for (let i = Math.max(gy * 12 + gm - 1, endIdx - 11); i <= endIdx; i++) {
-    const year = Math.floor(i / 12), month = i % 12 + 1;
-    months.push({ year, month, key: `${year}-${month}`, label: MONTH_SHORT[month - 1] });
-  }
+  const year = thisMo.year;
   const scoped = (properties || []).filter((p) => !p.deleted_at && !p.archived_at && REPORTED.includes(p.status) && managedByAgent(p, agent));
-  const raw = scoped.map((p) => ({ ...propertyLine(p, { asOf, thisMo, lastMo, months }), _building: stlBuilding(p) }));
-  const lines = foldStl(raw).map(({ _building, ...l }) => l).sort((a, b) => a.company.localeCompare(b.company) || a.name.localeCompare(b.name, "en-GB", { numeric: true }));
-  const units = raw.length;
-  const letUnits = raw.filter((l) => l.let).length;
-  const notLet = lines.filter((l) => !l.let);
-  let expected = 0, received = 0, backfill = 0;
-  for (const l of raw) {
-    const c = l.thisMonth;
-    if (!c || c.state === STATE.STL || c.state === STATE.NOT_COLLECTIBLE || c.state === STATE.LEGACY || c.state === STATE.FUTURE) continue;
-    if (c.needsBackfill) {
-      backfill++;
-      continue;
-    }
-    expected = round22(expected + (c.expected || 0));
-    received = round22(received + Math.min(c.received || 0, c.expected || 0));
-  }
-  const owing = lines.filter((l) => l.owed > 0 || l.arrears > 0).sort((a, b) => b.owed + b.arrears - (a.owed + a.arrears));
+  const cards = scoped.map((p) => propertyCard(p, { asOf, year, thisMo })).sort((a, b) => a.company.localeCompare(b.company) || a.name.localeCompare(b.name, "en-GB", { numeric: true }));
+  const coById = new Map((companies || []).map((c) => [c.id, c]));
   const byCompany = [];
-  for (const l of lines) {
-    let g = byCompany.find((c) => c.company === l.company);
+  for (const c of cards) {
+    let g = byCompany.find((x) => x.companyId === c.companyId);
     if (!g) {
-      g = { company: l.company, lines: [] };
+      const co = coById.get(c.companyId) || {};
+      g = { companyId: c.companyId, company: c.company || co.name || "No company", color: co.color || null, logoUrl: co.logo_url || null, cards: [] };
       byCompany.push(g);
     }
-    g.lines.push(l);
+    g.cards.push(c);
   }
+  for (const g of byCompany) {
+    const sum = (k) => g.cards.reduce((s, c) => s + c.counts[k], 0);
+    g.counts = { paid: sum("paid"), due: sum("due"), missed: sum("missed"), nc: sum("nc"), backfill: sum("backfill") };
+    g.received = round22(g.cards.filter((c) => !c.stl).reduce((s, c) => s + c.received, 0));
+    g.owed = round22(g.cards.reduce((s, c) => s + c.owed + c.arrears, 0));
+    g.groups = groupBuildings(g.cards);
+  }
+  const units = cards.length;
+  const letUnits = cards.filter((c) => c.let).length;
+  let expected = 0, received = 0;
+  for (const c of cards) {
+    const m = c.thisMonth;
+    if (!m || c.stl || [STATE.STL, STATE.NOT_COLLECTIBLE, STATE.LEGACY, STATE.FUTURE].includes(m.state) || m.needsBackfill) continue;
+    expected = round22(expected + (m.expected || 0));
+    received = round22(received + Math.min(m.received || 0, m.expected || 0));
+  }
+  const owing = cards.filter((c) => c.owed > 0 || c.arrears > 0).sort((a, b) => b.owed + b.arrears - (a.owed + a.arrears));
+  const notLet = cards.filter((c) => !c.let);
   return {
     agent: agent ? { id: agent.id, name: agent.name } : null,
     asOf,
-    thisMonth: { ...thisMo, label: monthName(thisMo), ...monthBounds(thisMo.year, thisMo.month) },
-    lastMonth: { ...lastMo, label: monthName(lastMo) },
-    months,
-    lines,
+    year,
+    thisMonth: { ...thisMo, label: monthName(thisMo) },
+    months: MONTH_SHORT.map((label, i) => ({ month: i + 1, label })),
+    lines: cards,
     byCompany,
     owing,
     notLet,
@@ -526,38 +553,65 @@ function buildAgentReport(properties, { agent, asOf = isoToday() } = {}) {
       occupancy: units ? Math.round(letUnits / units * 100) : null,
       expected,
       received,
-      outstanding: round22(Math.max(0, expected - received)),
       rate: expected > 0 ? Math.min(100, Math.round(received / expected * 100)) : null,
-      owed: round22(lines.reduce((s, l) => s + l.owed, 0)),
-      arrears: round22(lines.reduce((s, l) => s + l.arrears, 0)),
+      owed: round22(cards.reduce((s, c) => s + c.owed, 0)),
+      arrears: round22(cards.reduce((s, c) => s + c.arrears, 0)),
       owingCount: owing.length,
-      backfill,
-      stlReceived: round22(lines.filter((l) => l.status === "short_term_let").reduce((s, l) => s + (l.thisMonth?.received || 0), 0))
+      yearReceived: round22(byCompany.reduce((s, g) => s + g.received, 0))
     }
   };
 }
 
-// src/lib/agentReportPdf.js
-var CREAM = [244, 243, 239];
-var WHITE = [255, 255, 255];
-var BORDER = [228, 225, 217];
-var GOLD = [184, 144, 47];
-var DARK = [28, 40, 48];
-var SLATE = [20, 32, 42];
-var MUTED = [92, 102, 112];
-var FAINT = [104, 109, 114];
-var GREEN = [31, 157, 99];
-var AMBER = [196, 126, 20];
-var RED = [184, 57, 45];
-var PURPLE = [112, 84, 170];
-var TILE = {
-  paid: { fill: [217, 240, 227], ink: [22, 110, 70] },
-  due: { fill: [232, 231, 226], ink: MUTED },
-  part_paid: { fill: [250, 232, 200], ink: [140, 88, 10] },
-  missed: { fill: [246, 218, 214], ink: RED },
-  stl: { fill: [231, 224, 246], ink: PURPLE }
+// src/lib/reportPdfKit.js
+var PALETTE = {
+  paper: [255, 255, 255],
+  tile: [247, 246, 242],
+  // KPI tile / note fill
+  head: [244, 242, 236],
+  // table header fill
+  border: [226, 223, 214],
+  rule: [236, 233, 225],
+  // row dividers
+  ink: [28, 40, 48],
+  slate: [44, 56, 66],
+  muted: [92, 102, 112],
+  faint: [120, 125, 130],
+  gold: [184, 144, 47],
+  green: [31, 140, 90],
+  red: [184, 57, 45],
+  amber: [150, 95, 5]
 };
-var LET_COLOR = { rented: GREEN, notice_given: AMBER, short_term_let: PURPLE, let_agreed: AMBER, on_rental_market: AMBER, vacant: RED, refurb: MUTED };
+var hexToRgb = (h) => (h || "").match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)?.slice(1).map((x) => parseInt(x, 16));
+var mix = (c, w, t) => c.map((v, i) => Math.round(v * t + w[i] * (1 - t)));
+function fitBox(w, h, maxW, maxH) {
+  const s = Math.min(maxW / (w || 1), maxH / (h || 1));
+  return { w: (w || 1) * s, h: (h || 1) * s };
+}
+
+// src/lib/agentReportPdf.js
+var WHITE = [255, 255, 255];
+var hex = (h) => hexToRgb(h);
+var TILE = {
+  paid: [hex("#147A49"), hex("#E8F4EC")],
+  due: [hex("#8A5600"), hex("#FBF1E2")],
+  part_paid: [hex("#8A5600"), hex("#FBF1E2")],
+  missed: [hex("#A83328"), hex("#FAEAE8")],
+  not_collectible: [hex("#5C6168"), hex("#F1F0EC")],
+  stl: [hex("#6E44B8"), hex("#F0EAFB")]
+};
+var LEGACY_KEY = { paid: "paid", overdue: "missed", missed: "missed", late: "due", partial: "due" };
+var PILL = {
+  rented: hex("#147A49"),
+  short_term_let: hex("#6E44B8"),
+  notice_given: hex("#8A5600"),
+  let_agreed: hex("#8A6A12"),
+  on_rental_market: hex("#1F7F8C"),
+  vacant: hex("#A83328"),
+  refurb: hex("#2D6FA8")
+};
+var ORANGE = hex("#E0943A");
+var CURRENT = hex("#B8902F");
+var COUNT_COLOR = { paid: TILE.paid[0], due: TILE.due[0], missed: TILE.missed[0], nc: PALETTE.faint, backfill: ORANGE };
 var money0 = (n) => "\xA3" + Math.round(Number(n) || 0).toLocaleString("en-GB");
 var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -575,309 +629,307 @@ var dateLong = (iso) => {
   const p = parts(iso);
   return `${DAYS[p.dow]} ${p.d} ${MONTHS_LONG[p.m - 1]} ${p.y}`;
 };
-var daysSince = (iso, asOf) => Math.round((Date.parse(String(asOf).slice(0, 10)) - Date.parse(String(iso).slice(0, 10))) / 864e5);
 var clean = (s) => String(s ?? "").replace(/[\u2013\u2014]/g, "-").replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/\u2026/g, "...").replace(/[\u2022\u00b7]/g, "-").replace(/[^\u0009\u000A -~\u00a0-\u00ff]/g, "").replace(/ {2,}/g, " ").trim();
 function agentReportFilename(model) {
   const who = clean(model.agent?.name || "Agent").replace(/[^A-Za-z0-9]+/g, " ").trim();
-  return `${who} weekly report ${model.asOf}.pdf`;
+  return `${who} rent report ${model.asOf}.pdf`;
 }
-function notLetSince(l, asOf) {
-  if (l.vacantSince) {
-    const d = daysSince(l.vacantSince, asOf);
-    return d >= 0 ? `${dateShort(l.vacantSince)} (${d}d)` : dateShort(l.vacantSince);
-  }
-  return "-";
-}
-function drawAgentReportPdf(JsPDF, model, { logo = null } = {}) {
+function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const W = 210, H = 297, M = 12, CW = W - M * 2, BOTTOM = H - 16;
   const s = model.summary;
-  let W = 210, H = 297;
-  const M = 12;
-  let CW = W - M * 2, BOTTOM = H - 16;
   let y = 0;
-  const setFont = (size, style = "normal", color = DARK) => {
+  const font = (size, style = "normal", color = PALETTE.ink) => {
     doc.setFontSize(size);
     doc.setFont("helvetica", style);
     doc.setTextColor(...color);
   };
   const text = (str, x, yy, o) => doc.text(clean(str), x, yy, o);
-  const fit = (str, w) => doc.splitTextToSize(clean(str), w)[0] || "";
-  const card = (x, yy, w, h) => {
-    doc.setFillColor(...WHITE);
-    doc.roundedRect(x, yy, w, h, 2.5, 2.5, "F");
-    doc.setDrawColor(...BORDER);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(x, yy, w, h, 2.5, 2.5, "S");
-  };
-  const paper = () => {
-    doc.setFillColor(...CREAM);
-    doc.rect(0, 0, W, H, "F");
-    doc.setFillColor(...GOLD);
-    doc.rect(0, 0, W, 2.5, "F");
-  };
-  const newPage = (orientation = "portrait") => {
-    doc.addPage("a4", orientation);
-    W = orientation === "landscape" ? 297 : 210;
-    H = orientation === "landscape" ? 210 : 297;
-    CW = W - M * 2;
-    BOTTOM = H - 16;
-    paper();
-    y = 10;
-  };
-  paper();
-  card(M, 7, CW, 26);
-  let tx = M + 7;
-  if (logo) {
+  const fit = (str, w) => doc.splitTextToSize(clean(str), Math.max(w, 4))[0] || "";
+  const width = (str) => doc.getTextWidth(clean(str));
+  const img = (im, x, yy, w, h) => {
     try {
-      doc.addImage(logo, "PNG", M + 5, 12, 11, 11);
-      tx = M + 21;
+      doc.addImage(im.data, "PNG", x, yy, w, h, void 0, "FAST");
     } catch (_) {
     }
-  }
-  setFont(15, "bold");
-  text("Weekly rent and lettings report", tx, 17);
-  setFont(9.5, "normal", MUTED);
-  text(`${model.agent?.name || "Agent"} - ${s.units} ${s.units === 1 ? "property" : "properties"}`, tx, 23.5);
-  setFont(8, "normal", FAINT);
-  text(dateLong(model.asOf), W - M - 6, 16.5, { align: "right" });
-  text(`Rent tracker position for ${model.thisMonth.label}`, W - M - 6, 22.5, { align: "right" });
-  doc.setFillColor(...GOLD);
-  doc.rect(M, 31.5, CW, 0.9, "F");
-  y = 39;
-  const kpis = [
-    { label: "Let", value: `${s.letUnits} of ${s.units}`, sub: s.occupancy == null ? "" : `${s.occupancy}% occupancy`, color: GREEN },
-    { label: `${model.thisMonth.label} rent in`, value: `${money0(s.received)} of ${money0(s.expected)}`, sub: s.rate == null ? "nothing due yet" : `${s.rate}% of the month's rent`, color: DARK },
-    { label: "Rent owed", value: money0(s.owed + s.arrears), sub: s.owingCount ? `${s.owingCount} ${s.owingCount === 1 ? "property" : "properties"} overdue` : "nothing overdue", color: s.owed + s.arrears > 0 ? RED : GREEN },
-    { label: "Not let", value: String(s.notLetUnits), sub: notLetBreakdown(model.notLet), color: s.notLetUnits > 0 ? AMBER : GREEN }
-  ];
-  const gap = 4, kw = (CW - gap * 3) / 4;
-  kpis.forEach((k, j) => {
-    const x = M + j * (kw + gap);
-    card(x, y, kw, 19);
-    doc.setFillColor(...k.color);
-    doc.rect(x, y + 3, 1.2, 13, "F");
-    setFont(6.3, "normal", MUTED);
-    text(k.label.toUpperCase(), x + 4.5, y + 6.2);
-    setFont(11.5, "bold", k.color);
-    text(fit(k.value, kw - 7), x + 4.5, y + 12.2);
-    if (k.sub) {
-      setFont(6.3, "normal", FAINT);
-      text(fit(k.sub, kw - 7), x + 4.5, y + 16.3);
+  };
+  const paper = () => {
+    doc.setFillColor(...WHITE);
+    doc.rect(0, 0, W, H, "F");
+    doc.setFillColor(...PALETTE.gold);
+    doc.rect(0, 0, W, 2.5, "F");
+  };
+  let onNewPage = null;
+  const newPage = () => {
+    doc.addPage();
+    paper();
+    y = 10;
+    if (onNewPage) onNewPage();
+  };
+  const ensure = (h) => {
+    if (y + h > BOTTOM) newPage();
+  };
+  function hatch(x, yy, w, h, color, step = 1.5) {
+    doc.setDrawColor(...color);
+    doc.setLineWidth(0.2);
+    for (let k = -h; k < w; k += step) {
+      let sx = x + k, sy = yy + h, ex = x + k + h, ey = yy;
+      if (sx < x) {
+        sy -= x - sx;
+        sx = x;
+      }
+      if (ex > x + w) {
+        ey += ex - (x + w);
+        ex = x + w;
+      }
+      if (sx < ex) doc.line(sx, sy, ex, ey);
     }
-  });
-  y += 25;
-  function heading(str, sub) {
-    if (y + 30 > BOTTOM) newPage();
-    setFont(10, "bold");
-    text(str, M, y + 4);
-    if (sub) {
-      setFont(7.5, "normal", MUTED);
-      text(sub, W - M, y + 4, { align: "right" });
-    }
-    doc.setFillColor(...GOLD);
-    doc.rect(M, y + 6.2, 24, 0.8, "F");
-    y += 10;
   }
-  function table(cols, rows, { rh = 5.6, emptyText = "" } = {}) {
-    const cellX = (xs2, i, align) => align === "right" ? xs2[i] + cols[i].w * CW - 3 : xs2[i] + 3;
-    const head = () => {
-      const xs2 = [];
-      let acc = M;
-      cols.forEach((c) => {
-        xs2.push(acc);
-        acc += c.w * CW;
-      });
-      card(M, y, CW, 7);
-      setFont(6.5, "bold", MUTED);
-      cols.forEach((c, i) => text(c.label.toUpperCase(), cellX(xs2, i, c.align), y + 4.7, c.align === "right" ? { align: "right" } : void 0));
-      y += 8.6;
-      return xs2;
-    };
-    let xs = head();
-    if (!rows.length) {
-      setFont(8, "normal", MUTED);
-      text(emptyText, M + 3, y + 3);
-      y += 9;
+  function countRun(items, xr, yy, size, gap = 3.2) {
+    let x = xr;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      font(size, it.bold ? "bold" : "normal", it.color);
+      text(it.t, x, yy, { align: "right" });
+      x -= width(it.t) + gap;
+    }
+    return x;
+  }
+  function tile(x, yy, w, h, m) {
+    if (m.future) {
+      hatch(x, yy, w, h, mix(PALETTE.faint, WHITE, 0.25));
+      doc.setDrawColor(...mix(PALETTE.faint, WHITE, 0.55));
+      doc.setLineWidth(0.2);
+      doc.setLineDashPattern([0.7, 0.6], 0);
+      doc.roundedRect(x, yy, w, h, 1.2, 1.2, "S");
+      doc.setLineDashPattern([], 0);
+      font(5.8, "bold", mix(PALETTE.faint, WHITE, 0.6));
+      text(m.label, x + w / 2, yy + h / 2 + 1, { align: "center" });
       return;
     }
-    rows.forEach((r, ri2) => {
-      if (y + rh > BOTTOM) {
-        newPage();
-        xs = head();
-      }
-      if (ri2 % 2 === 0) {
-        doc.setFillColor(...WHITE);
-        doc.rect(M, y - 1.3, CW, rh, "F");
-      }
-      r.forEach((cell, i) => {
-        const c = typeof cell === "object" && cell !== null ? cell : { v: cell };
-        setFont(7.8, c.bold ? "bold" : "normal", c.color || SLATE);
-        text(fit(c.v ?? "", cols[i].w * CW - 5), cellX(xs, i, cols[i].align), y + 2.9, cols[i].align === "right" ? { align: "right" } : void 0);
-      });
-      y += rh;
-    });
+    const key = m.state === "legacy" ? LEGACY_KEY[m.legacyStatus] || "not_collectible" : m.state;
+    const pair = TILE[key];
+    if (!pair) {
+      doc.setDrawColor(...PALETTE.rule);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(x, yy, w, h, 1.2, 1.2, "S");
+      font(5.8, "bold", mix(PALETTE.faint, WHITE, 0.6));
+      text(m.label, x + w / 2, yy + h / 2 + 1, { align: "center" });
+      return;
+    }
+    const [ink, fill] = pair;
+    doc.setFillColor(...fill);
+    doc.roundedRect(x, yy, w, h, 1.2, 1.2, "F");
+    if (key === "not_collectible") hatch(x + 0.3, yy + 0.3, w - 0.6, h - 0.6, mix(ink, WHITE, 0.22));
+    if (m.current) {
+      doc.setDrawColor(...CURRENT);
+      doc.setLineWidth(0.55);
+    } else {
+      doc.setDrawColor(...mix(ink, WHITE, 0.33));
+      doc.setLineWidth(0.2);
+    }
+    doc.roundedRect(x, yy, w, h, 1.2, 1.2, "S");
+    if (m.state === "legacy") {
+      doc.setDrawColor(...mix(ink, WHITE, 0.55));
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([0.4, 0.4], 0);
+      doc.line(x + 1, yy + h - 0.4, x + w - 1, yy + h - 0.4);
+      doc.setLineDashPattern([], 0);
+    }
+    if (m.label) {
+      font(5.8, "bold", ink);
+      text(m.label, x + w / 2, yy + h / 2 + 1, { align: "center" });
+    }
+    if (m.needsBackfill) {
+      doc.setFillColor(...ORANGE);
+      doc.circle(x + w - 1.2, yy + 1.1, 0.65, "F");
+    }
+    if (m.override) {
+      doc.setDrawColor(...ink);
+      doc.setLineWidth(0.25);
+      doc.circle(x + w - 1.2, yy + h - 1.1, 0.6, "S");
+    }
+  }
+  function pill(label, color, xr, yy) {
+    font(6.6, "bold", color);
+    const w = width(label) + 6.4, h = 4.4, x = xr - w;
+    doc.setFillColor(...mix(color, WHITE, 0.12));
+    doc.roundedRect(x, yy, w, h, 2.2, 2.2, "F");
+    doc.setDrawColor(...mix(color, WHITE, 0.3));
+    doc.setLineWidth(0.2);
+    doc.roundedRect(x, yy, w, h, 2.2, 2.2, "S");
+    doc.setFillColor(...color);
+    doc.circle(x + 2.3, yy + h / 2, 0.6, "F");
+    font(6.6, "bold", color);
+    text(label, x + 3.7, yy + 3.05);
+  }
+  paper();
+  y = 9;
+  let tx = M;
+  if (mark) {
+    const b = fitBox(mark.w, mark.h, 11, 11);
+    img(mark, M, y + 1, b.w, b.h);
+    tx = M + b.w + 4;
+  }
+  font(16, "bold");
+  text("Rent tracker report", tx, y + 6.5);
+  font(9.5, "normal", PALETTE.muted);
+  text(`${model.agent?.name || "Agent"} - ${s.units} ${s.units === 1 ? "property" : "properties"} - ${model.year}`, tx, y + 11.5);
+  font(8, "normal", PALETTE.faint);
+  text(dateLong(model.asOf), W - M, y + 5, { align: "right" });
+  text("Prepared by Properly", W - M, y + 9.4, { align: "right" });
+  y += 16;
+  doc.setDrawColor(...PALETTE.border);
+  doc.setLineWidth(0.25);
+  doc.line(M, y, W - M, y);
+  doc.setFillColor(...PALETTE.gold);
+  doc.rect(M, y - 0.5, 28, 1, "F");
+  y += 5;
+  const head = [
+    { t: `${s.letUnits} of ${s.units} let`, color: TILE.paid[0] },
+    { t: `${s.notLetUnits} not let`, color: s.notLetUnits ? TILE.due[0] : PALETTE.faint },
+    { t: `${model.thisMonth.label} rent in ${money0(s.received)} of ${money0(s.expected)}`, color: PALETTE.ink },
+    { t: s.owed + s.arrears > 0 ? `Owed ${money0(s.owed + s.arrears)} across ${s.owingCount} ${s.owingCount === 1 ? "property" : "properties"}` : "Nothing owed", color: s.owed + s.arrears > 0 ? TILE.missed[0] : TILE.paid[0] }
+  ];
+  let hx = M;
+  head.forEach((h) => {
+    font(8.2, "bold", h.color);
+    text(h.t, hx, y + 3.2);
+    hx += width(h.t) + 7;
+  });
+  y += 7;
+  let kx = M;
+  for (const [k, l] of [["paid", "Paid"], ["due", "Due / part paid"], ["missed", "Missed"], ["not_collectible", "Not collectible (hatched)"], ["stl", "Short-term let"]]) {
+    tile(kx, y, 6, 3.6, { label: "", state: k });
+    font(6.4, "normal", PALETTE.muted);
+    text(l, kx + 7.2, y + 2.7);
+    kx += 7.2 + width(l) + 5;
+  }
+  doc.setFillColor(...ORANGE);
+  doc.circle(kx + 1, y + 1.8, 0.8, "F");
+  font(6.4, "normal", PALETTE.muted);
+  text("Paid, amount needed", kx + 2.8, y + 2.7);
+  kx += 2.8 + width("Paid, amount needed") + 5;
+  doc.setDrawColor(...CURRENT);
+  doc.setLineWidth(0.55);
+  doc.roundedRect(kx, y, 6, 3.6, 0.8, 0.8, "S");
+  font(6.4, "normal", PALETTE.muted);
+  text("This month", kx + 7.2, y + 2.7);
+  y += 9;
+  const TW = 10.6, TH = 6.4, TG = 1;
+  const CARD_H = 23.5;
+  const RIGHT = W - M - 4;
+  function companyHeader(g, continued = false) {
+    const accent = hex(g.color) || PALETTE.gold;
+    const logo = !continued && logos[g.companyId];
+    const lb = logo ? fitBox(logo.w, logo.h, 26, 10) : null;
+    const name = continued ? `${g.company} (continued)` : g.company;
+    const props = `${g.cards.length} ${g.cards.length === 1 ? "property" : "properties"}`;
+    const items = continued ? [] : [
+      ...[["paid", "paid"], ["due", "due"], ["missed", "missed"], ["nc", "not collectible"], ["backfill", "need amount"]].filter(([k]) => g.counts[k] > 0).map(([k, l]) => ({ t: `${g.counts[k]} ${l}`, color: COUNT_COLOR[k], bold: true })),
+      { t: money0(g.received), color: PALETTE.gold, bold: true },
+      ...g.owed > 0 ? [{ t: `${money0(g.owed)} owed`, color: TILE.missed[0], bold: true }] : []
+    ];
+    const nameX = M + 8 + (lb ? lb.w + 4 : 0);
+    font(continued ? 9 : 11.5, "bold");
+    const nameEnd = nameX + width(name) + 3;
+    font(7, "normal");
+    const propsEnd = nameEnd + width(props);
+    font(7.2, "bold");
+    const runW = items.reduce((w, it) => w + width(it.t) + 3.2, 0);
+    const twoLine = items.length && propsEnd + 6 > W - M - 5 - runW;
+    const h = continued ? 9 : twoLine ? 21 : 16;
+    doc.setFillColor(...PALETTE.tile);
+    doc.roundedRect(M, y, CW, h, 2, 2, "F");
+    doc.setDrawColor(...PALETTE.border);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(M, y, CW, h, 2, 2, "S");
+    doc.setFillColor(...accent);
+    doc.rect(M + 4, y + 2.5, 0.9, h - 5, "F");
+    const top = twoLine ? 16 : h;
+    if (lb) img(logo, M + 8, y + (top - lb.h) / 2 + (twoLine ? 0.5 : 0), lb.w, lb.h);
+    const by = y + top / 2 + (continued ? 1.2 : 1.6) + (twoLine ? 0.5 : 0);
+    font(continued ? 9 : 11.5, "bold");
+    text(name, nameX, by);
+    font(7, "normal", PALETTE.muted);
+    text(props, nameEnd, by);
+    if (items.length) countRun(items, W - M - 5, twoLine ? y + h - 3.6 : y + h / 2 + 1.4, 7.2);
+    y += h + 1.5;
+  }
+  function buildingHeader(gr) {
+    ensure(7 + CARD_H);
+    doc.setFillColor(...PALETTE.head);
+    doc.rect(M, y, CW, 6.6, "F");
+    font(7.6, "bold");
+    text(gr.name, M + 5, y + 4.4);
+    const nx = M + 5 + width(gr.name) + 2;
+    font(6.8, "normal", PALETTE.muted);
+    text(`- ${gr.cards.length} units - ${money0(gr.rent)}/mo`, nx, y + 4.4);
+    const items = [];
+    if (gr.missed) items.push({ t: `${gr.missed} missed`, color: TILE.missed[0], bold: true });
+    if (gr.due) items.push({ t: `${gr.due} due`, color: TILE.due[0], bold: true });
+    items.push({ t: `${model.year} revenue`, color: PALETTE.muted }, { t: money0(gr.received), color: PALETTE.gold, bold: true });
+    countRun(items, W - M - 5, y + 4.4, 6.8);
+    y += 6.6;
+  }
+  let stripe = 0;
+  function card(c, indent) {
+    ensure(CARD_H);
+    const x0 = M + (indent ? 5 : 0), w0 = CW - (indent ? 5 : 0);
+    doc.setFillColor(...stripe++ % 2 === 0 ? WHITE : [251, 250, 247]);
+    doc.rect(x0, y, w0, CARD_H, "F");
+    if (indent) {
+      doc.setFillColor(...mix(PALETTE.gold, WHITE, 0.25));
+      doc.rect(x0, y, 0.5, CARD_H, "F");
+    }
+    doc.setDrawColor(...PALETTE.rule);
+    doc.setLineWidth(0.2);
+    doc.line(x0, y + CARD_H, x0 + w0, y + CARD_H);
+    const lx = x0 + 4;
+    font(8.8, "bold");
+    text(fit(indent ? c.name.split(",")[0].trim() || c.name : c.name, 135 - (indent ? 5 : 0)), lx, y + 5.4);
+    font(6.8, "normal", PALETTE.muted);
+    text(`${money0(c.rent)}/mo  -  Due ${c.dueDay || "-"}`, lx, y + 9.4);
+    c.months.forEach((m, i) => tile(lx + i * (TW + TG), y + 11.8, TW, TH, m));
+    pill(c.letLabel, PILL[c.status] || PALETTE.muted, RIGHT, y + 2.4);
+    const cnt = [["paid", "paid"], ["due", "due"], ["missed", "missed"], ["nc", "n/c"]].map(([k, l]) => ({ t: `${c.counts[k]} ${l}`, color: c.counts[k] > 0 ? COUNT_COLOR[k] : PALETTE.faint }));
+    countRun(cnt, RIGHT, y + 10.6, 6.6, 2.6);
+    font(9, "bold", PALETTE.gold);
+    text(money0(c.received), RIGHT, y + 15.6, { align: "right" });
+    const owed = c.owed + c.arrears;
+    if (owed > 0) {
+      const bits = [];
+      if (c.owed > 0) bits.push(`${money0(c.owed)} owed (${c.missedMonths} ${c.missedMonths === 1 ? "month" : "months"})`);
+      if (c.arrears > 0) bits.push(`${money0(c.arrears)} older arrears`);
+      font(6.8, "bold", TILE.missed[0]);
+      text(bits.join("  -  "), RIGHT, y + 20, { align: "right" });
+    }
+    y += CARD_H;
+  }
+  for (const g of model.byCompany) {
+    ensure(16 + 1.5 + CARD_H + (g.groups[0]?.building ? 6.6 : 0));
+    companyHeader(g);
+    onNewPage = () => companyHeader(g, true);
+    stripe = 0;
+    for (const gr of g.groups) {
+      if (gr.building) buildingHeader(gr);
+      for (const c of gr.cards) card(c, gr.building);
+    }
+    onNewPage = null;
     y += 6;
   }
-  heading("Rent owed", "collectible rent still unpaid after its payment window");
-  table([
-    { label: "Property", w: 0.33 },
-    { label: "Company", w: 0.24 },
-    { label: "Rent pcm", w: 0.1, align: "right" },
-    { label: "Months missed", w: 0.11, align: "right" },
-    { label: "Owed", w: 0.1, align: "right" },
-    { label: "Older arrears", w: 0.12, align: "right" }
-  ], model.owing.map((l) => [
-    { v: l.name, bold: true },
-    l.company,
-    { v: l.rent > 0 ? money0(l.rent) : "-", color: MUTED },
-    l.missedMonths ? String(l.missedMonths) : "-",
-    { v: l.owed > 0 ? money0(l.owed) : "-", color: l.owed > 0 ? RED : MUTED, bold: l.owed > 0 },
-    { v: l.arrears > 0 ? money0(l.arrears) : "-", color: l.arrears > 0 ? AMBER : MUTED }
-  ]), { emptyText: "Nothing overdue. Every collectible month is paid." });
-  heading("Not let", "vacant, on the market, let agreed or in refurb");
-  table([
-    { label: "Property", w: 0.33 },
-    { label: "Company", w: 0.24 },
-    { label: "Status", w: 0.15 },
-    { label: "Empty since", w: 0.17 },
-    { label: "Rent pcm", w: 0.11, align: "right" }
-  ], model.notLet.map((l) => [
-    { v: l.name, bold: true },
-    l.company,
-    { v: l.letLabel, color: LET_COLOR[l.status] || MUTED, bold: true },
-    notLetSince(l, model.asOf),
-    { v: l.rent > 0 ? money0(l.rent) : "-", color: MUTED }
-  ]), { emptyText: "Every property is let." });
-  const notice = model.lines.filter((l) => l.status === "notice_given");
-  if (notice.length) {
-    heading("Notice given", "still let, tenant leaving");
-    table([
-      { label: "Property", w: 0.33 },
-      { label: "Company", w: 0.24 },
-      { label: "Leaving", w: 0.28 },
-      { label: "Rent pcm", w: 0.15, align: "right" }
-    ], notice.map((l) => [{ v: l.name, bold: true }, l.company, l.tenancyEnd ? dateShort(l.tenancyEnd) : "date not recorded", { v: l.rent > 0 ? money0(l.rent) : "-", color: MUTED }]));
+  if (!model.byCompany.length) {
+    font(9, "normal", PALETTE.muted);
+    text("No properties are managed by this agent.", M, y + 5);
   }
-  const months = model.months || [];
-  const fixed = [{ key: "name", label: "Property", w: 64 }, { key: "let", label: "Status", w: 24 }, { key: "rent", label: "Rent pcm", w: 17, align: "right" }];
-  const owedW = 20;
-  const RH = 5.2;
-  let cellW = 0;
-  const trackerHead = () => {
-    setFont(11, "bold");
-    text("Rent tracker", M, y + 4);
-    setFont(7.5, "normal", MUTED);
-    text("Each tile is the month the rent is for, showing what came in. Owed = unpaid after the payment window, plus older arrears.", W - M, y + 4, { align: "right" });
-    doc.setFillColor(...GOLD);
-    doc.rect(M, y + 6.2, 24, 0.8, "F");
-    y += 10;
-    cellW = (CW - fixed.reduce((a, c) => a + c.w, 0) - owedW) / Math.max(1, months.length);
-    card(M, y, CW, 6.5);
-    setFont(6.2, "bold", MUTED);
-    let x = M;
-    for (const c of fixed) {
-      text(c.label.toUpperCase(), c.align === "right" ? x + c.w - 2.5 : x + 2.5, y + 4.3, c.align === "right" ? { align: "right" } : void 0);
-      x += c.w;
-    }
-    for (const mo of months) {
-      text(`${mo.label}${mo.month === 1 || mo === months[0] ? ` ${String(mo.year).slice(2)}` : ""}`.toUpperCase(), x + cellW / 2, y + 4.3, { align: "center" });
-      x += cellW;
-    }
-    text("OWED", x + owedW - 2.5, y + 4.3, { align: "right" });
-    y += 8;
-  };
-  const tileText = (t) => {
-    if (!t) return "";
-    const amt = t.received > 0 ? money0(t.received) : "";
-    switch (t.state) {
-      case "paid":
-        return t.needsBackfill ? "Paid" : amt || "Paid";
-      case "part_paid":
-        return amt || "Part";
-      case "missed":
-        return amt || "Missed";
-      case "due":
-        return "Due";
-      case "stl":
-        return amt || "-";
-      default:
-        return "-";
-    }
-  };
-  newPage("landscape");
-  trackerHead();
-  let ri = 0;
-  for (const g of model.byCompany) {
-    if (y + RH * 2 > BOTTOM) {
-      newPage("landscape");
-      trackerHead();
-    }
-    setFont(7, "bold", GOLD);
-    text(`${(g.company || "No company").toUpperCase()}  (${g.lines.reduce((n, l) => n + l.rooms, 0)})`, M + 2.5, y + 2.6);
-    y += RH;
-    for (const l of g.lines) {
-      if (y + RH > BOTTOM) {
-        newPage("landscape");
-        trackerHead();
-      }
-      if (ri++ % 2 === 0) {
-        doc.setFillColor(...WHITE);
-        doc.rect(M, y - 1.2, CW, RH, "F");
-      }
-      let x = M;
-      setFont(6.8, "bold", SLATE);
-      text(fit(l.name, fixed[0].w - 4), x + 2.5, y + 2.4);
-      x += fixed[0].w;
-      setFont(6.6, "normal", LET_COLOR[l.status] || MUTED);
-      text(fit(l.letLabel, fixed[1].w - 4), x + 2.5, y + 2.4);
-      x += fixed[1].w;
-      setFont(6.6, "normal", MUTED);
-      text(l.rent > 0 ? money0(l.rent) : "-", x + fixed[2].w - 2.5, y + 2.4, { align: "right" });
-      x += fixed[2].w;
-      for (const mo of months) {
-        const t = l.grid?.[mo.key];
-        const st = t && TILE[t.state];
-        if (st) {
-          doc.setFillColor(...st.fill);
-          doc.roundedRect(x + 0.5, y - 0.9, cellW - 1, RH - 0.6, 0.8, 0.8, "F");
-        }
-        setFont(5.9, t?.state === "missed" ? "bold" : "normal", st ? st.ink : FAINT);
-        text(fit(tileText(t) || "-", cellW - 1.5), x + cellW / 2, y + 2.4, { align: "center" });
-        x += cellW;
-      }
-      const owed = l.owed + l.arrears;
-      setFont(6.8, owed > 0 ? "bold" : "normal", owed > 0 ? RED : FAINT);
-      text(owed > 0 ? money0(owed) : "-", x + owedW - 2.5, y + 2.4, { align: "right" });
-      y += RH;
-    }
-  }
-  if (y + 8 > BOTTOM + 6) {
-    newPage("landscape");
-  }
-  y += 2;
-  let kx = M;
-  setFont(6.5, "normal", MUTED);
-  for (const [state, label] of [["paid", "Paid in full"], ["due", "Due, window still open"], ["part_paid", "Part paid"], ["missed", "Missed, window closed"], ["stl", "Short-term let bookings"]]) {
-    doc.setFillColor(...TILE[state].fill);
-    doc.roundedRect(kx, y - 2.2, 6, 3.2, 0.6, 0.6, "F");
-    text(label, kx + 7.5, y + 0.2);
-    kx += 8 + doc.getTextWidth(label) + 6;
-  }
-  text("- = nothing collectible (vacant, refurb, between tenancies)", kx, y + 0.2);
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
-    const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
-    setFont(6.8, "normal", FAINT);
-    text(`Prepared for ${model.agent?.name || "the agent"} by Properly - ownproperly.com - ${dateShort(model.asOf)}`, M, ph - 7);
-    text(`Page ${i} of ${pages}`, pw - M, ph - 7, { align: "right" });
+    font(6.8, "normal", PALETTE.faint);
+    text(`Prepared for ${model.agent?.name || "the agent"} by Properly - ownproperly.com - ${dateShort(model.asOf)}`, M, H - 7);
+    text(`Page ${i} of ${pages}`, W - M, H - 7, { align: "right" });
   }
   return doc;
-}
-function notLetBreakdown(notLet) {
-  const n = (k) => notLet.filter((l) => l.status === k).reduce((s, l) => s + l.rooms, 0);
-  const parts2 = [[n("vacant"), "vacant"], [n("on_rental_market"), "on market"], [n("let_agreed"), "let agreed"], [n("refurb"), "refurb"]].filter(([c]) => c > 0).map(([c, w]) => `${c} ${w}`);
-  return parts2.join(", ") || "all let";
 }
 export {
   agentReportFilename,
