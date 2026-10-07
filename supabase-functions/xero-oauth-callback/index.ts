@@ -127,15 +127,44 @@ serve(async (req) => {
     if (!tenantsRes.ok) {
       return new Response('Xero connections fetch failed', { status: 500 })
     }
-    const tenants = await tenantsRes.json()
-    const first = Array.isArray(tenants) ? tenants[0] : null
-    if (!first) return new Response('No Xero tenant authorised', { status: 400 })
+    const tenants: any[] = await tenantsRes.json().catch(() => [])
+    if (!Array.isArray(tenants) || tenants.length === 0) {
+      return new Response('No Xero tenant authorised', { status: 400 })
+    }
 
     // Multi-company: state.company_id is the OwnProperly company this
     // Xero org should be linked to. Required since the PK is now
     // (user_id, company_id) — without it the upsert can't target a row.
     if (!state.company_id) {
       return new Response('Missing company_id in state — please retry from Settings → Integrations', { status: 400 })
+    }
+
+    // /connections lists EVERY org this Xero login has connected to the
+    // app, not just the one ticked on this consent screen, so tenants[0]
+    // can be another company's books (one login holds Vale, ExH and
+    // Cloisters). Pick, in order: the org this company is already linked
+    // to (a reconnect), then the org(s) authorised in this sign-in
+    // (authEventId matches the access token's authentication_event_id),
+    // then the only org. Anything else is ambiguous: refuse, don't guess.
+    const { data: existing } = await admin.from('xero_connections')
+      .select('tenant_id')
+      .eq('user_id', state.user_id).eq('company_id', state.company_id)
+      .maybeSingle()
+    let authEventId = ''
+    try {
+      const claims = JSON.parse(atob(tokens.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+      authEventId = claims.authentication_event_id || ''
+    } catch { /* opaque token: fall through */ }
+    const justAuthorised = authEventId ? tenants.filter(t => t.authEventId === authEventId) : []
+    const chosen =
+      (existing?.tenant_id && tenants.find(t => t.tenantId === existing.tenant_id)) ||
+      (justAuthorised.length === 1 ? justAuthorised[0] : null) ||
+      (tenants.length === 1 ? tenants[0] : null)
+    if (!chosen) {
+      return new Response(
+        `<h1>Xero connection not saved</h1><p>Your Xero login gave access to more than one organisation (${escapeHtml(tenants.map(t => t.tenantName).join(', '))}) and Properly could not tell which one belongs to this company. Please retry from Settings → Integrations and tick only this company's organisation on the Xero screen.</p><p><a href="${escapeHtml(returnTo)}">Back to Properly</a></p>`,
+        { status: 409, headers: { 'Content-Type': 'text/html' } }
+      )
     }
     // Persist tokens. If OWNPROPERLY_TOKEN_KEY is configured, store the
     // encrypted versions and null out the plaintext (so a DB dump alone
@@ -159,8 +188,8 @@ serve(async (req) => {
     const { error: upsertErr } = await admin.from('xero_connections').upsert({
       user_id: state.user_id,
       company_id: state.company_id,
-      tenant_id: first.tenantId,
-      tenant_name: first.tenantName,
+      tenant_id: chosen.tenantId,
+      tenant_name: chosen.tenantName,
       // Prefer encrypted; null out plaintext when we have encrypted versions
       access_token:           encAccess  ? null : tokens.access_token,
       refresh_token:          encRefresh ? null : tokens.refresh_token,
