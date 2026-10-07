@@ -92,7 +92,7 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
             {state.title}
           </h2>
           {state.body && (
-            <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 22, lineHeight: 1.5 }}>
+            <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 22, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
               {state.body}
             </p>
           )}

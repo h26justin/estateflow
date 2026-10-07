@@ -189,6 +189,32 @@ async function ensureTrackingCategories(token: string, tenantId: string, setting
   return { categoryId, optionMap }
 }
 
+// Records already posted to Xero for this (user, company), as
+// "<entity_type>:<local_id>".
+async function loadSyncedSet(admin: any, userId: string, companyId: string) {
+  const { data } = await admin.from('xero_sync_map')
+    .select('entity_type, local_id')
+    .eq('user_id', userId).eq('company_id', companyId)
+  return new Set<string>((data || []).map((r: any) => `${r.entity_type}:${r.local_id}`))
+}
+
+// Nothing is posted to Xero until the company has explicitly chosen where
+// it goes. On 7 Oct 2026 a fresh ExH connection with blank settings fell
+// back to the first bank account + first revenue code and posted 219
+// historic rent receipts (GBP 99,976.68, back to Dec 2024) on one click.
+// Returns the human-readable list of what is still missing.
+function pushSetupMissing(settings: any): string[] {
+  const missing: string[] = []
+  if (!settings?.default_bank_account_id) missing.push('a bank account')
+  if (!settings?.income_account_code) missing.push('a rent income account')
+  if (!settings?.expense_account_code) missing.push('an expense account')
+  if (!settings?.push_from_date) missing.push('a "post from" date')
+  return missing
+}
+
+const rentDate = (p: any) => p.period_start
+  || (p.year && p.month ? `${p.year}-${String(p.month).padStart(2, '0')}-01` : null)
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -282,6 +308,132 @@ serve(async (req) => {
       .eq('user_id', caller.id).eq('company_id', companyId).single()).data
   }
 
+  // ── action=preview → what a push WOULD post, without posting ──
+  // The UI shows this in a confirm dialog before every manual push.
+  if (action === 'preview') {
+    const missing = pushSetupMissing(settings)
+    const floor = settings.push_from_date ? String(settings.push_from_date).slice(0, 10) : null
+    const { data: props } = await admin.from('properties')
+      .select('id').eq('user_id', caller.id).eq('company_id', companyId).is('deleted_at', null)
+    const propIds = (props || []).map((p: any) => p.id)
+    const syncedSet = await loadSyncedSet(admin, caller.id, companyId)
+    const rent = { count: 0, total: 0, earliest: null as string | null }
+    const expenses = { count: 0, total: 0, earliest: null as string | null }
+    if (propIds.length && settings.sync_rent) {
+      const { data } = await admin.from('rent_payments')
+        .select('id, amount, period_start, year, month')
+        .in('property_id', propIds).eq('status', 'paid').gt('amount', 0)
+      for (const p of (data || [])) {
+        const d = rentDate(p)
+        if (!d || syncedSet.has(`rent_payment:${p.id}`) || (floor && d < floor)) continue
+        rent.count++; rent.total += Number(p.amount)
+        if (!rent.earliest || d < rent.earliest) rent.earliest = d
+      }
+    }
+    if (propIds.length && settings.sync_expenses) {
+      const { data } = await admin.from('property_expenses')
+        .select('id, amount, date')
+        .in('property_id', propIds).is('deleted_at', null).gt('amount', 0)
+      for (const e of (data || [])) {
+        if (!e.date || syncedSet.has(`expense:${e.id}`) || (floor && e.date < floor)) continue
+        expenses.count++; expenses.total += Number(e.amount)
+        if (!expenses.earliest || e.date < expenses.earliest) expenses.earliest = e.date
+      }
+    }
+    let bankName: string | null = null
+    if (settings.default_bank_account_id) {
+      const r = await xeroFetch(accessToken, conn.tenant_id, `Accounts/${settings.default_bank_account_id}`)
+      if (r.ok) bankName = (await r.json()).Accounts?.[0]?.Name || null
+    }
+    rent.total = Math.round(rent.total * 100) / 100
+    expenses.total = Math.round(expenses.total * 100) / 100
+    return new Response(JSON.stringify({
+      preview: true, configured: missing.length === 0, missing,
+      org: conn.tenant_name, bank: bankName, from: floor, rent, expenses,
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  // ── action=undo_push → delete what one push posted to Xero ──
+  // Targets the transactions recorded in xero_sync_map since `since`
+  // (default: the start of the run that wrote the newest map row, so a
+  // later read-only run doesn't hide the push). Sets each to DELETED
+  // in Xero; Xero refuses reconciled ones, which are reported and kept.
+  // Successfully deleted ones leave the sync map. dry_run only counts.
+  if (action === 'undo_push') {
+    let since: string | null = body.since || null
+    if (!since) {
+      const { data: newest } = await admin.from('xero_sync_map').select('last_synced_at')
+        .eq('user_id', caller.id).eq('company_id', companyId).eq('xero_kind', 'BankTransaction')
+        .order('last_synced_at', { ascending: false }).limit(1).maybeSingle()
+      if (newest?.last_synced_at) {
+        const { data: run } = await admin.from('xero_sync_log').select('started_at')
+          .eq('user_id', caller.id).eq('company_id', companyId).eq('direction', 'to_xero')
+          .lte('started_at', newest.last_synced_at)
+          .order('started_at', { ascending: false }).limit(1).maybeSingle()
+        since = run?.started_at || null
+      }
+    }
+    if (!since) return jsonError(404, 'No push to undo for this company')
+    const { data: rows } = await admin.from('xero_sync_map')
+      .select('entity_type, local_id, xero_id')
+      .eq('user_id', caller.id).eq('company_id', companyId)
+      .eq('xero_kind', 'BankTransaction').gte('last_synced_at', since)
+    const targets = rows || []
+    const rentIds = targets.filter((r: any) => r.entity_type === 'rent_payment').map((r: any) => r.local_id)
+    const expIds = targets.filter((r: any) => r.entity_type === 'expense').map((r: any) => r.local_id)
+    let total = 0
+    for (let i = 0; i < rentIds.length; i += 200) {
+      const { data } = await admin.from('rent_payments').select('amount').in('id', rentIds.slice(i, i + 200))
+      for (const r of (data || [])) total += Number(r.amount || 0)
+    }
+    for (let i = 0; i < expIds.length; i += 200) {
+      const { data } = await admin.from('property_expenses').select('amount').in('id', expIds.slice(i, i + 200))
+      for (const r of (data || [])) total -= Number(r.amount || 0)
+    }
+    const summary = { since, count: targets.length, rent: rentIds.length, expenses: expIds.length,
+      net_total: Math.round(total * 100) / 100, org: conn.tenant_name }
+    if (body.dry_run) {
+      return new Response(JSON.stringify({ dry_run: true, ...summary }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const { data: undoLock, error: undoLockErr } = await admin
+      .rpc('acquire_xero_sync_lock', { p_user_id: caller.id, p_company_id: companyId, p_ttl_seconds: 600 })
+    if (!undoLockErr && undoLock !== true) {
+      return jsonError(409, 'A Xero sync is already running for this company — try again in a minute')
+    }
+    let deleted = 0
+    const failures: string[] = []
+    try {
+      for (let i = 0; i < targets.length; i += 50) {
+        const batch = targets.slice(i, i + 50)
+        const r = await xeroFetch(accessToken, conn.tenant_id, 'BankTransactions?summarizeErrors=false', {
+          method: 'POST',
+          body: JSON.stringify({ BankTransactions: batch.map((t: any) => ({ BankTransactionID: t.xero_id, Status: 'DELETED' })) }),
+        })
+        if (!r.ok) { failures.push(`batch ${i / 50 + 1}: ${await xeroErrorSummary(r)}`); continue }
+        const out = (await r.json()).BankTransactions || []
+        const gone = new Set<string>()
+        for (const t of out) {
+          if (t.Status === 'DELETED') gone.add(t.BankTransactionID)
+          else failures.push(`${t.BankTransactionID}: ${(t.ValidationErrors || []).map((v: any) => v.Message).join('; ') || t.Status}`)
+        }
+        const goneRows = batch.filter((t: any) => gone.has(t.xero_id))
+        for (const t of goneRows) {
+          await admin.from('xero_sync_map').delete()
+            .eq('user_id', caller.id).eq('company_id', companyId)
+            .eq('entity_type', t.entity_type).eq('local_id', t.local_id)
+        }
+        deleted += goneRows.length
+      }
+    } finally {
+      if (!undoLockErr) await admin.rpc('release_xero_sync_lock', { p_user_id: caller.id, p_company_id: companyId })
+    }
+    return new Response(JSON.stringify({ ...summary, deleted, failed: failures.length, errors: failures.slice(0, 10) }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   // Concurrency guard — one sync per (user, company) at a time. Two
   // overlapping runs would both read the same sync map snapshot and
   // double-post BankTransactions (Xero's POST isn't idempotent). Lock
@@ -302,7 +454,8 @@ serve(async (req) => {
 
   // Open log row
   const { data: logRow } = await admin.from('xero_sync_log').insert({
-    user_id: caller.id, company_id: companyId, direction: 'to_xero', status: 'running',
+    user_id: caller.id, company_id: companyId,
+    direction: action === 'reconcile_only' ? 'from_xero' : 'to_xero', status: 'running',
   }).select().single()
 
   let created = 0, updated = 0, failed = 0
@@ -329,14 +482,12 @@ serve(async (req) => {
     const allAccounts: any[] = (await accountsRes.json()).Accounts || []
     const bankAccounts = allAccounts.filter(a => a.Type === 'BANK')
 
-    // Resolve default bank account: user-picked override → first available
+    // Default bank account: only ever the one chosen in settings (no fallback)
     let defaultBankId = settings.default_bank_account_id
     if (defaultBankId && !bankAccounts.find(a => a.AccountID === defaultBankId)) {
       // User's chosen account no longer exists or isn't active
       defaultBankId = null
     }
-    if (!defaultBankId) defaultBankId = bankAccounts[0]?.AccountID
-    if (!defaultBankId) throw new Error('No active bank account in Xero — add one first')
 
     // Resolve income + expense account codes
     const incomeCode = settings.income_account_code
@@ -359,7 +510,12 @@ serve(async (req) => {
     // Tracking categories (per-property)
     let trackingCategoryId: string | null = null
     let trackingOptionMap: Record<string, string> = (settings.property_tracking_options || {})
-    if (settings.sync_tracking_categories) {
+    // Creating the category/options writes to Xero, so it only happens on a
+    // run that is allowed to post. Otherwise use what was stored last time.
+    const mayWrite = action !== 'reconcile_only' && pushSetupMissing(settings).length === 0 && !!defaultBankId
+    if (settings.sync_tracking_categories && !mayWrite) {
+      trackingCategoryId = settings.tracking_category_id || null
+    } else if (settings.sync_tracking_categories) {
       try {
         const tc = await ensureTrackingCategories(accessToken, conn.tenant_id, settings, props)
         trackingCategoryId = tc.categoryId
@@ -384,10 +540,7 @@ serve(async (req) => {
     }
 
     // Already-synced records skip set (per-company scope)
-    const { data: synced } = await admin.from('xero_sync_map')
-      .select('entity_type, local_id')
-      .eq('user_id', caller.id).eq('company_id', companyId)
-    const syncedSet = new Set((synced || []).map(s => `${s.entity_type}:${s.local_id}`))
+    const syncedSet = await loadSyncedSet(admin, caller.id, companyId)
 
     // Optionally pre-fetch tenancy_details for real-contact mode.
     // Two levels:
@@ -424,10 +577,29 @@ serve(async (req) => {
       return out
     }
 
-    // For cron-driven reconcile_only runs we skip ALL push blocks —
-    // pulling reconciliation/edits back is idempotent and safe to run
-    // unattended; auto-pushing isn't.
-    const pushEnabled = action !== 'reconcile_only'
+    // Cron-driven reconcile_only runs skip ALL push blocks, and nothing is
+    // posted until pushSetupMissing() is empty. Pulling reconciliation/edits
+    // back is idempotent and safe unattended; posting is not.
+    const missing = pushSetupMissing(settings)
+    if (settings.default_bank_account_id && !defaultBankId) missing.push('a bank account that exists in Xero')
+    const anyPushToggle = settings.sync_rent || settings.sync_expenses || settings.sync_mortgage_interest
+      || settings.sync_deposits_separate || settings.sync_refurb_separate
+    if (action !== 'reconcile_only' && anyPushToggle && missing.length) {
+      errors.push(`Nothing posted to Xero: choose ${missing.join(', ')} in this company's Xero settings first.`)
+    }
+    const pushEnabled = action !== 'reconcile_only' && missing.length === 0
+    const floor = settings.push_from_date ? String(settings.push_from_date).slice(0, 10) : ''
+    // Stop posting well inside the 150s edge-function limit so a big
+    // backlog ends as a clean partial run (log + lock closed) rather than
+    // a 504 halfway through. The next Sync now carries on.
+    const deadline = Date.now() + 100_000
+    let stoppedEarly = false
+    const outOfTime = () => {
+      if (Date.now() < deadline) return false
+      if (!stoppedEarly) errors.push('Stopped early to stay inside the time limit. Run Sync now again to post the rest.')
+      stoppedEarly = true
+      return true
+    }
 
     // ── PUSH: rent_payments → BankTransaction RECEIVE ──
     if (pushEnabled && settings.sync_rent) {
@@ -437,9 +609,10 @@ serve(async (req) => {
       for (const p of (payments || [])) {
         if (syncedSet.has(`rent_payment:${p.id}`)) continue
         const prop = propMap.get(p.property_id)
-        const txnDate = p.period_start
-          || (p.year && p.month ? `${p.year}-${String(p.month).padStart(2,'0')}-01` : null)
+        const txnDate = rentDate(p)
         if (!txnDate) { failed++; errors.push(`rent ${p.id}: missing date — skipping`); continue }
+        if (txnDate < floor) continue
+        if (outOfTime()) break
         const tracking = trackingForProperty(p.property_id)
         const lineItem: any = {
           Description: `Rent ${p.period_start || ''} → ${p.period_end || ''}`.trim(),
@@ -483,6 +656,8 @@ serve(async (req) => {
         if (syncedSet.has(`expense:${e.id}`)) continue
         const prop = propMap.get(e.property_id)
         if (!e.date) { failed++; errors.push(`expense ${e.id}: missing date — skipping`); continue }
+        if (e.date < floor) continue
+        if (outOfTime()) break
         const supplierName = e.description?.split(' ')?.[0] && settings.sync_real_tenant_contacts
           ? e.description.slice(0, 60)
           : `${prop?.name || 'Property'} — Supplier`
@@ -534,6 +709,7 @@ serve(async (req) => {
         .gt('mortgage_amount', 0)
         .gt('mortgage_rate', 0)
       for (const p of (propsWithMortgage || [])) {
+        if (outOfTime()) break
         // properties.mortgage_rate is stored as a DECIMAL (e.g. 0.05 = 5%)
         // by PropertyModal which divides user input by 100 at save time.
         // Do NOT divide by 100 again here — that would post 100× too small.
@@ -604,6 +780,8 @@ serve(async (req) => {
         .in('property_id', propIds).gt('deposit_amount', 0)
       for (const t of (tenancies || [])) {
         if (syncedSet.has(`deposit:${t.id}`)) continue
+        if ((t.tenancy_start || new Date().toISOString().slice(0, 10)) < floor) continue
+        if (outOfTime()) break
         const prop = propMap.get(t.property_id)
         const tracking = trackingForProperty(t.property_id)
         const lineItem: any = {
@@ -654,6 +832,8 @@ serve(async (req) => {
         if (syncedSet.has(`refurb:${r.id}`)) continue
         const prop = propMap.get(r.property_id)
         if (!r.date) { failed++; errors.push(`refurb ${r.id}: missing date — skipping`); continue }
+        if (r.date < floor) continue
+        if (outOfTime()) break
         const tracking = trackingForProperty(r.property_id)
         const lineItem: any = {
           Description: `${r.trade || 'Refurb'}${r.notes ? ' — ' + String(r.notes).slice(0, 80) : ''}`,
@@ -689,7 +869,7 @@ serve(async (req) => {
     }
 
     // ── PULL: reconciliation status from Xero ──
-    if (settings.pull_reconciliation) {
+    if (settings.pull_reconciliation && !stoppedEarly) {
       // Pull all synced bank txns for this company in one go. Xero allows
       // GET /BankTransactions?where=...&page=N. For our scale (hundreds)
       // a single page is fine; pagination loop added when we cross 100.
@@ -706,6 +886,7 @@ serve(async (req) => {
         // We just fetch ALL and intersect — simpler than batching IDs
         // (Xero doesn't support IN() filters in their WHERE syntax for v2 API).
         while (true) {
+          if (Date.now() > deadline + 25_000) { errors.push('reconciliation pull stopped at the time limit'); break }
           const r = await xeroFetch(accessToken, conn.tenant_id, `BankTransactions?page=${page}`)
           if (!r.ok) { errors.push(`reconciliation fetch failed: ${await xeroErrorSummary(r)}`); break }
           const j = await r.json()
@@ -747,7 +928,7 @@ serve(async (req) => {
     // Refurb/deposit/mortgage entity types aren't reverse-synced because
     // they're derived/synthesised on our side — editing them in Xero
     // would create a confusing source-of-truth conflict.
-    if (settings.sync_reverse_changes) {
+    if (settings.sync_reverse_changes && !stoppedEarly) {
       const { data: syncedMap } = await admin.from('xero_sync_map')
         .select('entity_type, local_id, xero_id, last_xero_fingerprint')
         .eq('user_id', caller.id).eq('company_id', companyId)
@@ -761,6 +942,7 @@ serve(async (req) => {
         // would share the fetch across both pull paths.
         let page = 1
         while (true) {
+          if (Date.now() > deadline + 25_000) { errors.push('reverse-sync pull stopped at the time limit'); break }
           const r = await xeroFetch(accessToken, conn.tenant_id, `BankTransactions?page=${page}`)
           if (!r.ok) { errors.push(`reverse-sync fetch failed: ${await xeroErrorSummary(r)}`); break }
           const j = await r.json()
@@ -804,7 +986,7 @@ serve(async (req) => {
     // this company's Property tracking option becomes one property_expenses
     // row, keyed by Xero id in xero_sync_map so it is never pulled twice and
     // never pushed back (the push loop above skips anything in the map).
-    if (settings.pull_expenses && trackingCategoryId) {
+    if (settings.pull_expenses && trackingCategoryId && !stoppedEarly) {
       const optionToProperty: Record<string, string> = {}
       for (const [pid, oid] of Object.entries(trackingOptionMap)) optionToProperty[oid] = pid
       const { data: knownRows } = await admin.from('xero_sync_map').select('xero_id')
@@ -815,6 +997,7 @@ serve(async (req) => {
       const where = encodeURIComponent(`Type=="SPEND"&&Status=="AUTHORISED"&&Date>=DateTime(${sy},${sm},${sd})`)
       let page = 1, pulled = 0, skippedNoProperty = 0
       while (true) {
+        if (Date.now() > deadline + 25_000) { errors.push('expense pull stopped at the time limit'); break }
         const r = await xeroFetch(accessToken, conn.tenant_id, `BankTransactions?where=${where}&page=${page}`)
         if (!r.ok) { errors.push(`expense pull failed: ${await xeroErrorSummary(r)}`); break }
         const j = await r.json()
@@ -874,6 +1057,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true, created, updated, failed,
+      stopped_early: stoppedEarly, push_blocked: !pushEnabled && action !== 'reconcile_only',
       errors: errors.slice(0, 5),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (e) {

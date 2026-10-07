@@ -3581,6 +3581,30 @@ export async function runXeroSync(companyId, direction = 'to_xero') {
   return data
 }
 
+// What a push would post (counts, totals, bank, start date) without
+// posting. The UI shows it in a confirm dialog before every manual push.
+export async function previewXeroSync(companyId) {
+  if (!companyId) throw new Error('companyId required')
+  const { data, error } = await supabase.functions.invoke('xero-sync', {
+    body: { action: 'preview', company_id: companyId }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
+// Delete from Xero the transactions the latest push posted. dryRun only
+// counts them.
+export async function undoXeroPush(companyId, { dryRun = false } = {}) {
+  if (!companyId) throw new Error('companyId required')
+  const { data, error } = await supabase.functions.invoke('xero-sync', {
+    body: { action: 'undo_push', company_id: companyId, dry_run: dryRun }
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
 // ── Per-(user,company) Xero sync settings ──────────────────────────────
 
 export async function fetchXeroSyncSettings(companyId) {

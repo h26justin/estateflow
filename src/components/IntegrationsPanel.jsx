@@ -633,13 +633,34 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
   async function syncNow() {
     setBusy('sync')
     try {
-      const r = await api.runXeroSync(company.id, 'both')
+      // Show exactly what would be posted, and post only on a yes. With
+      // nothing to post (or posting not set up) run the read-only pull.
+      const pv = await api.previewXeroSync(company.id)
+      const toPost = (pv.rent?.count || 0) + (pv.expenses?.count || 0)
+      let mode = 'reconcile_only'
+      if (!pv.configured) {
+        showAppToast(`Nothing will be posted to Xero until you choose ${pv.missing.join(', ')} in Settings. Pulling reconciliation only.`, 'error')
+      } else if (toPost > 0) {
+        const gbp = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        const lines = [
+          pv.rent?.count ? `${pv.rent.count} rent receipt(s), ${gbp(pv.rent.total)}, earliest ${pv.rent.earliest}` : null,
+          pv.expenses?.count ? `${pv.expenses.count} expense(s), ${gbp(pv.expenses.total)}, earliest ${pv.expenses.earliest}` : null,
+        ].filter(Boolean).join('\n')
+        const ok = await confirmDialog({
+          title: `Post ${toPost} transaction(s) into ${pv.org || 'Xero'}?`,
+          body: `${lines}\n\nInto bank account: ${pv.bank || '(unknown)'}, dated from ${pv.from}. These are created as approved bank transactions in Xero. Only post records that are not already in Xero from a bank feed or statement, or they will be counted twice.`,
+          confirmLabel: `Post ${toPost} to Xero`, destructive: true,
+        })
+        if (!ok) { setBusy(null); return }
+        mode = 'both'
+      }
+      const r = await api.runXeroSync(company.id, mode)
       const parts = [
         r.created ? `${r.created} new` : null,
         r.updated ? `${r.updated} reconciliation updates` : null,
         r.failed ? `${r.failed} failed` : null,
       ].filter(Boolean).join(', ') || 'nothing to sync'
-      showAppToast(`${company.abbr}: ${parts}`)
+      showAppToast(`${company.abbr}: ${parts}${r.stopped_early ? '. Stopped early to stay inside the time limit: run Sync now again for the rest.' : ''}`)
       onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
@@ -738,7 +759,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         api.fetchXeroAccounts(company.id).catch(() => []),
       ])
       setSettings(s || {
-        sync_rent: true, sync_expenses: true, sync_mortgage_interest: false,
+        sync_rent: false, sync_expenses: false, sync_mortgage_interest: false,
         sync_tracking_categories: true, sync_real_tenant_contacts: false,
         pull_reconciliation: true, pull_expenses: false,
         per_property_bank_accounts: {},
@@ -806,8 +827,8 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
     <div style={{ marginTop: 18, padding: '18px 0 4px', borderTop: `1px dashed ${T.border}` }}>
 
       <Section title="What to sync (push: Properly → Xero)">
-        <Toggle keyName="sync_rent"                 label="Rent payments → Xero (RECEIVE)" desc="Pushes every paid rent_payments row as a bank transaction (income)." />
-        <Toggle keyName="sync_expenses"             label="Property expenses → Xero (SPEND)" desc="Pushes every property_expenses row as a bank transaction (expense)." />
+        <Toggle keyName="sync_rent"                 label="Rent payments → Xero (RECEIVE)" desc="Posts each paid rent row dated on or after the 'post from' date as an approved bank transaction (income). Leave off if rent already reaches Xero from a bank feed or agent statements: it would be counted twice." />
+        <Toggle keyName="sync_expenses"             label="Property expenses → Xero (SPEND)" desc="Posts each expense dated on or after the 'post from' date as an approved bank transaction. Same double-counting warning as rent." />
         <Toggle keyName="sync_mortgage_interest"    label="Mortgage interest accruals → Xero (SPEND)" desc="Monthly: mortgage_amount × rate ÷ 12, posted as a SPEND. Useful for Section 24 prep." />
         <Toggle keyName="sync_deposits_separate"    label="Tenancy deposits → separate Xero account" desc="Posts deposit_amount from tenancy_details as a RECEIVE against a liability account (or whatever you pick below). Otherwise deposits don't sync at all." />
         <Toggle keyName="sync_refurb_separate"      label="Refurb costs → separate Xero account" desc="Posts refurb spend as SPEND against a capex/refurb account. Off by default — many landlords prefer to lump refurbs into general expenses. Note: this currently reads the legacy per-trade refurb lines; payments logged on the new Refurbs page will be pushed once the sync moves over." />
@@ -847,7 +868,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
             <select style={selectStyle}
               value={settings?.income_account_code || ''}
               onChange={e => patch('income_account_code', e.target.value || null)}>
-              <option value="">(auto — first REVENUE account)</option>
+              <option value="">(choose one: required before anything is posted)</option>
               {incomeAccounts.map(a => <option key={a.AccountID} value={a.Code}>{a.Code} — {a.Name} ({a.Type})</option>)}
             </select>
           </div>
@@ -856,7 +877,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
             <select style={selectStyle}
               value={settings?.expense_account_code || ''}
               onChange={e => patch('expense_account_code', e.target.value || null)}>
-              <option value="">(auto — first EXPENSE account)</option>
+              <option value="">(choose one: required before anything is posted)</option>
               {expenseAccounts.map(a => <option key={a.AccountID} value={a.Code}>{a.Code} — {a.Name} ({a.Type})</option>)}
             </select>
           </div>
@@ -895,11 +916,17 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       <Section title="Bank account">
         <div style={{ display:'grid', gap: 10 }}>
           <div>
+            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Post to Xero from (required): nothing dated earlier is ever posted</label>
+            <input type="date" style={selectStyle}
+              value={settings?.push_from_date || ''}
+              onChange={e => patch('push_from_date', e.target.value || null)}/>
+          </div>
+          <div>
             <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Default bank account (used unless overridden per property)</label>
             <select style={selectStyle}
               value={settings?.default_bank_account_id || ''}
               onChange={e => patch('default_bank_account_id', e.target.value || null)}>
-              <option value="">(auto — first BANK account)</option>
+              <option value="">(choose one: required before anything is posted)</option>
               {bankAccounts.map(a => <option key={a.AccountID} value={a.AccountID}>{a.Name}{a.BankAccountNumber ? ` (${a.BankAccountNumber})` : ''}</option>)}
             </select>
           </div>
@@ -947,6 +974,27 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       </Section>
 
       <Section title="Danger zone">
+        <div style={{ background: T.red+'11', border: `1px solid ${T.red}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
+            <strong>Undo the last push</strong> deletes from Xero the bank transactions Properly posted in its most recent push. Xero keeps any that are already reconciled; those are listed and left alone.
+          </div>
+          <button onClick={async () => {
+            try {
+              const d = await api.undoXeroPush(company.id, { dryRun: true })
+              if (!d.count) { showAppToast('Nothing from the last push is still in Xero'); return }
+              if (!await confirmDialog({
+                title: `Delete ${d.count} transaction(s) from ${d.org || 'Xero'}?`,
+                body: `Everything Properly posted since ${new Date(d.since).toLocaleString('en-GB')}: ${d.rent} rent and ${d.expenses} expense transaction(s), net £${Number(d.net_total).toLocaleString('en-GB', { minimumFractionDigits: 2 })}.\n\nThey are set to Deleted in Xero. Properly's own records are not changed.`,
+                confirmLabel: `Delete ${d.count} from Xero`, destructive: true,
+              })) return
+              const r = await api.undoXeroPush(company.id)
+              showAppToast(`Deleted ${r.deleted} of ${r.count} from Xero${r.failed ? `, ${r.failed} kept (e.g. ${r.errors?.[0] || 'reconciled'})` : ''}`, r.failed ? 'error' : undefined)
+              onSaved?.()
+            } catch (e) { showAppToast(e.message, 'error') }
+          }} className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red+'66' }}>
+            Undo last push for {company.name}
+          </button>
+        </div>
         <div style={{ background: T.red+'11', border: `1px solid ${T.red}44`, borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
             <strong>Re-sync everything</strong> wipes the sync map so the next sync re-pushes every record. Use this if you've manually deleted transactions from Xero and want to re-create them. Doesn't touch the Xero side directly.
