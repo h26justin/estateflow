@@ -687,6 +687,13 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
             <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
               {showSettings ? 'Hide settings' : 'Settings'}
             </button>
+            {/* Renews the Xero sign-in in place (same org, sync settings
+                kept). Disconnect + Connect would cascade-delete the
+                company's xero_sync_settings row. */}
+            <button onClick={connect} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}
+              title="Sign in to Xero again to renew this connection. Sync settings are kept.">
+              {busy==='connect' ? 'Redirecting…' : 'Reconnect'}
+            </button>
             <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
               Disconnect
             </button>

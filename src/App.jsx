@@ -1394,6 +1394,19 @@ export default function App() {
             .eq('user_id', user.id).single()
             .then(r => r.data).catch(() => null),
         ])
+        // The signup form's profile upsert runs before email confirmation,
+        // with no session, so RLS rejects it and confirmed users arrive with
+        // no user_profiles row (whitneykolubayev, Sept 2026). Create it on
+        // first boot from the signup metadata. Insert-only: never overwrites.
+        if (!prof) {
+          const md = user.user_metadata || {}
+          supabase.from('user_profiles').upsert({
+            user_id: user.id, email: user.email,
+            full_name: md.full_name || null, first_name: md.first_name || null,
+            last_name: md.last_name || null, phone: md.phone || null,
+          }, { onConflict: 'user_id', ignoreDuplicates: true })
+            .then(({ error }) => { if (error) logError('loadData:ensureProfile', error) })
+        }
         // Load deals separately and non-blocking — if it fails, the
         // dashboard widget falls back to "no data". Deals are not critical
         // to App boot.
