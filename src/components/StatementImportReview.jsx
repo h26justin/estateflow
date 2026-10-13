@@ -43,10 +43,17 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
     ? { ...r, include: false, status: r.status === REVIEW_STATUS.READY ? REVIEW_STATUS.NEEDS_REVIEW : r.status, reasons: [...r.reasons, 'You have read-only access to rent for this company'] }
     : r)
 
+  // Lines matched to a unit now owned by a sister company still need their
+  // duplicate checks, so those units join the scope below.
+  const otherCompanyIds = company
+    ? [...new Set(rawRows.map(r => r.propertyId).filter(id => id && properties.find(p => p.id === id)?.company_id !== company.id))].sort().join(',')
+    : ''
+
   // What is already recorded (for duplicate checks), and earlier imports.
   useEffect(() => {
     let live = true
     const scope = (company ? properties.filter(p => p.company_id === company.id) : properties).map(p => p.id)
+      .concat(otherCompanyIds ? otherCompanyIds.split(',') : [])
     api.fetchStatementImportContext(scope, header.statementDate)
       .then(c => { if (live) { setCtx(c); setCtxLoaded(true) } })
       .catch(e => { console.error('fetchStatementImportContext', e); if (live) setCtxLoaded(true) })
@@ -54,7 +61,7 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
       .then(p => { if (live) setPrevious(p) })
       .catch(e => console.error('findPreviousStatementImports', e))
     return () => { live = false }
-  }, [company?.id, fingerprint]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [company?.id, fingerprint, otherCompanyIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const counts = statusCounts(rows)
   const plan = useMemo(() => planImport(rows, { header }), [rows, header])
