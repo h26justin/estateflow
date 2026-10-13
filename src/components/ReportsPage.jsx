@@ -7,7 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied, isPropertyLettable, occupancySummary, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
-import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../lib/rentEngine'
+import { evaluateProperty, collectionStats, arrearsSummary, periodBreakdown, BUCKET_LABEL, STATE_LABEL, GO_LIVE } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { renderReportPDF, renderYearEndPackPDF } from '../lib/reportPdf'
@@ -458,6 +458,7 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     occupancy: <ReportOccupancy {...props}/>,
     rent_collect: <ReportRentCollection {...props}/>,
     agent_weekly: <ReportAgentWeekly {...props}/>,
+    rent_outstanding: <ReportRentOutstanding {...props}/>,
     rent_backfill: <ReportRentBackfill {...props}/>,
     cashflow: <ReportCashFlow {...props}/>,
     equity: <ReportEquity {...props}/>,
@@ -812,6 +813,17 @@ const EPC_UPGRADE_NOTE = 'Works and costs are the indicative ranges published on
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   switch(id) {
+    case 'rent_outstanding': {
+      // Every period since go-live with tenant, receipts and the full
+      // override history (the PDF carries the unpaid lines only).
+      const d = rentOutstandingData(filtProps)
+      return [
+        ...RENT_OUT_KPIS.map(([k, l]) => [l, d.totals[k]]),
+        [''],
+        RENT_OUT_HEADERS,
+        ...d.rows.map(r => rentOutstandingCells(r)),
+      ]
+    }
     case 'company_pnl': {
       const { companies = [], selectedCompany = 'all', user } = extras || {}
       const months = monthsInRange(range.start, range.end)
@@ -1076,6 +1088,12 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         headers:['Property','Due','Received','Outstanding','Missed','Not collectible','Historic arrears'],
         rows:d.rows.map(r=>[r.name,fmt(r.due),fmt(r.received),fmt(r.outstanding),String(r.missed),String(r.notCollectible),fmt(r.arrears)]),
         totals:['Total',fmt(d.due),fmt(d.received),fmt(d.outstanding),String(d.missed),String(d.notCollectible),fmt(d.arrears)] }
+    }
+    case 'rent_outstanding': {
+      const d = rentOutstandingData(filtProps)
+      return { title:`Rent outstanding breakdown at ${d.asOf}`, kpis:RENT_OUT_KPIS.map(([k,l])=>[l,fmt(d.totals[k])]),
+        headers:RENT_OUT_PDF_COLS.map(i=>RENT_OUT_HEADERS[i]),
+        rows:d.rows.filter(r=>r.owed>0||r.needsInfo>0).map(r=>{ const c=rentOutstandingCells(r); return RENT_OUT_PDF_COLS.map(i=>c[i]) }) }
     }
     case 'rent_backfill': {
       const rows = rentBackfillRows(filtProps)
@@ -2377,6 +2395,66 @@ function rentCollectionData(filtProps, filtRent, range) {
     due, received, outstanding: sum('outstanding'), excess: sum('excess'),
     missed: sum('missed'), notCollectible: sum('notCollectible'), needsBackfill: sum('needsBackfill'), arrears: sum('arrears'), rows,
   }
+}
+
+// Every rent period since go-live with its bucket, so the outstanding tile
+// can be traced line by line (Rent Tracker investigation, 13 Oct 2026).
+const RENT_OUT_KPIS = [['outstanding','Outstanding (live)'],['overdue','Overdue'],['window','In payment window or due today'],['pendingReview','Pending review'],['combined','Outstanding + pending review'],['notYetDue','Not yet due'],['needsInfo','Unverified, needs information']]
+// PDF columns: property, period, due, expected, received, unpaid, category, override.
+const RENT_OUT_PDF_COLS = [1, 5, 7, 8, 9, 11, 12, 15]
+const RENT_OUT_HEADERS = ['Company','Property','Tenant','Tenancy start','Tenancy end','Period start','Period end','Due date','Expected','Received','Receipts','Unpaid','Category','Status','Set by','Override','Override history','Explanation']
+function rentOutstandingData(filtProps) {
+  const asOf = new Date().toISOString().slice(0, 10)
+  const rows = []
+  const totals = { outstanding: 0, overdue: 0, window: 0, pendingReview: 0, combined: 0, notYetDue: 0, needsInfo: 0 }
+  const add = (k, v) => { totals[k] = Math.round((totals[k] + (Number(v) || 0)) * 100) / 100 }
+  for (const p of filtProps) {
+    if (p.status === 'short_term_let') continue
+    for (const e of evaluateProperty(p)) {
+      if (e.periodStart < GO_LIVE || e.periodStart > asOf) continue
+      const b = periodBreakdown(e, asOf)
+      if (b.bucket === 'overdue') { add('overdue', b.owed); add('outstanding', b.owed) }
+      if (b.bucket === 'inWindow' || b.bucket === 'dueToday') { add('window', b.owed); add('outstanding', b.owed) }
+      if (b.bucket === 'pendingReview') add('pendingReview', b.owed)
+      if (b.bucket === 'notYetDue') add('notYetDue', b.owed)
+      add('needsInfo', b.needsInfo)
+      const history = (p.rent_overrides || []).filter(o => o.rent_payment_id === e.id).sort((x, y) => (x.created_at < y.created_at ? -1 : 1))
+      rows.push({ company: p.company?.name || '', property: p.name, e, history, ...b })
+    }
+  }
+  totals.combined = Math.round((totals.outstanding + totals.pendingReview) * 100) / 100
+  rows.sort((a, b) => a.company.localeCompare(b.company) || a.property.localeCompare(b.property) || a.e.periodStart.localeCompare(b.e.periodStart))
+  return { asOf, rows, totals }
+}
+function rentOutstandingCells(r) {
+  const n = v => v == null ? '' : Number(v).toFixed(2)
+  const e = r.e
+  const t = e.tenancy
+  const receipts = (e.allocations || []).map(a => `${n(a.amount)} on ${a.receipt?.received_date || '?'}${a.receipt?.source ? ` (${a.receipt.source})` : ''}`).join('; ')
+    || (e.received != null && e.received > 0 ? `${n(e.received)} recorded on the month` : '')
+  return [r.company, r.property, t?.tenant_name || (t?.fallback ? 'No tenancy record (property fields)' : t?.needs_confirmation ? 'Tenancy not yet confirmed' : ''), t?.tenancy_start || '', t?.tenancy_end || '',
+    e.periodStart, e.periodEnd, e.dueDate || '', n(e.expected), n(e.received), receipts, r.owed ? n(r.owed) : (r.needsInfo ? `${n(r.needsInfo)} unverified` : ''),
+    BUCKET_LABEL[r.bucket] || r.bucket, STATE_LABEL[e.state] || e.state, e.override ? 'Manual override' : 'Automatic',
+    e.override ? `${STATE_LABEL[e.override.state] || e.override.state}: ${e.override.reason}` : '',
+    (r.history || []).map(o => `${String(o.created_at).slice(0, 10)} ${STATE_LABEL[o.state] || (o.state === 'clear' ? 'Removed' : o.state)}: ${o.reason}`).join(' | '),
+    [e.infoReason, ...e.reasons].filter(Boolean).join(' · ')]
+}
+function ReportRentOutstanding({ filtProps, T, accent, fmt }) {
+  const d = rentOutstandingData(filtProps)
+  const shown = d.rows.filter(r => r.owed > 0 || r.needsInfo > 0 || r.bucket === 'needsBackfill' || r.bucket === 'duplicate')
+  return (
+    <>
+      <StatCards T={T} items={RENT_OUT_KPIS.map(([k, l]) => ({ label: l, value: fmt(d.totals[k]), color: k === 'overdue' && d.totals[k] > 0 ? T.red : k === 'pendingReview' && d.totals[k] > 0 ? T.blue : T.text }))}/>
+      <div style={{fontFamily:mono,fontSize:11,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
+        Outstanding is overdue rent plus rent still inside its payment window. Pending review is set aside for a decision and is not a write-off; the combined figure keeps it in view. Not yet due, duplicate placeholders and paid periods with a missing or unverified amount are listed so nothing drops out. The export carries every period since 1 January 2026.
+      </div>
+      <ReportTable T={T} accent={accent}
+        headers={[{label:'Property'},{label:'Period'},{label:'Due'},{label:'Expected',right:true},{label:'Received',right:true},{label:'Unpaid',right:true},{label:'Category'},{label:'Why'}]}
+        rows={shown.map(r=>[r.property, `${r.e.periodStart} → ${r.e.periodEnd}`, r.e.dueDate||'—', {v:r.e.expected==null?'—':fmt(r.e.expected),right:true}, {v:r.e.received==null?'—':fmt(r.e.received),right:true},
+          {v:r.owed?fmt(r.owed):r.needsInfo?`${fmt(r.needsInfo)}?`:'—',right:true,color:r.bucket==='overdue'?T.red:T.text}, BUCKET_LABEL[r.bucket], (r.e.override?.reason || r.e.infoReason || r.e.reasons[0] || '').slice(0,120)])}
+      />
+    </>
+  )
 }
 
 // Paid months with no amount since go-live: the work-through list for the

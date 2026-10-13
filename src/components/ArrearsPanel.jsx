@@ -84,8 +84,8 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
         {canEdit && !form && !plan && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => startPlan()}>+ Payment plan</button>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 }}>
-        {tile(`Current rent outstanding · ${year}`, money(cs.outstanding), cs.outstanding > 0 ? T.red : T.green, `${cs.counts.missed} missed · ${cs.counts.due + cs.counts.part_paid} due or part paid`)}
-        {tile('Historic arrears', money(ar.balance), ar.balance > 0 ? T.amber : T.muted, ar.opening ? `${money(ar.opening)} opening, ${money(ar.paid)} paid off` : 'no opening balance recorded')}
+        {tile(`Current rent outstanding · ${year}`, money(cs.outstanding), cs.outstanding > 0 ? T.red : T.green, `${money(cs.overdue)} overdue · ${money(cs.inWindow + cs.dueToday)} in payment window${cs.pendingReview > 0 ? ` · ${money(cs.pendingReview)} pending review` : ''}`)}
+        {tile('Historic arrears', money(ar.balance), ar.balance > 0 ? T.amber : T.muted, ar.overlap > 0 ? `${money(ar.overlap)} dated after 1 Jan 2026 is already in the rent periods, not added` : ar.opening ? `${money(ar.opening)} opening, ${money(ar.paid)} paid off` : ar.unmatched > 0 ? `${money(ar.unmatched)} paid, but no opening balance recorded` : 'no opening balance recorded')}
         {prog ? tile('Payment plan', PLAN_STATUS_LABEL[prog.status], statusColor[prog.status], `${prog.instalmentsPaid} of ${prog.instalmentsTotal} instalments · ${money(prog.balance)} left`) : tile('Payment plan', 'None', T.muted, ar.balance > 0 ? 'arrears not on a plan' : '')}
       </div>
       {Number(property.arrears) > 0 && !ar.opening && (
