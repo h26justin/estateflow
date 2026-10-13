@@ -86,6 +86,15 @@ describe('review rows', () => {
     const { rows } = reviewRows(rmsParsed(), { properties: [prop('x', '99 Nowhere Street', 'vale')], companies: COMPANIES })
     expect(rows.every(r => r.status === REVIEW_STATUS.UNMATCHED && !r.include)).toBe(true)
   })
+  it('a unit moved to a sister company still matches, but goes to review (Cloisters left ExH)', () => {
+    const moved = jubilee({ company_id: 'csr2' })
+    const companies = [...COMPANIES, { id: 'csr2', name: 'The Cloisters SR2 Ltd' }]
+    const { company, rows } = reviewRows(rmsParsed(), { properties: [moved, prop('x', '99 Nowhere Street', 'vale')], companies, today: '2026-09-25' })
+    expect(company.id).toBe('vale')
+    const rent = rows.find(r => r.kind === 'rent')
+    expect(rent).toMatchObject({ propertyId: 'jub', status: REVIEW_STATUS.NEEDS_REVIEW })
+    expect(rent.reasons.join(' | ')).toMatch(/belongs to another company/)
+  })
   it('a manual property pick fixes an unmatched line', () => {
     const other = prop('x', 'Jubilee Cottage', 'vale', { rent_pcm: 600, rent_payments: [month('sep', 2026, 9)] })
     const { rows } = reviewRows(rmsParsed(), { properties: [other], companies: COMPANIES, today: '2026-09-25' }, { [rmsParsed().lines[0].line_no]: { propertyId: 'x' } })

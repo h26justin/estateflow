@@ -218,7 +218,17 @@ export function reviewRows(parsed, ctx, overrides = {}) {
   const company = ctx?.companyId ? companies.find(c => c.id === ctx.companyId) || null : matchCompany(header.landlordCompany, companies)
   const allProps = (ctx?.properties || []).filter(p => p.status !== 'sold')
   const scoped = company ? allProps.filter(p => p.company_id === company.id) : allProps
-  const matched = matchProperties((parsed?.lines || []).map(l => ({ propertyName: l.property_address, line_no: l.line_no })), scoped.length ? scoped : allProps, ctx?.aliases || [])
+  const items = (parsed?.lines || []).map(l => ({ propertyName: l.property_address, line_no: l.line_no }))
+  const matched = matchProperties(items, scoped.length ? scoped : allProps, ctx?.aliases || [])
+  // A line the statement's own company cannot place may be a unit that has
+  // since moved to a sister company (the Cloisters flats left ExH for their
+  // own company in Oct 2026 but can still appear on ExH's agent statements).
+  // Only lines with no match at all get this second look, and any hit lands
+  // in review below as "belongs to another company".
+  if (scoped.length && scoped.length < allProps.length && matched.some(m => m.propertyName && !m.propertyId)) {
+    const wide = matchProperties(items, allProps, ctx?.aliases || [])
+    matched.forEach((m, i) => { if (m.propertyName && !m.propertyId && wide[i]?.propertyId) matched[i] = wide[i] })
+  }
   const byId = new Map(allProps.map(p => [p.id, p]))
   const known = ctx?.knownRefs || new Set()
   const today = ctx?.today || isoToday()
