@@ -79,7 +79,7 @@ export function rentMonthSnapshot(properties, { asOf = isoToday(), count = 3, of
     for (const [k, monthRows] of rowsByKey) {
       const mo = byKey.get(k)
       mo.propertiesWithRows++
-      const evals = evaluateProperty({ ...p, rent_payments: monthRows }, { today: monthBounds(mo.year, mo.month).end })
+      const evals = evaluateProperty({ ...p, rent_payments: monthRows }, { today: monthBounds(mo.year, mo.month).end, siblings: p.rent_payments })
       const co = p.company_id || 'none'
       const cs = (mo.byCompany[co] ||= { expected: 0, received: 0, needsBackfill: 0 })
       for (const e of evals) {

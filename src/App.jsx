@@ -425,7 +425,7 @@ function enginePair(m, darkMode) {
   if (!m) return null
   if (m.state === 'stl') return darkMode ? STL_PAIR.dark : STL_PAIR.light
   if (m.state === 'legacy') return rentStatusPair(m.evals?.[0]?.legacyStatus || 'void', darkMode)
-  const key = { paid:'ok', due:'warn', part_paid:'warn', missed:'bad', not_collectible:'void' }[m.state] || 'void'
+  const key = { paid:'ok', due:'warn', part_paid:'warn', missed:'bad', not_collectible:'void', pending_review:'info' }[m.state] || 'void'
   return statusColors(key, darkMode)
 }
 
@@ -559,7 +559,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
                 ovOpen ? (
                   <div style={{marginTop:8,display:'grid',gap:6}}>
                     <select value={ovState} onChange={e=>setOvState(e.target.value)} style={{fontFamily:mono,fontSize:11}}>
-                      {['paid','due','part_paid','missed','not_collectible'].map(k=><option key={k} value={k}>{STATE_LABEL[k]}</option>)}
+                      {['paid','due','part_paid','missed','not_collectible','pending_review'].map(k=><option key={k} value={k}>{STATE_LABEL[k]}{k==='pending_review'?' (set aside for review, not a write-off)':''}</option>)}
                       {m.override && <option value="clear">Remove override</option>}
                     </select>
                     <textarea value={ovReason} onChange={e=>setOvReason(e.target.value)} rows={2} placeholder="Reason (required, recorded with your name and the time)" style={{fontFamily:mono,fontSize:11,resize:'vertical'}}/>
@@ -4809,6 +4809,7 @@ function engineSummary(props, year) {
       if (m.state === 'paid') acc.paid++
       else if (m.state === 'due' || m.state === 'part_paid') acc.due++
       else if (m.state === 'missed') acc.missed++
+      else if (m.state === 'pending_review') acc.review = (acc.review || 0) + 1
       else if (m.state === 'not_collectible') acc.nc++
       if (m.needsBackfill) acc.backfill++
       acc.received += m.received || 0
@@ -4887,7 +4888,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
           <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
+            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
               <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
                 <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
               </span>
@@ -5012,10 +5013,10 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         ] : [
           { label: `Collection rate · ${globalYear || nowYear} to date`, value: fmtPct(ps.ytd.rate), accent: ps.ytd.rate == null ? T.muted : ps.ytd.rate>=95?T.green:ps.ytd.rate>=85?T.amber:T.red,
             sub: `Month to date ${fmtPct(ps.mtd.rate)} · ${ps.ytd.periods} periods due` },
-          { label: 'Collectible rent due', value: fmt(ps.ytd.due), accent: T.text, sub: `${ps.ytd.counts.not_collectible} not collectible · ${ps.legacyCount ? `${ps.legacyCount} legacy` : 'short-term lets excluded'}` },
-          { label: 'Current rent received', value: fmt(ps.ytd.received), accent: T.green, sub: ps.ytd.excess > 0 ? `+${fmt(ps.ytd.excess)} overpaid` : `${ps.ytd.counts.paid} paid · ${ps.ytd.counts.part_paid} part paid` },
+          { label: 'Collectible rent due', value: fmt(ps.ytd.due), accent: T.text, sub: `due to date · ${fmt(ps.ytd.notYetDue)} scheduled, not yet due · ${ps.ytd.counts.not_collectible} not collectible${ps.ytd.counts.duplicates ? ` (${ps.ytd.counts.duplicates} duplicate placeholders)` : ''}` },
+          { label: 'Current rent received', value: fmt(ps.ytd.received), accent: T.green, sub: `${ps.ytd.excess > 0 ? `+${fmt(ps.ytd.excess)} over the rent on single periods (not netted off) · ` : ''}${ps.needsBackfill.length} paid with no amount · ${fmt(ps.ytd.needsInfo)} unverified (needs information)` },
           { label: 'Current rent outstanding', value: fmt(ps.ytd.outstanding), accent: ps.ytd.outstanding > 0 ? T.red : T.green,
-            sub: `${ps.ytd.counts.missed} missed · ${ps.ytd.counts.due} due · historic arrears ${fmt(ps.arrears.balance)}${ps.needsBackfill.length ? ` · ${ps.needsBackfill.length} need backfill` : ''}` },
+            sub: `${fmt(ps.ytd.overdue)} overdue (${ps.ytd.counts.missed} missed) · ${fmt(ps.ytd.inWindow + ps.ytd.dueToday)} in payment window · pending review ${fmt(ps.ytd.pendingReview)} · combined ${fmt(ps.ytd.combined)} · historic arrears ${fmt(ps.arrears.balance)}${ps.arrears.unmatched ? ` (+${fmt(ps.arrears.unmatched)} paid with no opening balance)` : ''}` },
         ]
         return (
           <div className="summary-cards" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:isMobile?14:20}}>
@@ -5390,7 +5391,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
 
         {/* Legend */}
         <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
+          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
             <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
               <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
             </span>
@@ -5416,13 +5417,14 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
               const evals = evaluateProperty(selected).filter(e => !filterYear || e.year === filterYear)
               const cs = collectionStats(evals)
               const ar = arrearsSummary(selected)
+              const outSub = `${fmt(cs.overdue)} overdue · ${fmt(cs.inWindow + cs.dueToday)} in window${cs.pendingReview > 0 ? ` · ${fmt(cs.pendingReview)} pending review` : ''}${cs.notYetDue > 0 ? ` · ${fmt(cs.notYetDue)} not yet due` : ''}`
               return [
                 {l:'Collection rate', v: cs.rate == null ? '—' : `${cs.rate}%`, c: cs.rate == null ? T.muted : cs.rate>=95?T.green:cs.rate>=85?T.amber:T.red, sub:`${cs.periods} periods due`},
                 {l:'Collectible due', v:fmt(cs.due), c:T.text, sub:`${cs.counts.not_collectible} not collectible`},
                 {l:'Received', v:fmt(cs.received), c:T.green, sub: cs.excess>0 ? `+${fmt(cs.excess)} overpaid` : `${cs.counts.paid} paid`},
-                {l:'Outstanding', v:fmt(cs.outstanding), c: cs.outstanding>0?T.red:T.green, sub:`${cs.counts.missed} missed · ${cs.counts.due + cs.counts.part_paid} due`},
-                {l:'Historic arrears', v:fmt(ar.balance), c: ar.balance>0?T.amber:T.muted, sub: ar.paid>0 ? `${fmt(ar.paid)} paid off` : (ar.opening ? 'opening balance' : 'none recorded')},
-                {l:'Needs backfill', v:cs.counts.needsBackfill, c: cs.counts.needsBackfill>0?T.amber:T.muted, sub: cs.counts.legacy ? `${cs.counts.legacy} legacy months` : 'paid months missing an amount'},
+                {l:'Outstanding', v:fmt(cs.outstanding), c: cs.outstanding>0?T.red:T.green, sub:outSub},
+                {l:'Historic arrears', v:fmt(ar.balance), c: ar.balance>0?T.amber:T.muted, sub: ar.unmatched>0 ? `${fmt(ar.unmatched)} paid with no opening balance recorded` : ar.paid>0 ? `${fmt(ar.paid)} paid off` : (ar.opening ? 'opening balance' : 'none recorded')},
+                {l:'Needs backfill', v:cs.counts.needsBackfill, c: cs.counts.needsBackfill>0?T.amber:T.muted, sub: cs.needsInfo>0 ? `${fmt(cs.needsInfo)} more unverified` : cs.counts.legacy ? `${cs.counts.legacy} legacy months` : 'paid months missing an amount'},
               ]
             })().map((item,i)=>(
               <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>

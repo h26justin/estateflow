@@ -34,9 +34,12 @@ var STATE = {
   NOT_COLLECTIBLE: "not_collectible",
   STL: "stl",
   LEGACY: "legacy",
-  FUTURE: "future"
+  FUTURE: "future",
+  PENDING_REVIEW: "pending_review"
 };
-var COLLAPSE_PRIORITY = ["missed", "part_paid", "due", "paid", "stl", "not_collectible", "legacy", "future"];
+var XERO_NET_NOTE = /^xero rental income/i;
+var SUPERSEDABLE_OVERRIDES = ["paid", "part_paid", "due"];
+var COLLAPSE_PRIORITY = ["missed", "pending_review", "part_paid", "due", "paid", "stl", "not_collectible", "legacy", "future"];
 function isoToday(d = /* @__PURE__ */ new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -71,6 +74,7 @@ function addMonths(iso, n) {
   return `${ny}-${String(nm).padStart(2, "0")}-${String(clampDay(ny, nm, d)).padStart(2, "0")}`;
 }
 var maxIso = (...xs) => xs.filter(Boolean).sort().pop() || null;
+var minIso = (...xs) => xs.filter(Boolean).sort()[0] || null;
 var round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 function monthlyRent(t) {
   const r = Number(t?.rent_amount) || 0;
@@ -208,7 +212,10 @@ function evaluatePeriod(row, ctx) {
       base.received = null;
       base.needsBackfill = true;
     } else if (amt == null) base.received = null;
-    else base.received = amt;
+    else {
+      base.received = amt;
+      base.netOfFees = XERO_NET_NOTE.test(row.notes || "");
+    }
   } else {
     base.received = 0;
   }
@@ -224,10 +231,25 @@ function evaluatePeriod(row, ctx) {
   }
   const ov = (overrides || []).filter((o) => o.rent_payment_id === row.id).sort((a, b) => a.created_at < b.created_at ? 1 : -1)[0];
   const activeOverride = ov && ov.state !== "clear" ? ov : null;
+  const sup = ctx.superseded && ctx.superseded.get(row.id);
+  if (sup && (!activeOverride || SUPERSEDABLE_OVERRIDES.includes(activeOverride.state))) {
+    return {
+      ...base,
+      state: STATE.NOT_COLLECTIBLE,
+      needsBackfill: false,
+      superseded: sup,
+      supersededOverride: activeOverride,
+      reasons: [`Duplicate placeholder: these dates are charged on the rent period ${sup.start} to ${sup.end}`]
+    };
+  }
   let tenancy = tenancyForPeriod(tenancies, start, end);
   if (!tenancy && !(tenancies || []).length) {
     tenancy = fallbackTenancyFromProperty(property);
     if (tenancy) base.fallback = true;
+    if (tenancy && ctx.cycleDueDay && ctx.cycleDueDay !== tenancy.rent_due_day && !(base.received > 0)) {
+      tenancy = { ...tenancy, rent_due_day: ctx.cycleDueDay };
+      base.cycleDueDay = ctx.cycleDueDay;
+    }
   }
   base.tenancy = tenancy;
   if (!tenancy) {
@@ -249,7 +271,8 @@ function evaluatePeriod(row, ctx) {
   const [sy, sm] = start.split("-").map(Number);
   const mRent = monthlyRent(tenancy);
   const wholeMonth = start === monthBounds(sy, sm).start && end === monthBounds(sy, sm).end;
-  let expected = row.expected_amount != null ? Number(row.expected_amount) : wholeMonth && cDays === base.totalDays ? mRent : mRent * cDays / daysInMonth(sy, sm);
+  const oneCycle = !wholeMonth && end === addDays(addMonths(start, 1), -1);
+  let expected = row.expected_amount != null ? Number(row.expected_amount) : (wholeMonth || oneCycle) && cDays === base.totalDays ? mRent : oneCycle ? mRent * cDays / base.totalDays : mRent * cDays / daysInMonth(sy, sm);
   expected = round2(expected);
   if (activeOverride?.expected_amount != null) expected = round2(activeOverride.expected_amount);
   base.expected = expected;
@@ -259,6 +282,7 @@ function evaluatePeriod(row, ctx) {
     base.reasons.push(`${cDays} of ${base.totalDays} days collectible${lbl ? ` (${lbl} ${ncp.start_date} to ${ncp.end_date || "ongoing"})` : ""}`);
   }
   if (base.fallback) base.reasons.push("No tenancy record: using the property's rent and due day");
+  if (base.cycleDueDay) base.reasons.push(`Due day ${base.cycleDueDay} taken from the latest recorded rent period`);
   if (usesBenefit(tenancy.payment_source)) {
     const ratio = mRent ? expected / mRent : 1;
     if (tenancy.payment_source === "mixed") {
@@ -279,6 +303,10 @@ function evaluatePeriod(row, ctx) {
   const received = base.received == null ? 0 : base.received;
   base.outstanding = round2(Math.max(0, expected - received));
   base.excess = round2(Math.max(0, received - expected));
+  if (base.netOfFees && base.outstanding > 5e-3 && !hasAllocations) {
+    base.needsInfo = base.outstanding;
+    base.infoReason = "Amount is Xero rental income, booked net of agent fees: the gross receipt is needed";
+  }
   let state;
   if (base.needsBackfill) {
     state = STATE.PAID;
@@ -302,9 +330,66 @@ function evaluatePeriod(row, ctx) {
 }
 function finish(ev, override) {
   if (!override) return ev;
-  return { ...ev, state: override.state, override, reasons: [...ev.reasons, `Override: ${override.reason}`] };
+  const out = { ...ev, state: override.state, override, reasons: [...ev.reasons, `Override: ${override.reason}`] };
+  if (override.state === STATE.PENDING_REVIEW) {
+    out.reviewFrom = ev.state;
+    return out;
+  }
+  const confirmsPaid = override.state === STATE.PAID || override.state === STATE.PART_PAID;
+  if (confirmsPaid && ev.expected != null && !ev.needsBackfill) {
+    if (!(ev.received > 0)) {
+      out.needsBackfill = true;
+      out.reasons.push("Marked paid by override with no amount recorded: needs backfill");
+    } else if (override.state === STATE.PAID && ev.outstanding > 5e-3 && !ev.needsInfo) {
+      out.needsInfo = ev.outstanding;
+      out.infoReason = `Marked paid by override but only ${ev.received.toFixed(2)} of ${ev.expected.toFixed(2)} is recorded: confirm the rent and the receipt`;
+    }
+  }
+  return out;
+}
+function hasMoney(row, receipts) {
+  for (const r of receipts || []) for (const a of r.rent_allocations || []) {
+    if (a.rent_payment_id === row.id && a.target === "current_rent" && Number(a.amount) > 0) return true;
+  }
+  return ["paid", "partial", "late"].includes(row.status) && Number(row.amount) > 0;
+}
+function rowBounds(r) {
+  const b = monthBounds(r.year, r.month);
+  return { start: r.period_start || b.start, end: r.period_end || b.end, whole: (r.period_start || b.start) === b.start && (r.period_end || b.end) === b.end };
+}
+function findSupersededPlaceholders(rows, receipts) {
+  const out = /* @__PURE__ */ new Map();
+  const all = (rows || []).map((r) => ({ r, ...rowBounds(r), money: hasMoney(r, receipts) }));
+  const payers = all.filter((x) => x.money);
+  for (const x of all) {
+    if (!x.whole || x.money || x.start < GO_LIVE) continue;
+    const total = daysBetween(x.start, x.end);
+    let covered = 0, best = null, bestDays = 0;
+    for (let i = 0; i < total; i++) {
+      const d = addDays(x.start, i);
+      const hit = payers.find((o) => o.r.id !== x.r.id && o.start <= d && o.end >= d);
+      if (hit) covered++;
+    }
+    for (const o of payers) {
+      if (o.r.id === x.r.id) continue;
+      const s = maxIso(o.start, x.start), e = minIso(o.end, x.end);
+      const n = s <= e ? daysBetween(s, e) : 0;
+      if (n > bestDays) {
+        bestDays = n;
+        best = o;
+      }
+    }
+    if (best && covered * 2 >= total) out.set(x.r.id, { id: best.r.id, start: best.start, end: best.end });
+  }
+  return out;
+}
+function recordedCycleDueDay(rows, receipts) {
+  const cycles = (rows || []).map((r) => ({ r, ...rowBounds(r) })).filter((x) => !x.whole && x.start >= GO_LIVE && hasMoney(x.r, receipts) && daysBetween(x.start, x.end) >= 28).sort((a, b) => a.start < b.start ? 1 : -1);
+  return cycles.length ? Number(cycles[0].start.slice(8)) : null;
 }
 function evaluateProperty(property, opts = {}) {
+  const receipts0 = opts.receipts || property.rent_receipts || [];
+  const siblings = opts.siblings || property.rent_payments || [];
   const ctx = {
     property,
     tenancies: opts.tenancies || property.tenancies || [],
@@ -312,7 +397,9 @@ function evaluateProperty(property, opts = {}) {
     nonChargeable: opts.nonChargeable || property.non_chargeable_periods || [],
     overrides: opts.overrides || property.rent_overrides || [],
     stlIds: opts.stlIds || new Set((property.stl_bookings || []).map((b) => b.rent_payment_id).filter(Boolean)),
-    today: opts.today || isoToday()
+    today: opts.today || isoToday(),
+    superseded: findSupersededPlaceholders(siblings, receipts0),
+    cycleDueDay: recordedCycleDueDay(siblings, receipts0)
   };
   return (property.rent_payments || []).map((row) => evaluatePeriod(row, ctx));
 }
@@ -356,7 +443,7 @@ function arrearsSummary(property, opts = {}) {
   const receipts = opts.receipts || property.rent_receipts || [];
   const opening = round2(tenancies.filter((t) => t.status !== "ended").reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0));
   const paid = round2(receipts.flatMap((r) => r.rent_allocations || []).filter((a) => a.target === "historic_arrears").reduce((s, a) => s + Number(a.amount), 0));
-  return { opening, paid, balance: round2(opening - paid) };
+  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)) };
 }
 
 // src/lib/stlIncome.js

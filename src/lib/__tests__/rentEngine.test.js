@@ -249,11 +249,90 @@ describe('rate and arrears', () => {
     const evals = evaluateProperty(p, { today: '2026-06-15' })
     const s = collectionStats(evals, { asOf: '2026-06-15' })
     expect(s.due).toBe(1500); expect(s.received).toBe(1000); expect(s.outstanding).toBe(500); expect(s.rate).toBe(66.7)
-    expect(arrearsSummary(p)).toEqual({ opening: 208, paid: 50, balance: 158 })
+    expect(arrearsSummary(p)).toEqual({ opening: 208, paid: 50, balance: 158, unmatched: 0 })
   })
   it('groupByMonth surfaces problems first', () => {
     const p = prop({ rent_payments: [row('a', '2026-05-01', '2026-05-15', 'paid', 250), row('b', '2026-05-16', '2026-05-31', 'void')] })
     const months = groupByMonth(evaluateProperty(p, { today: '2026-06-15' }))
     expect(months).toHaveLength(1); expect(months[0].state).toBe(STATE.MISSED)
+  })
+})
+
+// Rent Tracker investigation, 13 Oct 2026: each case below is a pattern found
+// in the live records behind the GBP 92,738 outstanding figure.
+describe('investigation 13 Oct 2026', () => {
+  const ov = (id, state, reason, at = '2026-10-01T10:00:00') => ({ rent_payment_id: id, state, reason, created_at: at })
+
+  it('a money-less month placeholder covered by the agent cycle is a duplicate, not a second rent', () => {
+    const p = prop({ rent_due_day: '29th', rent_payments: [row('aug', '2026-08-27', '2026-09-26', 'paid', 500), month('sep', 2026, 9, 'void')] })
+    const evals = evaluateProperty(p, { today: '2026-10-13' })
+    const sep = evals.find(e => e.id === 'sep')
+    expect(sep.state).toBe(STATE.NOT_COLLECTIBLE); expect(sep.superseded.id).toBe('aug')
+    const s = collectionStats(evals, { asOf: '2026-10-13' })
+    expect(s.outstanding).toBe(0); expect(s.counts.duplicates).toBe(1); expect(s.counts.missed).toBe(0)
+  })
+  it('a placeholder only slightly overlapped stays chargeable', () => {
+    const p = prop({ rent_payments: [row('aug', '2026-08-02', '2026-09-01', 'paid', 500), month('sep', 2026, 9, 'void')] })
+    const sep = evaluateProperty(p, { today: '2026-10-13' }).find(e => e.id === 'sep')
+    expect(sep.superseded).toBeUndefined(); expect(sep.state).toBe(STATE.MISSED)
+  })
+  it('a paid-no-amount duplicate no longer needs backfill', () => {
+    const p = prop({ rent_payments: [month('jan', 2026, 1, 'paid', null), row('cyc', '2026-01-05', '2026-02-04', 'paid', 500)] })
+    const jan = evaluateProperty(p, { today: '2026-10-13' }).find(e => e.id === 'jan')
+    expect(jan.needsBackfill).toBe(false); expect(jan.superseded.id).toBe('cyc')
+  })
+  it('one full rent cycle across two months is exactly one month of rent', () => {
+    const e = evaluatePeriod(row('c', '2026-02-28', '2026-03-27', 'paid', 500), ctx({ today: '2026-10-13' }))
+    expect(e.expected).toBe(500); expect(e.outstanding).toBe(0)
+    const short = evaluatePeriod(row('j', '2026-01-30', '2026-02-27', 'paid', 500), ctx({ today: '2026-10-13' }))
+    expect(short.expected).toBe(500)
+  })
+  it('a paid override with no amount is needs-backfill, not arrears', () => {
+    const p = prop({ rent_payments: [month('m8', 2026, 8, 'void')], rent_overrides: [ov('m8', 'paid', 'Statement 96')] })
+    const evals = evaluateProperty(p, { today: '2026-10-13' })
+    expect(evals[0].state).toBe(STATE.PAID); expect(evals[0].needsBackfill).toBe(true)
+    const s = collectionStats(evals, { asOf: '2026-10-13' })
+    expect(s.outstanding).toBe(0); expect(s.due).toBe(0); expect(s.counts.needsBackfill).toBe(1)
+  })
+  it('a paid override with less recorded leaves the gap as unverified, not arrears', () => {
+    const p = prop({ rent_payments: [month('m8', 2026, 8, 'paid', 350)], rent_overrides: [ov('m8', 'paid', 'Rental statement 100')] })
+    const s = collectionStats(evaluateProperty(p, { today: '2026-10-13' }), { asOf: '2026-10-13' })
+    expect(s.outstanding).toBe(0); expect(s.needsInfo).toBe(150); expect(s.received).toBe(350)
+  })
+  it('a confirmed part payment stays a real shortfall', () => {
+    const p = prop({ rent_payments: [month('m8', 2026, 8, 'paid', 200)], rent_overrides: [ov('m8', 'part_paid', 'Part paid, 200')] })
+    const s = collectionStats(evaluateProperty(p, { today: '2026-10-13' }), { asOf: '2026-10-13' })
+    expect(s.overdue).toBe(300); expect(s.needsInfo).toBe(0)
+  })
+  it('Xero rental income amounts are net of fees: the shortfall needs the gross', () => {
+    const p = prop({ rent_pcm: 625, rent_payments: [{ ...month('m1', 2026, 1, 'paid', 572.5), notes: 'Xero rental income 2026-01' }] })
+    const s = collectionStats(evaluateProperty(p, { today: '2026-10-13' }), { asOf: '2026-10-13' })
+    expect(s.outstanding).toBe(0); expect(s.needsInfo).toBe(52.5)
+  })
+  it('the due day comes from the recorded cycle, so rent not yet due is never missed', () => {
+    const p = prop({ rent_due_day: '5th', rent_payments: [row('sep', '2026-09-09', '2026-10-08', 'paid', 500), month('oct', 2026, 10, 'void')] })
+    const oct = evaluateProperty(p, { today: '2026-10-13' }).find(e => e.id === 'oct')
+    expect(oct.dueDate).toBe('2026-10-09'); expect(oct.state).toBe(STATE.DUE)
+    const later = prop({ rent_due_day: '1st', rent_payments: [row('aug', '2026-08-20', '2026-09-19', 'paid', 500), month('oct', 2026, 10, 'void')] })
+    const s = collectionStats(evaluateProperty(later, { today: '2026-10-13' }), { asOf: '2026-10-13' })
+    expect(s.outstanding).toBe(0); expect(s.notYetDue).toBe(500); expect(s.counts.scheduled).toBe(1); expect(s.counts.missed).toBe(0)
+  })
+  it('pending review sets the amount aside, keeps it visible, and clearing it reinstates it', () => {
+    const base = prop({ rent_payments: [month('m9', 2026, 9, 'void')] })
+    const set = { ...base, rent_overrides: [ov('m9', 'pending_review', 'TS following up with PNE')] }
+    const s = collectionStats(evaluateProperty(set, { today: '2026-10-13' }), { asOf: '2026-10-13' })
+    expect(s.outstanding).toBe(0); expect(s.pendingReview).toBe(500); expect(s.combined).toBe(500); expect(s.counts.pending_review).toBe(1)
+    const back = { ...base, rent_overrides: [...set.rent_overrides, ov('m9', 'clear', 'Reinstated', '2026-10-20T10:00:00')] }
+    const s2 = collectionStats(evaluateProperty(back, { today: '2026-10-13' }), { asOf: '2026-10-13' })
+    expect(s2.overdue).toBe(500); expect(s2.pendingReview).toBe(0)
+  })
+  it('due-today and in-window rent are outstanding but not overdue', () => {
+    const p = prop({ rent_due_day: '13th', rent_payments: [month('m10', 2026, 10, 'void')] })
+    const s = collectionStats(evaluateProperty(p, { today: '2026-10-13' }), { asOf: '2026-10-13' })
+    expect(s.dueToday).toBe(500); expect(s.overdue).toBe(0); expect(s.outstanding).toBe(500)
+  })
+  it('arrears paid with no opening balance never go negative', () => {
+    const p = prop({ rent_receipts: [receipt('r', '2026-10-05', 50, [{ period: null, target: 'historic_arrears', amount: 50 }])] })
+    expect(arrearsSummary(p)).toEqual({ opening: 0, paid: 50, balance: 0, unmatched: 50 })
   })
 })

@@ -22,6 +22,7 @@ export const REPORT_CATALOGUE = [
   { id:'occupancy',     cat:'performance',icon:'home', name:'Occupancy rate',               desc:'Portfolio occupancy %, vacant days, void cost by property' },
   { id:'rent_collect',  cat:'performance',icon:'pound', name:'Rent collection rate',         desc:'Current rent received against collectible rent due, with outstanding and historic arrears by property' },
   { id:'agent_weekly',  cat:'performance',icon:'users', name:'Agent weekly report',          desc:'For a letting agent: every property they manage, let or not let, rent owed and the month-by-month rent tracker, as a PDF to send them' },
+  { id:'rent_outstanding', cat:'performance',icon:'pound', name:'Rent outstanding breakdown', desc:'Every rent period since 1 Jan 2026: overdue, in its payment window, not yet due, pending review or needing information, with the reason' },
   { id:'rent_backfill', cat:'performance',icon:'alert-triangle', name:'Rent needing backfill',       desc:'Months marked paid without an amount since 1 Jan 2026, to work through' },
   { id:'cashflow',      cat:'finance',    icon:'wallet', name:'Monthly cash flow',            desc:'Real monthly rent in, all costs out, net cash month-by-month' },
   { id:'equity',        cat:'finance',    icon:'building', name:'Equity report',                desc:'Property values, debt, equity, LTV and unrealised gain per property' },

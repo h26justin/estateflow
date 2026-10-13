@@ -12,6 +12,9 @@
 //   stl             short-term-let property: reported in Short-Term Let Income, not here
 //   legacy          period before the go-live date: old binary logic applies
 //   future          period has not started
+//   pending_review  set aside by an override for the owner to decide: the
+//                   unpaid amount is kept and reported, but outside the live
+//                   outstanding total (a reporting exclusion, never a write-off)
 //
 // Decisions fixed on 2 Sep 2026: go-live 1 Jan 2026; pre-go-live months stay on
 // the old logic and are labelled Legacy Data; a paid month with no amount stays
@@ -30,13 +33,20 @@ export const GO_LIVE = '2026-01-01'
 export const STATE = {
   PAID: 'paid', DUE: 'due', PART_PAID: 'part_paid', MISSED: 'missed',
   NOT_COLLECTIBLE: 'not_collectible', STL: 'stl', LEGACY: 'legacy', FUTURE: 'future',
+  PENDING_REVIEW: 'pending_review',
 }
 export const STATE_LABEL = {
   paid: 'Paid', due: 'Due', part_paid: 'Part paid', missed: 'Missed',
   not_collectible: 'Not collectible', stl: 'Short-term let', legacy: 'Legacy', future: 'Future',
+  pending_review: 'Pending review',
 }
 // Problems first, then attention, then good news, then the quiet states.
-const COLLAPSE_PRIORITY = ['missed', 'part_paid', 'due', 'paid', 'stl', 'not_collectible', 'legacy', 'future']
+// Legacy rows whose amount came from the Vale Xero import (net of fees).
+const XERO_NET_NOTE = /^xero rental income/i
+// Overrides that confirm or chase a period rather than charge it: a duplicate
+// placeholder carrying one of these is still a duplicate.
+const SUPERSEDABLE_OVERRIDES = ['paid', 'part_paid', 'due']
+const COLLAPSE_PRIORITY = ['missed', 'pending_review', 'part_paid', 'due', 'paid', 'stl', 'not_collectible', 'legacy', 'future']
 
 // ── Date helpers (ISO yyyy-mm-dd, UTC arithmetic, no DST surprises) ─────────
 export function isoToday(d = new Date()) {
@@ -194,7 +204,13 @@ export function evaluatePeriod(row, ctx) {
     const amt = row.amount == null ? null : round2(row.amount)
     if (row.status === 'paid' && (amt == null || amt === 0)) { base.received = null; base.needsBackfill = true }
     else if (amt == null) base.received = null
-    else base.received = amt
+    else {
+      base.received = amt
+      // The Vale history was loaded from Xero rental income, which the agent
+      // rules book NET of commission (8.4% = 7% + VAT on most lets), so a
+      // short month there is a fee, not arrears, until the gross is known.
+      base.netOfFees = XERO_NET_NOTE.test(row.notes || '')
+    }
   } else {
     base.received = 0
   }
@@ -216,6 +232,17 @@ export function evaluatePeriod(row, ctx) {
   const ov = (overrides || []).filter(o => o.rent_payment_id === row.id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0]
   const activeOverride = ov && ov.state !== 'clear' ? ov : null
 
+  // A calendar-month placeholder with no money on it, whose dates are mostly
+  // charged on another recorded rent period (the agent's cycle, e.g. 27 Aug
+  // to 26 Sep), is a duplicate of that period, not a second month of rent.
+  const sup = ctx.superseded && ctx.superseded.get(row.id)
+  if (sup && (!activeOverride || SUPERSEDABLE_OVERRIDES.includes(activeOverride.state))) {
+    return {
+      ...base, state: STATE.NOT_COLLECTIBLE, needsBackfill: false, superseded: sup, supersededOverride: activeOverride,
+      reasons: [`Duplicate placeholder: these dates are charged on the rent period ${sup.start} to ${sup.end}`],
+    }
+  }
+
   let tenancy = tenancyForPeriod(tenancies, start, end)
   // Fall back to the property's own fields ONLY when nothing has been
   // recorded yet. Once the property has tenancy records, a gap between them
@@ -223,6 +250,14 @@ export function evaluatePeriod(row, ctx) {
   if (!tenancy && !(tenancies || []).length) {
     tenancy = fallbackTenancyFromProperty(property)
     if (tenancy) base.fallback = true
+    // The recorded rent periods say when this tenant's month actually turns
+    // over; trust them over the property's due-day field for rent still to
+    // come in. A period that already carries money keeps its own date, so a
+    // receipt is never pushed into the future.
+    if (tenancy && ctx.cycleDueDay && ctx.cycleDueDay !== tenancy.rent_due_day && !(base.received > 0)) {
+      tenancy = { ...tenancy, rent_due_day: ctx.cycleDueDay }
+      base.cycleDueDay = ctx.cycleDueDay
+    }
   }
   base.tenancy = tenancy
 
@@ -254,8 +289,14 @@ export function evaluatePeriod(row, ctx) {
   const [sy, sm] = start.split('-').map(Number)
   const mRent = monthlyRent(tenancy)
   const wholeMonth = start === monthBounds(sy, sm).start && end === monthBounds(sy, sm).end
+  // One rent cycle (28 Feb to 27 Mar, 30 Jan to 27 Feb) is one month's rent,
+  // whatever the calendar months it straddles; part cycles prorate by the
+  // cycle's own length.
+  const oneCycle = !wholeMonth && end === addDays(addMonths(start, 1), -1)
   let expected = row.expected_amount != null ? Number(row.expected_amount)
-    : (wholeMonth && cDays === base.totalDays) ? mRent : mRent * cDays / daysInMonth(sy, sm)
+    : ((wholeMonth || oneCycle) && cDays === base.totalDays) ? mRent
+    : oneCycle ? mRent * cDays / base.totalDays
+    : mRent * cDays / daysInMonth(sy, sm)
   expected = round2(expected)
   if (activeOverride?.expected_amount != null) expected = round2(activeOverride.expected_amount)
   base.expected = expected
@@ -265,6 +306,7 @@ export function evaluatePeriod(row, ctx) {
     base.reasons.push(`${cDays} of ${base.totalDays} days collectible${lbl ? ` (${lbl} ${ncp.start_date} to ${ncp.end_date || 'ongoing'})` : ''}`)
   }
   if (base.fallback) base.reasons.push('No tenancy record: using the property\'s rent and due day')
+  if (base.cycleDueDay) base.reasons.push(`Due day ${base.cycleDueDay} taken from the latest recorded rent period`)
 
   // Shares for mixed funding.
   if (usesBenefit(tenancy.payment_source)) {
@@ -284,6 +326,10 @@ export function evaluatePeriod(row, ctx) {
   const received = base.received == null ? 0 : base.received
   base.outstanding = round2(Math.max(0, expected - received))
   base.excess = round2(Math.max(0, received - expected))
+  if (base.netOfFees && base.outstanding > 0.005 && !hasAllocations) {
+    base.needsInfo = base.outstanding
+    base.infoReason = 'Amount is Xero rental income, booked net of agent fees: the gross receipt is needed'
+  }
 
   let state
   if (base.needsBackfill) { state = STATE.PAID; base.reasons.push('Marked paid with no amount: needs backfill') }
@@ -308,12 +354,86 @@ export function evaluatePeriod(row, ctx) {
 
 function finish(ev, override) {
   if (!override) return ev
-  return { ...ev, state: override.state, override, reasons: [...ev.reasons, `Override: ${override.reason}`] }
+  const out = { ...ev, state: override.state, override, reasons: [...ev.reasons, `Override: ${override.reason}`] }
+  if (override.state === STATE.PENDING_REVIEW) {
+    // Keep the money exactly as evaluated; only the classification moves.
+    out.reviewFrom = ev.state
+    return out
+  }
+  // An override can say a period was paid, but it is not a receipt: the
+  // money still has to be recorded before it counts as collected, and the
+  // gap must not be reported as arrears either (decision 2, 2 Sep 2026).
+  const confirmsPaid = override.state === STATE.PAID || override.state === STATE.PART_PAID
+  if (confirmsPaid && ev.expected != null && !ev.needsBackfill) {
+    if (!(ev.received > 0)) {
+      out.needsBackfill = true
+      out.reasons.push('Marked paid by override with no amount recorded: needs backfill')
+    } else if (override.state === STATE.PAID && ev.outstanding > 0.005 && !ev.needsInfo) {
+      out.needsInfo = ev.outstanding
+      out.infoReason = `Marked paid by override but only ${ev.received.toFixed(2)} of ${ev.expected.toFixed(2)} is recorded: confirm the rent and the receipt`
+    }
+  }
+  return out
+}
+
+// Money recorded on a period: receipts allocated to it, or the legacy amount.
+function hasMoney(row, receipts) {
+  for (const r of receipts || []) for (const a of (r.rent_allocations || [])) {
+    if (a.rent_payment_id === row.id && a.target === 'current_rent' && Number(a.amount) > 0) return true
+  }
+  return ['paid', 'partial', 'late'].includes(row.status) && Number(row.amount) > 0
+}
+function rowBounds(r) {
+  const b = monthBounds(r.year, r.month)
+  return { start: r.period_start || b.start, end: r.period_end || b.end, whole: (r.period_start || b.start) === b.start && (r.period_end || b.end) === b.end }
+}
+
+// Duplicate placeholders: a whole calendar month with no money on it whose
+// days are at least half covered by other periods that do carry money. The
+// statement importer records the agent's cycle (27 Aug to 26 Sep) next to the
+// month rows that were pre-created, so the same rent was charged twice.
+// Returns Map(rowId -> { id, start, end }) naming the covering period.
+export function findSupersededPlaceholders(rows, receipts) {
+  const out = new Map()
+  const all = (rows || []).map(r => ({ r, ...rowBounds(r), money: hasMoney(r, receipts) }))
+  const payers = all.filter(x => x.money)
+  for (const x of all) {
+    if (!x.whole || x.money || x.start < GO_LIVE) continue
+    const total = daysBetween(x.start, x.end)
+    let covered = 0, best = null, bestDays = 0
+    for (let i = 0; i < total; i++) {
+      const d = addDays(x.start, i)
+      const hit = payers.find(o => o.r.id !== x.r.id && o.start <= d && o.end >= d)
+      if (hit) covered++
+    }
+    for (const o of payers) {
+      if (o.r.id === x.r.id) continue
+      const s = maxIso(o.start, x.start), e = minIso(o.end, x.end)
+      const n = s <= e ? daysBetween(s, e) : 0
+      if (n > bestDays) { bestDays = n; best = o }
+    }
+    if (best && covered * 2 >= total) out.set(x.r.id, { id: best.r.id, start: best.start, end: best.end })
+  }
+  return out
+}
+
+// The day the tenant's rent month turns over, read from the latest full-cycle
+// period that carries money (a cycle that is not a calendar month). Null when
+// the property is tracked by calendar month.
+export function recordedCycleDueDay(rows, receipts) {
+  const cycles = (rows || []).map(r => ({ r, ...rowBounds(r) }))
+    .filter(x => !x.whole && x.start >= GO_LIVE && hasMoney(x.r, receipts) && daysBetween(x.start, x.end) >= 28)
+    .sort((a, b) => (a.start < b.start ? 1 : -1))
+  return cycles.length ? Number(cycles[0].start.slice(8)) : null
 }
 
 // Evaluate every period of a property. `ctx` may omit tenancies/receipts/etc.,
-// in which case the property's joined arrays are used.
+// in which case the property's joined arrays are used. `opts.siblings` is the
+// property's full set of periods when only some of them are being evaluated
+// (duplicates are judged against all of them).
 export function evaluateProperty(property, opts = {}) {
+  const receipts0 = opts.receipts || property.rent_receipts || []
+  const siblings = opts.siblings || property.rent_payments || []
   const ctx = {
     property,
     tenancies: opts.tenancies || property.tenancies || [],
@@ -322,6 +442,8 @@ export function evaluateProperty(property, opts = {}) {
     overrides: opts.overrides || property.rent_overrides || [],
     stlIds: opts.stlIds || new Set((property.stl_bookings || []).map(b => b.rent_payment_id).filter(Boolean)),
     today: opts.today || isoToday(),
+    superseded: findSupersededPlaceholders(siblings, receipts0),
+    cycleDueDay: recordedCycleDueDay(siblings, receipts0),
   }
   return (property.rent_payments || []).map(row => evaluatePeriod(row, ctx))
 }
@@ -350,8 +472,12 @@ export function groupByMonth(evals) {
 // ── Collection rate ─────────────────────────────────────────────────────────
 // Value-based: current rent received ÷ collectible current rent due to date.
 //   • only periods whose due date has been reached by `asOf`
-//   • only collectible periods (not grey, not STL, not legacy, not future)
+//   • only collectible periods (not grey, not STL, not legacy, not future,
+//     not pending review)
 //   • paid-with-no-amount periods excluded (Needs Backfill)
+//   • a shortfall we cannot verify (Xero net-of-fee amounts, a paid override
+//     with less recorded) is excluded from both sides and reported as
+//     needing information, never as arrears
 //   • partial payments count up to the collectible amount; excess reported separately
 //   • historic arrears never enter this figure
 //
@@ -364,38 +490,82 @@ export function rateContribution(e) {
   if (!RATED_STATES.includes(e.state)) return null
   if (e.expected == null) return null
   const rec = e.received == null ? 0 : e.received
-  return { due: e.expected, received: round2(Math.min(rec, e.expected)), excess: round2(Math.max(0, rec - e.expected)) }
+  const info = round2(Number(e.needsInfo) || 0)
+  return { due: round2(e.expected - info), received: round2(Math.min(rec, e.expected)), excess: round2(Math.max(0, rec - e.expected)), needsInfo: info }
+}
+
+// Where an unpaid amount sits on `asOf`. Only 'overdue' is arrears.
+export function outstandingBucket(e, asOf) {
+  if (e.dueDate && e.dueDate > asOf) return 'notYetDue'
+  if (e.dueDate === asOf) return 'dueToday'
+  const lastWindow = maxIso(e.windowEnd, e.benefitDue)
+  if (lastWindow ? asOf > lastWindow : e.state === STATE.MISSED) return 'overdue'
+  return 'inWindow'
 }
 
 export function collectionStats(evals, { from = null, to = null, asOf = isoToday() } = {}) {
   const out = { due: 0, received: 0, outstanding: 0, excess: 0, rate: null, periods: 0,
-    counts: { paid: 0, due: 0, part_paid: 0, missed: 0, not_collectible: 0, stl: 0, legacy: 0, future: 0, needsBackfill: 0 } }
+    overdue: 0, dueToday: 0, inWindow: 0, notYetDue: 0, pendingReview: 0, needsInfo: 0, combined: 0,
+    counts: { paid: 0, due: 0, part_paid: 0, missed: 0, not_collectible: 0, stl: 0, legacy: 0, future: 0, pending_review: 0, scheduled: 0, needsBackfill: 0, needsInfo: 0, duplicates: 0 } }
   for (const e of evals) {
     if (from && e.periodStart < from) continue
     if (to && e.periodStart > to) continue
-    out.counts[e.state] = (out.counts[e.state] || 0) + 1
+    if (e.superseded) out.counts.duplicates++
+    // Status counts describe rent that has fallen due: a period whose due date
+    // is still ahead is scheduled, never "due" or "missed".
+    const notDueYet = e.dueDate && e.dueDate > asOf && RATED_STATES.includes(e.state)
+    if (notDueYet) out.counts.scheduled++
+    else out.counts[e.state] = (out.counts[e.state] || 0) + 1
+    if (e.state === STATE.PENDING_REVIEW) { out.pendingReview = round2(out.pendingReview + (Number(e.outstanding) || 0)); continue }
     if (e.needsBackfill) { out.counts.needsBackfill++; continue }
     const c = rateContribution(e)
     if (!c) continue
-    if (e.dueDate && e.dueDate > asOf) continue
+    const owed = round2(Math.max(0, c.due - c.received))
+    if (notDueYet || (e.dueDate && e.dueDate > asOf)) { out.notYetDue = round2(out.notYetDue + owed); continue }
+    if (c.needsInfo > 0) { out.counts.needsInfo++; out.needsInfo = round2(out.needsInfo + c.needsInfo) }
     out.periods++
     out.due = round2(out.due + c.due)
     out.received = round2(out.received + c.received)
     out.excess = round2(out.excess + c.excess)
+    if (owed > 0) { const b = outstandingBucket(e, asOf); out[b] = round2(out[b] + owed) }
   }
   out.outstanding = round2(Math.max(0, out.due - out.received))
+  out.combined = round2(out.outstanding + out.pendingReview)
   out.rate = out.due > 0 ? Math.round((out.received / out.due) * 1000) / 10 : null
   return out
 }
 
+// One line per rent period for the outstanding breakdown report: where each
+// period's unpaid amount sits on `asOf`, and why. Same rules as
+// collectionStats(), so the report always adds back to the tiles.
+export const BUCKET_LABEL = {
+  overdue: 'Overdue', dueToday: 'Due today', inWindow: 'In payment window', notYetDue: 'Not yet due',
+  pendingReview: 'Pending review', needsInfo: 'Needs information', needsBackfill: 'Paid, amount missing',
+  duplicate: 'Duplicate placeholder', notCollectible: 'Not collectible', paid: 'Paid',
+}
+export function periodBreakdown(e, asOf = isoToday()) {
+  const owed = e.state === STATE.PENDING_REVIEW ? Number(e.outstanding) || 0 : 0
+  if (e.superseded) return { bucket: 'duplicate', owed: 0, needsInfo: 0 }
+  if (e.state === STATE.PENDING_REVIEW) return { bucket: 'pendingReview', owed, needsInfo: 0 }
+  if (e.needsBackfill) return { bucket: 'needsBackfill', owed: 0, needsInfo: 0 }
+  const c = rateContribution(e)
+  if (!c) return { bucket: 'notCollectible', owed: 0, needsInfo: 0 }
+  const o = round2(Math.max(0, c.due - c.received))
+  if (o > 0) return { bucket: outstandingBucket(e, asOf), owed: o, needsInfo: c.needsInfo }
+  return { bucket: c.needsInfo > 0 ? 'needsInfo' : 'paid', owed: 0, needsInfo: c.needsInfo }
+}
+
 // Historic arrears position for a property: opening balances on tenancies
 // minus receipts allocated to historic arrears (reversals are negative).
+// Never negative: a payment towards arrears with no opening balance recorded
+// (or more than was recorded) is reported as `unmatched`, so it can never
+// offset another tenant's arrears in a portfolio total.
 export function arrearsSummary(property, opts = {}) {
   const tenancies = opts.tenancies || property.tenancies || []
   const receipts = opts.receipts || property.rent_receipts || []
   const opening = round2(tenancies.filter(t => t.status !== 'ended').reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0))
   const paid = round2(receipts.flatMap(r => r.rent_allocations || []).filter(a => a.target === 'historic_arrears').reduce((s, a) => s + Number(a.amount), 0))
-  return { opening, paid, balance: round2(opening - paid) }
+  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)) }
 }
 
 // Portfolio-level figures for a set of properties.
@@ -405,14 +575,14 @@ export function portfolioStats(properties, { year = null, asOf = isoToday(), tod
   const ytdFrom = `${year || ay}-01-01`
   const ytdTo = year && year < ay ? `${year}-12-31` : asOf
   const all = []
-  const arrears = { opening: 0, paid: 0, balance: 0 }
+  const arrears = { opening: 0, paid: 0, balance: 0, unmatched: 0 }
   let legacyAgg = null
   for (const p of properties) {
     if (p.status === 'short_term_let') continue
     const evals = evaluateProperty(p, { today })
     for (const e of evals) all.push(e)
     const a = arrearsSummary(p)
-    arrears.opening = round2(arrears.opening + a.opening); arrears.paid = round2(arrears.paid + a.paid); arrears.balance = round2(arrears.balance + a.balance)
+    arrears.opening = round2(arrears.opening + a.opening); arrears.paid = round2(arrears.paid + a.paid); arrears.balance = round2(arrears.balance + a.balance); arrears.unmatched = round2(arrears.unmatched + a.unmatched)
   }
   const scoped = year ? all.filter(e => e.year === year) : all
   return {
@@ -420,7 +590,8 @@ export function portfolioStats(properties, { year = null, asOf = isoToday(), tod
     ytd: collectionStats(scoped, { from: ytdFrom, to: ytdTo, asOf }),
     all: collectionStats(scoped, { asOf }),
     arrears,
-    needsBackfill: scoped.filter(e => e.needsBackfill),
+    needsBackfill: scoped.filter(e => e.needsBackfill && e.periodStart <= ytdTo),
+    duplicates: scoped.filter(e => e.superseded && e.periodStart <= ytdTo),
     legacyCount: scoped.filter(e => e.state === STATE.LEGACY).length,
     legacyAgg,
   }
