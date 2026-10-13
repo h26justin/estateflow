@@ -5016,7 +5016,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           { label: 'Collectible rent due', value: fmt(ps.ytd.due), accent: T.text, sub: `due to date · ${fmt(ps.ytd.notYetDue)} scheduled, not yet due · ${ps.ytd.counts.not_collectible} not collectible${ps.ytd.counts.duplicates ? ` (${ps.ytd.counts.duplicates} duplicate placeholders)` : ''}` },
           { label: 'Current rent received', value: fmt(ps.ytd.received), accent: T.green, sub: `${ps.ytd.excess > 0 ? `+${fmt(ps.ytd.excess)} over the rent on single periods (not netted off) · ` : ''}${ps.needsBackfill.length} paid with no amount · ${fmt(ps.ytd.needsInfo)} unverified (needs information)` },
           { label: 'Current rent outstanding', value: fmt(ps.ytd.outstanding), accent: ps.ytd.outstanding > 0 ? T.red : T.green,
-            sub: `${fmt(ps.ytd.overdue)} overdue (${ps.ytd.counts.missed} missed) · ${fmt(ps.ytd.inWindow + ps.ytd.dueToday)} in payment window · pending review ${fmt(ps.ytd.pendingReview)} · combined ${fmt(ps.ytd.combined)} · historic arrears ${fmt(ps.arrears.balance)}${ps.arrears.unmatched ? ` (+${fmt(ps.arrears.unmatched)} paid with no opening balance)` : ''}` },
+            sub: `${fmt(ps.ytd.overdue)} overdue (${ps.ytd.counts.missed} missed) · ${fmt(ps.ytd.inWindow + ps.ytd.dueToday)} in payment window · pending review ${fmt(ps.ytd.pendingReview)} · combined ${fmt(ps.ytd.combined)} · historic arrears ${fmt(ps.arrears.balance)}${ps.arrears.unmatched ? ` (+${fmt(ps.arrears.unmatched)} paid with no opening balance)` : ''}${ps.arrears.overlap ? ` · ${fmt(ps.arrears.overlap)} arrears dated after 1 Jan 2026 not added (already in rent above)` : ''}` },
         ]
         return (
           <div className="summary-cards" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:isMobile?14:20}}>
@@ -5423,7 +5423,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
                 {l:'Collectible due', v:fmt(cs.due), c:T.text, sub:`${cs.counts.not_collectible} not collectible`},
                 {l:'Received', v:fmt(cs.received), c:T.green, sub: cs.excess>0 ? `+${fmt(cs.excess)} overpaid` : `${cs.counts.paid} paid`},
                 {l:'Outstanding', v:fmt(cs.outstanding), c: cs.outstanding>0?T.red:T.green, sub:outSub},
-                {l:'Historic arrears', v:fmt(ar.balance), c: ar.balance>0?T.amber:T.muted, sub: ar.unmatched>0 ? `${fmt(ar.unmatched)} paid with no opening balance recorded` : ar.paid>0 ? `${fmt(ar.paid)} paid off` : (ar.opening ? 'opening balance' : 'none recorded')},
+                {l:'Historic arrears', v:fmt(ar.balance), c: ar.balance>0?T.amber:T.muted, sub: ar.overlap>0 ? `${fmt(ar.overlap)} dated after 1 Jan 2026, already in the rent periods` : ar.unmatched>0 ? `${fmt(ar.unmatched)} paid with no opening balance recorded` : ar.paid>0 ? `${fmt(ar.paid)} paid off` : (ar.opening ? 'opening balance' : 'none recorded')},
                 {l:'Needs backfill', v:cs.counts.needsBackfill, c: cs.counts.needsBackfill>0?T.amber:T.muted, sub: cs.needsInfo>0 ? `${fmt(cs.needsInfo)} more unverified` : cs.counts.legacy ? `${cs.counts.legacy} legacy months` : 'paid months missing an amount'},
               ]
             })().map((item,i)=>(

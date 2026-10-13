@@ -250,16 +250,27 @@ export function evaluatePeriod(row, ctx) {
   if (!tenancy && !(tenancies || []).length) {
     tenancy = fallbackTenancyFromProperty(property)
     if (tenancy) base.fallback = true
-    // The recorded rent periods say when this tenant's month actually turns
-    // over; trust them over the property's due-day field for rent still to
-    // come in. A period that already carries money keeps its own date, so a
-    // receipt is never pushed into the future.
-    if (tenancy && ctx.cycleDueDay && ctx.cycleDueDay !== tenancy.rent_due_day && !(base.received > 0)) {
-      tenancy = { ...tenancy, rent_due_day: ctx.cycleDueDay }
-      base.cycleDueDay = ctx.cycleDueDay
-    }
+  }
+  // The recorded rent periods say when this tenant's month actually turns
+  // over; trust them over the property's due-day field (or a tenancy seeded
+  // from it and not yet confirmed) for rent still to come in. A period that
+  // already carries money keeps its own date, so a receipt is never pushed
+  // into the future.
+  const unconfirmed = tenancy && (base.fallback || tenancy.needs_confirmation)
+  if (unconfirmed && ctx.cycleDueDay && ctx.cycleDueDay !== Number(tenancy.rent_due_day) && !(base.received > 0)) {
+    tenancy = { ...tenancy, rent_due_day: ctx.cycleDueDay }
+    base.cycleDueDay = ctx.cycleDueDay
   }
   base.tenancy = tenancy
+
+  // A tenancy with no rent on it cannot be charged: say so rather than
+  // showing GBP 0 rent as paid.
+  if (tenancy && !(monthlyRent(tenancy) > 0) && row.expected_amount == null && activeOverride?.expected_amount == null) {
+    if (base.received && base.received > 0 && !activeOverride) {
+      return { ...base, state: STATE.PAID, expected: base.received, reasons: ['No rent amount on the tenancy; amount recorded is treated as the expectation'] }
+    }
+    return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: ['No rent amount on the tenancy'] }, activeOverride)
+  }
 
   if (!tenancy) {
     const recorded = (tenancies || []).filter(t => t.tenancy_start)
@@ -289,10 +300,11 @@ export function evaluatePeriod(row, ctx) {
   const [sy, sm] = start.split('-').map(Number)
   const mRent = monthlyRent(tenancy)
   const wholeMonth = start === monthBounds(sy, sm).start && end === monthBounds(sy, sm).end
-  // One rent cycle (28 Feb to 27 Mar, 30 Jan to 27 Feb) is one month's rent,
-  // whatever the calendar months it straddles; part cycles prorate by the
-  // cycle's own length.
-  const oneCycle = !wholeMonth && end === addDays(addMonths(start, 1), -1)
+  // One rent cycle (28 Feb to 27 Mar, 30 Jan to 27 Feb, or the agent's
+  // 28 Feb to 29 Mar) is one month's rent, whatever the calendar months it
+  // straddles; part cycles prorate by the cycle's own length. A period that
+  // starts on the 1st but is not the whole month is a part month instead.
+  const oneCycle = !wholeMonth && start.slice(8) !== '01' && base.totalDays >= 28 && base.totalDays <= 31
   let expected = row.expected_amount != null ? Number(row.expected_amount)
     : ((wholeMonth || oneCycle) && cDays === base.totalDays) ? mRent
     : oneCycle ? mRent * cDays / base.totalDays
@@ -560,12 +572,19 @@ export function periodBreakdown(e, asOf = isoToday()) {
 // Never negative: a payment towards arrears with no opening balance recorded
 // (or more than was recorded) is reported as `unmatched`, so it can never
 // offset another tenant's arrears in a portfolio total.
+// Historic means owed before the tracker starts charging (go-live). An
+// opening balance dated after go-live is a snapshot of arrears the tracker
+// already charges period by period, so adding it would count the same rent
+// twice: it is reported as `overlap` and left out of the balance.
 export function arrearsSummary(property, opts = {}) {
   const tenancies = opts.tenancies || property.tenancies || []
   const receipts = opts.receipts || property.rent_receipts || []
-  const opening = round2(tenancies.filter(t => t.status !== 'ended').reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0))
+  const live = tenancies.filter(t => t.status !== 'ended')
+  const isOverlap = t => !!t.opening_arrears_date && t.opening_arrears_date > GO_LIVE
+  const overlap = round2(live.filter(isOverlap).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0))
+  const opening = round2(live.filter(t => !isOverlap(t)).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0))
   const paid = round2(receipts.flatMap(r => r.rent_allocations || []).filter(a => a.target === 'historic_arrears').reduce((s, a) => s + Number(a.amount), 0))
-  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)) }
+  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)), overlap }
 }
 
 // Portfolio-level figures for a set of properties.
@@ -575,14 +594,14 @@ export function portfolioStats(properties, { year = null, asOf = isoToday(), tod
   const ytdFrom = `${year || ay}-01-01`
   const ytdTo = year && year < ay ? `${year}-12-31` : asOf
   const all = []
-  const arrears = { opening: 0, paid: 0, balance: 0, unmatched: 0 }
+  const arrears = { opening: 0, paid: 0, balance: 0, unmatched: 0, overlap: 0 }
   let legacyAgg = null
   for (const p of properties) {
     if (p.status === 'short_term_let') continue
     const evals = evaluateProperty(p, { today })
     for (const e of evals) all.push(e)
     const a = arrearsSummary(p)
-    arrears.opening = round2(arrears.opening + a.opening); arrears.paid = round2(arrears.paid + a.paid); arrears.balance = round2(arrears.balance + a.balance); arrears.unmatched = round2(arrears.unmatched + a.unmatched)
+    arrears.opening = round2(arrears.opening + a.opening); arrears.paid = round2(arrears.paid + a.paid); arrears.balance = round2(arrears.balance + a.balance); arrears.unmatched = round2(arrears.unmatched + a.unmatched); arrears.overlap = round2(arrears.overlap + a.overlap)
   }
   const scoped = year ? all.filter(e => e.year === year) : all
   return {

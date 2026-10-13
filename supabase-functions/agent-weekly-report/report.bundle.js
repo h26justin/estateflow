@@ -246,12 +246,19 @@ function evaluatePeriod(row, ctx) {
   if (!tenancy && !(tenancies || []).length) {
     tenancy = fallbackTenancyFromProperty(property);
     if (tenancy) base.fallback = true;
-    if (tenancy && ctx.cycleDueDay && ctx.cycleDueDay !== tenancy.rent_due_day && !(base.received > 0)) {
-      tenancy = { ...tenancy, rent_due_day: ctx.cycleDueDay };
-      base.cycleDueDay = ctx.cycleDueDay;
-    }
+  }
+  const unconfirmed = tenancy && (base.fallback || tenancy.needs_confirmation);
+  if (unconfirmed && ctx.cycleDueDay && ctx.cycleDueDay !== Number(tenancy.rent_due_day) && !(base.received > 0)) {
+    tenancy = { ...tenancy, rent_due_day: ctx.cycleDueDay };
+    base.cycleDueDay = ctx.cycleDueDay;
   }
   base.tenancy = tenancy;
+  if (tenancy && !(monthlyRent(tenancy) > 0) && row.expected_amount == null && activeOverride?.expected_amount == null) {
+    if (base.received && base.received > 0 && !activeOverride) {
+      return { ...base, state: STATE.PAID, expected: base.received, reasons: ["No rent amount on the tenancy; amount recorded is treated as the expectation"] };
+    }
+    return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: ["No rent amount on the tenancy"] }, activeOverride);
+  }
   if (!tenancy) {
     const recorded = (tenancies || []).filter((t) => t.tenancy_start);
     const allEndedBefore = recorded.length && recorded.every((t) => t.tenancy_end && t.tenancy_end < start);
@@ -271,7 +278,7 @@ function evaluatePeriod(row, ctx) {
   const [sy, sm] = start.split("-").map(Number);
   const mRent = monthlyRent(tenancy);
   const wholeMonth = start === monthBounds(sy, sm).start && end === monthBounds(sy, sm).end;
-  const oneCycle = !wholeMonth && end === addDays(addMonths(start, 1), -1);
+  const oneCycle = !wholeMonth && start.slice(8) !== "01" && base.totalDays >= 28 && base.totalDays <= 31;
   let expected = row.expected_amount != null ? Number(row.expected_amount) : (wholeMonth || oneCycle) && cDays === base.totalDays ? mRent : oneCycle ? mRent * cDays / base.totalDays : mRent * cDays / daysInMonth(sy, sm);
   expected = round2(expected);
   if (activeOverride?.expected_amount != null) expected = round2(activeOverride.expected_amount);
@@ -441,9 +448,12 @@ var RATED_STATES = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED];
 function arrearsSummary(property, opts = {}) {
   const tenancies = opts.tenancies || property.tenancies || [];
   const receipts = opts.receipts || property.rent_receipts || [];
-  const opening = round2(tenancies.filter((t) => t.status !== "ended").reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0));
+  const live = tenancies.filter((t) => t.status !== "ended");
+  const isOverlap = (t) => !!t.opening_arrears_date && t.opening_arrears_date > GO_LIVE;
+  const overlap = round2(live.filter(isOverlap).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0));
+  const opening = round2(live.filter((t) => !isOverlap(t)).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0));
   const paid = round2(receipts.flatMap((r) => r.rent_allocations || []).filter((a) => a.target === "historic_arrears").reduce((s, a) => s + Number(a.amount), 0));
-  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)) };
+  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)), overlap };
 }
 
 // src/lib/stlIncome.js

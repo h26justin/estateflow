@@ -249,7 +249,7 @@ describe('rate and arrears', () => {
     const evals = evaluateProperty(p, { today: '2026-06-15' })
     const s = collectionStats(evals, { asOf: '2026-06-15' })
     expect(s.due).toBe(1500); expect(s.received).toBe(1000); expect(s.outstanding).toBe(500); expect(s.rate).toBe(66.7)
-    expect(arrearsSummary(p)).toEqual({ opening: 208, paid: 50, balance: 158, unmatched: 0 })
+    expect(arrearsSummary(p)).toEqual({ opening: 208, paid: 50, balance: 158, unmatched: 0, overlap: 0 })
   })
   it('groupByMonth surfaces problems first', () => {
     const p = prop({ rent_payments: [row('a', '2026-05-01', '2026-05-15', 'paid', 250), row('b', '2026-05-16', '2026-05-31', 'void')] })
@@ -333,6 +333,34 @@ describe('investigation 13 Oct 2026', () => {
   })
   it('arrears paid with no opening balance never go negative', () => {
     const p = prop({ rent_receipts: [receipt('r', '2026-10-05', 50, [{ period: null, target: 'historic_arrears', amount: 50 }])] })
-    expect(arrearsSummary(p)).toEqual({ opening: 0, paid: 50, balance: 0, unmatched: 50 })
+    expect(arrearsSummary(p)).toEqual({ opening: 0, paid: 50, balance: 0, unmatched: 50, overlap: 0 })
+  })
+
+  // Second pass, after the 59 tenancies seeded from the property fields
+  // (13 Oct 2026, needs_confirmation, current arrears copied as opening).
+  it("the agent's 30-day cycle (28 Feb to 29 Mar) is one month of rent, not 535.71", () => {
+    const e = evaluatePeriod(row('c', '2026-02-28', '2026-03-29', 'paid', 500), ctx({ today: '2026-10-13' }))
+    expect(e.expected).toBe(500); expect(e.state).toBe(STATE.PAID)
+    const part = evaluatePeriod(row('p', '2026-06-01', '2026-06-29', 'paid', 500), ctx({ today: '2026-10-13' }))
+    expect(part.expected).toBe(483.33)
+  })
+  it('a tenancy with no rent amount is not collectible, never GBP 0 paid', () => {
+    const p = prop({ tenancies: [T({ rent_amount: null, needs_confirmation: true })], rent_payments: [month('m5', 2026, 5, 'void')] })
+    const e = evaluateProperty(p, { today: '2026-10-13' })[0]
+    expect(e.state).toBe(STATE.NOT_COLLECTIBLE); expect(e.reasons[0]).toMatch(/No rent amount/)
+  })
+  it('an unconfirmed seeded tenancy takes the due day from the recorded cycle', () => {
+    const t = T({ rent_due_day: null, needs_confirmation: true })
+    const p = prop({ tenancies: [t], rent_payments: [row('aug', '2026-08-22', '2026-09-21', 'paid', 500), month('oct', 2026, 10, 'void')] })
+    const oct = evaluateProperty(p, { today: '2026-10-13' }).find(e => e.id === 'oct')
+    expect(oct.dueDate).toBe('2026-10-22'); expect(oct.state).toBe(STATE.DUE)
+    const confirmed = prop({ tenancies: [T({ rent_due_day: 1 })], rent_payments: p.rent_payments })
+    expect(evaluateProperty(confirmed, { today: '2026-10-13' }).find(e => e.id === 'oct').dueDate).toBe('2026-10-01')
+  })
+  it('opening arrears dated after go-live are already in the rent periods, so not added again', () => {
+    const p = prop({ tenancies: [T({ opening_arrears: 2400, opening_arrears_date: '2026-10-13' })] })
+    expect(arrearsSummary(p)).toEqual({ opening: 0, paid: 0, balance: 0, unmatched: 0, overlap: 2400 })
+    const hist = prop({ tenancies: [T({ opening_arrears: 300, opening_arrears_date: '2025-12-31' })] })
+    expect(arrearsSummary(hist).balance).toBe(300)
   })
 })
