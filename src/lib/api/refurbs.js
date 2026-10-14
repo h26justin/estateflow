@@ -1,7 +1,7 @@
 // Refurbs API: refurb_projects, refurb_lines, refurb_milestones.
 //
 // Projects and their lines are embedded in fetchProperties() (see
-// _monolith.js) so every page shares one source of truth; these helpers
+// properties.js) so every page shares one source of truth; these helpers
 // only write. Every write returns the affected row, and deletes are soft
 // (deleted_at) so they can reach Trash later. A write that touches zero
 // rows throws, so a missing RLS grant can never look like success.

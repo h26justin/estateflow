@@ -29,7 +29,7 @@ vi.mock('../supabase', () => ({
 }))
 
 import { acceptInvitation } from '../api/invitations'
-import { saveMtdSettings, fetchMtdSettings } from '../api/_monolith'
+import { saveMtdSettings, fetchMtdSettings } from '../api/mtd'
 import { fetchBankConnections, registerBankInterest } from '../api/bank'
 
 beforeEach(() => {

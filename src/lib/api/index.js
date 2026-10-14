@@ -1,20 +1,16 @@
 // Entry point for the API surface.
 //
-// Historically this was a single 3,370-line `src/lib/api.js`. We're
-// progressively splitting it by domain (properties, companies, rent,
-// compliance, etc) — each domain file is a small module that re-exports
-// its named functions from here, so callers keep importing the same way:
+// Historically this was a single 3,370-line `src/lib/api.js` (later
+// `./_monolith.js`). It is now split by domain (properties, companies, rent,
+// compliance, etc) — each domain file is a small module whose named
+// functions are re-exported from here, so callers keep importing the same way:
 //
 //   import * as api from './lib/api'
 //   await api.fetchProperties()
 //
-// While the split is in progress, `./_monolith` holds the not-yet-extracted
-// remainder. Anything still in there should be moved gradually as we touch
-// the surrounding code; nothing forces a big-bang migration.
-//
-// See top of _monolith.js for the section index that informed the split.
-
-export * from './_monolith'
+// Code that only needs one domain can import that module directly
+// (e.g. `./lib/api/epc`). Private helpers shared between domain modules live
+// in `./_shared`, which is deliberately NOT re-exported here.
 
 // Domains split out of the former _monolith.js.
 export * from './companies'
@@ -29,6 +25,7 @@ export * from './compliance'
 export * from './tenantRecords'
 export * from './maintenance'
 export * from './expenses'
+export * from './account'
 export * from './documents'
 export * from './invitations'
 export * from './billing'
@@ -39,6 +36,9 @@ export * from './reports'
 export * from './audit'
 export * from './trash'
 export * from './lettings'
+export * from './featureFlags'
+export * from './mtd'
+export * from './xero'
 
 // Extracted domains. Order doesn't matter — each file's exports are
 // independently named.

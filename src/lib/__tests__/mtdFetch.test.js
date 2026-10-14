@@ -21,7 +21,7 @@ vi.mock('../supabase', () => ({
   },
 }))
 
-import { fetchMtdRawForPeriod } from '../api/_monolith'
+import { fetchMtdRawForPeriod } from '../api/mtd'
 
 describe('fetchMtdRawForPeriod', () => {
   beforeEach(() => { calls.length = 0; for (const k of Object.keys(results)) delete results[k] })
