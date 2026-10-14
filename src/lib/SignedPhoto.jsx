@@ -15,6 +15,9 @@ export function SignedPhoto({ path, url, alt = '', style, wrapAnchor = true }) {
 
   useEffect(() => {
     let cancelled = false
+    // Clear the previous path's URL so a reused instance never shows the
+    // old photo while (or instead of, on error) the new one resolves.
+    setSignedUrl(null)
     setError(false)
     if (path) {
       api.getDocumentSignedUrl(path)
