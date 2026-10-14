@@ -315,10 +315,18 @@ export function parseAuditStatement(rawText) {
       type = 'management_fee'
       const pm = desc.match(/([\d.]+)\s*%/); if (pm) base.fee_pct = parseFloat(pm[1])
     } else if (e.section === 'income') {
-      type = gross < 0 ? 'credit' : 'other_income'; base.flags.push('unclassified')
+      // A negative income line (a refund to the tenant) keeps its sign as
+      // other income: it reduces the income total exactly as it does on the
+      // statement, rather than turning into a credit added on top.
+      type = 'other_income'; base.flags.push('unclassified')
       const segs = desc.split(/\s+-\s+/); if (segs.length > 1) { base.tenant_name = segs.pop().trim(); base.description = segs.join(' - ').trim() }
-    } else if (gross < 0 || CREDIT_WORDS.test(desc)) {
+    } else if (gross < 0) {
+      // Only a negative expenditure line is money back to the landlord.
       type = 'credit'
+    } else if (CREDIT_WORDS.test(desc)) {
+      // "Refund of overpaid rent to tenant £100" in the expenditure section is
+      // money paid OUT of the landlord's funds: a deduction, not a credit.
+      type = 'other_deduction'; base.flags.push('review_description')
     } else if (MAINTENANCE_WORDS.test(desc)) {
       type = 'maintenance'
     } else {
@@ -335,6 +343,8 @@ export function parseAuditStatement(rawText) {
       base.fee_amount = net; base.net_amount = -gross
       if (base.fee_pct != null && base.fee_basis != null && Math.abs(round2(base.fee_basis * base.fee_pct / 100) - net) > 0.011) base.flags.push('fee_does_not_match_percentage')
     } else if (type === 'credit') {
+      // credit_amount is the gross (VAT included); its VAT stays on the line
+      // for the record but is not counted again in the VAT total.
       base.credit_amount = Math.abs(gross); base.net_amount = Math.abs(gross)
     } else {
       base.deduction_amount = net; base.net_amount = -gross
@@ -381,7 +391,7 @@ export function looseKey(l) {
 
 // ── Totals & balance check ──────────────────────────────────────────────────
 export function computeTotals(lines) {
-  const t = { gross_rent: 0, arrears: 0, other_income: 0, management_fees: 0, vat: 0, maintenance: 0, other_deductions: 0, credits: 0, transfers: 0, transfer_count: 0, counted: 0, excluded: 0 }
+  const t = { gross_rent: 0, arrears: 0, other_income: 0, management_fees: 0, vat: 0, maintenance: 0, other_deductions: 0, credits: 0, expenditure_credits: 0, credit_vat: 0, transfers: 0, transfer_count: 0, counted: 0, excluded: 0 }
   for (const l of lines || []) {
     if (NON_COUNTING_REVIEW.has(l.review_status)) { t.excluded++; continue }
     t.counted++
@@ -393,11 +403,16 @@ export function computeTotals(lines) {
       case 'management_fee': t.management_fees += n('fee_amount'); break
       case 'maintenance': t.maintenance += n('deduction_amount'); break
       case 'other_deduction': t.other_deductions += n('deduction_amount'); break
-      case 'credit': t.credits += n('credit_amount'); break
+      case 'credit':
+        t.credits += n('credit_amount')
+        if (l.section === 'expenditure') t.expenditure_credits += n('credit_amount')
+        break
       case 'transfer': t.transfers += n('net_amount'); t.transfer_count++; break
       default: break
     }
-    if (l.line_type !== 'transfer') t.vat += n('vat_amount')
+    // A credit's amount is already gross, so its VAT is not added again.
+    if (l.line_type === 'credit') t.credit_vat += n('vat_amount')
+    else if (l.line_type !== 'transfer') t.vat += n('vat_amount')
   }
   for (const k of Object.keys(t)) if (k !== 'counted' && k !== 'excluded') t[k] = round2(t[k])
   t.total_income = round2(t.gross_rent + t.arrears + t.other_income)
@@ -421,7 +436,13 @@ export function balanceCheck(stmt, lines) {
   const sIn = stmt?.stated_income_total ?? stmt?.statedIncomeTotal
   const sOut = stmt?.stated_expenditure_total ?? stmt?.statedExpenditureTotal
   if (sIn != null && Math.abs(round2(sIn) - t.total_income) > 0.005) causes.push(`Income section: imported lines total £${t.total_income.toFixed(2)} but the statement's income total is £${round2(sIn).toFixed(2)} (difference £${round2(t.total_income - sIn).toFixed(2)}).`)
-  if (sOut != null && Math.abs(round2(sOut) - t.total_deductions) > 0.005) causes.push(`Expenditure section: imported lines total £${t.total_deductions.toFixed(2)} but the statement's expenditure total is £${round2(sOut).toFixed(2)} (difference £${round2(t.total_deductions - sOut).toFixed(2)}).`)
+  // A PNE expenditure total is the signed sum of its lines, so credits listed
+  // there (negative lines) are netted off. RMS states money out separately
+  // from money in (its rows carry the owner payments as transfer lines), so
+  // its credits are not part of that figure.
+  const rmsLayout = stmt?.agent === 'RMS' || (lines || []).some(l => l.line_type === 'transfer')
+  const outLines = round2(t.total_deductions - (rmsLayout ? 0 : t.expenditure_credits))
+  if (sOut != null && Math.abs(round2(sOut) - outLines) > 0.005) causes.push(`Expenditure section: imported lines total £${outLines.toFixed(2)} but the statement's expenditure total is £${round2(sOut).toFixed(2)} (difference £${round2(outLines - sOut).toFixed(2)}).`)
   const nb = stmt?.new_balance ?? stmt?.newBalance
   if (statedNum != null && nb != null && Math.abs(round2(nb) - statedNum) > 0.005) causes.push(`Summary: New Balance £${round2(nb).toFixed(2)} differs from PAYMENT AMOUNT £${statedNum.toFixed(2)}; the agent may have held part of the balance back.`)
   if (prev) causes.push(`Summary: £${prev.toFixed(2)} carried from the previous statement is included in the expected figure.`)
