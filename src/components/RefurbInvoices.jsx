@@ -17,7 +17,7 @@ import { extractPdfTextFromFile } from '../lib/pdfExtract'
 import { groupPropertiesByBuilding, naturalCompare } from '../lib/addressUtils'
 import { STAGE_CFG } from '../lib/refurbs'
 import {
-  DOC_KINDS, APPROVAL_STATUSES, INVOICE_STATUS_LABEL,
+  DOC_KINDS, INVOICE_STATUS_LABEL, approvalOptions,
   allocationBase, evenSplit, percentSplit, reconcile, allocationProblems, findDuplicate,
   paidAgainst, invoiceStatus, outstandingOn, invoicesForProject, defaultProjectFor, extractInvoiceFields, round2,
 } from '../lib/refurbInvoices'
@@ -79,7 +79,7 @@ function matchCompany(hint, companies) {
   }) || null
 }
 
-export function ImportRefurbInvoice({ properties, companies, invoices, canEditFor, mutations, onCreated, onCancel, showToast, T: themeProp, isMobile, defaultCompanyId }) {
+export function ImportRefurbInvoice({ properties, companies, invoices, canEditFor, canApproveFor = () => false, mutations, onCreated, onCancel, showToast, T: themeProp, isMobile, defaultCompanyId }) {
   const { T: themeCtx } = useTheme()
   const T = themeProp || themeCtx
   const editableCompanies = companies.filter(c => canEditFor(c.id))
@@ -255,7 +255,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         <div><label style={lbl(T)}>Company (billed to)</label>
           <select value={inv.company_id} onChange={e => { set('company_id', e.target.value); setRows([]) }} style={inputStyle(T)}>{editableCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
         <div><label style={lbl(T)}>Status</label>
-          <select value={inv.approval_status} onChange={e => set('approval_status', e.target.value)} style={inputStyle(T)}>{APPROVAL_STATUSES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}</select></div>
+          <select value={inv.approval_status} onChange={e => set('approval_status', e.target.value)} style={inputStyle(T)}>{approvalOptions(canApproveFor(inv.company_id), inv.approval_status).map(s => <option key={s.v} value={s.v} disabled={s.disabled}>{s.l}</option>)}</select></div>
         <div><label style={lbl(T)}>Supplier / contractor *</label><input value={inv.supplier_name} onChange={e => set('supplier_name', e.target.value)} style={inputStyle(T)} /></div>
         <div><label style={lbl(T)}>{inv.doc_kind === 'credit_note' ? 'Credit note number' : 'Invoice number'}</label><input value={inv.invoice_number} onChange={e => set('invoice_number', e.target.value)} style={inputStyle(T)} /></div>
         {inv.doc_kind === 'credit_note'
@@ -421,7 +421,7 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
 }
 
 // ── One invoice ────────────────────────────────────────────────────────────
-export function InvoiceDetail({ invoice, properties, companies, projects, lines, canEdit, onUpdated, onDeleted, onLinesAdded, onOpenProject, onBack, showToast, T: themeProp, isMobile }) {
+export function InvoiceDetail({ invoice, properties, companies, projects, lines, canEdit, canApprove = false, onUpdated, onDeleted, onLinesAdded, onOpenProject, onBack, showToast, T: themeProp, isMobile }) {
   const { T: themeCtx } = useTheme()
   const T = themeProp || themeCtx
   const confirmDialog = useConfirm()
@@ -490,9 +490,10 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
       </div>
       {!isCredit && <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', fontFamily: mono, fontSize: 11 }}>
         <span style={{ color: T.muted }}>Approval:</span>
-        <select value={invoice.approval_status} onChange={e => setApproval(e.target.value)} disabled={!canEdit} style={{ ...inputStyle(T), width: 'auto' }}>
-          {APPROVAL_STATUSES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
+        <select value={invoice.approval_status} onChange={e => setApproval(e.target.value)} disabled={!canEdit || (!canApprove && invoice.approval_status === 'approved')} style={{ ...inputStyle(T), width: 'auto' }}>
+          {approvalOptions(canApprove, invoice.approval_status).map(s => <option key={s.v} value={s.v} disabled={s.disabled}>{s.l}</option>)}
         </select>
+        {canEdit && !canApprove && <span style={{ color: T.faint }}>Only an owner or admin can approve.</span>}
         <span style={{ color: T.faint }}>Part paid / Paid follow the payments logged below.</span>
       </div>}
     </div>

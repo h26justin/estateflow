@@ -28,7 +28,7 @@ import {
   projectTotals, daysLeft, isOverdue, suggestStage, mirrorFields,
   projectsFromProperties, summariseProjects, ledgerLines, knownPayees, isActiveProject,
 } from '../lib/refurbs'
-import { invoicedByProject, outstandingOn } from '../lib/refurbInvoices'
+import { invoicedByProject, outstandingOn, canApproveRefurbInvoices } from '../lib/refurbInvoices'
 import { BUILT_IN_TEMPLATES, PROJECT_TYPES, filterProjects, distinctValues, journeySummary, forecastFinalCost } from '../lib/refurbWorkspace'
 import { useRefurbInvoices, allLinesOf, ImportRefurbInvoice, InvoiceList, InvoiceDetail, ProjectInvoices } from './RefurbInvoices'
 import RefurbWorkspace, { WORKSPACE_TABS } from './refurbs/RefurbWorkspace'
@@ -756,6 +756,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   const isMobile = useIsMobile(769)
   const confirmDialog = useConfirm()
   const canEditFor = useCanEdit(permissionsMap, devModeActive)
+  const canApproveFor = useCallback(companyId => canApproveRefurbInvoices(permissionsMap, companyId, devModeActive), [permissionsMap, devModeActive])
   const mutations = useRefurbMutations({ properties, onPropertyPatch, showToast })
 
   const initial = parseRefurbHash()
@@ -915,7 +916,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
 
   if (sub === 'invoices' && importing) return <div className="fade">
     {pageHead}
-    <ImportRefurbInvoice properties={properties} companies={companies} invoices={invoices} canEditFor={canEditFor} mutations={mutations}
+    <ImportRefurbInvoice properties={properties} companies={companies} invoices={invoices} canEditFor={canEditFor} canApproveFor={canApproveFor} mutations={mutations}
       defaultCompanyId={filters.companyId !== 'all' ? filters.companyId : null} showToast={showToast} T={T} isMobile={isMobile}
       onCancel={() => setImporting(false)}
       onCreated={({ invoice, extras }) => {
@@ -929,7 +930,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   if (sub === 'invoices' && selectedInvoice) return <div className="fade">
     {pageHead}
     <InvoiceDetail invoice={selectedInvoice} properties={properties} companies={companies} projects={allProjects} lines={allLines}
-      canEdit={canEditFor(selectedInvoice.company_id)} showToast={showToast} T={T} isMobile={isMobile}
+      canEdit={canEditFor(selectedInvoice.company_id)} canApprove={canApproveFor(selectedInvoice.company_id)} showToast={showToast} T={T} isMobile={isMobile}
       onBack={() => setInvoiceId(null)}
       onUpdated={inv => setInvoices(list => list.map(i => i.id === inv.id ? inv : i))}
       onDeleted={(inv, removedExtras) => { setInvoices(list => list.filter(i => i.id !== inv.id)); applyLineChanges([], removedExtras); setInvoiceId(null); showToast?.('Invoice deleted') }}

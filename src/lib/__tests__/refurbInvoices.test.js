@@ -3,6 +3,7 @@ import {
   evenSplit, percentSplit, reconcile, allocationProblems, allocationBase, findDuplicate,
   paidAgainst, invoiceStatus, outstandingOn, splitPayment, invoicedByProject, invoicesForProject,
   defaultProjectFor, extractInvoiceFields, parseDate,
+  canApproveRefurbInvoices, approvalOptions,
 } from '../refurbInvoices'
 
 const sum = xs => Math.round(xs.reduce((s, x) => s + x, 0) * 100) / 100
@@ -160,5 +161,24 @@ describe('reading invoice text', () => {
     expect(parseDate('3rd October 2026')).toBe('2026-10-03')
     expect(parseDate('2026-10-03')).toBe('2026-10-03')
     expect(parseDate('31/02/x')).toBeNull()
+  })
+})
+
+describe('approval rights', () => {
+  const map = { __owner: { own: true }, adm: { _role: 'admin' }, ed: { _role: 'editor' }, vw: { _role: 'viewer' } }
+  it('owner, admin and dev mode may approve; editor and viewer may not', () => {
+    expect(canApproveRefurbInvoices(map, 'own')).toBe(true)
+    expect(canApproveRefurbInvoices(map, 'adm')).toBe(true)
+    expect(canApproveRefurbInvoices(map, 'ed')).toBe(false)
+    expect(canApproveRefurbInvoices(map, 'vw')).toBe(false)
+    expect(canApproveRefurbInvoices(map, 'other')).toBe(false)
+    expect(canApproveRefurbInvoices(null, 'adm')).toBe(false)
+    expect(canApproveRefurbInvoices(map, 'ed', true)).toBe(true)
+  })
+  it('non-approvers cannot pick Approved, nor leave it once set', () => {
+    const dis = (can, cur) => Object.fromEntries(approvalOptions(can, cur).map(o => [o.v, o.disabled]))
+    expect(dis(false, 'received')).toEqual({ received: false, awaiting_approval: false, approved: true })
+    expect(dis(false, 'approved')).toEqual({ received: true, awaiting_approval: true, approved: false })
+    expect(dis(true, 'approved')).toEqual({ received: false, awaiting_approval: false, approved: false })
   })
 })

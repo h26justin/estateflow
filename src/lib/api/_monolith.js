@@ -1266,43 +1266,24 @@ export async function fetchPendingInvitations(companyId) {
   return data || []
 }
 
+// Accepting is done server-side by accept_company_invitation() (SECURITY
+// DEFINER): it checks the token belongs to the signed-in email, is unexpired
+// and unaccepted, then marks the invitations accepted and grants access.
+// The browser can no longer insert its own user_company_access rows.
+// Inviting someone to several companies creates one invitations row per
+// company but the email carries ONE token, so a valid token accepts all of
+// that email's pending invitations. Returns [{ company_id, is_admin }].
 export async function acceptInvitation(token) {
-  const user = (await supabase.auth.getUser()).data.user
-  const nowIso = new Date().toISOString()
-  // Inviting someone to several companies creates one invitations row per
-  // company, but the invite email carries only ONE row's token. A valid,
-  // unexpired token for this email therefore redeems ALL of the email's
-  // pending invitations (RLS restricts us to rows addressed to us anyway).
-  const { data: tokenRow, error: tokenErr } = await supabase
-    .from('invitations')
-    .select('id, expires_at')
-    .eq('token', token)
-    .eq('email', user.email)
-    .maybeSingle()
-  if (tokenErr) throw tokenErr
-  if (!tokenRow) throw new Error('This invitation is not valid for this account. Sign in with the email address the invite was sent to')
-  if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
-    throw new Error('This invitation has expired. Ask to be invited again')
+  const { data, error } = await supabase.rpc('accept_company_invitation', { p_token: token })
+  if (error) {
+    const msg = (error.message || '').toLowerCase()
+    if (msg.includes('not_signed_in'))           throw new Error('Sign in to accept this invitation')
+    if (msg.includes('invite_invalid'))          throw new Error('This invitation is not valid for this account. Sign in with the email address the invite was sent to')
+    if (msg.includes('invite_expired'))          throw new Error('This invitation has expired. Ask to be invited again')
+    if (msg.includes('invite_already_accepted')) throw new Error('This invitation has already been used. Ask to be invited again')
+    throw new Error('Could not accept the invitation. Please try again')
   }
-  const { data, error } = await supabase
-    .from('invitations')
-    .update({ accepted: true, accepted_at: nowIso })
-    .eq('email', user.email)
-    .eq('accepted', false)
-    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-    .select()
-  if (error) throw error
-  // Grant access to each company
-  for (const inv of (data || [])) {
-    await supabase.from('user_company_access').upsert({
-      user_id: user.id,
-      company_id: inv.company_id,
-      email: inv.email,
-      is_admin: inv.is_admin,
-      is_owner: false,
-    }, { onConflict: 'user_id,company_id' })
-  }
-  return data
+  return Array.isArray(data) ? data : (data ? [data] : [])
 }
 
 export async function deleteInvitation(id) {
@@ -3351,6 +3332,10 @@ export async function fetchDocumentExtraction(documentId) {
 // We provide per-user HMRC settings (NINO + business ID + OAuth tokens) and
 // per-quarter submission rows with the aggregated income/expenses snapshot.
 
+// Never select the HMRC token columns: anon/authenticated have no SELECT on
+// them (2026-10-14_integration_token_column_grants.sql), so '*' would fail.
+const MTD_SETTINGS_SAFE_COLS = 'user_id, nino, mtd_business_id, sandbox_mode, cash_basis, property_business_type, hmrc_token_expires_at, created_at, updated_at'
+
 export async function fetchMtdSettings() {
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) return null
@@ -3360,7 +3345,7 @@ export async function fetchMtdSettings() {
   // sending the actual token over the wire.
   const { data, error } = await supabase
     .from('mtd_settings')
-    .select('user_id, nino, mtd_business_id, sandbox_mode, cash_basis, property_business_type, hmrc_token_expires_at, created_at, updated_at')
+    .select(MTD_SETTINGS_SAFE_COLS)
     .eq('user_id', uid).maybeSingle()
   if (error) throw error
   if (!data) return null
@@ -3379,13 +3364,19 @@ export async function saveMtdSettings(patch) {
   const safe = { ...patch }
   delete safe.hmrc_access_token
   delete safe.hmrc_refresh_token
+  delete safe.encrypted_hmrc_access_token
+  delete safe.encrypted_hmrc_refresh_token
   delete safe.hmrc_token_expires_at
   const { data, error } = await supabase
     .from('mtd_settings')
     .upsert({ user_id: uid, ...safe }, { onConflict: 'user_id' })
-    .select().single()
+    .select(MTD_SETTINGS_SAFE_COLS).single()
   if (error) throw error
-  return data
+  return {
+    ...data,
+    // Same synthetic flag as fetchMtdSettings (the token itself is never read).
+    hmrc_access_token: !!(data?.hmrc_token_expires_at && new Date(data.hmrc_token_expires_at) > new Date()),
+  }
 }
 
 export async function fetchMtdSubmissions(taxYear) {
@@ -3507,6 +3498,8 @@ export async function disconnectHmrc() {
   const { error } = await supabase.from('mtd_settings').update({
     hmrc_access_token: null,
     hmrc_refresh_token: null,
+    encrypted_hmrc_access_token: null,
+    encrypted_hmrc_refresh_token: null,
     hmrc_token_expires_at: null,
   }).eq('user_id', uid)
   if (error) throw error

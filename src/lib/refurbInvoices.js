@@ -25,6 +25,27 @@ export const APPROVAL_STATUSES = Object.freeze([
   { v: 'approved', l: 'Approved' },
 ])
 
+// Approving (or withdrawing an approval) is a company owner / admin
+// decision; editors may import and move between Received and Awaiting
+// approval. Mirrors the refurb_invoices_approval_guard trigger
+// (2026-10-14_refurb_invoice_approval_admin.sql). permissionsMap is
+// App.jsx's map: { __owner: { [companyId]: true }, [companyId]: { _role } }.
+export function canApproveRefurbInvoices(permissionsMap, companyId, devModeActive = false) {
+  if (devModeActive) return true
+  if (!companyId || !permissionsMap) return false
+  if (permissionsMap.__owner?.[companyId]) return true
+  const role = permissionsMap[companyId]?._role
+  return role === 'owner' || role === 'admin' || role === 'developer'
+}
+
+// The approval options a user may pick. Without approval rights the
+// Approved option is shown but disabled, and an already-approved invoice
+// cannot be moved off Approved.
+export function approvalOptions(canApprove, current) {
+  const locked = !canApprove && current === 'approved'
+  return APPROVAL_STATUSES.map(s => ({ ...s, disabled: !canApprove && (locked || s.v === 'approved') && s.v !== current }))
+}
+
 export const INVOICE_STATUS_LABEL = Object.freeze({
   received: 'Received', awaiting_approval: 'Awaiting approval', approved: 'Approved',
   part_paid: 'Part paid', paid: 'Paid', credit: 'Credit / refunded',
