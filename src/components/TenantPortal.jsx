@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { Icon } from '../lib/icons'
 import { MONO, SANS, statusColors } from '../lib/styles'
+import { useTheme } from '../lib/ThemeContext'
 const TenantRentCollectionConsent = lazy(() => import('./RentCollectionPanel').then(m => ({ default: m.TenantRentCollectionConsent })))
 
 const mono = MONO
@@ -68,6 +69,7 @@ const JOB_STATUS = {
 }
 
 export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
+  const { T } = useTheme()
   // Tab state is mirrored to the URL (#/portal/<tab>) so refresh keeps the
   // tenant where they were, tabs are bookmarkable/shareable ("here's your
   // rent statement" links), and the browser Back button moves between tabs
@@ -136,7 +138,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
       setFeatures(data?.features || {})
       setTenancies(Array.isArray(data?.properties) ? data.properties : [])
     } catch(e) {
-      setError('Unable to load your tenancy. Please contact your landlord.')
+      setError('This is usually a temporary connection problem. Please try again, and contact your landlord if it keeps happening.')
     }
     setLoading(false)
   }
@@ -146,21 +148,28 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
     loadAll(propertyId)
   }
 
+  // Loading / error / not-linked screens follow the app theme (these are the
+  // screens a tenant sees before any company branding is known), and set the
+  // sans face explicitly — this tree renders outside the app shell's global
+  // CSS, so the h2 used to fall back to the browser serif.
   if (loading) return (
-    <div style={{minHeight:'100vh',background:'#F4F3EF',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>
+    <div role="status" style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
       Loading your portal…
     </div>
   )
 
   if (error || !profile) return (
-    <div style={{minHeight:'100vh',background:'#F4F3EF',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-      <div style={{background:'white',borderRadius:16,padding:'40px 32px',maxWidth:400,textAlign:'center',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
-        <div style={{display:"flex",justifyContent:"center",marginBottom:16}}><Icon name="home" size={38} color="#9AA6B0"/></div>
-        <h2 style={{fontSize:18,fontWeight:700,color:'#2D3C4A',marginBottom:8}}>Not set up yet</h2>
-        <p style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,lineHeight:1.8,marginBottom:24}}>
+    <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center',padding:24,fontFamily:SANS}}>
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:'40px 32px',maxWidth:400,textAlign:'center',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:16}} aria-hidden="true"><Icon name={error ? 'alert-triangle' : 'home'} size={38} color={error ? T.red : T.muted}/></div>
+        <h1 style={{fontFamily:SANS,fontSize:18,fontWeight:700,color:T.text,marginBottom:8}}>{error ? "We couldn't load your portal" : 'Not set up yet'}</h1>
+        <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.8,marginBottom:24}}>
           {error||"Your landlord hasn't linked your account to a property yet."}
         </p>
-        <button onClick={onSignOut} style={{fontFamily:mono,fontSize:12,padding:'10px 20px',borderRadius:8,border:'1px solid #ddd',background:'transparent',color:'#666',cursor:'pointer'}}>Sign out</button>
+        <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+          {error && <button onClick={()=>{ setError(null); loadAll() }} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px 20px',borderRadius:8,border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>Try again</button>}
+          <button onClick={onSignOut} style={{fontFamily:mono,fontSize:12,padding:'10px 20px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.text,cursor:'pointer'}}>Sign out</button>
+        </div>
       </div>
     </div>
   )
