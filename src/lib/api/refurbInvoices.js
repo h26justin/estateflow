@@ -8,7 +8,7 @@
 //
 // Export names must stay unique across src/lib/api (index.js uses export *).
 import { supabase } from '../supabase'
-import { validateUpload } from './_monolith'
+import { validateUpload } from './documents'
 import { splitPayment } from '../refurbInvoices'
 
 async function uid() {

@@ -20,10 +20,18 @@ export * from './_monolith'
 export * from './companies'
 export * from './properties'
 export * from './geocoding'
+export * from './rent'
+export * from './inspections'
 export * from './access'
 export * from './roles'
 export * from './companySettings'
+export * from './compliance'
+export * from './tenantRecords'
+export * from './maintenance'
+export * from './expenses'
+export * from './documents'
 export * from './invitations'
+export * from './lettings'
 
 // Extracted domains. Order doesn't matter — each file's exports are
 // independently named.

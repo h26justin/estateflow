@@ -10,7 +10,7 @@
 // 12 stages is already past half of PostgREST's silent 1000-row cap.
 import { supabase } from '../supabase'
 import { fetchAllPages } from '../paginate'
-import { validateUpload } from './_monolith'
+import { validateUpload } from './documents'
 import { templateRows } from '../refurbWorkspace'
 
 let cachedName = null
