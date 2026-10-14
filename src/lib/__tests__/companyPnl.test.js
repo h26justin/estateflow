@@ -905,3 +905,39 @@ describe('holding companies', () => {
     expect(companyEffectiveStakes(shareholders, null)).toEqual({})
   })
 })
+
+describe('rent collected counts late and partial receipts', () => {
+  it('buildCompanyPnl includes late/partial rows that carry an amount', () => {
+    const pnl = buildCompanyPnl({
+      properties: [{ id: 'p', rent_pcm: 1000, status: 'rented' }],
+      payments: [
+        { property_id: 'p', status: 'paid', amount: 1000 },
+        { property_id: 'p', status: 'late', amount: 1000 },
+        { property_id: 'p', status: 'partial', amount: 400 },
+        { property_id: 'p', status: 'overdue', amount: 1000 },
+        { property_id: 'p', status: 'late', amount: null },
+      ],
+      months: 3,
+    })
+    expect(pnl.income.rentCollected).toBe(2400)
+  })
+  it('a portfolio with only late receipts uses them, not the expected-rent fallback', () => {
+    const pnl = buildCompanyPnl({
+      properties: [{ id: 'p', rent_pcm: 1000, status: 'rented' }],
+      payments: [{ property_id: 'p', status: 'late', amount: 900 }],
+      months: 3,
+    })
+    expect(pnl.income.rentCollected).toBe(900)
+  })
+  it('buildPortfolioPnl includes late/partial rows too', () => {
+    const r = buildPortfolioPnl({
+      properties: [{ id: 'p', rent_pcm: 1000, status: 'rented', company_id: null }],
+      payments: [
+        { property_id: 'p', status: 'paid', amount: 1000 },
+        { property_id: 'p', status: 'partial', amount: 400 },
+      ],
+      months: 2,
+    })
+    expect(r.grand.income).toBe(1400)
+  })
+})

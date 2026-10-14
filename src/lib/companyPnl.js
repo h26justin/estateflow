@@ -3,7 +3,8 @@
 // tested in isolation.
 //
 // Pipeline:
-//   rent collected (paid rent_payments; falls back to expected rent when a
+//   rent collected (rent_payments with money received: paid, or late/partial
+//   with an amount — see isRentReceived; falls back to expected rent when a
 //   portfolio has no payment records at all)
 //   − operating expenses by category (logged property_expenses)
 //   − management fees, taken from each company↔agent fee % EXCEPT on any
@@ -86,6 +87,15 @@ export function countAssociatedCompanies(companies = []) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+// Rent actually received on a rent_payments row: a paid row, or a late or
+// partial row carrying an amount — the same rows the rent engine treats as a
+// receipt (rentEngine.js evaluatePeriod / hasMoney). A late or part payment
+// is money in, not arrears, so it belongs in rent collected.
+export function isRentReceived(r) {
+  if (r?.status === 'paid') return true
+  return (r?.status === 'partial' || r?.status === 'late') && Number(r?.amount) > 0
+}
 
 // Days in a P&L period of `months` months, for pro-rating the CT limits.
 // 12 months is exactly 365 days, so a full year keeps the annual limits.
@@ -399,7 +409,7 @@ export function buildPortfolioPnl({
     const cPays = payments.filter(r => propIds.has(r.property_id))
     const cExps = expenses.filter(e => propIds.has(e.property_id))
 
-    const hasPaid = cPays.some(r => r?.status === 'paid')
+    const hasPaid = cPays.some(isRentReceived)
 
     // Properties carrying a real logged agent-fee cost. An actual invoiced fee
     // beats a percentage estimate, so for these the calculated line is
@@ -438,7 +448,7 @@ export function buildPortfolioPnl({
     // period_start for legacy rows that predate them.
     const paidByProp = new Map(), paidByPropMonth = new Map()
     for (const r of cPays) {
-      if (r?.status !== 'paid') continue
+      if (!isRentReceived(r)) continue
       const amt = Number(r.amount) || 0
       paidByProp.set(r.property_id, (paidByProp.get(r.property_id) || 0) + amt)
       if (monthKeys) {
@@ -719,16 +729,16 @@ export function buildCompanyPnl({
 } = {}) {
   // Income — actually-collected rent; expected-rent fallback only when the
   // portfolio has no paid payment rows at all (same posture as ReportPnL).
-  const hasPaid = payments.some(r => r?.status === 'paid')
+  const hasPaid = payments.some(isRentReceived)
   const rentCollected = hasPaid
-    ? payments.filter(r => r?.status === 'paid').reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    ? payments.filter(isRentReceived).reduce((s, r) => s + (Number(r.amount) || 0), 0)
     : properties.filter(p => isEarningRent(p)).reduce((s, p) => s + (Number(p.rent_pcm) || 0) * months, 0)
 
   // Per-property rent, for attributing income to each managing agent.
   const paidByProperty = {}
   if (hasPaid) {
     for (const r of payments) {
-      if (r?.status !== 'paid') continue
+      if (!isRentReceived(r)) continue
       paidByProperty[r.property_id] = (paidByProperty[r.property_id] || 0) + (Number(r.amount) || 0)
     }
   }
