@@ -2665,7 +2665,7 @@ function AccessModal({companies, onClose, showToast, user, permissionsMap = null
               <input value={newEmail} onChange={e=>setNewEmail(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&sendInvite()}
                 placeholder="colleague@example.com"
-                style={{flex:1,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
+                style={{flex:1,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
               <div style={{display:'flex',alignItems:'center',gap:6}}>
                 <input type="checkbox" id="invite-admin" checked={newIsAdmin} onChange={e=>setNewIsAdmin(e.target.checked)} style={{width:'auto',margin:0}}/>
                 <label htmlFor="invite-admin" style={{fontFamily:mono,fontSize:10,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
@@ -3414,7 +3414,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
               <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                 <input value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Search by company or email…"
-                  style={{ flex: 1, minWidth: 200, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none' }}/>
+                  style={{ flex: 1, minWidth: 200, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px' }}/>
                 <select value={filter} onChange={e => setFilter(e.target.value)}
                   style={{ fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px' }}>
                   <option value="all">All statuses</option>
@@ -3476,7 +3476,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
             <>
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search by email…"
-                style={{ width: '100%', maxWidth: 340, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', marginBottom: 16 }}/>
+                style={{ width: '100%', maxWidth: 340, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}/>
               <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 80px', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
                   {['Email', 'Companies', 'Signed up', ''].map(h => (
@@ -3557,7 +3557,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
                 onKeyDown={e => e.key === 'Enter' && handleDeleteUser()}
                 placeholder="Your password"
                 autoFocus
-                style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none' }}
+                style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px' }}
               />
               {deleteError && (
                 <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8 }}>{deleteError}</div>
@@ -4122,8 +4122,7 @@ function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCo
                     disabled={savingColor}
                     style={{ width: 36, height: 36, borderRadius: 8, cursor: savingColor ? 'wait' : 'pointer',
                       border: `2px solid ${selected ? T.text : 'transparent'}`,
-                      background: c, padding: 0, outline: 'none',
-                      boxShadow: selected ? `0 0 0 2px ${T.card}, 0 0 0 3px ${c}` : 'none' }}
+                      background: c, padding: 0, boxShadow: selected ? `0 0 0 2px ${T.card}, 0 0 0 3px ${c}` : 'none' }}
                     title={c}/>
                 )
               })}
@@ -4143,7 +4142,7 @@ function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCo
                 onBlur={() => { if (colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft)) updateCompanyColor(colorDraft); else setColorDraft(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
                 placeholder="#C8A84B"
-                style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110, outline: 'none' }}/>
+                style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110 }}/>
               {savingColor && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Saving…</span>}
             </div>
 
@@ -4821,7 +4820,7 @@ function ReferralPanel({ user, T, showToast }) {
           <>
             <div style={{ display:'flex', gap:10, marginBottom:14 }}>
               <input readOnly value={referralUrl}
-                style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.goldText, borderRadius:8, padding:'9px 12px', outline:'none' }}/>
+                style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.goldText, borderRadius:8, padding:'9px 12px' }}/>
               <button onClick={copy}
                 style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:'#1C2830', cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
                 {copied ? 'Copied!' : 'Copy link'}

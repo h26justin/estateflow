@@ -705,7 +705,7 @@ export default function HelpCenter() {
       <div style={{ marginBottom: 16 }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search guides... e.g. mortgage, deposit, tenant"
-          style={{ width: '100%', fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: '10px 16px', outline: 'none', boxSizing: 'border-box' }}/>
+          style={{ width: '100%', fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: '10px 16px', boxSizing: 'border-box' }}/>
       </div>
 
       {/* Category filter */}

@@ -92,7 +92,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
             </label>
             <input value={confirmText} onChange={e => setConfirmText(e.target.value)} autoFocus
               placeholder={expectedConfirm}
-              style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${isConfirmed ? T.green : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none', boxSizing: 'border-box' }}/>
+              style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${isConfirmed ? T.green : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', boxSizing: 'border-box' }}/>
           </div>
 
           {error && <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginBottom: 14 }}>{error}</div>}

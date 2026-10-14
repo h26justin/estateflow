@@ -60,7 +60,7 @@ function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, 
             allowDecimals={step !== 1}
             min={min}
             placeholder={placeholder}
-            style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}
+            style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right'}}
           />
         ) : (
           <input
@@ -69,7 +69,7 @@ function InputRow({ label, field, type='number', prefix='£', suffix='', min=0, 
             placeholder={placeholder}
             onChange={e => set(field, e.target.value)}
             onBlur={onBlur}
-            style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right',outline:'none'}}
+            style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'5px 8px',textAlign:'right'}}
           />
         )}
         {suffix && <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{suffix}</span>}
@@ -1115,7 +1115,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
         <button onClick={onBack} style={{fontFamily:mono,fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 12px',cursor:'pointer'}}>← All Deals</button>
         <div style={{flex:1,display:'flex',alignItems:'center',gap:6}}>
           <input ref={nameInputRef} value={form.name} onChange={e=>set('name',e.target.value)} onBlur={handleSave}
-            style={{fontSize:20,fontWeight:700,background:'none',border:'none',color:T.text,outline:'none',flex:1,minWidth:0,fontFamily:'Georgia,serif'}}
+            style={{fontSize:20,fontWeight:700,background:'none',border:'none',color:T.text,flex:1,minWidth:0,fontFamily:'Georgia,serif'}}
             placeholder="Deal name…"/>
           {/* Edit button signposts that the title is editable. Clicking
               focuses the input and selects the whole text so the user can
@@ -1188,7 +1188,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             }
           }}
           placeholder="Property address (auto-names deal)"
-          style={{flex:2,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
+          style={{flex:2,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
         <select value={form.company_id||''} onChange={e=>setAndSave('company_id',e.target.value||null)}
           style={{flex:1,minWidth:160,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
           <option value="">Unassigned company</option>
@@ -1218,7 +1218,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           <input value={form.next_action||''} onChange={e=>set('next_action',e.target.value)} onBlur={autoSave}
             aria-label="Next action or blocker" maxLength={500}
             placeholder="e.g. Waiting on seller's replies to enquiries"
-            style={{width:'100%',boxSizing:'border-box',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${form.next_action?T.amber+'88':T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
+            style={{width:'100%',boxSizing:'border-box',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${form.next_action?T.amber+'88':T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
         </label>
       </div>
 
@@ -1315,7 +1315,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     <MoneyInput value={form.stamp_duty_override} min={0}
                       onChange={v=>set('stamp_duty_override',v||0)}
                       onBlur={autoSave}
-                      style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.gold}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
+                      style={{fontFamily:mono,fontSize:13,width:110,background:T.bg,border:`1px solid ${T.gold}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right'}}/>
                   )}
                 </div>
               </div>
@@ -1422,7 +1422,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                                 set('hmo_room_rents',r)
                               }}
                               onBlur={autoSave}
-                              style={{fontFamily:mono,fontSize:13,width:100,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right',outline:'none'}}/>
+                              style={{fontFamily:mono,fontSize:13,width:100,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 8px',textAlign:'right'}}/>
                             <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>/mo</span>
                           </div>
                         </div>
@@ -1454,7 +1454,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                       value={form.agent_fee_percent??10}
                       onChange={e=>set('agent_fee_percent',parseFloat(e.target.value)||0)}
                       onBlur={autoSave}
-                      style={{fontFamily:mono,fontSize:13,width:52,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 6px',textAlign:'right',outline:'none'}}/>
+                      style={{fontFamily:mono,fontSize:13,width:52,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'4px 6px',textAlign:'right'}}/>
                     <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>% of rent</span>
                   </div>
                 </div>
@@ -1529,22 +1529,22 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 <div>
                   <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Exchanged on</div>
                   <input type="date" value={form.exchanged_date||''} onChange={e=>set('exchanged_date',e.target.value||null)} onBlur={autoSave}
-                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%',outline:'none'}}/>
+                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
                 <div>
                   <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Expected completion</div>
                   <input type="date" value={form.expected_completion_date||''} onChange={e=>set('expected_completion_date',e.target.value||null)} onBlur={autoSave}
-                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%',outline:'none'}}/>
+                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
                 <div>
                   <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Refurb start</div>
                   <input type="date" value={form.refurb_start_date||''} onChange={e=>set('refurb_start_date',e.target.value||null)} onBlur={autoSave}
-                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%',outline:'none'}}/>
+                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
                 <div>
                   <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Refurb end</div>
                   <input type="date" value={form.refurb_end_date||''} onChange={e=>set('refurb_end_date',e.target.value||null)} onBlur={autoSave}
-                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%',outline:'none'}}/>
+                    style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
               </div>
             </div>
@@ -1554,7 +1554,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <span style={sect}>Notes</span>
               <textarea value={form.notes||''} onChange={e=>set('notes',e.target.value)} onBlur={autoSave} rows={4}
                 placeholder="Vendor motivation, planning notes, estate agent contact, viewing notes…"
-                style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical',outline:'none'}}/>
+                style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical'}}/>
             </div>
 
             <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
@@ -2070,7 +2070,7 @@ function ContactsTab({ dealId, userId, showToast }) {
           <div style={{display:'flex',gap:10,marginBottom:16}}>
             <input value={bookFilter} onChange={e=>setBookFilter(e.target.value)}
               placeholder="Search by name, company or role…"
-              style={{flex:1,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px',outline:'none'}}/>
+              style={{flex:1,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
           </div>
           {filteredBook.length===0&&(
             <div className="card" style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
@@ -2311,7 +2311,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
                       onBlur={saveCaption}
                       onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setCaptionEdit(null) }}
                       placeholder="Caption"
-                      style={{width:'100%', marginTop:6, fontFamily:mono, fontSize:11, background:T.bg, border:`1px solid ${T.gold}`, color:T.text, borderRadius:6, padding:'4px 8px', outline:'none'}}/>
+                      style={{width:'100%', marginTop:6, fontFamily:mono, fontSize:11, background:T.bg, border:`1px solid ${T.gold}`, color:T.text, borderRadius:6, padding:'4px 8px'}}/>
                   ) : (
                     <button onClick={() => setCaptionEdit({ id: p.id, value: p.caption || '' })} title="Edit caption"
                       style={{display:'block', width:'100%', marginTop:6, padding:0, border:'none', background:'none', cursor:'text', textAlign:'left', fontFamily:mono, fontSize:11, color:p.caption ? T.text : T.muted, fontStyle:p.caption ? 'normal' : 'italic', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>

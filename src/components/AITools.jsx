@@ -205,7 +205,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
         <input value={url} onChange={e=>setUrl(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&analyse()}
           placeholder="https://www.rightmove.co.uk/properties/172607333..."
-          style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px', outline:'none'}}/>
+          style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px'}}/>
         <button onClick={analyse} disabled={loading || !url.trim()}
           style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none',
             background:loading||!url.trim()?T.border:T.gold, color:'#1C2830', cursor:loading?'wait':'pointer', flexShrink:0}}>
@@ -227,7 +227,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
                 onChange={v=>setScraped(p=>({...p, price:v||0}))}
                 placeholder="e.g. 175,000"
                 style={{fontFamily:mono, fontSize:13, background:scraped.price?T.gold+'11':T.bg,
-                  border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%', outline:'none'}}/>
+                  border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%'}}/>
             </div>
             <div>
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
@@ -236,7 +236,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               <select value={scraped.propertyType || ''}
                 onChange={e=>setScraped(p=>({...p, propertyType:e.target.value}))}
                 style={{fontFamily:mono, fontSize:12, background:scraped.propertyType?T.gold+'11':T.bg,
-                  border:`1px solid ${scraped.propertyType?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%', outline:'none'}}>
+                  border:`1px solid ${scraped.propertyType?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%'}}>
                 <option value="">Select type…</option>
                 {['flat','terraced','semi-detached','detached','bungalow','HMO'].map(t=>(
                   <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>
@@ -255,7 +255,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Expected monthly rent</div>
               <MoneyInput prefix="£" value={rent} onChange={v=>setRent(v)}
                 placeholder="e.g. 850"
-                style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%', outline:'none'}}/>
+                style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%'}}/>
             </div>
           </div>
 

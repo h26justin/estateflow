@@ -250,7 +250,7 @@ export default function AdminDashboard({ onClose, user }) {
             <input type="password" value={deletePassword} autoFocus
               onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
               onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
-              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',marginBottom:deleteError?8:16}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',marginBottom:deleteError?8:16}}/>
             {deleteError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:16}}>{deleteError}</div>}
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setDeleteTarget(null)} style={{flex:1,fontFamily:mono,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
@@ -334,7 +334,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
     <div>
       <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search company or email…"
-          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px',outline:'none'}}/>
+          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
           style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
           <option value="all">All statuses</option>
@@ -612,7 +612,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Admin notes</div>
         <div style={{display:'flex',gap:10,marginBottom:16}}>
           <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} rows={2} placeholder="Add a note about this account..."
-            style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',outline:'none'}}/>
+            style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none'}}/>
           <button onClick={submitNote} disabled={addingNote||!newNote.trim()}
             style={{fontFamily:mono,fontSize:12,padding:'0 20px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer',fontWeight:700,alignSelf:'stretch'}}>
             {addingNote?'…':'Add'}
@@ -637,12 +637,12 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             <div style={{marginBottom:12}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
               <input value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{marginBottom:20}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
               <input value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setShowRename(false)}
@@ -669,7 +669,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
               {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -880,7 +880,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       {/* ── TOP BAR: search + view toggle + global actions ── */}
       <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by company, email, or abbreviation…"
-          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px',outline:'none'}}/>
+          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
         <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:2,gap:2}}>
           {[['by-company','By company'],['by-user','By user']].map(([k,l])=>(
             <button key={k} onClick={()=>setView(k)}
@@ -1150,7 +1150,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
               {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -1306,13 +1306,13 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
           <input value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 100px',gap:10,marginBottom:12}}>
           <div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
             <input value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
-              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           </div>
           <div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Colour</label>
@@ -1324,7 +1324,7 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
         <div style={{display:'flex',gap:10}}>
@@ -1371,7 +1371,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Source company (will be deleted)</label>
           <select value={sourceId} onChange={e=>setSourceId(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
           </select>
@@ -1382,7 +1382,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Target company (keeps everything)</label>
           <select value={targetId} onChange={e=>setTargetId(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.filter(c=>c.id!==sourceId).map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
           </select>
@@ -1398,7 +1398,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
 
@@ -1442,7 +1442,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
           <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
         {search && !selectedUser && (
@@ -1470,7 +1470,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
 
@@ -1527,7 +1527,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
           <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
         {!selectedUser && (
@@ -1561,7 +1561,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
 
@@ -1774,20 +1774,20 @@ function CommsTab({ user, users, T }) {
           </select>
           {to==='individual'&&(
             <input value={customEmail} onChange={e=>setCustomEmail(e.target.value)} placeholder="user@email.com"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px',marginTop:8,outline:'none'}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px',marginTop:8}}/>
           )}
         </div>
 
         <div style={{marginBottom:16}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Subject</label>
           <input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Email subject line"
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px',outline:'none'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px'}}/>
         </div>
 
         <div style={{marginBottom:20}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Message</label>
           <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={8} placeholder="Write your message here…"
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical',outline:'none'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical'}}/>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:4}}>Sent from hello@ownproperly.com using your Properly branding</div>
         </div>
 
@@ -1847,7 +1847,7 @@ function PlatformTab({ user, companies, T }) {
 
           <div style={{marginBottom:12}}>
             <textarea value={newMsg} onChange={e=>setNewMsg(e.target.value)} rows={3} placeholder="Announcement message…"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',outline:'none',marginBottom:8}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',marginBottom:8}}/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
               <select value={newType} onChange={e=>setNewType(e.target.value)}
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}>
@@ -1856,10 +1856,10 @@ function PlatformTab({ user, companies, T }) {
                 <option value="success">Success (green)</option>
               </select>
               <input value={newLinkText} onChange={e=>setNewLinkText(e.target.value)} placeholder="Link text (optional)"
-                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',outline:'none'}}/>
+                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}/>
             </div>
             <input value={newLink} onChange={e=>setNewLink(e.target.value)} placeholder="Link URL (optional)"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',outline:'none',marginBottom:12}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',marginBottom:12}}/>
             <button onClick={addAnnouncement} disabled={saving||!newMsg.trim()}
               style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 20px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer'}}>
               {saving?'Publishing…':'Publish announcement'}

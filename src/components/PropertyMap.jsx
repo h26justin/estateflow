@@ -463,7 +463,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
               value={searchQ}
               onChange={e => setSearchQ(e.target.value)}
               placeholder="Search by name or address…"
-              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: T.text, fontFamily: mono, fontSize: 12, padding: '6px 0', minWidth: 0 }}/>
+              style={{ flex: 1, border: 'none', background: 'transparent', color: T.text, fontFamily: mono, fontSize: 12, padding: '6px 0', minWidth: 0 }}/>
             {searchQ && (
               <button onClick={() => setSearchQ('')}
                 aria-label="Clear search" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '8px' , margin: '-8px -4px'}}>×</button>

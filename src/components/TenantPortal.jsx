@@ -879,7 +879,7 @@ function TenantMessages({ property, user, contactInfo, brandColor }) {
           <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&(e.preventDefault(),send())}
             placeholder="Type a message…"
-            style={{flex:1,fontFamily:mono,fontSize:12,background:'#f8f8f8',border:'1px solid #e8e8e8',color:'#2D3C4A',borderRadius:8,padding:'9px 14px',outline:'none'}}/>
+            style={{flex:1,fontFamily:mono,fontSize:12,background:'#f8f8f8',border:'1px solid #e8e8e8',color:'#2D3C4A',borderRadius:8,padding:'9px 14px'}}/>
           <button onClick={send} disabled={sending||!newMsg.trim()}
             style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 20px',borderRadius:8,border:'none',
               background:sending||!newMsg.trim()?'#ccc':brandColor,color:'white',cursor:'pointer',flexShrink:0}}>

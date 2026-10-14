@@ -153,8 +153,7 @@ export default function CommandPalette({ open, commands, onClose }) {
             onKeyDown={handleKey}
             placeholder="Jump to a page, property, company, or action…"
             style={{
-              flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              color: T.text, fontSize: 15, fontFamily: 'inherit',
+              flex: 1, background: 'transparent', border: 'none', color: T.text, fontSize: 15, fontFamily: 'inherit',
             }}/>
           <kbd style={{
             fontFamily: MONO, fontSize: 9, color: T.muted,

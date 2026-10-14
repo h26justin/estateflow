@@ -113,8 +113,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           style={{
-            flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
-            color: T.text, fontFamily: MONO, fontSize: 12, padding: 0, height: '100%',
+            flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: T.text, fontFamily: MONO, fontSize: 12, padding: 0, height: '100%',
           }}/>
         {q
           ? <button onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Clear search"
