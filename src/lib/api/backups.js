@@ -16,7 +16,7 @@
 // signed URL with 60s TTL for downloads (RLS prevents cross-user access).
 
 import { supabase } from '../supabase'
-import { logAction } from './_monolith'
+import { logAction } from './audit'
 import { createNotification } from './notifications'
 
 // ── Quick download (no Storage round-trip) ─────────────────────────────

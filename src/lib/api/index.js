@@ -31,6 +31,13 @@ export * from './maintenance'
 export * from './expenses'
 export * from './documents'
 export * from './invitations'
+export * from './billing'
+export * from './admin'
+export * from './deals'
+export * from './calculators'
+export * from './reports'
+export * from './audit'
+export * from './trash'
 export * from './lettings'
 
 // Extracted domains. Order doesn't matter — each file's exports are
