@@ -19,7 +19,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
-import { fmt } from '../lib/format'
+import { fmt, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
@@ -419,7 +419,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
     ? `Whole company (${policy.company?.abbr || policy.company?.name || ''})`
     : propCount === 1
       ? policy.properties[0].name || policy.properties[0].address || '1 property'
-      : `${propCount} properties`
+      : plural(propCount,'property','properties')
 
   return (
     <div style={{

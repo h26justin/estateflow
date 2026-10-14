@@ -123,3 +123,11 @@ export const fmtTimeAgo = (d, now = new Date()) => {
   if (days < 30) return `${days}d ago`
   return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
 }
+
+/**
+ * Count with a correctly pluralised noun.
+ *   plural(1, 'company')                 → "1 company"
+ *   plural(3, 'company', 'companies')    → "3 companies"
+ *   plural(2, 'unit')                    → "2 units"
+ */
+export const plural = (n, one, many = one + 's') => `${fmtNum(n)} ${Number(n) === 1 ? one : many}`

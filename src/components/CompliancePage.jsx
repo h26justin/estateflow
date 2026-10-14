@@ -23,6 +23,7 @@ import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC
 import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
+import { plural } from '../lib/format'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -435,7 +436,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                 <div style={{ background: T.card, border: `1px solid ${T.gold}`, borderRadius: 14, padding: '14px 16px', marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'end' }}>
                   <div><label style={lbl}>Building</label>
                     <select aria-label="Building" value={bulk.building} onChange={e => setBulk(b => ({ ...b, building: e.target.value }))} style={inp}>
-                      {buildings.map(g => <option key={g.tail} value={g.tail}>{g.tail} · {g.items.length} units</option>)}
+                      {buildings.map(g => <option key={g.tail} value={g.tail}>{g.tail} · {plural(g.items.length,'unit')}</option>)}
                     </select></div>
                   <div><label style={lbl}>Certificate</label>
                     <select aria-label="Certificate" value={bulk.key} onChange={e => setBulkKey(e.target.value)} style={inp}>

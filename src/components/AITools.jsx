@@ -3,6 +3,7 @@ import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
+import { plural } from '../lib/format'
 
 const mono = MONO
 
@@ -371,13 +372,13 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Today (current portfolio)</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 2 }}>{fmt(currentIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(currentValue)}</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{currentProperties.length} properties</div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length,'property','properties')}</div>
         </div>
         <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#2ECC8A'}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>After buying {extraProps} more</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#2ECC8A', marginBottom: 2 }}>{fmt(totalIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(totalValue)}</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{currentProperties.length + extraProps} properties</div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length + extraProps,'property','properties')}</div>
         </div>
         <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#C8A84B'}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>In {years} years (with {growthRate}% growth)</div>

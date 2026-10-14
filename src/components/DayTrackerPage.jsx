@@ -3,6 +3,7 @@ import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
+import { plural } from '../lib/format'
 
 const mono = MONO
 
@@ -433,7 +434,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, paddingBottom:8, borderBottom:`2px solid ${company.color||T.gold}` }}>
               <div style={{ width:3, height:16, background:company.color||T.gold, borderRadius:2 }}/>
               <span style={{ fontSize:14, fontWeight:700, color:T.text }}>{company.name}</span>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>{compProps.length} properties</span>
+              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>{plural(compProps.length,'property','properties')}</span>
             </div>
 
             {/* Day grid */}

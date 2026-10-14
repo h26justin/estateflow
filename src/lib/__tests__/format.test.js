@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmt, fmtMoney2dp, fmtPct, fmtNum, parseMoney, fmtTimeAgo } from '../format'
+import { fmt, fmtMoney2dp, fmtPct, fmtNum, parseMoney, fmtTimeAgo, plural } from '../format'
 
 describe('fmt — GBP currency with no decimals', () => {
   it('formats whole pounds with thousand separators', () => {
@@ -114,5 +114,17 @@ describe('fmtTimeAgo — relative activity stamp (Admin > Users "Last active")',
     expect(fmtTimeAgo('2026-07-01T07:41:39Z', now)).toMatch(/1 Jul 26/)
     expect(fmtTimeAgo(null, now)).toBe('—')
     expect(fmtTimeAgo('nonsense', now)).toBe('—')
+  })
+})
+
+describe('plural — count with a pluralised noun', () => {
+  it('uses the singular for exactly one', () => {
+    expect(plural(1, 'company', 'companies')).toBe('1 company')
+    expect(plural(1, 'property', 'properties')).toBe('1 property')
+  })
+  it('uses the plural for zero and many, defaulting to +s', () => {
+    expect(plural(0, 'company', 'companies')).toBe('0 companies')
+    expect(plural(2, 'unit')).toBe('2 units')
+    expect(plural(1200, 'unit')).toBe('1,200 units')
   })
 })

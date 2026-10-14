@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
-import { fmt } from '../lib/format'
+import { fmt, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
 
@@ -198,7 +198,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
       {adminTab === 'admin' && isPlatformAdmin && (
         <>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
-            All customer accounts — {allCompanies.length} companies
+            All customer accounts — {plural(allCompanies.length,'company','companies')}
           </div>
           <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontFamily: mono, fontSize: 11, color: T.amber }}>
             Toggle free tier to exempt any company from billing permanently.

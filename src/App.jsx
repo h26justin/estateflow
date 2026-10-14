@@ -129,6 +129,7 @@ import PaymentModal from './components/modals/PaymentModal'
 import AccessModal from './components/modals/AccessModal'
 import CustomizeDashModal from './components/modals/CustomizeDashModal'
 import { pressable } from './lib/pressable'
+import { plural } from './lib/format'
 
 
 
@@ -2481,7 +2482,7 @@ export default function App() {
           // while the company has no properties (they'd vanish from its view).
           async function convertType() {
             const toHolding=!holding
-            if (toHolding && cProps.length>0) return showToast(`${c.name} has ${cProps.length} properties — move them to another company before converting to a holding company`,'error')
+            if (toHolding && cProps.length>0) return showToast(`${c.name} has ${plural(cProps.length,'property','properties')} — move them to another company before converting to a holding company`,'error')
             if (!(await confirmDialog({ title: toHolding ? `Make ${c.name} a holding company?` : `Make ${c.name} an operating company?`, body: (toHolding
               ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
               : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`), confirmLabel: toHolding ? 'Make holding company' : 'Make operating company' }))) return
@@ -2539,7 +2540,7 @@ export default function App() {
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
                       <span style={{fontSize:13}} aria-hidden="true">🏘</span>
                       <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
-                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
+                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {plural(group.items.length,'unit')}</span>
                     </div>
                   )}
                   <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
@@ -3064,7 +3065,7 @@ export default function App() {
                     )
                   })()}
                   {activeProperties.length > 0 && <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
-                    {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
+                    {plural(stats.total,'property','properties')} · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                     {dashProps.some(p=>p.current_value>0) && <>
                       {/* On mobile drop to a new line so the value/equity pair has its own row */}
                       {isMobile ? <br/> : ' · '}
@@ -3783,7 +3784,7 @@ export default function App() {
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
               <div style={{flex:'1 1 auto',minWidth:0}}>
                 <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio</h1>
-                <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
+                <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {plural(properties.length,'property','properties')} shown</div>
               </div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 {[['properties','building','Properties'],['companies','grid','Companies'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
@@ -4739,7 +4740,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
               <Icon name="building" size={14} color={T.muted}/>
               <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{buildingTailFromName(p.name)}</span>
-              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {buildingSize} units</span>
+              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {plural(buildingSize,'unit')}</span>
             </div>
           )}
           <div
@@ -5026,7 +5027,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       </div>
       {narrowing && (
         <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:14,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-          <span>{shownProps.length} of {trackedProps.length} properties match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
+          <span>{shownProps.length} of {plural(trackedProps.length,'property','properties')} match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
           <button type="button" onClick={clearSearchAndFilters}
             style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.goldText,padding:0,textDecoration:'underline'}}>Clear</button>
         </div>
@@ -5149,7 +5150,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <div style={{flex:1}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <h2 style={{fontSize:15,fontWeight:700}}>{c.name}</h2>
-                  <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{cps.length} properties</span>
+                  <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{plural(cps.length,'property','properties')}</span>
                   {(() => {
                     // Tenancy coverage for this company: how many earning units
                     // still have no tenancy record, and how many drafts await a
@@ -5247,7 +5248,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                             {group.name}
                           </span>
                           <span style={{ fontSize: 10, color: T.muted }}>
-                            · {group.items.length} units · {fmt(bgRent)}/mo
+                            · {plural(group.items.length,'unit')} · {fmt(bgRent)}/mo
                           </span>
                           <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
                             {bgStats.missed > 0 && (

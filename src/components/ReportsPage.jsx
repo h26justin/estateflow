@@ -19,6 +19,7 @@ import { EPC_BAND_COLOR } from '../lib/complianceCatalogue'
 import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport'
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
 import { pressable } from '../lib/pressable'
+import { plural } from '../lib/format'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
 // "£12,000" at small sizes.
@@ -2606,7 +2607,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
             <div style={{width:3,height:20,background:g.color||T.gold,borderRadius:2}}/>
             {g.logoUrl && <img src={g.logoUrl} alt="" style={{height:26,maxWidth:80,objectFit:'contain'}}/>}
             <span style={{fontSize:15,fontWeight:700,color:T.text}}>{g.company}</span>
-            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{g.cards.length} properties</span>
+            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{plural(g.cards.length,'property','properties')}</span>
             <span style={{marginLeft:'auto',display:'flex',gap:14,flexWrap:'wrap',alignItems:'center'}}>
               {[['paid','paid'],['due','due'],['missed','missed'],['nc','not collectible'],['backfill','need amount']].filter(([k])=>g.counts[k]>0).map(([k,l])=>(
                 <span key={k} style={{fontFamily:mono,fontSize:11,fontWeight:600,color:countColor[k]}}>{g.counts[k]} {l}</span>
@@ -2630,7 +2631,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
               <div key={gr.key}>
                 {gr.building && (
                   <div style={{padding:'8px 16px',background:T.bg,borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:11,display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <b style={{color:T.text}}>{gr.name}</b><span style={{color:T.muted}}>· {gr.cards.length} units · {fmt(gr.rent)}/mo</span>
+                    <b style={{color:T.text}}>{gr.name}</b><span style={{color:T.muted}}>· {plural(gr.cards.length,'unit')} · {fmt(gr.rent)}/mo</span>
                     <span style={{marginLeft:'auto',display:'flex',gap:10}}>
                       {gr.missed>0&&<span style={{color:T.red,fontWeight:700}}>{gr.missed} missed</span>}
                       {gr.due>0&&<span style={{color:T.amber,fontWeight:700}}>{gr.due} due</span>}

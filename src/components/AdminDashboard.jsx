@@ -5,7 +5,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
-import { fmtTimeAgo } from '../lib/format'
+import { fmtTimeAgo, plural } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
 import { pressable } from '../lib/pressable'
@@ -870,7 +870,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   // ── PILLS AND HELPERS ─────────────────────────────────────────────────────
   const statusPill = (co) => {
     const status = co.is_free_tier ? 'free' : (co.subscriptions?.[0]?.status || 'trialing')
-    const cfg = { active:{bg:T.green+'22',c:T.green,l:'Active'}, trialing:{bg:T.amber+'22',c:T.amber,l:'Trial'}, free:{bg:T.gold+'22',c:T.gold,l:'Free'}, past_due:{bg:T.red+'22',c:T.red,l:'Past due'}, canceled:{bg:T.muted+'22',c:T.muted,l:'Canceled'} }[status] || {bg:T.muted+'22',c:T.muted,l:status}
+    const cfg = { active:{bg:T.green+'22',c:T.green,l:'Active'}, trialing:{bg:T.amber+'22',c:T.amber,l:'Trial'}, free:{bg:T.gold+'22',c:T.gold,l:'Free'}, past_due:{bg:T.red+'22',c:T.red,l:'Past due'}, canceled:{bg:T.muted+'22',c:T.muted,l:'Cancelled'} }[status] || {bg:T.muted+'22',c:T.muted,l:status}
     return <span style={{fontFamily:mono,fontSize:10,background:cfg.bg,color:cfg.c,padding:'2px 8px',borderRadius:10,fontWeight:700}}>{cfg.l}</span>
   }
 
@@ -1056,7 +1056,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       {/* ── BY USER VIEW ── */}
       {view==='by-user' && (
         <>
-          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14}}>{filteredUsers.length} of {users.length} users</div>
+          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14}}>{filteredUsers.length} of {plural(users.length,'user')}</div>
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
             {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
             <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>

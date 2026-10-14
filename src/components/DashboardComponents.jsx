@@ -8,6 +8,7 @@ import { propValue } from '../lib/propertyValue'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
 import { pressable } from '../lib/pressable'
+import { plural } from '../lib/format'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -547,7 +548,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           {l:'Annual Rent Income',   v:fmt(annualRent),    c:T.green,  sub:`${filteredProps.filter(p=>isPropertyEarningRent(p.status)).length} rented properties`},
           {l:'Total Expenses',       v:fmt(totalExpenses), c:T.red,    sub:`${selectedYear} recorded expenses`},
           {l:'Net Profit (Est.)',    v:fmt(netProfit),     c:netProfit>=0?T.green:T.red, sub:'Before tax'},
-          {l:'Portfolio Value',      v:fmt(filteredProps.reduce((s,p)=>s+propValue(p),0)), c:T.gold, sub:`${filteredProps.length} properties`},
+          {l:'Portfolio Value',      v:fmt(filteredProps.reduce((s,p)=>s+propValue(p),0)), c:T.gold, sub:plural(filteredProps.length,'property','properties')},
           {l:'Mortgage Debt',        v:fmt(totalMortgage), c:T.purple, sub:`Equity ${fmt(totalEquity)}`},
           {l:'Average Gross Yield',  v:avgYield.toFixed(2)+'%', c:T.blue, sub:'By estimated value'},
         ].map((item,i)=>(
@@ -976,7 +977,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           <div>
             <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em', marginBottom:4 }}>Rent Review Planner</h2>
             <div style={{ fontFamily:mono, fontSize:11, color:T.muted, lineHeight:1.6 }}>
-              Model the impact of rent increases across your portfolio. {rows.length} properties in scope.
+              Model the impact of rent increases across your portfolio. {plural(rows.length,'property','properties')} in scope.
             </div>
           </div>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>

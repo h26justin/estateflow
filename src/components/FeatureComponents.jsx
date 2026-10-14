@@ -33,6 +33,7 @@ import RolePermissionsModal from './RolePermissionsModal'
 import { canDo, ROLE_OPTIONS, ROLE_OPTION_LABELS, roleFromAccessRow, roleUpdateFor, isAdminDemotion } from '../lib/permissions'
 import { canUseInvestorFeatures } from '../lib/tierGating'
 import { pressable } from '../lib/pressable'
+import { plural } from '../lib/format'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -3924,7 +3925,7 @@ function RevenueAnalyticsPanel({ companies, T, showToast }) {
           { label:'MRR', value: fmt(stats.mrr), color:T.goldText, sub:`${fmt(stats.mrr*12)} ARR projected`},
           { label:'Total users', value: stats.totalUsers, color:T.text, sub:`${stats.activeUsers} with properties (${conversionRate.toFixed(1)}% activation)`},
           { label:'ARPU', value: fmt(arpu), color:T.green, sub:'per active user per month'},
-          { label:'Total properties', value: stats.totalProperties, color:T.blue, sub:`across ${stats.totalCompanies} companies`},
+          { label:'Total properties', value: stats.totalProperties, color:T.blue, sub:`across ${plural(stats.totalCompanies,'company','companies')}`},
           { label:'Signups (30d)', value: stats.signupsLast30, color:T.goldText, sub:`${stats.signupsLast7} last 7 days`},
         ].map((k,i) => (
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:14}}>
