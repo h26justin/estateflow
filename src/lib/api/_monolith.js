@@ -3412,10 +3412,11 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) throw new Error('Not signed in')
 
-  // Default: all user's non-deleted, personally held properties. A property
-  // with a company_id is owned by a limited company: its rent is company
-  // income (corporation tax), not the landlord's personal UK property income,
-  // so it must not be filed under MTD ITSA. We also need mortgage_amount +
+  // Default: all user's non-deleted properties. Companies are also used as
+  // plain portfolio groups (nearly every property has a company_id), so
+  // company_id can't tell a limited-company holding from a personal one;
+  // excluding company properties needs an explicit ownership flag first.
+  // We also need mortgage_amount +
   // mortgage_rate so we can compute the period's mortgage interest accrual
   // (residential financial cost — gets 20% basic-rate relief under S24).
   let propIds = propertyIds
@@ -3423,7 +3424,7 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   if (!propIds) {
     const { data: props, error: pe } = await supabase
       .from('properties').select('id, mortgage_amount, mortgage_rate')
-      .eq('user_id', uid).is('deleted_at', null).is('company_id', null)
+      .eq('user_id', uid).is('deleted_at', null)
     if (pe) throw pe
     propIds = (props || []).map(p => p.id)
     mortgageProps = (props || []).filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)

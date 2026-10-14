@@ -26,12 +26,12 @@ import { fetchMtdRawForPeriod } from '../api/_monolith'
 describe('fetchMtdRawForPeriod', () => {
   beforeEach(() => { calls.length = 0; for (const k of Object.keys(results)) delete results[k] })
 
-  it('only takes personally held properties (company_id IS NULL) by default', async () => {
+  it('takes all the user\'s properties by default (company_id is a portfolio group, not legal ownership)', async () => {
     results.properties = [{ data: [{ id: 'p1', mortgage_amount: 0, mortgage_rate: 0 }], error: null }]
     await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
     const props = calls.filter(c => c.table === 'properties')
     expect(props).toContainEqual({ table: 'properties', m: 'eq', args: ['user_id', 'u1'] })
-    expect(props).toContainEqual({ table: 'properties', m: 'is', args: ['company_id', null] })
+    expect(props).not.toContainEqual({ table: 'properties', m: 'is', args: ['company_id', null] })
   })
 
   it('fetches paid, partial and late rent rows, not only paid', async () => {
