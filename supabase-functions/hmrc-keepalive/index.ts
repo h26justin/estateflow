@@ -12,6 +12,7 @@
 // Source of record: this file. Deployed v7 was pulled into the repo on
 // 2026-09-07 after living only in production since June.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { secretMatches } from './secrets.ts'
 
 const SANDBOX = "https://test-api.service.hmrc.gov.uk" // hard-coded — never production
 const CLIENT_ID = Deno.env.get("HMRC_CLIENT_ID") || ""
@@ -19,7 +20,7 @@ const CLIENT_SECRET = Deno.env.get("HMRC_CLIENT_SECRET") || ""
 const CRON_SECRET = Deno.env.get("CRON_SECRET") || ""
 
 Deno.serve(async (req: Request) => {
-  if (!CRON_SECRET || req.headers.get("x-cron-secret") !== CRON_SECRET) {
+  if (!secretMatches(req.headers.get("x-cron-secret"), CRON_SECRET)) {
     return new Response("Forbidden", { status: 403 })
   }
   if (!CLIENT_ID || !CLIENT_SECRET) {

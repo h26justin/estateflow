@@ -28,6 +28,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { jsPDF } from 'https://esm.sh/jspdf@2.5.1'
 import { sendGmail } from './gmail.ts'
 import { buildAgentReport, drawAgentReportPdf, agentReportFilename, dateLong } from './report.bundle.js'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -204,7 +205,7 @@ async function sendReport({ to, cc, replyTo, subject, html, filename, pdf }: {
 
 serve(async (req) => {
   const cronSecret = req.headers.get('x-cron-secret') || ''
-  if (!CRON_SECRET || cronSecret !== CRON_SECRET) return new Response('Forbidden', { status: 403 })
+  if (!secretMatches(cronSecret, CRON_SECRET)) return new Response('Forbidden', { status: 403 })
 
   let body: any = {}
   try { body = await req.json() } catch (_) { body = {} }

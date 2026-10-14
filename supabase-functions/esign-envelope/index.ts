@@ -88,22 +88,51 @@ serve(async (req) => {
   if (action === 'create') {
     const { document_id, signer_name, signer_email } = body
     const property_id = body.property_id || null
-    let company_id = body.company_id || null
+    let company_id: string | null = null
 
     if (!signer_name || !signer_email) {
       return json({ error: 'signer_name and signer_email required' }, 400)
     }
-    if (!property_id && !company_id) {
+    if (!property_id && !body.company_id) {
       return json({ error: 'property_id or company_id required' }, 400)
     }
-    if (!(await canWrite(property_id, company_id))) {
-      return json({ error: 'No write access (or company is not live)' }, 403)
-    }
-    // Resolve company_id from the property when only a property was given.
-    if (property_id && !company_id) {
+
+    if (property_id) {
+      // company_id is ALWAYS derived from the property server-side; a
+      // caller-supplied company_id is ignored so an envelope can never be
+      // filed under a company the property doesn't belong to.
+      if (!(await canWrite(property_id, null))) {
+        return json({ error: 'No write access (or company is not live)' }, 403)
+      }
       const { data: prop } = await admin
         .from('properties').select('company_id').eq('id', property_id).maybeSingle()
-      company_id = prop?.company_id || null
+      if (!prop) return json({ error: 'Property not found' }, 404)
+      company_id = prop.company_id || null
+    } else {
+      company_id = String(body.company_id)
+      if (!(await canWrite(null, company_id))) {
+        return json({ error: 'No write access (or company is not live)' }, 403)
+      }
+    }
+
+    // The document must be visible to the caller (RLS-scoped read) AND
+    // belong to the same property / company as the envelope.
+    if (document_id) {
+      const { data: doc } = await userClient
+        .from('property_documents').select('id, property_id').eq('id', document_id).maybeSingle()
+      if (!doc) return json({ error: 'Document not found' }, 404)
+      if (property_id) {
+        if (doc.property_id !== property_id) {
+          return json({ error: 'Document does not belong to this property' }, 400)
+        }
+      } else {
+        const { data: docProp } = doc.property_id
+          ? await admin.from('properties').select('company_id').eq('id', doc.property_id).maybeSingle()
+          : { data: null }
+        if (!docProp || docProp.company_id !== company_id) {
+          return json({ error: 'Document does not belong to this company' }, 400)
+        }
+      }
     }
 
     const { data: row, error } = await admin
@@ -165,10 +194,11 @@ serve(async (req) => {
       //   .eq('id', envelope_id).select().single()
       // return json({ ok: true, envelope: updated })
     } catch (e) {
+      console.error('esign send failed', e)
       await admin.from('esign_envelopes')
         .update({ status: 'error', error_message: String((e as Error).message).slice(0, 500) })
         .eq('id', envelope_id)
-      return json({ error: 'Provider send failed', detail: String((e as Error).message) }, 502)
+      return json({ error: 'Provider send failed' }, 502)
     }
   }
 

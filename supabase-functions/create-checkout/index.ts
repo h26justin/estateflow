@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
 
   } catch (e) {
     console.error('checkout error:', e)
-    return err(e.message)
+    return err('Billing is temporarily unavailable — please try again', 500)
   }
 })
 

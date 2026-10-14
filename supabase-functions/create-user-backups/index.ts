@@ -15,6 +15,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -140,8 +141,8 @@ serve(async (req) => {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
     const cronSecret = req.headers.get('x-cron-secret') || ''
     const isServiceCall =
-      (!!CRON_SECRET && cronSecret === CRON_SECRET) ||
-      (!!token && token === SERVICE_ROLE_KEY)
+      secretMatches(cronSecret, CRON_SECRET) ||
+      (!!token && secretMatches(token, SERVICE_ROLE_KEY))
 
     if (!isServiceCall) {
       if (!token) return jsonError(401, 'Missing Authorization header')

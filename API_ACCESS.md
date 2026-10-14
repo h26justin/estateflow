@@ -60,7 +60,9 @@ Soft-deleted records are always excluded. Dates are `YYYY-MM-DD`.
 Used by the Settings panel — require a signed-in Supabase user JWT:
 
 - `POST /tokens` `{ name?, expires_in_days? }` → mints a token (plaintext
-  returned once), max 10 active per user, max 365-day expiry.
+  returned once), max 10 active per user. Every token expires: default and
+  maximum 365 days (legacy tokens with no expiry stop working 365 days after
+  creation).
 - `GET /tokens` → metadata list (never plaintext).
 - `DELETE /tokens/:id` → revoke.
 

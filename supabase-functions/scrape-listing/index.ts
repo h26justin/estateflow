@@ -6,9 +6,15 @@
 // which made it an open proxy (and a server-side request forgery vector into
 // anything the edge runtime can reach). It now accepts only https URLs on the
 // three portal hosts, follows no redirects off them, and caps the body read.
+// verify_jwt alone also accepts the public anon key, so the caller must be a
+// signed-in user (checked in code with auth.getUser).
 //
 // Source of record: this file. Pulled into the repo from the deployed v22.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+
+const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,20 +24,35 @@ const corsHeaders = {
 const ALLOWED_HOSTS = ['www.rightmove.co.uk', 'rightmove.co.uk', 'www.zoopla.co.uk', 'zoopla.co.uk', 'www.onthemarket.com', 'onthemarket.com']
 const MAX_BYTES = 2_000_000
 
+// Messages safe to show the caller; anything else is logged, not returned.
+class ListingError extends Error {}
+
 function allowedUrl(raw: string): URL {
   let u: URL
-  try { u = new URL(raw) } catch { throw new Error('Not a valid URL') }
-  if (u.protocol !== 'https:') throw new Error('Only https listing URLs are accepted')
-  if (!ALLOWED_HOSTS.includes(u.hostname.toLowerCase())) throw new Error('Only Rightmove, Zoopla and OnTheMarket listings are supported')
+  try { u = new URL(raw) } catch { throw new ListingError('Not a valid URL') }
+  if (u.protocol !== 'https:') throw new ListingError('Only https listing URLs are accepted')
+  if (!ALLOWED_HOSTS.includes(u.hostname.toLowerCase())) throw new ListingError('Only Rightmove, Zoopla and OnTheMarket listings are supported')
   return u
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  // Signed-in users only (the anon key alone is not enough).
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) return new Response(JSON.stringify({ error: 'Unauthorised', success: false }), {
+    status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+  const { data: userData, error: userErr } = await admin.auth.getUser(token)
+  if (userErr || !userData?.user) return new Response(JSON.stringify({ error: 'Unauthorised', success: false }), {
+    status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+
   try {
     const { url } = await req.json()
-    if (!url) throw new Error('No URL provided')
+    if (!url) throw new ListingError('No URL provided')
     const target = allowedUrl(String(url))
 
     const res = await fetch(target.toString(), {
@@ -43,8 +64,8 @@ serve(async (req) => {
       }
     })
 
-    if (res.status >= 300 && res.status < 400) throw new Error('Listing redirected; open the final listing page and paste that URL')
-    if (!res.ok) throw new Error(`Failed to fetch listing: ${res.status}`)
+    if (res.status >= 300 && res.status < 400) throw new ListingError('Listing redirected; open the final listing page and paste that URL')
+    if (!res.ok) throw new ListingError(`Failed to fetch listing: ${res.status}`)
     const html = (await res.text()).slice(0, MAX_BYTES)
 
     let price: number | null = null
@@ -119,7 +140,9 @@ serve(async (req) => {
     })
 
   } catch(err) {
-    return new Response(JSON.stringify({ error: (err as Error).message, success: false }), {
+    const safe = err instanceof ListingError
+    if (!safe) console.error('scrape-listing failed:', (err as Error).message)
+    return new Response(JSON.stringify({ error: safe ? (err as Error).message : 'Could not read that listing', success: false }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }

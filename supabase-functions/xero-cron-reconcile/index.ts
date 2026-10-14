@@ -22,6 +22,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -38,7 +39,7 @@ serve(async (req) => {
 
   // Auth: must match CRON_SECRET exactly
   const auth = req.headers.get('Authorization') || ''
-  if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
+  if (!CRON_SECRET || !secretMatches(auth, `Bearer ${CRON_SECRET}`)) {
     return new Response(JSON.stringify({ error: 'unauthorized' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

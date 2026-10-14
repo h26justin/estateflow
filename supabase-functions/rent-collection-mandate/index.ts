@@ -61,21 +61,27 @@ serve(async (req) => {
 
   // ── initiate: the hard stop. No payments endpoint is ever contacted. ──────
   if (action === 'initiate') {
+    if (!body.mandate_id) return json({ error: 'mandate_id required' }, 400)
+    // Only someone with write access to the mandate's property may even
+    // attempt this (and get an audit row written against it).
+    const { data: m } = await admin
+      .from('rent_collection_mandates')
+      .select('property_id')
+      .eq('id', body.mandate_id)
+      .maybeSingle()
+    if (!m?.property_id) return json({ error: 'Mandate not found' }, 404)
+    const { data: canInitiate, error: initPermErr } = await userClient
+      .rpc('has_property_permission', { p_property_id: m.property_id, p_action: 'write' })
+    if (initPermErr || !canInitiate) return json({ error: 'Forbidden' }, 403)
+
     try {
-      const { data: m } = await admin
-        .from('rent_collection_mandates')
-        .select('property_id')
-        .eq('id', body.mandate_id)
-        .maybeSingle()
-      if (m?.property_id) {
-        await admin.from('rent_collection_attempts').insert({
-          mandate_id: body.mandate_id,
-          property_id: m.property_id,
-          event: 'initiate_blocked',
-          detail: 'Initiation refused — feature is inert (pending FCA authorisation and TrueLayer VRP agreement).',
-          created_by: user.id,
-        })
-      }
+      await admin.from('rent_collection_attempts').insert({
+        mandate_id: body.mandate_id,
+        property_id: m.property_id,
+        event: 'initiate_blocked',
+        detail: 'Initiation refused — feature is inert (pending FCA authorisation and TrueLayer VRP agreement).',
+        created_by: user.id,
+      })
     } catch (_e) { /* audit is best-effort; never let it mask the hard stop */ }
 
     return json({
@@ -95,6 +101,18 @@ serve(async (req) => {
       .rpc('has_property_permission', { p_property_id: property_id, p_action: 'write' })
     if (permErr || !canWrite) return json({ error: 'Forbidden' }, 403)
 
+    // company_id must be the property's own company, and one the caller
+    // can access — never trust the caller's pairing of the two.
+    const { data: prop } = await admin
+      .from('properties').select('company_id').eq('id', property_id).maybeSingle()
+    if (!prop) return json({ error: 'Property not found' }, 404)
+    if (prop.company_id !== company_id) {
+      return json({ error: 'company_id does not match the property' }, 400)
+    }
+    const { data: hasCompany } = await userClient
+      .rpc('has_company_access', { p_company_id: company_id })
+    if (hasCompany !== true) return json({ error: 'Forbidden' }, 403)
+
     const { data: live } = await userClient
       .rpc('company_is_live', { p_company_id: company_id })
     if (!live) return json({ error: 'Company is not live' }, 403)
@@ -112,7 +130,7 @@ serve(async (req) => {
       })
       .select()
       .single()
-    if (error) return json({ error: error.message }, 400)
+    if (error) { console.error('mandate create failed', error); return json({ error: 'Could not create mandate' }, 400) }
 
     await admin.from('rent_collection_attempts').insert({
       mandate_id: mandate.id,
@@ -148,7 +166,7 @@ serve(async (req) => {
       .eq('id', mandate_id)
       .select()
       .single()
-    if (error) return json({ error: error.message }, 400)
+    if (error) { console.error('mandate cancel failed', error); return json({ error: 'Could not cancel mandate' }, 400) }
 
     await admin.from('rent_collection_attempts').insert({
       mandate_id,

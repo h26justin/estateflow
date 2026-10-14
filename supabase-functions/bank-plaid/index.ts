@@ -133,9 +133,9 @@ serve(async (req) => {
       let encAccess: string | null = null
       try { encAccess = await encryptToken(accessToken) }
       catch (e) {
+        console.error('Plaid token encryption failed (check OWNPROPERLY_TOKEN_KEY):', (e as Error).message)
         return new Response(JSON.stringify({
-          error: 'Token encryption failed: ' + (e as Error).message +
-                 ' — check the OWNPROPERLY_TOKEN_KEY supabase secret (must be 64 hex chars).',
+          error: 'The bank connection could not be stored securely. Please contact support.',
         }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
 
@@ -341,6 +341,13 @@ serve(async (req) => {
 
     return jsonError(400, 'Unknown action: ' + action)
   } catch (e: any) {
-    return jsonError(e.status || 500, e.message || 'Unknown error')
+    // Plaid / DB error text is developer-facing — log it, return a summary.
+    if (e?.plaid) {
+      console.error('Plaid error:', e.status, JSON.stringify(e.plaid).slice(0, 1000))
+      const code = typeof e.plaid?.error_code === 'string' && /^[A-Z0-9_]{1,64}$/.test(e.plaid.error_code) ? ` (${e.plaid.error_code})` : ''
+      return jsonError(e.status || 502, `Bank provider error${code} — please try again`)
+    }
+    console.error('bank-plaid failed:', e)
+    return jsonError(500, 'Something went wrong — please try again')
   }
 })

@@ -48,6 +48,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken, resolveToken } from './encryption.ts'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -263,7 +264,7 @@ serve(async (req) => {
   // ── Cron mode: sync every active connection ─────────────────────────────
   const cronHeader = req.headers.get('x-cron-secret') || ''
   if (cronHeader) {
-    if (!CRON_SECRET || cronHeader !== CRON_SECRET) return jsonError(403, 'Bad cron secret')
+    if (!secretMatches(cronHeader, CRON_SECRET)) return jsonError(403, 'Bad cron secret')
     const { data: conns } = await admin.from('lodgify_connections')
       .select('*').eq('status', 'active')
     const results: Record<string, unknown> = {}
@@ -324,8 +325,8 @@ serve(async (req) => {
       let enc: string | null = null
       try { enc = await encryptToken(apiKey) }
       catch (e) {
-        return jsonError(500, 'Key encryption failed: ' + (e as Error).message +
-          ' — check the OWNPROPERLY_TOKEN_KEY supabase secret (must be 64 hex chars).')
+        console.error('Lodgify key encryption failed (check OWNPROPERLY_TOKEN_KEY):', (e as Error).message)
+        return jsonError(500, 'The connection could not be stored securely. Please contact support.')
       }
 
       const { error: cErr } = await admin.from('lodgify_connections').upsert({
