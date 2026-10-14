@@ -65,7 +65,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   // figure but not something the rent model can hold — and a blocked row stops
   // the whole import. Without a way to set those aside the import deadlocks.
   const [excluded, setExcluded] = useState(() => new Set())
-  const fileRef = useRef()
+  const fileRef = useRef(null)
 
   const sortedProps = useMemo(
     () => [...(properties || [])].sort((a, b) => naturalCompare(a.name, b.name)),
