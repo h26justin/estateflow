@@ -21,6 +21,7 @@ import {
   REPAYMENT_TYPES, LENDER_TYPES, monthlyPayment, buildSchedule, loanStatus,
   summariseLoans, upcomingPayments, validateLoan, firstPaymentDate, todayISO,
 } from '../lib/externalLoans'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -541,7 +542,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
             <th style={th}>Progress</th>
           </tr></thead>
           <tbody>{listed.map(({ loan, s }) => (
-            <tr key={loan.id} onClick={() => { setSelectedId(loan.id); setMode('view') }} style={{ cursor: 'pointer' }}>
+            <tr key={loan.id} {...pressable(() => { setSelectedId(loan.id); setMode('view') }, { role: null })} style={{ cursor: 'pointer' }}>
               <td style={td}>
                 <div style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: T.text }}>{loan.lender_name}</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>

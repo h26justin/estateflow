@@ -18,6 +18,7 @@ import { planToC, fmtCostRange, BELOW_C } from '../lib/epcUpgrade'
 import { EPC_BAND_COLOR } from '../lib/complianceCatalogue'
 import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport'
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
+import { pressable } from '../lib/pressable'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
 // "£12,000" at small sizes.
@@ -355,7 +356,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:12}}>
               {REPORT_CATALOGUE.filter(r=>r.cat===cat).map(report=>(
                 <div key={report.id}
-                  onClick={()=>openReport(report)}
+                  {...pressable(()=>openReport(report))}
                   style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'18px 20px',cursor:'pointer',transition:'all 0.18s',borderLeft:`3px solid ${CAT_COLORS[cat]}`}}
                   onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'}}
                   onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none'}}>

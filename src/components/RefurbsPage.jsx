@@ -33,6 +33,7 @@ import { BUILT_IN_TEMPLATES, PROJECT_TYPES, filterProjects, distinctValues, jour
 import { useRefurbInvoices, allLinesOf, ImportRefurbInvoice, InvoiceList, InvoiceDetail, ProjectInvoices } from './RefurbInvoices'
 import RefurbWorkspace, { WORKSPACE_TABS } from './refurbs/RefurbWorkspace'
 import { CoverImage } from './refurbs/CoverPhoto'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -554,7 +555,7 @@ function ProjectRow({ project, journey, canEdit, onOpen, onQuickPay, T, isMobile
   const stripe = tone === 'bad' ? T.red : tone === 'warn' ? T.amber : (STAGE_CFG[project.stage]?.color || T.blue)
   const p = project.property
   return <div style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `4px solid ${stripe}`, borderRadius: 12, padding: '14px 18px', marginBottom: 10, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 12, alignItems: 'center' }}>
-    <div style={{ minWidth: 0, cursor: 'pointer' }} onClick={onOpen}>
+    <div style={{ minWidth: 0, cursor: 'pointer' }} {...pressable(onOpen)}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <b style={{ fontSize: 15 }}>{p?.name || p?.address || 'Property'}</b>
         <StageChip stage={project.stage} T={T} />
@@ -611,7 +612,7 @@ function Board({ projects, canEdit, onOpen, onStage, T }) {
           {items.map(p => {
             const t = projectTotals(p)
             const tone = toneFor(p, t, new Date())
-            return <div key={p.id} draggable={canEdit} onDragStart={() => setDragId(p.id)} onDragEnd={() => setDragId(null)} onClick={() => onOpen(p)}
+            return <div key={p.id} draggable={canEdit} onDragStart={() => setDragId(p.id)} onDragEnd={() => setDragId(null)} {...pressable(() => onOpen(p))}
               style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', marginBottom: 8, cursor: 'pointer', opacity: dragId === p.id ? 0.5 : 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
                 <b style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.property?.name || p.property?.address}</b>

@@ -21,6 +21,7 @@ import {
   allocationBase, evenSplit, percentSplit, reconcile, allocationProblems, findDuplicate,
   paidAgainst, invoiceStatus, outstandingOn, invoicesForProject, defaultProjectFor, extractInvoiceFields, round2,
 } from '../lib/refurbInvoices'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt2 = n => '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -404,7 +405,7 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
     {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead><tr><th style={th}>Date</th><th style={th}>Supplier</th><th style={th}>Number</th>{!isMobile && <th style={th}>Co</th>}<th style={th}>Properties</th><th style={{ ...th, textAlign: 'right' }}>Amount</th><th style={{ ...th, textAlign: 'right' }}>Paid</th><th style={{ ...th, textAlign: 'right' }}>Outstanding</th><th style={th}>Status</th></tr></thead>
       <tbody>{rows.map(({ inv, st, paid, out }) => (
-        <tr key={inv.id} onClick={() => onOpen(inv)} style={{ cursor: 'pointer' }}>
+        <tr key={inv.id} {...pressable(() => onOpen(inv), { role: null })} style={{ cursor: 'pointer' }}>
           <td style={{ ...td, fontFamily: mono, whiteSpace: 'nowrap' }}>{fmtDate(inv.invoice_date)}</td>
           <td style={td}>{inv.supplier_name}</td>
           <td style={{ ...td, fontFamily: mono }}>{inv.invoice_number || '—'}</td>

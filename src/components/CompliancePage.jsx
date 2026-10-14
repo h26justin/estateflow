@@ -22,6 +22,7 @@ import InsurancePage from './InsurancePage'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
 import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -213,7 +214,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
           <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>Needs attention</h2>
           <div style={{ display: 'grid', gap: 8 }}>
             {attention.slice(0, 8).map(({ p, issues }) => (
-              <div key={p.id} className="card pcard" onClick={() => openDetail(p)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', flexWrap: 'wrap' }}>
+              <div key={p.id} className="card pcard" {...pressable(() => openDetail(p))} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{p.name}</span>
                 <CoPill company={p._co?.id ? p._co : null} T={T} />
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
@@ -247,7 +248,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                     <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{p._co.name}</span>
                   </div>
                 )}
-                <div onClick={() => openDetail(p)} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
+                <div {...pressable(() => openDetail(p))} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
                   <div style={{ minWidth: 0, paddingRight: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                     <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>

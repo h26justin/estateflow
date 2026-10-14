@@ -151,6 +151,9 @@ export default function CommandPalette({ open, commands, onClose }) {
           <input ref={inputRef} value={q}
             onChange={e => { setQ(e.target.value); setHighlight(0) }}
             onKeyDown={handleKey}
+            role="combobox" aria-expanded={filtered.length > 0} aria-controls="cmdk-list"
+            aria-autocomplete="list" aria-label="Search pages, properties, companies and actions"
+            aria-activedescendant={filtered.length > 0 ? `cmdk-opt-${highlight}` : undefined}
             placeholder="Jump to a page, property, company, or action…"
             style={{
               flex: 1, background: 'transparent', border: 'none', color: T.text, fontSize: 15, fontFamily: 'inherit',
@@ -163,15 +166,15 @@ export default function CommandPalette({ open, commands, onClose }) {
         </div>
 
         {/* Results */}
-        <div ref={listRef} style={{ overflowY: 'auto', flex: 1 }}>
+        <div ref={listRef} id="cmdk-list" role="listbox" aria-label="Results" style={{ overflowY: 'auto', flex: 1 }}>
           {filtered.length === 0 ? (
             <div style={{ padding: '32px 20px', textAlign: 'center', fontFamily: MONO, fontSize: 12, color: T.muted }}>
               {q ? `No matches for "${q}"` : 'No commands available'}
             </div>
           ) : (
             grouped.map(group => (
-              <div key={group.key}>
-                <div style={{
+              <div key={group.key} role="group" aria-label={GROUP_LABEL[group.key] || group.key}>
+                <div aria-hidden="true" style={{
                   padding: '10px 16px 4px', fontFamily: MONO, fontSize: 9,
                   color: T.muted, textTransform: 'uppercase', letterSpacing: '0.12em',
                 }}>{GROUP_LABEL[group.key] || group.key}</div>
@@ -179,7 +182,8 @@ export default function CommandPalette({ open, commands, onClose }) {
                   const idx = runningIdx++
                   const active = idx === highlight
                   return (
-                    <div key={cmd.id} data-idx={idx}
+                    <div key={cmd.id} data-idx={idx} id={`cmdk-opt-${idx}`}
+                      role="option" aria-selected={active}
                       onMouseEnter={() => setHighlight(idx)}
                       onClick={() => { cmd.action(); onClose() }}
                       style={{

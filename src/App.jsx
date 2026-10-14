@@ -128,6 +128,7 @@ import DeleteCompanyModal from './components/modals/DeleteCompanyModal'
 import PaymentModal from './components/modals/PaymentModal'
 import AccessModal from './components/modals/AccessModal'
 import CustomizeDashModal from './components/modals/CustomizeDashModal'
+import { pressable } from './lib/pressable'
 
 
 
@@ -295,7 +296,7 @@ const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavi
   const clickable = breakdown || onNavigate
   return (
     <div ref={rootRef} style={{position:'relative',zIndex:open?30:undefined,background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
-      onClick={breakdown?()=>setOpen(o=>!o):(onNavigate||undefined)}>
+      {...pressable(breakdown?()=>setOpen(o=>!o):onNavigate, breakdown?{'aria-expanded':open}:{})}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         {/* Redesign: a known icon name renders the hairline glyph in a tinted
             accent tile; legacy emoji strings still render as-is. */}
@@ -2546,7 +2547,7 @@ export default function App() {
                       const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
                       const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
                       return (
-                      <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
+                      <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} {...pressable(()=>openDetail(p))}>
                         <div style={{flex:1,minWidth:150}}>
                           <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
                           <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
@@ -4557,7 +4558,7 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
         const cfg = complianceBadge(complianceStatusFor(p), T)
         const gy = calcGrossYield(p, yieldBasis)
         return (
-          <div key={p.id} className="card pcard" onClick={()=>openDetail(p)}
+          <div key={p.id} className="card pcard" {...pressable(()=>openDetail(p))}
             style={{cursor:'pointer',display:'flex',flexDirection:'column',gap:9,padding:'14px 15px',borderLeft:`3px solid ${accent}`}}>
             {/* Top: accent-tinted type-icon tile + name / pills / address */}
             <div style={{display:'flex',alignItems:'flex-start',gap:11,minWidth:0}}>
@@ -4762,7 +4763,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">&#x283F;</div>}
             {!isCustomSort&&<div style={{width:4,flexShrink:0}}/>}
             {/* Content */}
-            <div style={{flex:1,minWidth:180,cursor:'pointer'}} onClick={()=>openDetail(p)}>
+            <div style={{flex:1,minWidth:180,cursor:'pointer'}} {...pressable(()=>openDetail(p))}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
                 <span style={{fontSize:15,fontWeight:700}}>{displayName}</span>
                 <CompanyPill company={p.company}/>
@@ -5140,7 +5141,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         return (
           <div key={c.id} style={{marginBottom:20}}>
             {/* Company header - clickable to collapse */}
-            <div onClick={()=>toggleCompany(c.id)}
+            <div {...pressable(()=>toggleCompany(c.id), { 'aria-expanded': isOpen })}
               style={{display:'flex',alignItems:'center',gap:10,marginBottom:isOpen?12:0,cursor:'pointer',
                 background:T.card,border:`1px solid ${T.border}`,borderRadius:isOpen?'12px 12px 0 0':'12px',
                 padding:'14px 18px',transition:'border-radius 0.2s'}}>
@@ -5274,7 +5275,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                               borderLeft: isBuilding ? `2px solid ${T.gold}33` : 'none',
                               marginLeft: isBuilding ? (isMobile ? 10 : 14) : 0,
                             }}
-                            onClick={()=>openDetail(p)}
+                            {...pressable(()=>openDetail(p))}
                             onMouseEnter={e=>e.currentTarget.style.background=T.border}
                             onMouseLeave={e=>e.currentTarget.style.background=pi%2===0?T.card:T.surface}>
                             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>

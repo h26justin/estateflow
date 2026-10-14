@@ -32,6 +32,7 @@ import MoneyInput from '../lib/MoneyInput'
 import RolePermissionsModal from './RolePermissionsModal'
 import { canDo, ROLE_OPTIONS, ROLE_OPTION_LABELS, roleFromAccessRow, roleUpdateFor, isAdminDemotion } from '../lib/permissions'
 import { canUseInvestorFeatures } from '../lib/tierGating'
+import { pressable } from '../lib/pressable'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -4392,7 +4393,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
             ['landlord','Landlord mode','Tenants message you via the portal. No direct contact details shown.'],
             ['agent','Managing agent mode','Tenants see the agent name, phone and email instead of yours.'],
           ].map(([k,l,d])=>(
-            <div key={k} onClick={()=>setMode(k)} style={{ display:'flex', gap:14, padding:'14px 16px', borderRadius:10, cursor:'pointer',
+            <div key={k} {...pressable(()=>setMode(k), { role: 'radio', 'aria-checked': mode===k })} style={{ display:'flex', gap:14, padding:'14px 16px', borderRadius:10, cursor:'pointer',
               border:`2px solid ${mode===k?T.gold:T.border}`, background:mode===k?T.gold+'11':T.bg }}>
               <div style={{ width:18, height:18, borderRadius:9, border:`2px solid ${mode===k?T.gold:T.border}`, background:mode===k?T.gold:'transparent', flexShrink:0, marginTop:2 }}/>
               <div>

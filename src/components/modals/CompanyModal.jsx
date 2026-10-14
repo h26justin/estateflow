@@ -5,6 +5,7 @@ import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
+import { pressable } from '../../lib/pressable'
 
 export default function CompanyModal({ onClose, onSave }) {
   const confirmDiscard = useConfirm()
@@ -102,7 +103,7 @@ export default function CompanyModal({ onClose, onSave }) {
             ))}
           </div>
         </div>
-        <div><label>Colour</label><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{['#C8A84B','#4B8FE0','#2ECC8A','#E05555','#9B59B6','#E0943A','#1ABC9C','#E74C3C'].map(col=><div key={col} onClick={()=>s('color',col)} style={{width:32,height:32,borderRadius:8,background:col,cursor:'pointer',border:`3px solid ${form.color===col?'#fff':'transparent'}`,transition:'border 0.15s'}}/>)}</div></div>
+        <div><label>Colour</label><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{['#C8A84B','#4B8FE0','#2ECC8A','#E05555','#9B59B6','#E0943A','#1ABC9C','#E74C3C'].map(col=><div key={col} {...pressable(()=>s('color',col), { role: 'radio', 'aria-checked': form.color===col, 'aria-label': `Colour ${col}` })} style={{width:32,height:32,borderRadius:8,background:col,cursor:'pointer',border:`3px solid ${form.color===col?'#fff':'transparent'}`,transition:'border 0.15s'}}/>)}</div></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-gold">

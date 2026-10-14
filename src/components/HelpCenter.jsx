@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
+import { pressable } from '../lib/pressable'
 
 const CATEGORIES = [
   { key: 'start',       label: 'Getting Started',      icon: 'sparkle' },
@@ -749,7 +750,7 @@ export default function HelpCenter() {
                 const isOpen = openGuide === guide.id
                 return (
                   <div key={guide.id} style={{ background: T.card, border: `1px solid ${isOpen ? T.gold : T.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.2s' }}>
-                    <div onClick={() => setOpenGuide(isOpen ? null : guide.id)}
+                    <div {...pressable(() => setOpenGuide(isOpen ? null : guide.id), { 'aria-expanded': isOpen })}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', gap: 12 }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{guide.title}</div>

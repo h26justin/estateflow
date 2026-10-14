@@ -9,6 +9,7 @@ import {
   deleteEnquiry,
   triageEnquiry,
 } from '../lib/api/lettingsAssistant'
+import { pressable } from '../lib/pressable'
 
 const mono = "'DM Mono', monospace"
 
@@ -253,7 +254,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
               const prop = properties.find(p => p.id === e.property_id)
               const propName = prop?.name || prop?.address || 'Property'
               return (
-                <div key={e.id} onClick={() => setSelectedId(e.id)}
+                <div key={e.id} {...pressable(() => setSelectedId(e.id))}
                   className="card"
                   style={{ padding: 14, cursor: 'pointer', border: `1px solid ${selectedId === e.id ? T.gold : T.border}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>

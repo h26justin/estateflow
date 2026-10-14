@@ -11,6 +11,7 @@ import {
   buildImportSummary, STATEMENT_STATUSES, STATUS_LABEL, LINE_TYPES, LINE_TYPE_LABEL, REVIEW_STATUSES, REVIEW_LABEL,
   NON_COUNTING_REVIEW, round2, lineAmountOf, feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../lib/statementAudit'
+import { pressable } from '../lib/pressable'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
 // A standalone register for auditing managing-agent rental statements and
@@ -792,7 +793,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     const isSel = s.id === selectedId
                     const counted = ls.filter(l => !NON_COUNTING_REVIEW.has(l.review_status)).length
                     return (
-                      <tr key={s.id} style={{ background: isSel ? T.gold + '14' : 'transparent', cursor: 'pointer' }} onClick={() => setSelectedId(isSel ? null : s.id)}>
+                      <tr key={s.id} style={{ background: isSel ? T.gold + '14' : 'transparent', cursor: 'pointer' }} {...pressable(() => setSelectedId(isSel ? null : s.id), { role: null, 'aria-selected': isSel })}>
                         {td(<b>{s.statement_number}</b>)}
                         {td(fmtDate(s.statement_date) || '-', { color: T.muted })}
                         <td style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>

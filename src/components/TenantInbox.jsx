@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const PRIORITY_CFG = {
@@ -271,7 +272,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
 
   return (
     <div>
-      <div onClick={() => onOpen(job)}
+      <div {...pressable(() => onOpen(job), { 'aria-expanded': isExpanded })}
         style={{ background:T.card, border:`1px solid ${isExpanded ? T.gold : job.status==='complete' ? T.border : T.border}`, borderRadius:isExpanded?'12px 12px 0 0':12, padding:'14px 18px', cursor:'pointer', opacity: job.status==='complete' ? 0.7 : 1 }}
         onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold+'88'}
         onMouseLeave={e=>e.currentTarget.style.borderColor=isExpanded?T.gold:T.border}>
@@ -354,7 +355,7 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
 
   return (
     <div>
-      <div onClick={() => onOpen(convo)}
+      <div {...pressable(() => onOpen(convo), { 'aria-expanded': isExpanded })}
         style={{ background:T.card, border:`1px solid ${isExpanded ? T.gold : hasUnread ? T.gold+'44' : T.border}`, borderRadius:isExpanded?'12px 12px 0 0':12, padding:'14px 18px', cursor:'pointer' }}
         onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold+'88'}
         onMouseLeave={e=>e.currentTarget.style.borderColor=isExpanded?T.gold:hasUnread?T.gold+'44':T.border}>

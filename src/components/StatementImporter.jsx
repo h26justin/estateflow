@@ -10,6 +10,7 @@ import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import FocusTrap from '../lib/FocusTrap'
 import StatementImportReview from './StatementImportReview'
+import { pressable } from '../lib/pressable'
 
 // ── MANAGING-AGENT STATEMENT IMPORT ─────────────────────────────────────────
 // Upload a PNE / RMS statement (or open one received by email), Properly
@@ -174,7 +175,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 </div>
               )}
               <div
-                onClick={()=>fileRef.current?.click()}
+                {...pressable(()=>fileRef.current?.click())}
                 onDragOver={e=>e.preventDefault()}
                 onDrop={e=>{e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f){setSourceDoc(null); handleFile(f)}}}
                 style={{border:`2px dashed ${T.border}`,borderRadius:12,padding:40,textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}

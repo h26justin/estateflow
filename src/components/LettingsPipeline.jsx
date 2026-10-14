@@ -5,6 +5,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { Icon } from '../lib/icons'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
@@ -296,7 +297,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
 
               return (
                 <div key={letting.id}
-                  onClick={() => { setSelected(isSelected ? null : letting); setDetailTab('details') }}
+                  {...pressable(() => { setSelected(isSelected ? null : letting); setDetailTab('details') })}
                   style={{
                     background: T.card, border: `1px solid ${isSelected ? stage.color : T.border}`,
                     borderLeft: `3px solid ${stage.color}`,
@@ -440,7 +441,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         <div style={{ height: '100%', borderRadius: 3, background: stage.color, width: `${donePct}%`, transition: 'width 0.3s' }} />
                       </div>
                       {checkItems.map(item => (
-                        <div key={item.key} onClick={() => toggleCheck(selected.id, selected.stage, item.key, !!checklist[item.key])}
+                        <div key={item.key} {...pressable(() => toggleCheck(selected.id, selected.stage, item.key, !!checklist[item.key]), { role: 'checkbox', 'aria-checked': !!checklist[item.key] })}
                           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
                           <div style={{
                             width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: `2px solid ${checklist[item.key] ? stage.color : T.border}`,

@@ -18,6 +18,7 @@ import { exportDealPdf } from '../lib/dealPdf'
 import CopyDealModal from './modals/CopyDealModal'
 import { summariseCopy } from '../lib/dealCopy'
 import { DEAL_STATUS_CFG, LEGAL_STEPS, LEGAL_STEP_LABEL, legalStepText, showsLegalStep } from '../lib/dealStages'
+import { pressable } from '../lib/pressable'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -646,7 +647,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                   <div key={deal.id} className="card" style={{padding:'18px 20px',borderLeft:`3px solid ${sc.color}`,cursor:'pointer',transition:'transform 0.18s'}}
                     onMouseEnter={e=>e.currentTarget.style.transform='translateY(-1px)'}
                     onMouseLeave={e=>e.currentTarget.style.transform='none'}
-                    onClick={()=>openDeal(deal)}>
+                    {...pressable(()=>openDeal(deal))}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>
                       {counts?.cover && (
                         <SignedPhoto path={counts.cover} alt="" wrapAnchor={false}
@@ -852,7 +853,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
     return (
       <div style={card}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}}
-          onClick={() => setCollapsed(false)}>
+          {...pressable(() => setCollapsed(false))}>
           <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
             <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cashflow</span>
             <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(agg.totalHeadline)}</span>
@@ -930,7 +931,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
               <div key={g}>
                 {/* Clickable header row — entire row is the click target,
                     chevron on the left signposts the action. */}
-                <div onClick={()=>toggleExpanded(`g:${g}`)} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8,cursor:'pointer',userSelect:'none'}}>
+                <div {...pressable(()=>toggleExpanded(`g:${g}`))} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8,cursor:'pointer',userSelect:'none'}}>
                   <span style={{fontFamily:mono,fontSize:10,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
                   <div>
                     <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.text}}>{STATUS_GROUP_LABEL[g]}</div>
@@ -976,7 +977,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
             const isOpen = expanded === `b:${b}`
             return (
               <div key={b}>
-                <div onClick={()=>toggleExpanded(`b:${b}`)} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:urgent?(b==='overdue'?T.red+'11':T.amber+'11'):T.bg,borderRadius:8,borderLeft:urgent?`3px solid ${b==='overdue'?T.red:T.amber}`:'none',cursor:'pointer',userSelect:'none'}}>
+                <div {...pressable(()=>toggleExpanded(`b:${b}`))} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:urgent?(b==='overdue'?T.red+'11':T.amber+'11'):T.bg,borderRadius:8,borderLeft:urgent?`3px solid ${b==='overdue'?T.red:T.amber}`:'none',cursor:'pointer',userSelect:'none'}}>
                   <span style={{fontFamily:mono,fontSize:10,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
                   <div>
                     <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:labelColor}}>{TIME_BUCKET_LABEL[b]}</div>
@@ -1880,12 +1881,12 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
             {stageMilestones.map(m => (
               <div key={m.id} style={{padding:'12px 20px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:12,opacity:m.is_enabled?1:0.4}}>
                 {/* Toggle enabled — all milestones */}
-                <div onClick={()=>toggleEnabled(m)}
+                <div {...pressable(()=>toggleEnabled(m), { role: 'switch', 'aria-checked': !!m.is_enabled, 'aria-label': `Track ${m.label || 'milestone'}` })}
                   style={{width:32,height:18,borderRadius:9,background:m.is_enabled?T.blue:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s',flexShrink:0}}>
                   <div style={{position:'absolute',top:2,left:m.is_enabled?16:2,width:14,height:14,borderRadius:7,background:'white',transition:'left 0.2s'}}/>
                 </div>
                 {/* Tick */}
-                <div onClick={()=>m.is_enabled&&toggleMilestone(m)}
+                <div {...pressable(()=>m.is_enabled&&toggleMilestone(m), { role: 'checkbox', 'aria-checked': !!m.completed, 'aria-disabled': !m.is_enabled, 'aria-label': `${m.label || 'Milestone'} done` })}
                   style={{width:20,height:20,borderRadius:5,flexShrink:0,cursor:m.is_enabled?'pointer':'default',
                     background:m.completed?T.green:T.surface,
                     border:`2px solid ${m.completed?T.green:T.border}`,
@@ -2514,7 +2515,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                   const m = computeDealMetrics(deal)
                   const counts = docCounts[deal.id]
                   return (
-                    <div key={deal.id} onClick={()=>onOpen(deal)}
+                    <div key={deal.id} {...pressable(()=>onOpen(deal))}
                       style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:8, padding:'10px 12px', marginBottom:8, cursor:'pointer', transition:'border-color 0.15s' }}
                       onMouseEnter={e=>e.currentTarget.style.borderColor=stage.color}
                       onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>

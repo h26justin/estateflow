@@ -4,6 +4,7 @@ import { MONO } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { groupNotifications } from '../lib/notificationsGroup'
+import { pressable } from '../lib/pressable'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
 const TYPE_ICON = {
@@ -209,7 +210,7 @@ export default function NotificationCentre() {
                       </div>
                     )}
                     {g.items.map((n, i) => (
-                  <div key={n.id} onClick={() => handleClick(n)}
+                  <div key={n.id} {...pressable(() => handleClick(n))}
                     style={{
                       padding: '12px 16px',
                       borderBottom: i < g.items.length - 1 ? `1px solid ${T.border}` : 'none',

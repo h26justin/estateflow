@@ -7,6 +7,7 @@ import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus
 import { propValue } from '../lib/propertyValue'
 import { loadCdnScript } from '../lib/loadCdnScript'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
+import { pressable } from '../lib/pressable'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
@@ -139,7 +140,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
       <div style={{display:'grid',gap:8,maxHeight:520,overflowY:'auto',paddingRight:4}}>
         {alerts.map((alert,i)=>(
           <div key={i} className="card pcard" style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',borderLeft:`3px solid ${alert.color}`}}
-            onClick={()=>alert.property&&openDetail(alert.property)}>
+            {...pressable(()=>alert.property&&openDetail(alert.property))}>
             <span style={{flexShrink:0,display:'flex',color:alert.color}}>{ICON_NAMES.includes(alert.icon)?<Icon name={alert.icon} size={17}/>:<span style={{fontSize:16}}>{alert.icon}</span>}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{alert.title}</div>

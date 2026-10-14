@@ -8,6 +8,7 @@ import { showAppToast } from '../lib/toast'
 import { fmtTimeAgo } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
+import { pressable } from '../lib/pressable'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const mono = MONO
@@ -358,7 +359,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
           const props  = co.paid_property_count||co.subscriptions?.[0]?.property_count||0
           const mrr    = status==='active'?props*2:0
           return (
-            <div key={co.id} onClick={()=>onSelect(co)}
+            <div key={co.id} {...pressable(()=>onSelect(co))}
               style={{display:'grid',gridTemplateColumns:'1fr 140px 90px 90px 80px 120px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center',cursor:'pointer',transition:'background 0.15s'}}
               onMouseEnter={e=>e.currentTarget.style.background=T.surface}
               onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -374,7 +375,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
               <div style={{fontFamily:mono,fontSize:12,color:T.text}}>{co.real_property_count||0} <span style={{fontFamily:mono,fontSize:9,color:T.muted}}>total</span></div>
               <div style={{fontFamily:mono,fontSize:12,color:props>0?T.green:T.muted}}>{props>0?props:'—'} {props>0&&<span style={{fontFamily:mono,fontSize:9,color:T.muted}}>billed</span>}</div>
               <div style={{fontFamily:mono,fontSize:12,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr):'—'}</div>
-              <div style={{display:'flex',alignItems:'center',gap:6}} onClick={e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}} {...pressable(e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}, { role: 'switch', 'aria-checked': !!co.is_free_tier, 'aria-label': 'Free tier' })}>
                 <span style={{fontFamily:mono,fontSize:10,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
                 <div style={{width:36,height:20,borderRadius:10,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',opacity:saving===co.id?0.5:1,transition:'background 0.2s'}}>
                   <div style={{position:'absolute',top:2,left:co.is_free_tier?18:2,width:16,height:16,borderRadius:8,background:'white',transition:'left 0.2s'}}/>
@@ -562,7 +563,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Free tier</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontFamily:mono,fontSize:11,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
-                  <div onClick={()=>requireConfirm(co.is_free_tier?'Remove free tier':'Grant free tier', co.is_free_tier?`Remove free tier from "${co.name}". They will need an active subscription.`:`Grant free tier to "${co.name}". They will not be billed.`, async()=>{ onToggleFreeTier() })} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                  <div {...pressable(()=>requireConfirm(co.is_free_tier?'Remove free tier':'Grant free tier', co.is_free_tier?`Remove free tier from "${co.name}". They will need an active subscription.`:`Grant free tier to "${co.name}". They will not be billed.`, async()=>{ onToggleFreeTier() }))} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.is_free_tier?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
                 </div>
@@ -571,7 +572,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Flag account</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontFamily:mono,fontSize:11,color:co.flagged?T.red:T.muted}}>{co.flagged?'Flagged':'Clear'}</span>
-                  <div onClick={()=>requireConfirm(co.flagged?'Unflag account':'Flag account', co.flagged?`Remove the flag from "${co.name}".`:`Flag "${co.name}" for review. This does not affect the account but marks it for admin attention.`, async()=>{ onToggleFlag() })} style={{width:44,height:24,borderRadius:12,background:co.flagged?T.red:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                  <div {...pressable(()=>requireConfirm(co.flagged?'Unflag account':'Flag account', co.flagged?`Remove the flag from "${co.name}".`:`Flag "${co.name}" for review. This does not affect the account but marks it for admin attention.`, async()=>{ onToggleFlag() }))} style={{width:44,height:24,borderRadius:12,background:co.flagged?T.red:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.flagged?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
                 </div>
@@ -919,7 +920,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
             return (
               <div key={co.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:12,overflow:'hidden',borderLeft:`4px solid ${coColor}`}}>
                 {/* Company header row */}
-                <div onClick={()=>toggleExpand(co.id)}
+                <div {...pressable(()=>toggleExpand(co.id))}
                   style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto auto',gap:14,padding:'14px 20px',cursor:'pointer',alignItems:'center',background:isOpen?T.bg:'transparent'}}>
                   <span style={{fontFamily:mono,fontSize:12,color:isOpen?T.goldText:T.faint,fontWeight:700}}>
                     {isOpen ? '▼' : '▶'}
@@ -1451,7 +1452,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
               : filtered.map(u => {
                 const n = userName(u)
                 return (
-                  <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`}}>
+                  <div key={u.id} {...pressable(()=>{setSelectedUser(u);setSearch(u.email)})} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`}}>
                     {n && <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{n}</div>}
                     <div style={{fontFamily:mono,fontSize:11,color:n?T.muted:T.text}}>{u.email}</div>
                   </div>
@@ -1536,7 +1537,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
               : filtered.map(u => {
                 const n = userName(u)
                 return (
-                  <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:10}}>
+                  <div key={u.id} {...pressable(()=>{setSelectedUser(u);setSearch(u.email)})} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:10}}>
                     <div style={{width:28,height:28,borderRadius:14,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.goldText,flexShrink:0}}>
                       {userInitial(u)}
                     </div>
