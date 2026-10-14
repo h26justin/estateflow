@@ -133,7 +133,7 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
   return (
     <div className="card" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button onClick={() => openDetail(property)} style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}>
+        <button onClick={() => openDetail(property)} style={{ background: 'transparent', border: 'none', padding: '4px 0', minHeight: 24, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{property.name}</span>
         </button>
         <CoPill company={company} T={T} />

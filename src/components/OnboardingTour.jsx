@@ -104,7 +104,7 @@ export default function OnboardingTour({ user, onComplete }) {
               <button onClick={skip} disabled={saving} style={{
                 background: 'none', border: 'none', color: T.muted,
                 fontFamily: MONO, fontSize: 11, cursor: 'pointer',
-                letterSpacing: '0.05em',
+                letterSpacing: '0.05em', minHeight: 32, padding: '6px 8px', marginRight: -8,
               }}>Skip tour ✕</button>
             </div>
 
@@ -162,16 +162,21 @@ export default function OnboardingTour({ user, onComplete }) {
           </div>
 
           {/* Step dots */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 5, paddingBottom: 2 }}>
+          {/* Each dot is a 24px hit area (WCAG 2.5.8) around the small visual pip. */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 0, paddingBottom: 2 }}>
             {STEPS.map((_, i) => (
               <button key={i} type="button" onClick={() => setStep(i)}
                 aria-label={`Go to step ${i + 1} of ${STEPS.length}`} aria-current={i === step ? 'step' : undefined}
                 style={{
-                  width: i === step ? 18 : 6, height: 6,
-                  borderRadius: 3, cursor: 'pointer', border: 'none', padding: 0,
+                  minWidth: 24, height: 24, padding: '0 2px', border: 'none', background: 'none',
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                <span aria-hidden="true" style={{
+                  display: 'block', width: i === step ? 18 : 6, height: 6, borderRadius: 3,
                   background: i === step ? T.gold : i < step ? T.gold + '55' : T.border,
                   transition: 'all 0.25s',
                 }}/>
+              </button>
             ))}
           </div>
 

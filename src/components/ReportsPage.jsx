@@ -319,14 +319,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
           </div>
           <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
             {companies.length > 1 && (
-              <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)}
+              <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} aria-label="Company"
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
                 <option value="all">All companies</option>
                 {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
             <select value={year} onChange={e=>setYear(Number(e.target.value))}
-              title="Tax year applied to the Year-End Pack"
+              aria-label="Tax year for the Year-End Pack" title="Tax year applied to the Year-End Pack"
               style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               {[2022,2023,2024,2025,2026,2027].map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
@@ -389,7 +389,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
           {companies.length > 1 && (
-            <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)}
+            <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} aria-label="Company"
               style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               <option value="all">All companies</option>
               {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
@@ -398,12 +398,12 @@ export default function ReportsPage({ properties, companies, companySettings, us
           {/* Year type toggle */}
           <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
             {[['tax','Tax year'],['calendar','Calendar'],['custom','Custom']].map(([k,l])=>(
-              <button key={k} onClick={()=>saveYearType(k)} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
+              <button key={k} onClick={()=>saveYearType(k)} aria-pressed={yearType===k} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
             ))}
           </div>
           {yearType==='custom' ? (
             <div style={{display:'flex',gap:6,alignItems:'center'}}>
-              <input type="date" value={customStart} max={customEnd||undefined}
+              <input type="date" aria-label="Custom range start" value={customStart} max={customEnd||undefined}
                 onChange={e=>{
                   const s=e.target.value
                   if(customEnd && s && s>customEnd) return
@@ -411,7 +411,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
                 }}
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}/>
               <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>—</span>
-              <input type="date" value={customEnd} min={customStart||undefined}
+              <input type="date" aria-label="Custom range end" value={customEnd} min={customStart||undefined}
                 onChange={e=>{
                   const en=e.target.value
                   if(customStart && en && en<customStart) return
@@ -420,7 +420,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}/>
             </div>
           ) : (
-            <select value={year} onChange={e=>setYear(Number(e.target.value))}
+            <select value={year} onChange={e=>setYear(Number(e.target.value))} aria-label="Report year"
               style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>

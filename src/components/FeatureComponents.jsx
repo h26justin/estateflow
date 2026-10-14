@@ -935,16 +935,16 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             <div style={sectionStyle}>
               <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Personal Information</div>
               <div style={fieldStyle}>
-                <label style={labelStyle}>Full Name</label>
-                <input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Your full name"/>
+                <label style={labelStyle} htmlFor="settings-full-name">Full Name</label>
+                <input id="settings-full-name" autoComplete="name" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Your full name"/>
               </div>
               <div style={fieldStyle}>
-                <label style={labelStyle}>Phone Number</label>
-                <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 000000"/>
+                <label style={labelStyle} htmlFor="settings-phone">Phone Number</label>
+                <input id="settings-phone" type="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 000000"/>
               </div>
               <div style={fieldStyle}>
-                <label style={labelStyle}>Email Address</label>
-                <input value={user?.email||''} disabled style={{opacity:0.5,cursor:'not-allowed'}}/>
+                <label style={labelStyle} htmlFor="settings-email">Email Address</label>
+                <input id="settings-email" value={user?.email||''} disabled style={{opacity:0.5,cursor:'not-allowed'}}/>
                 <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:5}}>To change your email or password go to the Security tab.</div>
               </div>
               <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
@@ -1706,6 +1706,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         onDragOver={e=>{e.preventDefault();setDragOver(true)}}
         onDragLeave={()=>setDragOver(false)}
         onClick={()=>inputRef.current?.click()}
+        role="button" tabIndex={0} aria-label="Upload documents: drop files here or press Enter to browse"
+        onKeyDown={e=>{ if(e.target===e.currentTarget&&(e.key==='Enter'||e.key===' ')){e.preventDefault();inputRef.current?.click()} }}
         style={{
           border:`2px dashed ${dragOver?T.gold:T.border}`,
           borderRadius:12,padding:'24px 20px',textAlign:'center',
@@ -1721,16 +1723,16 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         </div>
         <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
           <select value={selectedCategory} onChange={e=>{e.stopPropagation();setSelectedCategory(e.target.value)}}
-            onClick={e=>e.stopPropagation()}
+            onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Document category"
             style={{fontSize:11,padding:'4px 8px',width:'auto'}}>
             {DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
           </select>
           <input value={docName} onChange={e=>{e.stopPropagation();setDocName(e.target.value)}}
-            onClick={e=>e.stopPropagation()}
+            onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Custom document name (optional)"
             placeholder="Custom name (optional)"
             style={{fontSize:11,padding:'4px 8px',width:180}}/>
         </div>
-        <input ref={el=>inputRef.current=el} type="file" multiple accept="*/*"
+        <input ref={el=>inputRef.current=el} type="file" multiple accept="*/*" aria-label="Upload documents"
           style={{display:'none'}} onChange={e=>handleUpload(e.target.files)}/>
       </div>}
 
@@ -2350,6 +2352,8 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
         onDragOver={e=>{e.preventDefault();setDragOver(true)}}
         onDragLeave={()=>setDragOver(false)}
         onClick={()=>inputRef.current?.click()}
+        role="button" tabIndex={0} aria-label="Upload company documents: drop files here or press Enter to browse"
+        onKeyDown={e=>{ if(e.target===e.currentTarget&&(e.key==='Enter'||e.key===' ')){e.preventDefault();inputRef.current?.click()} }}
         style={{border:`2px dashed ${dragOver?T.gold:T.border}`,borderRadius:12,
           padding:'20px',textAlign:'center',cursor:'pointer',marginBottom:14,
           background:dragOver?T.gold+'11':'transparent',transition:'all 0.2s'}}>
@@ -2359,14 +2363,14 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
         </div>
         <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:8,flexWrap:'wrap'}}>
           <select value={selectedCategory} onChange={e=>{e.stopPropagation();setSelectedCategory(e.target.value)}}
-            onClick={e=>e.stopPropagation()} style={{fontSize:11,padding:'4px 8px',width:'auto'}}>
+            onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Document category" style={{fontSize:11,padding:'4px 8px',width:'auto'}}>
             {COMPANY_DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
           </select>
           <input value={docName} onChange={e=>{e.stopPropagation();setDocName(e.target.value)}}
-            onClick={e=>e.stopPropagation()} placeholder="Custom name (optional)"
+            onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Custom document name (optional)" placeholder="Custom name (optional)"
             style={{fontSize:11,padding:'4px 8px',width:160}}/>
         </div>
-        <input ref={el=>inputRef.current=el} type="file" multiple style={{display:'none'}}
+        <input ref={el=>inputRef.current=el} type="file" multiple aria-label="Upload company documents" style={{display:'none'}}
           onChange={e=>handleUpload(e.target.files)}/>
       </div>}
 

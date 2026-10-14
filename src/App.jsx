@@ -306,8 +306,8 @@ const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavi
           {onNavigate&&(
             <button onClick={e=>{e.stopPropagation();onNavigate()}}
               aria-label={navLabel||`Open ${label}`}
-              style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:9,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
-              onMouseEnter={e=>e.currentTarget.style.color=T.gold} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
+              style={{background:'none',border:'none',cursor:'pointer',padding:'6px 4px',margin:'-6px -4px',minHeight:24,fontFamily:MONO,fontSize:9,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
+              onMouseEnter={e=>e.currentTarget.style.color=T.goldText} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
               {(navLabel||'VIEW').toUpperCase()}<Icon name="arrow-right" size={11}/>
             </button>
           )}
@@ -3695,8 +3695,8 @@ export default function App() {
                       Dashboard · {visibleSections.length} sections shown
                     </div>
                     <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
-                      style={{fontFamily:MONO,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
-                      Customize
+                      style={{fontFamily:MONO,fontSize:10,padding:'4px 10px',minHeight:28,borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                      Customise
                     </button>
                   </div>
                   {visibleSections.map(s => {
@@ -3805,7 +3805,7 @@ export default function App() {
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
                 <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
                 {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} aria-pressed={coFilter===c.id} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr||c.name}</button>
                 ))}
               </div>
               <PropertyMap
@@ -3835,11 +3835,11 @@ export default function App() {
               </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} aria-pressed={coFilter===c.id} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr||c.name}</button>
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
                 {['all', ...PROPERTY_STATUSES].map(f=>(
-                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
+                  <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
                 ))}
                 {archivedCount > 0 && (
                   <>
@@ -3869,8 +3869,8 @@ export default function App() {
                 {v:'value-high',   l:'Value (High-Low)'},
                 {v:'custom',       l:'Custom Order'},
               ].map(opt=>(
-                <button key={opt.v} onClick={()=>setSortBy(opt.v)}
-                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
+                <button key={opt.v} onClick={()=>setSortBy(opt.v)} aria-pressed={sortBy===opt.v}
+                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
                     border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
                     background:sortBy===opt.v?T.gold:'transparent',
                     color:sortBy===opt.v?'#1C2830':T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
@@ -3879,7 +3879,7 @@ export default function App() {
               ))}
               {sortBy==='custom'&&(
                 <button onClick={resetCustomOrder} title="Reset to the default order (company → building → unit)"
-                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
+                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
                     border:`1px dashed ${T.border}`,background:'transparent',color:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
                   ↺ Reset to default
                 </button>
@@ -3887,8 +3887,8 @@ export default function App() {
               {/* List / Grid layout toggle (grid is the redesign card view) */}
               <div style={{display:'flex',gap:2,marginLeft:'auto',background:T.card,border:`1px solid ${T.border}`,borderRadius:9,padding:2}}>
                 {[['list','list','List'],['grid','grid-2','Grid']].map(([k,ic,lbl])=>(
-                  <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-pressed={propLayout===k}
-                    style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,cursor:'pointer',border:'none',
+                  <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-label={`${lbl} view`} aria-pressed={propLayout===k}
+                    style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',minHeight:28,minWidth:36,justifyContent:'center',borderRadius:7,cursor:'pointer',border:'none',
                       background:propLayout===k?T.gold:'transparent',color:propLayout===k?'#1C2830':T.muted,
                       fontFamily:MONO,fontSize:10,fontWeight:propLayout===k?700:400}}>
                     <Icon name={ic} size={14}/>{!isMobile&&lbl}
@@ -5012,7 +5012,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               {PROPERTY_STATUSES.map(f=><option key={f} value={f}>{PROPERTY_STATUS_LABELS[f] || f}</option>)}
             </select>
           ) : ['all', ...PROPERTY_STATUSES].map(f=>(
-            <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
+            <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
           ))}
           <div style={{width:1,alignSelf:'stretch',background:T.border,margin:'0 2px'}}/>
           <button onClick={()=>setArrearsOnly(v=>!v)} aria-pressed={arrearsOnly} title="Only show properties with arrears"
