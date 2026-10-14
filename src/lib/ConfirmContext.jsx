@@ -102,7 +102,7 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
               onKeyDown={e => { if (e.key === 'Enter') onConfirm(value); if (e.key === 'Escape') onCancel() }}
               style={{ width: '100%', boxSizing: 'border-box', fontFamily: mono, fontSize: 13, padding: '10px 12px',
                 borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text,
-                outline: 'none', marginBottom: 22 }}/>
+                marginBottom: 22 }}/>
           )}
         </div>
         <div style={{ padding: '0 28px 28px', display: 'flex', gap: 10 }}>

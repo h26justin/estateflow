@@ -34,6 +34,7 @@ const PATHS = {
   'check': '<path d="M4 12.5 9 17.5 20 6.5"/>',
   'check-circle': '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
   'x': '<path d="M6 6l12 12M18 6 6 18"/>',
+  'menu': '<path d="M4 7h16M4 12h16M4 17h16"/>',
   'plus': '<path d="M12 5v14M5 12h14"/>',
   'chevron-down': '<path d="M6 9.5 12 15.5 18 9.5"/>',
   'chevron-right': '<path d="M9.5 6 15.5 12 9.5 18"/>',

@@ -6,6 +6,7 @@ import { logError } from '../lib/logError'
 import { MONO, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import { setStoredDevice, clearStoredDevice, deviceLabel } from '../lib/trustedDevice'
+import FocusTrap from '../lib/FocusTrap'
 
 // OwnProperly redesign (design/redesign-2026) — split slate brand panel + paper
 // form. The auth page is intentionally theme-independent (always the light /
@@ -20,6 +21,7 @@ const BORDER  = '#D8D4CB'   // input hairline (warm)
 const MUTED   = '#5C6670'   // secondary text + labels (AA on paper & white)
 const GOLD    = '#B8902F'   // light accent
 const GOLD_D  = '#CBA64E'   // accent on the slate panel
+const GOLD_T  = '#7A5E1C'   // gold as text on paper/white (5.5:1, WCAG AA)
 
 const CSS = `
   .lp-scope *{box-sizing:border-box;}
@@ -30,7 +32,7 @@ const CSS = `
   .lp-btn{font-family:${SANS};font-weight:700;background:${INK};color:white;border:none;border-radius:10px;padding:13px 20px;font-size:15px;width:100%;cursor:pointer;transition:background 0.18s,opacity 0.18s;}
   .lp-btn:hover:not(:disabled){background:#0F1A22;}
   .lp-btn:disabled{opacity:0.55;cursor:not-allowed;}
-  .lp-link{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:${GOLD};cursor:pointer;font-weight:500;}
+  .lp-link{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:${GOLD_T};cursor:pointer;font-weight:500;}
   .lp-link:hover{text-decoration:underline;text-underline-offset:3px;}
   .lp-page{min-height:100vh;display:flex;font-family:${SANS};color:${INK};}
   .lp-brandpanel{flex:1.1;background:${SLATE};color:${PAPER};padding:48px 56px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
@@ -224,7 +226,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 
       <div>
         {/* h1 — the page's single top-level heading (a11y: WCAG 2.4.1). */}
-        <h1 style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.02em', color:INK, margin:'0 0 6px' }}>
+        <h1 id="lp-title" style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.02em', color:INK, margin:'0 0 6px' }}>
           {branding
             ? (mode==='login' ? 'Sign in to your portal' : 'Create your account')
             : (mode==='login' ? 'Welcome back' : 'Create your free account')}
@@ -270,7 +272,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8 }}>
               <label className="lp-label" htmlFor="lp-password" style={{ marginBottom:0 }}>Password {mode==='signup'&&<span style={{textTransform:'none',letterSpacing:0}}>(min. 8 characters)</span>}</label>
               {mode==='login' && (
-                <button type="button" className="lp-link" style={{ fontSize:11, opacity: resetBusy ? 0.6 : 1 }} disabled={resetBusy} onClick={handleForgot}>
+                <button type="button" className="lp-link" style={{ fontSize:11, opacity: resetBusy ? 0.6 : 1, minHeight:24, padding:'4px 2px' }} disabled={resetBusy} onClick={handleForgot}>
                   {resetBusy ? 'Sending…' : 'Forgot?'}
                 </button>
               )}
@@ -285,8 +287,9 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
                 aria-label={showPw ? 'Hide password' : 'Show password'}
                 aria-pressed={showPw}
                 style={{
-                  position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                  position:'absolute', right:6, top:'50%', transform:'translateY(-50%)',
                   background:'none', border:'none', cursor:'pointer', padding:0,
+                  width:34, height:34, borderRadius:8, alignItems:'center', justifyContent:'center',
                   color:MUTED, display:'flex'
                 }}><Icon name={showPw ? 'eye-off' : 'eye'} size={18} /></button>
             </div>
@@ -294,8 +297,8 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 
           {/* aria-live so screen readers announce auth errors / success
               messages as they appear; without this they were silent. */}
-          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#C5483B', background:'#FAEAE8', border:'1px solid #C5483B33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-          {success&&<div role="status" aria-live="polite" style={{ fontFamily:MONO, fontSize:12, color:'#1F9D63', background:'#E8F4EC', border:'1px solid #1F9D6333', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
+          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#B8392D', background:'#FAEAE8', border:'1px solid #B8392D33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+          {success&&<div role="status" aria-live="polite" style={{ fontFamily:MONO, fontSize:12, color:'#167A4C', background:'#E8F4EC', border:'1px solid #167A4C33', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
 
           <button type="submit" className="lp-btn" disabled={loading}
             style={{ marginTop:6, ...(branding ? { background: brandAccent } : null) }}>
@@ -305,7 +308,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 
         <div style={{ textAlign:'center', fontSize:13, color:MUTED, marginTop:28 }}>
           {mode==='login' ? <>New to Properly? </> : <>Already have an account? </>}
-          <button className="lp-link" style={{ fontSize:13, color:GOLD, fontWeight:600 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
+          <button className="lp-link" style={{ fontSize:13, color:GOLD_T, fontWeight:600 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
             {mode==='login' ? 'Start a 14-day free trial' : 'Sign in'}
           </button>
         </div>
@@ -329,14 +332,22 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
   }
 
   // Modal version — just the form, no brand panel or full-page wrapper.
+  // A real dialog: role/aria-modal, labelled by the h1, and focus trapped so
+  // Tab can't walk out into the marketing page behind the backdrop. Escape is
+  // handled by the effect above. The ✕ comes after the form in DOM order
+  // (it's absolutely positioned, so visually unchanged) so the trap's initial
+  // focus lands on the first field rather than on Close.
   return (
-    <div className="lp-scope" style={{ padding:24, fontFamily:SANS, width:'100%', maxWidth:440, background:PAPER, position:'relative' }}>
-      <button onClick={onClose} aria-label="Close sign in"
-        style={{ position:'absolute', top:10, right:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', background:'none', border:'none', cursor:'pointer', color:MUTED, fontSize:18, lineHeight:1, borderRadius:8 }}>
-        ✕
-      </button>
-      {inner}
-    </div>
+    <FocusTrap>
+      <div className="lp-scope" role="dialog" aria-modal="true" aria-labelledby="lp-title"
+        style={{ padding:24, fontFamily:SANS, width:'100%', maxWidth:440, background:PAPER, position:'relative' }}>
+        {inner}
+        <button type="button" onClick={onClose} aria-label="Close sign in"
+          style={{ position:'absolute', top:10, right:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', background:'none', border:'none', cursor:'pointer', color:MUTED, fontSize:18, lineHeight:1, borderRadius:8 }}>
+          ✕
+        </button>
+      </div>
+    </FocusTrap>
   )
 }
 

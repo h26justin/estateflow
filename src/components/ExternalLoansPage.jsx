@@ -21,6 +21,7 @@ import {
   REPAYMENT_TYPES, LENDER_TYPES, monthlyPayment, buildSchedule, loanStatus,
   summariseLoans, upcomingPayments, validateLoan, firstPaymentDate, todayISO,
 } from '../lib/externalLoans'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -173,7 +174,7 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
                   style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', background: on ? T.gold + '1f' : T.bg, border: `1.5px solid ${on ? T.gold : T.border}`, color: T.text }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{c.title}</div>
                   <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>{c.sub}</div>
-                  {c.value !== 'rolled_up' && <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: on ? T.gold : T.muted, marginTop: 6 }}>{pay > 0 ? `${fmtP(pay)} a month` : '—'}</div>}
+                  {c.value !== 'rolled_up' && <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: on ? T.goldText : T.muted, marginTop: 6 }}>{pay > 0 ? `${fmtP(pay)} a month` : '—'}</div>}
                 </button>
               })}
             </div>
@@ -203,7 +204,7 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
       <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>
         {f.repayment_type === 'rolled_up' ? 'Repaid in one payment' : 'Monthly payment'}
       </div>
-      <div style={{ fontFamily: mono, fontSize: 30, fontWeight: 800, color: T.gold, margin: '6px 0 12px', fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ fontFamily: mono, fontSize: 30, fontWeight: 800, color: T.goldText, margin: '6px 0 12px', fontVariantNumeric: 'tabular-nums' }}>
         {f.repayment_type === 'rolled_up' ? fmtP(preview.total) : fmtP(preview.pay)}
       </div>
       {[
@@ -295,7 +296,7 @@ function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onB
             {loan.reference && ` · Ref ${loan.reference}`}
           </div>
           {property && <div style={{ fontFamily: mono, fontSize: 11, marginTop: 4 }}>
-            Property: <button onClick={() => openDetail?.(property)} style={{ background: 'none', border: 'none', padding: 0, color: T.gold, cursor: 'pointer', fontFamily: mono, fontSize: 11 }}>{property.name || property.address}</button>
+            Property: <button onClick={() => openDetail?.(property)} style={{ background: 'none', border: 'none', padding: 0, color: T.goldText, cursor: 'pointer', fontFamily: mono, fontSize: 11 }}>{property.name || property.address}</button>
           </div>}
           {loan.purpose && <div style={{ fontSize: 13, marginTop: 6 }}>{loan.purpose}</div>}
           {loan.notes && <div style={{ fontSize: 12, color: T.muted, marginTop: 4, whiteSpace: 'pre-wrap' }}>{loan.notes}</div>}
@@ -506,9 +507,9 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
 
     {companies.length > 1 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
       <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
-      {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => (
+      {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
         <button key={c.id} onClick={() => setCoFilter(c.id)}
-          style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`, background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent', color: coFilter === c.id ? (c.color || T.gold) : T.muted }}>
+          style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`, background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent', color: coFilter === c.id ? (c.color || T.goldText) : T.muted }}>
           {c.abbr || c.name}
         </button>
       ))}
@@ -541,7 +542,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
             <th style={th}>Progress</th>
           </tr></thead>
           <tbody>{listed.map(({ loan, s }) => (
-            <tr key={loan.id} onClick={() => { setSelectedId(loan.id); setMode('view') }} style={{ cursor: 'pointer' }}>
+            <tr key={loan.id} {...pressable(() => { setSelectedId(loan.id); setMode('view') }, { role: null })} style={{ cursor: 'pointer' }}>
               <td style={td}>
                 <div style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: T.text }}>{loan.lender_name}</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>

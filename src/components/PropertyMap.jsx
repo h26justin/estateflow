@@ -435,7 +435,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
           </div>
           {onViewFullMap && (
             <button onClick={onViewFullMap}
-              style={{ background: 'none', border: 'none', padding: 0, fontFamily: mono, fontSize: 11, color: T.gold, cursor: 'pointer', textDecoration: 'underline' }}>
+              style={{ background: 'none', border: 'none', padding: 0, fontFamily: mono, fontSize: 11, color: T.goldText, cursor: 'pointer', textDecoration: 'underline' }}>
               View full map →
             </button>
           )}
@@ -463,7 +463,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
               value={searchQ}
               onChange={e => setSearchQ(e.target.value)}
               placeholder="Search by name or address…"
-              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: T.text, fontFamily: mono, fontSize: 12, padding: '6px 0', minWidth: 0 }}/>
+              style={{ flex: 1, border: 'none', background: 'transparent', color: T.text, fontFamily: mono, fontSize: 12, padding: '6px 0', minWidth: 0 }}/>
             {searchQ && (
               <button onClick={() => setSearchQ('')}
                 aria-label="Clear search" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '8px' , margin: '-8px -4px'}}>×</button>
@@ -518,7 +518,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                     } catch (e) {
                       if (showToast) showToast('Could not reset pin', 'error')
                     }
-                  }} style={{ background: 'none', border: 'none', padding: 0, color: T.gold, fontFamily: mono, fontSize: 9, cursor: 'pointer', textDecoration: 'underline' }}>
+                  }} style={{ background: 'none', border: 'none', padding: 0, color: T.goldText, fontFamily: mono, fontSize: 9, cursor: 'pointer', textDecoration: 'underline' }}>
                     Reset to auto
                   </button>
                 </div>
@@ -596,12 +596,12 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
           style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${!heatmapMode ? T.gold : T.border}`,
             background: !heatmapMode ? T.gold + '22' : 'transparent',
-            color: !heatmapMode ? T.gold : T.muted }}>Pins</button>
+            color: !heatmapMode ? T.goldText : T.muted }}>Pins</button>
         <button onClick={() => setHeatmapMode(true)}
           style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${heatmapMode ? T.gold : T.border}`,
             background: heatmapMode ? T.gold + '22' : 'transparent',
-            color: heatmapMode ? T.gold : T.muted }}>Heatmap</button>
+            color: heatmapMode ? T.goldText : T.muted }}>Heatmap</button>
         {heatmapMode && (
           <>
             <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginLeft: 8 }}>by</span>

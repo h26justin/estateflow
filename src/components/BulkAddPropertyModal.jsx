@@ -360,19 +360,19 @@ function Step1({
       <div className="g2">
         <div>
           <label>Number of units *</label>
-          <input type="number" min={1} max={50} value={unitCount}
+          <input aria-label="Number of units" type="number" min={1} max={50} value={unitCount}
             onChange={e => setUnitCount(parseInt(e.target.value) || 1)}/>
         </div>
         <div>
           <label>Starting number</label>
-          <input type="number" min={1} value={startingNumber}
+          <input aria-label="Starting number" type="number" min={1} value={startingNumber}
             onChange={e => setStartingNumber(parseInt(e.target.value) || 1)}/>
         </div>
       </div>
       <div className="g2">
         <div>
           <label>Unit prefix *</label>
-          <select value={prefix} onChange={e => setPrefix(e.target.value)}>
+          <select aria-label="Unit prefix" value={prefix} onChange={e => setPrefix(e.target.value)}>
             {PREFIXES.map(p => <option key={p.v} value={p.v}>{p.l}</option>)}
           </select>
         </div>
@@ -388,29 +388,29 @@ function Step1({
       {prefix === 'custom' && (
         <div>
           <label>Company *</label>
-          <select value={companyId} onChange={e => setCompanyId(e.target.value)}>
+          <select aria-label="Company" value={companyId} onChange={e => setCompanyId(e.target.value)}>
             {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       )}
       <div>
         <label>Building name *</label>
-        <input value={buildingName} onChange={e => setBuildingName(e.target.value)}
+        <input aria-label="Building name" value={buildingName} onChange={e => setBuildingName(e.target.value)}
           placeholder="e.g. Watts Moses House"/>
       </div>
       <div>
         <label>Street address *</label>
-        <input value={streetAddress} onChange={e => setStreetAddress(e.target.value)}
+        <input aria-label="Street address" value={streetAddress} onChange={e => setStreetAddress(e.target.value)}
           placeholder="e.g. High Street East"/>
       </div>
       <div className="g2">
         <div>
           <label>Town</label>
-          <input value={town} onChange={e => setTown(e.target.value)} placeholder="e.g. Sunderland"/>
+          <input aria-label="Town" value={town} onChange={e => setTown(e.target.value)} placeholder="e.g. Sunderland"/>
         </div>
         <div>
           <label>Postcode</label>
-          <input value={postcode} onChange={e => setPostcode(e.target.value)} placeholder="e.g. SR1 2BX"/>
+          <input aria-label="Postcode" value={postcode} onChange={e => setPostcode(e.target.value)} placeholder="e.g. SR1 2BX"/>
         </div>
       </div>
       {/* Live preview of generated names */}
@@ -456,11 +456,11 @@ function Step2({
       <div className="g2">
         <div>
           <label>Property type</label>
-          <input value={propType} onChange={e => setPropType(e.target.value)} placeholder="e.g. 1-Bed Flat"/>
+          <input aria-label="Property type" value={propType} onChange={e => setPropType(e.target.value)} placeholder="e.g. 1-Bed Flat"/>
         </div>
         <div>
           <label>Default status</label>
-          <select value={defaultStatus} onChange={e => setDefaultStatus(e.target.value)}>
+          <select aria-label="Default status" value={defaultStatus} onChange={e => setDefaultStatus(e.target.value)}>
             {STATUSES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
           </select>
         </div>
@@ -476,7 +476,7 @@ function Step2({
             style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'total' ? T.gold : T.border}`,
               background: pricingMode === 'total' ? T.gold + '22' : 'transparent',
-              color: pricingMode === 'total' ? T.gold : T.muted,
+              color: pricingMode === 'total' ? T.goldText : T.muted,
               fontWeight: pricingMode === 'total' ? 700 : 400 }}>
             Total for whole building (split evenly)
           </button>
@@ -484,7 +484,7 @@ function Step2({
             style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'per_unit' ? T.gold : T.border}`,
               background: pricingMode === 'per_unit' ? T.gold + '22' : 'transparent',
-              color: pricingMode === 'per_unit' ? T.gold : T.muted,
+              color: pricingMode === 'per_unit' ? T.goldText : T.muted,
               fontWeight: pricingMode === 'per_unit' ? 700 : 400 }}>
             Per-unit (set on next step)
           </button>
@@ -495,14 +495,14 @@ function Step2({
             <div className="g2">
               <div>
                 <label>Total purchase price</label>
-                <MoneyInput prefix="£" value={totalPurchase} onChange={v => setTotalPurchase(v)}/>
+                <MoneyInput aria-label="Total purchase price" prefix="£" value={totalPurchase} onChange={v => setTotalPurchase(v)}/>
                 {totalPurchase && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3 }}>
                   ≈ {fmt(splitPurchase)} per unit
                 </div>}
               </div>
               <div>
                 <label>Total mortgage</label>
-                <MoneyInput prefix="£" value={totalMortgage} onChange={v => setTotalMortgage(v)}/>
+                <MoneyInput aria-label="Total mortgage" prefix="£" value={totalMortgage} onChange={v => setTotalMortgage(v)}/>
                 {totalMortgage && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3 }}>
                   ≈ {fmt(splitMortgage)} per unit
                 </div>}
@@ -511,11 +511,11 @@ function Step2({
             <div className="g2" style={{ marginTop: 8 }}>
               <div>
                 <label>Total stamp duty</label>
-                <MoneyInput prefix="£" value={totalStampDuty} onChange={v => setTotalStampDuty(v)}/>
+                <MoneyInput aria-label="Total stamp duty" prefix="£" value={totalStampDuty} onChange={v => setTotalStampDuty(v)}/>
               </div>
               <div>
                 <label>Total legal fees</label>
-                <MoneyInput prefix="£" value={totalLegalFees} onChange={v => setTotalLegalFees(v)}/>
+                <MoneyInput aria-label="Total legal fees" prefix="£" value={totalLegalFees} onChange={v => setTotalLegalFees(v)}/>
               </div>
             </div>
           </>
@@ -530,31 +530,31 @@ function Step2({
       <div className="g2">
         <div>
           <label>Default rent per unit</label>
-          <MoneyInput prefix="£" suffix="/mo" value={defaultRent} onChange={v => setDefaultRent(v)}
+          <MoneyInput aria-label="Default rent per unit" prefix="£" suffix="/mo" value={defaultRent} onChange={v => setDefaultRent(v)}
             placeholder="Override per unit on next step"/>
         </div>
         <div>
           <label>Insurance</label>
-          <MoneyInput prefix="£" value={insurance} onChange={v => setInsurance(v)}/>
+          <MoneyInput aria-label="Insurance" prefix="£" value={insurance} onChange={v => setInsurance(v)}/>
         </div>
       </div>
       <div className="g2">
         <div>
           <label>Mortgage rate</label>
-          <MoneyInput suffix="%" value={mortgageRate} onChange={v => setMortgageRate(v)}/>
+          <MoneyInput aria-label="Mortgage rate" suffix="%" value={mortgageRate} onChange={v => setMortgageRate(v)}/>
         </div>
         <div>
           <label>Mortgage term (years)</label>
-          <input type="number" value={mortgageTerm} onChange={e => setMortgageTerm(e.target.value)}/>
+          <input aria-label="Mortgage term (years)" type="number" value={mortgageTerm} onChange={e => setMortgageTerm(e.target.value)}/>
         </div>
       </div>
       <div>
         <label>Managed by</label>
-        <input value={managedBy} onChange={e => setManagedBy(e.target.value)} placeholder="e.g. Self / Letting agent name"/>
+        <input aria-label="Managed by" value={managedBy} onChange={e => setManagedBy(e.target.value)} placeholder="e.g. Self / Letting agent name"/>
       </div>
       <div>
         <label>Notes (applied to all units)</label>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ resize: 'vertical' }}/>
+        <textarea aria-label="Notes (applied to all units)" value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ resize: 'vertical' }}/>
       </div>
     </>
   )
@@ -572,7 +572,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
         <span>{units.length} {units.length === 1 ? 'unit' : 'units'}</span>
         <span>· Total rent: <strong style={{ color: T.green }}>{fmt(totalRent)}/mo</strong></span>
-        {totalPurchase > 0 && <span>· Total purchase: <strong style={{ color: T.gold }}>{fmt(totalPurchase)}</strong></span>}
+        {totalPurchase > 0 && <span>· Total purchase: <strong style={{ color: T.goldText }}>{fmt(totalPurchase)}</strong></span>}
       </div>
 
       {/* Grid */}
@@ -645,7 +645,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
 function FillDownLink({ onClick, T }) {
   return (
     <button onClick={onClick} title="Fill this column with the first row's value"
-      style={{ background: 'transparent', border: 'none', color: T.gold, cursor: 'pointer', fontSize: 9, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
+      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: 9, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
       ↓ Fill
     </button>
   )

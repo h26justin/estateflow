@@ -243,7 +243,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
       {showCoFilter && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
           <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Company:</span>
-          {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => {
+          {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => {
             const n = c.id === 'all' ? actions.length : actions.filter(a => a.company_id === c.id).length
             return (
               <button key={c.id} onClick={() => setCoFilter(c.id)}
@@ -251,7 +251,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                   fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                   background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
-                  color: coFilter === c.id ? (c.color || T.gold) : T.muted,
+                  color: coFilter === c.id ? (c.color || T.goldText) : T.muted,
                   transition: 'all 0.18s',
                 }}>
                 {c.abbr || c.name}{n > 0 ? ` (${n})` : ''}
@@ -275,7 +275,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                   fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${kindFilter === k ? T.gold : T.border}`,
                   background: kindFilter === k ? T.gold + '22' : 'transparent',
-                  color: kindFilter === k ? T.gold : T.muted,
+                  color: kindFilter === k ? T.goldText : T.muted,
                   transition: 'all 0.18s',
                 }}>
                 {label}{n > 0 ? ` (${n})` : ''}

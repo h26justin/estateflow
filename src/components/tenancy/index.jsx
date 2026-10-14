@@ -320,7 +320,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             Generate S21/S8
           </button>
           <button onClick={() => { setForm({ notice_type: 's21', status: 'draft' }); setShowForm(true) }}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>
             + Log notice
           </button>
         </div>
@@ -366,7 +366,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="nt-notes">Notes</label><textarea id="nt-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
+            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
             <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
           </div>
         </form>
@@ -580,14 +580,14 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
             <input id="tr-end-date" type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
               aria-invalid={triedSave && !form.new_end_date ? 'true' : undefined}
               aria-describedby={triedSave && !form.new_end_date ? 'tr-end-date-err' : undefined}
-              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${triedSave && !form.new_end_date ? (T?.red || '#E05555') : (T?.border || '#ddd')}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', outline: 'none' }}/>
+              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${triedSave && !form.new_end_date ? (T?.red || '#E05555') : (T?.border || '#ddd')}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px' }}/>
             {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: 10, color: T?.red || '#E05555', display: 'block', marginTop: 4 }}>Required</span>}
           </div>
           <div>
             <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4, display: 'block' }}>New rent (optional)</label>
             <MoneyInput id="tr-new-rent" prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
               placeholder="Same as current"
-              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120, outline: 'none' }}/>
+              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120 }}/>
           </div>
           <button type="submit" disabled={saving}
             style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>

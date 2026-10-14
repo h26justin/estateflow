@@ -229,8 +229,13 @@
       /* Cookie consent banner (rendered by /src/main.jsx). Styles kept
          inline so the banner can show during the React-hydration window
          before our component tree is ready. */
+      /* z-index sits above page chrome (sticky nav / mobile tab bar: 100) but
+         below every modal overlay (app .overlay 200, sign-in 1000, confirm
+         2000) — at max z-index it used to cover the sign-in form on phones.
+         While a modal dialog is open the banner is hidden outright so it
+         can't be tabbed into behind the focus trap. */
       #op-cookie-banner {
-        position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483647;
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 150;
         background: #1A2530; color: #fff; padding: 18px 22px;
         font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.6;
         box-shadow: 0 -8px 24px rgba(0,0,0,0.25);
@@ -245,6 +250,8 @@
       }
       #op-cookie-banner .op-cookie-accept { background: #C8A84B; color: #1A2530; }
       #op-cookie-banner .op-cookie-reject { background: transparent; color: #B0BEC5; border: 1px solid #B0BEC5; }
+      body:has([aria-modal="true"]) #op-cookie-banner { display: none; }
+      #op-cookie-banner button:focus-visible, #op-cookie-banner a:focus-visible { outline: 2px solid #F4F3EF; outline-offset: 2px; }
       @media (max-width: 600px) { #op-cookie-banner { padding: 14px 16px; } #op-cookie-banner p { font-size: 12px; flex-basis: 100%; } }
     </style>
 

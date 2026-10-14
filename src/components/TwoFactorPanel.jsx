@@ -338,7 +338,7 @@ export default function TwoFactorPanel({ T }) {
               width: '100%', fontFamily: mono, fontSize: 18, letterSpacing: '0.2em',
               textAlign: 'center', padding: '12px 14px', borderRadius: 8,
               border: `1.5px solid ${T.border}`, background: T.bg, color: T.text,
-              outline: 'none', boxSizing: 'border-box',
+              boxSizing: 'border-box',
             }}
           />
         </div>

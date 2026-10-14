@@ -108,7 +108,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
                   <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{r.c.name}</span>
                   <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{r.propCount} {r.propCount === 1 ? 'property' : 'properties'}</span>
                 </div>
-                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.gold }} title="Effective stake, looking through any intermediate holding companies">{r.pct.toFixed(2)}%</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.goldText }} title="Effective stake, looking through any intermediate holding companies">{r.pct.toFixed(2)}%</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: T.text, minWidth: 90, textAlign: 'right' }} title="Stake × estimated value">{fmt(r.attrVal)}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: T.green, minWidth: 80, textAlign: 'right' }} title="Stake × monthly rent">{fmt(r.attrRent)}/mo</span>
               </div>

@@ -85,7 +85,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
         <div style={{marginBottom:18}}>
           <h3 id="role-permissions-title" style={{fontSize:18,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Manage role & permissions</h3>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
-            <strong>{name}</strong> on <strong style={{color:company?.color||T.gold}}>{company?.name}</strong>
+            <strong>{name}</strong> on <strong style={{color:company?.color||T.goldText}}>{company?.name}</strong>
           </div>
         </div>
 
@@ -121,9 +121,9 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
         {/* Advanced toggle */}
         <div style={{borderTop:`1px solid ${T.border}`,paddingTop:16,marginBottom:14}}>
           <button onClick={()=>setShowAdvanced(s=>!s)}
-            style={{background:'none',border:'none',cursor:'pointer',fontFamily:mono,fontSize:12,color:T.gold,fontWeight:700,padding:0,display:'flex',alignItems:'center',gap:6}}>
+            style={{background:'none',border:'none',cursor:'pointer',fontFamily:mono,fontSize:12,color:T.goldText,fontWeight:700,padding:0,display:'flex',alignItems:'center',gap:6}}>
             {showAdvanced ? '▼' : '▶'} Advanced — override specific permissions
-            {hasOverrides && <span style={{fontSize:10,background:T.gold+'33',color:T.gold,padding:'2px 7px',borderRadius:4}}>{Object.keys(overrides).length} custom</span>}
+            {hasOverrides && <span style={{fontSize:10,background:T.gold+'33',color:T.goldText,padding:'2px 7px',borderRadius:4}}>{Object.keys(overrides).length} custom</span>}
           </button>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:6,marginLeft:14}}>
             Use this to grant or restrict specific abilities beyond the role defaults.
@@ -151,7 +151,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
                       <div key={key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderTop:i>0?`1px solid ${T.border}`:'none',gap:10}}>
                         <div style={{fontFamily:mono,fontSize:11,color:T.text,flex:1}}>
                           {api.PERMISSION_LABELS[key] || key}
-                          {isOverride && <span style={{fontSize:8,background:T.gold+'22',color:T.gold,padding:'1px 6px',borderRadius:3,marginLeft:6,fontWeight:700}}>OVERRIDE</span>}
+                          {isOverride && <span style={{fontSize:8,background:T.gold+'22',color:T.goldText,padding:'1px 6px',borderRadius:3,marginLeft:6,fontWeight:700}}>OVERRIDE</span>}
                         </div>
                         <button onClick={()=>togglePermission(key)}
                           style={{

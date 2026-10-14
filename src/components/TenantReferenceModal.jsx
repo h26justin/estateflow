@@ -154,39 +154,39 @@ export default function TenantReferenceModal({ property, onClose }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={lbl}>Tenant full name *</label>
-                  <input style={inp} value={form.tenant_full_name}
+                  <input aria-label="Tenant full name" style={inp} value={form.tenant_full_name}
                     onChange={e => update({ tenant_full_name: e.target.value })}
                     placeholder="As it appears on their ID" autoFocus/>
                 </div>
                 <div>
                   <label style={lbl}>Email</label>
-                  <input style={inp} type="email" value={form.tenant_email}
+                  <input aria-label="Email" style={inp} type="email" value={form.tenant_email}
                     onChange={e => update({ tenant_email: e.target.value })}/>
                 </div>
                 <div>
                   <label style={lbl}>Phone</label>
-                  <input style={inp} type="tel" value={form.tenant_phone}
+                  <input aria-label="Phone" style={inp} type="tel" value={form.tenant_phone}
                     onChange={e => update({ tenant_phone: e.target.value })}/>
                 </div>
                 <div>
                   <label style={lbl}>Date of birth</label>
-                  <input style={inp} type="date" value={form.tenant_dob}
+                  <input aria-label="Date of birth" style={inp} type="date" value={form.tenant_dob}
                     onChange={e => update({ tenant_dob: e.target.value })}/>
                 </div>
                 <div>
                   <label style={lbl}>Monthly income (gross)</label>
-                  <input style={inp} type="number" value={form.monthly_income}
+                  <input aria-label="Monthly income (gross)" style={inp} type="number" value={form.monthly_income}
                     onChange={e => update({ monthly_income: e.target.value })}
                     placeholder="£" inputMode="decimal"/>
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={lbl}>Current address</label>
-                  <input style={inp} value={form.current_address}
+                  <input aria-label="Current address" style={inp} value={form.current_address}
                     onChange={e => update({ current_address: e.target.value })}/>
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={lbl}>Employer name</label>
-                  <input style={inp} value={form.employer_name}
+                  <input aria-label="Employer name" style={inp} value={form.employer_name}
                     onChange={e => update({ employer_name: e.target.value })}/>
                 </div>
               </div>

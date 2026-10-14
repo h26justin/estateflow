@@ -125,18 +125,18 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
       {adding && form && (
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <div><label>Date received</label><input type="date" value={form.received_date} onChange={e => setForm(f => ({ ...f, received_date: e.target.value }))} /></div>
-            <div><label>Amount</label><MoneyInput prefix="£" value={form.amount} onChange={v => setForm(f => ({ ...f, amount: v }))} /></div>
-            <div><label>Paid by</label><select value={form.payer} onChange={e => setForm(f => ({ ...f, payer: e.target.value }))}>{PAYERS.map(x => <option key={x.v} value={x.v}>{x.l}</option>)}</select></div>
+            <div><label>Date received</label><input aria-label="Date received" type="date" value={form.received_date} onChange={e => setForm(f => ({ ...f, received_date: e.target.value }))} /></div>
+            <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={form.amount} onChange={v => setForm(f => ({ ...f, amount: v }))} /></div>
+            <div><label>Paid by</label><select aria-label="Paid by" value={form.payer} onChange={e => setForm(f => ({ ...f, payer: e.target.value }))}>{PAYERS.map(x => <option key={x.v} value={x.v}>{x.l}</option>)}</select></div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <div><label>Reference <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(bank or statement ref)</span></label><input value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} /></div>
-            <div><label>Notes</label><input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            <div><label>Reference <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(bank or statement ref)</span></label><input aria-label="Reference" value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} /></div>
+            <div><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           </div>
           <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Allocation</div>
           {form.allocations.map((a, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 130px 32px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
-              <div><label>Applies to</label><select value={a.target} onChange={e => setAlloc(i, 'target', e.target.value)}>{TARGETS.map(x => <option key={x.v} value={x.v}>{x.l}</option>)}</select></div>
+              <div><label>Applies to</label><select aria-label="Applies to" value={a.target} onChange={e => setAlloc(i, 'target', e.target.value)}>{TARGETS.map(x => <option key={x.v} value={x.v}>{x.l}</option>)}</select></div>
               <div>
                 <label>{a.target === 'current_rent' ? 'Rent period' : 'Detail'}</label>
                 {a.target === 'current_rent'
@@ -146,7 +146,7 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
                     </select>
                   : <input value={a.notes || ''} onChange={e => setAlloc(i, 'notes', e.target.value)} placeholder="optional note" />}
               </div>
-              <div><label>Amount</label><MoneyInput prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
+              <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
               <button className="btn" style={{ fontSize: 11, color: T.red, height: 34 }} onClick={() => removeAlloc(i)} aria-label="Remove allocation" disabled={form.allocations.length === 1}>✕</button>
             </div>
           ))}

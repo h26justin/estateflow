@@ -203,7 +203,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                     <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.muted, border: `1px solid ${T.border}`, padding: '1px 7px', borderRadius: 4 }}
                       title="Corporate shareholder — no personal dividend tax is estimated (company-to-company dividends are normally CT-exempt)">COMPANY</span>}
                   {!isCorp(s) && (s.user_id === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase())) &&
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.gold, background: T.gold + '22', padding: '1px 7px', borderRadius: 4 }}>YOU</span>}
+                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.goldText, background: T.gold + '22', padding: '1px 7px', borderRadius: 4 }}>YOU</span>}
                 </div>
                 {canEdit && (
                   <select value={isCorp(s) ? 'company' : 'individual'} aria-label={`${s.name} shareholder type`}
@@ -248,7 +248,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                       else load()
                     }}
                     style={{ ...inp, width: 76, textAlign: 'right' }} />
-                ) : <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.gold }}>{Number(s.percentage).toFixed(2)}</span>}
+                ) : <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.goldText }}>{Number(s.percentage).toFixed(2)}</span>}
                 <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>%</span>
                 {canEdit && (
                   <button onClick={() => removeShareholder(s.id)} aria-label={`Remove ${s.name}`}
@@ -354,7 +354,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                         style={{ ...smallBtn, color: T.red, borderColor: T.red + '33', padding: '4px 9px' }}>✕</button>
                     </>
                   ) : (
-                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.gold }}>
+                    <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.goldText }}>
                       {a.fee_percent != null ? `${Number(a.fee_percent).toFixed(2)}% ${a.vat_treatment === 'ex_vat' ? '+ VAT' : 'inc. VAT'}` : 'no fee set'}
                     </span>
                   )}

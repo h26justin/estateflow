@@ -115,21 +115,21 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
             <span>Expected by now {money(prog.expectedToDate)}</span>{prog.shortfall > 0 && <span style={{ color: T.red }}>Shortfall {money(prog.shortfall)}</span>}
             <span>Next due {fmtDate(prog.nextDue)}</span>
           </div>
-          {(plan.notes || plan.document_url) && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 6 }}>{plan.notes}{plan.document_url && <> · <a href={plan.document_url} target="_blank" rel="noreferrer" style={{ color: T.gold }}>agreement</a></>}</div>}
+          {(plan.notes || plan.document_url) && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 6 }}>{plan.notes}{plan.document_url && <> · <a href={plan.document_url} target="_blank" rel="noreferrer" style={{ color: T.goldText }}>agreement</a></>}</div>}
         </div>
       )}
 
       {form && (
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 10 }}>
-            <div><label>Opening arrears balance</label><MoneyInput prefix="£" value={form.opening_balance} onChange={v => setForm(f => ({ ...f, opening_balance: v }))} /></div>
-            <div><label>Plan start</label><input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} /></div>
-            <div><label>Instalment</label><MoneyInput prefix="£" value={form.instalment_amount} onChange={v => setForm(f => ({ ...f, instalment_amount: v }))} /></div>
-            <div><label>Frequency</label><select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))}>{PLAN_FREQUENCIES.map(x => <option key={x.v} value={x.v}>{x.l}</option>)}</select></div>
-            {form.frequency === 'monthly' && <div><label>Due day <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(1–31)</span></label><input type="number" min={1} max={31} value={form.due_day || ''} onChange={e => setForm(f => ({ ...f, due_day: e.target.value }))} /></div>}
-            <div><label>Agreement link</label><input value={form.document_url || ''} onChange={e => setForm(f => ({ ...f, document_url: e.target.value }))} placeholder="https://…" /></div>
+            <div><label>Opening arrears balance</label><MoneyInput aria-label="Opening arrears balance" prefix="£" value={form.opening_balance} onChange={v => setForm(f => ({ ...f, opening_balance: v }))} /></div>
+            <div><label>Plan start</label><input aria-label="Plan start" type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} /></div>
+            <div><label>Instalment</label><MoneyInput aria-label="Instalment" prefix="£" value={form.instalment_amount} onChange={v => setForm(f => ({ ...f, instalment_amount: v }))} /></div>
+            <div><label>Frequency</label><select aria-label="Frequency" value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))}>{PLAN_FREQUENCIES.map(x => <option key={x.v} value={x.v}>{x.l}</option>)}</select></div>
+            {form.frequency === 'monthly' && <div><label>Due day <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(1–31)</span></label><input aria-label="Due day" type="number" min={1} max={31} value={form.due_day || ''} onChange={e => setForm(f => ({ ...f, due_day: e.target.value }))} /></div>}
+            <div><label>Agreement link</label><input aria-label="Agreement link" value={form.document_url || ''} onChange={e => setForm(f => ({ ...f, document_url: e.target.value }))} placeholder="https://…" /></div>
           </div>
-          <div style={{ marginBottom: 10 }}><label>Notes</label><input value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+          <div style={{ marginBottom: 10 }}><label>Notes</label><input aria-label="Notes" value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={savePlan} disabled={saving}>{saving ? 'Saving…' : 'Save plan'}</button>
             <button className="btn" style={{ fontSize: 11 }} onClick={() => setForm(null)}>Cancel</button>

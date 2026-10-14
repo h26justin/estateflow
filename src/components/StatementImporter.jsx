@@ -10,6 +10,7 @@ import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import FocusTrap from '../lib/FocusTrap'
 import StatementImportReview from './StatementImportReview'
+import { pressable } from '../lib/pressable'
 
 // ── MANAGING-AGENT STATEMENT IMPORT ─────────────────────────────────────────
 // Upload a PNE / RMS statement (or open one received by email), Properly
@@ -142,7 +143,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                   fontFamily:MONO,fontSize:9,color:stepIdx===i?'#1C2830':stepIdx>i?'#0E3B27':T.muted,fontWeight:700}}>
                   {stepIdx>i?'✓':i+1}
                 </div>
-                <span style={{fontFamily:MONO,fontSize:10,color:stepIdx===i?T.gold:T.muted,textTransform:'uppercase'}}>{s}</span>
+                <span style={{fontFamily:MONO,fontSize:10,color:stepIdx===i?T.goldText:T.muted,textTransform:'uppercase'}}>{s}</span>
                 {i<2&&<div style={{width:20,height:1,background:T.border}}/>}
               </div>
             ))}
@@ -163,7 +164,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                         <div key={d.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:T.bg,borderRadius:8,flexWrap:'wrap'}}>
                           <span style={{fontFamily:MONO,fontSize:10,color:T.muted,width:84}}>{new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
                           <span style={{fontSize:12,color:T.text,flex:1,minWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.name}</span>
-                          {co && <span style={{fontFamily:MONO,fontSize:9,color:co.color||T.gold}}>{co.abbr||co.name}</span>}
+                          {co && <span style={{fontFamily:MONO,fontSize:9,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
                           {done
                             ? <span style={{fontFamily:MONO,fontSize:10,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
                             : <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</button>}
@@ -174,7 +175,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 </div>
               )}
               <div
-                onClick={()=>fileRef.current?.click()}
+                {...pressable(()=>fileRef.current?.click())}
                 onDragOver={e=>e.preventDefault()}
                 onDrop={e=>{e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(f){setSourceDoc(null); handleFile(f)}}}
                 style={{border:`2px dashed ${T.border}`,borderRadius:12,padding:40,textAlign:'center',cursor:'pointer',transition:'border-color 0.2s'}}
@@ -198,7 +199,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 </div>
               )}
               {loading&&(
-                <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.gold,fontSize:12}}>
+                <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.goldText,fontSize:12}}>
                   <div style={{marginBottom:8}}>Reading PDF…</div>
                   <div style={{fontSize:10,color:T.muted}}>Extracting the lines and matching them to your properties</div>
                 </div>

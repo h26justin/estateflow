@@ -19,7 +19,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
-import { fmt } from '../lib/format'
+import { fmt, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
@@ -227,13 +227,13 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       {companies.length > 1 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
           <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
-          {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => (
+          {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
             <button key={c.id} onClick={() => setCoFilter(c.id)}
               style={{
                 fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                 border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                 background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
-                color: coFilter === c.id ? (c.color || T.gold) : T.muted,
+                color: coFilter === c.id ? (c.color || T.goldText) : T.muted,
                 transition: 'all 0.18s',
               }}>
               {c.abbr || c.name}
@@ -250,7 +250,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
               fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
               border: `1px solid ${view === k ? T.gold : T.border}`,
               background: view === k ? T.gold + '22' : 'transparent',
-              color: view === k ? T.gold : T.muted,
+              color: view === k ? T.goldText : T.muted,
             }}>
             {l}
           </button>
@@ -383,7 +383,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
                 style={{
                   padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
                   background: 'transparent', border: `1px dashed ${T.gold}`,
-                  color: T.gold, fontFamily: mono, fontSize: 11, fontWeight: 700,
+                  color: T.goldText, fontFamily: mono, fontSize: 11, fontWeight: 700,
                   textAlign: 'center', marginTop: 4,
                 }}>
                 + Add another policy
@@ -409,7 +409,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
   const bucketStyle = {
     expired: { color: T.red,    label: `Expired ${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'} ago`, bg: T.red + '11' },
     urgent:  { color: T.amber,  label: `Renews in ${days} ${days === 1 ? 'day' : 'days'}`,                      bg: T.amber + '11' },
-    soon:    { color: T.gold,   label: `Renews in ${days} days`,                                                bg: T.gold + '11' },
+    soon:    { color: T.goldText,   label: `Renews in ${days} days`,                                                bg: T.gold + '11' },
     ok:      { color: T.green,  label: `Renews in ${days} days`,                                                bg: 'transparent' },
     unknown: { color: T.muted,  label: 'No expiry set',                                                         bg: 'transparent' },
   }[bucket]
@@ -419,7 +419,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
     ? `Whole company (${policy.company?.abbr || policy.company?.name || ''})`
     : propCount === 1
       ? policy.properties[0].name || policy.properties[0].address || '1 property'
-      : `${propCount} properties`
+      : plural(propCount,'property','properties')
 
   return (
     <div style={{
@@ -480,7 +480,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
         {(bucket === 'expired' || bucket === 'urgent' || bucket === 'soon') && (
           <button onClick={onRenew} title="Create next year's renewal"
             style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
-              background: T.gold + '22', border: `1px solid ${T.gold}`, color: T.gold, fontWeight: 700 }}>
+              background: T.gold + '22', border: `1px solid ${T.gold}`, color: T.goldText, fontWeight: 700 }}>
             ↻ Renew
           </button>
         )}
@@ -655,7 +655,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
                   background: (company.color || T.gold) + '22',
-                  color: company.color || T.gold }}>
+                  color: company.color || T.goldText }}>
                   {company.abbr}
                 </span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{company.name}</span>
@@ -757,7 +757,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
                 fontFamily: mono, fontSize: 11, padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
                 border: `1px solid ${selectedId === p.id ? T.gold : T.border}`,
                 background: selectedId === p.id ? T.gold + '22' : 'transparent',
-                color: selectedId === p.id ? T.gold : T.text,
+                color: selectedId === p.id ? T.goldText : T.text,
                 textAlign: 'left',
               }}>
               {p.policy_name}
@@ -786,7 +786,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
                   display: 'grid', gridTemplateColumns: '60px 1fr auto auto', gap: 14, alignItems: 'center',
                   padding: '12px 0', borderBottom: i < chain.length - 1 ? `1px solid ${T.border}` : 'none',
                 }}>
-                  <div style={{ fontFamily: mono, fontSize: 16, fontWeight: 700, color: i === 0 ? T.gold : T.text }}>
+                  <div style={{ fontFamily: mono, fontSize: 16, fontWeight: 700, color: i === 0 ? T.goldText : T.text }}>
                     {year || '—'}
                   </div>
                   <div>
@@ -832,7 +832,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
               <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
                 Across {chain.length} {chain.length === 1 ? 'policy' : 'policies'}
               </div>
-              <div style={{ fontFamily: mono, fontSize: 16, fontWeight: 700, color: T.gold, textAlign: 'right' }}>
+              <div style={{ fontFamily: mono, fontSize: 16, fontWeight: 700, color: T.goldText, textAlign: 'right' }}>
                 {fmt(chain.reduce((s, p) => s + (Number(p.premium) || 0), 0))}
               </div>
             </div>
@@ -1050,7 +1050,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
                 onChange={e => setDocFile(e.target.files?.[0] || null)}
                 style={{ fontFamily: mono, fontSize: 11, color: T.muted }} />
             </div>
-            {docFile && <div style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginTop: 4 }}>{docFile.name} will be attached on save{form.document_id ? ' (replaces the current document)' : ''}</div>}
+            {docFile && <div style={{ fontFamily: mono, fontSize: 10, color: T.goldText, marginTop: 4 }}>{docFile.name} will be attached on save{form.document_id ? ' (replaces the current document)' : ''}</div>}
           </div>
 
           {/* Property picker */}

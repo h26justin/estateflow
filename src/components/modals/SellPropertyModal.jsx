@@ -36,13 +36,13 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
           <p style={{fontFamily:MONO,color:T.muted,fontSize:12,marginBottom:20}}>{property?.name}</p>
           <div style={{marginBottom:14}}>
             <label>Sale Price</label>
-            <MoneyInput prefix="£" value={price} onChange={v=>setPrice(v)}
+            <MoneyInput aria-label="Sale Price" prefix="£" value={price} onChange={v=>setPrice(v)}
               onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
               placeholder="0" autoFocus/>
           </div>
           <div style={{marginBottom:14}}>
             <label>Sale Date</label>
-            <input type="date" value={date} onChange={e=>setDate(e.target.value)}/>
+            <input aria-label="Sale Date" type="date" value={date} onChange={e=>setDate(e.target.value)}/>
           </div>
           {numPrice > 0 && totalInvested > 0 && (
             <div style={{

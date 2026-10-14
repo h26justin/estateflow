@@ -59,7 +59,7 @@ export function Empty({ title, body, action, T }) {
 export function Tile({ label: text, value, sub, onClick, color, T, icon }) {
   const Tag = onClick ? 'button' : 'div'
   return <Tag onClick={onClick} style={{ textAlign: 'left', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '12px 14px', cursor: onClick ? 'pointer' : 'default', color: T.text, display: 'flex', gap: 12, alignItems: 'center', minWidth: 0, width: '100%' }}>
-    {icon && <span style={{ width: 36, height: 36, borderRadius: 9, border: `1px solid ${T.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.gold, flexShrink: 0 }}>{icon}</span>}
+    {icon && <span style={{ width: 36, height: 36, borderRadius: 9, border: `1px solid ${T.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.goldText, flexShrink: 0 }}>{icon}</span>}
     <span style={{ minWidth: 0 }}>
       <span style={{ display: 'block', fontFamily: mono, fontSize: 9.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>{text}</span>
       <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: color || T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>

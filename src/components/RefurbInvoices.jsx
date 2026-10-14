@@ -21,6 +21,7 @@ import {
   allocationBase, evenSplit, percentSplit, reconcile, allocationProblems, findDuplicate,
   paidAgainst, invoiceStatus, outstandingOn, invoicesForProject, defaultProjectFor, extractInvoiceFields, round2,
 } from '../lib/refurbInvoices'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt2 = n => '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -224,7 +225,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
     <div>
       <div style={{ fontSize: 17, fontWeight: 700 }}>Import refurb invoice</div>
       <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 2 }}>
-        {['upload', 'details', 'allocate'].map((s, i) => <span key={s} style={{ color: step === s ? T.gold : T.muted }}>{i ? ' → ' : ''}{i + 1}. {{ upload: 'Upload', details: 'Check details', allocate: 'Allocate' }[s]}</span>)}
+        {['upload', 'details', 'allocate'].map((s, i) => <span key={s} style={{ color: step === s ? T.goldText : T.muted }}>{i ? ' → ' : ''}{i + 1}. {{ upload: 'Upload', details: 'Check details', allocate: 'Allocate' }[s]}</span>)}
       </div>
     </div>
     <button onClick={onCancel} style={btn(T)}>Cancel</button>
@@ -251,29 +252,29 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
       {file && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 10 }}>File: {file.name} (kept with the invoice)</div>}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 10 }}>
         <div><label style={lbl(T)}>Type</label>
-          <select value={inv.doc_kind} onChange={e => set('doc_kind', e.target.value)} style={inputStyle(T)}>{DOC_KINDS.map(k => <option key={k.v} value={k.v}>{k.l}</option>)}</select></div>
+          <select aria-label="Type" value={inv.doc_kind} onChange={e => set('doc_kind', e.target.value)} style={inputStyle(T)}>{DOC_KINDS.map(k => <option key={k.v} value={k.v}>{k.l}</option>)}</select></div>
         <div><label style={lbl(T)}>Company (billed to)</label>
-          <select value={inv.company_id} onChange={e => { set('company_id', e.target.value); setRows([]) }} style={inputStyle(T)}>{editableCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <select aria-label="Company (billed to)" value={inv.company_id} onChange={e => { set('company_id', e.target.value); setRows([]) }} style={inputStyle(T)}>{editableCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
         <div><label style={lbl(T)}>Status</label>
-          <select value={inv.approval_status} onChange={e => set('approval_status', e.target.value)} style={inputStyle(T)}>{approvalOptions(canApproveFor(inv.company_id), inv.approval_status).map(s => <option key={s.v} value={s.v} disabled={s.disabled}>{s.l}</option>)}</select></div>
-        <div><label style={lbl(T)}>Supplier / contractor *</label><input value={inv.supplier_name} onChange={e => set('supplier_name', e.target.value)} style={inputStyle(T)} /></div>
+          <select aria-label="Status" value={inv.approval_status} onChange={e => set('approval_status', e.target.value)} style={inputStyle(T)}>{approvalOptions(canApproveFor(inv.company_id), inv.approval_status).map(s => <option key={s.v} value={s.v} disabled={s.disabled}>{s.l}</option>)}</select></div>
+        <div><label style={lbl(T)}>Supplier / contractor *</label><input aria-label="Supplier / contractor" value={inv.supplier_name} onChange={e => set('supplier_name', e.target.value)} style={inputStyle(T)} /></div>
         <div><label style={lbl(T)}>{inv.doc_kind === 'credit_note' ? 'Credit note number' : 'Invoice number'}</label><input value={inv.invoice_number} onChange={e => set('invoice_number', e.target.value)} style={inputStyle(T)} /></div>
         {inv.doc_kind === 'credit_note'
           ? <div><label style={lbl(T)}>Credits invoice (optional)</label>
-              <select value={inv.credits_invoice_id} onChange={e => set('credits_invoice_id', e.target.value)} style={inputStyle(T)}>
+              <select aria-label="Credits invoice (optional)" value={inv.credits_invoice_id} onChange={e => set('credits_invoice_id', e.target.value)} style={inputStyle(T)}>
                 <option value="">Not linked</option>
                 {(invoices || []).filter(i => i.company_id === inv.company_id && i.doc_kind === 'invoice').map(i => <option key={i.id} value={i.id}>{i.supplier_name} {i.invoice_number || ''} · {fmt2(i.gross_amount)}</option>)}
               </select></div>
           : <div />}
-        <div><label style={lbl(T)}>Invoice date</label><input type="date" value={inv.invoice_date || ''} onChange={e => set('invoice_date', e.target.value)} style={inputStyle(T)} /></div>
-        <div><label style={lbl(T)}>Due date</label><input type="date" value={inv.due_date || ''} onChange={e => set('due_date', e.target.value)} style={inputStyle(T)} /></div>
+        <div><label style={lbl(T)}>Invoice date</label><input aria-label="Invoice date" type="date" value={inv.invoice_date || ''} onChange={e => set('invoice_date', e.target.value)} style={inputStyle(T)} /></div>
+        <div><label style={lbl(T)}>Due date</label><input aria-label="Due date" type="date" value={inv.due_date || ''} onChange={e => set('due_date', e.target.value)} style={inputStyle(T)} /></div>
         <div />
-        <div><label style={lbl(T)}>Net</label><MoneyInput prefix="£" value={inv.net_amount} onChange={v => set('net_amount', v == null ? '' : v)} style={inputStyle(T)} /></div>
-        <div><label style={lbl(T)}>VAT</label><MoneyInput prefix="£" value={inv.vat_amount} onChange={v => set('vat_amount', v == null ? '' : v)} style={inputStyle(T)} /></div>
-        <div><label style={lbl(T)}>Gross *</label><MoneyInput prefix="£" value={inv.gross_amount} onChange={v => set('gross_amount', v == null ? '' : v)} style={{ ...inputStyle(T), fontWeight: 700 }} /></div>
+        <div><label style={lbl(T)}>Net</label><MoneyInput aria-label="Net" prefix="£" value={inv.net_amount} onChange={v => set('net_amount', v == null ? '' : v)} style={inputStyle(T)} /></div>
+        <div><label style={lbl(T)}>VAT</label><MoneyInput aria-label="VAT" prefix="£" value={inv.vat_amount} onChange={v => set('vat_amount', v == null ? '' : v)} style={inputStyle(T)} /></div>
+        <div><label style={lbl(T)}>Gross *</label><MoneyInput aria-label="Gross" prefix="£" value={inv.gross_amount} onChange={v => set('gross_amount', v == null ? '' : v)} style={{ ...inputStyle(T), fontWeight: 700 }} /></div>
       </div>
       <div style={{ marginTop: 10 }}><label style={lbl(T)}>Description of works</label>
-        <textarea rows={2} value={inv.description} onChange={e => set('description', e.target.value)} style={{ ...inputStyle(T), resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }} /></div>
+        <textarea aria-label="Description of works" rows={2} value={inv.description} onChange={e => set('description', e.target.value)} style={{ ...inputStyle(T), resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }} /></div>
       <div style={{ marginTop: 10 }}>
         <label style={lbl(T)}>Allocate on</label>
         <div style={{ display: 'flex', gap: 14, fontFamily: mono, fontSize: 11.5, flexWrap: 'wrap' }}>
@@ -304,7 +305,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         {blocks.length > 0 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
           {blocks.map(g => {
             const all = g.items.every(p => selectedIds.has(p.id))
-            return <button key={g.tail} onClick={() => selectMany(g.items, !all)} style={{ ...btn(T), padding: '4px 10px', color: all ? T.gold : T.muted, borderColor: all ? T.gold : T.border }}>
+            return <button key={g.tail} onClick={() => selectMany(g.items, !all)} style={{ ...btn(T), padding: '4px 10px', color: all ? T.goldText : T.muted, borderColor: all ? T.gold : T.border }}>
               {all ? '✓ ' : '+ '}Whole block: {g.tail} ({g.items.length})
             </button>
           })}
@@ -404,7 +405,7 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
     {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead><tr><th style={th}>Date</th><th style={th}>Supplier</th><th style={th}>Number</th>{!isMobile && <th style={th}>Co</th>}<th style={th}>Properties</th><th style={{ ...th, textAlign: 'right' }}>Amount</th><th style={{ ...th, textAlign: 'right' }}>Paid</th><th style={{ ...th, textAlign: 'right' }}>Outstanding</th><th style={th}>Status</th></tr></thead>
       <tbody>{rows.map(({ inv, st, paid, out }) => (
-        <tr key={inv.id} onClick={() => onOpen(inv)} style={{ cursor: 'pointer' }}>
+        <tr key={inv.id} {...pressable(() => onOpen(inv), { role: null })} style={{ cursor: 'pointer' }}>
           <td style={{ ...td, fontFamily: mono, whiteSpace: 'nowrap' }}>{fmtDate(inv.invoice_date)}</td>
           <td style={td}>{inv.supplier_name}</td>
           <td style={{ ...td, fontFamily: mono }}>{inv.invoice_number || '—'}</td>
@@ -412,7 +413,7 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
           <td style={{ ...td, fontFamily: mono }}>{(inv.refurb_invoice_allocations || []).length}</td>
           <td style={num}>{inv.doc_kind === 'credit_note' ? '−' : ''}{fmt2(allocationBase(inv))}</td>
           <td style={num}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(paid)}</td>
-          <td style={{ ...num, color: out > 0 ? T.gold : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
+          <td style={{ ...num, color: out > 0 ? T.goldText : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
           <td style={td}><InvoiceStatusChip status={st} T={T} /></td>
         </tr>
       ))}</tbody>
@@ -522,8 +523,8 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
       </div>)}
       {canEdit && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '130px 150px minmax(0,1fr) auto auto', gap: 8, alignItems: 'end', marginTop: 12 }}>
         <div><label style={lbl(T)}>{pay.refund ? 'Refund' : 'Amount paid'}</label><MoneyInput prefix="£" value={pay.amount} onChange={v => setPay(p => ({ ...p, amount: v == null ? '' : v }))} style={inputStyle(T)} /></div>
-        <div><label style={lbl(T)}>Date</label><input type="date" value={pay.date} onChange={e => setPay(p => ({ ...p, date: e.target.value }))} style={inputStyle(T)} /></div>
-        <div><label style={lbl(T)}>Paid to</label><input value={pay.payee} onChange={e => setPay(p => ({ ...p, payee: e.target.value }))} style={inputStyle(T)} /></div>
+        <div><label style={lbl(T)}>Date</label><input aria-label="Date" type="date" value={pay.date} onChange={e => setPay(p => ({ ...p, date: e.target.value }))} style={inputStyle(T)} /></div>
+        <div><label style={lbl(T)}>Paid to</label><input aria-label="Paid to" value={pay.payee} onChange={e => setPay(p => ({ ...p, payee: e.target.value }))} style={inputStyle(T)} /></div>
         <label style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, display: 'inline-flex', gap: 5, alignItems: 'center', paddingBottom: 8 }}>
           <input type="checkbox" checked={pay.refund} onChange={e => setPay(p => ({ ...p, refund: e.target.checked }))} style={{ width: 'auto', margin: 0 }} /> Refund from contractor
         </label>

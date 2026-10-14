@@ -318,7 +318,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         </>) : (
           <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>
             Mortgage fields hidden for a cash purchase.{' '}
-            <button type="button" onClick={()=>setRevealMortgage(true)} style={{background:'none',border:'none',color:T.gold,cursor:'pointer',fontFamily:MONO,fontSize:11,padding:0,textDecoration:'underline'}}>Show anyway</button>
+            <button type="button" onClick={()=>setRevealMortgage(true)} style={{background:'none',border:'none',color:T.goldText,cursor:'pointer',fontFamily:MONO,fontSize:11,padding:0,textDecoration:'underline'}}>Show anyway</button>
           </div>
         )}
 

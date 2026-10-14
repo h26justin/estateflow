@@ -5,6 +5,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { Icon } from '../lib/icons'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
@@ -190,7 +191,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
           { label: 'Vacant', value: stageCounts.vacant || 0, color: '#E05555' },
           { label: 'In progress', value: lettings.filter(l => !['vacant', 'movein'].includes(l.stage)).length, color: '#4B8FE0' },
           { label: 'Moving in', value: stageCounts.movein || 0, color: '#2ECC8A' },
-          { label: 'Rent pending', value: fmt(lettings.filter(l => l.stage !== 'vacant').reduce((s, l) => s + (l.agreed_rent || 0), 0)), color: T.gold },
+          { label: 'Rent pending', value: fmt(lettings.filter(l => l.stage !== 'vacant').reduce((s, l) => s + (l.agreed_rent || 0), 0)), color: T.goldText },
         ].map(s => (
           <div key={s.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px' }}>
             <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5 }}>{s.label}</div>
@@ -202,7 +203,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
       {/* ── STAGE FILTER PILLS ── */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
         <button onClick={() => setActiveStage('all')}
-          style={{ fontFamily: mono, fontSize: 11, padding: '5px 14px', borderRadius: 20, border: `1px solid ${activeStage === 'all' ? T.gold : T.border}`, background: activeStage === 'all' ? T.gold + '22' : 'transparent', color: activeStage === 'all' ? T.gold : T.muted, cursor: 'pointer' }}>
+          style={{ fontFamily: mono, fontSize: 11, padding: '5px 14px', borderRadius: 20, border: `1px solid ${activeStage === 'all' ? T.gold : T.border}`, background: activeStage === 'all' ? T.gold + '22' : 'transparent', color: activeStage === 'all' ? T.goldText : T.muted, cursor: 'pointer' }}>
           All ({lettings.length})
         </button>
         {STAGES.map(s => (
@@ -296,7 +297,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
 
               return (
                 <div key={letting.id}
-                  onClick={() => { setSelected(isSelected ? null : letting); setDetailTab('details') }}
+                  {...pressable(() => { setSelected(isSelected ? null : letting); setDetailTab('details') })}
                   style={{
                     background: T.card, border: `1px solid ${isSelected ? stage.color : T.border}`,
                     borderLeft: `3px solid ${stage.color}`,
@@ -362,7 +363,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: `1px solid ${T.border}`, paddingBottom: 10 }}>
                     {['details', 'applicant', 'checklist', 'notes'].map(tab => (
                       <button key={tab} onClick={() => setDetailTab(tab)}
-                        style={{ fontFamily: mono, fontSize: 11, padding: '5px 10px', borderRadius: 6, border: `1px solid ${detailTab === tab ? T.gold : T.border}`, background: detailTab === tab ? T.gold + '18' : 'transparent', color: detailTab === tab ? T.gold : T.muted, cursor: 'pointer', textTransform: 'capitalize' }}>
+                        style={{ fontFamily: mono, fontSize: 11, padding: '5px 10px', borderRadius: 6, border: `1px solid ${detailTab === tab ? T.gold : T.border}`, background: detailTab === tab ? T.gold + '18' : 'transparent', color: detailTab === tab ? T.goldText : T.muted, cursor: 'pointer', textTransform: 'capitalize' }}>
                         {tab}
                       </button>
                     ))}
@@ -440,7 +441,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         <div style={{ height: '100%', borderRadius: 3, background: stage.color, width: `${donePct}%`, transition: 'width 0.3s' }} />
                       </div>
                       {checkItems.map(item => (
-                        <div key={item.key} onClick={() => toggleCheck(selected.id, selected.stage, item.key, !!checklist[item.key])}
+                        <div key={item.key} {...pressable(() => toggleCheck(selected.id, selected.stage, item.key, !!checklist[item.key]), { role: 'checkbox', 'aria-checked': !!checklist[item.key] })}
                           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
                           <div style={{
                             width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: `2px solid ${checklist[item.key] ? stage.color : T.border}`,

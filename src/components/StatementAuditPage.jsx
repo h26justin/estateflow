@@ -11,6 +11,7 @@ import {
   buildImportSummary, STATEMENT_STATUSES, STATUS_LABEL, LINE_TYPES, LINE_TYPE_LABEL, REVIEW_STATUSES, REVIEW_LABEL,
   NON_COUNTING_REVIEW, round2, lineAmountOf, feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../lib/statementAudit'
+import { pressable } from '../lib/pressable'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
 // A standalone register for auditing managing-agent rental statements and
@@ -515,7 +516,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     const inp = (k, type = 'text', extra = {}) => <input type={type} value={draft[k] ?? ''} onChange={e => setDraft({ ...draft, [k]: e.target.value })} style={{ fontSize: 12, padding: '6px 8px' }} {...extra} />
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }} className="kpi-grid">
-        <div><label>Type</label><select value={draft.line_type} onChange={e => setDraft({ ...draft, line_type: e.target.value })} style={{ fontSize: 12, padding: '6px 8px' }}>{LINE_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></div>
+        <div><label>Type</label><select aria-label="Type" value={draft.line_type} onChange={e => setDraft({ ...draft, line_type: e.target.value })} style={{ fontSize: 12, padding: '6px 8px' }}>{LINE_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></div>
         <div style={{ gridColumn: 'span 2' }}><label>Property (exactly as shown)</label>{inp('property_address')}</div>
         <div><label>Tenant</label>{inp('tenant_name')}</div>
         <div><label>Period start</label>{inp('period_start', 'date')}</div>
@@ -525,7 +526,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         <div><label>VAT</label>{inp('vat_amount', 'number', { step: '0.01' })}</div>
         {draft.line_type === 'management_fee' && <><div><label>Fee %</label>{inp('fee_pct', 'number', { step: '0.01' })}</div><div><label>Of (rent basis)</label>{inp('fee_basis', 'number', { step: '0.01' })}</div></>}
         <div style={{ gridColumn: 'span 2' }}><label>Description</label>{inp('description')}</div>
-        {draft.id && <div><label>Review status</label><select value={draft.review_status} onChange={e => setDraft({ ...draft, review_status: e.target.value })} style={{ fontSize: 12, padding: '6px 8px' }}>{REVIEW_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>}
+        {draft.id && <div><label>Review status</label><select aria-label="Review status" value={draft.review_status} onChange={e => setDraft({ ...draft, review_status: e.target.value })} style={{ fontSize: 12, padding: '6px 8px' }}>{REVIEW_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>}
       </div>
     )
   }
@@ -549,7 +550,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         </div>
 
         {(upload.step === 'parsing' || upload.step === 'saving') && (
-          <div style={{ textAlign: 'center', padding: 30, fontFamily: MONO, fontSize: 12, color: T.gold }}>{upload.step === 'parsing' ? 'Extracting text and reading every line…' : 'Writing lines to the register…'}</div>
+          <div style={{ textAlign: 'center', padding: 30, fontFamily: MONO, fontSize: 12, color: T.goldText }}>{upload.step === 'parsing' ? 'Extracting text and reading every line…' : 'Writing lines to the register…'}</div>
         )}
 
         {upload.step === 'failed' && (
@@ -577,7 +578,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               {(parsed.numberAssigned || parsed.agent === 'RMS') && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '8px 12px', background: T.amber + '14', border: `1px solid ${T.amber}55`, borderRadius: 8 }}>
                   <label style={{ margin: 0 }}>Audit statement number</label>
-                  <input type="number" value={parsed.statementNumber ?? ''} onChange={e => { const n = parseInt(e.target.value, 10); setUpload(compareForNumber(upload, statements, lines, Number.isFinite(n) ? n : null)) }} style={{ width: 90, fontSize: 12, padding: '5px 8px' }} />
+                  <input aria-label="Audit statement number" type="number" value={parsed.statementNumber ?? ''} onChange={e => { const n = parseInt(e.target.value, 10); setUpload(compareForNumber(upload, statements, lines, Number.isFinite(n) ? n : null)) }} style={{ width: 90, fontSize: 12, padding: '5px 8px' }} />
                   <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
                     This agent prints no sequential number{parsed.agentReference ? ` (agent reference ${parsed.agentReference}` : ''}{parsed.statementPeriodStart ? `${parsed.agentReference ? ', ' : ' ('}period ${fmtDate(parsed.statementPeriodStart)} to ${fmtDate(parsed.statementPeriodEnd)}` : ''}{parsed.agentReference || parsed.statementPeriodStart ? ')' : ''}. The next number in this run is suggested; change it if the statement belongs elsewhere in the sequence.
                   </span>
@@ -792,7 +793,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     const isSel = s.id === selectedId
                     const counted = ls.filter(l => !NON_COUNTING_REVIEW.has(l.review_status)).length
                     return (
-                      <tr key={s.id} style={{ background: isSel ? T.gold + '14' : 'transparent', cursor: 'pointer' }} onClick={() => setSelectedId(isSel ? null : s.id)}>
+                      <tr key={s.id} style={{ background: isSel ? T.gold + '14' : 'transparent', cursor: 'pointer' }} {...pressable(() => setSelectedId(isSel ? null : s.id), { role: null, 'aria-selected': isSel })}>
                         {td(<b>{s.statement_number}</b>)}
                         {td(fmtDate(s.statement_date) || '-', { color: T.muted })}
                         <td style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
@@ -811,7 +812,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                         {td(s.checked_by ? `${s.checked_by}${s.checked_at ? ' · ' + fmtDate(s.checked_at) : ''}` : '', { color: T.muted, max: 200, title: s.checked_by })}
                         {td(s.correction_required ? pill('Yes', T.amber) : <span style={{ color: T.faint }}>No</span>)}
                         {td(s.bank_payment_matched ? pill('Yes', T.green) : <span style={{ color: T.faint }}>No</span>)}
-                        {td(<span style={{ color: T.gold }}>{isSel ? 'Close' : 'Open'}</span>)}
+                        {td(<span style={{ color: T.goldText }}>{isSel ? 'Close' : 'Open'}</span>)}
                       </tr>
                     )
                   })}
@@ -846,17 +847,17 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 {/* Review fields */}
                 <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginTop: 14 }}>
                   <div><label>Status</label>
-                    <select value={s.status} onChange={e => patchStatement(s, { status: e.target.value })} style={{ fontSize: 11, padding: '6px 8px', color: colours[s.status], fontWeight: 700 }}>
+                    <select aria-label="Status" value={s.status} onChange={e => patchStatement(s, { status: e.target.value })} style={{ fontSize: 11, padding: '6px 8px', color: colours[s.status], fontWeight: 700 }}>
                       {STATEMENT_STATUSES.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                     </select></div>
                   <div><label>Statement checked?</label><div style={{ paddingTop: 4 }}>{yesNo(!!s.statement_checked, v => patchStatement(s, { statement_checked: v, checked_by: v ? (s.checked_by || user?.email || '') : s.checked_by, checked_at: v ? (s.checked_at || today()) : s.checked_at }))}</div></div>
-                  <div><label>Checked by</label><input defaultValue={s.checked_by || ''} key={'cb' + s.id + s.checked_by} onBlur={e => e.target.value !== (s.checked_by || '') && patchStatement(s, { checked_by: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
-                  <div><label>Date checked</label><input type="date" value={s.checked_at || ''} onChange={e => patchStatement(s, { checked_at: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
+                  <div><label>Checked by</label><input aria-label="Checked by" defaultValue={s.checked_by || ''} key={'cb' + s.id + s.checked_by} onBlur={e => e.target.value !== (s.checked_by || '') && patchStatement(s, { checked_by: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
+                  <div><label>Date checked</label><input aria-label="Date checked" type="date" value={s.checked_at || ''} onChange={e => patchStatement(s, { checked_at: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
                   <div><label>Correction required?</label><div style={{ paddingTop: 4 }}>{yesNo(!!s.correction_required, v => patchStatement(s, { correction_required: v }))}</div></div>
                   <div><label>Bank payment matched?</label><div style={{ paddingTop: 4 }}>{yesNo(!!s.bank_payment_matched, v => patchStatement(s, { bank_payment_matched: v, ...(v && !s.bank_paid_date ? { bank_paid_date: today() } : {}), ...(v && s.bank_paid_amount == null ? { bank_paid_amount: s.payment_amount } : {}) }))}</div></div>
-                  <div><label>Bank: date received</label><input type="date" value={s.bank_paid_date || ''} onChange={e => patchStatement(s, { bank_paid_date: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
-                  <div><label>Bank: amount received</label><input type="number" step="0.01" defaultValue={s.bank_paid_amount ?? ''} key={'ba' + s.id + s.bank_paid_amount} onBlur={e => String(e.target.value) !== String(s.bank_paid_amount ?? '') && patchStatement(s, { bank_paid_amount: e.target.value === '' ? null : Number(e.target.value) })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
-                  <div style={{ gridColumn: 'span 4' }}><label>Notes</label><textarea defaultValue={s.notes || ''} key={'n' + s.id} rows={2} onBlur={e => e.target.value !== (s.notes || '') && patchStatement(s, { notes: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px', resize: 'vertical' }} /></div>
+                  <div><label>Bank: date received</label><input aria-label="Bank: date received" type="date" value={s.bank_paid_date || ''} onChange={e => patchStatement(s, { bank_paid_date: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
+                  <div><label>Bank: amount received</label><input aria-label="Bank: amount received" type="number" step="0.01" defaultValue={s.bank_paid_amount ?? ''} key={'ba' + s.id + s.bank_paid_amount} onBlur={e => String(e.target.value) !== String(s.bank_paid_amount ?? '') && patchStatement(s, { bank_paid_amount: e.target.value === '' ? null : Number(e.target.value) })} style={{ fontSize: 11, padding: '6px 8px' }} /></div>
+                  <div style={{ gridColumn: 'span 4' }}><label>Notes</label><textarea aria-label="Notes" defaultValue={s.notes || ''} key={'n' + s.id} rows={2} onBlur={e => e.target.value !== (s.notes || '') && patchStatement(s, { notes: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px', resize: 'vertical' }} /></div>
                 </div>
                 {s.bank_paid_amount != null && s.payment_amount != null && Math.abs(round2(s.bank_paid_amount) - round2(s.payment_amount)) > 0.005 && (
                   <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: T.red }}>Bank received {fmt(s.bank_paid_amount)} but the statement shows {fmt(s.payment_amount)} transferred (difference {fmt(round2(s.bank_paid_amount - s.payment_amount))}).</div>
@@ -930,7 +931,7 @@ function FailedUploadForm({ onSave, busy, T }) {
   const [n, setN] = useState('')
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 10 }}>
-      <div style={{ width: 160 }}><label>Statement number</label><input type="number" value={n} onChange={e => setN(e.target.value)} style={{ fontSize: 12, padding: '6px 8px' }} /></div>
+      <div style={{ width: 160 }}><label>Statement number</label><input aria-label="Statement number" type="number" value={n} onChange={e => setN(e.target.value)} style={{ fontSize: 12, padding: '6px 8px' }} /></div>
       <button className="btn btn-gold" disabled={busy || !n} onClick={() => onSave(n)}>Record as Import Error</button>
       <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>or close and try another PDF</span>
     </div>

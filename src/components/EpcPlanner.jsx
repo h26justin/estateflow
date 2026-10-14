@@ -197,7 +197,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
         </div>
         <div style={{ flex: 1, minWidth: 160 }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>2030 MEES deadline</div>
-          <div style={{ fontFamily: mono, fontSize: 18, color: cd.passed ? T.gold : T.text, marginTop: 4 }}>
+          <div style={{ fontFamily: mono, fontSize: 18, color: cd.passed ? T.goldText : T.text, marginTop: 4 }}>
             {cd.passed ? 'Deadline passed' : `${cd.years}y ${cd.months}m left`}
           </div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
@@ -206,7 +206,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
         </div>
         <div style={{ textAlign: 'right', minWidth: 130 }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Est. cost to band {targetRating}</div>
-          <div style={{ fontFamily: mono, fontSize: 22, color: T.gold, marginTop: 4 }}>{fmt(total)}</div>
+          <div style={{ fontFamily: mono, fontSize: 22, color: T.goldText, marginTop: 4 }}>{fmt(total)}</div>
         </div>
       </div>
 
@@ -239,7 +239,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
               </div>
             )}
             {syncNote && (
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginTop: 6 }}>{syncNote}</div>
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.goldText, marginTop: 6 }}>{syncNote}</div>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -271,18 +271,18 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={lbl}>Current rating {(cert?.current_rating || plan?.source === 'epc_register') ? '(from EPC register)' : '(manual)'}</label>
-              <select style={inp} value={manualRating} onChange={e => setManualRating(e.target.value)}>
+              <select aria-label="Current rating" style={inp} value={manualRating} onChange={e => setManualRating(e.target.value)}>
                 <option value="">Unknown</option>
                 {RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
               <label style={lbl}>Property type</label>
-              <input style={inp} placeholder="e.g. Victorian terrace" value={propertyType} onChange={e => setPropertyType(e.target.value)} />
+              <input aria-label="Property type" style={inp} placeholder="e.g. Victorian terrace" value={propertyType} onChange={e => setPropertyType(e.target.value)} />
             </div>
             <div>
               <label style={lbl}>Region</label>
-              <input style={inp} placeholder="e.g. North West" value={region} onChange={e => setRegion(e.target.value)} />
+              <input aria-label="Region" style={inp} placeholder="e.g. North West" value={region} onChange={e => setRegion(e.target.value)} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -343,7 +343,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
             <tfoot>
               <tr style={{ borderTop: `2px solid ${T.border}`, background: T.bg }}>
                 <td colSpan={4} style={{ padding: '10px 14px', color: T.muted, textAlign: 'right' }}>Estimated total</td>
-                <td style={{ padding: '10px 14px', color: T.gold, textAlign: 'right' }}>{fmt(total)}</td>
+                <td style={{ padding: '10px 14px', color: T.goldText, textAlign: 'right' }}>{fmt(total)}</td>
               </tr>
             </tfoot>
           </table>

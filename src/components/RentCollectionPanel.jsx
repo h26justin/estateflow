@@ -26,7 +26,7 @@ function Banner({ T }) {
         lineHeight: 1.5,
       }}
     >
-      <strong style={{ color: T.gold }}>Rent collection (preview)</strong>
+      <strong style={{ color: T.goldText }}>Rent collection (preview)</strong>
       <div style={{ marginTop: 4, opacity: 0.85 }}>{COMING_SOON}</div>
     </div>
   )
@@ -200,7 +200,7 @@ export function TenantRentCollectionConsent({ propertyId }) {
 
   return (
     <div className="card" style={{ padding: 14, marginTop: 16 }}>
-      <strong style={{ color: T.gold }}>Rent collection by Direct Payment</strong>
+      <strong style={{ color: T.goldText }}>Rent collection by Direct Payment</strong>
       <div style={{ fontSize: 13, marginTop: 6, marginBottom: 6 }}>
         Your landlord has proposed collecting{' '}
         {mandate.amount_pcm != null ? fmt(mandate.amount_pcm) : 'your rent'} on day{' '}

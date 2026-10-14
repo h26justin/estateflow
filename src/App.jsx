@@ -128,6 +128,8 @@ import DeleteCompanyModal from './components/modals/DeleteCompanyModal'
 import PaymentModal from './components/modals/PaymentModal'
 import AccessModal from './components/modals/AccessModal'
 import CustomizeDashModal from './components/modals/CustomizeDashModal'
+import { pressable } from './lib/pressable'
+import { plural } from './lib/format'
 
 
 
@@ -186,10 +188,21 @@ const STATUS_CFG = {
   refurb:       {label:'Refurbing',    bg:'#0A1A2B',fg:'#4B8FE0',dot:'#4B8FE0'},
   sold:         {label:'Sold',         bg:'#1A1A2B',fg:'#9B8AC2',dot:'#9B8AC2'},
 }
+// Pill *text* colours that clear WCAG AA (4.5:1) on the pill's own tint. The
+// STATUS_CFG hues are tuned for the dark theme; on light cards several fall to
+// 2.4–3.6:1 (Purchased, Vacant), so light mode uses a darkened sibling hue.
+// Dark mode only needs the two that miss on the #1B242D card.
+const STATUS_TEXT_LIGHT = {
+  rented:'#167A4C', short_term_let:'#6E45B8', notice_given:'#8A5600', let_agreed:'#7A5E1C',
+  on_rental_market:'#1E6F7C', vacant:'#B8392D', purchased:'#9A4A10', refurb:'#2A65A0', sold:'#5E5390',
+}
+const STATUS_TEXT_DARK = { vacant:'#EC7B7B', short_term_let:'#A98AE6' }
 const Badge = memo(({status}) => {
-  const { T } = useTheme()
-  const c = STATUS_CFG[status]||STATUS_CFG.purchased
-  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:c.fg,fontSize:11,fontFamily:MONO,fontWeight:600}}>
+  const { darkMode } = useTheme()
+  const key = STATUS_CFG[status] ? status : 'purchased'
+  const c = STATUS_CFG[key]
+  const fg = (darkMode ? STATUS_TEXT_DARK[key] : STATUS_TEXT_LIGHT[key]) || c.fg
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:fg,fontSize:11,fontFamily:MONO,fontWeight:600}}>
     <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
   </span>
 })
@@ -232,7 +245,7 @@ const BreakdownRow = memo(({item, T}) => {
   }
   const inner = (
     <>
-      <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:clickable&&hover?T.gold:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
+      <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
         {item.indent&&<span style={{color:T.border}}>└</span>}
         <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.label}</span>
         {clickable&&<Icon name="arrow-right" size={10} color={hover?T.gold:T.faint}/>}
@@ -284,7 +297,7 @@ const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavi
   const clickable = breakdown || onNavigate
   return (
     <div ref={rootRef} style={{position:'relative',zIndex:open?30:undefined,background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
-      onClick={breakdown?()=>setOpen(o=>!o):(onNavigate||undefined)}>
+      {...pressable(breakdown?()=>setOpen(o=>!o):onNavigate, breakdown?{'aria-expanded':open}:{})}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         {/* Redesign: a known icon name renders the hairline glyph in a tinted
             accent tile; legacy emoji strings still render as-is. */}
@@ -295,16 +308,16 @@ const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavi
           {onNavigate&&(
             <button onClick={e=>{e.stopPropagation();onNavigate()}}
               aria-label={navLabel||`Open ${label}`}
-              style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:9,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
-              onMouseEnter={e=>e.currentTarget.style.color=T.gold} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
+              style={{background:'none',border:'none',cursor:'pointer',padding:'6px 4px',margin:'-6px -4px',minHeight:24,fontFamily:MONO,fontSize:9,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
+              onMouseEnter={e=>e.currentTarget.style.color=T.goldText} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
               {(navLabel||'VIEW').toUpperCase()}<Icon name="arrow-right" size={11}/>
             </button>
           )}
-          {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
+          {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.goldText:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
         </span>
       </div>
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
-      <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
+      <div style={{fontSize:22,fontWeight:700,color:(!accent||accent===T.gold)?T.goldText:accent,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
       {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
       {/* Optional 2-column strip of small label/value pairs on the card face,
           for cards whose story needs a few figures at a glance (e.g. the last
@@ -717,6 +730,9 @@ function PageLoadingSpinner({ T }) {
 
 // Dashboard loading state — greeting + health ring, 4 KPI tiles, two widget
 // columns — mirrors the real layout so the page doesn't jump on load.
+// Visually hidden but announced (the standard sr-only recipe).
+const SR_ONLY = { position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 }
+
 function DashboardSkeleton() {
   const { T } = useTheme()
   const tile = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
@@ -792,7 +808,7 @@ function PortfolioModellerWidget({ properties = [] }) {
           <div key={s.label}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
               <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{s.label}</span>
-              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>
+              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>
                 {s.prefix||''}{s.fmt?parseInt(s.val).toLocaleString('en-GB'):s.val}{s.suffix||''}
               </span>
             </div>
@@ -1047,12 +1063,14 @@ export default function App() {
   ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${T.bg}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
   input,select,textarea{font-family:${MONO};background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
   input:focus,select:focus,textarea:focus{border-color:${T.gold};}
-  :focus-visible{outline:2px solid ${T.gold};outline-offset:2px;}
+  :focus-visible{outline:2px solid ${T.goldText};outline-offset:2px;}
+  .skip-link{position:absolute;left:-9999px;top:8px;z-index:3000;background:${T.surface};color:${T.text};border:2px solid ${T.goldText};border-radius:8px;padding:10px 16px;font-family:${MONO};font-size:13px;font-weight:600;text-decoration:none;}
+  .skip-link:focus{left:16px;}
   select option{background:${T.surface};}
   label{font-family:${MONO};font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
   .btn{font-family:${SANS};font-weight:600;border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;transition:all 0.18s;letter-spacing:0;}
   .btn-gold{background:${T.gold};color:#1C2830;}.btn-gold:hover{background:${T.gold}dd;}
-  .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.gold};}
+  .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.goldText};}
   .btn-danger{background:${T.red};color:#fff;border:1px solid ${T.red};}.btn-danger:hover{filter:brightness(0.92);}
   .card{background:${T.card};border:1px solid ${T.border};border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
@@ -1098,7 +1116,7 @@ export default function App() {
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px);}
   .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
   .tab{font-family:${SANS};font-weight:500;font-size:13px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0;}
-  .tab.active{background:${T.border};color:${T.gold};}.tab:hover{color:${T.text};}
+  .tab.active{background:${T.border};color:${T.goldText};}.tab:hover{color:${T.text};}
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:700px){.g2{grid-template-columns:1fr}}
 `
@@ -2464,7 +2482,7 @@ export default function App() {
           // while the company has no properties (they'd vanish from its view).
           async function convertType() {
             const toHolding=!holding
-            if (toHolding && cProps.length>0) return showToast(`${c.name} has ${cProps.length} properties — move them to another company before converting to a holding company`,'error')
+            if (toHolding && cProps.length>0) return showToast(`${c.name} has ${plural(cProps.length,'property','properties')} — move them to another company before converting to a holding company`,'error')
             if (!(await confirmDialog({ title: toHolding ? `Make ${c.name} a holding company?` : `Make ${c.name} an operating company?`, body: (toHolding
               ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
               : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`), confirmLabel: toHolding ? 'Make holding company' : 'Make operating company' }))) return
@@ -2480,7 +2498,7 @@ export default function App() {
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:10,height:10,borderRadius:'50%',background:c.color||T.gold}}/>
                 <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
-                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.gold,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
+                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.goldText,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
                 {holding&&<span style={{fontFamily:mono,fontSize:9,fontWeight:700,color:T.muted,border:`1px solid ${T.border}`,padding:'2px 8px',borderRadius:4,letterSpacing:'0.05em'}}
                   title="Holding company — owns companies, not properties">HOLDING</span>}
               </div>
@@ -2522,7 +2540,7 @@ export default function App() {
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
                       <span style={{fontSize:13}} aria-hidden="true">🏘</span>
                       <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
-                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {group.items.length} units</span>
+                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {plural(group.items.length,'unit')}</span>
                     </div>
                   )}
                   <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
@@ -2530,14 +2548,14 @@ export default function App() {
                       const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
                       const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
                       return (
-                      <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} onClick={()=>openDetail(p)}>
+                      <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} {...pressable(()=>openDetail(p))}>
                         <div style={{flex:1,minWidth:150}}>
                           <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
                           <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{p.prop_type} · {p.address}</div>
                         </div>
                         {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                         {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                            <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                            <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
                             <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
                           </div>}
                         {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
@@ -2594,7 +2612,7 @@ export default function App() {
                     fontFamily:SANS,fontSize:14,fontWeight:active?700:500,transition:'background 0.15s,color 0.15s'}}
                   onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
                   onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>
-                  <span style={{display:'flex',flexShrink:0,color:active?T.gold:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
+                  <span style={{display:'flex',flexShrink:0,color:active?T.goldText:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
                   {!railCollapsed && <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.label}</span>}
                 </button>
                 </Fragment>
@@ -2664,7 +2682,7 @@ export default function App() {
       {/* Skip link: focus <main> directly instead of navigating — setting
           location.hash to #main-content would be parsed by the hash router
           as an unknown view and blank the screen. */}
-      <a href='#main-content' onClick={e=>{e.preventDefault(); const m=document.getElementById('main-content'); if(m){m.focus(); m.scrollIntoView()}}} style={{position:'absolute',left:'-9999px',top:'auto',width:1,height:1,overflow:'hidden'}} onFocus={e=>{e.target.style.left='16px';e.target.style.width='auto';e.target.style.height='auto'}} onBlur={e=>{e.target.style.left='-9999px';e.target.style.width='1px';e.target.style.height='1px'}}>Skip to main content</a>
+      <a href='#main-content' className="skip-link" onClick={e=>{e.preventDefault(); const m=document.getElementById('main-content'); if(m){m.focus(); m.scrollIntoView()}}}>Skip to main content</a>
       <header role='banner' style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
         <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
           {/* Left: logo on mobile, breadcrumb on desktop (nav lives in the rail) */}
@@ -2709,7 +2727,7 @@ export default function App() {
           )}
 
           {/* Mobile: current page title */}
-          {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
+          {isMobile&&<div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
             {(()=>{const ni=navItems.find(n=>n.key===view); return ni&&ICON_NAMES.includes(ni.icon)?<Icon name={ni.icon} size={15} color={T.muted}/>:ni?.icon})()} <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{view==='detail'&&selected?selected.name:(navItems.find(n=>n.key===view)?.label||VIEW_LABELS[view]||'Dashboard')}</span>
           </div>}
 
@@ -2785,6 +2803,7 @@ export default function App() {
               if (trialing.length === 0) return null
               const soonest = trialing[0]
               const tone = soonest.days <= 3 ? T.red : soonest.days <= 7 ? T.amber : T.gold
+              const toneText = tone === T.gold ? T.goldText : tone
               return (
                 <button
                   onClick={() => {
@@ -2805,7 +2824,7 @@ export default function App() {
                   style={{
                     fontFamily:MONO, fontSize:11, fontWeight:700,
                     padding:'5px 12px', borderRadius:20, cursor:'pointer',
-                    border:`1px solid ${tone}`, background:tone+'22', color:tone,
+                    border:`1px solid ${tone}`, background:tone+'22', color:toneText,
                     whiteSpace:'nowrap',
                   }}>
                   {isMobile ? `${soonest.days}d` : `Trial: ${soonest.days} day${soonest.days===1?'':'s'} left`}
@@ -2813,7 +2832,7 @@ export default function App() {
               )
             })()}
             <NotificationCentre/>
-            {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
+            {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.goldText,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
             {/* "⋯ More" menu — houses pages that aren't worth their own tab
                 (Feedback, Sign Out, etc.). Keeps primary nav focused on
                 daily-use pages. */}
@@ -2910,8 +2929,8 @@ export default function App() {
                     background:active?T.gold+'18':'none',
                     border:'none',borderLeft:active?`3px solid ${T.gold}`:'3px solid transparent',
                     cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}>
-                  <span style={{width:24,display:'flex',justifyContent:'center',color:active?T.gold:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
-                  <span style={{fontSize:14,fontWeight:active?600:400,color:active?T.gold:T.text}}>{n.label}</span>
+                  <span style={{width:24,display:'flex',justifyContent:'center',color:active?T.goldText:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
+                  <span style={{fontSize:14,fontWeight:active?600:400,color:active?T.goldText:T.text}}>{n.label}</span>
                 </button>
                 </Fragment>
               )})}
@@ -2976,29 +2995,33 @@ export default function App() {
         )
       })}
       <main id="main-content" tabIndex={-1} style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%',outline:'none'}}>
-        {loading?(view==='dashboard'?<DashboardSkeleton/>:<Spinner/>):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
+        {loading?(<>
+          {/* Keep a page heading in the outline while data loads. */}
+          <h1 style={SR_ONLY}>{view==='dashboard' ? 'Dashboard' : 'Loading'}</h1>
+          {view==='dashboard'?<DashboardSkeleton/>:<Spinner/>}
+        </>):loadError?(
+          /* Load failure — a transient Supabase/network error must never look
+             like a wiped account. Render ONLY this panel (no £0 dashboard or
+             empty lists underneath) on every view. The raw error is logged by
+             loadData; users get plain English and a Retry. */
+          <div className="card" role="alert" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px solid ${T.red}66`}}>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="alert-triangle" size={isMobile?30:38} color={T.red}/></div>
+            <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>We couldn't load your portfolio</h1>
+            <p style={{fontFamily:MONO,fontSize:13,color:T.muted,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
+              Your data is safe. This is usually a temporary connection problem, so please try again in a moment. If it keeps happening, contact support.
+            </p>
+            <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
+          </div>
+        ):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
-            {/* Load failure — a transient Supabase/network error must never
-                look like a wiped account. Show a clear error + Retry instead
-                of the new-account welcome hero. */}
-            {loadError && (
-              <div className="card" role="alert" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px solid ${T.red}66`}}>
-                <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="alert-triangle" size={isMobile?30:38} color={T.red}/></div>
-                <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>We couldn't load your portfolio</h1>
-                <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
-                  Your data is safe — this is usually a temporary connection problem. ({loadError})
-                </p>
-                <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
-              </div>
-            )}
             {/* First-run zero-state. Accounts with no properties land here —
                 including the most common post-onboarding state (a company
                 created by the wizard but no property yet, which previously
                 skipped this hero and dumped the user on a wall of £0 KPIs).
                 While this shows, the dashboard sections below are skipped
                 entirely. */}
-            {!loadError && activeProperties.length === 0 && (
+            {activeProperties.length === 0 && (
               <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
                 <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="home" size={isMobile?30:38} color={T.gold}/></div>
                 <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to Properly</h1>
@@ -3042,7 +3065,7 @@ export default function App() {
                     )
                   })()}
                   {activeProperties.length > 0 && <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
-                    {stats.total} properties · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
+                    {plural(stats.total,'property','properties')} · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
                     {dashProps.some(p=>p.current_value>0) && <>
                       {/* On mobile drop to a new line so the value/equity pair has its own row */}
                       {isMobile ? <br/> : ' · '}
@@ -3099,7 +3122,7 @@ export default function App() {
                         style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                           border:`1px solid ${sel?(c.color||T.gold):T.border}`,
                           background:sel?(c.color||T.gold)+'22':'transparent',
-                          color:sel?(c.color||T.gold):T.muted}}>
+                          color:sel?(c.color||T.goldText):T.muted}}>
                         {sel?'✓ ':''}{c.name}
                       </button>
                     )
@@ -3111,7 +3134,7 @@ export default function App() {
               // First-run: the welcome hero above is the whole dashboard.
               // Rendering the sections under it would just be a wall of £0
               // KPIs and empty widgets.
-              if (!loadError && activeProperties.length === 0) return null
+              if (activeProperties.length === 0) return null
               // ───────────────────────────────────────────────────────────────
               // Dashboard sections registry — each section is a labelled chunk
               // that the user can reorder and show/hide. Section content is
@@ -3182,7 +3205,7 @@ export default function App() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                             <span style={{ fontSize: 16 }}>✨</span>
                             <h2 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>AI Portfolio Insights</h2>
-                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.gold + '22', color: T.gold }}>INVESTOR</span>
+                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.gold + '22', color: T.goldText }}>INVESTOR</span>
                           </div>
                           <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.7, marginBottom: 12 }}>
                             Get Claude-generated weekly observations about under-rented units, expiring certs, high LTVs and refinance opportunities. Available on the £5/property Investor tier.
@@ -3273,7 +3296,7 @@ export default function App() {
                   portfolio_value: { icon:'home', label:'Portfolio Value', render: () => (
                     <StatCard icon="home" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
-                        {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
+                        {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.goldText},
                         {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
                         {label:'Purchase prices', value:fmt(dashProps.reduce((s,p)=>s+(p.purchase_price||0),0)), indent:true},
                         {label:'Refurb costs', value:fmt(dashProps.reduce((s,p)=>s+(p.refurb_cost||0),0)), indent:true},
@@ -3306,7 +3329,7 @@ export default function App() {
                       <StatCard icon="pound" label="Monthly Rental Income" value={fmt(headline)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                         strip={[
                           {label:'Contracted', value:`${fmt(stats.monthlyRent)}/mo`},
-                          {label:`${next.label.slice(0,3)} forecast`, value:fmt(next.expected), color:T.gold},
+                          {label:`${next.label.slice(0,3)} forecast`, value:fmt(next.expected), color:T.goldText},
                           {label:'Annualised', value:`${fmt(stats.monthlyRent*12)}/yr`},
                           {label:'Rented', value:`${stats.rented} of ${stats.total}`},
                         ]}
@@ -3315,7 +3338,7 @@ export default function App() {
                           {label:'Contracted monthly rent', value:fmt(stats.monthlyRent), note:'Sum of the monthly rent on every rented or notice-given property'},
                           {label:'Expected vs contracted', value:`${gap >= 0 ? '+' : '-'}${fmt(Math.abs(gap))}`, color:Math.abs(gap) < 1 ? T.muted : gap > 0 ? T.green : T.amber},
                           {label:'Annualised (contracted)', value:fmt(stats.monthlyRent*12), color:T.green},
-                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.gold, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
+                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.goldText, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
                           {label:'Rented units', value:`${stats.rented} of ${stats.total}`, separator:true},
                           {label:'Occupancy rate', value:`${Math.round(stats.occupancy.rate)}%`, color:T.green, note:'Occupied units over lettable units (refurb and purchased left out)'},
                           ...companyStats.map(c=>({label:`${c.name} · expected ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color, separator:c===companyStats[0]})),
@@ -3408,7 +3431,7 @@ export default function App() {
                     />
                   )},
                   mortgages: { icon:'landmark', label:'Mortgages Outstanding', render: () => (
-                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6" onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
+                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent={T.purple} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
                         {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
@@ -3466,10 +3489,10 @@ export default function App() {
                           {label:'Next 30 days', value:fmt(cashAgg.byBucket['0-30']?.cashOut || 0), color:(cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber : T.muted, note:`${cashAgg.byBucket['0-30']?.count || 0} item(s) needing cash this month`},
                           {label:'31-60 days',   value:fmt(cashAgg.byBucket['31-60']?.cashOut || 0), color:T.text},
                           {label:'61-90 days',   value:fmt(cashAgg.byBucket['61-90']?.cashOut || 0), color:T.text},
-                          {label:'Subtotal: due in next 90 days', value:fmt(next90), color:next90 > 0 ? T.gold : T.muted, separator:true, note:`${next90Count} item(s) with completion or refurb dates set`},
+                          {label:'Subtotal: due in next 90 days', value:fmt(next90), color:next90 > 0 ? T.goldText : T.muted, separator:true, note:`${next90Count} item(s) with completion or refurb dates set`},
                           {label:'Later (90+ days)', value:fmt(cashAgg.byBucket['91+']?.cashOut || 0), color:T.muted, separator:true},
                           {label:'Pipeline (no date set)', value:fmt(pipelineCash), color:T.muted, note:'Deals still being analysed/offered. Set expected completion dates to move these into the dated buckets above.'},
-                          {label:'Total cash out across all live items', value:fmt(cashAgg.totalCashOut), color:T.gold, separator:true},
+                          {label:'Total cash out across all live items', value:fmt(cashAgg.totalCashOut), color:T.goldText, separator:true},
                           ...(cashAgg.propertyRefurbUndated > 0 ? [{label:`${cashAgg.propertyRefurbUndated} refurb${cashAgg.propertyRefurbUndated===1?'':'s'} without a target finish date`, value:'⚠', color:T.amber, note:'Set a target finish on the Refurbs page to place it in the 90-day view'}] : []),
                         ]}
                       />
@@ -3530,7 +3553,7 @@ export default function App() {
                           {label:'31-60 days',   value:fmt(sumP(bucketed.d60)), color:T.text, note:bucketed.d60.length > 0 ? `${bucketed.d60.length} ${bucketed.d60.length === 1 ? 'policy' : 'policies'}` : null},
                           {label:'61-90 days',   value:fmt(sumP(bucketed.d90)), color:T.text, note:bucketed.d90.length > 0 ? `${bucketed.d90.length} ${bucketed.d90.length === 1 ? 'policy' : 'policies'}` : null},
                           {label:'Later',        value:fmt(sumP(bucketed.later)), color:T.muted, note:`${bucketed.later.length} ${bucketed.later.length === 1 ? 'policy' : 'policies'} beyond 90 days`, separator:true},
-                          {label:'Total annual premium (all active)', value:fmt(totalAnnual), color:T.gold, separator:true},
+                          {label:'Total annual premium (all active)', value:fmt(totalAnnual), color:T.goldText, separator:true},
                         ]}
                       />
                     )
@@ -3651,7 +3674,7 @@ export default function App() {
                                 {[{l:'Properties',v:c.count},{l:'Rented',v:`${c.rented}/${c.count}`},{l:'Monthly Income',v:fmt(c.monthlyRent)},{l:'Arrears',v:fmt(c.arrears),red:c.arrears>0}].map((item,i)=>(
                                   <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
                                     <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
-                                    <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.gold}}>{item.v}</div>
+                                    <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.goldText}}>{item.v}</div>
                                   </div>
                                 ))}
                               </div>
@@ -3674,8 +3697,8 @@ export default function App() {
                       Dashboard · {visibleSections.length} sections shown
                     </div>
                     <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
-                      style={{fontFamily:MONO,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
-                      Customize
+                      style={{fontFamily:MONO,fontSize:10,padding:'4px 10px',minHeight:28,borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                      Customise
                     </button>
                   </div>
                   {visibleSections.map(s => {
@@ -3761,7 +3784,7 @@ export default function App() {
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:16}}>
               <div style={{flex:'1 1 auto',minWidth:0}}>
                 <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Portfolio</h1>
-                <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {properties.length} properties shown</div>
+                <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{filtered.length} of {plural(properties.length,'property','properties')} shown</div>
               </div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 {[['properties','building','Properties'],['companies','grid','Companies'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
@@ -3783,8 +3806,8 @@ export default function App() {
             {portfolioTab==='map'&&<>
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
                 <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
-                {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} aria-pressed={coFilter===c.id} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr||c.name}</button>
                 ))}
               </div>
               <PropertyMap
@@ -3813,12 +3836,12 @@ export default function App() {
                   style={{position:'absolute',right:6,background:'transparent',border:'none',cursor:'pointer',color:T.muted,fontSize:14,lineHeight:1,padding:'2px 4px'}}>×</button>}
               </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} aria-pressed={coFilter===c.id} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr||c.name}</button>
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
                 {['all', ...PROPERTY_STATUSES].map(f=>(
-                  <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
+                  <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
                 ))}
                 {archivedCount > 0 && (
                   <>
@@ -3848,8 +3871,8 @@ export default function App() {
                 {v:'value-high',   l:'Value (High-Low)'},
                 {v:'custom',       l:'Custom Order'},
               ].map(opt=>(
-                <button key={opt.v} onClick={()=>setSortBy(opt.v)}
-                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
+                <button key={opt.v} onClick={()=>setSortBy(opt.v)} aria-pressed={sortBy===opt.v}
+                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
                     border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
                     background:sortBy===opt.v?T.gold:'transparent',
                     color:sortBy===opt.v?'#1C2830':T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
@@ -3858,7 +3881,7 @@ export default function App() {
               ))}
               {sortBy==='custom'&&(
                 <button onClick={resetCustomOrder} title="Reset to the default order (company → building → unit)"
-                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',borderRadius:20,cursor:'pointer',
+                  style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
                     border:`1px dashed ${T.border}`,background:'transparent',color:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
                   ↺ Reset to default
                 </button>
@@ -3866,8 +3889,8 @@ export default function App() {
               {/* List / Grid layout toggle (grid is the redesign card view) */}
               <div style={{display:'flex',gap:2,marginLeft:'auto',background:T.card,border:`1px solid ${T.border}`,borderRadius:9,padding:2}}>
                 {[['list','list','List'],['grid','grid-2','Grid']].map(([k,ic,lbl])=>(
-                  <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-pressed={propLayout===k}
-                    style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,cursor:'pointer',border:'none',
+                  <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-label={`${lbl} view`} aria-pressed={propLayout===k}
+                    style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',minHeight:28,minWidth:36,justifyContent:'center',borderRadius:7,cursor:'pointer',border:'none',
                       background:propLayout===k?T.gold:'transparent',color:propLayout===k?'#1C2830':T.muted,
                       fontFamily:MONO,fontSize:10,fontWeight:propLayout===k?700:400}}>
                     <Icon name={ic} size={14}/>{!isMobile&&lbl}
@@ -4154,7 +4177,7 @@ export default function App() {
                     {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
                       <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
                         <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-                        <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</div>
+                        <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.gold?T.goldText:item.green?T.green:T.text}}>{item.v}</div>
                       </div>
                     ))}
                   </div>
@@ -4174,7 +4197,7 @@ export default function App() {
                         {section.items.map((item,i)=>(
                           <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
                             <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
-                            <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</span>
+                            <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:item.gold?T.goldText:item.green?T.green:T.text}}>{item.v}</span>
                           </div>
                         ))}
                       </div>
@@ -4222,11 +4245,11 @@ export default function App() {
                             marginLeft:'auto',marginBottom:6,
                             fontFamily:MONO,fontSize:11,fontWeight:700,
                             padding:'5px 12px',borderRadius:6,
-                            border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,
+                            border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.goldText,
                             cursor:'pointer',display:'flex',alignItems:'center',gap:6,
                           }}>
                           Tenant Referencing
-                          <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.gold}}>EARLY</span>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.goldText}}>EARLY</span>
                         </button>
                       </div>
                       {subTab==='details'      &&<><TenancyPanel property={selected} showToast={showToast} canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive} onChanged={t=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,tenancies:t}:p))}/><TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/></>}
@@ -4306,7 +4329,7 @@ export default function App() {
                   })().map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8,marginBottom:6}}>
                       <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
-                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.gold,display:'inline-flex',alignItems:'center',gap:2}}>
+                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.goldText,display:'inline-flex',alignItems:'center',gap:2}}>
                         {item.v}
                         {item.explain && <CalcExplain {...item.explain}/>}
                       </span>
@@ -4374,19 +4397,19 @@ export default function App() {
             <div style={{display:'grid',gap:14,marginBottom:20}}>
               <div>
                 <label style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>New company name</label>
-                <input value={renameCo.name} onChange={e=>setRenameCo(p=>({...p,name:e.target.value}))} autoFocus
-                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                <input aria-label="New company name" value={renameCo.name} onChange={e=>setRenameCo(p=>({...p,name:e.target.value}))} autoFocus
+                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
               </div>
               <div>
                 <label style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation (up to 5 chars)</label>
-                <input value={renameCo.abbr} onChange={e=>setRenameCo(p=>({...p,abbr:e.target.value.toUpperCase().slice(0,5)}))} placeholder="e.g. ACME"
-                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                <input aria-label="Abbreviation (up to 5 chars)" value={renameCo.abbr} onChange={e=>setRenameCo(p=>({...p,abbr:e.target.value.toUpperCase().slice(0,5)}))} placeholder="e.g. ACME"
+                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
               </div>
               <div>
                 <label style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your password to confirm</label>
-                <input type="password" value={renameCoPassword} onChange={e=>{setRenameCoPassword(e.target.value);setRenameCoError('')}}
+                <input aria-label="Your password to confirm" type="password" value={renameCoPassword} onChange={e=>{setRenameCoPassword(e.target.value);setRenameCoError('')}}
                   placeholder="Enter your password"
-                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1.5px solid ${renameCoError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                  style={{width:'100%',fontFamily:MONO,fontSize:13,background:T.bg,border:`1.5px solid ${renameCoError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
                 {renameCoError&&<div style={{fontFamily:MONO,fontSize:11,color:T.red,marginTop:6}}>{renameCoError}</div>}
               </div>
             </div>
@@ -4464,7 +4487,7 @@ export default function App() {
             <button key={key} aria-current={active?'page':undefined} onClick={()=>{setView(key);setSelectedId(null)}}
               style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
                 alignItems:'center',gap:2,padding:'4px 8px',flex:1,
-                color:active?T.gold:T.muted,fontFamily:MONO}}>
+                color:active?T.goldText:T.muted,fontFamily:MONO}}>
               <span style={{display:'flex'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:<span style={{fontSize:20}}>{n.icon}</span>}</span>
               <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>{n.short}</span>
             </button>
@@ -4536,7 +4559,7 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
         const cfg = complianceBadge(complianceStatusFor(p), T)
         const gy = calcGrossYield(p, yieldBasis)
         return (
-          <div key={p.id} className="card pcard" onClick={()=>openDetail(p)}
+          <div key={p.id} className="card pcard" {...pressable(()=>openDetail(p))}
             style={{cursor:'pointer',display:'flex',flexDirection:'column',gap:9,padding:'14px 15px',borderLeft:`3px solid ${accent}`}}>
             {/* Top: accent-tinted type-icon tile + name / pills / address */}
             <div style={{display:'flex',alignItems:'flex-start',gap:11,minWidth:0}}>
@@ -4566,7 +4589,7 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
               </div>
               <div>
                 <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
-                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{gy.toFixed(1)}%</div>
+                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{gy.toFixed(1)}%</div>
               </div>
               {compliancePill(cfg)}
             </div>
@@ -4706,7 +4729,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           {showCompanyHeader&&co&&(
             <div style={{display:'flex',alignItems:'center',gap:10,marginTop:idx>0?16:0,marginBottom:8}}>
               <div style={{width:3,height:18,background:co.color||T.gold,borderRadius:2,flexShrink:0}}/>
-              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:co.color||T.gold}}>{co.abbr}</span>
+              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:co.color||T.goldText}}>{co.abbr}</span>
               <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
               <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                 {renderItems.filter(x=>x.company_id===co.id).length} properties
@@ -4717,7 +4740,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
               <Icon name="building" size={14} color={T.muted}/>
               <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{buildingTailFromName(p.name)}</span>
-              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {buildingSize} units</span>
+              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {plural(buildingSize,'unit')}</span>
             </div>
           )}
           <div
@@ -4741,7 +4764,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
             {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">&#x283F;</div>}
             {!isCustomSort&&<div style={{width:4,flexShrink:0}}/>}
             {/* Content */}
-            <div style={{flex:1,minWidth:180,cursor:'pointer'}} onClick={()=>openDetail(p)}>
+            <div style={{flex:1,minWidth:180,cursor:'pointer'}} {...pressable(()=>openDetail(p))}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3,flexWrap:'wrap'}}>
                 <span style={{fontSize:15,fontWeight:700}}>{displayName}</span>
                 <CompanyPill company={p.company}/>
@@ -4773,7 +4796,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
               })()}
               {p.arrears>0&&<div style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}><Icon name="alert-triangle" size={13}/> {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
-                <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
+                <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
               </div>
               <Badge status={p.status}/>
@@ -4791,6 +4814,36 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 // engine (Stage 3+). Short-term lets are excluded (own page). Pre-2026 months
 // keep their legacy status and amount but are counted so "All years" still
 // adds up.
+// Rent-square colour key. Ten entries wrap to five or six lines on a phone
+// and push the tracker itself below the fold, so on mobile it collapses
+// behind a "Key" toggle.
+function RentLegend({ small = false, collapsible = false }) {
+  const { T } = useTheme()
+  const [open, setOpen] = useState(false)
+  const items = [{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}]
+  const sw = small ? 8 : 10
+  const list = (
+    <ul id={collapsible ? 'rent-legend-list' : undefined} aria-label="Rent colour key"
+      style={{display:'flex',gap:12,flexWrap:'wrap',listStyle:'none',margin:collapsible?'8px 0 0':0,padding:0}}>
+      {items.map(x=>(
+        <li key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:small?10:11,color:T.muted}}>
+          <span aria-hidden="true" style={{width:sw,height:sw,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
+        </li>
+      ))}
+    </ul>
+  )
+  if (!collapsible) return list
+  return (
+    <div>
+      <button type="button" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="rent-legend-list"
+        style={{display:'inline-flex',alignItems:'center',gap:6,minHeight:28,padding:'4px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,fontFamily:MONO,fontSize:11,cursor:'pointer'}}>
+        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12}/> Key
+      </button>
+      {open && list}
+    </div>
+  )
+}
+
 function engineSummary(props, year) {
   const acc = { paid: 0, due: 0, missed: 0, nc: 0, backfill: 0, legacy: 0, received: 0 }
   for (const p of props) {
@@ -4887,13 +4940,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:isMobile?8:12,marginBottom:isMobile?14:24}}>
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
-          <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
-              <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
-                <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
-              </span>
-            ))}
-          </div>
+          <RentLegend collapsible={isMobile}/>
         </div>
         {/* Right side: year filter + day tracker button */}
         <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
@@ -4940,7 +4987,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           <button onClick={onDayTracker}
             title="Day-by-day view"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
-              border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold,whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:6}}>
+              border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText,whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:6}}>
             <Icon name="calendar" size={13}/> {isMobile ? 'Day' : 'Day view'}
           </button>
         </div>
@@ -4962,12 +5009,12 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           {isMobile ? (
             <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} aria-label="Filter by property status"
               style={{fontFamily:MONO,fontSize:11,padding:'6px 10px',borderRadius:20,border:`1px solid ${statusFilter==='all'?T.border:T.gold}`,
-                background:statusFilter==='all'?'transparent':T.gold+'22',color:statusFilter==='all'?T.muted:T.gold,cursor:'pointer'}}>
+                background:statusFilter==='all'?'transparent':T.gold+'22',color:statusFilter==='all'?T.muted:T.goldText,cursor:'pointer'}}>
               <option value="all">All Status</option>
               {PROPERTY_STATUSES.map(f=><option key={f} value={f}>{PROPERTY_STATUS_LABELS[f] || f}</option>)}
             </select>
           ) : ['all', ...PROPERTY_STATUSES].map(f=>(
-            <button key={f} onClick={()=>setStatusFilter(f)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
+            <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
           ))}
           <div style={{width:1,alignSelf:'stretch',background:T.border,margin:'0 2px'}}/>
           <button onClick={()=>setArrearsOnly(v=>!v)} aria-pressed={arrearsOnly} title="Only show properties with arrears"
@@ -4980,9 +5027,9 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       </div>
       {narrowing && (
         <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:14,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-          <span>{shownProps.length} of {trackedProps.length} properties match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
+          <span>{shownProps.length} of {plural(trackedProps.length,'property','properties')} match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
           <button type="button" onClick={clearSearchAndFilters}
-            style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.gold,padding:0,textDecoration:'underline'}}>Clear</button>
+            style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.goldText,padding:0,textDecoration:'underline'}}>Clear</button>
         </div>
       )}
 
@@ -5073,7 +5120,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                 style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                   border:`1px solid ${sel?(c.color||T.gold):T.border}`,
                   background:sel?(c.color||T.gold)+'22':'transparent',
-                  color:sel?(c.color||T.gold):T.muted}}>
+                  color:sel?(c.color||T.goldText):T.muted}}>
                 {sel?'✓ ':''}{c.name}
               </button>
             )
@@ -5095,7 +5142,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         return (
           <div key={c.id} style={{marginBottom:20}}>
             {/* Company header - clickable to collapse */}
-            <div onClick={()=>toggleCompany(c.id)}
+            <div {...pressable(()=>toggleCompany(c.id), { 'aria-expanded': isOpen })}
               style={{display:'flex',alignItems:'center',gap:10,marginBottom:isOpen?12:0,cursor:'pointer',
                 background:T.card,border:`1px solid ${T.border}`,borderRadius:isOpen?'12px 12px 0 0':'12px',
                 padding:'14px 18px',transition:'border-radius 0.2s'}}>
@@ -5103,7 +5150,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
               <div style={{flex:1}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <h2 style={{fontSize:15,fontWeight:700}}>{c.name}</h2>
-                  <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{cps.length} properties</span>
+                  <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{plural(cps.length,'property','properties')}</span>
                   {(() => {
                     // Tenancy coverage for this company: how many earning units
                     // still have no tenancy record, and how many drafts await a
@@ -5117,7 +5164,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                             try { const r = await api.seedTenanciesFromProperties(c.id, properties)
                               showToast?.(`${r.created} draft tenanc${r.created===1?'y':'ies'} created${r.skipped?`, ${r.skipped} already had one`:''}${r.failed.length?`, ${r.failed.length} failed`:''}. Confirm each in the property's Tenancy tab.`)
                               onRefresh?.() } catch(err) { showToast?.(err.message||'Seeding failed','error') } }}
-                          style={{fontFamily:MONO,fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,cursor:'pointer'}}
+                          style={{fontFamily:MONO,fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.goldText,cursor:'pointer'}}
                           title="Create a draft tenancy for every rented unit from its property fields">
                           Seed {missing} tenanc{missing===1?'y':'ies'}
                         </button>
@@ -5139,7 +5186,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                     {x.v} {x.l}
                   </span>
                 ))}
-                <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(totals.income)}</span>
+                <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.goldText}}>{fmt(totals.income)}</span>
                 <span style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{isOpen?'▲':'▼'}</span>
               </div>
             </div>
@@ -5201,7 +5248,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                             {group.name}
                           </span>
                           <span style={{ fontSize: 10, color: T.muted }}>
-                            · {group.items.length} units · {fmt(bgRent)}/mo
+                            · {plural(group.items.length,'unit')} · {fmt(bgRent)}/mo
                           </span>
                           <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
                             {bgStats.missed > 0 && (
@@ -5213,7 +5260,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                             <span style={{ fontSize: 10, color: T.muted }}>
                               {globalYear ? `${globalYear} revenue` : 'all-years revenue'}
                             </span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: T.gold }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: T.goldText }}>
                               {fmt(bgStats.income)}
                             </span>
                           </span>
@@ -5229,7 +5276,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                               borderLeft: isBuilding ? `2px solid ${T.gold}33` : 'none',
                               marginLeft: isBuilding ? (isMobile ? 10 : 14) : 0,
                             }}
-                            onClick={()=>openDetail(p)}
+                            {...pressable(()=>openDetail(p))}
                             onMouseEnter={e=>e.currentTarget.style.background=T.border}
                             onMouseLeave={e=>e.currentTarget.style.background=pi%2===0?T.card:T.surface}>
                             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
@@ -5246,7 +5293,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                   {hasQuery && p.company && (
                                     <span title={p.company.name}
                                       style={{fontFamily:MONO,fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:10,
-                                        border:`1px solid ${(p.company.color||T.gold)}55`,background:(p.company.color||T.gold)+'22',color:p.company.color||T.gold}}>
+                                        border:`1px solid ${(p.company.color||T.gold)}55`,background:(p.company.color||T.gold)+'22',color:p.company.color||T.goldText}}>
                                       {p.company.abbr || p.company.name}
                                     </span>
                                   )}
@@ -5277,7 +5324,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                     </span>
                                   ))}
                                 </div>
-                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}} title="Received this year (amounts entered)">
+                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.goldText}} title="Received this year (amounts entered)">
                                   {fmt(engineSummary([p], globalYear).received)}
                                 </div>
                               </div>
@@ -5329,6 +5376,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 // ─── RENT TAB ────────────────────────────────────────────────────────────────
 function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties, onDayTracker, canEdit = true}) {
   const { T } = useTheme()
+  const isMobile = useIsMobile(769)
   const payments = selected.rent_payments || []
   const years = [...new Set(payments.map(p=>p.year))].sort()
   const [filterYear, setFilterYear] = useState(() => defaultRentYear(payments))
@@ -5390,13 +5438,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
           onChanged={()=>api.fetchRentOverrides(selected.id).then(o=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,rent_overrides:o}:p))).catch(()=>{})}/>
 
         {/* Legend */}
-        <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
-            <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
-              <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
-            </span>
-          ))}
-        </div>
+        <div style={{marginTop:10}}><RentLegend small collapsible={isMobile}/></div>
 
         {/* Year summary */}
         <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.border}`}}>

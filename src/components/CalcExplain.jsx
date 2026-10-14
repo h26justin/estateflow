@@ -90,7 +90,7 @@ export default function CalcExplain({ title, formula, inputs = [], result, note 
           {result && (
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontFamily: mono, fontSize: 11, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
               <span style={{ color: T.muted }}>Result</span>
-              <span style={{ color: T.gold, fontWeight: 700 }}>{result}</span>
+              <span style={{ color: T.goldText, fontWeight: 700 }}>{result}</span>
             </div>
           )}
           {note && (
