@@ -3,6 +3,7 @@ import { extractStoragePaths, dealDocToPropertyCategory } from '../attachments'
 import { loadCdnScript } from '../loadCdnScript'
 import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
 import { sortPropertiesCanonically } from '../addressUtils'
+import { RECEIVED_STATUSES, estimateMortgageInterest } from '../mtdItsa'
 import { DEFAULT_COPY_OPTIONS, isCopyOptionActive, buildDealCopyFields, buildMilestoneCopies } from '../dealCopy'
 
 const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
@@ -3413,21 +3414,25 @@ export async function upsertMtdSubmission({ tax_year, quarter_number, period_fro
 }
 
 // Aggregate the user's rent + expenses for a given period across ALL their
-// properties. Returns the raw rows so the caller can run buildQuarterlySummary
-// from src/lib/mtdItsa.js client-side (keeps tax logic in one place).
+// personally held properties. Returns the raw rows so the caller can run
+// buildQuarterlySummary from src/lib/mtdItsa.js client-side (keeps tax logic
+// in one place).
 export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds = null }) {
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) throw new Error('Not signed in')
 
-  // Default: all user's non-deleted properties. We also need mortgage_amount
-  // + mortgage_rate so we can compute the period's mortgage interest accrual
+  // Default: all user's non-deleted, personally held properties. A property
+  // with a company_id is owned by a limited company: its rent is company
+  // income (corporation tax), not the landlord's personal UK property income,
+  // so it must not be filed under MTD ITSA. We also need mortgage_amount +
+  // mortgage_rate so we can compute the period's mortgage interest accrual
   // (residential financial cost — gets 20% basic-rate relief under S24).
   let propIds = propertyIds
   let mortgageProps = []
   if (!propIds) {
     const { data: props, error: pe } = await supabase
       .from('properties').select('id, mortgage_amount, mortgage_rate')
-      .eq('user_id', uid).is('deleted_at', null)
+      .eq('user_id', uid).is('deleted_at', null).is('company_id', null)
     if (pe) throw pe
     propIds = (props || []).map(p => p.id)
     mortgageProps = (props || []).filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)
@@ -3446,7 +3451,7 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   const [paymentsRes, expensesRes] = await Promise.all([
     supabase.from('rent_payments').select('id, property_id, amount, period_start, period_end, status, year, month')
       .in('property_id', propIds)
-      .eq('status', 'paid')
+      .in('status', RECEIVED_STATUSES)
       .or(`and(period_start.gte.${periodFrom},period_start.lte.${periodTo}),period_start.is.null`),
     supabase.from('property_expenses').select('id, property_id, amount, date, category, description')
       .in('property_id', propIds)
@@ -3469,18 +3474,16 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
     })
     .filter(p => p.period_start && p.period_start >= periodFrom && p.period_start <= periodTo)
 
-  // Mortgage interest accrued over the period =
+  // Estimated mortgage interest accrued over the period =
   //   sum(balance × annual_rate) × (period_days / 365)
   // mortgage_rate is stored as DECIMAL (0.05 for 5%). Year-one approximation
   // (true interest declines as principal is paid down on repayment mortgages).
-  const from = new Date(periodFrom)
-  const to   = new Date(periodTo)
-  const periodDays = Math.max(0, Math.round((to - from) / 86400000) + 1)
-  const annualInterest = mortgageProps.reduce((s, p) =>
-    s + (Number(p.mortgage_amount) * Number(p.mortgage_rate)), 0)
-  const mortgageInterest = Math.round((annualInterest * periodDays / 365) * 100) / 100
+  // Properties with actual 'mortgage_interest' expenses recorded in the
+  // period are left out of the estimate: the recorded figure is used instead.
+  const expenses = expensesRes.data || []
+  const mortgageInterest = estimateMortgageInterest({ mortgageProps, expenses, periodFrom, periodTo })
 
-  return { payments, expenses: expensesRes.data || [], mortgageInterest }
+  return { payments, expenses, mortgageInterest }
 }
 
 // Start the HMRC gov.uk OAuth flow. Returns nothing — performs a
