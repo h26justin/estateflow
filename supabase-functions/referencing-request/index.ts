@@ -73,7 +73,10 @@ serve(async (req) => {
   const { data: canWrite, error: permErr } = await userClient.rpc(
     'has_property_permission', { p_property_id: property_id, p_action: 'write' },
   )
-  if (permErr) return json({ error: permErr.message }, 500)
+  if (permErr) {
+    console.error('has_property_permission failed', permErr)
+    return json({ error: 'Could not check access' }, 500)
+  }
   if (!canWrite) return json({ error: 'Forbidden' }, 403)
 
   // Resolve company_id from the property for scoping/liveness.
@@ -99,7 +102,7 @@ serve(async (req) => {
     .single()
   if (insErr) {
     console.error('referencing_checks insert failed', insErr)
-    return json({ error: insErr.message }, 500)
+    return json({ error: 'Could not save the referencing check' }, 500)
   }
 
   // ── Provider order path — INERT until REFERENCING_PROVIDER_API_KEY set ──
@@ -139,6 +142,6 @@ serve(async (req) => {
   } catch (e) {
     console.error('provider order failed', e)
     await admin.from('referencing_checks').update({ status: 'failed' }).eq('id', row.id)
-    return json({ error: 'Provider order failed', detail: String(e) }, 502)
+    return json({ error: 'Provider order failed' }, 502)
   }
 })

@@ -17,6 +17,13 @@
 // one-time nonce persisted in oauth_nonces at start and burned at callback.
 // return_to is validated against the app-origin allow-list.
 //
+// Browser binding (see "Browser binding" in ./oauth-state.ts): start
+// returns a launch URL on this function (GET ?launch=...) rather than the
+// Xero URL. The launch hop — accepted only from an app-origin Referer —
+// sets an HttpOnly/Secure/SameSite=Lax cookie and puts its hash in the
+// state; the callback refuses a state whose cookie isn't present. start
+// also verifies the caller has access to body.company_id.
+//
 // Justin: register app at https://developer.xero.com/myapps with the
 // above redirect URI, then set the three secrets via:
 //   supabase secrets set XERO_CLIENT_ID=...
@@ -26,13 +33,21 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken } from './encryption.ts'
-import { signState, verifyState, safeReturnTo, escapeHtml } from './oauth-state.ts'
+import {
+  signState, verifyState, safeReturnTo, escapeHtml,
+  launchRefererAllowed, randomToken, sha256Hex, bindCookieHeader, clearBindCookieHeader, browserBindingMatches,
+} from './oauth-state.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const ANON_KEY           = Deno.env.get('SUPABASE_ANON_KEY')!
 const XERO_CLIENT_ID     = Deno.env.get('XERO_CLIENT_ID') || ''
 const XERO_CLIENT_SECRET = Deno.env.get('XERO_CLIENT_SECRET') || ''
 const XERO_REDIRECT_URI  = Deno.env.get('XERO_REDIRECT_URI') || `${SUPABASE_URL}/functions/v1/xero-oauth-callback`
+
+// Browser-binding cookie, path-scoped to this function's public URL.
+const BIND_COOKIE = '__Secure-ef_xero_oauth_bind'
+const BIND_PATH = (() => { try { return new URL(XERO_REDIRECT_URI).pathname } catch { return '/' } })()
 
 // Granular Xero scopes (post-2-Mar-2026 scope model). Apps created after
 // that cutoff CANNOT request the old broad scopes (`accounting.transactions`,
@@ -77,11 +92,64 @@ serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
   const url = new URL(req.url)
 
+  // ── Launch hop (GET ?launch=...) — top-level navigation from the app ──
+  // Sets the browser-binding cookie, then 302s to Xero's consent screen.
+  if (req.method === 'GET' && url.searchParams.has('launch')) {
+    const launch = await verifyState(url.searchParams.get('launch') || '')
+    if (!launch || launch.kind !== 'xero_launch' || !launch.user_id || !launch.nonce || !launch.company_id) {
+      return new Response('This Xero link has expired — please retry from Settings → Integrations.', { status: 400 })
+    }
+    if (!launchRefererAllowed(req)) {
+      return new Response('Please start the Xero connection from Properly (Settings → Integrations).', { status: 403 })
+    }
+    const { data: live } = await admin.from('oauth_nonces')
+      .select('nonce')
+      .eq('nonce', launch.nonce).eq('user_id', launch.user_id)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
+    if (!live) return new Response('This Xero link has expired — please retry from Settings → Integrations.', { status: 400 })
+
+    const bindValue = randomToken()
+    const state = await signState({
+      kind: 'xero_state',
+      user_id: launch.user_id,
+      company_id: launch.company_id,
+      return_to: safeReturnTo(launch.return_to),
+      nonce: launch.nonce,
+      bind: await sha256Hex(bindValue),
+      exp: Date.now() + 15 * 60_000,
+    })
+    const authorizeUrl = `https://login.xero.com/identity/connect/authorize?` + new URLSearchParams({
+      response_type: 'code',
+      client_id: XERO_CLIENT_ID,
+      redirect_uri: XERO_REDIRECT_URI,
+      scope: SCOPES,
+      state,
+    }).toString()
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: authorizeUrl,
+        'Set-Cookie': bindCookieHeader(BIND_COOKIE, bindValue, BIND_PATH),
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+      },
+    })
+  }
+
   // ── Callback from Xero (GET ?code=...&state=...) ──
   if (req.method === 'GET' && url.searchParams.has('code')) {
     const code = url.searchParams.get('code')!
     const state = await verifyState(url.searchParams.get('state') || '')
-    if (!state || !state.user_id || !state.nonce) return new Response('Invalid state', { status: 400 })
+    if (!state || state.kind !== 'xero_state' || !state.user_id || !state.nonce) return new Response('Invalid state', { status: 400 })
+
+    // The browser finishing the flow must be the one that launched it.
+    if (!(await browserBindingMatches(req, BIND_COOKIE, state.bind))) {
+      return new Response(
+        'This Xero sign-in was not started from this browser. Please retry from Settings → Integrations.',
+        { status: 400 },
+      )
+    }
 
     // Burn the one-time nonce — a state that wasn't minted by our "start"
     // step (or that has already been used) doesn't get to write tokens.
@@ -176,11 +244,12 @@ serve(async (req) => {
       encAccess  = await encryptToken(tokens.access_token)
       encRefresh = await encryptToken(tokens.refresh_token)
     } catch (e) {
-      // Bad OWNPROPERLY_TOKEN_KEY (wrong length etc) — surface clearly
-      // instead of silently failing and leaving the user wondering why
-      // the connection vanished.
+      // Bad OWNPROPERLY_TOKEN_KEY (wrong length etc) — fail visibly
+      // instead of silently leaving the user wondering why the connection
+      // vanished. Details go to the server log, not the page.
+      console.error('Xero token encryption failed (check OWNPROPERLY_TOKEN_KEY):', (e as Error).message)
       return new Response(
-        `<h1>Xero connection failed</h1><p>Token encryption failed: ${escapeHtml((e as Error).message)}</p><p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p><p><a href="${escapeHtml(returnTo)}">Back to Properly</a></p>`,
+        `<h1>Xero connection failed</h1><p>The connection could not be stored securely. Please contact support.</p><p><a href="${escapeHtml(returnTo)}">Back to Properly</a></p>`,
         { status: 500, headers: { 'Content-Type': 'text/html' } }
       )
     }
@@ -213,8 +282,11 @@ serve(async (req) => {
       company_id: state.company_id,
     }).select().maybeSingle().then(() => {}).catch(() => {}) // ignore conflict
 
-    // Redirect back into the app
-    return new Response(null, { status: 302, headers: { Location: returnTo } })
+    // Redirect back into the app (and drop the one-shot binding cookie)
+    return new Response(null, {
+      status: 302,
+      headers: { Location: returnTo, 'Set-Cookie': clearBindCookieHeader(BIND_COOKIE, BIND_PATH) },
+    })
   }
 
   // ── Programmatic "start" — returns authorize URL ──
@@ -237,6 +309,14 @@ serve(async (req) => {
     if (!body.company_id) {
       return jsonError(400, 'company_id required — pick which OwnProperly company to link this Xero org to')
     }
+    // The caller must have access to the company the Xero org will be
+    // linked to (checked under the caller's own JWT, same rule as RLS).
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    })
+    const { data: hasAccess } = await userClient.rpc('has_company_access', { p_company_id: body.company_id })
+    if (hasAccess !== true) return jsonError(403, 'Forbidden')
+
     // Mint and persist a one-time nonce so the callback can prove this
     // state was issued by us to this user (burned on first use).
     const nonce = crypto.randomUUID()
@@ -250,26 +330,24 @@ serve(async (req) => {
     // Opportunistic cleanup of expired nonces (cheap, fire-and-forget)
     admin.from('oauth_nonces').delete().lt('expires_at', new Date().toISOString()).then(() => {}, () => {})
 
-    const state = await signState({
+    // Short-lived launch token; the launch hop (GET ?launch=) binds the
+    // browser and builds the real Xero authorize URL + state. The client
+    // still just does window.location.href = authorize_url.
+    const launch = await signState({
+      kind: 'xero_launch',
       user_id: caller.id,
       company_id: body.company_id,
       return_to: safeReturnTo(body.return_to),
       nonce,
-      exp: Date.now() + 15 * 60_000,
+      exp: Date.now() + 5 * 60_000,
     })
-
-    const authorizeUrl = `https://login.xero.com/identity/connect/authorize?` + new URLSearchParams({
-      response_type: 'code',
-      client_id: XERO_CLIENT_ID,
-      redirect_uri: XERO_REDIRECT_URI,
-      scope: SCOPES,
-      state,
-    }).toString()
+    const authorizeUrl = `${XERO_REDIRECT_URI}?` + new URLSearchParams({ launch }).toString()
 
     return new Response(JSON.stringify({ authorize_url: authorizeUrl }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    return jsonError(500, (e as Error).message)
+    console.error('xero-oauth start failed:', (e as Error).message)
+    return jsonError(500, 'Could not start Xero OAuth — please try again')
   }
 })

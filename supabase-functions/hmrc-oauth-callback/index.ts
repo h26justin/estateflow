@@ -18,6 +18,13 @@
 // one-time nonce persisted in oauth_nonces at start and burned at callback.
 // return_to is validated against the app-origin allow-list.
 //
+// Browser binding (see "Browser binding" in ./oauth-state.ts): start
+// returns a launch URL on this function (GET ?launch=...) rather than the
+// HMRC URL. The launch hop — accepted only from an app-origin Referer —
+// sets an HttpOnly/Secure/SameSite=Lax cookie and puts its hash in the
+// state; the callback refuses a state whose cookie isn't present, so
+// another person's HMRC consent can't be landed on this account.
+//
 // Env vars (set on Supabase already by Justin earlier today):
 //   HMRC_CLIENT_ID
 //   HMRC_CLIENT_SECRET
@@ -36,7 +43,10 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken } from './encryption.ts'
-import { signState, verifyState, safeReturnTo, escapeHtml } from './oauth-state.ts'
+import {
+  signState, verifyState, safeReturnTo, escapeHtml,
+  launchRefererAllowed, randomToken, sha256Hex, bindCookieHeader, clearBindCookieHeader, browserBindingMatches,
+} from './oauth-state.ts'
 
 const SUPABASE_URL        = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -47,6 +57,10 @@ const HMRC_OAUTH_REDIRECT = Deno.env.get('HMRC_OAUTH_REDIRECT') || `${SUPABASE_U
 const APP_RETURN_BASE     = Deno.env.get('APP_RETURN_BASE') || 'https://ownproperly.com'
 
 const SCOPES = 'read:self-assessment write:self-assessment'
+
+// Browser-binding cookie, path-scoped to this function's public URL.
+const BIND_COOKIE = '__Secure-ef_hmrc_oauth_bind'
+const BIND_PATH = (() => { try { return new URL(HMRC_OAUTH_REDIRECT).pathname } catch { return '/' } })()
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,6 +94,63 @@ serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
   const url = new URL(req.url)
 
+  // ── Launch hop (GET ?launch=...) — top-level navigation from the app ──
+  // Sets the browser-binding cookie, then 302s to HMRC's consent screen.
+  if (req.method === 'GET' && url.searchParams.has('launch')) {
+    const launch = await verifyState(url.searchParams.get('launch') || '')
+    if (!launch || launch.kind !== 'hmrc_launch' || !launch.user_id || !launch.nonce) {
+      return htmlPage('Link expired',
+        `<p>This HMRC sign-in link has expired — please retry from Settings → MTD Tax.</p>`, APP_RETURN_BASE)
+    }
+    const returnTo = safeReturnTo(launch.return_to, APP_RETURN_BASE)
+    if (!launchRefererAllowed(req)) {
+      return htmlPage('Start from Properly',
+        `<p>Please start the HMRC connection from Properly (Settings → MTD Tax).</p>`, returnTo)
+    }
+    const { data: live } = await admin.from('oauth_nonces')
+      .select('nonce')
+      .eq('nonce', launch.nonce).eq('user_id', launch.user_id)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle()
+    if (!live) {
+      return htmlPage('Link expired',
+        `<p>This HMRC sign-in link has expired — please retry from Settings → MTD Tax.</p>`, returnTo)
+    }
+
+    const bindValue = randomToken()
+    const state = await signState({
+      kind: 'hmrc_state',
+      user_id: launch.user_id,
+      return_to: returnTo,
+      nonce: launch.nonce,
+      bind: await sha256Hex(bindValue),
+      exp: Date.now() + 15 * 60_000,
+    })
+
+    // HMRC's authorize URL lives on test-www / www tax.service.hmrc.gov.uk,
+    // NOT on the api host. Derive from HMRC_BASE_URL.
+    const isSandbox = HMRC_BASE_URL.includes('test-api')
+    const authHost = isSandbox
+      ? 'https://test-www.tax.service.hmrc.gov.uk'
+      : 'https://www.tax.service.hmrc.gov.uk'
+    const authorizeUrl = `${authHost}/oauth/authorize?` + new URLSearchParams({
+      response_type: 'code',
+      client_id: HMRC_CLIENT_ID,
+      scope: SCOPES,
+      redirect_uri: HMRC_OAUTH_REDIRECT,
+      state,
+    }).toString()
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: authorizeUrl,
+        'Set-Cookie': bindCookieHeader(BIND_COOKIE, bindValue, BIND_PATH),
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+      },
+    })
+  }
+
   // ── HMRC redirected user back with ?code=&state= ──
   if (req.method === 'GET' && (url.searchParams.has('code') || url.searchParams.has('error'))) {
     const state = await verifyState(url.searchParams.get('state') || '')
@@ -97,9 +168,16 @@ serve(async (req) => {
       )
     }
 
-    if (!state || !state.user_id || !state.nonce) {
+    if (!state || state.kind !== 'hmrc_state' || !state.user_id || !state.nonce) {
       return htmlPage('Invalid OAuth state',
         `<p class="err">The state parameter from HMRC failed verification. This usually means the link was forged or tampered with — please retry from Settings → MTD Tax.</p>`,
+        APP_RETURN_BASE)
+    }
+
+    // The browser finishing the flow must be the one that launched it.
+    if (!(await browserBindingMatches(req, BIND_COOKIE, state.bind))) {
+      return htmlPage('Invalid OAuth state',
+        `<p class="err">This HMRC sign-in was not started from this browser — please retry from Settings → MTD Tax.</p>`,
         APP_RETURN_BASE)
     }
 
@@ -163,12 +241,12 @@ serve(async (req) => {
       encAccess  = await encryptToken(tokens.access_token)
       encRefresh = await encryptToken(tokens.refresh_token)
     } catch (e) {
-      // Bad OWNPROPERLY_TOKEN_KEY (wrong length etc) — surface clearly
-      // instead of silently saving plaintext and giving the user a false
-      // sense of security.
+      // Bad OWNPROPERLY_TOKEN_KEY (wrong length etc) — fail visibly
+      // instead of silently saving plaintext. Details go to the server
+      // log, not the page.
+      console.error('HMRC token encryption failed (check OWNPROPERLY_TOKEN_KEY):', (e as Error).message)
       return htmlPage('HMRC token encryption failed',
-        `<p class="err">${escapeHtml((e as Error).message)}</p>
-         <p>Check the OWNPROPERLY_TOKEN_KEY supabase secret (must be exactly 64 hex chars).</p>`,
+        `<p class="err">The connection could not be stored securely. Please contact support.</p>`,
         returnTo)
     }
 
@@ -198,7 +276,10 @@ serve(async (req) => {
     const sep = returnTo.includes('?') ? '&' : '?'
     return new Response(null, {
       status: 302,
-      headers: { Location: `${returnTo}${sep}hmrc_connected=1` },
+      headers: {
+        Location: `${returnTo}${sep}hmrc_connected=1`,
+        'Set-Cookie': clearBindCookieHeader(BIND_COOKIE, BIND_PATH),
+      },
     })
   }
 
@@ -231,32 +312,23 @@ serve(async (req) => {
     // Opportunistic cleanup of expired nonces (cheap, fire-and-forget)
     admin.from('oauth_nonces').delete().lt('expires_at', new Date().toISOString()).then(() => {}, () => {})
 
-    const state = await signState({
+    // Short-lived launch token; the launch hop (GET ?launch=) binds the
+    // browser and builds the real HMRC authorize URL + state. The client
+    // still just does window.location.href = authorize_url.
+    const launch = await signState({
+      kind: 'hmrc_launch',
       user_id: caller.id,
       return_to: safeReturnTo(body.return_to, APP_RETURN_BASE),
       nonce,
-      exp: Date.now() + 15 * 60_000,
+      exp: Date.now() + 5 * 60_000,
     })
-
-    // HMRC's authorize URL lives on test-www / www tax.service.hmrc.gov.uk,
-    // NOT on the api host. Derive from HMRC_BASE_URL.
-    const isSandbox = HMRC_BASE_URL.includes('test-api')
-    const authHost = isSandbox
-      ? 'https://test-www.tax.service.hmrc.gov.uk'
-      : 'https://www.tax.service.hmrc.gov.uk'
-
-    const authorizeUrl = `${authHost}/oauth/authorize?` + new URLSearchParams({
-      response_type: 'code',
-      client_id: HMRC_CLIENT_ID,
-      scope: SCOPES,
-      redirect_uri: HMRC_OAUTH_REDIRECT,
-      state,
-    }).toString()
+    const authorizeUrl = `${HMRC_OAUTH_REDIRECT}?` + new URLSearchParams({ launch }).toString()
 
     return new Response(JSON.stringify({ authorize_url: authorizeUrl }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    return jsonError(500, (e as Error).message)
+    console.error('hmrc-oauth start failed:', (e as Error).message)
+    return jsonError(500, 'Could not start HMRC OAuth — please try again')
   }
 })

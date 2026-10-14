@@ -70,7 +70,8 @@ async function exchangeCode(code: string, redirectUri: string) {
   let payload: any = null; try { payload = JSON.parse(text) } catch { payload = text }
   if (!res.ok) {
     const msg = payload?.error_description || payload?.error || `token exchange ${res.status}`
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    console.error('TrueLayer error:', res.status, typeof msg === 'string' ? msg : JSON.stringify(msg))
+    throw new Error(`Bank provider error (${res.status}) — please try again or reconnect this bank`)
   }
   return payload as { access_token: string; refresh_token: string; expires_in: number; token_type: string; scope: string }
 }
@@ -95,7 +96,8 @@ async function refreshToken(refresh: string) {
   let payload: any = null; try { payload = JSON.parse(text) } catch { payload = text }
   if (!res.ok) {
     const msg = payload?.error_description || payload?.error || `token refresh ${res.status}`
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    console.error('TrueLayer error:', res.status, typeof msg === 'string' ? msg : JSON.stringify(msg))
+    throw new Error(`Bank provider error (${res.status}) — please try again or reconnect this bank`)
   }
   return payload as { access_token: string; refresh_token?: string; expires_in: number }
 }
@@ -144,7 +146,8 @@ async function tlGet(path: string, accessToken: string): Promise<any> {
   let payload: any = null; try { payload = JSON.parse(text) } catch { payload = text }
   if (!res.ok) {
     const msg = payload?.error_description || payload?.error || `TL ${path} → ${res.status}`
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    console.error('TrueLayer error:', res.status, typeof msg === 'string' ? msg : JSON.stringify(msg))
+    throw new Error(`Bank provider error (${res.status}) — please try again or reconnect this bank`)
   }
   return payload
 }
@@ -453,7 +456,13 @@ serve(async (req) => {
         return json({ error: `Unknown action: ${action}` }, 400)
     }
   } catch (e: any) {
-    const msg = e?.message || String(e)
+    // Our own thrown Errors carry user-facing text; anything else (e.g. a
+    // PostgREST error object) is internal — log it, return a generic line.
+    if (!(e instanceof Error)) {
+      console.error('bank-truelayer failed:', e)
+      return json({ error: 'Something went wrong — please try again' }, 500)
+    }
+    const msg = e.message
     const status = msg.includes('not yet enabled') ? 503 : 400
     return json({ error: msg }, status)
   }
