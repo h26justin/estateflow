@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 
@@ -749,15 +750,18 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [company.id])
 
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [s, accts] = await Promise.all([
         api.fetchXeroSyncSettings(company.id),
         api.fetchXeroAccounts(company.id).catch(() => []),
       ])
+      if (!isCurrent()) return
       setSettings(s || {
         sync_rent: false, sync_expenses: false, sync_mortgage_interest: false,
         sync_tracking_categories: true, sync_real_tenant_contacts: false,
@@ -765,7 +769,10 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         per_property_bank_accounts: {},
       })
       setAccounts(accts || [])
-    } catch (e) { showAppToast(e.message, 'error') }
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast(e.message, 'error')
+    }
     setLoading(false)
   }
 

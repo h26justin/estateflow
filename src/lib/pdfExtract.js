@@ -1,19 +1,16 @@
-// Browser PDF -> text, shared by importers. pdf.js v3.11.174 from cdnjs
-// (CSP allow-listed in vercel.json). Lines are rebuilt through the page
+// Browser PDF -> text, shared by importers. pdf.js v3.11.174, bundled and
+// lazy-loaded via lib/pdfLibs (no CDN). Lines are rebuilt through the page
 // viewport (lib/pdfText.js) so rotated pages and wrapped cells read correctly.
-import { loadCdnScript } from './loadCdnScript'
+import { loadPdfjs } from './pdfLibs'
 import { linesFromTextItems, textFromPages } from './pdfText'
 
-export const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174'
-
 export async function extractPdfTextFromFile(file) {
-  await loadCdnScript(`${PDFJS_CDN}/pdf.min.js`, 'pdfjsLib')
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`
+  const pdfjsLib = await loadPdfjs()
   let pdf
   try {
     const data = await file.arrayBuffer()
     // isEvalSupported:false: the CSP does not allow eval.
-    pdf = await window.pdfjsLib.getDocument({ data, isEvalSupported: false }).promise
+    pdf = await pdfjsLib.getDocument({ data, isEvalSupported: false }).promise
   } catch (e) {
     throw new Error(e?.message || 'The file does not appear to be a valid PDF')
   }

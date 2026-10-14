@@ -40,17 +40,39 @@ const NoticeTrackerTab     = lazyNamed(tenancyModule, 'NoticeTrackerTab')
 const RentHistoryTab       = lazyNamed(tenancyModule, 'RentHistoryTab')
 const TenancyRenewalAlert  = lazyNamed(tenancyModule, 'TenancyRenewalAlert')
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
-import TenantInbox from './components/TenantInbox'
-import TenancyPanel from './components/TenancyPanel'
-import ReceiptsPanel from './components/ReceiptsPanel'
-import ArrearsPanel from './components/ArrearsPanel'
-import ReviewQueuePanel from './components/ReviewQueuePanel'
 // Heavy / rarely-on-first-paint pages — code-split via React.lazy so they
 // don't bloat the initial bundle. Each one drops into its own chunk and
 // only fetches when the user navigates there.
 const ReportsPage     = lazy(() => import('./components/ReportsPage'))
 const AdminDashboard  = lazy(() => import('./components/AdminDashboard'))
-const MarketingSite   = lazy(() => import('./components/MarketingSite'))
+import { MarketingSite, lazyPanel } from './lib/lazyPages'
+// Off-first-paint panels and modals (detail-page tabs, dialogs, legal
+// pages): code-split so they leave the App chunk. lazyPanel wraps each in
+// its own <Suspense>, so call sites are unchanged; a modal simply appears
+// once its chunk (a few KB) has loaded.
+const TenantInbox = lazyPanel(() => import('./components/TenantInbox'))
+const TenancyPanel = lazyPanel(() => import('./components/TenancyPanel'))
+const ReceiptsPanel = lazyPanel(() => import('./components/ReceiptsPanel'))
+const ArrearsPanel = lazyPanel(() => import('./components/ArrearsPanel'))
+const ReviewQueuePanel = lazyPanel(() => import('./components/ReviewQueuePanel'))
+const PrivacyPolicy = lazyPanel(() => import('./components/PrivacyPolicy'))
+const TermsOfService = lazyPanel(() => import('./components/TermsOfService'))
+const SecurityPage = lazyPanel(() => import('./components/SecurityPage'))
+const FeedbackPage = lazyPanel(() => import('./components/FeedbackPage'))
+const TenantReferenceModal = lazyPanel(() => import('./components/TenantReferenceModal'))
+const BankConnectionsModal = lazyPanel(() => import('./components/BankConnectionsModal'))
+const BankInboxModal = lazyPanel(() => import('./components/BankInboxModal'))
+const SuspendedAccessBanner = lazyPanel(() => import('./components/SuspendedAccessBanner'))
+const BuildingMortgageModal = lazyPanel(() => import('./components/BuildingMortgageModal'))
+const CompanyOwnershipSection = lazyPanel(() => import('./components/CompanyOwnershipSection'))
+const HoldingGroupPanel = lazyPanel(() => import('./components/HoldingGroupPanel'))
+const PropertyModal = lazyPanel(() => import('./components/modals/PropertyModal'))
+const CompanyModal = lazyPanel(() => import('./components/modals/CompanyModal'))
+const DeleteConfirmModal = lazyPanel(() => import('./components/modals/DeleteConfirmModal'))
+const SellPropertyModal = lazyPanel(() => import('./components/modals/SellPropertyModal'))
+const DeleteCompanyModal = lazyPanel(() => import('./components/modals/DeleteCompanyModal'))
+const PaymentModal = lazyPanel(() => import('./components/modals/PaymentModal'))
+const CustomizeDashModal = lazyPanel(() => import('./components/modals/CustomizeDashModal'))
 const TenantPortal    = lazy(() => import('./components/TenantPortal'))
 const DealsPage       = lazy(() => import('./components/DealsPage'))
 const refurbsModule   = () => import('./components/RefurbsPage')
@@ -80,12 +102,9 @@ import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
 import LoginPage from './components/LoginPage'
 const OnboardingWizard = lazy(() => import('./components/OnboardingWizard'))
-import BillingPage from './components/BillingPage'
-import PrivacyPolicy from './components/PrivacyPolicy'
-import TermsOfService from './components/TermsOfService'
-import SecurityPage from './components/SecurityPage'
 const OnboardingTour = lazy(() => import('./components/OnboardingTour'))
 import CalcExplain from './components/CalcExplain'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import ActionMenu from './components/ActionMenu'
 const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModal'))
 import MoneyInput from './lib/MoneyInput'
@@ -105,29 +124,16 @@ import { logError } from './lib/logError'
 import { MONO, SANS, statusColors } from './lib/styles'
 import { Skeleton } from './lib/Skeleton'
 import { Icon, ICON_NAMES } from './lib/icons'
-import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
 import PropertySearchBar from './components/PropertySearchBar'
 import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
-import TenantReferenceModal from './components/TenantReferenceModal'
-import BankConnectionsModal from './components/BankConnectionsModal'
-import BankInboxModal from './components/BankInboxModal'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
-import SuspendedAccessBanner from './components/SuspendedAccessBanner'
-import BuildingMortgageModal from './components/BuildingMortgageModal'
 const ReceiptScanModal = lazy(() => import('./components/ReceiptScanModal'))
 import { canUseInvestorFeatures } from './lib/tierGating'
-import CompanyOwnershipSection from './components/CompanyOwnershipSection'
-import HoldingGroupPanel from './components/HoldingGroupPanel'
-import PropertyModal from './components/modals/PropertyModal'
-import CompanyModal from './components/modals/CompanyModal'
-import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
-import SellPropertyModal from './components/modals/SellPropertyModal'
-import DeleteCompanyModal from './components/modals/DeleteCompanyModal'
-import PaymentModal from './components/modals/PaymentModal'
-import AccessModal from './components/modals/AccessModal'
-import CustomizeDashModal from './components/modals/CustomizeDashModal'
+import { isSafeUrl, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, propTypeMeta } from './lib/propertyCalcs'
+import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair, STL_COLOR } from './lib/rentColors'
+import { engineSummary } from './lib/rentEngineSummary'
 import { pressable } from './lib/pressable'
 import { plural } from './lib/format'
 
@@ -135,43 +141,6 @@ import { plural } from './lib/format'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
-// Allow only http(s) destinations into href/location sinks. Relative URLs
-// resolve against the app origin and pass; javascript:/data:/etc. are blocked.
-function isSafeUrl(url) {
-  try {
-    const proto = new URL(String(url), window.location.origin).protocol
-    return proto === 'http:' || proto === 'https:'
-  } catch (e) { return false }
-}
-
-function calcMonthlyMortgage(p) {
-  // Priority 1: user-entered actual monthly payment (any positive number).
-  // Real mortgages have fees, part-and-part splits, product transitions
-  // etc that the textbook formula can't model. When the user knows their
-  // actual direct debit, store it and trust it.
-  if (p.mortgage_monthly_payment && Number(p.mortgage_monthly_payment) > 0) {
-    return Number(p.mortgage_monthly_payment)
-  }
-  if (!p.mortgage_rate || !p.mortgage_amount) return 0
-  const amount = Number(p.mortgage_amount), rate = Number(p.mortgage_rate)
-  // Priority 2: honour mortgage_type when set. Interest-only is much
-  // simpler than the repayment annuity formula.
-  if (p.mortgage_type === 'interest_only') {
-    return amount * rate / 12
-  }
-  // Priority 3 (default): repayment annuity. Same as before this rewrite.
-  const r = rate / 12, n = (p.mortgage_term || 25) * 12
-  return amount * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1)
-}
-function calcGrossYield(p, basis='cost') {
-  const base = basis==='value'
-    ? propValue(p)
-    : (p.purchase_price||0)+(p.refurb_cost||0)
-  return base&&p.rent_pcm?((p.rent_pcm*12)/base)*100:0
-}
-function calcMonthlyProfit(p) {
-  return (p.rent_pcm||0)-calcMonthlyMortgage(p)-(p.insurance||0)/12
-}
 
 // canDo(permissionsMap, companyId, key) lives in src/lib/permissions.js so the
 // components that gate write surfaces (Day Tracker, importers, Team & Access)
@@ -409,42 +378,6 @@ const HealthRing = memo(({ score }) => {
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-function getStatusColor(status) {
-  if (status==='paid')    return '#2ECC8A'
-  if (status==='overdue' || status==='missed')  return '#E05555'  // 'missed' kept for backward-compat (pre-2026-05-25 rows)
-  if (status==='late' || status==='partial') return '#E0943A'  // partial = attention (amber)
-  if (status==='pending') return '#9B6FDE'  // legacy pending rows (pre-2026-07 Lodgify sync wrote these)
-  if (status==='refurb')  return '#4B8FE0'
-  return '#888EA8' // void - visible in both themes
-}
-
-// AA text/tint pair for a rent status — the month grid renders the label in
-// the status TEXT colour on the status TINT (the old raw-hue fill with white
-// text sat at ~1.8:1 on paid-green). STL/pending keep their purple identity
-// via a matching hand-tuned pair (purple isn't in the shared STATUS set).
-const STL_PAIR = { light: { text:'#6E44B8', bg:'#F0EAFB' }, dark: { text:'#B89BEF', bg:'#241A38' } }
-// A short-term-let booking whose stay has not finished yet: recorded, not yet
-// income (see 2026-09-07_stl_pending_until_stayed.sql). Same hue, lighter.
-const STL_PENDING_PAIR = { light: { text:'#8F73CF', bg:'#F8F5FD' }, dark: { text:'#9C86D4', bg:'#1B1529' } }
-function rentStatusPair(status, darkMode) {
-  if (status === 'pending') return darkMode ? STL_PAIR.dark : STL_PAIR.light
-  const key = { paid:'ok', overdue:'bad', missed:'bad', late:'warn', partial:'warn', refurb:'info' }[status] || 'void'
-  return statusColors(key, darkMode)
-}
-
-// Traffic-light pair for an engine state (Stage 3). Legacy months keep the
-// old status colours; short-term lets keep purple; grey is shared with void.
-function enginePair(m, darkMode) {
-  if (!m) return null
-  if (m.state === 'stl') return darkMode ? STL_PAIR.dark : STL_PAIR.light
-  if (m.state === 'legacy') return rentStatusPair(m.evals?.[0]?.legacyStatus || 'void', darkMode)
-  const key = { paid:'ok', due:'warn', part_paid:'warn', missed:'bad', not_collectible:'void', pending_review:'info' }[m.state] || 'void'
-  return statusColors(key, darkMode)
-}
-
-// Short-term-let revenue keeps its own colour so STL and long-term income
-// read differently at a glance even though both are status 'paid'.
-const STL_COLOR = '#9B6FDE'
 // Rent arithmetic (month collapse, default year, monthly stats, STL ids) lives
 // in lib/rentStats.js so it is unit-tested and shared; see the import above.
 
@@ -835,7 +768,7 @@ function PortfolioModellerWidget({ properties = [] }) {
 }
 
 
-export default function App() {
+export default function App({ initialLoginMode = null } = {}) {
   const {session,user,loading: authLoading} = useAuth()
   const confirmDialog = useConfirm()
   const [properties,  setProperties]  = useState([])
@@ -852,6 +785,12 @@ export default function App() {
   const [companies,        setCompanies]        = useState([])
   const [companySettings,  setCompanySettings]   = useState({})  // companyId -> settings
   const [loading,     setLoading]      = useState(true)
+  // Monotonic ids guarding loadData / refreshData against stale and
+  // out-of-order responses; see the guards there.
+  const loadGenRef = useRef(0)
+  const refreshSeqRef = useRef(0)
+  const userIdRef = useRef(null)
+  userIdRef.current = user?.id ?? null
   // Set when the initial portfolio load fails — drives a dedicated error
   // screen with a Retry button instead of the misleading new-account
   // welcome zero-state. loadNonce re-runs loadData on Retry.
@@ -1046,8 +985,10 @@ export default function App() {
   // straight in the signup modal (LoginPage reads the param itself and
   // redeems after auth), without this they just see the marketing page and
   // the invite goes nowhere.
-  const [showLoginModal, setShowLoginModal] = useState(() => new URLSearchParams(window.location.search).has('invite'))
-  const [loginMode, setLoginMode] = useState(() => new URLSearchParams(window.location.search).has('invite') ? 'signup' : 'login')
+  // initialLoginMode: Root (src/Root.jsx) only loads App once a marketing
+  // visitor clicks Sign in / Sign up, so open the modal they asked for.
+  const [showLoginModal, setShowLoginModal] = useState(() => !!initialLoginMode || new URLSearchParams(window.location.search).has('invite'))
+  const [loginMode, setLoginMode] = useState(() => initialLoginMode || (new URLSearchParams(window.location.search).has('invite') ? 'signup' : 'login'))
   const [trialWarning, setTrialWarning] = useState(null)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showTour, setShowTour] = useState(false)
@@ -1369,6 +1310,15 @@ export default function App() {
 
   useEffect(()=>{
     if (!user) return
+    // Stale-response guard: a newer run (user switch, Retry, StrictMode
+    // double-invoke) flips `cancelled` on the previous one, which then bails
+    // at its next await instead of writing another user's / an older load's
+    // data over the current one. Bumping loadGenRef also discards any
+    // refreshData still in flight from before this load.
+    let cancelled = false
+    loadGenRef.current += 1
+    const live = () => !cancelled
+    const ifLive = (fn) => (v) => { if (live()) fn(v) }
     async function loadData() {
       setLoading(true)
       setLoadError(null)
@@ -1412,6 +1362,7 @@ export default function App() {
             .eq('user_id', user.id).single()
             .then(r => r.data).catch(() => null),
         ])
+        if (!live()) return
         // The signup form's profile upsert runs before email confirmation,
         // with no session, so RLS rejects it and confirmed users arrive with
         // no user_profiles row (whitneykolubayev, Sept 2026). Create it on
@@ -1428,14 +1379,15 @@ export default function App() {
         // Load deals separately and non-blocking — if it fails, the
         // dashboard widget falls back to "no data". Deals are not critical
         // to App boot.
-        api.fetchDeals(user.id).then(setDashboardDeals).catch(()=>setDashboardDeals([]))
+        api.fetchDeals(user.id).then(ifLive(setDashboardDeals)).catch(ifLive(()=>setDashboardDeals([])))
         // Load insurance policies for the dashboard widget. Non-blocking.
-        api.fetchInsurancePolicies().then(setInsurancePolicies).catch(()=>setInsurancePolicies([]))
+        api.fetchInsurancePolicies().then(ifLive(setInsurancePolicies)).catch(ifLive(()=>setInsurancePolicies([])))
         // Merge access by ID and by email
         const allAccess = [...accessById, ...accessByEmail.filter(a=>!accessById.find(b=>b.company_id===a.company_id))]
         // If user was found by email but not ID, update their user_id
         if (accessByEmail.length > 0 && accessById.length === 0) {
           await api.updateUserIdByEmail(user.email, user.id)
+          if (!live()) return
         }
         const access = allAccess
         const accessIds = access.map(a=>a.company_id)
@@ -1490,6 +1442,7 @@ export default function App() {
           api.checkIsTenant(user.id).catch(e => { logError('loadData:tenantDetection', e); return [] }),
           api.fetchMyCompanies().catch(()=>[]),
         ])
+        if (!live()) return
         if (permBatch) {
           const [permMap, flags, widgets, sections] = permBatch
           // Stamp an __owner map onto permissionsMap so canDo() can grant
@@ -1542,6 +1495,7 @@ export default function App() {
               api.fetchUserAccess(impersonatingUser.id),
               api.fetchUserAccessByEmail(impersonatingUser.email)
             ])
+            if (!live()) return
             const targetCompanyIds = new Set([
               ...cos.filter(c => c.owner_id === impersonatingUser.id).map(c => c.id),
               ...targetAccess.map(a => a.company_id),
@@ -1581,6 +1535,7 @@ export default function App() {
             supabase.from('company_settings').select('*').in('company_id', coIds)
               .then(r => r.data).catch(() => null),
           ])
+          if (!live()) return
         }
         // Track companies we hide due to suspension so we can show the
         // collaborator a clear banner ("your account owner hasn't paid")
@@ -1611,6 +1566,7 @@ export default function App() {
               const ownerIds = [...new Set(suspendedCollabCos.map(c => c.owner_id).filter(Boolean))]
               const { data: profiles } = await supabase
                 .from('user_profiles').select('user_id, email').in('user_id', ownerIds)
+              if (!live()) return
               const emailById = {}
               for (const p of (profiles || [])) emailById[p.user_id] = p.email
               suspendedCollabCos = suspendedCollabCos.map(c => ({ ...c, owner_email: emailById[c.owner_id] || null }))
@@ -1671,6 +1627,7 @@ export default function App() {
             // first tenant_profiles row.
             tenantRows = await api.checkIsTenant(user.id)
           } catch(e) { logError('loadData:registerTenantProfile', e) }
+          if (!live()) return
         } else if (urlParams.get('tenant_property')) {
           window.history.replaceState({}, '', window.location.pathname)
         }
@@ -1690,11 +1647,12 @@ export default function App() {
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
             api.fetchProperties().then(refreshed=>{
+              if (!live()) return
               const vis = devActive ? refreshed : refreshed.filter(p=>accessibleCompanyIds.has(p.company_id))
               setProperties(vis)
-            })
+            }).catch(e => logError('loadData:refreshAfterRentMonths', e))
           }
-        }).catch(()=>{})
+        }).catch(e => logError('loadData:ensureFutureRentMonths', e))
         // Company settings — fetched in bulk alongside subscriptions above.
         const settingsMap = {}
         const settingsById = new Map((settingsRows || []).map(s => [s.company_id, s]))
@@ -1709,11 +1667,13 @@ export default function App() {
         // Tenancy rows for HealthBadge's tenancy-end deduction — best-effort,
         // non-blocking (an empty map just means no deduction is applied).
         api.fetchAllTenancies(user.id).then(rows => {
+          if (!live()) return
           const byProp = {}
           for (const t of (rows || [])) if (t.property_id) byProp[t.property_id] = t
           setTenanciesByProp(byProp)
-        }).catch(() => {})
+        }).catch(e => logError('loadData:fetchAllTenancies', e))
       } catch(e) {
+        if (!live()) return
         // Data load failed — DO NOT fall back to showing everything, and do
         // NOT let the dashboard render the new-account welcome zero-state
         // for a paying customer with a transient network error. The render
@@ -1724,10 +1684,11 @@ export default function App() {
         setProperties([])
         setIsAdmin(false)
       } finally {
-        setLoading(false)
+        if (live()) setLoading(false)
       }
     }
     loadData()
+    return () => { cancelled = true }
     // Use user.id (stable across token refreshes), not the user object
     // (which gets a new reference on every supabase TOKEN_REFRESHED event
     // that fires on tab focus). Without this, the whole loadData runs
@@ -1740,13 +1701,21 @@ export default function App() {
 
   // Expose loadData for refresh after import
   const refreshData = useCallback(async () => {
+    // Out-of-order guard: only the most recent load/refresh may write, and
+    // never after the signed-in user has changed underneath it.
+    const seq = ++refreshSeqRef.current
+    const gen = loadGenRef.current
+    const uid = user?.id
+    const live = () => refreshSeqRef.current === seq && loadGenRef.current === gen && userIdRef.current === uid
     try {
       const [props, cos] = await Promise.all([
         api.fetchProperties(),
         api.fetchCompanies(),
       ])
+      if (!live()) return
       // Apply same access filter — use userAccess + owned
       const { data: ownedCos } = await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)
+      if (!live()) return
       const ownedIds = (ownedCos || []).map(c => c.id)
       const accessibleIds = new Set([...ownedIds, ...userAccess])
       if (isPlatformAdmin) {
@@ -1765,6 +1734,7 @@ export default function App() {
     } catch(e) {
       // Refresh failed — keep the data we already have on screen, but don't
       // swallow it silently: log it and tell the user.
+      if (!live()) return
       logError('refreshData', e)
       showToast('Refresh failed — showing last loaded data', 'error')
     }
@@ -3012,7 +2982,7 @@ export default function App() {
             </p>
             <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
           </div>
-        ):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
+        ):<ErrorBoundary variant="panel" theme={T} resetKey={view==='detail'?`detail:${selectedId}`:view}><Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
             {/* First-run zero-state. Accounts with no properties land here —
@@ -4252,7 +4222,7 @@ export default function App() {
                           <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.goldText}}>EARLY</span>
                         </button>
                       </div>
-                      {subTab==='details'      &&<><TenancyPanel property={selected} showToast={showToast} canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive} onChanged={t=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,tenancies:t}:p))}/><TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/></>}
+                      {subTab==='details'      &&<><TenancyPanel property={selected} showToast={showToast} canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive} onChanged={t=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,tenancies:t}:p))}/><TenancyTab key={selected.id} propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/></>}
                       {subTab==='right-to-rent'&&<RightToRentTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='deposit'      &&<DepositProtectionTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T}/>}
                       {subTab==='notices'      &&<NoticeTrackerTab propertyId={selected.id} userId={user?.id} showToast={showToast} T={T} property={selected}/>}
@@ -4262,7 +4232,7 @@ export default function App() {
                 })()}
                 {detailTab==='maintenance'&&<MaintenanceTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="maintenance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_maintenance') || devModeActive} activeFlags={activeFlags}/>}
                 {detailTab==='expenses'&&<ExpensesTab propertyId={selected.id} showToast={showToast} fmt={fmt} rentPcm={selected.rent_pcm||0} isAdmin={isAdmin} user={user} category="expenses" canEdit={canDo(permissionsMap, selected.company_id, 'edit_expenses') || devModeActive} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive}/>}
-                {detailTab==='documents'&&<DocumentsTab propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
+                {detailTab==='documents'&&<DocumentsTab key={selected.id} propertyId={selected.id} propertyName={selected.name} showToast={showToast} isAdmin={isAdmin} user={user}/>}
                 {detailTab==='rooms'&&(selected.is_hmo||activeFlags.has('hmo_rooms'))&&<HmoRoomsPanel propertyId={selected.id} isHmo={!!selected.is_hmo} onHmoChange={v=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,is_hmo:v}:p))} canEdit={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
                 {detailTab==='epc-plan'&&activeFlags.has('epc_planner')&&<EpcPlanner property={selected} T={T} canWrite={canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive}/>}
                 {activeFlags.has('rent_collection')&&(detailTab==='rent'||detailTab==='rent-history')&&<RentCollectionPanel property={selected} companyId={selected.company_id} tenantUserId={null}/>}
@@ -4344,7 +4314,7 @@ export default function App() {
               </div>
             </div>
           </div>}
-        </Suspense>}
+        </Suspense></ErrorBoundary>}
       </main>
 
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
@@ -4527,21 +4497,6 @@ export default function App() {
 // the dense list — a light card with a company-accent left edge + accent-tinted
 // type-icon tile, then name / company+status pills / rent · yield · compliance.
 
-// Derive a hairline icon + bedroom count from the free-text prop_type
-// ("1-Bed Flat", "House", "HMO Room", "Studio", …). `beds` is null when the
-// type doesn't state one (e.g. plain "House"); `studio` flags studios.
-function propTypeMeta(propType) {
-  const t = String(propType || '').toLowerCase()
-  const bedM = t.match(/(\d+)\s*-?\s*bed/)
-  const beds = bedM ? parseInt(bedM[1], 10) : null
-  const studio = /studio|bedsit/.test(t)
-  let icon = 'home'
-  if (/hmo|room/.test(t)) icon = 'bed'
-  else if (/flat|apartment|maisonette|studio|bedsit/.test(t)) icon = 'building'
-  else if (/commercial|office|shop|retail|unit/.test(t)) icon = 'landmark'
-  // house / bungalow / detached / terraced / semi / (unknown) → home
-  return { icon, beds, studio }
-}
 
 function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis }) {
   const { T } = useTheme()
@@ -4844,34 +4799,7 @@ function RentLegend({ small = false, collapsible = false }) {
   )
 }
 
-function engineSummary(props, year) {
-  const acc = { paid: 0, due: 0, missed: 0, nc: 0, backfill: 0, legacy: 0, received: 0 }
-  for (const p of props) {
-    if (p.status === 'short_term_let') continue
-    const months = groupByMonth(evaluateProperty(p)).filter(m => (!year || m.year === year) && m.state !== 'future')
-    for (const m of months) {
-      if (m.state === 'legacy') {
-        acc.legacy++
-        const ls = m.evals[0]?.legacyStatus
-        if (ls === 'paid') acc.paid++
-        else if (ls === 'overdue' || ls === 'missed') acc.missed++
-        else if (ls === 'late' || ls === 'partial') acc.due++
-        acc.received += m.evals.reduce((t, e) => t + (e.legacyAmount || 0), 0)
-        continue
-      }
-      if (m.state === 'paid') acc.paid++
-      else if (m.state === 'due' || m.state === 'part_paid') acc.due++
-      else if (m.state === 'missed') acc.missed++
-      else if (m.state === 'pending_review') acc.review = (acc.review || 0) + 1
-      else if (m.state === 'not_collectible') acc.nc++
-      if (m.needsBackfill) acc.backfill++
-      acc.received += m.received || 0
-    }
-  }
-  acc.received = Math.round(acc.received * 100) / 100
-  return acc
-}
-
+// ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
 function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh, showToast, canSeed, canEditRent}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)

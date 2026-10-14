@@ -4,8 +4,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
-import { loadCdnScript } from '../lib/loadCdnScript'
-import { linesFromTextItems, textFromPages } from '../lib/pdfText'
+import { extractPdfTextFromFile } from '../lib/pdfExtract'
 import {
   parseAuditStatement, balanceCheck, computeTotals, compareWithExisting, deriveStatus, missingNumbers,
   buildImportSummary, STATEMENT_STATUSES, STATUS_LABEL, LINE_TYPES, LINE_TYPE_LABEL, REVIEW_STATUSES, REVIEW_LABEL,
@@ -25,25 +24,8 @@ const fmtDate = d => d ? new Date(d + (String(d).length === 10 ? 'T00:00:00' : '
 const today = () => new Date().toISOString().slice(0, 10)
 const DEFAULT_START = 71
 
-const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174'
-async function extractPdfText(file) {
-  await loadCdnScript(`${PDFJS_CDN}/pdf.min.js`, 'pdfjsLib')
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`
-  let pdf
-  try {
-    pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise
-  } catch (e) {
-    throw new Error(e?.message || 'The file does not appear to be a valid PDF')
-  }
-  const pages = []
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 1 })
-    const content = await page.getTextContent()
-    pages.push(linesFromTextItems(content.items, viewport.transform))
-  }
-  return textFromPages(pages)
-}
+// Same extraction as the statement importer (lib/pdfExtract).
+const extractPdfText = extractPdfTextFromFile
 
 const STATUS_COLOUR = (T) => ({
   not_uploaded: T.muted, uploaded_awaiting_import: T.blue, importing: T.blue, imported_awaiting_review: T.gold,

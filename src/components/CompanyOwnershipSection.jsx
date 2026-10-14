@@ -21,6 +21,7 @@
 import { useState, useEffect } from 'react'
 import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import { useConfirm } from '../lib/ConfirmContext'
 import { TAX_BAND_LABELS } from '../lib/companyPnl'
 
@@ -60,17 +61,21 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
   const [agForm, setAgForm] = useState({ name: '', feePercent: '', vatTreatment: 'ex_vat' })
   const [saving, setSaving] = useState(false)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() }, [company.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [sh, ag] = await Promise.all([
         api.fetchShareholders(company.id),
         api.fetchEstateAgents(),
       ])
+      if (!isCurrent()) return
       setShareholders(sh); setAgents(ag)
     } catch (e) {
+      if (!isCurrent()) return
       console.error('Ownership section load failed', e)
       showToast?.(e.message || 'Could not load ownership data', 'error')
     }

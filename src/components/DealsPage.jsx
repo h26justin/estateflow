@@ -10,6 +10,7 @@ import LettingsPipeline from './LettingsPipeline'
 const LettingsAssistantPanel = lazy(() => import('./LettingsAssistantPanel'))
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TIME_BUCKET_LABEL } from '../lib/dealCashflow'
 import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from '../lib/dealMetrics'
 import { useIsMobile } from '../lib/useWindowSize'
@@ -1790,14 +1791,20 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
     } catch(e) { showToast(e.message || 'Failed to save target completion date', 'error') }
   }
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() }, [deal.id])
 
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const data = await api.fetchDealMilestones(deal.id)
+      if (!isCurrent()) return
       setMilestones(data)
-    } catch(e) { showToast(e.message || 'Failed to load tracker', 'error') }
+    } catch(e) {
+      if (!isCurrent()) return
+      showToast(e.message || 'Failed to load tracker', 'error')
+    }
     setLoading(false)
   }
 
@@ -2151,11 +2158,19 @@ function DocumentsTab({ dealId, userId, showToast }) {
   const photoInputRef = useRef(null)
   const docInputRef   = useRef(null)
 
+  const beginLoad = useLoadGuard()
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     setLoadError(null)
-    try { setDocs(await api.fetchDealDocuments(dealId)) }
-    catch (e) { setLoadError(e.message || 'Failed to load') }
+    try {
+      const rows = await api.fetchDealDocuments(dealId)
+      if (!isCurrent()) return
+      setDocs(rows)
+    } catch (e) {
+      if (!isCurrent()) return
+      setLoadError(e.message || 'Failed to load')
+    }
     setLoading(false)
   }
   useEffect(() => { load() }, [dealId])

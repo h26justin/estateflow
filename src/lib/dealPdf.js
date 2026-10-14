@@ -11,11 +11,10 @@
 // a few MB rather than a few hundred.
 
 import * as api from './api'
-import { loadCdnScript } from './loadCdnScript'
+import { loadJsPDF } from './pdfLibs'
 import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from './dealMetrics'
 import { DEAL_STATUS_LABEL, legalStepText, showsLegalStep } from './dealStages'
 
-const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 const STATUS_LABEL   = DEAL_STATUS_LABEL
 const DEAL_TYPE_LABEL = { btl:'Buy-to-Let', hmo:'HMO', sa:'Serviced Apartment', brrr:'BRRR', flip:'Flip' }
@@ -90,8 +89,7 @@ export async function exportDealPdf({ deal, company }) {
   }
   const logo = await loadLogo()
 
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-  const { jsPDF } = window.jspdf
+  const jsPDF = await loadJsPDF()
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = 210, H = 297, M = 16, CW = W - M * 2
   const FOOT = 20 // reserved footer height

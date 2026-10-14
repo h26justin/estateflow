@@ -5,6 +5,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
+import { logError } from '../lib/logError'
 import { fmtTimeAgo, plural } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
@@ -92,7 +93,10 @@ export default function AdminDashboard({ onClose, user }) {
         api.fetchAllAccessRows().catch(()=>[]),
       ])
       setCompanies(cos); setUsers(us); setAccessRows(accessRows)
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:loadAll', e)
+      showAppToast('Could not load admin data: ' + (e.message || 'unknown error'), 'error')
+    }
     setLoading(false)
   }
 
@@ -102,7 +106,10 @@ export default function AdminDashboard({ onClose, user }) {
       await api.setCompanyFreeTier(id, !current)
       setCompanies(prev=>prev.map(c=>c.id===id?{...c,is_free_tier:!current}:c))
       if (selectedAccount?.id===id) setSelectedAccount(a=>({...a,is_free_tier:!current}))
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:toggleFreeTier', e)
+      showAppToast('Failed: ' + (e.message || 'unknown error'), 'error')
+    }
     setSaving(null)
   }
 
@@ -111,7 +118,10 @@ export default function AdminDashboard({ onClose, user }) {
       await api.setCompanyFlag(id, !current)
       setCompanies(prev=>prev.map(c=>c.id===id?{...c,flagged:!current}:c))
       if (selectedAccount?.id===id) setSelectedAccount(a=>({...a,flagged:!current}))
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:toggleFlag', e)
+      showAppToast('Failed: ' + (e.message || 'unknown error'), 'error')
+    }
   }
 
   async function handleDeleteUser() {
@@ -431,7 +441,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
     setAdminPw(''); setAdminPwErr('')
   }
 
-  useEffect(()=>{ api.fetchAdminNotes(co.id).then(setNotes).catch(()=>{}) },[co.id])
+  useEffect(()=>{ api.fetchAdminNotes(co.id).then(setNotes).catch(e => logError('AdminDashboard:fetchAdminNotes', e)) },[co.id])
 
   async function submitNote() {
     if (!newNote.trim()) return
@@ -439,12 +449,19 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
     try {
       const note = await api.addAdminNote(user?.id||user?.sub, co.id, newNote.trim())
       setNotes(prev=>[note,...prev]); setNewNote('')
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:addAdminNote', e)
+      showAppToast('Could not add note: ' + (e.message || 'unknown error'), 'error')
+    }
     setAddingNote(false)
   }
 
   async function deleteNote(id) {
-    try { await api.deleteAdminNote(id); setNotes(prev=>prev.filter(n=>n.id!==id)) } catch(e) {}
+    try { await api.deleteAdminNote(id); setNotes(prev=>prev.filter(n=>n.id!==id)) }
+    catch(e) {
+      logError('AdminDashboard:deleteAdminNote', e)
+      showAppToast('Could not delete note: ' + (e.message || 'unknown error'), 'error')
+    }
   }
 
   async function extendTrial() {
@@ -489,7 +506,10 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         await api.updateCompany(co.id, { name: renameName.trim(), abbr })
         if (onRename) onRename(co.id, renameName.trim(), abbr)
         setShowRename(false)
-      } catch(e) {}
+      } catch(e) {
+        logError('AdminDashboard:rename', e)
+        showAppToast('Rename failed: ' + (e.message || 'unknown error'), 'error')
+      }
       setRenameSaving(false)
     })
   }

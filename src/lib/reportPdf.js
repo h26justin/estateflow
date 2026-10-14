@@ -3,14 +3,12 @@
 // reportPdfKit. Report data comes from ReportsPage buildReportData:
 // { title, kpis: [[label, value]], headers, rows, totals, note, sections }.
 
-import { loadCdnScript } from './loadCdnScript'
+import { loadJsPDF } from './pdfLibs'
 import { createPdfWriter, loadPdfImage, hexToRgb, fitBox, PALETTE } from './reportPdfKit'
 
-const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 export async function renderReportPDF({ title, kpis, headers, rows, totals, note, sections, reportName, company, period, companyColor, categoryAccent, logoUrl }) {
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-  const { jsPDF } = window.jspdf
+  const jsPDF = await loadJsPDF()
   const colCount = Math.max(headers?.length || 0, ...(sections || []).map(s => s.headers?.length || 0))
   const doc = new jsPDF({ orientation: colCount > 5 ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
   const [logo, mark] = await Promise.all([loadPdfImage(logoUrl), loadPdfImage('/icon-512.png', 256)])
@@ -34,8 +32,7 @@ export async function renderReportPDF({ title, kpis, headers, rows, totals, note
 // once the sections are laid out), then one section per report with its KPI
 // tiles and tables. Same kit as the single-report PDF.
 export async function renderYearEndPackPDF({ reports, company, companyColor, logoUrl, period }) {
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-  const { jsPDF } = window.jspdf
+  const jsPDF = await loadJsPDF()
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const [logo, mark] = await Promise.all([loadPdfImage(logoUrl), loadPdfImage('/icon-512.png', 256)])
   const k = createPdfWriter(doc, { accent: hexToRgb(companyColor), logo, mark, footerLabel: `${company} - Year-End Tax Pack` })

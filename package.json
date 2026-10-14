@@ -16,6 +16,9 @@
     "@supabase/supabase-js": "^2.116.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^1.0.12",
+    "jspdf": "2.5.2",
+    "mapbox-gl": "3.6.0",
+    "pdfjs-dist": "3.11.174",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

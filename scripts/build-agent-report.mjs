@@ -25,6 +25,9 @@ export async function bundleAgentReport() {
     },
     bundle: true, format: 'esm', platform: 'neutral', target: 'es2022', charset: 'ascii',
     write: false, legalComments: 'none', logLevel: 'silent',
+    // Browser-only loaders (lib/pdfLibs.js) that the edge function never
+    // reaches; tree-shaken out, but they must resolve for the build to run.
+    external: ['jspdf', 'pdfjs-dist', 'pdfjs-dist/*'],
   })
   // esbuild leaves non-ASCII inside regex literals; escape everything so the
   // bundle is plain ASCII (it is pasted into deploy tooling). \uXXXX is valid

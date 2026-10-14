@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from './supabase'
 
 // Colour tokens — the OwnProperly redesign palette (handoff: design/redesign-2026).
@@ -86,9 +86,12 @@ export function ThemeProvider({ children }) {
   }, [])
 
   const T = darkMode ? DARK : LIGHT
+  // Stable value: a fresh object every render re-rendered every useTheme()
+  // consumer whenever anything above the provider rendered.
+  const value = useMemo(() => ({ T, darkMode, setDarkMode, loadUserTheme }), [T, darkMode, setDarkMode, loadUserTheme])
 
   return (
-    <ThemeContext.Provider value={{ T, darkMode, setDarkMode, loadUserTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   )

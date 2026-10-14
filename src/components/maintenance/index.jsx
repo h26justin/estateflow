@@ -12,6 +12,7 @@ import { MONO } from '../../lib/styles'
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
+import { useLoadGuard } from '../../lib/useLoadGuard'
 import { NotesTimeline } from '../FeatureComponents'
 import MoneyInput from '../../lib/MoneyInput'
 import TriageButton from './TriageButton'
@@ -38,12 +39,20 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   const PRIORITIES = [{v:'low',c:'#6B7191'},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
   const STATUSES   = [{v:'open',c:T.red,l:'Open'},{v:'in-progress',c:T.amber,l:'In Progress'},{v:'complete',c:T.green,l:'Complete'}]
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ loadJobs() },[propertyId])
 
   async function loadJobs() {
+    const isCurrent = beginLoad()
     setLoading(true)
-    try { setJobs(await api.fetchMaintenance(propertyId)) }
-    catch(e) { showToast(e.message || 'Failed to load maintenance jobs', 'error') }
+    try {
+      const rows = await api.fetchMaintenance(propertyId)
+      if (!isCurrent()) return
+      setJobs(rows)
+    } catch(e) {
+      if (!isCurrent()) return
+      showToast(e.message || 'Failed to load maintenance jobs', 'error')
+    }
     setLoading(false)
   }
 
