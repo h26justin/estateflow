@@ -11,6 +11,7 @@ import { resolve } from 'node:path'
 function swVersionPlugin() {
   return {
     name: 'sw-version',
+    apply: 'build',
     closeBundle() {
       const swPath = resolve('dist/sw.js')
       if (!existsSync(swPath)) return
@@ -25,12 +26,6 @@ function swVersionPlugin() {
 
 export default defineConfig({
   plugins: [react(), swVersionPlugin()],
-  esbuild: {
-    charset: 'utf8',
-    // Only drop console.log and debugger, keep console.error for error monitoring
-    pure: ['console.log', 'console.debug', 'console.info'],
-    drop: ['debugger'],
-  },
   test: {
     environment: 'jsdom',
     globals: true,
@@ -38,11 +33,22 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 600,
-    rollupOptions: {
+    // Vite 8 bundles with Rolldown and minifies with Oxc. The old esbuild
+    // block (pure console.log/debug/info, drop debugger) maps to these:
+    // console.error/warn stay for error monitoring, debugger statements are
+    // dropped by the Oxc minifier by default (compress.dropDebugger).
+    rolldownOptions: {
+      treeshake: {
+        manualPureFunctions: ['console.log', 'console.debug', 'console.info'],
+      },
       output: {
-        manualChunks: {
-          'react-vendor':    ['react', 'react-dom'],
-          'supabase-vendor': ['@supabase/supabase-js'],
+        // Replaces the removed object form of manualChunks. React and
+        // supabase-js change rarely, so they get long-lived vendor chunks.
+        codeSplitting: {
+          groups: [
+            { name: 'react-vendor', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 2 },
+            { name: 'supabase-vendor', test: /node_modules[\\/]@supabase[\\/]/, priority: 1 },
+          ],
         },
       },
     },
