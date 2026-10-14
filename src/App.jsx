@@ -131,48 +131,14 @@ import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
 const ReceiptScanModal = lazy(() => import('./components/ReceiptScanModal'))
 import { canUseInvestorFeatures } from './lib/tierGating'
+import { isSafeUrl, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, propTypeMeta } from './lib/propertyCalcs'
+import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair, STL_COLOR } from './lib/rentColors'
+import { engineSummary } from './lib/rentEngineSummary'
 
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
-// Allow only http(s) destinations into href/location sinks. Relative URLs
-// resolve against the app origin and pass; javascript:/data:/etc. are blocked.
-function isSafeUrl(url) {
-  try {
-    const proto = new URL(String(url), window.location.origin).protocol
-    return proto === 'http:' || proto === 'https:'
-  } catch (e) { return false }
-}
-
-function calcMonthlyMortgage(p) {
-  // Priority 1: user-entered actual monthly payment (any positive number).
-  // Real mortgages have fees, part-and-part splits, product transitions
-  // etc that the textbook formula can't model. When the user knows their
-  // actual direct debit, store it and trust it.
-  if (p.mortgage_monthly_payment && Number(p.mortgage_monthly_payment) > 0) {
-    return Number(p.mortgage_monthly_payment)
-  }
-  if (!p.mortgage_rate || !p.mortgage_amount) return 0
-  const amount = Number(p.mortgage_amount), rate = Number(p.mortgage_rate)
-  // Priority 2: honour mortgage_type when set. Interest-only is much
-  // simpler than the repayment annuity formula.
-  if (p.mortgage_type === 'interest_only') {
-    return amount * rate / 12
-  }
-  // Priority 3 (default): repayment annuity. Same as before this rewrite.
-  const r = rate / 12, n = (p.mortgage_term || 25) * 12
-  return amount * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1)
-}
-function calcGrossYield(p, basis='cost') {
-  const base = basis==='value'
-    ? propValue(p)
-    : (p.purchase_price||0)+(p.refurb_cost||0)
-  return base&&p.rent_pcm?((p.rent_pcm*12)/base)*100:0
-}
-function calcMonthlyProfit(p) {
-  return (p.rent_pcm||0)-calcMonthlyMortgage(p)-(p.insurance||0)/12
-}
 
 // canDo(permissionsMap, companyId, key) lives in src/lib/permissions.js so the
 // components that gate write surfaces (Day Tracker, importers, Team & Access)
@@ -399,42 +365,6 @@ const HealthRing = memo(({ score }) => {
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-function getStatusColor(status) {
-  if (status==='paid')    return '#2ECC8A'
-  if (status==='overdue' || status==='missed')  return '#E05555'  // 'missed' kept for backward-compat (pre-2026-05-25 rows)
-  if (status==='late' || status==='partial') return '#E0943A'  // partial = attention (amber)
-  if (status==='pending') return '#9B6FDE'  // legacy pending rows (pre-2026-07 Lodgify sync wrote these)
-  if (status==='refurb')  return '#4B8FE0'
-  return '#888EA8' // void - visible in both themes
-}
-
-// AA text/tint pair for a rent status — the month grid renders the label in
-// the status TEXT colour on the status TINT (the old raw-hue fill with white
-// text sat at ~1.8:1 on paid-green). STL/pending keep their purple identity
-// via a matching hand-tuned pair (purple isn't in the shared STATUS set).
-const STL_PAIR = { light: { text:'#6E44B8', bg:'#F0EAFB' }, dark: { text:'#B89BEF', bg:'#241A38' } }
-// A short-term-let booking whose stay has not finished yet: recorded, not yet
-// income (see 2026-09-07_stl_pending_until_stayed.sql). Same hue, lighter.
-const STL_PENDING_PAIR = { light: { text:'#8F73CF', bg:'#F8F5FD' }, dark: { text:'#9C86D4', bg:'#1B1529' } }
-function rentStatusPair(status, darkMode) {
-  if (status === 'pending') return darkMode ? STL_PAIR.dark : STL_PAIR.light
-  const key = { paid:'ok', overdue:'bad', missed:'bad', late:'warn', partial:'warn', refurb:'info' }[status] || 'void'
-  return statusColors(key, darkMode)
-}
-
-// Traffic-light pair for an engine state (Stage 3). Legacy months keep the
-// old status colours; short-term lets keep purple; grey is shared with void.
-function enginePair(m, darkMode) {
-  if (!m) return null
-  if (m.state === 'stl') return darkMode ? STL_PAIR.dark : STL_PAIR.light
-  if (m.state === 'legacy') return rentStatusPair(m.evals?.[0]?.legacyStatus || 'void', darkMode)
-  const key = { paid:'ok', due:'warn', part_paid:'warn', missed:'bad', not_collectible:'void', pending_review:'info' }[m.state] || 'void'
-  return statusColors(key, darkMode)
-}
-
-// Short-term-let revenue keeps its own colour so STL and long-term income
-// read differently at a glance even though both are status 'paid'.
-const STL_COLOR = '#9B6FDE'
 // Rent arithmetic (month collapse, default year, monthly stats, STL ids) lives
 // in lib/rentStats.js so it is unit-tested and shared; see the import above.
 
@@ -4544,21 +4474,6 @@ export default function App({ initialLoginMode = null } = {}) {
 // the dense list — a light card with a company-accent left edge + accent-tinted
 // type-icon tile, then name / company+status pills / rent · yield · compliance.
 
-// Derive a hairline icon + bedroom count from the free-text prop_type
-// ("1-Bed Flat", "House", "HMO Room", "Studio", …). `beds` is null when the
-// type doesn't state one (e.g. plain "House"); `studio` flags studios.
-function propTypeMeta(propType) {
-  const t = String(propType || '').toLowerCase()
-  const bedM = t.match(/(\d+)\s*-?\s*bed/)
-  const beds = bedM ? parseInt(bedM[1], 10) : null
-  const studio = /studio|bedsit/.test(t)
-  let icon = 'home'
-  if (/hmo|room/.test(t)) icon = 'bed'
-  else if (/flat|apartment|maisonette|studio|bedsit/.test(t)) icon = 'building'
-  else if (/commercial|office|shop|retail|unit/.test(t)) icon = 'landmark'
-  // house / bungalow / detached / terraced / semi / (unknown) → home
-  return { icon, beds, studio }
-}
 
 function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis }) {
   const { T } = useTheme()
@@ -4826,39 +4741,8 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
   )
 }
 
-// ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
-// Month counts and money received for a set of properties, from the rent
-// engine (Stage 3+). Short-term lets are excluded (own page). Pre-2026 months
-// keep their legacy status and amount but are counted so "All years" still
-// adds up.
-function engineSummary(props, year) {
-  const acc = { paid: 0, due: 0, missed: 0, nc: 0, backfill: 0, legacy: 0, received: 0 }
-  for (const p of props) {
-    if (p.status === 'short_term_let') continue
-    const months = groupByMonth(evaluateProperty(p)).filter(m => (!year || m.year === year) && m.state !== 'future')
-    for (const m of months) {
-      if (m.state === 'legacy') {
-        acc.legacy++
-        const ls = m.evals[0]?.legacyStatus
-        if (ls === 'paid') acc.paid++
-        else if (ls === 'overdue' || ls === 'missed') acc.missed++
-        else if (ls === 'late' || ls === 'partial') acc.due++
-        acc.received += m.evals.reduce((t, e) => t + (e.legacyAmount || 0), 0)
-        continue
-      }
-      if (m.state === 'paid') acc.paid++
-      else if (m.state === 'due' || m.state === 'part_paid') acc.due++
-      else if (m.state === 'missed') acc.missed++
-      else if (m.state === 'pending_review') acc.review = (acc.review || 0) + 1
-      else if (m.state === 'not_collectible') acc.nc++
-      if (m.needsBackfill) acc.backfill++
-      acc.received += m.received || 0
-    }
-  }
-  acc.received = Math.round(acc.received * 100) / 100
-  return acc
-}
 
+// ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
 function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTracker, yieldBasis, onRefresh, showToast, canSeed, canEditRent}) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
