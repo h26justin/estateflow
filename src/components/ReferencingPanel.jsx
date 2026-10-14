@@ -4,6 +4,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 
 // ── REFERENCING PANEL (Feature 7 scaffold) ───────────────────────────
 // Order a tenant reference or Right-to-Rent check from the lettings /
@@ -38,11 +39,19 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
   const blank = { applicant_name: '', applicant_email: '', check_type: 'reference' }
   const [form, setForm] = useState(blank)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [propertyId])
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
-    try { setItems(await api.fetchReferencingChecks(propertyId)) }
-    catch (e) { showAppToast(e.message || 'Failed to load checks', 'error') }
+    try {
+      const rows = await api.fetchReferencingChecks(propertyId)
+      if (!isCurrent()) return
+      setItems(rows)
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast(e.message || 'Failed to load checks', 'error')
+    }
     setLoading(false)
   }
 

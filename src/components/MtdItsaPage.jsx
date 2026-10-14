@@ -6,6 +6,7 @@ import { MONO } from '../lib/styles'
 import { fmt, fmtMoney2dp } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import FocusTrap from '../lib/FocusTrap'
 import {
   currentTaxYear, parseTaxYear, quartersForTaxYear,
@@ -44,6 +45,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
   const quarters = useMemo(() => quartersForTaxYear(taxYear), [taxYear])
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [taxYear])
 
   // OAuth return-handler: after the user finishes the gov.uk dance, HMRC
@@ -63,15 +65,18 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
   }, [])
 
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [s, subs] = await Promise.all([
         api.fetchMtdSettings(),
         api.fetchMtdSubmissions(taxYear),
       ])
+      if (!isCurrent()) return
       setSettings(s)
       setSubmissions(subs)
     } catch (e) {
+      if (!isCurrent()) return
       showAppToast('Could not load MTD data: ' + e.message, 'error')
     }
     setLoading(false)

@@ -6,6 +6,7 @@ import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { naturalCompare } from '../lib/addressUtils'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import {
   fetchRooms, createRoom, updateRoom, deleteRoom,
   fetchLicences, createLicence, updateLicence, deleteLicence,
@@ -58,13 +59,19 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
   const [editingLicId, setEditingLicId] = useState(null)
   const [savingLic, setSavingLic] = useState(false)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [propertyId])
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [r, l] = await Promise.all([fetchRooms(propertyId), fetchLicences(propertyId)])
+      if (!isCurrent()) return
       setRooms(r); setLicences(l)
-    } catch (e) { showAppToast(e.message || 'Failed to load HMO rooms', 'error') }
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast(e.message || 'Failed to load HMO rooms', 'error')
+    }
     setLoading(false)
   }
 

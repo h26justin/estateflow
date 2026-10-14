@@ -28,6 +28,8 @@ import { showAppToast } from '../lib/toast'
 import { supabase } from '../lib/supabase'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
+import { useLoadGuard } from '../lib/useLoadGuard'
+import { logError } from '../lib/logError'
 import MoneyInput from '../lib/MoneyInput'
 import RolePermissionsModal from './RolePermissionsModal'
 import { canDo, ROLE_OPTIONS, ROLE_OPTION_LABELS, roleFromAccessRow, roleUpdateFor, isAdminDemotion } from '../lib/permissions'
@@ -404,15 +406,21 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
 
   const DEPOSIT_SCHEMES = ['DPS - Deposit Protection Service','mydeposits','TDS - Tenancy Deposit Scheme','Not registered']
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ loadDetails() },[propertyId])
 
   async function loadDetails() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const d = await api.fetchTenancyDetails(propertyId)
+      if (!isCurrent()) return
       setDetails(d)
       setForm(d||{})
-    } catch(e) { showToast(e.message || 'Failed to load tenancy details', 'error') }
+    } catch(e) {
+      if (!isCurrent()) return
+      showToast(e.message || 'Failed to load tenancy details', 'error')
+    }
     setLoading(false)
   }
 
@@ -526,12 +534,20 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
     {v:'other',          l:'Other'},
   ]
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ loadExpenses() },[propertyId])
 
   async function loadExpenses() {
+    const isCurrent = beginLoad()
     setLoading(true)
-    try { setExpenses(await api.fetchExpenses(propertyId)) }
-    catch(e) { showToast(e.message || 'Failed to load expenses', 'error') }
+    try {
+      const rows = await api.fetchExpenses(propertyId)
+      if (!isCurrent()) return
+      setExpenses(rows)
+    } catch(e) {
+      if (!isCurrent()) return
+      showToast(e.message || 'Failed to load expenses', 'error')
+    }
     setLoading(false)
   }
 
@@ -1595,17 +1611,23 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
     setComplianceBusy(null)
   }
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ loadDocs() },[propertyId])
 
   async function loadDocs() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const {data} = await supabase.from('property_documents')
         .select('*').eq('property_id', propertyId)
         .is('deleted_at', null)
         .order('created_at', {ascending:false})
+      if (!isCurrent()) return
       setDocs(data||[])
-    } catch(e) { }
+    } catch(e) {
+      if (!isCurrent()) return
+      logError('DocumentsTab:loadDocs', e)
+    }
     setLoading(false)
   }
 
@@ -2273,16 +2295,22 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
     {value:'other',       label:'Other',               icon:'📄'},
   ]
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ loadDocs() },[companyId])
 
   async function loadDocs() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const {data} = await supabase.from('company_documents')
         .select('*').eq('company_id', companyId)
         .order('created_at', {ascending:false})
+      if (!isCurrent()) return
       setDocs(data||[])
-    } catch(e) { }
+    } catch(e) {
+      if (!isCurrent()) return
+      logError('CompanyDocumentsTab:loadDocs', e)
+    }
     setLoading(false)
   }
 
@@ -2469,15 +2497,18 @@ function AccessModal({companies, onClose, showToast, user, permissionsMap = null
   const [adding, setAdding]             = useState(false)
   const [tab, setTab]                   = useState('users')
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ loadData() },[])
 
   async function loadData() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [authUsers, rows] = await Promise.all([
         api.fetchAllUsers().catch(()=>[]),
         api.fetchAllAccessRows().catch(()=>[])
       ])
+      if (!isCurrent()) return
       // SECURITY: filter access rows to only those on companies the current user has shared
       const myCompanyIds = new Set((companies || []).map(c => c.id))
       const relevantRows = rows.filter(r => myCompanyIds.has(r.company_id))
@@ -2506,10 +2537,14 @@ function AccessModal({companies, onClose, showToast, user, permissionsMap = null
         const inv = await api.fetchPendingInvitations(co.id).catch(()=>[])
         inv.forEach(i => allInvites.push({ ...i, companyName: co.name, companyAbbr: co.abbr, companyColor: co.color }))
       }
+      if (!isCurrent()) return
       setInvites(allInvites)
       // Default: all companies selected
       setSelectedCoIds(companies.map(c => c.id))
-    } catch(e) {}
+    } catch(e) {
+      if (!isCurrent()) return
+      logError('AccessModal:loadData', e)
+    }
     setLoading(false)
   }
 
@@ -3294,18 +3329,24 @@ function AdminSettingsPanel({ user, T, showToast }) {
   const [deleteError, setDeleteError]   = useState('')
   const [deleting, setDeleting]         = useState(false)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [cos, us] = await Promise.all([
         api.fetchAdminAllCompanies(),
         api.fetchAllUsers().catch(() => []),
       ])
+      if (!isCurrent()) return
       setCompanies(cos)
       setUsers(us)
-    } catch(e) { showToast('Failed to load admin data', 'error') }
+    } catch(e) {
+      if (!isCurrent()) return
+      showToast('Failed to load admin data', 'error')
+    }
     setLoading(false)
   }
 
@@ -3594,14 +3635,20 @@ function FeatureFlagsPanel({ users, companies, T, showToast }) {
   const [showNew, setShowNew] = useState(false)
   const [newFlag, setNewFlag] = useState({ key:'', name:'', description:'', enabled_globally:false })
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ load() }, [])
 
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const data = await api.fetchFeatureFlags()
+      if (!isCurrent()) return
       setFlags(data)
-    } catch(e) { showToast('Failed to load flags','error') }
+    } catch(e) {
+      if (!isCurrent()) return
+      showToast('Failed to load flags','error')
+    }
     setLoading(false)
   }
 
@@ -4640,14 +4687,20 @@ function AuditLogPanel({ user, companies, T }) {
   const [loading, setLoading]     = useState(true)
   const [companyFilter, setCompanyFilter] = useState('')
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { loadLogs() }, [companyFilter])
 
   async function loadLogs() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const data = await api.fetchAuditLog(user?.id, companyFilter||null)
+      if (!isCurrent()) return
       setLogs(data)
-    } catch(e) {}
+    } catch(e) {
+      if (!isCurrent()) return
+      logError('AuditLogPanel:loadLogs', e)
+    }
     setLoading(false)
   }
 

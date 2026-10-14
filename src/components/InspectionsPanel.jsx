@@ -4,6 +4,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import { SignedPhoto } from '../lib/SignedPhoto'
 
 // ── INSPECTIONS PANEL ────────────────────────────────────────────────
@@ -41,11 +42,19 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const fileRef = useRef(null)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [propertyId])
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
-    try { setItems(await api.fetchInspections(propertyId)) }
-    catch (e) { showAppToast(e.message || 'Failed to load inspections', 'error') }
+    try {
+      const rows = await api.fetchInspections(propertyId)
+      if (!isCurrent()) return
+      setItems(rows)
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast(e.message || 'Failed to load inspections', 'error')
+    }
     setLoading(false)
   }
 
