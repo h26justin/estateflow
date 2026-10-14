@@ -836,6 +836,12 @@ export default function App() {
   const [companies,        setCompanies]        = useState([])
   const [companySettings,  setCompanySettings]   = useState({})  // companyId -> settings
   const [loading,     setLoading]      = useState(true)
+  // Monotonic ids guarding loadData / refreshData against stale and
+  // out-of-order responses; see the guards there.
+  const loadGenRef = useRef(0)
+  const refreshSeqRef = useRef(0)
+  const userIdRef = useRef(null)
+  userIdRef.current = user?.id ?? null
   // Set when the initial portfolio load fails — drives a dedicated error
   // screen with a Retry button instead of the misleading new-account
   // welcome zero-state. loadNonce re-runs loadData on Retry.
@@ -1351,6 +1357,15 @@ export default function App() {
 
   useEffect(()=>{
     if (!user) return
+    // Stale-response guard: a newer run (user switch, Retry, StrictMode
+    // double-invoke) flips `cancelled` on the previous one, which then bails
+    // at its next await instead of writing another user's / an older load's
+    // data over the current one. Bumping loadGenRef also discards any
+    // refreshData still in flight from before this load.
+    let cancelled = false
+    loadGenRef.current += 1
+    const live = () => !cancelled
+    const ifLive = (fn) => (v) => { if (live()) fn(v) }
     async function loadData() {
       setLoading(true)
       setLoadError(null)
@@ -1394,6 +1409,7 @@ export default function App() {
             .eq('user_id', user.id).single()
             .then(r => r.data).catch(() => null),
         ])
+        if (!live()) return
         // The signup form's profile upsert runs before email confirmation,
         // with no session, so RLS rejects it and confirmed users arrive with
         // no user_profiles row (whitneykolubayev, Sept 2026). Create it on
@@ -1410,14 +1426,15 @@ export default function App() {
         // Load deals separately and non-blocking — if it fails, the
         // dashboard widget falls back to "no data". Deals are not critical
         // to App boot.
-        api.fetchDeals(user.id).then(setDashboardDeals).catch(()=>setDashboardDeals([]))
+        api.fetchDeals(user.id).then(ifLive(setDashboardDeals)).catch(ifLive(()=>setDashboardDeals([])))
         // Load insurance policies for the dashboard widget. Non-blocking.
-        api.fetchInsurancePolicies().then(setInsurancePolicies).catch(()=>setInsurancePolicies([]))
+        api.fetchInsurancePolicies().then(ifLive(setInsurancePolicies)).catch(ifLive(()=>setInsurancePolicies([])))
         // Merge access by ID and by email
         const allAccess = [...accessById, ...accessByEmail.filter(a=>!accessById.find(b=>b.company_id===a.company_id))]
         // If user was found by email but not ID, update their user_id
         if (accessByEmail.length > 0 && accessById.length === 0) {
           await api.updateUserIdByEmail(user.email, user.id)
+          if (!live()) return
         }
         const access = allAccess
         const accessIds = access.map(a=>a.company_id)
@@ -1472,6 +1489,7 @@ export default function App() {
           api.checkIsTenant(user.id).catch(e => { logError('loadData:tenantDetection', e); return [] }),
           api.fetchMyCompanies().catch(()=>[]),
         ])
+        if (!live()) return
         if (permBatch) {
           const [permMap, flags, widgets, sections] = permBatch
           // Stamp an __owner map onto permissionsMap so canDo() can grant
@@ -1524,6 +1542,7 @@ export default function App() {
               api.fetchUserAccess(impersonatingUser.id),
               api.fetchUserAccessByEmail(impersonatingUser.email)
             ])
+            if (!live()) return
             const targetCompanyIds = new Set([
               ...cos.filter(c => c.owner_id === impersonatingUser.id).map(c => c.id),
               ...targetAccess.map(a => a.company_id),
@@ -1563,6 +1582,7 @@ export default function App() {
             supabase.from('company_settings').select('*').in('company_id', coIds)
               .then(r => r.data).catch(() => null),
           ])
+          if (!live()) return
         }
         // Track companies we hide due to suspension so we can show the
         // collaborator a clear banner ("your account owner hasn't paid")
@@ -1593,6 +1613,7 @@ export default function App() {
               const ownerIds = [...new Set(suspendedCollabCos.map(c => c.owner_id).filter(Boolean))]
               const { data: profiles } = await supabase
                 .from('user_profiles').select('user_id, email').in('user_id', ownerIds)
+              if (!live()) return
               const emailById = {}
               for (const p of (profiles || [])) emailById[p.user_id] = p.email
               suspendedCollabCos = suspendedCollabCos.map(c => ({ ...c, owner_email: emailById[c.owner_id] || null }))
@@ -1653,6 +1674,7 @@ export default function App() {
             // first tenant_profiles row.
             tenantRows = await api.checkIsTenant(user.id)
           } catch(e) { logError('loadData:registerTenantProfile', e) }
+          if (!live()) return
         } else if (urlParams.get('tenant_property')) {
           window.history.replaceState({}, '', window.location.pathname)
         }
@@ -1672,11 +1694,12 @@ export default function App() {
         api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
           if(count>0){
             api.fetchProperties().then(refreshed=>{
+              if (!live()) return
               const vis = devActive ? refreshed : refreshed.filter(p=>accessibleCompanyIds.has(p.company_id))
               setProperties(vis)
-            })
+            }).catch(e => logError('loadData:refreshAfterRentMonths', e))
           }
-        }).catch(()=>{})
+        }).catch(e => logError('loadData:ensureFutureRentMonths', e))
         // Company settings — fetched in bulk alongside subscriptions above.
         const settingsMap = {}
         const settingsById = new Map((settingsRows || []).map(s => [s.company_id, s]))
@@ -1691,11 +1714,13 @@ export default function App() {
         // Tenancy rows for HealthBadge's tenancy-end deduction — best-effort,
         // non-blocking (an empty map just means no deduction is applied).
         api.fetchAllTenancies(user.id).then(rows => {
+          if (!live()) return
           const byProp = {}
           for (const t of (rows || [])) if (t.property_id) byProp[t.property_id] = t
           setTenanciesByProp(byProp)
-        }).catch(() => {})
+        }).catch(e => logError('loadData:fetchAllTenancies', e))
       } catch(e) {
+        if (!live()) return
         // Data load failed — DO NOT fall back to showing everything, and do
         // NOT let the dashboard render the new-account welcome zero-state
         // for a paying customer with a transient network error. The render
@@ -1706,10 +1731,11 @@ export default function App() {
         setProperties([])
         setIsAdmin(false)
       } finally {
-        setLoading(false)
+        if (live()) setLoading(false)
       }
     }
     loadData()
+    return () => { cancelled = true }
     // Use user.id (stable across token refreshes), not the user object
     // (which gets a new reference on every supabase TOKEN_REFRESHED event
     // that fires on tab focus). Without this, the whole loadData runs
@@ -1722,13 +1748,21 @@ export default function App() {
 
   // Expose loadData for refresh after import
   const refreshData = useCallback(async () => {
+    // Out-of-order guard: only the most recent load/refresh may write, and
+    // never after the signed-in user has changed underneath it.
+    const seq = ++refreshSeqRef.current
+    const gen = loadGenRef.current
+    const uid = user?.id
+    const live = () => refreshSeqRef.current === seq && loadGenRef.current === gen && userIdRef.current === uid
     try {
       const [props, cos] = await Promise.all([
         api.fetchProperties(),
         api.fetchCompanies(),
       ])
+      if (!live()) return
       // Apply same access filter — use userAccess + owned
       const { data: ownedCos } = await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)
+      if (!live()) return
       const ownedIds = (ownedCos || []).map(c => c.id)
       const accessibleIds = new Set([...ownedIds, ...userAccess])
       if (isPlatformAdmin) {
@@ -1747,6 +1781,7 @@ export default function App() {
     } catch(e) {
       // Refresh failed — keep the data we already have on screen, but don't
       // swallow it silently: log it and tell the user.
+      if (!live()) return
       logError('refreshData', e)
       showToast('Refresh failed — showing last loaded data', 'error')
     }
