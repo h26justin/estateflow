@@ -115,7 +115,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
             <span>Expected by now {money(prog.expectedToDate)}</span>{prog.shortfall > 0 && <span style={{ color: T.red }}>Shortfall {money(prog.shortfall)}</span>}
             <span>Next due {fmtDate(prog.nextDue)}</span>
           </div>
-          {(plan.notes || plan.document_url) && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 6 }}>{plan.notes}{plan.document_url && <> · <a href={plan.document_url} target="_blank" rel="noreferrer" style={{ color: T.gold }}>agreement</a></>}</div>}
+          {(plan.notes || plan.document_url) && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 6 }}>{plan.notes}{plan.document_url && <> · <a href={plan.document_url} target="_blank" rel="noreferrer" style={{ color: T.goldText }}>agreement</a></>}</div>}
         </div>
       )}
 

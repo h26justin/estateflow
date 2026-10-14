@@ -158,7 +158,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       style={{ fontFamily:mono, fontSize:11, padding:'6px 16px', borderRadius:20, cursor:'pointer',
         border:`1px solid ${view===k ? T.gold : T.border}`,
         background: view===k ? T.gold+'22' : 'transparent',
-        color: view===k ? T.gold : T.muted }}>
+        color: view===k ? T.goldText : T.muted }}>
       {label}{count > 0 ? ` (${count})` : ''}
     </button>
   )
@@ -359,11 +359,11 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
         onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold+'88'}
         onMouseLeave={e=>e.currentTarget.style.borderColor=isExpanded?T.gold:hasUnread?T.gold+'44':T.border}>
         <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-          <div style={{ width:36, height:36, borderRadius:8, background:T.gold+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:T.gold }}><Icon name="mail" size={17}/></div>
+          <div style={{ width:36, height:36, borderRadius:8, background:T.gold+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:T.goldText }}><Icon name="mail" size={17}/></div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.gold }}>Message</span>
+                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.goldText }}>Message</span>
                 {hasUnread && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>{convo.unread_count} unread</span>}
               </div>
               <span style={{ fontFamily:mono, fontSize:10, color:T.muted, flexShrink:0 }}>

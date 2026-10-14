@@ -394,7 +394,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                 fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer',
                 border: `1px solid ${overdueMode === opt.v ? T.gold : T.border}`,
                 background: overdueMode === opt.v ? T.gold + '22' : 'transparent',
-                color: overdueMode === opt.v ? T.gold : T.muted,
+                color: overdueMode === opt.v ? T.goldText : T.muted,
                 fontWeight: overdueMode === opt.v ? 700 : 400,
               }}>
               {opt.l}
@@ -452,7 +452,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                       const isToday = toKey(year,month,d) === toKey(now.getFullYear(),now.getMonth()+1,now.getDate())
                       return (
                         <th key={d} style={{
-                          fontFamily:mono, fontSize:8, color:isToday?T.gold:isWeekend?T.muted:T.muted,
+                          fontFamily:mono, fontSize:8, color:isToday?T.goldText:isWeekend?T.muted:T.muted,
                           textAlign:'center', padding:'0 1px 4px', fontWeight:isToday?700:400,
                           minWidth:20
                         }}>

@@ -223,7 +223,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                     </span>
                   ))}
                 </div>
-                <span style={{ fontFamily: mono, fontSize: 11, color: T.gold, whiteSpace: 'nowrap' }}>Review →</span>
+                <span style={{ fontFamily: mono, fontSize: 11, color: T.goldText, whiteSpace: 'nowrap' }}>Review →</span>
               </div>
             ))}
           </div>
@@ -243,7 +243,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                 {showCo && p._co?.id && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
                     <span style={{ width: 3, height: 14, borderRadius: 2, background: p._co.color || T.gold }} />
-                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: p._co.color || T.gold }}>{p._co.abbr}</span>
+                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: p._co.color || T.goldText }}>{p._co.abbr}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{p._co.name}</span>
                   </div>
                 )}
@@ -396,7 +396,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                 fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
                 border: `1px solid ${sub === k ? T.gold : T.border}`,
                 background: sub === k ? T.gold + '22' : 'transparent',
-                color: sub === k ? T.gold : T.muted, fontWeight: sub === k ? 700 : 400,
+                color: sub === k ? T.goldText : T.muted, fontWeight: sub === k ? 700 : 400,
               }}>{l}</button>
           ))}
         </div>
@@ -409,13 +409,13 @@ export default function CompliancePage({ user, companies = [], properties = [], 
           {companies.length > 1 && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
               <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
-              {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => (
+              {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
                 <button key={c.id} onClick={() => setCoFilter(c.id)}
                   style={{
                     fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                     border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                     background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
-                    color: coFilter === c.id ? (c.color || T.gold) : T.muted, transition: 'all 0.18s',
+                    color: coFilter === c.id ? (c.color || T.goldText) : T.muted, transition: 'all 0.18s',
                   }}>{c.abbr || c.name}</button>
               ))}
             </div>
@@ -478,7 +478,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                           {showCo && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 10px 2px' }}>
                               <span style={{ width: 3, height: 14, borderRadius: 2, background: co.color || T.gold }} />
-                              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: co.color || T.gold }}>{co.abbr}</span>
+                              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: co.color || T.goldText }}>{co.abbr}</span>
                               <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{co.name}</span>
                             </div>
                           )}

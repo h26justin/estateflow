@@ -197,7 +197,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
         </div>
         <div style={{ flex: 1, minWidth: 160 }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>2030 MEES deadline</div>
-          <div style={{ fontFamily: mono, fontSize: 18, color: cd.passed ? T.gold : T.text, marginTop: 4 }}>
+          <div style={{ fontFamily: mono, fontSize: 18, color: cd.passed ? T.goldText : T.text, marginTop: 4 }}>
             {cd.passed ? 'Deadline passed' : `${cd.years}y ${cd.months}m left`}
           </div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
@@ -206,7 +206,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
         </div>
         <div style={{ textAlign: 'right', minWidth: 130 }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Est. cost to band {targetRating}</div>
-          <div style={{ fontFamily: mono, fontSize: 22, color: T.gold, marginTop: 4 }}>{fmt(total)}</div>
+          <div style={{ fontFamily: mono, fontSize: 22, color: T.goldText, marginTop: 4 }}>{fmt(total)}</div>
         </div>
       </div>
 
@@ -239,7 +239,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
               </div>
             )}
             {syncNote && (
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.gold, marginTop: 6 }}>{syncNote}</div>
+              <div style={{ fontFamily: mono, fontSize: 10, color: T.goldText, marginTop: 6 }}>{syncNote}</div>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -343,7 +343,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
             <tfoot>
               <tr style={{ borderTop: `2px solid ${T.border}`, background: T.bg }}>
                 <td colSpan={4} style={{ padding: '10px 14px', color: T.muted, textAlign: 'right' }}>Estimated total</td>
-                <td style={{ padding: '10px 14px', color: T.gold, textAlign: 'right' }}>{fmt(total)}</td>
+                <td style={{ padding: '10px 14px', color: T.goldText, textAlign: 'right' }}>{fmt(total)}</td>
               </tr>
             </tfoot>
           </table>

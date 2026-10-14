@@ -549,7 +549,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         </div>
 
         {(upload.step === 'parsing' || upload.step === 'saving') && (
-          <div style={{ textAlign: 'center', padding: 30, fontFamily: MONO, fontSize: 12, color: T.gold }}>{upload.step === 'parsing' ? 'Extracting text and reading every line…' : 'Writing lines to the register…'}</div>
+          <div style={{ textAlign: 'center', padding: 30, fontFamily: MONO, fontSize: 12, color: T.goldText }}>{upload.step === 'parsing' ? 'Extracting text and reading every line…' : 'Writing lines to the register…'}</div>
         )}
 
         {upload.step === 'failed' && (
@@ -811,7 +811,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                         {td(s.checked_by ? `${s.checked_by}${s.checked_at ? ' · ' + fmtDate(s.checked_at) : ''}` : '', { color: T.muted, max: 200, title: s.checked_by })}
                         {td(s.correction_required ? pill('Yes', T.amber) : <span style={{ color: T.faint }}>No</span>)}
                         {td(s.bank_payment_matched ? pill('Yes', T.green) : <span style={{ color: T.faint }}>No</span>)}
-                        {td(<span style={{ color: T.gold }}>{isSel ? 'Close' : 'Open'}</span>)}
+                        {td(<span style={{ color: T.goldText }}>{isSel ? 'Close' : 'Open'}</span>)}
                       </tr>
                     )
                   })}

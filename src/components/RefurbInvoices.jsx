@@ -224,7 +224,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
     <div>
       <div style={{ fontSize: 17, fontWeight: 700 }}>Import refurb invoice</div>
       <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 2 }}>
-        {['upload', 'details', 'allocate'].map((s, i) => <span key={s} style={{ color: step === s ? T.gold : T.muted }}>{i ? ' → ' : ''}{i + 1}. {{ upload: 'Upload', details: 'Check details', allocate: 'Allocate' }[s]}</span>)}
+        {['upload', 'details', 'allocate'].map((s, i) => <span key={s} style={{ color: step === s ? T.goldText : T.muted }}>{i ? ' → ' : ''}{i + 1}. {{ upload: 'Upload', details: 'Check details', allocate: 'Allocate' }[s]}</span>)}
       </div>
     </div>
     <button onClick={onCancel} style={btn(T)}>Cancel</button>
@@ -304,7 +304,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         {blocks.length > 0 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
           {blocks.map(g => {
             const all = g.items.every(p => selectedIds.has(p.id))
-            return <button key={g.tail} onClick={() => selectMany(g.items, !all)} style={{ ...btn(T), padding: '4px 10px', color: all ? T.gold : T.muted, borderColor: all ? T.gold : T.border }}>
+            return <button key={g.tail} onClick={() => selectMany(g.items, !all)} style={{ ...btn(T), padding: '4px 10px', color: all ? T.goldText : T.muted, borderColor: all ? T.gold : T.border }}>
               {all ? '✓ ' : '+ '}Whole block: {g.tail} ({g.items.length})
             </button>
           })}
@@ -412,7 +412,7 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
           <td style={{ ...td, fontFamily: mono }}>{(inv.refurb_invoice_allocations || []).length}</td>
           <td style={num}>{inv.doc_kind === 'credit_note' ? '−' : ''}{fmt2(allocationBase(inv))}</td>
           <td style={num}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(paid)}</td>
-          <td style={{ ...num, color: out > 0 ? T.gold : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
+          <td style={{ ...num, color: out > 0 ? T.goldText : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
           <td style={td}><InvoiceStatusChip status={st} T={T} /></td>
         </tr>
       ))}</tbody>

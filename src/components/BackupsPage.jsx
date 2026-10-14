@@ -142,7 +142,7 @@ export default function BackupsPage({ user, showToast }) {
 
       {/* Info bar */}
       <div style={{background:T.gold+'11',border:`1px solid ${T.gold}33`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:mono,fontSize:11,color:T.text,lineHeight:1.7}}>
-        <strong style={{color:T.gold}}>How backups work:</strong> Automatic backups run every Monday and are kept for the 12 most recent. You can create manual backups anytime, and download any backup as JSON for safekeeping or restoration support.
+        <strong style={{color:T.goldText}}>How backups work:</strong> Automatic backups run every Monday and are kept for the 12 most recent. You can create manual backups anytime, and download any backup as JSON for safekeeping or restoration support.
       </div>
 
       {/* Backup list */}
@@ -186,7 +186,7 @@ export default function BackupsPage({ user, showToast }) {
                 <div>
                   <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:4,
                     background: b.type==='automatic' ? T.blue+'22' : b.type==='manual' ? T.gold+'22' : T.muted+'22',
-                    color:     b.type==='automatic' ? T.blue      : b.type==='manual' ? T.gold      : T.muted}}>
+                    color:     b.type==='automatic' ? T.blue      : b.type==='manual' ? T.goldText      : T.muted}}>
                     {b.type === 'automatic' ? 'Auto' : b.type === 'manual' ? 'Manual' : b.type}
                   </span>
                 </div>
@@ -196,7 +196,7 @@ export default function BackupsPage({ user, showToast }) {
                 </div>
                 <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
                   <button onClick={()=>download(b)} disabled={downloading===b.id}
-                    style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'5px 12px',borderRadius:6,cursor:downloading===b.id?'wait':'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold}}>
+                    style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'5px 12px',borderRadius:6,cursor:downloading===b.id?'wait':'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText}}>
                     {downloading===b.id?'…':'↓ Download'}
                   </button>
                   <button onClick={()=>remove(b)} disabled={deleting===b.id}
@@ -225,7 +225,7 @@ export default function BackupsPage({ user, showToast }) {
           If you've lost data or need to roll back to a previous state, download the backup you want to restore from and email it to us with details of what you need restored.
         </div>
         <a href="mailto:hello@ownproperly.com?subject=Restore backup request"
-          style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 18px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.gold,textDecoration:'none',display:'inline-block'}}>
+          style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 18px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.goldText,textDecoration:'none',display:'inline-block'}}>
           Contact support for restore
         </a>
       </div>

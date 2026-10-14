@@ -94,7 +94,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
               {SEVERITY_LABEL[triage.severity] || triage.severity?.toUpperCase()}
             </span>
             <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>·</span>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.gold }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: T.goldText }}>
               {TRADE_LABEL[triage.suggested_trade] || triage.suggested_trade}
             </span>
             <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>·</span>

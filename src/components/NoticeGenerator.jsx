@@ -250,7 +250,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
                     padding: '8px 10px', borderRadius: 8,
                     border: `1.5px solid ${type === opt.key ? T.gold : T.border}`,
                     background: type === opt.key ? T.gold + '14' : 'transparent',
-                    color: type === opt.key ? T.gold : T.text,
+                    color: type === opt.key ? T.goldText : T.text,
                     cursor: 'pointer', fontWeight: 700,
                   }}>{opt.label}</button>
               ))}
@@ -368,7 +368,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
                     padding: '12px 10px', borderRadius: 10,
                     border: `1.5px solid ${type === opt.key ? T.gold : T.border}`,
                     background: type === opt.key ? T.gold + '14' : 'transparent',
-                    color: type === opt.key ? T.gold : T.text,
+                    color: type === opt.key ? T.goldText : T.text,
                     cursor: 'pointer', transition: 'all 0.15s',
                   }}>
                   <div style={{ fontWeight: 700 }}>{opt.label}</div>

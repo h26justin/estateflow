@@ -20,6 +20,7 @@ const BORDER  = '#D8D4CB'   // input hairline (warm)
 const MUTED   = '#5C6670'   // secondary text + labels (AA on paper & white)
 const GOLD    = '#B8902F'   // light accent
 const GOLD_D  = '#CBA64E'   // accent on the slate panel
+const GOLD_T  = '#7A5E1C'   // gold as text on paper/white (5.5:1, WCAG AA)
 
 const CSS = `
   .lp-scope *{box-sizing:border-box;}
@@ -30,7 +31,7 @@ const CSS = `
   .lp-btn{font-family:${SANS};font-weight:700;background:${INK};color:white;border:none;border-radius:10px;padding:13px 20px;font-size:15px;width:100%;cursor:pointer;transition:background 0.18s,opacity 0.18s;}
   .lp-btn:hover:not(:disabled){background:#0F1A22;}
   .lp-btn:disabled{opacity:0.55;cursor:not-allowed;}
-  .lp-link{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:${GOLD};cursor:pointer;font-weight:500;}
+  .lp-link{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:${GOLD_T};cursor:pointer;font-weight:500;}
   .lp-link:hover{text-decoration:underline;text-underline-offset:3px;}
   .lp-page{min-height:100vh;display:flex;font-family:${SANS};color:${INK};}
   .lp-brandpanel{flex:1.1;background:${SLATE};color:${PAPER};padding:48px 56px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
@@ -295,7 +296,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
           {/* aria-live so screen readers announce auth errors / success
               messages as they appear; without this they were silent. */}
           {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#C5483B', background:'#FAEAE8', border:'1px solid #C5483B33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-          {success&&<div role="status" aria-live="polite" style={{ fontFamily:MONO, fontSize:12, color:'#1F9D63', background:'#E8F4EC', border:'1px solid #1F9D6333', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
+          {success&&<div role="status" aria-live="polite" style={{ fontFamily:MONO, fontSize:12, color:'#167A4C', background:'#E8F4EC', border:'1px solid #167A4C33', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
 
           <button type="submit" className="lp-btn" disabled={loading}
             style={{ marginTop:6, ...(branding ? { background: brandAccent } : null) }}>
@@ -305,7 +306,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 
         <div style={{ textAlign:'center', fontSize:13, color:MUTED, marginTop:28 }}>
           {mode==='login' ? <>New to Properly? </> : <>Already have an account? </>}
-          <button className="lp-link" style={{ fontSize:13, color:GOLD, fontWeight:600 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
+          <button className="lp-link" style={{ fontSize:13, color:GOLD_T, fontWeight:600 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
             {mode==='login' ? 'Start a 14-day free trial' : 'Sign in'}
           </button>
         </div>

@@ -148,7 +148,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
           {stage === 'scanning' && (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               {previewUrl && <img src={previewUrl} alt="" style={{ maxWidth: '60%', maxHeight: 200, borderRadius: 10, marginBottom: 16, objectFit: 'contain' }}/>}
-              <div style={{ fontFamily: MONO, fontSize: 12, color: T.gold, marginBottom: 6 }}>Reading receipt…</div>
+              <div style={{ fontFamily: MONO, fontSize: 12, color: T.goldText, marginBottom: 6 }}>Reading receipt…</div>
               <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>Usually takes 5-10 seconds</div>
             </div>
           )}

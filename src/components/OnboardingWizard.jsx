@@ -30,7 +30,7 @@ const buildCSS = (T) => `
   .ob-btn:hover:not(:disabled){background:${T.gold}dd;}
   .ob-btn:disabled{background:${T.border};color:${T.muted};cursor:not-allowed;}
   .ob-btn-ghost{background:transparent;border:1.5px solid ${T.border};color:${T.text};font-weight:600;}
-  .ob-btn-ghost:hover:not(:disabled){background:transparent;border-color:${T.gold};color:${T.gold};}
+  .ob-btn-ghost:hover:not(:disabled){background:transparent;border-color:${T.gold};color:${T.goldText};}
   .ob-btn-ghost:disabled{background:transparent;}
   .ob-choice{font-family:'DM Mono',monospace;background:${T.surface};border:1.5px solid ${T.border};color:${T.text};border-radius:14px;padding:20px 22px;cursor:pointer;text-align:left;width:100%;transition:border-color 0.18s, transform 0.12s, box-shadow 0.18s;display:block;}
   .ob-choice:hover{border-color:${T.gold};transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.10);}

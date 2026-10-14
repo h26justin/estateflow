@@ -89,10 +89,16 @@ function daysUntil(dateStr) {
 }
 
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
-const CAT_COLORS = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#9B59B6', maintenance:'#E0943A' }
+// Category accents double as text colour (chips, "View report →"), so each
+// theme gets a variant that clears WCAG AA 4.5:1 on its card background.
+// The dark set is the original palette (all ≥4.7:1 on #1B242D) bar purple;
+// the light set is the same hues darkened (≥5.5:1 on #FAF9F6).
+const CAT_COLORS_DARK  = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#B98AD0', maintenance:'#E0943A' }
+const CAT_COLORS_LIGHT = { tax:'#2D6FA8', performance:'#167A4C', finance:'#7A5E1C', compliance:'#7B3FA0', maintenance:'#A34A12' }
 
 export default function ReportsPage({ properties, companies, companySettings, user, selectedReportId, onSelectReport }) {
-  const { T } = useTheme()
+  const { T, darkMode } = useTheme()
+  const CAT_COLORS = darkMode ? CAT_COLORS_DARK : CAT_COLORS_LIGHT
   // Local view state: 'catalogue' shows the grid of reports, 'report'
   // shows a specific report's content. Driven by the selectedReportId
   // prop (which is URL-synced) when provided — falls back to local state
@@ -334,7 +340,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
 
         {/* Category filter pills */}
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:24}}>
-          <button onClick={()=>setCatFilter('all')} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter==='all'?T.gold:T.border}`,background:catFilter==='all'?T.gold+'22':'transparent',color:catFilter==='all'?T.gold:T.muted}}>All reports</button>
+          <button onClick={()=>setCatFilter('all')} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter==='all'?T.gold:T.border}`,background:catFilter==='all'?T.gold+'22':'transparent',color:catFilter==='all'?T.goldText:T.muted}}>All reports</button>
           {Object.entries(CAT_LABELS).map(([k,l])=>(
             <button key={k} onClick={()=>setCatFilter(k)} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter===k?CAT_COLORS[k]:T.border}`,background:catFilter===k?CAT_COLORS[k]+'22':'transparent',color:catFilter===k?CAT_COLORS[k]:T.muted}}>{l}</button>
           ))}
@@ -480,7 +486,7 @@ function StatCards({ items, T }) {
       {items.map((item,i)=>(
         <div key={i} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
           <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.label}</div>
-          <div style={{fontSize:22,fontWeight:700,color:item.color||T.gold,letterSpacing:'-0.02em'}}>{item.value}</div>
+          <div style={{fontSize:22,fontWeight:700,color:item.color||T.goldText,letterSpacing:'-0.02em'}}>{item.value}</div>
           {item.sub && <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:3}}>{item.sub}</div>}
         </div>
       ))}
@@ -603,7 +609,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
   return (
     <div style={{display:'flex',gap:8}}>
       <button onClick={exportPDF} disabled={exporting}
-        style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold,cursor:exporting?'wait':'pointer',fontWeight:700}}>
+        style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText,cursor:exporting?'wait':'pointer',fontWeight:700}}>
         {exporting?'Generating...':'↓ PDF'}
       </button>
       <button onClick={exportCSV} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>↓ CSV</button>
@@ -2604,7 +2610,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
               {[['paid','paid'],['due','due'],['missed','missed'],['nc','not collectible'],['backfill','need amount']].filter(([k])=>g.counts[k]>0).map(([k,l])=>(
                 <span key={k} style={{fontFamily:mono,fontSize:11,fontWeight:600,color:countColor[k]}}>{g.counts[k]} {l}</span>
               ))}
-              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(g.received)}</span>
+              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>{fmt(g.received)}</span>
               {g.owed>0 && <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.red}}>{fmt(g.owed)} owed</span>}
             </span>
           </div>
@@ -2627,7 +2633,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
                     <span style={{marginLeft:'auto',display:'flex',gap:10}}>
                       {gr.missed>0&&<span style={{color:T.red,fontWeight:700}}>{gr.missed} missed</span>}
                       {gr.due>0&&<span style={{color:T.amber,fontWeight:700}}>{gr.due} due</span>}
-                      <span style={{color:T.gold,fontWeight:700}}>{fmt(gr.received)}</span>
+                      <span style={{color:T.goldText,fontWeight:700}}>{fmt(gr.received)}</span>
                     </span>
                   </div>
                 )}
@@ -2654,7 +2660,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
                       <span style={{display:'flex',gap:8,fontFamily:mono,fontSize:10}}>
                         {[['paid','paid'],['due','due'],['missed','missed'],['nc','n/c']].map(([k,l])=><span key={k} style={{color:c.counts[k]>0?countColor[k]:T.faint}}>{c.counts[k]} {l}</span>)}
                       </span>
-                      <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(c.received)}</span>
+                      <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>{fmt(c.received)}</span>
                       {c.shortfallYear>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.shortfallYear)} short in {model.year}</span>}
                       {c.shortfallTenancy>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.shortfallTenancy)} this tenancy</span>}
                       {c.let && !c.stl && <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{c.tenancyStart ? `Tenancy since ${c.tenancyStart}` : 'Tenancy start not recorded'}</span>}
@@ -2911,7 +2917,7 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
     <>
       <StatCards T={T} items={[
         {label:'Below band C',value:d.belowC.length,color:d.belowC.length>0?T.red:T.green},
-        {label:'Est. cost to reach C',value:d.belowC.length?fmtCostRange({lo:d.costLo,hi:d.costHi}):'—',color:T.gold,
+        {label:'Est. cost to reach C',value:d.belowC.length?fmtCostRange({lo:d.costLo,hi:d.costHi}):'—',color:T.goldText,
           sub:d.anyUnknownCost?'+ items without a published cost':(d.notReachable>0?`${d.notReachable} can't reach C from listed works`:undefined)},
         {label:'At C or better',value:d.atOrAbove.length,color:T.green},
         {label:'No EPC on record',value:d.missing.length,color:d.missing.length>0?T.amber:T.green},
@@ -2935,7 +2941,7 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
             </div>
             <div style={{textAlign:'right'}}>
               <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Est. to band C</div>
-              <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.gold}}>
+              <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.goldText}}>
                 {plan.measures.length?fmtCostRange({lo:plan.costLo,hi:plan.costHi}):'—'}{plan.hasUnknownCost && plan.measures.length ? ' +' : ''}
               </div>
             </div>

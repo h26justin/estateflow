@@ -932,7 +932,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
           </div>
           {properties.length > 0 && (
             <details style={{ marginTop: 6 }}>
-              <summary style={{ fontFamily: mono, fontSize: 11, color: T.gold, cursor: 'pointer', userSelect: 'none' }}>
+              <summary style={{ fontFamily: mono, fontSize: 11, color: T.goldText, cursor: 'pointer', userSelect: 'none' }}>
                 Per-property overrides ({properties.length} properties)
               </summary>
               <div style={{ display:'grid', gap: 6, marginTop: 10, paddingLeft: 8, borderLeft: `2px solid ${T.border}` }}>

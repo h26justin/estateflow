@@ -260,7 +260,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
           <div key={s.label}>
             <div style={{display:'flex', justifyContent:'space-between', marginBottom:5}}>
               <span style={{fontFamily:mono, fontSize:11, color:T.muted}}>{s.label}</span>
-              <span style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.gold}}>
+              <span style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.goldText}}>
                 {s.prefix||''}{s.fmt ? parseInt(s.val).toLocaleString('en-GB') : s.val}{s.suffix||''}
               </span>
             </div>
@@ -591,12 +591,12 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       {companies.length > 1 && (
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
           <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
-          {[{id:'all',abbr:'All',color:T.gold},...companies,{id:'',abbr:'Unassigned',color:T.muted}].map(c=>(
+          {[{id:'all',abbr:'All',color:T.goldText},...companies,{id:'',abbr:'Unassigned',color:T.muted}].map(c=>(
             <button key={c.id||'unassigned'} onClick={()=>setCoFilter(c.id)}
               style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,
                 background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',
-                color:coFilter===c.id?(c.color||T.gold):T.muted,
+                color:coFilter===c.id?(c.color||T.goldText):T.muted,
                 transition:'all 0.18s'}}>
               {c.abbr || c.name}
             </button>
@@ -684,12 +684,12 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                       </div>
                       <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>openDeal(deal)}
-                          style={{fontFamily:mono,fontSize:10,padding:'4px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>
+                          style={{fontFamily:mono,fontSize:10,padding:'4px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>
                           Edit →
                         </button>
                         <button onClick={()=>setCompareIds(prev=>inCompare?prev.filter(id=>id!==deal.id):prev.length<3?[...prev,deal.id]:prev)}
                           style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',
-                            border:`1px solid ${inCompare?T.gold:T.border}`,background:inCompare?T.gold+'22':'transparent',color:inCompare?T.gold:T.muted}}>
+                            border:`1px solid ${inCompare?T.gold:T.border}`,background:inCompare?T.gold+'22':'transparent',color:inCompare?T.goldText:T.muted}}>
                           {inCompare?'Compare':'Compare'}
                         </button>
                         <button onClick={()=>setCopyTarget(deal)}
@@ -769,7 +769,7 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
                   )}
                 </div>
                 <div style={{textAlign:'right',color:T.muted,fontSize:11}}>{fmt(cf.headline || 0)}</div>
-                <div style={{textAlign:'right',color:T.gold,fontWeight:700,fontSize:11}}>{fmt(cf.cashOut || 0)}</div>
+                <div style={{textAlign:'right',color:T.goldText,fontWeight:700,fontSize:11}}>{fmt(cf.cashOut || 0)}</div>
               </div>
             )
           })}
@@ -804,7 +804,7 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
                   <div style={{fontSize:9,color:T.muted}}>{p.status || '—'}{p.address && p.address !== p.name ? ` · ${p.address}` : ''}</div>
                 </div>
                 <div style={{textAlign:'right',color:T.muted,fontSize:11}}>{fmt(rcf.headline || 0)}</div>
-                <div style={{textAlign:'right',color:T.gold,fontWeight:700,fontSize:11}}>{fmt(rcf.unpaid || 0)}</div>
+                <div style={{textAlign:'right',color:T.goldText,fontWeight:700,fontSize:11}}>{fmt(rcf.unpaid || 0)}</div>
               </div>
             )
           })}
@@ -854,7 +854,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}}
           onClick={() => setCollapsed(false)}>
           <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-            <span style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cashflow</span>
+            <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cashflow</span>
             <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(agg.totalHeadline)}</span>
             <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>headline · {fmt(agg.totalCashOut)} cash out · {agg.totalCount} {agg.totalCount===1?'item':'items'}</span>
           </div>
@@ -869,7 +869,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
       {/* Header row: title + view toggle + collapse */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}}>
         <div>
-          <div style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Cashflow Across Active Deals</div>
+          <div style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Cashflow Across Active Deals</div>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>Aggregate cash commitments. Updates as you change deal stages and dates.</div>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
@@ -878,7 +878,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
               style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',
                 border:`1px solid ${view===v?T.gold:T.border}`,
                 background:view===v?T.gold+'22':'transparent',
-                color:view===v?T.gold:T.muted}}>
+                color:view===v?T.goldText:T.muted}}>
               {l}
             </button>
           ))}
@@ -898,7 +898,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
         </div>
         <div>
           <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Cash out of pocket</div>
-          <div style={{fontFamily:mono,fontSize:22,fontWeight:700,color:T.gold,letterSpacing:'-0.02em'}}>{fmt(agg.totalCashOut)}</div>
+          <div style={{fontFamily:mono,fontSize:22,fontWeight:700,color:T.goldText,letterSpacing:'-0.02em'}}>{fmt(agg.totalCashOut)}</div>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>After mortgage / bridge financing</div>
         </div>
       </div>
@@ -941,7 +941,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
                     <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
                   </div>
                   <div style={{textAlign:'right'}}>
-                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.gold}}>{fmt(row.cashOut)}</div>
+                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.goldText}}>{fmt(row.cashOut)}</div>
                     <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
                   </div>
                 </div>
@@ -954,7 +954,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
           {agg.propertyRefurbCount > 0 && (
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
               <span>Refurb figures are the agreed price less payments logged on each refurb.{agg.propertyRefurbUndated > 0 ? ` ${agg.propertyRefurbUndated} ${agg.propertyRefurbUndated===1?'has':'have'} no target finish date.` : ''}</span>
-              <a href="#/refurbs" style={{color:T.gold,fontStyle:'normal',fontWeight:700,textDecoration:'none'}}>Open Refurbs →</a>
+              <a href="#/refurbs" style={{color:T.goldText,fontStyle:'normal',fontWeight:700,textDecoration:'none'}}>Open Refurbs →</a>
             </div>
           )}
         </div>
@@ -987,7 +987,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
                     <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
                   </div>
                   <div style={{textAlign:'right'}}>
-                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.gold}}>{fmt(row.cashOut)}</div>
+                    <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.goldText}}>{fmt(row.cashOut)}</div>
                     <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
                   </div>
                 </div>
@@ -1105,7 +1105,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const tabStyle = (k) => ({
     fontFamily:mono, fontSize:11, padding:'7px 14px', borderRadius:8, border:'none',
     cursor:'pointer', background: tab===k ? T.gold+'22' : 'transparent',
-    color: tab===k ? T.gold : T.muted, fontWeight: tab===k ? 700 : 400,
+    color: tab===k ? T.goldText : T.muted, fontWeight: tab===k ? 700 : 400,
   })
 
   return (
@@ -1243,7 +1243,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',
                       border:`1px solid ${form.deal_type===t?T.gold:T.border}`,
                       background:form.deal_type===t?T.gold+'22':'transparent',
-                      color:form.deal_type===t?T.gold:T.muted}}>
+                      color:form.deal_type===t?T.goldText:T.muted}}>
                     {DEAL_TYPE_LABELS[t]}
                   </button>
                 ))}
@@ -1304,7 +1304,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   </div>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontFamily:mono,fontSize:12,color:T.gold}}>
+                  <span style={{fontFamily:mono,fontSize:12,color:T.goldText}}>
                     {form.stamp_duty_override != null ? '' : '≈ '}{fmt(sd)}
                   </span>
                   {form.stamp_duty_override == null
@@ -1353,7 +1353,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                         style={{fontFamily:mono,fontSize:11,padding:'4px 12px',borderRadius:20,cursor:'pointer',
                           border:`1px solid ${(form.mortgage_type||'interest_only')===k?T.gold:T.border}`,
                           background:(form.mortgage_type||'interest_only')===k?T.gold+'22':'transparent',
-                          color:(form.mortgage_type||'interest_only')===k?T.gold:T.muted}}>
+                          color:(form.mortgage_type||'interest_only')===k?T.goldText:T.muted}}>
                         {l}
                       </button>
                     ))}
@@ -1395,7 +1395,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                         style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                           border:`1px solid ${(form.hmo_rent_mode||'same')===k?T.gold:T.border}`,
                           background:(form.hmo_rent_mode||'same')===k?T.gold+'22':'transparent',
-                          color:(form.hmo_rent_mode||'same')===k?T.gold:T.muted}}>
+                          color:(form.hmo_rent_mode||'same')===k?T.goldText:T.muted}}>
                         {l}
                       </button>
                     ))}
@@ -1687,7 +1687,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${(form.ownership_type||'personal')===k?T.gold:T.border}`,
                     background:(form.ownership_type||'personal')===k?T.gold+'22':'transparent',
-                    color:(form.ownership_type||'personal')===k?T.gold:T.muted}}>
+                    color:(form.ownership_type||'personal')===k?T.goldText:T.muted}}>
                   {l}
                 </button>
               ))}
@@ -1838,7 +1838,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px',marginBottom:20}}>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
           <span style={{fontFamily:mono,fontSize:12,color:T.text,fontWeight:700}}>Purchase progress</span>
-          <span style={{fontFamily:mono,fontSize:12,color:T.gold}}>{completed} / {enabled.length} complete</span>
+          <span style={{fontFamily:mono,fontSize:12,color:T.goldText}}>{completed} / {enabled.length} complete</span>
         </div>
         <div style={{background:T.border,borderRadius:4,height:8,marginBottom:14}}>
           <div style={{height:'100%',borderRadius:4,background:T.gold,width:`${progress}%`,transition:'width 0.4s'}}/>
@@ -1854,7 +1854,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
           {deal.target_completion_date && (
             <div>
               <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Days remaining</span>
-              <div style={{fontFamily:mono,fontSize:16,fontWeight:700,color:T.gold,marginTop:4}}>
+              <div style={{fontFamily:mono,fontSize:16,fontWeight:700,color:T.goldText,marginTop:4}}>
                 {Math.max(0, Math.ceil((new Date(deal.target_completion_date)-new Date())/(1000*60*60*24)))} days
               </div>
             </div>
@@ -1897,7 +1897,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
                   <span style={{fontFamily:mono,fontSize:12,color:m.completed?T.muted:T.text,textDecoration:m.completed?'line-through':'none'}}>
                     {m.label}
                   </span>
-                  {m.is_required && <span style={{fontFamily:mono,fontSize:9,color:T.gold,marginLeft:6,opacity:0.7}}>★</span>}
+                  {m.is_required && <span style={{fontFamily:mono,fontSize:9,color:T.goldText,marginLeft:6,opacity:0.7}}>★</span>}
                   {isSdlt(m) && <span style={{fontFamily:mono,fontSize:9,background:T.red+'22',color:T.red,padding:'2px 6px',borderRadius:4,marginLeft:8}}>14 day deadline</span>}
                   {isInsurance(m) && <span style={{fontFamily:mono,fontSize:9,background:T.amber+'22',color:T.amber,padding:'2px 6px',borderRadius:4,marginLeft:8}}>Required at exchange</span>}
                 </div>
@@ -1995,7 +1995,7 @@ function ContactsTab({ dealId, userId, showToast }) {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
         <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
           {[['deal','This deal'],['book','Address book']].map(([k,l])=>(
-            <button key={k} onClick={()=>setAbView(k)} style={{fontFamily:mono,fontSize:11,padding:'7px 16px',border:'none',cursor:'pointer',background:abView===k?T.gold+'22':'transparent',color:abView===k?T.gold:T.muted,fontWeight:abView===k?700:400}}>{l}</button>
+            <button key={k} onClick={()=>setAbView(k)} style={{fontFamily:mono,fontSize:11,padding:'7px 16px',border:'none',cursor:'pointer',background:abView===k?T.gold+'22':'transparent',color:abView===k?T.goldText:T.muted,fontWeight:abView===k?700:400}}>{l}</button>
           ))}
         </div>
         <div style={{display:'flex',gap:8}}>
@@ -2016,7 +2016,7 @@ function ContactsTab({ dealId, userId, showToast }) {
             <div key={c.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 20px'}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:8}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <div style={{width:36,height:36,borderRadius:18,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:14,fontWeight:700,color:T.gold}}>
+                  <div style={{width:36,height:36,borderRadius:18,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:14,fontWeight:700,color:T.goldText}}>
                     {(c.name?.[0]||'?').toUpperCase()}
                   </div>
                   <div>
@@ -2031,7 +2031,7 @@ function ContactsTab({ dealId, userId, showToast }) {
               </div>
               <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:mono,fontSize:11,color:T.muted}}>
                 {c.phone&&<a href={`tel:${c.phone}`} style={{color:T.muted,textDecoration:'none'}}>📞 {c.phone}</a>}
-                {c.email&&<a href={`mailto:${c.email}`} style={{color:T.gold,textDecoration:'none'}}>✉ {c.email}</a>}
+                {c.email&&<a href={`mailto:${c.email}`} style={{color:T.goldText,textDecoration:'none'}}>✉ {c.email}</a>}
                 {c.notes&&<span>📝 {c.notes}</span>}
               </div>
             </div>
@@ -2039,7 +2039,7 @@ function ContactsTab({ dealId, userId, showToast }) {
 
           {editing&&(
             <div style={{background:T.card,border:`1px solid ${T.gold}44`,borderRadius:12,padding:'20px 22px'}}>
-              <div style={{fontFamily:mono,fontSize:10,color:T.gold,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>{editing==='new'?'New contact':'Edit contact'}</div>
+              <div style={{fontFamily:mono,fontSize:10,color:T.goldText,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>{editing==='new'?'New contact':'Edit contact'}</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
                 <div><label style={label}>Role</label>
                   <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))} style={inp}>
@@ -2080,7 +2080,7 @@ function ContactsTab({ dealId, userId, showToast }) {
           <div style={{display:'grid',gap:10}}>
             {filteredBook.map(entry=>(
               <div key={entry.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-                <div style={{width:36,height:36,borderRadius:18,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:14,fontWeight:700,color:T.gold,flexShrink:0}}>
+                <div style={{width:36,height:36,borderRadius:18,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:14,fontWeight:700,color:T.goldText,flexShrink:0}}>
                   {(entry.name?.[0]||'?').toUpperCase()}
                 </div>
                 <div style={{flex:1}}>
@@ -2092,7 +2092,7 @@ function ContactsTab({ dealId, userId, showToast }) {
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
-                  <button onClick={()=>addFromBook(entry)} style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold}}>
+                  <button onClick={()=>addFromBook(entry)} style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>
                     + Add to deal
                   </button>
                   <button onClick={()=>deleteFromBook(entry.id)} style={{fontFamily:mono,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
@@ -2246,7 +2246,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
       style={{border:`2px dashed ${dragging ? T.gold : 'transparent'}`, borderRadius:14, padding:dragging ? 10 : 0, transition:'all 0.15s', position:'relative'}}>
       {dragging && (
         <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:T.gold+'11', borderRadius:14, pointerEvents:'none', zIndex:2}}>
-          <span style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.gold}}>Drop to add to this deal</span>
+          <span style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.goldText}}>Drop to add to this deal</span>
         </div>
       )}
 
@@ -2339,7 +2339,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
                   <Icon name={docIcon(doc)} size={18} color={T.gold}/>
                   <div style={{flex:1, minWidth:0}}>
                     <button onClick={() => openOriginal(doc)}
-                      style={{background:'none', border:'none', padding:0, fontSize:13, fontWeight:600, color:T.gold, cursor:'pointer', textAlign:'left', maxWidth:'100%', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', display:'block'}}>
+                      style={{background:'none', border:'none', padding:0, fontSize:13, fontWeight:600, color:T.goldText, cursor:'pointer', textAlign:'left', maxWidth:'100%', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', display:'block'}}>
                       {doc.name}
                     </button>
                     <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginTop:2}}>{meta(doc)}</div>
@@ -2428,7 +2428,7 @@ function CompareModal({ deals, companies, onClose }) {
               return (
                 <div key={d.id} style={{padding:'12px 16px',background:T.card,borderRadius:'8px 8px 0 0',margin:'0 4px',textAlign:'center'}}>
                   <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:4}}>{d.name}</div>
-                  {co&&<div style={{fontFamily:mono,fontSize:10,color:co.color||T.gold}}>{co.abbr} {co.name}</div>}
+                  {co&&<div style={{fontFamily:mono,fontSize:10,color:co.color||T.goldText}}>{co.abbr} {co.name}</div>}
                 </div>
               )
             })}
@@ -2438,7 +2438,7 @@ function CompareModal({ deals, companies, onClose }) {
                   {row.label}
                 </div>
                 {deals.map(d=>(
-                  <div key={d.id+row.label} style={{padding:'10px 16px',margin:'0 4px',background:T.card,borderBottom:`1px solid ${T.border}`,textAlign:'center',fontFamily:mono,fontSize:row.highlight?14:12,fontWeight:row.highlight?700:400,color:row.color?row.color(d):row.highlight?T.gold:T.text}}>
+                  <div key={d.id+row.label} style={{padding:'10px 16px',margin:'0 4px',background:T.card,borderBottom:`1px solid ${T.border}`,textAlign:'center',fontFamily:mono,fontSize:row.highlight?14:12,fontWeight:row.highlight?700:400,color:row.color?row.color(d):row.highlight?T.goldText:T.text}}>
                     {row.fn(d)}
                   </div>
                 ))}
@@ -2484,7 +2484,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
       <div style={{ display:'flex', gap:16, marginBottom:20, flexWrap:'wrap' }}>
         {[
           { label:'Total deals', value: deals.length, color: T.text },
-          { label:'Pipeline value', value: fmt(totalValue), color: T.gold },
+          { label:'Pipeline value', value: fmt(totalValue), color: T.goldText },
           { label:'Active', value: deals.filter(d=>!['dead','completed'].includes(d.status||'analysing')).length, color: '#4B8FE0' },
           { label:'Completed', value: byStage.completed?.length||0, color: STATUS_CFG.completed.color },
         ].map(k => (
@@ -2524,7 +2524,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                       </div>
                       {/* Company badge */}
                       {co && (
-                        <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.gold, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
+                        <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.goldText, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
                       )}
                       <DealProgressLine deal={deal} T={T} compact/>
                       {/* Price */}

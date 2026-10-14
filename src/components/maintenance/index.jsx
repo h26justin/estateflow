@@ -184,10 +184,10 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
           </div>
         </div>
         <div style={{textAlign:'right',flexShrink:0}}>
-          {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.gold}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
+          {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
           {job.quoted_cost&&job.actual_cost&&<div style={{fontFamily:MONO,fontSize:9,color:T.muted}}>Quoted {fmt(job.quoted_cost)}</div>}
           <div style={{display:'flex',gap:6,marginTop:6,justifyContent:'flex-end'}}>
-            {canEdit && <button onClick={()=>onEdit(job)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>}
+            {canEdit && <button onClick={()=>onEdit(job)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>}
             {canEdit && <button onClick={()=>onDelete(job.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Remove</button>}
           </div>
         </div>

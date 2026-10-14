@@ -578,7 +578,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
                     <td style={{padding:'8px 8px',textAlign:'right',color:T.green}}>{p.annualRent>0?fmt(p.annualRent):'—'}</td>
                     <td style={{padding:'8px 8px',textAlign:'right',color:p.expenses>0?T.red:T.faint}}>{p.expenses>0?fmt(p.expenses):'—'}</td>
                     <td style={{padding:'8px 8px',textAlign:'right',fontWeight:700,color:p.netProfit>=0?T.green:T.red}}>{p.annualRent>0?fmt(p.netProfit):'—'}</td>
-                    <td style={{padding:'8px 8px',textAlign:'right',color:T.gold}}>{p.yield>0?p.yield.toFixed(1)+'%':'—'}</td>
+                    <td style={{padding:'8px 8px',textAlign:'right',color:T.goldText}}>{p.yield>0?p.yield.toFixed(1)+'%':'—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -980,7 +980,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           </div>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <button onClick={exportPDF} disabled={exporting || rows.length === 0}
-              style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:exporting?'wait':'pointer', border:`1px solid ${T.gold}`, background:T.gold+'22', color:T.gold, fontWeight:700 }}>
+              style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:exporting?'wait':'pointer', border:`1px solid ${T.gold}`, background:T.gold+'22', color:T.goldText, fontWeight:700 }}>
               {exporting ? 'Generating…' : 'Export PDF'}
             </button>
             <button onClick={onClose}
@@ -999,7 +999,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
             </div>
             <div>
               <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>New monthly</div>
-              <div style={{ fontSize:20, fontWeight:700, color:T.gold }}>{fmt(totals.next)}</div>
+              <div style={{ fontSize:20, fontWeight:700, color:T.goldText }}>{fmt(totals.next)}</div>
             </div>
             <div>
               <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Monthly Δ</div>
@@ -1016,7 +1016,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
             <div>
               <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Yield {yieldBasis === 'value' ? '(on value)' : '(on cost)'}</div>
               <div style={{ fontSize:14, fontWeight:700, color:T.text }}>
-                {currentYield.toFixed(2)}% <span style={{ color:T.muted }}>→</span> <span style={{ color:T.gold }}>{newYield.toFixed(2)}%</span>
+                {currentYield.toFixed(2)}% <span style={{ color:T.muted }}>→</span> <span style={{ color:T.goldText }}>{newYield.toFixed(2)}%</span>
               </div>
             </div>
           </div>
@@ -1042,7 +1042,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                 style={{ fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:20, cursor:'pointer',
                   border:`1px solid ${Math.abs(globalPct - p.value) < 0.05 ? T.gold : T.border}`,
                   background: Math.abs(globalPct - p.value) < 0.05 ? T.gold+'22' : 'transparent',
-                  color: Math.abs(globalPct - p.value) < 0.05 ? T.gold : T.muted,
+                  color: Math.abs(globalPct - p.value) < 0.05 ? T.goldText : T.muted,
                   fontWeight: Math.abs(globalPct - p.value) < 0.05 ? 700 : 400 }}>
                 {p.label}
               </button>
@@ -1065,7 +1065,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
               style={{ fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer',
                 border:`1px solid ${scope === opt.k ? T.gold : T.border}`,
                 background: scope === opt.k ? T.gold+'22' : 'transparent',
-                color: scope === opt.k ? T.gold : T.muted, fontWeight: scope === opt.k ? 700 : 400 }}>
+                color: scope === opt.k ? T.goldText : T.muted, fontWeight: scope === opt.k ? 700 : 400 }}>
               {opt.l}
             </button>
           ))}
@@ -1073,7 +1073,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
             style={{ fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer', marginLeft:'auto',
               border:`1px solid ${showOverrides ? T.gold : T.border}`,
               background: showOverrides ? T.gold+'22' : 'transparent',
-              color: showOverrides ? T.gold : T.muted }}>
+              color: showOverrides ? T.goldText : T.muted }}>
             {showOverrides ? '− Hide overrides' : '+ Show overrides'}
           </button>
         </div>
@@ -1101,7 +1101,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                 <div style={{ fontFamily:mono, fontSize:12, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   {r.p.name}
                   {overrides[r.p.id] !== undefined && (
-                    <span style={{ marginLeft:8, fontSize:9, color:T.gold, fontWeight:700 }}>·OVERRIDE</span>
+                    <span style={{ marginLeft:8, fontSize:9, color:T.goldText, fontWeight:700 }}>·OVERRIDE</span>
                   )}
                 </div>
                 <div>
@@ -1110,7 +1110,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                   </span>
                 </div>
                 <div style={{ fontFamily:mono, fontSize:12, color:T.text, textAlign:'right' }}>{fmt(r.current)}</div>
-                <div style={{ fontFamily:mono, fontSize:12, fontWeight:700, color:T.gold, textAlign:'right' }}>{fmt(r.next)}</div>
+                <div style={{ fontFamily:mono, fontSize:12, fontWeight:700, color:T.goldText, textAlign:'right' }}>{fmt(r.next)}</div>
                 <div style={{ fontFamily:mono, fontSize:12, fontWeight:700, color: r.delta >= 0 ? T.green : T.red, textAlign:'right' }}>
                   {r.delta >= 0 ? '+' : ''}{fmt(r.delta)}
                 </div>

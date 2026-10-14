@@ -105,7 +105,7 @@ export default function CustomizeDashModal({
           {['sections','widgets'].map(t => (
             <button key={t} onClick={()=>setTab(t)}
               style={{fontFamily:mono,fontSize:11,padding:'8px 14px',cursor:'pointer',background:'transparent',border:'none',
-                color: tab === t ? T.gold : T.muted,
+                color: tab === t ? T.goldText : T.muted,
                 borderBottom: tab === t ? `2px solid ${T.gold}` : '2px solid transparent',
                 fontWeight: tab === t ? 700 : 400,
                 marginBottom: -1,

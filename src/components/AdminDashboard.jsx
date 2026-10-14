@@ -156,7 +156,7 @@ export default function AdminDashboard({ onClose, user }) {
   // Style helpers
   const tabBtn = k => ({
     fontFamily:mono,fontSize:11,padding:'8px 18px',borderRadius:8,border:'none',cursor:'pointer',
-    background:tab===k?T.gold+'22':'transparent',color:tab===k?T.gold:T.muted,fontWeight:tab===k?700:400,
+    background:tab===k?T.gold+'22':'transparent',color:tab===k?T.goldText:T.muted,fontWeight:tab===k?700:400,
   })
   const card = (accent) => ({
     background:T.card,border:`1px solid ${T.border}`,borderRadius:14,
@@ -176,7 +176,7 @@ export default function AdminDashboard({ onClose, user }) {
           <div style={{display:'flex',alignItems:'center',gap:16}}>
             <ChromeLogo height={26}/>
             <div style={{width:1,height:24,background:T.border}}/>
-            <span style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
+            <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
             {metrics.flagged>0&&<span style={{fontFamily:mono,fontSize:10,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}>⚑ {metrics.flagged} flagged</span>}
           </div>
           <button onClick={onClose} style={{fontFamily:mono,fontSize:12,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 16px',cursor:'pointer'}}>← Back to app</button>
@@ -276,7 +276,7 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
     {label:'ARR (est.)',            value:fmt(metrics.mrrStripe*12), sub:'annualised run rate',     color:T.text},
     {label:'Active accounts',       value:metrics.active,         sub:'paying subscribers',         color:T.green},
     {label:'On trial',              value:metrics.trialing,       sub:'not yet paying',             color:'#4B8FE0'},
-    {label:'Free tier',             value:metrics.free,           sub:'manually granted',           color:T.gold},
+    {label:'Free tier',             value:metrics.free,           sub:'manually granted',           color:T.goldText},
     {label:'Past due',              value:metrics.pastDue,        sub:'payment failed',             color:T.red},
     {label:'Total accounts',        value:metrics.total,          sub:'all companies',              color:T.text},
     {label:'Total users',           value:metrics.users,          sub:'registered accounts',        color:T.text},
@@ -314,7 +314,7 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
         <div style={{display:'flex',gap:8,alignItems:'flex-end',height:120}}>
           {monthlySignups.map((m,i)=>(
             <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-              <div style={{fontFamily:mono,fontSize:10,color:T.gold,fontWeight:700}}>{m.count||''}</div>
+              <div style={{fontFamily:mono,fontSize:10,color:T.goldText,fontWeight:700}}>{m.count||''}</div>
               <div style={{width:'100%',background:T.gold+(m.count>0?'':'11'),borderRadius:'4px 4px 0 0',
                 height:`${Math.max((m.count/maxSignups)*90,m.count>0?4:0)}px`,transition:'height 0.3s'}}/>
               <div style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{m.label}</div>
@@ -375,12 +375,12 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
               <div style={{fontFamily:mono,fontSize:12,color:props>0?T.green:T.muted}}>{props>0?props:'—'} {props>0&&<span style={{fontFamily:mono,fontSize:9,color:T.muted}}>billed</span>}</div>
               <div style={{fontFamily:mono,fontSize:12,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr):'—'}</div>
               <div style={{display:'flex',alignItems:'center',gap:6}} onClick={e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}}>
-                <span style={{fontFamily:mono,fontSize:10,color:co.is_free_tier?T.gold:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
+                <span style={{fontFamily:mono,fontSize:10,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
                 <div style={{width:36,height:20,borderRadius:10,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',opacity:saving===co.id?0.5:1,transition:'background 0.2s'}}>
                   <div style={{position:'absolute',top:2,left:co.is_free_tier?18:2,width:16,height:16,borderRadius:8,background:'white',transition:'left 0.2s'}}/>
                 </div>
               </div>
-              <div style={{fontFamily:mono,fontSize:11,color:T.gold,textAlign:'right'}}>View →</div>
+              <div style={{fontFamily:mono,fontSize:11,color:T.goldText,textAlign:'right'}}>View →</div>
             </div>
           )
         })}
@@ -561,7 +561,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Free tier</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontFamily:mono,fontSize:11,color:co.is_free_tier?T.gold:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
+                  <span style={{fontFamily:mono,fontSize:11,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
                   <div onClick={()=>requireConfirm(co.is_free_tier?'Remove free tier':'Grant free tier', co.is_free_tier?`Remove free tier from "${co.name}". They will need an active subscription.`:`Grant free tier to "${co.name}". They will not be billed.`, async()=>{ onToggleFreeTier() })} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.is_free_tier?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
@@ -884,7 +884,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:2,gap:2}}>
           {[['by-company','By company'],['by-user','By user']].map(([k,l])=>(
             <button key={k} onClick={()=>setView(k)}
-              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.gold:T.muted,fontWeight:view===k?700:400}}>
+              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.goldText:T.muted,fontWeight:view===k?700:400}}>
               {l}
             </button>
           ))}
@@ -921,7 +921,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                 {/* Company header row */}
                 <div onClick={()=>toggleExpand(co.id)}
                   style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto auto',gap:14,padding:'14px 20px',cursor:'pointer',alignItems:'center',background:isOpen?T.bg:'transparent'}}>
-                  <span style={{fontFamily:mono,fontSize:12,color:isOpen?T.gold:T.faint,fontWeight:700}}>
+                  <span style={{fontFamily:mono,fontSize:12,color:isOpen?T.goldText:T.faint,fontWeight:700}}>
                     {isOpen ? '▼' : '▶'}
                   </span>
                   <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}>
@@ -1072,7 +1072,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               return (
                 <div key={u.id} style={{display:'grid',gridTemplateColumns:'1.4fr 200px 100px 110px 280px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-                    <div style={{width:34,height:34,borderRadius:17,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:13,fontWeight:700,color:orphan?T.amber:T.gold,flexShrink:0}}>
+                    <div style={{width:34,height:34,borderRadius:17,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:13,fontWeight:700,color:orphan?T.amber:T.goldText,flexShrink:0}}>
                       {userInitial(u)}
                     </div>
                     <div style={{minWidth:0,flex:1}}>
@@ -1080,7 +1080,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                         <span style={{fontSize:13,fontWeight:600,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                           {name || u.email}
                         </span>
-                        {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.gold,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
+                        {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.goldText,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
                         {orphan&&<span style={{fontFamily:mono,fontSize:9,color:T.amber,background:T.amber+'22',padding:'1px 6px',borderRadius:4}}>orphan</span>}
                       </div>
                       <div style={{fontFamily:mono,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -1174,7 +1174,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               <div style={{fontSize:32,marginBottom:10}}>🔑</div>
               <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Send password reset?</h3>
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
-                {"Send a password reset email to "}<strong style={{color:T.gold}}>{resetConfirm.email}</strong>.
+                {"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.
               </p>
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -1266,7 +1266,7 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
         </div>
       </div>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>
-        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:700}}>Role</button>}
+        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText,fontWeight:700}}>Role</button>}
         {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Access</button>}
         {onReset && <button onClick={onReset} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset</button>}
         {onRemove && <button onClick={onRemove} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.amber}44`,background:'transparent',color:T.amber}}>Remove</button>}
@@ -1301,7 +1301,7 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
       <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:460,padding:'28px',border:`1px solid ${T.border}`}}>
         <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Create company for user</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.gold}}>{target.email}</strong></p>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.goldText}}>{target.email}</strong></p>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
@@ -1390,7 +1390,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
 
         {source && target && (
           <div style={{background:T.bg,borderRadius:10,padding:'12px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,lineHeight:1.7}}>
-            {(source.real_property_count||0)} properties will move from <strong style={{color:source.color||T.gold}}>{source.name}</strong> into <strong style={{color:target.color||T.gold}}>{target.name}</strong>, then <strong style={{color:T.red}}>{source.name}</strong> will be deleted.
+            {(source.real_property_count||0)} properties will move from <strong style={{color:source.color||T.goldText}}>{source.name}</strong> into <strong style={{color:target.color||T.goldText}}>{target.name}</strong>, then <strong style={{color:T.red}}>{source.name}</strong> will be deleted.
           </div>
         )}
 
@@ -1437,7 +1437,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
       <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
         <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Transfer ownership</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.gold}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.goldText}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
@@ -1462,7 +1462,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
 
         {selectedUser && (
           <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text}}>
-            New owner: <strong style={{color:T.gold}}>{selectedUser.email}</strong>
+            New owner: <strong style={{color:T.goldText}}>{selectedUser.email}</strong>
           </div>
         )}
 
@@ -1522,7 +1522,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
       <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
         <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Add user access</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.gold}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.goldText}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
@@ -1537,7 +1537,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
                 const n = userName(u)
                 return (
                   <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:10}}>
-                    <div style={{width:28,height:28,borderRadius:14,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.gold,flexShrink:0}}>
+                    <div style={{width:28,height:28,borderRadius:14,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.goldText,flexShrink:0}}>
                       {userInitial(u)}
                     </div>
                     <div style={{minWidth:0,flex:1}}>
@@ -1552,7 +1552,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
 
         {selectedUser && (
           <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span>Grant access to: <strong style={{color:T.gold}}>{selectedUser.email}</strong></span>
+            <span>Grant access to: <strong style={{color:T.goldText}}>{selectedUser.email}</strong></span>
             <button onClick={()=>{setSelectedUser(null);setSearch('')}} style={{background:'none',border:'none',color:T.muted,fontFamily:mono,fontSize:10,cursor:'pointer'}}>change</button>
           </div>
         )}
@@ -1629,7 +1629,7 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
         <div style={{marginBottom:20}}>
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Manage company access</h2>
           <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.6}}>
-            Grant or revoke access for <span style={{color:T.gold,fontWeight:700}}>{targetUser.email}</span>.
+            Grant or revoke access for <span style={{color:T.goldText,fontWeight:700}}>{targetUser.email}</span>.
             Owned companies cannot be removed here.
           </p>
         </div>

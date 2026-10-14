@@ -186,10 +186,21 @@ const STATUS_CFG = {
   refurb:       {label:'Refurbing',    bg:'#0A1A2B',fg:'#4B8FE0',dot:'#4B8FE0'},
   sold:         {label:'Sold',         bg:'#1A1A2B',fg:'#9B8AC2',dot:'#9B8AC2'},
 }
+// Pill *text* colours that clear WCAG AA (4.5:1) on the pill's own tint. The
+// STATUS_CFG hues are tuned for the dark theme; on light cards several fall to
+// 2.4–3.6:1 (Purchased, Vacant), so light mode uses a darkened sibling hue.
+// Dark mode only needs the two that miss on the #1B242D card.
+const STATUS_TEXT_LIGHT = {
+  rented:'#167A4C', short_term_let:'#6E45B8', notice_given:'#8A5600', let_agreed:'#7A5E1C',
+  on_rental_market:'#1E6F7C', vacant:'#B8392D', purchased:'#9A4A10', refurb:'#2A65A0', sold:'#5E5390',
+}
+const STATUS_TEXT_DARK = { vacant:'#EC7B7B', short_term_let:'#A98AE6' }
 const Badge = memo(({status}) => {
-  const { T } = useTheme()
-  const c = STATUS_CFG[status]||STATUS_CFG.purchased
-  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:c.fg,fontSize:11,fontFamily:MONO,fontWeight:600}}>
+  const { darkMode } = useTheme()
+  const key = STATUS_CFG[status] ? status : 'purchased'
+  const c = STATUS_CFG[key]
+  const fg = (darkMode ? STATUS_TEXT_DARK[key] : STATUS_TEXT_LIGHT[key]) || c.fg
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:fg,fontSize:11,fontFamily:MONO,fontWeight:600}}>
     <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
   </span>
 })
@@ -232,7 +243,7 @@ const BreakdownRow = memo(({item, T}) => {
   }
   const inner = (
     <>
-      <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:clickable&&hover?T.gold:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
+      <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
         {item.indent&&<span style={{color:T.border}}>└</span>}
         <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.label}</span>
         {clickable&&<Icon name="arrow-right" size={10} color={hover?T.gold:T.faint}/>}
@@ -300,11 +311,11 @@ const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavi
               {(navLabel||'VIEW').toUpperCase()}<Icon name="arrow-right" size={11}/>
             </button>
           )}
-          {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.gold:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
+          {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.goldText:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
         </span>
       </div>
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
-      <div style={{fontSize:22,fontWeight:700,color:accent||T.gold,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
+      <div style={{fontSize:22,fontWeight:700,color:accent||T.goldText,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
       {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
       {/* Optional 2-column strip of small label/value pairs on the card face,
           for cards whose story needs a few figures at a glance (e.g. the last
@@ -792,7 +803,7 @@ function PortfolioModellerWidget({ properties = [] }) {
           <div key={s.label}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
               <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{s.label}</span>
-              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>
+              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>
                 {s.prefix||''}{s.fmt?parseInt(s.val).toLocaleString('en-GB'):s.val}{s.suffix||''}
               </span>
             </div>
@@ -1052,7 +1063,7 @@ export default function App() {
   label{font-family:${MONO};font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
   .btn{font-family:${SANS};font-weight:600;border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;transition:all 0.18s;letter-spacing:0;}
   .btn-gold{background:${T.gold};color:#1C2830;}.btn-gold:hover{background:${T.gold}dd;}
-  .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.gold};}
+  .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.goldText};}
   .btn-danger{background:${T.red};color:#fff;border:1px solid ${T.red};}.btn-danger:hover{filter:brightness(0.92);}
   .card{background:${T.card};border:1px solid ${T.border};border-radius:14px;}
   .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
@@ -1098,7 +1109,7 @@ export default function App() {
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px);}
   .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
   .tab{font-family:${SANS};font-weight:500;font-size:13px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0;}
-  .tab.active{background:${T.border};color:${T.gold};}.tab:hover{color:${T.text};}
+  .tab.active{background:${T.border};color:${T.goldText};}.tab:hover{color:${T.text};}
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media(max-width:700px){.g2{grid-template-columns:1fr}}
 `
@@ -2480,7 +2491,7 @@ export default function App() {
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:10,height:10,borderRadius:'50%',background:c.color||T.gold}}/>
                 <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
-                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.gold,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
+                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.goldText,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
                 {holding&&<span style={{fontFamily:mono,fontSize:9,fontWeight:700,color:T.muted,border:`1px solid ${T.border}`,padding:'2px 8px',borderRadius:4,letterSpacing:'0.05em'}}
                   title="Holding company — owns companies, not properties">HOLDING</span>}
               </div>
@@ -2537,7 +2548,7 @@ export default function App() {
                         </div>
                         {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                         {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                            <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                            <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
                             <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
                           </div>}
                         {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
@@ -2594,7 +2605,7 @@ export default function App() {
                     fontFamily:SANS,fontSize:14,fontWeight:active?700:500,transition:'background 0.15s,color 0.15s'}}
                   onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
                   onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>
-                  <span style={{display:'flex',flexShrink:0,color:active?T.gold:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
+                  <span style={{display:'flex',flexShrink:0,color:active?T.goldText:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
                   {!railCollapsed && <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.label}</span>}
                 </button>
                 </Fragment>
@@ -2813,7 +2824,7 @@ export default function App() {
               )
             })()}
             <NotificationCentre/>
-            {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.gold,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
+            {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.goldText,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
             {/* "⋯ More" menu — houses pages that aren't worth their own tab
                 (Feedback, Sign Out, etc.). Keeps primary nav focused on
                 daily-use pages. */}
@@ -2910,8 +2921,8 @@ export default function App() {
                     background:active?T.gold+'18':'none',
                     border:'none',borderLeft:active?`3px solid ${T.gold}`:'3px solid transparent',
                     cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}>
-                  <span style={{width:24,display:'flex',justifyContent:'center',color:active?T.gold:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
-                  <span style={{fontSize:14,fontWeight:active?600:400,color:active?T.gold:T.text}}>{n.label}</span>
+                  <span style={{width:24,display:'flex',justifyContent:'center',color:active?T.goldText:T.muted}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={19}/>:<span style={{fontSize:18}}>{n.icon}</span>}</span>
+                  <span style={{fontSize:14,fontWeight:active?600:400,color:active?T.goldText:T.text}}>{n.label}</span>
                 </button>
                 </Fragment>
               )})}
@@ -3099,7 +3110,7 @@ export default function App() {
                         style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                           border:`1px solid ${sel?(c.color||T.gold):T.border}`,
                           background:sel?(c.color||T.gold)+'22':'transparent',
-                          color:sel?(c.color||T.gold):T.muted}}>
+                          color:sel?(c.color||T.goldText):T.muted}}>
                         {sel?'✓ ':''}{c.name}
                       </button>
                     )
@@ -3182,7 +3193,7 @@ export default function App() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                             <span style={{ fontSize: 16 }}>✨</span>
                             <h2 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>AI Portfolio Insights</h2>
-                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.gold + '22', color: T.gold }}>INVESTOR</span>
+                            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.gold + '22', color: T.goldText }}>INVESTOR</span>
                           </div>
                           <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.7, marginBottom: 12 }}>
                             Get Claude-generated weekly observations about under-rented units, expiring certs, high LTVs and refinance opportunities. Available on the £5/property Investor tier.
@@ -3273,7 +3284,7 @@ export default function App() {
                   portfolio_value: { icon:'home', label:'Portfolio Value', render: () => (
                     <StatCard icon="home" label="Portfolio Value" value={fmt(stats.totalEstVal)} sub={`Invested ${fmt(stats.totalInvested)}`} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
-                        {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.gold},
+                        {label:'Estimated portfolio value', value:fmt(stats.totalEstVal), color:T.goldText},
                         {label:'Total invested (purchase + refurb)', value:fmt(stats.totalInvested)},
                         {label:'Purchase prices', value:fmt(dashProps.reduce((s,p)=>s+(p.purchase_price||0),0)), indent:true},
                         {label:'Refurb costs', value:fmt(dashProps.reduce((s,p)=>s+(p.refurb_cost||0),0)), indent:true},
@@ -3306,7 +3317,7 @@ export default function App() {
                       <StatCard icon="pound" label="Monthly Rental Income" value={fmt(headline)} sub={sub} accent={T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                         strip={[
                           {label:'Contracted', value:`${fmt(stats.monthlyRent)}/mo`},
-                          {label:`${next.label.slice(0,3)} forecast`, value:fmt(next.expected), color:T.gold},
+                          {label:`${next.label.slice(0,3)} forecast`, value:fmt(next.expected), color:T.goldText},
                           {label:'Annualised', value:`${fmt(stats.monthlyRent*12)}/yr`},
                           {label:'Rented', value:`${stats.rented} of ${stats.total}`},
                         ]}
@@ -3315,7 +3326,7 @@ export default function App() {
                           {label:'Contracted monthly rent', value:fmt(stats.monthlyRent), note:'Sum of the monthly rent on every rented or notice-given property'},
                           {label:'Expected vs contracted', value:`${gap >= 0 ? '+' : '-'}${fmt(Math.abs(gap))}`, color:Math.abs(gap) < 1 ? T.muted : gap > 0 ? T.green : T.amber},
                           {label:'Annualised (contracted)', value:fmt(stats.monthlyRent*12), color:T.green},
-                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.gold, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
+                          {label:`${next.label} forecast`, value:fmt(next.expected), color:T.goldText, separator:true, note:next.periods === 0 ? 'No rent periods generated for next month yet' : undefined},
                           {label:'Rented units', value:`${stats.rented} of ${stats.total}`, separator:true},
                           {label:'Occupancy rate', value:`${Math.round(stats.occupancy.rate)}%`, color:T.green, note:'Occupied units over lettable units (refurb and purchased left out)'},
                           ...companyStats.map(c=>({label:`${c.name} · expected ${cur.label.slice(0,3)}`, value:fmt(cur.byCompany[c.id]?.expected || 0), color:c.color, separator:c===companyStats[0]})),
@@ -3466,10 +3477,10 @@ export default function App() {
                           {label:'Next 30 days', value:fmt(cashAgg.byBucket['0-30']?.cashOut || 0), color:(cashAgg.byBucket['0-30']?.cashOut || 0) > 0 ? T.amber : T.muted, note:`${cashAgg.byBucket['0-30']?.count || 0} item(s) needing cash this month`},
                           {label:'31-60 days',   value:fmt(cashAgg.byBucket['31-60']?.cashOut || 0), color:T.text},
                           {label:'61-90 days',   value:fmt(cashAgg.byBucket['61-90']?.cashOut || 0), color:T.text},
-                          {label:'Subtotal: due in next 90 days', value:fmt(next90), color:next90 > 0 ? T.gold : T.muted, separator:true, note:`${next90Count} item(s) with completion or refurb dates set`},
+                          {label:'Subtotal: due in next 90 days', value:fmt(next90), color:next90 > 0 ? T.goldText : T.muted, separator:true, note:`${next90Count} item(s) with completion or refurb dates set`},
                           {label:'Later (90+ days)', value:fmt(cashAgg.byBucket['91+']?.cashOut || 0), color:T.muted, separator:true},
                           {label:'Pipeline (no date set)', value:fmt(pipelineCash), color:T.muted, note:'Deals still being analysed/offered. Set expected completion dates to move these into the dated buckets above.'},
-                          {label:'Total cash out across all live items', value:fmt(cashAgg.totalCashOut), color:T.gold, separator:true},
+                          {label:'Total cash out across all live items', value:fmt(cashAgg.totalCashOut), color:T.goldText, separator:true},
                           ...(cashAgg.propertyRefurbUndated > 0 ? [{label:`${cashAgg.propertyRefurbUndated} refurb${cashAgg.propertyRefurbUndated===1?'':'s'} without a target finish date`, value:'⚠', color:T.amber, note:'Set a target finish on the Refurbs page to place it in the 90-day view'}] : []),
                         ]}
                       />
@@ -3530,7 +3541,7 @@ export default function App() {
                           {label:'31-60 days',   value:fmt(sumP(bucketed.d60)), color:T.text, note:bucketed.d60.length > 0 ? `${bucketed.d60.length} ${bucketed.d60.length === 1 ? 'policy' : 'policies'}` : null},
                           {label:'61-90 days',   value:fmt(sumP(bucketed.d90)), color:T.text, note:bucketed.d90.length > 0 ? `${bucketed.d90.length} ${bucketed.d90.length === 1 ? 'policy' : 'policies'}` : null},
                           {label:'Later',        value:fmt(sumP(bucketed.later)), color:T.muted, note:`${bucketed.later.length} ${bucketed.later.length === 1 ? 'policy' : 'policies'} beyond 90 days`, separator:true},
-                          {label:'Total annual premium (all active)', value:fmt(totalAnnual), color:T.gold, separator:true},
+                          {label:'Total annual premium (all active)', value:fmt(totalAnnual), color:T.goldText, separator:true},
                         ]}
                       />
                     )
@@ -3651,7 +3662,7 @@ export default function App() {
                                 {[{l:'Properties',v:c.count},{l:'Rented',v:`${c.rented}/${c.count}`},{l:'Monthly Income',v:fmt(c.monthlyRent)},{l:'Arrears',v:fmt(c.arrears),red:c.arrears>0}].map((item,i)=>(
                                   <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
                                     <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
-                                    <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.gold}}>{item.v}</div>
+                                    <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.goldText}}>{item.v}</div>
                                   </div>
                                 ))}
                               </div>
@@ -3783,8 +3794,8 @@ export default function App() {
             {portfolioTab==='map'&&<>
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
                 <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
-                {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
                 ))}
               </div>
               <PropertyMap
@@ -3813,8 +3824,8 @@ export default function App() {
                   style={{position:'absolute',right:6,background:'transparent',border:'none',cursor:'pointer',color:T.muted,fontSize:14,lineHeight:1,padding:'2px 4px'}}>×</button>}
               </div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                {[{id:'all',abbr:'All',color:T.gold},...companies].map(c=>(
-                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.gold):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
+                {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
+                  <button key={c.id} onClick={()=>setCoFilter(c.id)} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr}</button>
                 ))}
                 <div style={{width:1,background:T.border,margin:'0 2px'}}/>
                 {['all', ...PROPERTY_STATUSES].map(f=>(
@@ -4154,7 +4165,7 @@ export default function App() {
                     {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
                       <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
                         <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
-                        <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</div>
+                        <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.gold?T.goldText:item.green?T.green:T.text}}>{item.v}</div>
                       </div>
                     ))}
                   </div>
@@ -4174,7 +4185,7 @@ export default function App() {
                         {section.items.map((item,i)=>(
                           <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
                             <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
-                            <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:item.gold?T.gold:item.green?T.green:T.text}}>{item.v}</span>
+                            <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:item.gold?T.goldText:item.green?T.green:T.text}}>{item.v}</span>
                           </div>
                         ))}
                       </div>
@@ -4222,11 +4233,11 @@ export default function App() {
                             marginLeft:'auto',marginBottom:6,
                             fontFamily:MONO,fontSize:11,fontWeight:700,
                             padding:'5px 12px',borderRadius:6,
-                            border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,
+                            border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.goldText,
                             cursor:'pointer',display:'flex',alignItems:'center',gap:6,
                           }}>
                           Tenant Referencing
-                          <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.gold}}>EARLY</span>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.goldText}}>EARLY</span>
                         </button>
                       </div>
                       {subTab==='details'      &&<><TenancyPanel property={selected} showToast={showToast} canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive} onChanged={t=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,tenancies:t}:p))}/><TenancyTab propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/></>}
@@ -4306,7 +4317,7 @@ export default function App() {
                   })().map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8,marginBottom:6}}>
                       <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
-                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.gold,display:'inline-flex',alignItems:'center',gap:2}}>
+                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.goldText,display:'inline-flex',alignItems:'center',gap:2}}>
                         {item.v}
                         {item.explain && <CalcExplain {...item.explain}/>}
                       </span>
@@ -4464,7 +4475,7 @@ export default function App() {
             <button key={key} aria-current={active?'page':undefined} onClick={()=>{setView(key);setSelectedId(null)}}
               style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
                 alignItems:'center',gap:2,padding:'4px 8px',flex:1,
-                color:active?T.gold:T.muted,fontFamily:MONO}}>
+                color:active?T.goldText:T.muted,fontFamily:MONO}}>
               <span style={{display:'flex'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:<span style={{fontSize:20}}>{n.icon}</span>}</span>
               <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>{n.short}</span>
             </button>
@@ -4566,7 +4577,7 @@ function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis })
               </div>
               <div>
                 <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
-                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.gold}}>{gy.toFixed(1)}%</div>
+                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{gy.toFixed(1)}%</div>
               </div>
               {compliancePill(cfg)}
             </div>
@@ -4706,7 +4717,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
           {showCompanyHeader&&co&&(
             <div style={{display:'flex',alignItems:'center',gap:10,marginTop:idx>0?16:0,marginBottom:8}}>
               <div style={{width:3,height:18,background:co.color||T.gold,borderRadius:2,flexShrink:0}}/>
-              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:co.color||T.gold}}>{co.abbr}</span>
+              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:co.color||T.goldText}}>{co.abbr}</span>
               <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
               <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
                 {renderItems.filter(x=>x.company_id===co.id).length} properties
@@ -4773,7 +4784,7 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
               })()}
               {p.arrears>0&&<div style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}><Icon name="alert-triangle" size={13}/> {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
-                <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.gold}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
+                <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
               </div>
               <Badge status={p.status}/>
@@ -4940,7 +4951,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           <button onClick={onDayTracker}
             title="Day-by-day view"
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
-              border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold,whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:6}}>
+              border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText,whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:6}}>
             <Icon name="calendar" size={13}/> {isMobile ? 'Day' : 'Day view'}
           </button>
         </div>
@@ -4962,7 +4973,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
           {isMobile ? (
             <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} aria-label="Filter by property status"
               style={{fontFamily:MONO,fontSize:11,padding:'6px 10px',borderRadius:20,border:`1px solid ${statusFilter==='all'?T.border:T.gold}`,
-                background:statusFilter==='all'?'transparent':T.gold+'22',color:statusFilter==='all'?T.muted:T.gold,cursor:'pointer'}}>
+                background:statusFilter==='all'?'transparent':T.gold+'22',color:statusFilter==='all'?T.muted:T.goldText,cursor:'pointer'}}>
               <option value="all">All Status</option>
               {PROPERTY_STATUSES.map(f=><option key={f} value={f}>{PROPERTY_STATUS_LABELS[f] || f}</option>)}
             </select>
@@ -4982,7 +4993,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
         <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:14,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <span>{shownProps.length} of {trackedProps.length} properties match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
           <button type="button" onClick={clearSearchAndFilters}
-            style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.gold,padding:0,textDecoration:'underline'}}>Clear</button>
+            style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.goldText,padding:0,textDecoration:'underline'}}>Clear</button>
         </div>
       )}
 
@@ -5073,7 +5084,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                 style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                   border:`1px solid ${sel?(c.color||T.gold):T.border}`,
                   background:sel?(c.color||T.gold)+'22':'transparent',
-                  color:sel?(c.color||T.gold):T.muted}}>
+                  color:sel?(c.color||T.goldText):T.muted}}>
                 {sel?'✓ ':''}{c.name}
               </button>
             )
@@ -5117,7 +5128,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                             try { const r = await api.seedTenanciesFromProperties(c.id, properties)
                               showToast?.(`${r.created} draft tenanc${r.created===1?'y':'ies'} created${r.skipped?`, ${r.skipped} already had one`:''}${r.failed.length?`, ${r.failed.length} failed`:''}. Confirm each in the property's Tenancy tab.`)
                               onRefresh?.() } catch(err) { showToast?.(err.message||'Seeding failed','error') } }}
-                          style={{fontFamily:MONO,fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.gold,cursor:'pointer'}}
+                          style={{fontFamily:MONO,fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.goldText,cursor:'pointer'}}
                           title="Create a draft tenancy for every rented unit from its property fields">
                           Seed {missing} tenanc{missing===1?'y':'ies'}
                         </button>
@@ -5139,7 +5150,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                     {x.v} {x.l}
                   </span>
                 ))}
-                <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(totals.income)}</span>
+                <span style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.goldText}}>{fmt(totals.income)}</span>
                 <span style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{isOpen?'▲':'▼'}</span>
               </div>
             </div>
@@ -5213,7 +5224,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                             <span style={{ fontSize: 10, color: T.muted }}>
                               {globalYear ? `${globalYear} revenue` : 'all-years revenue'}
                             </span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: T.gold }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: T.goldText }}>
                               {fmt(bgStats.income)}
                             </span>
                           </span>
@@ -5246,7 +5257,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                   {hasQuery && p.company && (
                                     <span title={p.company.name}
                                       style={{fontFamily:MONO,fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:10,
-                                        border:`1px solid ${(p.company.color||T.gold)}55`,background:(p.company.color||T.gold)+'22',color:p.company.color||T.gold}}>
+                                        border:`1px solid ${(p.company.color||T.gold)}55`,background:(p.company.color||T.gold)+'22',color:p.company.color||T.goldText}}>
                                       {p.company.abbr || p.company.name}
                                     </span>
                                   )}
@@ -5277,7 +5288,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
                                     </span>
                                   ))}
                                 </div>
-                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.gold}} title="Received this year (amounts entered)">
+                                <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.goldText}} title="Received this year (amounts entered)">
                                   {fmt(engineSummary([p], globalYear).received)}
                                 </div>
                               </div>

@@ -86,7 +86,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
             <span style={{
               fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
               padding: '2px 7px', borderRadius: 10,
-              background: T.gold + '22', color: T.gold, border: `1px solid ${T.gold}44`,
+              background: T.gold + '22', color: T.goldText, border: `1px solid ${T.gold}44`,
             }}>AI</span>
             {companyName && (
               <span style={{

@@ -100,7 +100,7 @@ export function AIListingWriter({ property, T: TProp }) {
           <div style={{ display: 'flex', gap: 6 }}>
             {[['rightmove','Rightmove'],['zoopla','Zoopla'],['general','General']].map(([k,l]) => (
               <button key={k} onClick={() => set('target', k)} style={{ fontFamily:mono, fontSize:10, padding:'4px 10px', borderRadius:20, cursor:'pointer',
-                border:`1px solid ${form.target===k?T.gold:T.border}`, background:form.target===k?T.gold+'22':'transparent', color:form.target===k?T.gold:T.muted }}>{l}</button>
+                border:`1px solid ${form.target===k?T.gold:T.border}`, background:form.target===k?T.gold+'22':'transparent', color:form.target===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
         </div>
@@ -109,7 +109,7 @@ export function AIListingWriter({ property, T: TProp }) {
           <div style={{ display: 'flex', gap: 6 }}>
             {[['professional','Professional'],['warm','Warm'],['luxury','Luxury']].map(([k,l]) => (
               <button key={k} onClick={() => set('tone', k)} style={{ fontFamily:mono, fontSize:10, padding:'4px 10px', borderRadius:20, cursor:'pointer',
-                border:`1px solid ${form.tone===k?T.gold:T.border}`, background:form.tone===k?T.gold+'22':'transparent', color:form.tone===k?T.gold:T.muted }}>{l}</button>
+                border:`1px solid ${form.tone===k?T.gold:T.border}`, background:form.tone===k?T.gold+'22':'transparent', color:form.tone===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
         </div>
@@ -246,7 +246,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
             {scraped.bedrooms && (
               <div>
                 <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Bedrooms ✓ auto-detected</div>
-                <div style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.gold, padding:'7px 10px', background:T.gold+'11', borderRadius:6, border:`1px solid ${T.gold}`}}>
+                <div style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.goldText, padding:'7px 10px', background:T.gold+'11', borderRadius:6, border:`1px solid ${T.gold}`}}>
                   {scraped.bedrooms} bed
                 </div>
               </div>
@@ -355,7 +355,7 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
           <div key={s.label}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{s.label}</span>
-              <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.gold }}>
+              <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.goldText }}>
                 {s.prefix||''}{s.fmt ? parseInt(s.value).toLocaleString('en-GB') : s.value}{s.suffix||''}
               </span>
             </div>

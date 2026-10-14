@@ -72,7 +72,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
             <div key={r.id} style={{ border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.amber}`, borderRadius: 10, padding: '10px 14px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.text }}>{money(r.amount)}</div>
-                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: MONO, fontSize: 9, color: co.color || T.gold, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
+                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: MONO, fontSize: 9, color: co.color || T.goldText, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{fmtDate(r.received_date)} · {r.payer?.replace('_', ' ')} · {r.source}{r.reference ? ` · ${r.reference}` : ''}</div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                   {canEdit && !isEditing && <button className="btn btn-gold" style={{ fontSize: 10 }} onClick={() => startEdit(r)}>Allocate</button>}

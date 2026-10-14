@@ -130,7 +130,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           }}>
             <strong>Couldn't open Stripe checkout:</strong><br/>{error}
             <div style={{ marginTop:8, color:T.muted, fontSize:10 }}>
-              Please email <a href="mailto:hello@ownproperly.com" style={{ color:T.gold }}>hello@ownproperly.com</a> and
+              Please email <a href="mailto:hello@ownproperly.com" style={{ color:T.goldText }}>hello@ownproperly.com</a> and
               we'll get your subscription set up directly.
             </div>
           </div>
@@ -157,7 +157,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
                       <span style={{
                         fontFamily:MONO, fontSize:10, fontWeight:700,
                         padding:'2px 8px', borderRadius:4,
-                        background:(co.color||T.gold)+'22', color:co.color||T.gold,
+                        background:(co.color||T.gold)+'22', color:co.color||T.goldText,
                       }}>{co.abbr}</span>
                     )}
                     <span style={{ fontSize:14, fontWeight:700, color:T.text }}>{co.name}</span>
@@ -179,7 +179,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
         {/* Footer — sign out + support */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginTop:24 }}>
           <div style={{ fontFamily:MONO, fontSize:10, color:T.muted, lineHeight:1.6 }}>
-            Need help? Email <a href="mailto:hello@ownproperly.com" style={{ color:T.gold }}>hello@ownproperly.com</a>
+            Need help? Email <a href="mailto:hello@ownproperly.com" style={{ color:T.goldText }}>hello@ownproperly.com</a>
           </div>
           <button onClick={onSignOut}
             style={{

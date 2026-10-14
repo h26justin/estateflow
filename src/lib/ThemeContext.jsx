@@ -19,6 +19,11 @@ import { supabase } from './supabase'
 //                                              own tints; darkened so amber-as-text passes)
 //   LIGHT  blue  #2D6FA8 on #F4F3EF →  4.8:1  ✓ AA
 //   LIGHT  gold  is an accent / button-fill, never body text (2.7:1 — as before)
+//   LIGHT  goldText #7A5E1C on #F4F3EF → 5.5:1 ✓ AA  — use this (not `gold`) whenever
+//                                              gold is the *text* colour: section
+//                                              labels, active chips, badges, figures
+//   LIGHT  green #167A4C on #F4F3EF →  4.8:1  ✓ AA  (was #1F9D63 → 3.1:1 FAIL as text;
+//                                              white-on-green fills improve to 5.4:1)
 //   DARK   text  #E8E5DD on #0E141A → 14.7:1  ✓ AAA
 //   DARK   muted #9AA6B0 on #0E141A →  7.5:1  ✓ AA
 //   DARK   faint #8A939E on #0E141A →  6.0:1  ✓ AA  (was #6E7681 → 4.0:1 on bg but
@@ -31,16 +36,18 @@ import { supabase } from './supabase'
 //   DARK   text  #E8E5DD on #1B242D → 12.5:1  ✓ AAA
 //   DARK   muted #9AA6B0 on #1B242D →  6.3:1  ✓ AA
 //   DARK   faint #8A939E on #1B242D →  5.1:1  ✓ AA
+//   DARK   goldText #CBA64E on #1B242D → 6.8:1  ✓ AA  (dark gold already passes)
+//   DARK   purple #B98AD0 on #1B242D →  5.7:1  ✓ AA  (was #9B59B6 → 3.4:1 FAIL)
 export const DARK = {
   bg:'#0E141A', surface:'#151D25', card:'#1B242D', border:'#28333D',
   text:'#E8E5DD', muted:'#9AA6B0', faint:'#8A939E',
-  gold:'#CBA64E', green:'#34C281', red:'#E06A5E', blue:'#5B9BD8', amber:'#E2A24A', purple:'#9B59B6',
+  gold:'#CBA64E', goldText:'#CBA64E', green:'#34C281', red:'#E06A5E', blue:'#5B9BD8', amber:'#E2A24A', purple:'#B98AD0',
 }
 
 export const LIGHT = {
   bg:'#F4F3EF', surface:'#FFFFFF', card:'#FAF9F6', border:'#E4E1D9',
   text:'#1C2830', muted:'#5C6670', faint:'#686D72',
-  gold:'#B8902F', green:'#1F9D63', red:'#B8392D', blue:'#2D6FA8', amber:'#8A5600', purple:'#7B3FA0',
+  gold:'#B8902F', goldText:'#7A5E1C', green:'#167A4C', red:'#B8392D', blue:'#2D6FA8', amber:'#8A5600', purple:'#7B3FA0',
 }
 
 export const ThemeContext = createContext({ T: LIGHT, darkMode: false, setDarkMode: () => {}, loadUserTheme: () => {} })

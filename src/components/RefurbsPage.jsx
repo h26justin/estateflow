@@ -191,7 +191,7 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = '
 
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 12, padding: 18, marginBottom: 16 }}>
-    <div style={{ fontFamily: mono, fontSize: 11, color: T.gold, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>New refurb</div>
+    <div style={{ fontFamily: mono, fontSize: 11, color: T.goldText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>New refurb</div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
       {!fixedPropertyId && <div>
         <label style={lbl}>Property</label>
@@ -471,7 +471,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
             <span style={{ color: T.muted }}>Paid so far</span><b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(t.paid)}</b>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: mono, fontSize: 12, paddingTop: 4 }}>
-            <span style={{ color: T.muted }}>{t.overpaid > 0 ? 'Paid over agreed' : 'Remaining to pay'}</span><b style={{ color: t.overpaid > 0 ? T.red : T.gold, fontVariantNumeric: 'tabular-nums' }}>{fmt(t.overpaid > 0 ? t.overpaid : t.remaining)}</b>
+            <span style={{ color: T.muted }}>{t.overpaid > 0 ? 'Paid over agreed' : 'Remaining to pay'}</span><b style={{ color: t.overpaid > 0 ? T.red : T.goldText, fontVariantNumeric: 'tabular-nums' }}>{fmt(t.overpaid > 0 ? t.overpaid : t.remaining)}</b>
           </div>
           {canEdit && quick.kind !== 'extra' && <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} T={T} isMobile={isMobile} allowCredit />}
         </div>
@@ -526,7 +526,7 @@ function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit =
   const isExtra = quick.kind === 'extra'
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ marginTop: 12, padding: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8 }}>
-    <div style={{ fontFamily: mono, fontSize: 10, color: isExtra ? T.amber : T.gold, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{isExtra ? 'Add an extra' : 'Log a payment'}</div>
+    <div style={{ fontFamily: mono, fontSize: 10, color: isExtra ? T.amber : T.goldText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{isExtra ? 'Add an extra' : 'Log a payment'}</div>
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1.2fr 1.6fr auto', gap: 8, alignItems: 'end' }}>
       <div><label style={lbl}>Amount</label><MoneyInput prefix="£" value={quick.amount} onChange={v => setQuick(q => ({ ...q, amount: v == null ? '' : v }))} allowDecimals placeholder="0" style={inputStyle(T)}
         onKeyDown={e => { if (e.key === 'Enter') onAdd() }} /></div>
@@ -725,7 +725,7 @@ function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T })
         <Metric label="Agreed budget" value={fmt(t.agreed)} T={T} />
         <Metric label="Forecast cost" value={fmt(ffc.value)} color={ffc.variance > 0 ? T.red : undefined} T={T} />
       </div>
-      <div style={{ fontFamily: mono, fontSize: 10.5, color: project.next_action ? T.gold : T.faint, marginTop: 'auto', paddingTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: project.next_action ? T.goldText : T.faint, marginTop: 'auto', paddingTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {project.next_action ? `Next: ${project.next_action}` : 'No next action set'}
       </div>
     </div>
@@ -1112,7 +1112,7 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
         {projects.length > 1 && projects.map(p => {
           const t = projectTotals(p)
           return <button key={p.id} onClick={() => setSelectedId(p.id)}
-            style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${selectedId === p.id ? T.gold : T.border}`, background: selectedId === p.id ? T.gold + '22' : 'transparent', color: selectedId === p.id ? T.gold : T.muted }}>
+            style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${selectedId === p.id ? T.gold : T.border}`, background: selectedId === p.id ? T.gold + '22' : 'transparent', color: selectedId === p.id ? T.goldText : T.muted }}>
             {STAGE_CFG[p.stage]?.label} · {fmt(t.agreed)}
           </button>
         })}

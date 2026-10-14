@@ -203,7 +203,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
             <button key={y} onClick={() => setTaxYear(y)}
               style={{ fontFamily: MONO, fontSize: 11, padding: '6px 12px', borderRadius: 8,
                 background: y === taxYear ? T.gold+'22' : 'transparent',
-                color: y === taxYear ? T.gold : T.muted,
+                color: y === taxYear ? T.goldText : T.muted,
                 border: `1px solid ${y === taxYear ? T.gold+'66' : T.border}`,
                 cursor: 'pointer', fontWeight: y === taxYear ? 700 : 500 }}>
               {y}{y === currentTaxYear() && ' (current)'}
@@ -249,7 +249,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
               <div style={{ textAlign: 'right' }}>
                 {cached && (
                   <>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: T.gold }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: T.goldText }}>
                       {fmt(cached.totals?.net || 0)}
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>

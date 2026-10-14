@@ -476,7 +476,7 @@ function Step2({
             style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'total' ? T.gold : T.border}`,
               background: pricingMode === 'total' ? T.gold + '22' : 'transparent',
-              color: pricingMode === 'total' ? T.gold : T.muted,
+              color: pricingMode === 'total' ? T.goldText : T.muted,
               fontWeight: pricingMode === 'total' ? 700 : 400 }}>
             Total for whole building (split evenly)
           </button>
@@ -484,7 +484,7 @@ function Step2({
             style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'per_unit' ? T.gold : T.border}`,
               background: pricingMode === 'per_unit' ? T.gold + '22' : 'transparent',
-              color: pricingMode === 'per_unit' ? T.gold : T.muted,
+              color: pricingMode === 'per_unit' ? T.goldText : T.muted,
               fontWeight: pricingMode === 'per_unit' ? 700 : 400 }}>
             Per-unit (set on next step)
           </button>
@@ -572,7 +572,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 4 }}>
         <span>{units.length} {units.length === 1 ? 'unit' : 'units'}</span>
         <span>· Total rent: <strong style={{ color: T.green }}>{fmt(totalRent)}/mo</strong></span>
-        {totalPurchase > 0 && <span>· Total purchase: <strong style={{ color: T.gold }}>{fmt(totalPurchase)}</strong></span>}
+        {totalPurchase > 0 && <span>· Total purchase: <strong style={{ color: T.goldText }}>{fmt(totalPurchase)}</strong></span>}
       </div>
 
       {/* Grid */}
@@ -645,7 +645,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
 function FillDownLink({ onClick, T }) {
   return (
     <button onClick={onClick} title="Fill this column with the first row's value"
-      style={{ background: 'transparent', border: 'none', color: T.gold, cursor: 'pointer', fontSize: 9, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
+      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: 9, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
       ↓ Fill
     </button>
   )

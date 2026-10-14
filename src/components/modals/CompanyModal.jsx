@@ -95,7 +95,7 @@ export default function CompanyModal({ onClose, onSave }) {
                 style={{flex:1,fontFamily:MONO,fontSize:11,padding:'9px 10px',borderRadius:8,cursor:'pointer',textAlign:'left',
                   border:`1px solid ${form.companyType===v?T.gold:T.border}`,
                   background:form.companyType===v?T.gold+'18':'transparent',
-                  color:form.companyType===v?T.gold:T.muted}}>
+                  color:form.companyType===v?T.goldText:T.muted}}>
                 <div style={{fontWeight:700}}>{l}</div>
                 <div style={{fontSize:9,marginTop:2,lineHeight:1.4,color:T.muted}}>{d}</div>
               </button>

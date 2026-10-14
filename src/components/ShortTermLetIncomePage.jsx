@@ -355,7 +355,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const pillBtn = (active, accent = T.gold) => ({
     fontFamily: MONO, fontSize: 11, padding: '5px 14px', borderRadius: 20, cursor: 'pointer', whiteSpace: 'nowrap',
     border: `1px solid ${active ? accent : T.border}`, background: active ? accent : 'transparent',
-    color: active ? (accent === T.gold ? '#1C2830' : '#fff') : T.muted, transition: 'all 0.18s',
+    color: active ? (accent === T.goldText ? '#1C2830' : '#fff') : T.muted, transition: 'all 0.18s',
   })
   const th = { fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }
   const td = { fontFamily: MONO, fontSize: 12, color: T.text, padding: '9px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', verticalAlign: 'middle' }
@@ -846,7 +846,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                               </td>
                               <td style={{ ...tdR, fontWeight: 600 }}>{fmtMoney(r.manager.basis === 'gross' ? r.gross : r.netAfterFees)}</td>
                               <td style={tdR}>{r.manager.percentage}%</td>
-                              <td style={{ ...tdR, fontWeight: 700, color: T.gold, fontSize: 15 }}>
+                              <td style={{ ...tdR, fontWeight: 700, color: T.goldText, fontSize: 15 }}>
                                 {(() => {
                                   const paid = findPaidPayout(ledger, r.manager.id, range.from, range.to)
                                   if (paid) {
@@ -934,7 +934,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', fontFamily: MONO, fontSize: 11 }}>
                                 <span style={{ color: T.muted, whiteSpace: 'nowrap', minWidth: 140 }}>{fmtDateShort(l.period_from)} – {fmtDateShort(l.period_to)}</span>
                                 <span style={{ color: T.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.manager_name} <span style={{ color: T.faint }}>· {Number(l.percentage)}% of {fmtMoney(l.base_amount)} · paid {fmtDateShort(l.paid_on)}{carried.length ? ` · ${carried.length} correction${carried.length === 1 ? '' : 's'} carried` : ''}{stlCompanies.length > 1 && coById[l.company_id] ? ` · ${coById[l.company_id].abbr || coById[l.company_id].name}` : ''}</span></span>
-                                <span style={{ color: T.gold, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtMoney(l.amount)}</span>
+                                <span style={{ color: T.goldText, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtMoney(l.amount)}</span>
                                 <button className="btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => setOpenPayout(open ? null : l.id)} aria-expanded={open}>{open ? 'Hide' : 'Details'}</button>
                                 {canEditCompany(l.company_id) && <button onClick={() => removePaid(l)} aria-label="Remove payout record" title="Remove payout record (unlocks the period)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, display: 'inline-flex', padding: 0 }}><Icon name="trash" size={13} /></button>}
                               </div>

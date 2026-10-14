@@ -124,7 +124,7 @@ export default function OnboardingTour({ user, onComplete }) {
                 <span style={{
                   fontFamily: MONO, fontSize: 10, fontWeight: 700,
                   padding: '2px 10px', borderRadius: 20,
-                  background: (tagColor || T.gold) + '28', color: tagColor || T.gold,
+                  background: (tagColor || T.gold) + '28', color: tagColor || T.goldText,
                   letterSpacing: '0.06em',
                 }}>{current.tag}</span>
               )}
@@ -155,7 +155,7 @@ export default function OnboardingTour({ user, onComplete }) {
                 fontFamily: MONO, fontSize: 11.5,
                 color: T.text, lineHeight: 1.75,
               }}>
-                <span style={{ fontWeight: 700, color: T.gold }}>💡 </span>
+                <span style={{ fontWeight: 700, color: T.goldText }}>💡 </span>
                 {current.tip}
               </div>
             )}
