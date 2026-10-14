@@ -162,15 +162,18 @@ export function dueDateFor(tenancy, start) {
 // tenancy's next-expected date by its frequency. Null when no schedule.
 export function benefitDueOnOrAfter(tenancy, from) {
   if (!tenancy?.benefit_next_payment_date) return null
-  let d = tenancy.benefit_next_payment_date
+  const anchor = tenancy.benefit_next_payment_date
   const step = { weekly: 7, fortnightly: 14, four_weekly: 28 }[tenancy.benefit_frequency]
-  const back = iso => step ? addDays(iso, -step) : addMonths(iso, -1)
-  const fwd = iso => step ? addDays(iso, step) : addMonths(iso, 1)
-  let guard = 0
-  while (d > from && back(d) >= from && guard++ < 120) d = back(d)
+  // Every candidate is computed as an offset from the recorded anchor, never
+  // by stepping from the previous candidate: a monthly schedule anchored on
+  // the 31st clamps to 28 Feb in February but must return to the 31st in
+  // March, not drift to the 28th for good.
+  const at = k => step ? addDays(anchor, k * step) : addMonths(anchor, k)
+  let k = 0, guard = 0
+  while (at(k) > from && at(k - 1) >= from && guard++ < 120) k--
   guard = 0
-  while (d < from && guard++ < 120) d = fwd(d)
-  return d
+  while (at(k) < from && guard++ < 120) k++
+  return at(k)
 }
 
 // ── Period evaluation ───────────────────────────────────────────────────────
@@ -303,8 +306,12 @@ export function evaluatePeriod(row, ctx) {
   // One rent cycle (28 Feb to 27 Mar, 30 Jan to 27 Feb, or the agent's
   // 28 Feb to 29 Mar) is one month's rent, whatever the calendar months it
   // straddles; part cycles prorate by the cycle's own length. A period that
-  // starts on the 1st but is not the whole month is a part month instead.
-  const oneCycle = !wholeMonth && start.slice(8) !== '01' && base.totalDays >= 28 && base.totalDays <= 31
+  // starts on the 1st but is not the whole month is a part month instead,
+  // and so is one that starts mid-month and stays inside that calendar month
+  // (2 Mar to 31 Mar for a 2 Mar move-in): a real cycle always crosses into
+  // the next month.
+  const oneCycle = !wholeMonth && start.slice(8) !== '01' && start.slice(0, 7) !== end.slice(0, 7)
+    && base.totalDays >= 28 && base.totalDays <= 31
   let expected = row.expected_amount != null ? Number(row.expected_amount)
     : ((wholeMonth || oneCycle) && cDays === base.totalDays) ? mRent
     : oneCycle ? mRent * cDays / base.totalDays

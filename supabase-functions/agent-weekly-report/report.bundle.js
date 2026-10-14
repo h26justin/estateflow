@@ -153,15 +153,14 @@ function dueDateFor(tenancy, start) {
 }
 function benefitDueOnOrAfter(tenancy, from) {
   if (!tenancy?.benefit_next_payment_date) return null;
-  let d = tenancy.benefit_next_payment_date;
+  const anchor = tenancy.benefit_next_payment_date;
   const step = { weekly: 7, fortnightly: 14, four_weekly: 28 }[tenancy.benefit_frequency];
-  const back = (iso) => step ? addDays(iso, -step) : addMonths(iso, -1);
-  const fwd = (iso) => step ? addDays(iso, step) : addMonths(iso, 1);
-  let guard = 0;
-  while (d > from && back(d) >= from && guard++ < 120) d = back(d);
+  const at = (k2) => step ? addDays(anchor, k2 * step) : addMonths(anchor, k2);
+  let k = 0, guard = 0;
+  while (at(k) > from && at(k - 1) >= from && guard++ < 120) k--;
   guard = 0;
-  while (d < from && guard++ < 120) d = fwd(d);
-  return d;
+  while (at(k) < from && guard++ < 120) k++;
+  return at(k);
 }
 function evaluatePeriod(row, ctx) {
   const { property, tenancies = [], receipts = [], nonChargeable = [], overrides = [], stlIds, today = isoToday() } = ctx;
@@ -278,7 +277,7 @@ function evaluatePeriod(row, ctx) {
   const [sy, sm] = start.split("-").map(Number);
   const mRent = monthlyRent(tenancy);
   const wholeMonth = start === monthBounds(sy, sm).start && end === monthBounds(sy, sm).end;
-  const oneCycle = !wholeMonth && start.slice(8) !== "01" && base.totalDays >= 28 && base.totalDays <= 31;
+  const oneCycle = !wholeMonth && start.slice(8) !== "01" && start.slice(0, 7) !== end.slice(0, 7) && base.totalDays >= 28 && base.totalDays <= 31;
   let expected = row.expected_amount != null ? Number(row.expected_amount) : (wholeMonth || oneCycle) && cDays === base.totalDays ? mRent : oneCycle ? mRent * cDays / base.totalDays : mRent * cDays / daysInMonth(sy, sm);
   expected = round2(expected);
   if (activeOverride?.expected_amount != null) expected = round2(activeOverride.expected_amount);

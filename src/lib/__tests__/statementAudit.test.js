@@ -372,3 +372,32 @@ describe('agreed fee terms', () => {
     expect(checked.filter(l => l.line_type === 'management_fee').every(f => f.fee_check.ok)).toBe(true)
   })
 })
+
+describe('credits, refunds and VAT on credit notes', () => {
+  const head = n => `Vale Property Group Limited\nStatement No: ${n} 1st October 2026\nIncome Amount VAT Gross\n16, Esplanade West Flat 2\n` +
+    'Rent for the month 01/09/2026 to 30/09/2026 - Mr T £500.00 £0.00 £500.00\n'
+
+  it('a refund paid out in the expenditure section is a deduction, not a credit', () => {
+    const a = parseAuditStatement(head(7) + '£500.00 £0.00 £500.00\nExpenditure Amount VAT Gross\n16, Esplanade West Flat 2\n' +
+      'Refund of overpaid rent to tenant £100.00 £0.00 £100.00\n£100.00 £0.00 £100.00\nSummary\nPAYMENT AMOUNT £400.00')
+    expect(a.lines.map(l => [l.line_type, l.net_amount])).toEqual([['rent', 500], ['other_deduction', -100]])
+    const bc = balanceCheck(a, a.lines)
+    expect(bc.expected).toBe(400); expect(bc.balances).toBe(true); expect(bc.causes).toEqual([])
+  })
+
+  it('a negative refund in the income section keeps its sign', () => {
+    const a = parseAuditStatement(head(8) + 'Refund to tenant £-50.00 £0.00 £-50.00\n£450.00 £0.00 £450.00\nSummary\nPAYMENT AMOUNT £450.00')
+    expect(a.lines.map(l => [l.line_type, l.net_amount, l.credit_amount])).toEqual([['rent', 500, 0], ['other_income', -50, 0]])
+    const bc = balanceCheck(a, a.lines)
+    expect(bc.expected).toBe(450); expect(bc.balances).toBe(true); expect(bc.causes).toEqual([])
+  })
+
+  it('VAT on a credit note is not counted twice and the expenditure total agrees', () => {
+    const a = parseAuditStatement(head(9) + '£500.00 £0.00 £500.00\nExpenditure Amount VAT Gross\n16, Esplanade West Flat 2\n' +
+      'Management Commission 10.00% of £500.00 £50.00 £10.00 £60.00\nCredit fee overcharge £-20.00 £-4.00 £-24.00\n£30.00 £6.00 £36.00\nSummary\nPAYMENT AMOUNT £464.00')
+    expect(a.lines.map(l => l.line_type)).toEqual(['rent', 'management_fee', 'credit'])
+    const bc = balanceCheck(a, a.lines)
+    expect(bc.totals.vat).toBe(10); expect(bc.totals.credits).toBe(24)
+    expect(bc.expected).toBe(464); expect(bc.balances).toBe(true); expect(bc.causes).toEqual([])
+  })
+})

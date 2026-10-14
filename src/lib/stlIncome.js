@@ -611,14 +611,18 @@ export function payoutCorrections(ledger = [], bookings = [], adjustments = [], 
     if (excludeFrom && excludeTo && from === excludeFrom && to === excludeTo) continue
     const rooms = snapshotRooms(l.breakdown)
     if (rooms.length === 0) continue
-    let base = 0
+    // Per room, exactly as managerPayouts computed it: each room's base is
+    // floored at zero and its share rounded before summing, so a room with
+    // a net loss (refunds) does not cancel another room's payout here when
+    // it did not in the pay run.
+    let current = 0
     for (const r of rooms) {
       const own = bookings.filter(b => b.property_id === r.property_id)
       const ownAdj = adjustments.filter(a => a.property_id === r.property_id)
       const s = summariseStl(own, ownAdj, { from, to, rates })
-      base += l.basis === 'gross' ? s.gross : s.netAfterFees
+      const base = l.basis === 'gross' ? s.gross : s.netAfterFees
+      current = round2(current + round2(Math.max(0, base) * (num(l.percentage) / 100)))
     }
-    const current = round2(Math.max(0, base) * (num(l.percentage) / 100))
     const carried = snapshotCorrections(l.breakdown).reduce((s, c) => s + num(c.amount), 0)
     const paid = round2(num(l.amount) - carried)
     const settled = round2(ledger.filter(o => o.id !== l.id)

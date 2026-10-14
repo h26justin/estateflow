@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchProperties, normaliseStatementName } from '../statementParser'
+import { matchProperties, normaliseStatementName, parseCurrency, parsePNE, parseRMSInvoice } from '../statementParser'
 
 // The real-world case this hardening came from: Vale's "35 Henley Road" was
 // duplicated as "Henly Road", and an imported statement landed the rent on the
@@ -212,3 +212,48 @@ describe('matchProperties — house-number letter suffixes', () => {
     expect(matchProperties([line('Flat 18 Watts Moses House')], [A, B, WATTS_18], [])[0].propertyId).toBe('p-w18')
   })
 })
+
+describe('parseCurrency keeps the sign', () => {
+  it('reads negatives in every form a statement uses', () => {
+    expect(parseCurrency('-650.00')).toBe(-650)
+    expect(parseCurrency('(50.00)')).toBe(-50)
+    expect(parseCurrency('£-20')).toBe(-20)
+    expect(parseCurrency('-£20')).toBe(-20)
+  })
+  it('reads positives and blanks as before', () => {
+    expect(parseCurrency('£1,234.56')).toBe(1234.56)
+    expect(parseCurrency('650.00')).toBe(650)
+    expect(parseCurrency('')).toBe(0)
+    expect(parseCurrency(null)).toBe(0)
+    expect(parseCurrency('£0.00')).toBe(0)
+  })
+})
+
+describe('RMS invoice layout: negative amounts', () => {
+  it('a negative rent receipt is a reversal, not extra income', () => {
+    const text = 'STATEMENT/INVOICE\nRent Receipt\nDate: 01/10/2026\n' +
+      '01/10/2026  12 Chester Grove  Mr A Tenant 01/01/2026 to 31/12/2026  31/08/2026 - 29/09/2026 Rent Receipt  -650.00\n' +
+      'Payment made to Owner 0.00'
+    const r = parseRMSInvoice(text)
+    expect(r.items.map(i => [i.type, i.amount])).toEqual([['rent', -650]])
+    expect(r.totalIncome).toBe(-650)
+  })
+})
+
+describe('PNE management fee with VAT', () => {
+  const text = 'Statement No: 12\n1st October 2026\nIncome\n16, Esplanade West Flat 2\n' +
+    'Rent for the month 01/09/2026 to 30/09/2026 - Mr T £500.00 £0.00 £500.00\n' +
+    'Expenditure\n16, Esplanade West Flat 2\n'
+  it('reads a VAT-bearing fee at its gross', () => {
+    const r = parsePNE(text + 'Management Commission 10.00% of £500.00 £50.00 £10.00 £60.00\nSummary\nPAYMENT AMOUNT £440.00')
+    expect(r.items.map(i => [i.type, i.amount])).toEqual([['rent', 500], ['fee', 60]])
+    expect(r.items[1].description).toBe('Management fee 10.00% (inc VAT)')
+    expect(r.totalFees).toBe(60)
+  })
+  it('still reads a VAT-free fee, with the rent base trailing the amounts', () => {
+    const r = parsePNE(text + 'Management Commission 10.00% £50.00 £0.00 £50.00 of £500.00\nSummary\nPAYMENT AMOUNT £450.00')
+    expect(r.items.filter(i => i.type === 'fee').map(i => i.amount)).toEqual([50])
+    expect(r.items[1].description).toBe('Management fee 10.00%')
+  })
+})
+

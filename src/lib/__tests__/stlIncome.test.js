@@ -573,6 +573,16 @@ describe('locked pay runs and carried corrections (15 Sep 2026 ruling)', () => {
     const rowFromOtherRoom = { ...bookings[0], id: 9, property_id: 'p2', hostaway_reservation_id: 9 }
     expect(payoutCorrections(ledger, [...bookings, rowFromOtherRoom], [])).toEqual([])
   })
+  it('a room with a net loss is floored per room, as in the pay run, so nothing is restated', () => {
+    const two = [{ id: 'p1', stl_manager_id: 'm1' }, { id: 'p2', stl_manager_id: 'm1' }]
+    const bookings = [bk(1, '2026-09-01', '2026-09-04', 1000, 0)]
+    const refund = [{ property_id: 'p2', adjustment_date: '2026-09-10', amount: -300, kind: 'refund' }]
+    const [r] = managerPayouts(bookings, refund, two, managers, period)
+    expect(r.amount).toBe(120)   // p2's -300 floors at 0, it does not reduce p1's payout
+    const ledger = [{ id: 'L1', manager_id: 'm1', period_from: period.from, period_to: period.to, amount: r.amount, percentage: 12,
+      basis: 'net_after_platform_fees', breakdown: payoutSnapshot(r, { bookings, ...period }) }]
+    expect(payoutCorrections(ledger, bookings, refund)).toEqual([])
+  })
 })
 
 describe('zero-value confirmed bookings (owner blocks)', () => {
