@@ -1,11 +1,10 @@
 import { supabase } from '../supabase'
 import { extractStoragePaths, dealDocToPropertyCategory } from '../attachments'
-import { loadCdnScript } from '../loadCdnScript'
+import { loadJsPDF } from '../pdfLibs'
 import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
 import { sortPropertiesCanonically } from '../addressUtils'
 import { DEFAULT_COPY_OPTIONS, isCopyOptionActive, buildDealCopyFields, buildMilestoneCopies } from '../dealCopy'
 
-const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 // getSession() reads the cached session locally (no network); getUser() makes
 // an HTTP round-trip to /auth/v1/user on EVERY call, which added ~100ms to
@@ -162,8 +161,7 @@ export async function unarchiveProperty(id) {
  * Returns nothing — opens a download in the browser.
  */
 export async function exportPropertySummaryPDF(property) {
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-  const { jsPDF } = window.jspdf
+  const jsPDF = await loadJsPDF()
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = 210, margin = 16
   const fmt = n => 'GBP ' + new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(n || 0)

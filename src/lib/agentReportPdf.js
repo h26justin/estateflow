@@ -14,14 +14,13 @@
 //            after platform fees and after the manager's fee, month by month
 //
 // drawAgentReportPdf() takes the jsPDF constructor and pre-loaded images, so
-// the browser (jsPDF from the CDN) and the agent-weekly-report edge function
+// the browser (bundled jsPDF, lib/pdfLibs) and the agent-weekly-report edge function
 // (jsPDF from esm.sh) draw exactly the same document. Built-in Helvetica only.
 
-import { loadCdnScript } from './loadCdnScript'
+import { loadJsPDF } from './pdfLibs'
 import { PALETTE as P, fitBox, hexToRgb, mix, loadPdfImage } from './reportPdfKit'
 import { GO_LIVE } from './rentEngine'
 
-const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 const WHITE = [255, 255, 255]
 const hex = h => hexToRgb(h)
@@ -475,11 +474,11 @@ function shortCo(name) {
 // Browser: load jsPDF and the logos, build and download.
 // companyLogos: { [companyId]: logo_url }
 export async function downloadAgentReportPdf(model, companyLogos = {}) {
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
+  const jsPDF = await loadJsPDF()
   const ids = [...new Set(model.byCompany.map(g => g.companyId).filter(id => companyLogos[id]))]
   const [mark, ...imgs] = await Promise.all([loadPdfImage('/icon-512.png', 256), ...ids.map(id => loadPdfImage(companyLogos[id], 600))])
   const logos = {}
   ids.forEach((id, i) => { if (imgs[i]) logos[id] = imgs[i] })
-  const doc = drawAgentReportPdf(window.jspdf.jsPDF, model, { logos, mark })
+  const doc = drawAgentReportPdf(jsPDF, model, { logos, mark })
   doc.save(agentReportFilename(model))
 }

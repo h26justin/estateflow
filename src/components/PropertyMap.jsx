@@ -58,39 +58,22 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   // list-sort logic in App.jsx.
 
   // ─── Library bootstrap ──────────────────────────────────────────────────
-  // Load Mapbox GL JS + CSS from CDN once. We don't want a build-time dep
-  // (matches the jsPDF lazy-load pattern in the rest of the app).
+  // Mapbox GL JS + CSS are bundled (lib/mapbox.js, exact-pinned npm
+  // package) and fetched on demand as their own chunk, instead of an
+  // unverified <script> from api.mapbox.com. The rest of this component
+  // still reads the library from window.mapboxgl.
   useEffect(() => {
     if (window.mapboxgl) { setLibReady(true); return }
     const token = api.getMapboxToken()
     if (!token) { setLibError('Map provider token is not configured.'); return }
 
     let cancelled = false
-    const cssId = 'mapboxgl-css'
-    const jsId  = 'mapboxgl-js'
-
-    if (!document.getElementById(cssId)) {
-      const link = document.createElement('link')
-      link.id = cssId
-      link.rel = 'stylesheet'
-      link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css'
-      document.head.appendChild(link)
-    }
-    if (!document.getElementById(jsId)) {
-      const script = document.createElement('script')
-      script.id = jsId
-      script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'
-      script.async = true
-      script.onload = () => { if (!cancelled) setLibReady(true) }
-      script.onerror = () => { if (!cancelled) setLibError('Could not load map library.') }
-      document.head.appendChild(script)
-    } else {
-      // Script tag exists but window.mapboxgl might still be loading
-      const interval = setInterval(() => {
-        if (window.mapboxgl) { setLibReady(true); clearInterval(interval) }
-      }, 100)
-      setTimeout(() => clearInterval(interval), 5000)
-    }
+    import('../lib/mapbox')
+      .then(m => {
+        if (!window.mapboxgl) window.mapboxgl = m.default
+        if (!cancelled) setLibReady(true)
+      })
+      .catch(() => { if (!cancelled) setLibError('Could not load map library.') })
     return () => { cancelled = true }
   }, [])
 

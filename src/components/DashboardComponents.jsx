@@ -5,10 +5,9 @@ import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { propValue } from '../lib/propertyValue'
-import { loadCdnScript } from '../lib/loadCdnScript'
+import { loadJsPDF } from '../lib/pdfLibs'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
 
-const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
@@ -238,8 +237,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
   }
 
   async function exportPDF() {
-    await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-    const { jsPDF } = window.jspdf
+    const jsPDF = await loadJsPDF()
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const W = 210, H = 297
     const gold = [200, 168, 75]
@@ -929,8 +927,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
   async function exportPDF() {
     setExporting(true)
     try {
-      await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-      const { jsPDF } = window.jspdf
+      const jsPDF = await loadJsPDF()
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const scopeCo = companies.find(c => c.id === scope)
       const scopeLabel = scope === 'all' ? 'All properties' : scope === 'rented' ? 'Rented only' : (scopeCo?.name || 'Selected')
