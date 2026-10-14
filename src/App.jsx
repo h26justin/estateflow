@@ -3065,7 +3065,7 @@ export default function App() {
                     )
                   })()}
                   {activeProperties.length > 0 && <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
-                    {plural(stats.total,'property','properties')} · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${companies.length} companies`:` · ${companies.length} companies`}
+                    {plural(stats.total,'property','properties')} · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${plural(companies.length,'company','companies')}`:` · ${plural(companies.length,'company','companies')}`}
                     {dashProps.some(p=>p.current_value>0) && <>
                       {/* On mobile drop to a new line so the value/equity pair has its own row */}
                       {isMobile ? <br/> : ' · '}
