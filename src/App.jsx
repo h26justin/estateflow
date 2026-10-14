@@ -728,6 +728,9 @@ function PageLoadingSpinner({ T }) {
 
 // Dashboard loading state — greeting + health ring, 4 KPI tiles, two widget
 // columns — mirrors the real layout so the page doesn't jump on load.
+// Visually hidden but announced (the standard sr-only recipe).
+const SR_ONLY = { position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 }
+
 function DashboardSkeleton() {
   const { T } = useTheme()
   const tile = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
@@ -2989,29 +2992,33 @@ export default function App() {
         )
       })}
       <main id="main-content" tabIndex={-1} style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%',outline:'none'}}>
-        {loading?(view==='dashboard'?<DashboardSkeleton/>:<Spinner/>):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
+        {loading?(<>
+          {/* Keep a page heading in the outline while data loads. */}
+          <h1 style={SR_ONLY}>{view==='dashboard' ? 'Dashboard' : 'Loading'}</h1>
+          {view==='dashboard'?<DashboardSkeleton/>:<Spinner/>}
+        </>):loadError?(
+          /* Load failure — a transient Supabase/network error must never look
+             like a wiped account. Render ONLY this panel (no £0 dashboard or
+             empty lists underneath) on every view. The raw error is logged by
+             loadData; users get plain English and a Retry. */
+          <div className="card" role="alert" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px solid ${T.red}66`}}>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="alert-triangle" size={isMobile?30:38} color={T.red}/></div>
+            <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>We couldn't load your portfolio</h1>
+            <p style={{fontFamily:MONO,fontSize:13,color:T.muted,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
+              Your data is safe. This is usually a temporary connection problem, so please try again in a moment. If it keeps happening, contact support.
+            </p>
+            <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
+          </div>
+        ):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
-            {/* Load failure — a transient Supabase/network error must never
-                look like a wiped account. Show a clear error + Retry instead
-                of the new-account welcome hero. */}
-            {loadError && (
-              <div className="card" role="alert" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px solid ${T.red}66`}}>
-                <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="alert-triangle" size={isMobile?30:38} color={T.red}/></div>
-                <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>We couldn't load your portfolio</h1>
-                <p style={{fontFamily:MONO,fontSize:13,color:T.muted,marginBottom:20,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
-                  Your data is safe — this is usually a temporary connection problem. ({loadError})
-                </p>
-                <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
-              </div>
-            )}
             {/* First-run zero-state. Accounts with no properties land here —
                 including the most common post-onboarding state (a company
                 created by the wizard but no property yet, which previously
                 skipped this hero and dumped the user on a wall of £0 KPIs).
                 While this shows, the dashboard sections below are skipped
                 entirely. */}
-            {!loadError && activeProperties.length === 0 && (
+            {activeProperties.length === 0 && (
               <div className="card" style={{padding:isMobile?'24px 18px':'40px 32px',marginBottom:20,textAlign:'center',background:T.card,border:`1px dashed ${T.gold}66`}}>
                 <div style={{display:'flex',justifyContent:'center',marginBottom:10}} aria-hidden="true"><Icon name="home" size={isMobile?30:38} color={T.gold}/></div>
                 <h1 style={{fontSize:isMobile?20:24,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8}}>Welcome to Properly</h1>
@@ -3124,7 +3131,7 @@ export default function App() {
               // First-run: the welcome hero above is the whole dashboard.
               // Rendering the sections under it would just be a wall of £0
               // KPIs and empty widgets.
-              if (!loadError && activeProperties.length === 0) return null
+              if (activeProperties.length === 0) return null
               // ───────────────────────────────────────────────────────────────
               // Dashboard sections registry — each section is a labelled chunk
               // that the user can reorder and show/hide. Section content is
