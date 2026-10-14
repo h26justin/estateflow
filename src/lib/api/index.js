@@ -16,6 +16,15 @@
 
 export * from './_monolith'
 
+// Domains split out of the former _monolith.js.
+export * from './companies'
+export * from './properties'
+export * from './geocoding'
+export * from './access'
+export * from './roles'
+export * from './companySettings'
+export * from './invitations'
+
 // Extracted domains. Order doesn't matter — each file's exports are
 // independently named.
 export * from './notifications'

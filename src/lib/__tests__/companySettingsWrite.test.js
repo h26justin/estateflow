@@ -23,7 +23,7 @@ vi.mock('../supabase', () => ({
   },
 }))
 
-import { upsertCompanySettings, saveReportSettings } from '../api/_monolith'
+import { upsertCompanySettings, saveReportSettings } from '../api/companySettings'
 
 describe('company_settings writes', () => {
   beforeEach(() => { calls.length = 0; for (const k of Object.keys(results)) delete results[k] })
