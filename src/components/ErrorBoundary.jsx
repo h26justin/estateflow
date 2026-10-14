@@ -1,6 +1,10 @@
 import { Component } from 'react'
 import { reportClientError } from '../lib/errorReporter'
 
+// Used twice: at the root (main.jsx, full-screen fallback) and around the
+// signed-in page area in App.jsx with variant="panel" and a resetKey, so a
+// crash inside one page leaves the nav / header usable and clears as soon
+// as the user moves to another view.
 export class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
@@ -21,6 +25,13 @@ export class ErrorBoundary extends Component {
   componentWillUnmount() {
     window.removeEventListener('hashchange', this._onHash)
   }
+  componentDidUpdate(prevProps) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null, info: null })
+    }
+  }
+
+  reset = () => this.setState({ hasError: false, error: null, info: null })
 
   componentDidCatch(error, info) {
     // Keep console.error so we can see the actual error in Vercel logs
@@ -59,6 +70,31 @@ export class ErrorBoundary extends Component {
   }
 
   render() {
+    if (this.state.hasError && this.props.variant === 'panel') {
+      const msg = this.state.error?.message || String(this.state.error || '')
+      const chunk = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(msg)
+      const T = this.props.theme || {}
+      return (
+        <div role="alert" style={{
+          maxWidth: 520, margin: '40px auto', background: T.card || '#fff',
+          border: `1px solid ${T.border || '#E2DFD8'}`, borderRadius: 16,
+          padding: '28px 24px', textAlign: 'center', fontFamily: 'inherit',
+        }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: T.text || '#1A1C26' }}>This page hit a problem</h2>
+          <p style={{ fontSize: 13, color: T.muted || '#6B7191', margin: '0 0 16px', lineHeight: 1.6 }}>
+            {chunk
+              ? 'Properly was updated while this page was open, so part of it could not load. Refresh to pick up the new version; nothing is lost.'
+              : 'The rest of the app still works and your data is safe. Try again, or pick another page from the menu.'}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn" onClick={chunk ? () => window.location.reload() : this.reset}>
+              {chunk ? 'Refresh' : 'Try again'}
+            </button>
+            <button className="btn btn-gold" onClick={this.goHome}>Go to Dashboard</button>
+          </div>
+        </div>
+      )
+    }
     if (this.state.hasError) {
       const msg = this.state.error?.message || String(this.state.error || '')
       return (

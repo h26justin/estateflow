@@ -86,6 +86,7 @@ import TermsOfService from './components/TermsOfService'
 import SecurityPage from './components/SecurityPage'
 const OnboardingTour = lazy(() => import('./components/OnboardingTour'))
 import CalcExplain from './components/CalcExplain'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import ActionMenu from './components/ActionMenu'
 const BulkAddPropertyModal = lazy(() => import('./components/BulkAddPropertyModal'))
 import MoneyInput from './lib/MoneyInput'
@@ -3011,7 +3012,7 @@ export default function App() {
         )
       })}
       <main id="main-content" tabIndex={-1} style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%',outline:'none'}}>
-        {loading?(view==='dashboard'?<DashboardSkeleton/>:<Spinner/>):<Suspense fallback={<PageLoadingSpinner T={T}/>}>
+        {loading?(view==='dashboard'?<DashboardSkeleton/>:<Spinner/>):<ErrorBoundary variant="panel" theme={T} resetKey={view==='detail'?`detail:${selectedId}`:view}><Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
           {view==='dashboard'&&<div className="fade">
             {/* Load failure — a transient Supabase/network error must never
@@ -4356,7 +4357,7 @@ export default function App() {
               </div>
             </div>
           </div>}
-        </Suspense>}
+        </Suspense></ErrorBoundary>}
       </main>
 
       <CommandPalette open={showPalette} commands={paletteCommands} onClose={()=>setShowPalette(false)}/>
