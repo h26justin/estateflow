@@ -2725,7 +2725,7 @@ export default function App() {
           )}
 
           {/* Mobile: current page title */}
-          {isMobile&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
+          {isMobile&&<div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
             {(()=>{const ni=navItems.find(n=>n.key===view); return ni&&ICON_NAMES.includes(ni.icon)?<Icon name={ni.icon} size={15} color={T.muted}/>:ni?.icon})()} <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{view==='detail'&&selected?selected.name:(navItems.find(n=>n.key===view)?.label||VIEW_LABELS[view]||'Dashboard')}</span>
           </div>}
 
@@ -2801,6 +2801,7 @@ export default function App() {
               if (trialing.length === 0) return null
               const soonest = trialing[0]
               const tone = soonest.days <= 3 ? T.red : soonest.days <= 7 ? T.amber : T.gold
+              const toneText = tone === T.gold ? T.goldText : tone
               return (
                 <button
                   onClick={() => {
@@ -2821,7 +2822,7 @@ export default function App() {
                   style={{
                     fontFamily:MONO, fontSize:11, fontWeight:700,
                     padding:'5px 12px', borderRadius:20, cursor:'pointer',
-                    border:`1px solid ${tone}`, background:tone+'22', color:tone,
+                    border:`1px solid ${tone}`, background:tone+'22', color:toneText,
                     whiteSpace:'nowrap',
                   }}>
                   {isMobile ? `${soonest.days}d` : `Trial: ${soonest.days} day${soonest.days===1?'':'s'} left`}
@@ -4811,6 +4812,36 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
 // engine (Stage 3+). Short-term lets are excluded (own page). Pre-2026 months
 // keep their legacy status and amount but are counted so "All years" still
 // adds up.
+// Rent-square colour key. Ten entries wrap to five or six lines on a phone
+// and push the tracker itself below the fold, so on mobile it collapses
+// behind a "Key" toggle.
+function RentLegend({ small = false, collapsible = false }) {
+  const { T } = useTheme()
+  const [open, setOpen] = useState(false)
+  const items = [{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}]
+  const sw = small ? 8 : 10
+  const list = (
+    <ul id={collapsible ? 'rent-legend-list' : undefined} aria-label="Rent colour key"
+      style={{display:'flex',gap:12,flexWrap:'wrap',listStyle:'none',margin:collapsible?'8px 0 0':0,padding:0}}>
+      {items.map(x=>(
+        <li key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:small?10:11,color:T.muted}}>
+          <span aria-hidden="true" style={{width:sw,height:sw,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
+        </li>
+      ))}
+    </ul>
+  )
+  if (!collapsible) return list
+  return (
+    <div>
+      <button type="button" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="rent-legend-list"
+        style={{display:'inline-flex',alignItems:'center',gap:6,minHeight:28,padding:'4px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,fontFamily:MONO,fontSize:11,cursor:'pointer'}}>
+        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12}/> Key
+      </button>
+      {open && list}
+    </div>
+  )
+}
+
 function engineSummary(props, year) {
   const acc = { paid: 0, due: 0, missed: 0, nc: 0, backfill: 0, legacy: 0, received: 0 }
   for (const p of props) {
@@ -4907,13 +4938,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:isMobile?8:12,marginBottom:isMobile?14:24}}>
         <div>
           <h1 style={{fontSize:isMobile?20:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:isMobile?6:8}}>Rent Tracker</h1>
-          <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-            {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
-              <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.muted}}>
-                <span style={{width:10,height:10,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
-              </span>
-            ))}
-          </div>
+          <RentLegend collapsible={isMobile}/>
         </div>
         {/* Right side: year filter + day tracker button */}
         <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
@@ -5349,6 +5374,7 @@ function RentTrackerOverview({companies, properties, fmt, openDetail, onDayTrack
 // ─── RENT TAB ────────────────────────────────────────────────────────────────
 function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, setProperties, onDayTracker, canEdit = true}) {
   const { T } = useTheme()
+  const isMobile = useIsMobile(769)
   const payments = selected.rent_payments || []
   const years = [...new Set(payments.map(p=>p.year))].sort()
   const [filterYear, setFilterYear] = useState(() => defaultRentYear(payments))
@@ -5410,13 +5436,7 @@ function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showToast, se
           onChanged={()=>api.fetchRentOverrides(selected.id).then(o=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,rent_overrides:o}:p))).catch(()=>{})}/>
 
         {/* Legend */}
-        <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap'}}>
-          {[{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}].map(x=>(
-            <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:10,color:T.muted}}>
-              <span style={{width:8,height:8,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
-            </span>
-          ))}
-        </div>
+        <div style={{marginTop:10}}><RentLegend small collapsible={isMobile}/></div>
 
         {/* Year summary */}
         <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.border}`}}>
