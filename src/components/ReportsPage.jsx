@@ -7,7 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied, isPropertyLettable, occupancySummary, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
-import { evaluateProperty, collectionStats, arrearsSummary, periodBreakdown, BUCKET_LABEL, STATE_LABEL, GO_LIVE } from '../lib/rentEngine'
+import { evaluateProperty, collectionStats, arrearsSummary, periodBreakdown, BUCKET_LABEL, STATE_LABEL, GO_LIVE, isoToday } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { renderReportPDF, renderYearEndPackPDF } from '../lib/reportPdf'
@@ -2360,21 +2360,23 @@ function rangeIso(range) {
 function rentCollectionData(filtProps, filtRent, range) {
   const { start, end } = rangeIso(range)
   if (start < GO_LIVE) {
-    const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+    // Expected rent covers the months in the selected range, not a fixed year.
+    const nMonths = monthsInRange(range.start, range.end)
+    const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*nMonths,0)
     const collected = filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
     const lateCollected = filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
     const missed = filtRent.filter(r=>r.status==='overdue'||r.status==='missed').length
     const rate = expected>0?((collected+lateCollected)/expected)*100:null
     const rows = filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p => {
       const own = filtRent.filter(r => r.property_id === p.id)
-      return { p, name: p.name, expected: (p.rent_pcm||0) * 12,
+      return { p, name: p.name, expected: (p.rent_pcm||0) * nMonths,
         paid: own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
         late: own.filter(r=>r.status==='late').length,
         missed: own.filter(r=>r.status==='overdue'||r.status==='missed').length }
     }).sort((a,b) => (b.missed+b.late) - (a.missed+a.late))
     return { legacy: true, rate, expected, collected, missed, rows }
   }
-  const today = new Date().toISOString().slice(0, 10)
+  const today = isoToday()   // local (UK) date, not UTC
   const asOf = end < today ? end : today
   const props = filtProps.filter(p => p.status !== 'short_term_let')
   const stlExcluded = filtProps.length - props.length
@@ -2404,7 +2406,7 @@ const RENT_OUT_KPIS = [['outstanding','Outstanding (live)'],['overdue','Overdue'
 const RENT_OUT_PDF_COLS = [1, 5, 7, 8, 9, 11, 12, 15]
 const RENT_OUT_HEADERS = ['Company','Property','Tenant','Tenancy start','Tenancy end','Period start','Period end','Due date','Expected','Received','Receipts','Unpaid','Category','Status','Set by','Override','Override history','Explanation']
 function rentOutstandingData(filtProps) {
-  const asOf = new Date().toISOString().slice(0, 10)
+  const asOf = isoToday()   // local (UK) date, not UTC
   const rows = []
   const totals = { outstanding: 0, overdue: 0, window: 0, pendingReview: 0, combined: 0, notYetDue: 0, needsInfo: 0 }
   const add = (k, v) => { totals[k] = Math.round((totals[k] + (Number(v) || 0)) * 100) / 100 }

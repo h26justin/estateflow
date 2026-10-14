@@ -36,11 +36,16 @@ export const CT_MARGINAL_RELIEF_FRACTION = 3 / 200
 
 // associatedCompanies = TOTAL number of associated companies including this
 // one (companies under common control). HMRC divides both limits by it.
-export function ukCorporationTax(profit, { associatedCompanies = 1 } = {}) {
+// periodDays = length of the period the profit was earned over. The limits
+// are annual: HMRC reduces them proportionally for a shorter accounting
+// period (limit x days / 365), so a quarter's profit is tested against a
+// quarter of each limit, not the full-year figures.
+export function ukCorporationTax(profit, { associatedCompanies = 1, periodDays = 365 } = {}) {
   const p = Number(profit) || 0
   const n = Math.max(1, Math.round(associatedCompanies))
-  const lower = CT_LOWER_LIMIT / n
-  const upper = CT_UPPER_LIMIT / n
+  const days = Number(periodDays) > 0 ? Number(periodDays) : 365
+  const lower = CT_LOWER_LIMIT / n * days / 365
+  const upper = CT_UPPER_LIMIT / n * days / 365
   if (p <= 0) return { tax: 0, effectiveRate: 0, band: 'nil', lowerLimit: lower, upperLimit: upper }
   let tax, band
   if (p <= lower) { tax = p * CT_SMALL_PROFITS_RATE; band = 'small' }
@@ -82,13 +87,42 @@ export function countAssociatedCompanies(companies = []) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-// Whole calendar months a range spans (inclusive), floor 1 — used for
-// "per month" averages and the expected-rent fallback.
+// Days in a P&L period of `months` months, for pro-rating the CT limits.
+// 12 months is exactly 365 days, so a full year keeps the annual limits.
+export function periodDaysForMonths(months) {
+  const m = Number(months) > 0 ? Number(months) : 12
+  return Math.round(m * 365 / 12)
+}
+
+// Length of an inclusive date range in months, floor 1 — used for "per
+// month" averages and the expected-rent fallback. Counts whole months from
+// the start date (a month ends the day before the same day-of-month comes
+// round, clamped for short months), then rounds a remainder of half a month
+// or more up: 1 Jan to 31 Dec and the tax year 6 Apr to 5 Apr are both 12,
+// 15 Jan to 14 Feb is 1, a single calendar month is 1.
 export function monthsInRange(start, end) {
-  const s = new Date(start), e = new Date(end)
-  if (isNaN(s) || isNaN(e) || e < s) return 1
-  const m = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + 1
-  return Math.max(1, m)
+  const ymd = (v) => {
+    const m = typeof v === 'string' && v.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (m) return [Number(m[1]), Number(m[2]) - 1, Number(m[3])]
+    const d = new Date(v)
+    return isNaN(d) ? null : [d.getFullYear(), d.getMonth(), d.getDate()]
+  }
+  const s = ymd(start), e = ymd(end)
+  if (!s || !e) return 1
+  const day = (y, mo, d) => Date.UTC(y, mo, d) / 86400000
+  const startDay = day(...s)
+  const endExcl = day(...e) + 1            // the day after the range ends
+  if (endExcl <= startDay) return 1
+  // The start date n months on, day clamped to that month's length.
+  const anchor = (n) => {
+    const y = s[0] + Math.floor((s[1] + n) / 12), mo = (s[1] + n) % 12
+    const dim = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate()
+    return day(y, mo, Math.min(s[2], dim))
+  }
+  let whole = 0
+  while (anchor(whole + 1) <= endExcl) whole++
+  const remainder = endExcl - anchor(whole)
+  return Math.max(1, whole + (remainder >= 15 ? 1 : 0))
 }
 
 // Display labels for property_expenses.category (kept aligned with the
@@ -97,7 +131,9 @@ export const EXPENSE_CATEGORY_LABELS = {
   insurance: 'Insurance', agent_fees: 'Agent / Management Fees',
   repairs: 'Repairs & Maintenance', ground_rent: 'Ground Rent',
   service_charge: 'Service Charge', utilities: 'Utilities',
-  mortgage: 'Mortgage Payment', legal: 'Legal Fees',
+  // The category holds the whole mortgage payment (capital + interest); the
+  // records carry no split, so it is shown as such rather than as interest.
+  mortgage: 'Mortgage Payment (incl. capital)', legal: 'Legal Fees',
   accountancy: 'Accountancy', other: 'Other',
 }
 
@@ -491,7 +527,7 @@ export function buildPortfolioPnl({
     const tExp = rows.reduce((s, r) => s + r.expenses, 0)
     const tFees = rows.reduce((s, r) => s + r.fees, 0)
     const tPretax = tIncome - tExp - tFees
-    const ct = (entry.personal || !inc.corporationTax) ? null : ukCorporationTax(Math.max(0, tPretax), { associatedCompanies })
+    const ct = (entry.personal || !inc.corporationTax) ? null : ukCorporationTax(Math.max(0, tPretax), { associatedCompanies, periodDays: periodDaysForMonths(nMonths) })
     const ctTax = ct ? ct.tax : 0
 
     // Apportion CT to properties pro-rata on positive pre-tax profit.
@@ -769,7 +805,7 @@ export function buildCompanyPnl({
   const operatingProfit = rentCollected - totalExpenses
 
   // Corporation tax — only on positive profit.
-  const ct = ukCorporationTax(Math.max(0, operatingProfit), { associatedCompanies })
+  const ct = ukCorporationTax(Math.max(0, operatingProfit), { associatedCompanies, periodDays: periodDaysForMonths(months) })
   const profitAfterTax = operatingProfit - ct.tax
 
   // Shareholder split of profit after tax. Corporate shareholders (holding
