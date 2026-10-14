@@ -2320,18 +2320,6 @@ export async function deactivateAnnouncement(id) {
   if (error) throw error
 }
 
-export async function sendAdminEmail(session, to, subject, message) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  const res = await fetch(`${supabaseUrl}/functions/v1/send-admin-email`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-    body: JSON.stringify({ to, subject, message })
-  })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error)
-  return data
-}
-
 // ── SUBDOMAIN / COMPANY LOOKUP ────────────────────────────────────────────────
 // Public, anon-callable branding lookup for the branded tenant login at
 // <sub>.ownproperly.com. Goes through the get_company_branding_by_subdomain

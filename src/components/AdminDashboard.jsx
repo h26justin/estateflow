@@ -228,7 +228,7 @@ export default function AdminDashboard({ onClose, user }) {
             {tab==='billing'&&<BillingTab companies={companies} T={T} fmt={fmt} pill={pill}/>}
 
             {/* ═══ COMMS TAB ═══ */}
-            {tab==='comms'&&<CommsTab user={user} users={users} T={T}/>}
+            {tab==='comms'&&<CommsTab users={users} T={T}/>}
 
             {/* ═══ PLATFORM TAB ═══ */}
             {tab==='platform'&&<PlatformTab user={user} companies={companies} T={T}/>}
@@ -1740,64 +1740,18 @@ function BillingTab({ companies, T, fmt, pill }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMMS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
-function CommsTab({ user, users, T }) {
-  const [to, setTo]           = useState('all')
-  const [customEmail, setCustomEmail] = useState('')
-  const [subject, setSubject] = useState('')
-  const [message, setMessage] = useState('')
-  const [sending, setSending] = useState(false)
-  const [sent, setSent]       = useState(null)
-
-  async function send() {
-    if (!subject.trim()||!message.trim()) return
-    setSending(true); setSent(null)
-    try {
-      const { data:{session} } = await supabase.auth.getSession()
-      const recipientTo = to==='individual' ? customEmail : null
-      const result = await api.sendAdminEmail(session, recipientTo, subject, message)
-      setSent(`✓ Sent to ${result.sent} recipient${result.sent!==1?'s':''} successfully`)
-      setSubject(''); setMessage('')
-    } catch(e) { setSent(`✗ Error: ${e.message}`) }
-    setSending(false)
-  }
-
+// Bulk email was never wired up: the send-admin-email edge function it called
+// does not exist in production, so every send failed. Building one means a new
+// outbound-email path to real customers, which needs an explicit decision —
+// until then, point admins at the in-app announcements instead.
+function CommsTab({ users, T }) {
   return (
     <div style={{maxWidth:680}}>
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'24px 28px'}}>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:20}}>Send email to users</div>
-
-        <div style={{marginBottom:16}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Recipients</label>
-          <select aria-label="Recipients" value={to} onChange={e=>setTo(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px'}}>
-            <option value="all">All users ({users.length})</option>
-            <option value="individual">Individual user…</option>
-          </select>
-          {to==='individual'&&(
-            <input value={customEmail} onChange={e=>setCustomEmail(e.target.value)} placeholder="user@email.com"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px',marginTop:8}}/>
-          )}
-        </div>
-
-        <div style={{marginBottom:16}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Subject</label>
-          <input aria-label="Subject" value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Email subject line"
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px'}}/>
-        </div>
-
-        <div style={{marginBottom:20}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Message</label>
-          <textarea aria-label="Message" value={message} onChange={e=>setMessage(e.target.value)} rows={8} placeholder="Write your message here…"
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical'}}/>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:4}}>Sent from hello@ownproperly.com using your Properly branding</div>
-        </div>
-
-        {sent&&<div style={{fontFamily:mono,fontSize:12,color:sent.startsWith('✓')?T.green:T.red,marginBottom:16,padding:'10px 14px',background:sent.startsWith('✓')?T.green+'18':T.red+'18',borderRadius:8}}>{sent}</div>}
-
-        <button onClick={send} disabled={sending||!subject.trim()||!message.trim()||(to==='individual'&&!customEmail.trim())}
-          style={{fontFamily:mono,fontSize:13,fontWeight:700,padding:'12px 28px',borderRadius:10,border:'none',background:T.gold,color:T.surface,cursor:'pointer',opacity:sending?0.6:1}}>
-          {sending?'Sending…':`Send email${to==='all'?` to all ${users.length} users`:''}`}
-        </button>
+        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Email users</div>
+        <p style={{fontSize:13,color:T.text,lineHeight:1.6,margin:'0 0 8px'}}>
+          Email to users ({users.length}) isn't available yet. To reach everyone in the app, post an announcement from the Platform tab.
+        </p>
       </div>
     </div>
   )
