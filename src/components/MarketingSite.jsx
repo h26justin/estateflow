@@ -60,7 +60,7 @@ const CSS = `
   }
   .mkt-burger{display:none;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1.5px solid ${BORDER};background:transparent;color:${SLATE};cursor:pointer;}
   .mkt-navlink{background:none;border:none;font-family:${MONO};font-size:12px;cursor:pointer;padding:10px 4px;min-height:40px;text-decoration:none;display:inline-flex;align-items:center;transition:color 0.15s;}
-  .mkt-mobile-menu{display:grid;gap:2px;padding:8px 24px 16px;border-top:1px solid ${BORDER};}
+  .mkt-mobile-menu{display:grid;gap:2px;padding:8px 0 16px;border-top:1px solid ${BORDER};}
   .mkt-mobile-menu a,.mkt-mobile-menu button{display:flex;align-items:center;min-height:44px;width:100%;background:none;border:none;font-family:${MONO};font-size:14px;color:${SLATE};text-decoration:none;cursor:pointer;text-align:left;padding:0 4px;}
   @media(min-width:769px){.mkt-mobile-menu{display:none;}}
   /* Visible keyboard focus. Gold-dark ring on cream/white; cream ring on the

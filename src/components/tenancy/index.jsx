@@ -320,7 +320,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             Generate S21/S8
           </button>
           <button onClick={() => { setForm({ notice_type: 's21', status: 'draft' }); setShowForm(true) }}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>
             + Log notice
           </button>
         </div>
@@ -366,7 +366,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="nt-notes">Notes</label><textarea id="nt-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: 'white', cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
+            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
             <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
           </div>
         </form>

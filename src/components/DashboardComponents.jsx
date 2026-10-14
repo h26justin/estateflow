@@ -135,7 +135,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em'}}>
           Needs Attention
-          {alerts.length>0&&<span style={{marginLeft:8,background:T.red,color:'white',borderRadius:20,fontSize:11,fontFamily:MONO,padding:'2px 8px',fontWeight:700}}>{alerts.length}</span>}
+          {alerts.length>0&&<span style={{marginLeft:8,background:T.red,color:T.bg,borderRadius:20,fontSize:11,fontFamily:MONO,padding:'2px 8px',fontWeight:700}}>{alerts.length}</span>}
         </h2>
       </div>
       <div style={{display:'grid',gap:8,maxHeight:520,overflowY:'auto',paddingRight:4}}>

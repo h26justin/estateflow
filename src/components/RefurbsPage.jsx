@@ -700,7 +700,7 @@ function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T })
         <StageChip stage={project.stage} T={T} />
         {project.archived_at && <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#000a', color: '#fff' }}>Archived</span>}
       </div>
-      {(overdue > 0 || blocked > 0) && <div style={{ position: 'absolute', top: 8, right: 8, fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red, color: '#fff' }}>
+      {(overdue > 0 || blocked > 0) && <div style={{ position: 'absolute', top: 8, right: 8, fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red, color: T.bg }}>
         {[overdue ? `${overdue} overdue` : null, blocked ? `${blocked} blocked` : null].filter(Boolean).join(' · ')}
       </div>}
     </div>
