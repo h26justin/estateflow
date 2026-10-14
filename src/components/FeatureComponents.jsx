@@ -247,21 +247,21 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
           <div>
             <label>Certificate Type</label>
-            <select value={form.cert_type} onChange={e=>{
+            <select aria-label="Certificate Type" value={form.cert_type} onChange={e=>{
               const t = CERT_TYPES.find(x=>x.value===e.target.value)
               s('cert_type',e.target.value); s('cert_name',t?.label||'')
             }}>
               {CERT_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
-          <div><label>Certificate Name</label><input value={form.cert_name} onChange={e=>s('cert_name',e.target.value)}/></div>
+          <div><label>Certificate Name</label><input aria-label="Certificate Name" value={form.cert_name} onChange={e=>s('cert_name',e.target.value)}/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Issue Date</label><input type="date" value={form.issue_date} onChange={e=>s('issue_date',e.target.value)}/></div>
-          <div><label>Expiry Date</label><input type="date" value={form.expiry_date} onChange={e=>s('expiry_date',e.target.value)}/></div>
-          <div><label>Remind (days before)</label><input type="number" value={form.reminder_days} onChange={e=>s('reminder_days',+e.target.value)}/></div>
+          <div><label>Issue Date</label><input aria-label="Issue Date" type="date" value={form.issue_date} onChange={e=>s('issue_date',e.target.value)}/></div>
+          <div><label>Expiry Date</label><input aria-label="Expiry Date" type="date" value={form.expiry_date} onChange={e=>s('expiry_date',e.target.value)}/></div>
+          <div><label>Remind (days before)</label><input aria-label="Remind (days before)" type="number" value={form.reminder_days} onChange={e=>s('reminder_days',+e.target.value)}/></div>
         </div>
-        <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="Optional notes"/></div>
+        <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="Optional notes"/></div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>{editingId ? 'Update' : 'Save'}</button>
           <button className="btn btn-ghost" style={{fontSize:11}} onClick={closeForm}>Cancel</button>
@@ -581,12 +581,12 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Category</label><select value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c.v} value={c.v}>{c.l}</option>)}</select></div>
-          <div><label>Description *</label><input value={form.description} onChange={e=>s('description',e.target.value)} placeholder="e.g. Annual buildings insurance"/></div>
+          <div><label>Category</label><select aria-label="Category" value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c.v} value={c.v}>{c.l}</option>)}</select></div>
+          <div><label>Description *</label><input aria-label="Description" value={form.description} onChange={e=>s('description',e.target.value)} placeholder="e.g. Annual buildings insurance"/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Amount *</label><MoneyInput prefix="£" value={form.amount} onChange={v=>s('amount',v)}/></div>
-          <div><label>Date *</label><input type="date" value={form.date} onChange={e=>s('date',e.target.value)}/></div>
+          <div><label>Amount *</label><MoneyInput aria-label="Amount" prefix="£" value={form.amount} onChange={v=>s('amount',v)}/></div>
+          <div><label>Date *</label><input aria-label="Date" type="date" value={form.date} onChange={e=>s('date',e.target.value)}/></div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:12,flexWrap:'wrap'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -600,7 +600,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
             <option value="annually">Annually</option>
           </select>}
         </div>
-        <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)}/></div>
+        <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)}/></div>
         <div style={{display:'flex',gap:8}}>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>Save Expense</button>
           <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowForm(false)}>Cancel</button>
@@ -970,7 +970,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Email Address</div>
             <div style={fieldStyle}>
               <label style={labelStyle}>New Email Address</label>
-              <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder={user?.email} type="email"/>
+              <input aria-label="New Email Address" value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder={user?.email} type="email"/>
             </div>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:12,lineHeight:1.6}}>A confirmation link will be sent to both addresses. The change takes effect once confirmed.</div>
             <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
@@ -981,15 +981,15 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Password</div>
             <div style={fieldStyle}>
               <label style={labelStyle}>Current Password</label>
-              <input value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Your current password"/>
+              <input aria-label="Current Password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Your current password"/>
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>New Password</label>
-              <input value={newPassword} onChange={e=>setNewPassword(e.target.value)} type={showPw?'text':'password'} placeholder="At least 8 characters"/>
+              <input aria-label="New Password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} type={showPw?'text':'password'} placeholder="At least 8 characters"/>
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>Confirm New Password</label>
-              <input value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Repeat new password"/>
+              <input aria-label="Confirm New Password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Repeat new password"/>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
               <input type="checkbox" id="showpwS" checked={showPw} onChange={e=>setShowPw(e.target.checked)} style={{width:'auto',margin:0}}/>
@@ -1398,7 +1398,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                   <div style={{display:'flex',gap:14,flexWrap:'wrap',marginTop:14}}>
                     <div style={{display:'flex',flexDirection:'column',gap:5}}>
                       <label style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Start date</label>
-                      <input type="date" value={cs.custom_period_start||''} max={cs.custom_period_end||undefined}
+                      <input aria-label="Start date" type="date" value={cs.custom_period_start||''} max={cs.custom_period_end||undefined}
                         onChange={e=>{
                           const start=e.target.value
                           if(cs.custom_period_end && start && start>cs.custom_period_end){showToast('Start date must be on or before the end date','error');return}
@@ -1408,7 +1408,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:5}}>
                       <label style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>End date</label>
-                      <input type="date" value={cs.custom_period_end||''} min={cs.custom_period_start||undefined}
+                      <input aria-label="End date" type="date" value={cs.custom_period_end||''} min={cs.custom_period_start||undefined}
                         onChange={e=>{
                           const end=e.target.value
                           if(cs.custom_period_start && end && end<cs.custom_period_start){showToast('End date must be on or after the start date','error');return}
@@ -3026,27 +3026,27 @@ function ShareableLinksTab({ companies, showToast, T }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 10 }}>
           <div>
             <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Company</label>
-            <select value={formCompanyId} onChange={e => setFormCompanyId(e.target.value)}
+            <select aria-label="Company" value={formCompanyId} onChange={e => setFormCompanyId(e.target.value)}
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Max uses</label>
-            <input type="number" min={1} placeholder="Unlimited" value={formMaxUses}
+            <input aria-label="Max uses" type="number" min={1} placeholder="Unlimited" value={formMaxUses}
               onChange={e => setFormMaxUses(e.target.value)}
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Expires</label>
-            <select value={formExpiry} onChange={e => setFormExpiry(e.target.value)}
+            <select aria-label="Expires" value={formExpiry} onChange={e => setFormExpiry(e.target.value)}
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
               {EXPIRY_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Label (optional)</label>
-            <input value={formLabel} onChange={e => setFormLabel(e.target.value)} placeholder="e.g. WhatsApp share"
+            <input aria-label="Label (optional)" value={formLabel} onChange={e => setFormLabel(e.target.value)} placeholder="e.g. WhatsApp share"
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
           </div>
         </div>
@@ -3555,7 +3555,7 @@ function AdminSettingsPanel({ user, T, showToast }) {
               <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
                 Enter your admin password to confirm
               </label>
-              <input
+              <input aria-label="Enter your admin password to confirm"
                 type="password"
                 value={deletePassword}
                 onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
@@ -3656,18 +3656,18 @@ function FeatureFlagsPanel({ users, companies, T, showToast }) {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
             <div>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Key (snake_case, unique)</label>
-              <input value={newFlag.key} onChange={e=>setNewFlag({...newFlag,key:e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'_')})}
+              <input aria-label="Key (snake_case, unique)" value={newFlag.key} onChange={e=>setNewFlag({...newFlag,key:e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'_')})}
                 placeholder="eg. advanced_reports" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
             </div>
             <div>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Display name</label>
-              <input value={newFlag.name} onChange={e=>setNewFlag({...newFlag,name:e.target.value})}
+              <input aria-label="Display name" value={newFlag.name} onChange={e=>setNewFlag({...newFlag,name:e.target.value})}
                 placeholder="eg. Advanced Reports" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
             </div>
           </div>
           <div style={{marginBottom:10}}>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Description</label>
-            <input value={newFlag.description} onChange={e=>setNewFlag({...newFlag,description:e.target.value})}
+            <input aria-label="Description" value={newFlag.description} onChange={e=>setNewFlag({...newFlag,description:e.target.value})}
               placeholder="What does this feature do?" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
           </div>
           <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:mono,fontSize:11,color:T.text,marginBottom:12,cursor:'pointer'}}>
@@ -4357,7 +4357,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
       {companies.length > 1 && (
         <div style={{ marginBottom: 20 }}>
           <label style={lbl}>Company</label>
-          <select value={selectedCo} onChange={e=>setSelectedCo(e.target.value)} style={inp}>
+          <select aria-label="Company" value={selectedCo} onChange={e=>setSelectedCo(e.target.value)} style={inp}>
             {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
@@ -4406,10 +4406,10 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
         {mode==='agent' && (
           <div style={{ background:T.bg, borderRadius:10, padding:16, marginBottom:16 }}>
             <div style={{ display:'grid', gap:10 }}>
-              <div><label style={lbl}>Agent / company name</label><input value={agentName} onChange={e=>setAgentName(e.target.value)} placeholder="Smith Property Management" style={inp}/></div>
+              <div><label style={lbl}>Agent / company name</label><input aria-label="Agent / company name" value={agentName} onChange={e=>setAgentName(e.target.value)} placeholder="Smith Property Management" style={inp}/></div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                <div><label style={lbl}>Phone</label><input value={agentPhone} onChange={e=>setAgentPhone(e.target.value)} placeholder="01234 567890" style={inp}/></div>
-                <div><label style={lbl}>Email</label><input value={agentEmail} onChange={e=>setAgentEmail(e.target.value)} placeholder="agent@firm.com" style={inp}/></div>
+                <div><label style={lbl}>Phone</label><input aria-label="Phone" value={agentPhone} onChange={e=>setAgentPhone(e.target.value)} placeholder="01234 567890" style={inp}/></div>
+                <div><label style={lbl}>Email</label><input aria-label="Email" value={agentEmail} onChange={e=>setAgentEmail(e.target.value)} placeholder="agent@firm.com" style={inp}/></div>
               </div>
             </div>
           </div>
@@ -4426,10 +4426,10 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
           These details are shown to tenants on their Home and Rent tabs so they know where to pay.
         </div>
         <div style={{ display:'grid', gap:10, marginBottom:14 }}>
-          <div><label style={lbl}>Bank name</label><input value={bankName} onChange={e=>setBankName(e.target.value)} placeholder="e.g. NatWest" style={inp}/></div>
+          <div><label style={lbl}>Bank name</label><input aria-label="Bank name" value={bankName} onChange={e=>setBankName(e.target.value)} placeholder="e.g. NatWest" style={inp}/></div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-            <div><label style={lbl}>Sort code</label><input value={bankSort} onChange={e=>setBankSort(e.target.value)} placeholder="00-00-00" style={inp}/></div>
-            <div><label style={lbl}>Account number</label><input value={bankAccount} onChange={e=>setBankAccount(e.target.value)} placeholder="12345678" style={inp}/></div>
+            <div><label style={lbl}>Sort code</label><input aria-label="Sort code" value={bankSort} onChange={e=>setBankSort(e.target.value)} placeholder="00-00-00" style={inp}/></div>
+            <div><label style={lbl}>Account number</label><input aria-label="Account number" value={bankAccount} onChange={e=>setBankAccount(e.target.value)} placeholder="12345678" style={inp}/></div>
           </div>
           <div><label style={lbl}>Reference prefix</label>
             <div style={{ display:'flex', gap:10, alignItems:'center' }}>
@@ -4468,7 +4468,7 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
         </div>
         <div style={{ marginBottom:12 }}>
           <label style={lbl}>Property</label>
-          <select value={inviteProperty} onChange={e=>setInviteProperty(e.target.value)} style={inp}>
+          <select aria-label="Property" value={inviteProperty} onChange={e=>setInviteProperty(e.target.value)} style={inp}>
             {properties.map(p=><option key={p.id} value={p.id}>{p.address||p.name}</option>)}
           </select>
         </div>

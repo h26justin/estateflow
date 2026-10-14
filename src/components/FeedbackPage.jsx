@@ -84,13 +84,13 @@ export default function FeedbackPage({ user, showToast }) {
 
           <div style={{ marginBottom: 16 }}>
             <label style={lbl}>Subject</label>
-            <input style={inp} value={subject} onChange={e => setSubject(e.target.value)}
+            <input aria-label="Subject" style={inp} value={subject} onChange={e => setSubject(e.target.value)}
               placeholder={type === 'feature' ? 'e.g. Bulk rent payment import' : type === 'bug' ? 'e.g. PDF report not downloading' : 'e.g. Love the compliance tracker'} />
           </div>
 
           <div style={{ marginBottom: 20 }}>
             <label style={lbl}>Details</label>
-            <textarea style={{ ...inp, height: 130, resize: 'vertical', lineHeight: 1.5 }}
+            <textarea aria-label="Details" style={{ ...inp, height: 130, resize: 'vertical', lineHeight: 1.5 }}
               value={message} onChange={e => setMessage(e.target.value)}
               placeholder={type === 'feature' ? 'Describe the feature and how it would help you...' : type === 'bug' ? 'What happened? What did you expect? Steps to reproduce...' : 'Share your thoughts...'} />
           </div>

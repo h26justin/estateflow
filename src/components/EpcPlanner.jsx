@@ -271,18 +271,18 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={lbl}>Current rating {(cert?.current_rating || plan?.source === 'epc_register') ? '(from EPC register)' : '(manual)'}</label>
-              <select style={inp} value={manualRating} onChange={e => setManualRating(e.target.value)}>
+              <select aria-label="Current rating" style={inp} value={manualRating} onChange={e => setManualRating(e.target.value)}>
                 <option value="">Unknown</option>
                 {RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
               <label style={lbl}>Property type</label>
-              <input style={inp} placeholder="e.g. Victorian terrace" value={propertyType} onChange={e => setPropertyType(e.target.value)} />
+              <input aria-label="Property type" style={inp} placeholder="e.g. Victorian terrace" value={propertyType} onChange={e => setPropertyType(e.target.value)} />
             </div>
             <div>
               <label style={lbl}>Region</label>
-              <input style={inp} placeholder="e.g. North West" value={region} onChange={e => setRegion(e.target.value)} />
+              <input aria-label="Region" style={inp} placeholder="e.g. North West" value={region} onChange={e => setRegion(e.target.value)} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

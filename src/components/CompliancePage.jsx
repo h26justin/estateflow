@@ -434,17 +434,17 @@ export default function CompliancePage({ user, companies = [], properties = [], 
               {bulk && (
                 <div style={{ background: T.card, border: `1px solid ${T.gold}`, borderRadius: 14, padding: '14px 16px', marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'end' }}>
                   <div><label style={lbl}>Building</label>
-                    <select value={bulk.building} onChange={e => setBulk(b => ({ ...b, building: e.target.value }))} style={inp}>
+                    <select aria-label="Building" value={bulk.building} onChange={e => setBulk(b => ({ ...b, building: e.target.value }))} style={inp}>
                       {buildings.map(g => <option key={g.tail} value={g.tail}>{g.tail} · {g.items.length} units</option>)}
                     </select></div>
                   <div><label style={lbl}>Certificate</label>
-                    <select value={bulk.key} onChange={e => setBulkKey(e.target.value)} style={inp}>
+                    <select aria-label="Certificate" value={bulk.key} onChange={e => setBulkKey(e.target.value)} style={inp}>
                       {bulkReqs.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
                     </select></div>
                   <div><label style={lbl}>Issued</label>
-                    <input type="date" value={bulk.issue} onChange={e => setBulkIssue(e.target.value)} style={inp} /></div>
+                    <input aria-label="Issued" type="date" value={bulk.issue} onChange={e => setBulkIssue(e.target.value)} style={inp} /></div>
                   <div><label style={lbl}>Expires</label>
-                    <input type="date" value={bulk.expiry} onChange={e => setBulk(b => ({ ...b, expiry: e.target.value }))} style={inp} /></div>
+                    <input aria-label="Expires" type="date" value={bulk.expiry} onChange={e => setBulk(b => ({ ...b, expiry: e.target.value }))} style={inp} /></div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</button>
                     <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</button>

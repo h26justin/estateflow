@@ -90,7 +90,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
             <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Type <strong style={{ color: T.text }}>{expectedConfirm}</strong> to confirm
             </label>
-            <input value={confirmText} onChange={e => setConfirmText(e.target.value)} autoFocus
+            <input aria-label="Type to confirm" value={confirmText} onChange={e => setConfirmText(e.target.value)} autoFocus
               placeholder={expectedConfirm}
               style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${isConfirmed ? T.green : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', boxSizing: 'border-box' }}/>
           </div>

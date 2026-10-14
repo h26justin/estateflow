@@ -119,7 +119,7 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
               </div>
               <div style={{ marginBottom: 10 }}>
                 <label>Check type</label>
-                <select value={form.check_type} onChange={e => setForm(f => ({ ...f, check_type: e.target.value }))}>
+                <select aria-label="Check type" value={form.check_type} onChange={e => setForm(f => ({ ...f, check_type: e.target.value }))}>
                   {CHECK_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                 </select>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
@@ -129,11 +129,11 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
               <div className="g2">
                 <div>
                   <label>Applicant name</label>
-                  <input value={form.applicant_name} onChange={e => setForm(f => ({ ...f, applicant_name: e.target.value }))} placeholder="e.g. Jane Smith"/>
+                  <input aria-label="Applicant name" value={form.applicant_name} onChange={e => setForm(f => ({ ...f, applicant_name: e.target.value }))} placeholder="e.g. Jane Smith"/>
                 </div>
                 <div>
                   <label>Applicant email <span style={{ color: T.muted, fontWeight: 400 }}>(optional)</span></label>
-                  <input type="email" value={form.applicant_email} onChange={e => setForm(f => ({ ...f, applicant_email: e.target.value }))} placeholder="jane@example.com"/>
+                  <input aria-label="Applicant email" type="email" value={form.applicant_email} onChange={e => setForm(f => ({ ...f, applicant_email: e.target.value }))} placeholder="jane@example.com"/>
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>

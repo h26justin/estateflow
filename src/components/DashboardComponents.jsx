@@ -727,12 +727,12 @@ export function ContractorsPage({companies, showToast}) {
 
       {showForm&&<div className="card" style={{padding:'18px 20px',marginBottom:20}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Name *</label><input value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Bob Smith"/></div>
-          <div><label>Trade *</label><select value={form.trade} onChange={e=>s('trade',e.target.value)}><option value="">Select trade…</option>{TRADES.map(t=><option key={t}>{t}</option>)}</select></div>
+          <div><label>Name *</label><input aria-label="Name" value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Bob Smith"/></div>
+          <div><label>Trade *</label><select aria-label="Trade" value={form.trade} onChange={e=>s('trade',e.target.value)}><option value="">Select trade…</option>{TRADES.map(t=><option key={t}>{t}</option>)}</select></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Phone</label><input value={form.phone} onChange={e=>s('phone',e.target.value)} placeholder="07xxx xxxxxx"/></div>
-          <div><label>Email</label><input value={form.email} onChange={e=>s('email',e.target.value)} placeholder="contractor@email.com"/></div>
+          <div><label>Phone</label><input aria-label="Phone" value={form.phone} onChange={e=>s('phone',e.target.value)} placeholder="07xxx xxxxxx"/></div>
+          <div><label>Email</label><input aria-label="Email" value={form.email} onChange={e=>s('email',e.target.value)} placeholder="contractor@email.com"/></div>
         </div>
         <div style={{marginBottom:12}}>
           <label>Linked Companies</label>
@@ -755,7 +755,7 @@ export function ContractorsPage({companies, showToast}) {
           <input type="checkbox" checked={form.preferred} onChange={e=>s('preferred',e.target.checked)} style={{width:'auto'}}/>
           <label style={{margin:0,cursor:'pointer',textTransform:'none',fontSize:12,letterSpacing:0}}>Preferred contractor</label>
         </div>
-        <div style={{marginBottom:12}}><label>Notes</label><input value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
+        <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
         <div style={{display:'flex',gap:8}}>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>Save Contractor</button>
           <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</button>

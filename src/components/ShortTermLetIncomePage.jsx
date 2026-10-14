@@ -774,19 +774,19 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                     <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: 12, marginBottom: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       {stlCompanies.length > 1 && !mgrForm.id && (
                         <div style={{ gridColumn: '1 / -1' }}><label style={monoLabel(T)}>Company</label>
-                          <select value={mgrForm.company_id} onChange={e => setM('company_id', e.target.value)} style={inp(T)}>{stlCompanies.filter(c => canEditCompany(c.id)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                          <select aria-label="Company" value={mgrForm.company_id} onChange={e => setM('company_id', e.target.value)} style={inp(T)}>{stlCompanies.filter(c => canEditCompany(c.id)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                       )}
-                      <div><label style={monoLabel(T)}>Name</label><input value={mgrForm.name} onChange={e => setM('name', e.target.value)} placeholder="e.g. Stacey" style={inp(T)} /></div>
-                      <div><label style={monoLabel(T)}>Percentage</label><input type="number" step="0.5" min="0" max="100" value={mgrForm.percentage} onChange={e => setM('percentage', e.target.value)} placeholder="15" style={inp(T)} /></div>
+                      <div><label style={monoLabel(T)}>Name</label><input aria-label="Name" value={mgrForm.name} onChange={e => setM('name', e.target.value)} placeholder="e.g. Stacey" style={inp(T)} /></div>
+                      <div><label style={monoLabel(T)}>Percentage</label><input aria-label="Percentage" type="number" step="0.5" min="0" max="100" value={mgrForm.percentage} onChange={e => setM('percentage', e.target.value)} placeholder="15" style={inp(T)} /></div>
                       <div><label style={monoLabel(T)}>Of</label>
-                        <select value={mgrForm.basis} onChange={e => setM('basis', e.target.value)} style={inp(T)}>
+                        <select aria-label="Of" value={mgrForm.basis} onChange={e => setM('basis', e.target.value)} style={inp(T)}>
                           <option value="net_after_platform_fees">Income after platform fees</option><option value="gross">Gross booking value</option>
                         </select></div>
                       <div><label style={monoLabel(T)}>Paid</label>
-                        <select value={mgrForm.payout_frequency} onChange={e => setM('payout_frequency', e.target.value)} style={inp(T)}>
+                        <select aria-label="Paid" value={mgrForm.payout_frequency} onChange={e => setM('payout_frequency', e.target.value)} style={inp(T)}>
                           <option value="weekly">Weekly</option><option value="fortnightly">Every two weeks</option><option value="monthly">Monthly</option>
                         </select></div>
-                      <div style={{ gridColumn: '1 / -1' }}><label style={monoLabel(T)}>Notes</label><input value={mgrForm.notes || ''} onChange={e => setM('notes', e.target.value)} placeholder="What the fee covers, e.g. management and cleaning" style={inp(T)} /></div>
+                      <div style={{ gridColumn: '1 / -1' }}><label style={monoLabel(T)}>Notes</label><input aria-label="Notes" value={mgrForm.notes || ''} onChange={e => setM('notes', e.target.value)} placeholder="What the fee covers, e.g. management and cleaning" style={inp(T)} /></div>
                       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <button className="btn" style={{ fontSize: 11 }} onClick={() => setMgrForm(null)} disabled={mgrSaving}>Cancel</button>
                         <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={saveManager} disabled={mgrSaving}>{mgrSaving ? 'Saving…' : 'Save manager'}</button>
@@ -1027,7 +1027,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={monoLabel(T)}>Property</label>
-                <select value={adjForm.property_id} onChange={e => { setA('property_id', e.target.value); setA('booking_id', '') }} style={inp(T)}>
+                <select aria-label="Property" value={adjForm.property_id} onChange={e => { setA('property_id', e.target.value); setA('booking_id', '') }} style={inp(T)}>
                   <option value="">Choose…</option>
                   {stlProps.filter(p => canEditCompany(p.company_id)).map(p => (
                     <option key={p.id} value={p.id}>{p.name || p.address}{stlCompanies.length > 1 && coById[p.company_id]?.abbr ? ` · ${coById[p.company_id].abbr}` : ''}</option>
@@ -1036,23 +1036,23 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
               </div>
               <div>
                 <label style={monoLabel(T)}>Date</label>
-                <input type="date" value={adjForm.adjustment_date} onChange={e => setA('adjustment_date', e.target.value)} style={inp(T)} />
+                <input aria-label="Date" type="date" value={adjForm.adjustment_date} onChange={e => setA('adjustment_date', e.target.value)} style={inp(T)} />
               </div>
               <div>
                 <label style={monoLabel(T)}>Kind</label>
-                <select value={adjForm.kind} onChange={e => setA('kind', e.target.value)} style={inp(T)}>
+                <select aria-label="Kind" value={adjForm.kind} onChange={e => setA('kind', e.target.value)} style={inp(T)}>
                   {ADJUSTMENT_KINDS.map(k => <option key={k.v} value={k.v}>{k.l}</option>)}
                 </select>
               </div>
               <div>
                 <label style={monoLabel(T)}>Amount (£){kindMeta?.negative ? ' · negative' : ''}</label>
-                <input type="number" step="0.01" inputMode="decimal" value={adjForm.amount} placeholder={kindMeta?.negative ? '-120.00' : '0.00'}
+                <input aria-label="Amount (£)" type="number" step="0.01" inputMode="decimal" value={adjForm.amount} placeholder={kindMeta?.negative ? '-120.00' : '0.00'}
                   onChange={e => setA('amount', e.target.value)} style={inp(T)} />
                 {kindMeta?.hint && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 4 }}>{kindMeta.hint}</div>}
               </div>
               <div>
                 <label style={monoLabel(T)}>Channel</label>
-                <select value={KNOWN_CHANNELS.includes(adjForm.channel) || !adjForm.channel ? adjForm.channel : '__other'} onChange={e => setA('channel', e.target.value === '__other' ? adjForm.channel || '' : e.target.value)} style={inp(T)}>
+                <select aria-label="Channel" value={KNOWN_CHANNELS.includes(adjForm.channel) || !adjForm.channel ? adjForm.channel : '__other'} onChange={e => setA('channel', e.target.value === '__other' ? adjForm.channel || '' : e.target.value)} style={inp(T)}>
                   <option value="">—</option>
                   {KNOWN_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
                   {adjForm.channel && !KNOWN_CHANNELS.includes(adjForm.channel) && <option value="__other">{adjForm.channel}</option>}
@@ -1060,7 +1060,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={monoLabel(T)}>Booking (optional)</label>
-                <select value={adjForm.booking_id} onChange={e => setA('booking_id', e.target.value)} style={inp(T)} disabled={!adjForm.property_id}>
+                <select aria-label="Booking (optional)" value={adjForm.booking_id} onChange={e => setA('booking_id', e.target.value)} style={inp(T)} disabled={!adjForm.property_id}>
                   <option value="">Not linked to a booking</option>
                   {formBookings.map(b => (
                     <option key={b.id} value={b.id}>{fmtDateShort(b.arrival)} → {fmtDateShort(b.departure)} · {guestDisplayName(b.guest_name)} · {channelLabel(b.source)} · {fmtMoney(b.total_amount)}</option>
@@ -1069,11 +1069,11 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={monoLabel(T)}>Reference</label>
-                <input value={adjForm.reference} onChange={e => setA('reference', e.target.value)} placeholder="Payout / case reference" style={inp(T)} />
+                <input aria-label="Reference" value={adjForm.reference} onChange={e => setA('reference', e.target.value)} placeholder="Payout / case reference" style={inp(T)} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={monoLabel(T)}>Notes</label>
-                <textarea value={adjForm.notes} onChange={e => setA('notes', e.target.value)} rows={2} style={{ ...inp(T), resize: 'vertical' }} />
+                <textarea aria-label="Notes" value={adjForm.notes} onChange={e => setA('notes', e.target.value)} rows={2} style={{ ...inp(T), resize: 'vertical' }} />
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>

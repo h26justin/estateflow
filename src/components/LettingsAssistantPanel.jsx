@@ -175,12 +175,12 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 10 }}>
           <div>
             <label style={lbl}>Max budget (pcm)</label>
-            <input style={inp} type="number" placeholder="e.g. 1200" value={criteria.max_budget}
+            <input aria-label="Max budget (pcm)" style={inp} type="number" placeholder="e.g. 1200" value={criteria.max_budget}
               onChange={e => setCriteria(c => ({ ...c, max_budget: e.target.value }))} />
           </div>
           <div>
             <label style={lbl}>Pets allowed</label>
-            <select style={inp} value={criteria.pets_allowed}
+            <select aria-label="Pets allowed" style={inp} value={criteria.pets_allowed}
               onChange={e => setCriteria(c => ({ ...c, pets_allowed: e.target.value }))}>
               <option value="">No preference</option>
               <option value="yes">Yes</option>
@@ -189,13 +189,13 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
           </div>
           <div>
             <label style={lbl}>Min tenancy (months)</label>
-            <input style={inp} type="number" placeholder="e.g. 12" value={criteria.min_tenancy_months}
+            <input aria-label="Min tenancy (months)" style={inp} type="number" placeholder="e.g. 12" value={criteria.min_tenancy_months}
               onChange={e => setCriteria(c => ({ ...c, min_tenancy_months: e.target.value }))} />
           </div>
         </div>
         <div>
           <label style={lbl}>Notes</label>
-          <input style={inp} type="text" placeholder="e.g. professional tenants, non-smoker" value={criteria.notes}
+          <input aria-label="Notes" style={inp} type="text" placeholder="e.g. professional tenants, non-smoker" value={criteria.notes}
             onChange={e => setCriteria(c => ({ ...c, notes: e.target.value }))} />
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
               <label style={lbl}>Property</label>
-              <select style={inp} value={newForm.property_id}
+              <select aria-label="Property" style={inp} value={newForm.property_id}
                 onChange={e => setNewForm(f => ({ ...f, property_id: e.target.value }))}>
                 <option value="">Select property…</option>
                 {properties.map(p => (
@@ -217,18 +217,18 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
             </div>
             <div>
               <label style={lbl}>Applicant name</label>
-              <input style={inp} type="text" placeholder="e.g. Sarah Mitchell" value={newForm.applicant_name}
+              <input aria-label="Applicant name" style={inp} type="text" placeholder="e.g. Sarah Mitchell" value={newForm.applicant_name}
                 onChange={e => setNewForm(f => ({ ...f, applicant_name: e.target.value }))} />
             </div>
             <div>
               <label style={lbl}>Applicant email</label>
-              <input style={inp} type="email" placeholder="e.g. sarah@email.com" value={newForm.applicant_email}
+              <input aria-label="Applicant email" style={inp} type="email" placeholder="e.g. sarah@email.com" value={newForm.applicant_email}
                 onChange={e => setNewForm(f => ({ ...f, applicant_email: e.target.value }))} />
             </div>
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={lbl}>Enquiry message</label>
-            <textarea style={{ ...inp, height: 110, resize: 'vertical', lineHeight: 1.6 }}
+            <textarea aria-label="Enquiry message" style={{ ...inp, height: 110, resize: 'vertical', lineHeight: 1.6 }}
               placeholder="Paste the applicant's message…" value={newForm.message}
               onChange={e => setNewForm(f => ({ ...f, message: e.target.value }))} />
           </div>

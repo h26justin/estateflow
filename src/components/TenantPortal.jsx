@@ -658,12 +658,12 @@ function TenantMaintenance({ property, user, brandColor }) {
 
           <div style={{marginBottom:12}}>
             <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:6}}>What needs fixing? *</label>
-            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Boiler not working, Leak under sink" style={inp}/>
+            <input aria-label="What needs fixing?" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Boiler not working, Leak under sink" style={inp}/>
           </div>
 
           <div style={{marginBottom:12}}>
             <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:6}}>Details (optional)</label>
-            <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe the issue, when it started, how bad it is…" style={{...inp,resize:'vertical'}}/>
+            <textarea aria-label="Details (optional)" value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe the issue, when it started, how bad it is…" style={{...inp,resize:'vertical'}}/>
           </div>
 
           <div style={{marginBottom:14}}>

@@ -85,13 +85,13 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
                 <div style={{ marginTop: 10 }}>
                   {editing.allocations.map((a, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 120px 30px', gap: 8, alignItems: 'end', marginBottom: 6 }}>
-                      <div><label>Applies to</label><select value={a.target} onChange={e => setAlloc(i, 'target', e.target.value)}>
+                      <div><label>Applies to</label><select aria-label="Applies to" value={a.target} onChange={e => setAlloc(i, 'target', e.target.value)}>
                         <option value="current_rent">Current rent</option><option value="historic_arrears">Historic arrears</option><option value="deposit">Deposit</option><option value="other">Other</option>
                       </select></div>
                       <div><label>Period</label>{a.target === 'current_rent'
                         ? <select value={a.rent_payment_id || ''} onChange={e => setAlloc(i, 'rent_payment_id', e.target.value)}><option value="">Choose…</option>{periodsFor(p).map(x => <option key={x.id} value={x.id}>{x.month_label} · {fmtDate(x.period_start)} → {fmtDate(x.period_end)} · {x.status}</option>)}</select>
                         : <input value={a.notes || ''} onChange={e => setAlloc(i, 'notes', e.target.value)} placeholder="optional note" />}</div>
-                      <div><label>Amount</label><MoneyInput prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
+                      <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
                       <button className="btn" style={{ fontSize: 10, color: T.red, height: 34 }} onClick={() => setEditing(e => ({ ...e, allocations: e.allocations.filter((_, j) => j !== i) }))} disabled={editing.allocations.length === 1}>✕</button>
                     </div>
                   ))}

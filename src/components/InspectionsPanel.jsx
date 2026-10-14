@@ -138,29 +138,29 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
               <div className="g2">
                 <div>
                   <label>Type</label>
-                  <select value={form.inspection_type} onChange={e => setForm(f => ({ ...f, inspection_type: e.target.value }))}>
+                  <select aria-label="Type" value={form.inspection_type} onChange={e => setForm(f => ({ ...f, inspection_type: e.target.value }))}>
                     {INSPECTION_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label>Scheduled date</label>
-                  <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}/>
+                  <input aria-label="Scheduled date" type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}/>
                 </div>
               </div>
               <div className="g2" style={{ marginTop: 10 }}>
                 <div>
                   <label>Completed date <span style={{ color: T.muted, fontWeight: 400 }}>(leave blank if scheduled)</span></label>
-                  <input type="date" value={form.completed_date} onChange={e => setForm(f => ({ ...f, completed_date: e.target.value }))}/>
+                  <input aria-label="Completed date" type="date" value={form.completed_date} onChange={e => setForm(f => ({ ...f, completed_date: e.target.value }))}/>
                 </div>
                 <div>
                   <label>Inspector name</label>
-                  <input value={form.inspector_name} onChange={e => setForm(f => ({ ...f, inspector_name: e.target.value }))} placeholder="e.g. Jane Smith"/>
+                  <input aria-label="Inspector name" value={form.inspector_name} onChange={e => setForm(f => ({ ...f, inspector_name: e.target.value }))} placeholder="e.g. Jane Smith"/>
                 </div>
               </div>
               {form.completed_date && (
                 <div style={{ marginTop: 10 }}>
                   <label>Overall condition</label>
-                  <select value={form.overall_condition} onChange={e => setForm(f => ({ ...f, overall_condition: e.target.value }))}>
+                  <select aria-label="Overall condition" value={form.overall_condition} onChange={e => setForm(f => ({ ...f, overall_condition: e.target.value }))}>
                     <option value="">— not rated —</option>
                     {CONDITIONS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                   </select>
@@ -168,7 +168,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
               )}
               <div style={{ marginTop: 10 }}>
                 <label>Notes</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} style={{ resize: 'vertical' }} placeholder="Observations, repairs needed, tenant comments..."/>
+                <textarea aria-label="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} style={{ resize: 'vertical' }} placeholder="Observations, repairs needed, tenant comments..."/>
               </div>
 
               {/* Photos */}

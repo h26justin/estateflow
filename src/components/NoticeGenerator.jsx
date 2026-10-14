@@ -381,32 +381,32 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={lbl}>Landlord name</label>
-              <input style={inp} value={form.landlord_name} onChange={e => update({ landlord_name: e.target.value })} placeholder="Full legal name"/>
+              <input aria-label="Landlord name" style={inp} value={form.landlord_name} onChange={e => update({ landlord_name: e.target.value })} placeholder="Full legal name"/>
             </div>
             <div>
               <label style={lbl}>Tenant name(s)</label>
-              <input style={inp} value={form.tenant_names} onChange={e => update({ tenant_names: e.target.value })} placeholder="Comma-separated if multiple"/>
+              <input aria-label="Tenant name(s)" style={inp} value={form.tenant_names} onChange={e => update({ tenant_names: e.target.value })} placeholder="Comma-separated if multiple"/>
             </div>
           </div>
 
           <div>
             <label style={lbl}>Landlord address (for service)</label>
-            <input style={inp} value={form.landlord_address} onChange={e => update({ landlord_address: e.target.value })} placeholder="Address where tenant should send replies"/>
+            <input aria-label="Landlord address (for service)" style={inp} value={form.landlord_address} onChange={e => update({ landlord_address: e.target.value })} placeholder="Address where tenant should send replies"/>
           </div>
 
           <div>
             <label style={lbl}>Property address</label>
-            <input style={inp} value={form.property_address} onChange={e => update({ property_address: e.target.value })}/>
+            <input aria-label="Property address" style={inp} value={form.property_address} onChange={e => update({ property_address: e.target.value })}/>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={lbl}>Date of notice</label>
-              <input type="date" style={inp} value={form.date_served} onChange={e => update({ date_served: e.target.value })}/>
+              <input aria-label="Date of notice" type="date" style={inp} value={form.date_served} onChange={e => update({ date_served: e.target.value })}/>
             </div>
             <div>
               <label style={lbl}>Earliest possession / expiry date</label>
-              <input type="date" style={inp} value={form.expiry_date} onChange={e => update({ expiry_date: e.target.value })}/>
+              <input aria-label="Earliest possession / expiry date" type="date" style={inp} value={form.expiry_date} onChange={e => update({ expiry_date: e.target.value })}/>
               <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 4 }}>
                 {type === 's21'
                   ? 'S21: must be at least 2 months after the date of notice.'
@@ -431,7 +431,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast }
               </div>
               <div style={{ marginTop: 10 }}>
                 <label style={lbl}>Particulars of each ground</label>
-                <textarea style={{ ...inp, height: 80, resize: 'vertical' }}
+                <textarea aria-label="Particulars of each ground" style={{ ...inp, height: 80, resize: 'vertical' }}
                   value={form.grounds_details}
                   onChange={e => update({ grounds_details: e.target.value })}
                   placeholder="e.g. Rent arrears of £2,400 outstanding since 1 January 2026. Last payment £600 on 1 December 2025…"/>

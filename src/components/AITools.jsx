@@ -69,28 +69,28 @@ export function AIListingWriter({ property, T: TProp }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
         <div>
           <label style={lbl}>Property type</label>
-          <select value={form.property_type} onChange={e => set('property_type', e.target.value)} style={inp}>
+          <select aria-label="Property type" value={form.property_type} onChange={e => set('property_type', e.target.value)} style={inp}>
             {['flat','terraced house','semi-detached house','detached house','bungalow','HMO','studio'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
           </select>
         </div>
         <div>
           <label style={lbl}>Bedrooms</label>
-          <input type="number" min={0} max={20} value={form.bedrooms} onChange={e => set('bedrooms', e.target.value)} placeholder="e.g. 3" style={inp}/>
+          <input aria-label="Bedrooms" type="number" min={0} max={20} value={form.bedrooms} onChange={e => set('bedrooms', e.target.value)} placeholder="e.g. 3" style={inp}/>
         </div>
         <div>
           <label style={lbl}>Bathrooms</label>
-          <input type="number" min={1} max={10} value={form.bathrooms} onChange={e => set('bathrooms', e.target.value)} placeholder="e.g. 1" style={inp}/>
+          <input aria-label="Bathrooms" type="number" min={1} max={10} value={form.bathrooms} onChange={e => set('bathrooms', e.target.value)} placeholder="e.g. 1" style={inp}/>
         </div>
       </div>
 
       <div style={{ marginBottom: 12 }}>
         <label style={lbl}>Location (street, area, town)</label>
-        <input value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Chapel Street, Sunderland city centre" style={inp}/>
+        <input aria-label="Location (street, area, town)" value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Chapel Street, Sunderland city centre" style={inp}/>
       </div>
 
       <div style={{ marginBottom: 12 }}>
         <label style={lbl}>Key features (comma separated)</label>
-        <input value={form.features} onChange={e => set('features', e.target.value)}
+        <input aria-label="Key features (comma separated)" value={form.features} onChange={e => set('features', e.target.value)}
           placeholder="e.g. recently refurbished kitchen, private garden, off-street parking, close to schools" style={inp}/>
       </div>
 

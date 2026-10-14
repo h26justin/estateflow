@@ -248,7 +248,7 @@ export default function AdminDashboard({ onClose, user }) {
               </p>
             </div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',display:'block',marginBottom:8}}>Enter your admin password</label>
-            <input type="password" value={deletePassword} autoFocus
+            <input aria-label="Enter your admin password" type="password" value={deletePassword} autoFocus
               onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
               onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
               style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',marginBottom:deleteError?8:16}}/>
@@ -637,12 +637,12 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,marginBottom:20,color:T.text}}>Rename company</h3>
             <div style={{marginBottom:12}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
-              <input value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
+              <input aria-label="Company name" value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
                 style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{marginBottom:20}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
-              <input value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
+              <input aria-label="Abbreviation" value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
                 style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -667,7 +667,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             </div>
             <div style={{marginBottom:16}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password to confirm</label>
-              <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
+              <input aria-label="Enter your admin password to confirm" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
                 style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
@@ -1148,7 +1148,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
             </div>
             <div style={{marginBottom:16}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password</label>
-              <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
+              <input aria-label="Enter your admin password" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
                 style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
@@ -1306,24 +1306,24 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
-          <input value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
+          <input aria-label="Company name" value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 100px',gap:10,marginBottom:12}}>
           <div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
-            <input value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
+            <input aria-label="Abbreviation" value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
               style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           </div>
           <div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Colour</label>
-            <input type="color" value={color} onChange={e=>setColor(e.target.value)}
+            <input aria-label="Colour" type="color" value={color} onChange={e=>setColor(e.target.value)}
               style={{width:'100%',height:40,padding:0,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',background:'transparent'}}/>
           </div>
         </div>
         <div style={{marginBottom:16,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
@@ -1371,7 +1371,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Source company (will be deleted)</label>
-          <select value={sourceId} onChange={e=>setSourceId(e.target.value)}
+          <select aria-label="Source company (will be deleted)" value={sourceId} onChange={e=>setSourceId(e.target.value)}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
@@ -1382,7 +1382,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Target company (keeps everything)</label>
-          <select value={targetId} onChange={e=>setTargetId(e.target.value)}
+          <select aria-label="Target company (keeps everything)" value={targetId} onChange={e=>setTargetId(e.target.value)}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.filter(c=>c.id!==sourceId).map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
@@ -1397,7 +1397,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
@@ -1442,7 +1442,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
-          <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
+          <input aria-label="Search new owner by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
@@ -1469,7 +1469,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
@@ -1527,7 +1527,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
-          <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
+          <input aria-label="Search user by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
@@ -1560,7 +1560,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
@@ -1768,7 +1768,7 @@ function CommsTab({ user, users, T }) {
 
         <div style={{marginBottom:16}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Recipients</label>
-          <select value={to} onChange={e=>setTo(e.target.value)}
+          <select aria-label="Recipients" value={to} onChange={e=>setTo(e.target.value)}
             style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px'}}>
             <option value="all">All users ({users.length})</option>
             <option value="individual">Individual user…</option>
@@ -1781,13 +1781,13 @@ function CommsTab({ user, users, T }) {
 
         <div style={{marginBottom:16}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Subject</label>
-          <input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Email subject line"
+          <input aria-label="Subject" value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Email subject line"
             style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px'}}/>
         </div>
 
         <div style={{marginBottom:20}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Message</label>
-          <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={8} placeholder="Write your message here…"
+          <textarea aria-label="Message" value={message} onChange={e=>setMessage(e.target.value)} rows={8} placeholder="Write your message here…"
             style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical'}}/>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:4}}>Sent from hello@ownproperly.com using your Properly branding</div>
         </div>

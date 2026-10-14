@@ -169,7 +169,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
               <div style={{ display: 'grid', gap: 10 }}>
                 <div>
                   <label>Property *</label>
-                  <select value={propertyId} onChange={e => setPropertyId(e.target.value)}>
+                  <select aria-label="Property" value={propertyId} onChange={e => setPropertyId(e.target.value)}>
                     <option value="">— Pick a property —</option>
                     {[...properties].sort((a,b) => naturalCompare(a.name, b.name)).map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -179,22 +179,22 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
                 <div className="g2">
                   <div>
                     <label>Amount (£) *</label>
-                    <input value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"/>
+                    <input aria-label="Amount (£)" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"/>
                   </div>
                   <div>
                     <label>Date</label>
-                    <input type="date" value={date} onChange={e => setDate(e.target.value)}/>
+                    <input aria-label="Date" type="date" value={date} onChange={e => setDate(e.target.value)}/>
                   </div>
                 </div>
                 <div>
                   <label>Category</label>
-                  <select value={category} onChange={e => setCategory(e.target.value)}>
+                  <select aria-label="Category" value={category} onChange={e => setCategory(e.target.value)}>
                     {CATEGORY_OPTIONS.map(c => <option key={c.v} value={c.v}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label>Description</label>
-                  <input value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Plumber callout — new tap"/>
+                  <input aria-label="Description" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Plumber callout — new tap"/>
                 </div>
               </div>
 

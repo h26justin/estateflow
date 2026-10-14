@@ -362,12 +362,12 @@ function SettingsPanel({ T, settings, onSaved }) {
       <div style={{ display: 'grid', gap: 12 }}>
         <div>
           <label>National Insurance Number</label>
-          <input value={nino} onChange={e => setNino(e.target.value)} placeholder="QQ123456C"
+          <input aria-label="National Insurance Number" value={nino} onChange={e => setNino(e.target.value)} placeholder="QQ123456C"
             style={{ fontFamily: MONO, textTransform: 'uppercase' }}/>
         </div>
         <div>
           <label>HMRC Property Business ID</label>
-          <input value={businessId} onChange={e => setBusinessId(e.target.value)} placeholder="From HMRC online account"
+          <input aria-label="HMRC Property Business ID" value={businessId} onChange={e => setBusinessId(e.target.value)} placeholder="From HMRC online account"
             style={{ fontFamily: MONO }}/>
           <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
             Sign in to gov.uk → Self Assessment → "My businesses" to find this.
