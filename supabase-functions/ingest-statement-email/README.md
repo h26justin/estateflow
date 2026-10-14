@@ -118,5 +118,6 @@ Cheaper than building your own MX server or running an SES forwarder.
 ## When to revisit
 
 - If statement volume exceeds 50k/mo, evaluate **Cloudflare Email Workers** (free but no attachments in payload — would need an extra fetch)
-- Extraction runs `claude-sonnet-4-5` first and auto-falls back to `claude-opus-4-7` when the first pass fails to parse or returns zero line items (see `extractDocumentInline` / `callStatementModel`). No manual model swap needed.
+- Extraction runs on the standard tier (`claude-sonnet-5-5`) with a JSON-schema structured output and escalates to `claude-opus-5-5` only when the answer fails to parse or match the schema — a clean answer with zero line items is kept (see `extractDocumentInline`). Models are set per tier in `_shared/anthropic.ts` and can be overridden with the `ANTHROPIC_MODEL_STANDARD` / `ANTHROPIC_MODEL_ESCALATE` secrets.
+- Accepted attachments: PDF, JPEG, PNG, WebP, GIF (HEIC/HEIF are rejected by the Claude API and are skipped). Max 10 per email, 10 MB each, 100 extractions per company owner per day.
 - See `SETUP_RUNBOOK.md` for the DNS + Postmark + Supabase go-live wiring.

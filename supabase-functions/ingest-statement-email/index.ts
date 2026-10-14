@@ -7,7 +7,8 @@
 //   3. Save each PDF attachment to property-documents storage
 //   4. Create a property_documents row, marked category='statement'
 //   5. Trigger AI extraction via the existing extract-document fn path
-//      (inline here to avoid an extra round-trip)
+//      (inline here to avoid an extra round-trip), as a background task
+//      (EdgeRuntime.waitUntil) — a failure marks the document 'failed'
 //   6. Drop a bell notification: "📨 New statement received — review + import"
 //
 // We DON'T auto-write rent_payments. Statement parsing is fuzzy enough
@@ -32,14 +33,82 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import {
+  callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, nullable, obj, UNTRUSTED_CONTENT_NOTICE,
+} from './anthropic.ts'
 
 const SUPABASE_URL          = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const ANTHROPIC_API_KEY     = Deno.env.get('ANTHROPIC_API_KEY')!
 const POSTMARK_TOKEN        = Deno.env.get('POSTMARK_INBOUND_TOKEN') || ''
 const INBOX_DOMAIN          = (Deno.env.get('INBOX_DOMAIN') || 'inbox.ownproperly.com').toLowerCase()
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+// Abuse / cost bounds for an endpoint anyone who learns an inbox address can
+// mail: at most MAX_ATTACHMENTS files per email, each at most
+// MAX_ATTACHMENT_BYTES, and at most DAILY_EXTRACTIONS AI extractions per
+// company owner per day (ai_usage).
+const MAX_ATTACHMENTS      = 10
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const DAILY_EXTRACTIONS    = { perDay: 100 }
+
+// File types Claude reads: PDFs as document blocks; JPEG/PNG/WebP/GIF as image
+// blocks. HEIC/HEIF are NOT accepted by the API (the whole request would
+// fail), so they are no longer taken.
+const ACCEPTED_TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+}
+const ACCEPTED_MIME = new Set(Object.values(ACCEPTED_TYPES))
+
+// Resolve an attachment's type from its declared ContentType, falling back to
+// the file extension (agents often send application/octet-stream). Returns
+// null for anything Claude can't read.
+function attachmentMime(att: any): string | null {
+  const ct = String(att?.ContentType || '').split(';')[0].trim().toLowerCase()
+  if (ACCEPTED_MIME.has(ct)) return ct
+  const ext = String(att?.Name || '').toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || ''
+  return ACCEPTED_TYPES[ext] || null
+}
+
+// Decoded size of a base64 payload, without decoding it.
+function base64Bytes(b64: string): number {
+  const clean = (b64 || '').replace(/\s+/g, '')
+  const pad = clean.endsWith('==') ? 2 : clean.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor(clean.length * 3 / 4) - pad)
+}
+
+// Mirrors public.company_is_live (2026-06-10_security_01_helpers.sql) for the
+// service role: live while an active / trialing / past_due subscription
+// exists, the company is free-tier, or its trial hasn't ended. Never run paid
+// AI for a company that isn't live.
+async function companyIsLive(companyId: string): Promise<boolean> {
+  const { data: co } = await admin
+    .from('companies')
+    .select('is_free_tier, trial_ends_at')
+    .eq('id', companyId)
+    .maybeSingle()
+  if (co?.is_free_tier === true) return true
+  if (co?.trial_ends_at && new Date(co.trial_ends_at).getTime() > Date.now()) return true
+  const { data: subs } = await admin
+    .from('subscriptions')
+    .select('id')
+    .eq('company_id', companyId)
+    .in('status', ['active', 'trialing', 'past_due'])
+    .limit(1)
+  return (subs || []).length > 0
+}
+
+// Keep background work alive after the response is sent. On Supabase,
+// EdgeRuntime.waitUntil holds the worker open until the promise settles.
+function runInBackground(p: Promise<unknown>) {
+  const rt = (globalThis as any).EdgeRuntime
+  if (rt && typeof rt.waitUntil === 'function') rt.waitUntil(p)
+}
 
 // Postmark sends Basic Auth on the webhook when configured. The shared
 // secret is mandatory — without it we fail CLOSED (401 on every POST)
@@ -109,21 +178,29 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, ignored: 'unknown_token' }))
     }
 
-    // ── 3. Save attachments ──
-    // Accept PDFs AND images — the UI (CompanyInboxPanel) tells users we take
-    // "PDF and image attachments", and many agents send scanned/photographed
-    // statements. Claude reads both (PDF as a document block, images as image
-    // blocks — see extractDocumentInline).
+    // ── 3. Liveness gate — no paid extraction for a lapsed company ──
+    if (!(await companyIsLive(company.id))) {
+      console.log('Company is not live — dropping statement email:', company.id)
+      return new Response(JSON.stringify({ ok: true, ignored: 'company_not_live' }))
+    }
+
+    // ── 4. Select attachments ──
+    // PDFs and images (JPEG/PNG/WebP/GIF) — the UI (CompanyInboxPanel) tells
+    // users we take "PDF and image attachments", and many agents send
+    // scanned/photographed statements. Capped in count and size.
     const attachments = (payload.Attachments || []) as any[]
-    const pdfs = attachments.filter(a => {
-      const ct = (a.ContentType || '').toLowerCase()
-      const nm = (a.Name || '').toLowerCase()
-      return ct === 'application/pdf'
-        || ct.startsWith('image/')
-        || /\.(pdf|jpe?g|png|webp|heic|heif|gif)$/.test(nm)
-    })
+    const readable = attachments
+      .map(a => ({ att: a, mime: attachmentMime(a) }))
+      .filter(x => x.mime !== null) as { att: any; mime: string }[]
+    const sized = readable.filter(x => base64Bytes(x.att.Content || '') <= MAX_ATTACHMENT_BYTES)
+    const oversize = readable.length - sized.length
+    const pdfs = sized.slice(0, MAX_ATTACHMENTS)
+    const overCount = sized.length - pdfs.length
+    if (oversize > 0 || overCount > 0) {
+      console.log(`Skipped ${oversize} oversize and ${overCount} over-limit attachment(s) for company ${company.id}`)
+    }
     if (pdfs.length === 0) {
-      console.log('Email had no PDF/image attachments — ignoring')
+      console.log('Email had no usable PDF/image attachments — ignoring')
       return new Response(JSON.stringify({ ok: true, ignored: 'no_attachments', sender: payload.From }))
     }
 
@@ -146,7 +223,7 @@ serve(async (req) => {
     }
 
     const docIds: string[] = []
-    for (const att of pdfs) {
+    for (const { att, mime } of pdfs) {
       const safeName = (att.Name || 'statement.pdf').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
       const path = `statements/${company.id}/${Date.now()}_${safeName}`
 
@@ -154,7 +231,7 @@ serve(async (req) => {
       const fileBytes = Uint8Array.from(atob(att.Content || ''), c => c.charCodeAt(0))
       const { error: upErr } = await admin.storage
         .from('property-documents')
-        .upload(path, fileBytes, { contentType: att.ContentType || 'application/pdf', upsert: false })
+        .upload(path, fileBytes, { contentType: mime, upsert: false })
       if (upErr) { console.error('upload failed', upErr); continue }
 
       const { data: doc, error: docErr } = await admin.from('property_documents').insert({
@@ -162,7 +239,7 @@ serve(async (req) => {
         user_id: company.owner_id,
         name: att.Name || 'Rental statement',
         file_path: path,
-        file_type: att.ContentType || 'application/pdf',
+        file_type: mime,
         file_size: att.ContentLength || fileBytes.length,
         category: 'statement',
         extraction_status: 'pending',
@@ -170,14 +247,26 @@ serve(async (req) => {
       if (docErr || !doc) { console.error('doc insert failed', docErr); continue }
       docIds.push(doc.id)
 
-      // ── 4. Fire extraction inline so the user sees structured data
-      // ready when they click the notification.
-      extractDocumentInline(doc.id, path, att.ContentType || 'application/pdf').catch(e =>
-        console.error('extract failed for', doc.id, e)
+      // ── 5. Extract in the background so the user sees structured data
+      // ready when they click the notification. Any failure marks the
+      // document 'failed' (with the reason) instead of leaving it stuck in
+      // 'processing'.
+      const docId = doc.id as string
+      runInBackground(
+        extractDocumentInline(docId, path, mime, company.owner_id).catch(async (e) => {
+          const msg = (e as Error)?.message || String(e)
+          console.error('extract failed for', docId, msg)
+          try {
+            await admin.from('property_documents').update({
+              extraction_status: 'failed',
+              extraction_error: msg.slice(0, 500),
+            }).eq('id', docId)
+          } catch { /* best effort */ }
+        }),
       )
     }
 
-    // ── 5. Drop a notification for the company owner ──
+    // ── 6. Drop a notification for the company owner ──
     const fromName = payload.FromName || payload.From || 'an agent'
     const summary = pdfs.length === 1
       ? `${fromName} sent a rental statement`
@@ -206,32 +295,34 @@ serve(async (req) => {
   }
 })
 
-// Run extract-document's logic inline (no second HTTP round-trip).
-// We can't easily call our own edge function from another edge function
-// without an auth dance, so we copy the relevant bit here.
-async function extractDocumentInline(documentId: string, storagePath: string, mimeType: string) {
-  // Mark processing
-  await admin.from('property_documents').update({ extraction_status: 'processing' }).eq('id', documentId)
+// Structured-output schema for a rental statement.
+const nS = nullable({ type: 'string' })
+const nN = nullable({ type: 'number' })
+const STATEMENT_SCHEMA = obj({
+  agent_name: nS,
+  statement_date: nS,
+  period_start: nS,
+  period_end: nS,
+  currency: nullable({ type: 'string', enum: ['GBP', 'EUR', 'USD'] }),
+  items: {
+    type: 'array',
+    items: obj({
+      property_address: { type: 'string' },
+      tenant_name: nS,
+      type: { type: 'string', enum: ['rent', 'fee', 'maintenance', 'other'] },
+      description: { type: 'string' },
+      amount: { type: 'number' },
+      date: nS,
+    }),
+  },
+  totals: obj({ rent_income: nN, fees: nN, maintenance: nN, net_to_landlord: nN }),
+})
 
-  // Download file
-  const { data: fileData, error: fileErr } = await admin.storage
-    .from('property-documents').download(storagePath)
-  if (fileErr || !fileData) throw new Error('Could not download file')
+const STATEMENT_PROMPT = `Extract ALL rental statement information from this document. Use null for missing fields. Use UK date format DD/MM/YYYY for dates. Amounts are positive for income, negative for fees/costs. If the document is not a rental statement, return an empty items list.
 
-  const buf = await fileData.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  // Chunked base64 to avoid a stack overflow on large multi-page statements
-  // (apply() with a huge arg list blows the call stack).
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.byteLength; i += chunk) {
-    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)))
-  }
-  const base64 = btoa(binary)
+${UNTRUSTED_CONTENT_NOTICE} This file arrived by email from an outside sender.
 
-  const prompt = `Extract ALL rental statement information from this document. Return ONLY a valid JSON object. Use null for missing fields. Use UK date format DD/MM/YYYY for dates.
-
-Return JSON matching this shape:
+Return a JSON object with this shape:
 {
   "agent_name": "string|null",
   "statement_date": "DD/MM/YYYY|null",
@@ -256,62 +347,55 @@ Return JSON matching this shape:
   }
 }`
 
-  // Sonnet 4.5 first pass, Opus 4.7 fallback if the first pass fails to parse
-  // or returns no line items — mirrors the extract-document edge function so
-  // statements get the same OCR quality as manually-uploaded docs. Images are
-  // sent as image blocks; PDFs as document blocks.
-  let extracted = await callStatementModel('claude-sonnet-4-5', base64, mimeType, prompt)
-  if (extracted._parse_error || !Array.isArray(extracted.items) || extracted.items.length === 0) {
-    try {
-      const fallback = await callStatementModel('claude-opus-4-7', base64, mimeType, prompt)
-      if (!fallback._parse_error) extracted = fallback
-    } catch (e: any) {
-      console.warn('Opus fallback failed for', documentId, e?.message)
-    }
+// Run extract-document's logic inline (no second HTTP round-trip).
+// We can't easily call our own edge function from another edge function
+// without an auth dance, so we copy the relevant bit here. Throws on any
+// failure; the caller marks the document 'failed'.
+async function extractDocumentInline(documentId: string, storagePath: string, mimeType: string, ownerId: string) {
+  // Per-owner daily cap on statement extractions.
+  const gate = await checkAiRateLimit(admin, ownerId, 'ingest-statement-email', DAILY_EXTRACTIONS)
+  if (!gate.allowed) throw new Error(gate.message)
+
+  // Mark processing
+  await admin.from('property_documents').update({ extraction_status: 'processing' }).eq('id', documentId)
+
+  // Download file
+  const { data: fileData, error: fileErr } = await admin.storage
+    .from('property-documents').download(storagePath)
+  if (fileErr || !fileData) throw new Error('Could not download file')
+
+  const buf = await fileData.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+  // Chunked base64 to avoid a stack overflow on large multi-page statements
+  // (apply() with a huge arg list blows the call stack).
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.byteLength; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)))
   }
+  const base64 = btoa(binary)
 
-  await admin.from('property_documents').update({
-    extraction_status: 'completed',
-    extracted_fields: extracted,
-    extracted_at: new Date().toISOString(),
-    extraction_error: null,
-  }).eq('id', documentId)
-}
-
-// Call Claude for statement extraction. Returns parsed JSON, or a salvageable
-// { _parse_error, _raw_response } envelope so the caller can decide to retry.
-async function callStatementModel(model: string, base64: string, mimeType: string, prompt: string) {
-  const isImage = (mimeType || '').toLowerCase().startsWith('image/')
+  const isImage = mimeType.startsWith('image/')
   const contentBlock = isImage
     ? { type: 'image',    source: { type: 'base64', media_type: mimeType, data: base64 } }
     : { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4000,
-      messages: [{
-        role: 'user',
-        content: [contentBlock, { type: 'text', text: prompt }],
-      }],
-    }),
+  // Standard tier; escalates ONLY when the answer fails to parse / match the
+  // schema. A clean parse with zero line items is a valid answer (not a
+  // statement, or an empty one) and is kept as-is — no second, pricier pass.
+  const ai = await callClaudeWithEscalation<any>({
+    tier: 'standard',
+    content: [contentBlock, { type: 'text', text: STATEMENT_PROMPT }],
+    maxTokens: 16000,
+    schema: STATEMENT_SCHEMA,
+    timeoutMs: 120_000,
   })
+  await recordAiUsage(admin, gate.usageId, ai)
 
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`Anthropic ${model} ${res.status}: ${errText.slice(0, 300)}`)
-  }
-  const data = await res.json()
-  const textResponse = data.content?.[0]?.text || ''
-  try {
-    return JSON.parse(textResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
-  } catch (e: any) {
-    return { _raw_response: textResponse, _parse_error: e.message }
-  }
+  await admin.from('property_documents').update({
+    extraction_status: 'completed',
+    extracted_fields: ai.data,
+    extracted_at: new Date().toISOString(),
+    extraction_error: null,
+  }).eq('id', documentId)
 }

@@ -11,10 +11,10 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { callClaudeWithEscalation, nullable, obj } from './anthropic.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
 
 // Don't allow the same user to regenerate insights more than once every
 // REGEN_COOLDOWN_MIN minutes. Each call costs a few cents in Claude tokens;
@@ -130,9 +130,24 @@ ${dealLines || '(none in progress)'}
   return { summary, stats }
 }
 
-const SYSTEM_PROMPT = `You are an analyst reviewing a UK landlord's property portfolio. Identify 4-7 SPECIFIC, ACTIONABLE observations. Return ONLY valid JSON.
+// Structured-output schema — the shape the widget reads.
+const INSIGHTS_SCHEMA = obj({
+  insights: {
+    type: 'array',
+    items: obj({
+      category: { type: 'string', enum: ['yield', 'rent', 'compliance', 'expenses', 'arrears', 'opportunity', 'risk'] },
+      severity: { type: 'string', enum: ['info', 'opportunity', 'warning', 'critical'] },
+      title: { type: 'string' },
+      body: { type: 'string' },
+      action_label: nullable({ type: 'string' }),
+      action_link: nullable({ type: 'string' }),
+    }),
+  },
+})
 
-Output schema (return EXACTLY this shape, no markdown, no explanation):
+const SYSTEM_PROMPT = `You are an analyst reviewing a UK landlord's property portfolio. Identify 4-7 SPECIFIC, ACTIONABLE observations.
+
+Output shape:
 {
   "insights": [
     {
@@ -208,41 +223,19 @@ serve(async (req) => {
 
     const { summary, stats } = buildPortfolioSummary(data)
 
-    // Call Claude. Haiku-4.5 is plenty for this — it's pattern-spotting on a
-    // small structured summary, not deep reasoning. Cheap + fast.
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1500,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: summary }],
-      }),
+    // Call Claude — fast tier: pattern-spotting on a small structured
+    // summary, not deep reasoning. Structured output guarantees the shape;
+    // only an unparseable / off-schema answer escalates.
+    const result = await callClaudeWithEscalation<{ insights: any[] }>({
+      tier: 'fast',
+      system: SYSTEM_PROMPT,
+      content: summary,
+      maxTokens: 4000,
+      schema: INSIGHTS_SCHEMA,
     })
-
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text()
-      throw new Error(`Anthropic API error (${anthropicRes.status}): ${errText.slice(0, 300)}`)
-    }
-
-    const anthropicData = await anthropicRes.json()
-    const textResponse = anthropicData.content?.[0]?.text || ''
-    const tokensIn = anthropicData.usage?.input_tokens || null
-    const tokensOut = anthropicData.usage?.output_tokens || null
-
-    // Parse Claude's JSON. Strip ```json fences just in case.
-    let parsed: any
-    try {
-      const clean = textResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-      parsed = JSON.parse(clean)
-    } catch (_) {
-      throw new Error('AI returned a response that could not be parsed.')
-    }
+    const parsed = result.data
+    const tokensIn = result.usage.input_tokens || null
+    const tokensOut = result.usage.output_tokens || null
 
     const insights = Array.isArray(parsed?.insights) ? parsed.insights : []
     if (insights.length === 0) {

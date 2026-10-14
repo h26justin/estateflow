@@ -53,7 +53,7 @@ Confirm in Dashboard → Edge Functions → ingest-statement-email that
 | Secret | Needed? | Notes |
 |---|---|---|
 | `POSTMARK_INBOUND_TOKEN` | recommended | Must equal the Basic-Auth password from step 2.4. Omit only if you skipped Basic Auth. |
-| `ANTHROPIC_API_KEY` | **required** | Same key the other AI functions use. Powers Sonnet 4.5 + Opus 4.7 extraction. |
+| `ANTHROPIC_API_KEY` | **required** | Same key the other AI functions use. Powers extraction on the standard tier (`claude-sonnet-5-5`), escalating to `claude-opus-5-5` only on an unparseable answer. Optional overrides: `ANTHROPIC_MODEL_STANDARD`, `ANTHROPIC_MODEL_ESCALATE` (see `_shared/anthropic.ts`). |
 | `SUPABASE_URL` | auto | Usually injected by the platform. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **required** | Lets the function write storage + rows past RLS. |
 | `INBOX_DOMAIN` | optional | Defaults to `inbox.ownproperly.com`. Only set to override. |
@@ -87,6 +87,27 @@ The feature was built earlier; this session corrected three issues in
    doc is anchored to the company's first property purely as a container, and
    the real per-line property mapping happens in the StatementImporter when the
    user reviews. Documented so it isn't mistaken for a money-allocation claim.
+
+## What changed on 2026-10-14
+Superseding parts of the 2026-05-31 notes above:
+
+- **Models.** Extraction now goes through the shared Claude helper
+  (`./anthropic.ts`, canonical copy in `_shared/anthropic.ts`): standard tier
+  `claude-sonnet-5-5` with a JSON-schema structured output, escalating to
+  `claude-opus-5-5` **only** when the answer fails to parse or match the
+  schema. A clean answer with zero line items is kept — no second, pricier pass.
+- **Accepted files.** PDF, JPEG, PNG, WebP and GIF only (by content type, or by
+  extension when the sender uses `application/octet-stream`). **HEIC/HEIF are
+  no longer accepted** — the Claude API rejects them.
+- **Caps.** At most 10 attachments per email, 10 MB each; at most 100
+  extractions per company owner per day (`ai_usage` table, migration
+  `2026-10-14_ai_usage.sql`).
+- **Liveness.** Mail for a company that isn't live (no active / trialing /
+  past-due subscription, not free-tier, trial over) is dropped with
+  `ignored: 'company_not_live'`.
+- **Background extraction** runs under `EdgeRuntime.waitUntil`; any failure
+  marks the document `extraction_status = 'failed'` with the reason, instead of
+  leaving it stuck in `processing`.
 
 ## Rollback
 Re-deploy the previous function version from the Supabase Dashboard (Edge
