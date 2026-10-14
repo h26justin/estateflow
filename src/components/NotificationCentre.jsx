@@ -140,7 +140,7 @@ export default function NotificationCentre() {
         {unread > 0 && (
           <span aria-hidden="true" style={{
             position: 'absolute', top: -4, right: -4,
-            background: T.red, color: 'white',
+            background: '#B8392D', color: 'white', // fixed deep red: white on it is 5.7:1 in both themes
             fontFamily: mono, fontSize: 9, fontWeight: 700,
             borderRadius: 10, minWidth: 16, height: 16,
             padding: '0 4px',

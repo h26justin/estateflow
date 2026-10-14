@@ -315,7 +315,7 @@ const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown,onNavi
         </span>
       </div>
       <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
-      <div style={{fontSize:22,fontWeight:700,color:accent||T.goldText,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
+      <div style={{fontSize:22,fontWeight:700,color:(!accent||accent===T.gold)?T.goldText:accent,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
       {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
       {/* Optional 2-column strip of small label/value pairs on the card face,
           for cards whose story needs a few figures at a glance (e.g. the last
@@ -3429,7 +3429,7 @@ export default function App() {
                     />
                   )},
                   mortgages: { icon:'landmark', label:'Mortgages Outstanding', render: () => (
-                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent="#9B59B6" onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
+                    <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent={T.purple} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                       breakdown={[
                         {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
                         {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},

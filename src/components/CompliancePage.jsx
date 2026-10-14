@@ -31,7 +31,7 @@ const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Ins
 function CoPill({ company, T }) {
   if (!company) return null
   const col = company.color || T.gold
-  return <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: col, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
+  return <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: company.color || T.goldText, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
 // One requirement line on a property card: status glyph + label + detail.
