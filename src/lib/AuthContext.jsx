@@ -2,7 +2,14 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { logError } from './logError'
 import { getStoredDevice, clearStoredDevice } from './trustedDevice'
-import { MfaChallengeScreen, SetNewPasswordScreen } from '../components/LoginPage'
+import { lazyPanel } from './lazyPages'
+
+// Loaded only when a sign-in actually needs an MFA challenge or a password
+// reset. A static import pulled LoginPage, and through it the whole api
+// layer, into the entry chunk every marketing visitor downloads.
+const loginPage = () => import('../components/LoginPage')
+const MfaChallengeScreen = lazyPanel(loginPage, { pick: 'MfaChallengeScreen' })
+const SetNewPasswordScreen = lazyPanel(loginPage, { pick: 'SetNewPasswordScreen' })
 
 // AuthContext — three-state auth model.
 //

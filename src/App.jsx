@@ -40,17 +40,39 @@ const NoticeTrackerTab     = lazyNamed(tenancyModule, 'NoticeTrackerTab')
 const RentHistoryTab       = lazyNamed(tenancyModule, 'RentHistoryTab')
 const TenancyRenewalAlert  = lazyNamed(tenancyModule, 'TenancyRenewalAlert')
 import { SmartAlerts, ContractorsPage, RentReviewModal } from './components/DashboardComponents'
-import TenantInbox from './components/TenantInbox'
-import TenancyPanel from './components/TenancyPanel'
-import ReceiptsPanel from './components/ReceiptsPanel'
-import ArrearsPanel from './components/ArrearsPanel'
-import ReviewQueuePanel from './components/ReviewQueuePanel'
 // Heavy / rarely-on-first-paint pages — code-split via React.lazy so they
 // don't bloat the initial bundle. Each one drops into its own chunk and
 // only fetches when the user navigates there.
 const ReportsPage     = lazy(() => import('./components/ReportsPage'))
 const AdminDashboard  = lazy(() => import('./components/AdminDashboard'))
-const MarketingSite   = lazy(() => import('./components/MarketingSite'))
+import { MarketingSite, lazyPanel } from './lib/lazyPages'
+// Off-first-paint panels and modals (detail-page tabs, dialogs, legal
+// pages): code-split so they leave the App chunk. lazyPanel wraps each in
+// its own <Suspense>, so call sites are unchanged; a modal simply appears
+// once its chunk (a few KB) has loaded.
+const TenantInbox = lazyPanel(() => import('./components/TenantInbox'))
+const TenancyPanel = lazyPanel(() => import('./components/TenancyPanel'))
+const ReceiptsPanel = lazyPanel(() => import('./components/ReceiptsPanel'))
+const ArrearsPanel = lazyPanel(() => import('./components/ArrearsPanel'))
+const ReviewQueuePanel = lazyPanel(() => import('./components/ReviewQueuePanel'))
+const PrivacyPolicy = lazyPanel(() => import('./components/PrivacyPolicy'))
+const TermsOfService = lazyPanel(() => import('./components/TermsOfService'))
+const SecurityPage = lazyPanel(() => import('./components/SecurityPage'))
+const FeedbackPage = lazyPanel(() => import('./components/FeedbackPage'))
+const TenantReferenceModal = lazyPanel(() => import('./components/TenantReferenceModal'))
+const BankConnectionsModal = lazyPanel(() => import('./components/BankConnectionsModal'))
+const BankInboxModal = lazyPanel(() => import('./components/BankInboxModal'))
+const SuspendedAccessBanner = lazyPanel(() => import('./components/SuspendedAccessBanner'))
+const BuildingMortgageModal = lazyPanel(() => import('./components/BuildingMortgageModal'))
+const CompanyOwnershipSection = lazyPanel(() => import('./components/CompanyOwnershipSection'))
+const HoldingGroupPanel = lazyPanel(() => import('./components/HoldingGroupPanel'))
+const PropertyModal = lazyPanel(() => import('./components/modals/PropertyModal'))
+const CompanyModal = lazyPanel(() => import('./components/modals/CompanyModal'))
+const DeleteConfirmModal = lazyPanel(() => import('./components/modals/DeleteConfirmModal'))
+const SellPropertyModal = lazyPanel(() => import('./components/modals/SellPropertyModal'))
+const DeleteCompanyModal = lazyPanel(() => import('./components/modals/DeleteCompanyModal'))
+const PaymentModal = lazyPanel(() => import('./components/modals/PaymentModal'))
+const CustomizeDashModal = lazyPanel(() => import('./components/modals/CustomizeDashModal'))
 const TenantPortal    = lazy(() => import('./components/TenantPortal'))
 const DealsPage       = lazy(() => import('./components/DealsPage'))
 const refurbsModule   = () => import('./components/RefurbsPage')
@@ -80,10 +102,6 @@ import { useAuth } from './lib/AuthContext'
 import * as api from './lib/api'
 import LoginPage from './components/LoginPage'
 const OnboardingWizard = lazy(() => import('./components/OnboardingWizard'))
-import BillingPage from './components/BillingPage'
-import PrivacyPolicy from './components/PrivacyPolicy'
-import TermsOfService from './components/TermsOfService'
-import SecurityPage from './components/SecurityPage'
 const OnboardingTour = lazy(() => import('./components/OnboardingTour'))
 import CalcExplain from './components/CalcExplain'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -106,29 +124,13 @@ import { logError } from './lib/logError'
 import { MONO, SANS, statusColors } from './lib/styles'
 import { Skeleton } from './lib/Skeleton'
 import { Icon, ICON_NAMES } from './lib/icons'
-import FeedbackPage from './components/FeedbackPage'
 import NotificationCentre from './components/NotificationCentre'
 import CommandPalette from './components/CommandPalette'
 import PropertySearchBar from './components/PropertySearchBar'
 import PortfolioInsightsWidget from './components/PortfolioInsightsWidget'
-import TenantReferenceModal from './components/TenantReferenceModal'
-import BankConnectionsModal from './components/BankConnectionsModal'
-import BankInboxModal from './components/BankInboxModal'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
-import SuspendedAccessBanner from './components/SuspendedAccessBanner'
-import BuildingMortgageModal from './components/BuildingMortgageModal'
 const ReceiptScanModal = lazy(() => import('./components/ReceiptScanModal'))
 import { canUseInvestorFeatures } from './lib/tierGating'
-import CompanyOwnershipSection from './components/CompanyOwnershipSection'
-import HoldingGroupPanel from './components/HoldingGroupPanel'
-import PropertyModal from './components/modals/PropertyModal'
-import CompanyModal from './components/modals/CompanyModal'
-import DeleteConfirmModal from './components/modals/DeleteConfirmModal'
-import SellPropertyModal from './components/modals/SellPropertyModal'
-import DeleteCompanyModal from './components/modals/DeleteCompanyModal'
-import PaymentModal from './components/modals/PaymentModal'
-import AccessModal from './components/modals/AccessModal'
-import CustomizeDashModal from './components/modals/CustomizeDashModal'
 
 
 
@@ -820,7 +822,7 @@ function PortfolioModellerWidget({ properties = [] }) {
 }
 
 
-export default function App() {
+export default function App({ initialLoginMode = null } = {}) {
   const {session,user,loading: authLoading} = useAuth()
   const confirmDialog = useConfirm()
   const [properties,  setProperties]  = useState([])
@@ -1037,8 +1039,10 @@ export default function App() {
   // straight in the signup modal (LoginPage reads the param itself and
   // redeems after auth), without this they just see the marketing page and
   // the invite goes nowhere.
-  const [showLoginModal, setShowLoginModal] = useState(() => new URLSearchParams(window.location.search).has('invite'))
-  const [loginMode, setLoginMode] = useState(() => new URLSearchParams(window.location.search).has('invite') ? 'signup' : 'login')
+  // initialLoginMode: Root (src/Root.jsx) only loads App once a marketing
+  // visitor clicks Sign in / Sign up, so open the modal they asked for.
+  const [showLoginModal, setShowLoginModal] = useState(() => !!initialLoginMode || new URLSearchParams(window.location.search).has('invite'))
+  const [loginMode, setLoginMode] = useState(() => initialLoginMode || (new URLSearchParams(window.location.search).has('invite') ? 'signup' : 'login'))
   const [trialWarning, setTrialWarning] = useState(null)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showTour, setShowTour] = useState(false)

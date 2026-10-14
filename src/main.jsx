@@ -6,7 +6,7 @@ import { ConfirmProvider } from './lib/ConfirmContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
-import App from './App'
+import Root from './Root'
 import { installGlobalErrorReporting, CHUNK_RELOADING_KEY } from './lib/errorReporter'
 
 // Uncaught errors and unhandled promise rejections outside React's render
@@ -40,7 +40,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <ConfirmProvider>
           <AuthProvider>
-            <App />
+            <Root />
           </AuthProvider>
         </ConfirmProvider>
       </ThemeProvider>
