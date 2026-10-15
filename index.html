@@ -159,7 +159,7 @@
           "name": "Does Properly support Making Tax Digital (MTD) for landlords?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Properly is built for the MTD ITSA April 2026 mandate. It connects directly to HMRC via gov.uk OAuth, files quarterly Property Business submissions, and includes Section 24 mortgage interest restriction calculations. Sandbox mode lets you practice before going live."
+            "text": "Yes, Properly is MTD-ready. It keeps digital records of your rent and expenses, builds your quarterly Property Business figures with mortgage interest held separately for Section 24, and connects to HMRC through gov.uk sign-in. HMRC filing runs in practice mode (HMRC's sandbox) today; live filing switches on as soon as HMRC approves our production access."
           }
         },
         {
@@ -226,7 +226,7 @@
       html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; margin: 0; padding: 0; background: #F4F3EF; }
       * { box-sizing: border-box; }
 
-      /* Cookie consent banner (rendered by /src/main.jsx). Styles kept
+      /* Cookie consent banner (rendered by /js/cookie-banner.js). Styles kept
          inline so the banner can show during the React-hydration window
          before our component tree is ready. */
       /* z-index sits above page chrome (sticky nav / mobile tab bar: 100) but
@@ -234,25 +234,38 @@
          2000) — at max z-index it used to cover the sign-in form on phones.
          While a modal dialog is open the banner is hidden outright so it
          can't be tabbed into behind the focus trap. */
+      /* Compact bottom bar: one line on desktop, two short rows on phones
+         (~100px, down from ~180px) so it no longer covers the first-screen
+         CTAs and stats strip. While it is showing, cookie-banner.js sets
+         --op-cookie-h and html.op-cookie-open so the page gains matching
+         bottom padding and nothing ends up permanently underneath it. */
       #op-cookie-banner {
         position: fixed; left: 0; right: 0; bottom: 0; z-index: 150;
-        background: #1A2530; color: #fff; padding: 18px 22px;
-        font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.6;
-        box-shadow: 0 -8px 24px rgba(0,0,0,0.25);
-        display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+        background: #1A2530; color: #fff;
+        padding: 10px 20px calc(10px + env(safe-area-inset-bottom));
+        font-family: 'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-size: 14px; line-height: 1.45;
+        box-shadow: 0 -6px 18px rgba(0,0,0,0.22);
+        display: flex; align-items: center; justify-content: center; gap: 10px 18px; flex-wrap: wrap;
       }
-      #op-cookie-banner p { flex: 1 1 320px; margin: 0; color: #D0D8E0; }
-      #op-cookie-banner a { color: #C8A84B; text-decoration: underline; }
-      #op-cookie-banner .op-cookie-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      #op-cookie-banner p { flex: 0 1 auto; max-width: 760px; margin: 0; color: #D0D8E0; text-wrap: pretty; }
+      #op-cookie-banner a { color: #D9BE6C; text-decoration: underline; text-underline-offset: 2px; }
+      #op-cookie-banner .op-cookie-actions { display: flex; gap: 8px; flex-shrink: 0; }
       #op-cookie-banner button {
-        font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700;
-        padding: 10px 18px; border-radius: 8px; cursor: pointer; border: none;
+        font-family: inherit; font-size: 13px; font-weight: 700;
+        padding: 8px 16px; min-height: 40px; border-radius: 8px; cursor: pointer; border: none;
       }
       #op-cookie-banner .op-cookie-accept { background: #C8A84B; color: #1A2530; }
-      #op-cookie-banner .op-cookie-reject { background: transparent; color: #B0BEC5; border: 1px solid #B0BEC5; }
+      #op-cookie-banner .op-cookie-reject { background: transparent; color: #D0D8E0; border: 1px solid #8A99A6; }
       body:has([aria-modal="true"]) #op-cookie-banner { display: none; }
+      html.op-cookie-open body { padding-bottom: var(--op-cookie-h, 0px); }
       #op-cookie-banner button:focus-visible, #op-cookie-banner a:focus-visible { outline: 2px solid #F4F3EF; outline-offset: 2px; }
-      @media (max-width: 600px) { #op-cookie-banner { padding: 14px 16px; } #op-cookie-banner p { font-size: 12px; flex-basis: 100%; } }
+      @media (max-width: 600px) {
+        #op-cookie-banner { padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); gap: 6px; font-size: 12.5px; line-height: 1.4; }
+        #op-cookie-banner p { flex-basis: 100%; }
+        #op-cookie-banner .op-cookie-actions { width: 100%; }
+        #op-cookie-banner button { flex: 1 1 0; padding: 6px 10px; min-height: 36px; font-size: 12.5px; }
+      }
     </style>
 
     <!-- ────────────────────────────────────────────────────────────────
