@@ -3,6 +3,8 @@ import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── NOTES TIMELINE ───────────────────────────────────────────────────────────
 export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperties, category, compact}) {
@@ -63,9 +65,9 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperti
         </button>
       </>}
       {loading
-        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
+        ? <SkeletonRows rows={3} height={36}/>
         : notes.length===0
-          ? <div style={{fontFamily:MONO,color:T.faint,fontSize:11}}>No notes yet.</div>
+          ? <EmptyState compact icon="file-text" title="No notes yet"/>
           : <div style={{display:'grid',gap:10}}>
               {notes.map(n=>(
                 <div key={n.id} style={{background:T.bg,borderRadius:8,padding:'10px 14px'}}>

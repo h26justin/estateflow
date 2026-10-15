@@ -19,6 +19,7 @@ import { plural } from '../../lib/format'
 import { ReviewQueuePanel, BankConnectionsModal, BankInboxModal } from './lazyViews'
 import { Badge } from './Badges'
 import { RentDots } from './RentDots'
+import { EmptyState } from '../ui'
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
 // Month counts and money received for a set of properties, from the rent
@@ -527,13 +528,9 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
 
       {/* Empty / no-results states */}
       {properties.length === 0 ? (
-        <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
-          No properties yet. Add a property on the Portfolio view to start tracking rent.
-        </div>
+        <EmptyState compact icon="home" title="No properties yet" body="Add a property on the Portfolio view to start tracking rent."/>
       ) : trackedProps.length === 0 ? (
-        <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
-          No properties are tracking rent yet. Set a property to Rented or log a payment and it will appear here.
-        </div>
+        <EmptyState compact icon="pound" title="No properties are tracking rent yet" body="Set a property to Rented or log a payment and it will appear here."/>
       ) : shownProps.length === 0 && (
         <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>
           {hasQuery ? <>No properties match <span style={{color:T.text}}>"{searchQ.trim()}"</span></> : 'No properties match these filters'}

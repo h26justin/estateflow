@@ -6,6 +6,8 @@ import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
 import { Icon } from '../../lib/icons'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── COMPANY DOCUMENTS TAB ────────────────────────────────────────────────────
 export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
@@ -134,12 +136,9 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
       </div>}
 
       {loading
-        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
+        ? <SkeletonRows rows={3} height={36}/>
         : docs.length===0
-          ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',
-              padding:24,background:T.bg,borderRadius:10}}>
-              No company documents yet.
-            </div>
+          ? <EmptyState compact icon="folder" title="No company documents yet"/>
           : <div style={{display:'grid',gap:8}}>
               {docs.map(doc=>{
                 const cat = getCat(doc.category)

@@ -8,6 +8,8 @@ import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
 import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── DOCUMENTS TAB ────────────────────────────────────────────────────────────
 const DOC_CATEGORIES = [
@@ -257,12 +259,9 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
       {/* Document list */}
       {loading
-        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading...</div>
+        ? <SkeletonRows rows={3} height={36}/>
         : listDocs.length===0
-          ? (photoDocs.length===0 && <div style={{fontFamily:MONO,fontSize:11,color:T.faint,textAlign:'center',padding:32,
-              background:T.bg,borderRadius:12}}>
-              No documents yet. Upload tenancy agreements, certificates and other files here.
-            </div>)
+          ? (photoDocs.length===0 && <EmptyState compact icon="folder" title="No documents yet" body="Upload tenancy agreements, certificates and other files here."/>)
           : <div style={{display:'grid',gap:8}}>
               {listDocs.map(doc=>{
                 const cat = getCatInfo(doc.category)

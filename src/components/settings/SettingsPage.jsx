@@ -24,6 +24,7 @@ import { SecurityDataPanel } from './SecurityDataPanel'
 import { AuditLogPanel } from './AuditLogPanel'
 import { ReferralPanel } from './ReferralPanel'
 import { AccountTypePanel } from './AccountTypePanel'
+import { SkeletonRows } from '../../lib/Skeleton'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
 const HelpCenter = lazy(() => import('../HelpCenter'))
@@ -379,7 +380,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       {sectionHeading('account')}
       {show('account') && (
         profileLoading
-          ? <div style={{fontFamily:mono,color:T.muted,fontSize:12}}>Loading…</div>
+          ? <SkeletonRows rows={3} height={36}/>
           : <>
             <div style={sectionStyle}>
               <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Personal Information</div>

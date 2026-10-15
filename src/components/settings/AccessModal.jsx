@@ -9,6 +9,8 @@ import { logError } from '../../lib/logError'
 import RolePermissionsModal from '../RolePermissionsModal'
 import { canDo, ROLE_OPTIONS, ROLE_OPTION_LABELS, roleFromAccessRow, roleUpdateFor, isAdminDemotion } from '../../lib/permissions'
 import { ShareableLinksTab } from './ShareableLinksTab'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
 
@@ -294,14 +296,12 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
           </div>
 
           {loading
-            ? <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:20,textAlign:'center'}}>Loading…</div>
+            ? <SkeletonRows rows={3} height={36}/>
             : <>
               {/* ── USERS TAB ── */}
               {tab==='users' && (
                 users.length===0
-                  ? <div style={{fontFamily:mono,fontSize:11,color:T.faint,textAlign:'center',padding:32,background:T.bg,borderRadius:10}}>
-                      No users yet. Send an invitation above.
-                    </div>
+                  ? <EmptyState compact icon="users" title="No users yet" body="Send an invitation above."/>
                   : <div style={{display:'grid',gap:10}}>
                       {users.map(u=>(
                         <div key={u.id} style={{background:T.bg,borderRadius:12,padding:'14px 16px',border:`1px solid ${T.border}`}}>

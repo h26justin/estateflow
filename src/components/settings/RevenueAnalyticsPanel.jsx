@@ -3,6 +3,7 @@ import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { plural } from '../../lib/format'
+import { SkeletonRows } from '../../lib/Skeleton'
 
 // ── REVENUE ANALYTICS PANEL (Developer only) ────────────────────────────────
 export function RevenueAnalyticsPanel({ companies, T, showToast }) {
@@ -54,7 +55,7 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
     setLoading(false)
   }
 
-  if (loading) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading revenue analytics…</div>
+  if (loading) return <SkeletonRows rows={5} height={44}/>
 
   const arpu = stats.activeUsers > 0 ? stats.mrr / stats.activeUsers : 0
   const conversionRate = stats.totalUsers > 0 ? (stats.activeUsers / stats.totalUsers) * 100 : 0

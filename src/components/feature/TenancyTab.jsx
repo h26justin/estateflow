@@ -6,6 +6,7 @@ import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import MoneyInput from '../../lib/MoneyInput'
 import { formatDate, daysUntil } from './helpers'
+import { SkeletonRows } from '../../lib/Skeleton'
 
 // ── TENANCY TAB ───────────────────────────────────────────────────────────────
 export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit = true, canViewPersonal = true}) {
@@ -59,7 +60,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
         </div>
       )}
 
-      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
+      {loading ? <SkeletonRows rows={3} height={36}/>
        : editing ? (
         <div className="card" style={{padding:'18px 20px'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>

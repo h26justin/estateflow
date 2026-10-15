@@ -9,6 +9,8 @@ import InspectionsPanel from '../InspectionsPanel'
 import * as api from '../../lib/api'
 import { formatDate, daysUntil, ExpiryBadge } from './helpers'
 import { NotesTimeline } from './NotesTimeline'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
 // Per-property home of the requirement checklist: every certificate /
@@ -231,7 +233,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
 
       {formAnchor==='top' && formCard}
 
-      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
+      {loading ? <SkeletonRows rows={3} height={36}/>
        : <>
         {/* Requirement checklist — mirrors the portfolio overview card */}
         {reqRows.length > 0 && (
@@ -328,7 +330,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
         )}
 
         {reqRows.length===0 && otherItems.length===0 && (
-          <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No certificates added yet.</div>
+          <EmptyState compact icon="shield-check" title="No certificates added yet"/>
         )}
       </>}
       {/* Property inspections — scheduled mid-tenancy / check-in / check-out

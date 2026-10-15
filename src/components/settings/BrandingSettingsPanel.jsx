@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
+import { EmptyState } from '../ui'
 
 // ── COMPANY BRANDING SETTINGS PANEL ──────────────────────────────────────────
 export function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCompanySettings, user, showToast, T }) {
@@ -83,9 +84,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
   }
 
   if (companies.length === 0) return (
-    <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: 40, textAlign: 'center' }}>
-      No companies yet. Add a company first.
-    </div>
+    <EmptyState compact icon="building" title="No companies yet" body="Add a company first."/>
   )
 
   return (

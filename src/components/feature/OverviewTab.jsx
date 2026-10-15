@@ -4,6 +4,8 @@ import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast, canViewFinancial = true, canEditProperty = true}) {
@@ -77,9 +79,9 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
         </div>
 
         {loading
-          ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
+          ? <SkeletonRows rows={3} height={36}/>
           : allNotes.length===0
-            ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>No notes yet. Add notes from any tab.</div>
+            ? <EmptyState compact icon="file-text" title="No notes yet" body="Add notes from any tab."/>
             : <div style={{display:'grid',gap:10}}>
                 {allNotes.map(n=>{
                   const cat = CATEGORIES[n.category||'general'] || CATEGORIES.general

@@ -3,6 +3,8 @@ import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { showAppToast } from '../../lib/toast'
 import { copyToClipboard } from '../../lib/clipboard'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── SHAREABLE LINKS TAB ─────────────────────────────────────────────────────
 // Lets owners/admins generate shareable invite links (or short codes) for any
@@ -219,11 +221,9 @@ export function ShareableLinksTab({ companies, showToast, T }) {
 
       {/* Active invites */}
       {loading
-        ? <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, textAlign: 'center', padding: 24 }}>Loading invites…</div>
+        ? <SkeletonRows rows={3} height={36}/>
         : totalActive === 0
-          ? <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, textAlign: 'center', padding: 32, background: T.bg, borderRadius: 10 }}>
-              No active invites yet. Generate one above to share with your team.
-            </div>
+          ? <EmptyState compact icon="send" title="No active invites yet" body="Generate one above to share with your team."/>
           : <div style={{ display: 'grid', gap: 14 }}>
               {companies.map(co => {
                 const list = invitesByCompany[co.id] || []

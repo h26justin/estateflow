@@ -3,6 +3,8 @@ import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── AUDIT LOG PANEL ───────────────────────────────────────────────────────────
 export function AuditLogPanel({ user, companies, T }) {
@@ -117,9 +119,9 @@ export function AuditLogPanel({ user, companies, T }) {
         </div>
 
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>Loading audit log…</div>
+          <SkeletonRows rows={5} height={44}/>
         ) : logs.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No activity recorded yet. Actions you take in Properly will appear here.</div>
+          <EmptyState compact icon="clock" title="No activity recorded yet" body="Actions you take in Properly will appear here."/>
         ) : (
           logs.map(log => {
             const cfg = ACTION_LABELS[log.action] || { label: log.action, color: T.muted }

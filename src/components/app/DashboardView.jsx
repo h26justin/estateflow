@@ -16,6 +16,7 @@ import { fmt } from '../../lib/appFmt'
 import { StatCard } from './StatCard'
 import { HealthRing } from './HealthRing'
 import { PortfolioModellerWidget } from './PortfolioModellerWidget'
+import { EmptyState, Button, Card } from '../ui'
 
 // Dashboard view: welcome zero-state, company filter pills and the
 // user-orderable section registry (KPI grid, rent income, alerts, widgets).
@@ -675,10 +676,8 @@ export function DashboardView({
             <>
               <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>By Company</h2>
               {companies.length===0
-                ?<div className="card" style={{padding:32,textAlign:'center'}}>
-                    <div style={{fontFamily:MONO,color:T.muted,fontSize:12,marginBottom:16}}>No companies yet. Add your first one to get started.</div>
-                    <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>+ Add Company</button>
-                  </div>
+                ?<Card padding="md"><EmptyState compact icon="building" title="No companies yet" body="Add your first one to get started."
+                    action={<Button icon="plus" onClick={()=>setShowAddCo(true)}>Add Company</Button>}/></Card>
                 :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14,marginBottom:28}}>
                     {companyStats.map(c=>(
                       <div key={c.id} className="card" style={{padding:'20px 22px',borderLeft:`3px solid ${c.color}`}}>

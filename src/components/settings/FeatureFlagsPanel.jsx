@@ -4,6 +4,8 @@ import * as api from '../../lib/api'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { Icon } from '../../lib/icons'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // ── FEATURE FLAGS PANEL (Developer only) ─────────────────────────────────────
 export function FeatureFlagsPanel({ users, companies, T, showToast }) {
@@ -60,7 +62,7 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
     } catch(e) { showToast('Delete failed','error') }
   }
 
-  if (loading) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Loading flags…</div>
+  if (loading) return <SkeletonRows rows={5} height={44}/>
 
   return (
     <div>
@@ -104,7 +106,7 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
       )}
 
       <div style={{display:'grid',gap:10}}>
-        {flags.length === 0 && <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:30,textAlign:'center'}}>No flags yet. Create your first flag above.</div>}
+        {flags.length === 0 && <EmptyState compact icon="flag" title="No flags yet" body="Create your first flag above."/>}
         {flags.map(flag => (
           <div key={flag.key} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:14}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:10}}>

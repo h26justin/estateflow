@@ -7,6 +7,7 @@ import { fmt } from '../feature/helpers'
 import { FeatureFlagsPanel } from './FeatureFlagsPanel'
 import { RevenueAnalyticsPanel } from './RevenueAnalyticsPanel'
 import { Icon } from '../../lib/icons'
+import { SkeletonRows } from '../../lib/Skeleton'
 
 // ── ADMIN SETTINGS PANEL ──────────────────────────────────────────────────────
 export function AdminSettingsPanel({ user, T, showToast }) {
@@ -140,7 +141,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
       </div>
 
       {loading ? (
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: 40, textAlign: 'center' }}>Loading all accounts…</div>
+        <SkeletonRows rows={5} height={44}/>
       ) : (
         <>
           {/* ACCOUNTS TAB */}

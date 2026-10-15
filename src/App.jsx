@@ -44,6 +44,7 @@ import { PropertiesView } from './components/app/PropertiesView'
 import { DealsView } from './components/app/DealsView'
 import { RenameCompanyModal } from './components/app/RenameCompanyModal'
 import { LeftRail } from './components/app/LeftRail'
+import { EmptyState, Button } from './components/ui'
 
 // canDo(permissionsMap, companyId, key) lives in src/lib/permissions.js so the
 // components that gate write surfaces (Day Tracker, importers, Team & Access)
@@ -1750,7 +1751,8 @@ export default function App({ initialLoginMode = null } = {}) {
                   </div>
                 </div>
               ))}
-              {cProps.length===0&&<div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:'32px',textAlign:'center'}}>No properties for this company yet.{(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) && <><br/><button className="btn btn-gold" style={{fontSize:11,marginTop:12}} onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>+ Add Property</button></>}</div>}
+              {cProps.length===0&&<EmptyState compact icon="home" title="No properties for this company yet"
+                action={(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) ? <Button size="sm" icon="plus" onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>Add Property</Button> : null}/>}
             </div>
             </>)}
             <CompanyOwnershipSection company={c} companies={companies} properties={cProps} user={user} T={T} showToast={showToast}

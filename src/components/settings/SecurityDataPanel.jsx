@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
+import { SkeletonRows } from '../../lib/Skeleton'
 
 // ── SECURITY & DATA PANEL ─────────────────────────────────────────────────────
 export function SecurityDataPanel({ user, T, showToast }) {
@@ -75,7 +76,7 @@ export function SecurityDataPanel({ user, T, showToast }) {
           Deleted properties are kept here for 30 days before permanent removal. You can restore any property within that window.
         </div>
         {loadingTrash ? (
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+          <SkeletonRows rows={2} height={28}/>
         ) : deletedProps.length === 0 ? (
           <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: '16px 0' }}>No deleted properties — your trash is empty.</div>
         ) : (

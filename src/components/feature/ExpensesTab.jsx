@@ -6,6 +6,8 @@ import { useLoadGuard } from '../../lib/useLoadGuard'
 import MoneyInput from '../../lib/MoneyInput'
 import { formatDate } from './helpers'
 import { NotesTimeline } from './NotesTimeline'
+import { SkeletonRows } from '../../lib/Skeleton'
+import { EmptyState } from '../ui'
 
 // MaintenanceTab and JobCard moved to ./maintenance/index.jsx
 // Imported directly in App.jsx now.
@@ -122,8 +124,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
         </div>
       </div>}
 
-      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
-       : expenses.length===0 ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No expenses logged yet.</div>
+      {loading ? <SkeletonRows rows={3} height={36}/>
+       : expenses.length===0 ? <EmptyState compact icon="receipt" title="No expenses logged yet"/>
        : <div style={{display:'grid',gap:8}}>
           {expenses.map(exp=>{
             const cat = CATEGORIES.find(c=>c.v===exp.category)
