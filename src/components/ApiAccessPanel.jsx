@@ -14,6 +14,13 @@ import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { listApiTokens, createApiToken, revokeApiToken } from '../lib/api/apiAccess'
 import { Skeleton } from '../lib/Skeleton'
+import { ensureAal2, isMfaRequiredError, totpPrompt } from '../lib/mfaStepUp'
+
+const EXPIRY_OPTIONS = [
+  { days: 30, label: '30 days' },
+  { days: 90, label: '90 days' },
+  { days: 365, label: '1 year' },
+]
 
 const mono = MONO
 
@@ -26,6 +33,8 @@ export default function ApiAccessPanel({ T }) {
   const [newName, setNewName]   = useState('')
   const [freshToken, setFreshToken] = useState(null) // { token, name } shown once
   const [busy, setBusy]         = useState(null)     // 'revoke-<id>' while revoking
+  const [expiryDays, setExpiryDays] = useState(90)
+  const [mfaError, setMfaError] = useState('')
 
   async function load() {
     try {
@@ -41,15 +50,29 @@ export default function ApiAccessPanel({ T }) {
   }
   useEffect(() => { load() }, [])
 
+  // Minting needs an aal2 session when the account has 2FA. Step up first
+  // (no-op without a factor or when already aal2), and if the server still
+  // says mfa_required (e.g. the prompt was skipped) explain inline.
   async function handleCreate() {
     setCreating(true)
+    setMfaError('')
     try {
-      const res = await createApiToken({ name: newName.trim() || 'Claude' })
+      const step = await ensureAal2(totpPrompt(confirmDialog,
+        'Creating an API token needs your authenticator code. Enter the 6-digit code to continue.'))
+      if (step === 'cancelled') {
+        setMfaError('Two-factor verification is required to create a token.')
+        return
+      }
+      const res = await createApiToken({ name: newName.trim() || 'Claude', expiresInDays: expiryDays })
       setFreshToken({ token: res.token, name: res.name })
       setNewName('')
       await load()
     } catch (e) {
-      showAppToast(e.message || 'Failed to create token', 'error')
+      if (isMfaRequiredError(e)) {
+        setMfaError('Two-factor verification is required to create a token. Click Create token again and enter your authenticator code.')
+      } else {
+        showAppToast(e.message || 'Failed to create token', 'error')
+      }
     } finally {
       setCreating(false)
     }
@@ -96,6 +119,7 @@ export default function ApiAccessPanel({ T }) {
         Personal tokens give <span style={{ color: T.text }}>read-only</span> access to your portfolio data
         (properties, rent, expenses, compliance, maintenance) for tools you trust — for example a Claude
         session referencing your numbers. Tokens can't change anything, and you can revoke them here at any time.
+        Changing your password revokes every token. If you use two-factor authentication you'll be asked for a code.
       </div>
 
       {freshToken && (
@@ -156,10 +180,19 @@ export default function ApiAccessPanel({ T }) {
               placeholder="Token name (e.g. Claude)"
               style={{ maxWidth: 240 }}
             />
+            <select aria-label="Token expiry" value={expiryDays} onChange={e => setExpiryDays(Number(e.target.value))}
+              style={{ fontFamily: mono, fontSize: 11 }}>
+              {EXPIRY_OPTIONS.map(o => <option key={o.days} value={o.days}>Expires in {o.label}</option>)}
+            </select>
             <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={creating} onClick={handleCreate}>
               {creating ? 'Creating…' : 'Create token'}
             </button>
           </div>
+          {mfaError && (
+            <div role="alert" style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 10 }}>
+              {mfaError}
+            </div>
+          )}
         </>
       )}
     </div>

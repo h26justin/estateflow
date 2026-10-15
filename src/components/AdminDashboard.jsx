@@ -13,6 +13,7 @@ import { pressable } from '../lib/pressable'
 import { Button, EmptyState } from './ui'
 import { Icon } from '../lib/icons'
 import { SkeletonRows, SkeletonTiles } from '../lib/Skeleton'
+import { ensureAal2, totpPrompt } from '../lib/mfaStepUp'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const mono = MONO
@@ -77,6 +78,7 @@ export default function AdminDashboard({ onClose, user }) {
   const [saving, setSaving]       = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   // Delete state
+  const deleteConfirm = useConfirm()
   const [deleteTarget, setDeleteTarget]   = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError]     = useState('')
@@ -134,6 +136,9 @@ export default function AdminDashboard({ onClose, user }) {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: currentUser?.email, password: deletePassword })
       if (error) { setDeleteError('Incorrect password'); setDeleting(false); return }
+      // Re-auth leaves an aal1 session; delete-user requires aal2.
+      const step = await ensureAal2(totpPrompt(deleteConfirm, 'Deleting a user needs your authenticator code.'))
+      if (step === 'cancelled') { setDeleteError('Two-factor verification is required to delete a user'); setDeleting(false); return }
       await api.deleteUser(deleteTarget.id)
       setUsers(prev=>prev.filter(u=>u.id!==deleteTarget.id))
       setDeleteTarget(null); setDeletePassword('')

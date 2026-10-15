@@ -127,7 +127,11 @@ export async function deleteUser(targetUserId) {
     }
   )
   const data = await response.json()
-  if (data.error) throw new Error(data.error)
+  if (data.error) {
+    const err = new Error(data.error)
+    if (data.code) err.code = data.code // 'mfa_required' → caller steps up
+    throw err
+  }
   return data
 }
 

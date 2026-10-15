@@ -22,7 +22,14 @@ async function call(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
+  if (!res.ok) {
+    // Keep the server's machine-readable code (e.g. 'mfa_required') so the
+    // panel can offer the 2FA step-up instead of a bare error.
+    const err = new Error(data.error || `Request failed (${res.status})`)
+    if (data.code) err.code = data.code
+    err.status = res.status
+    throw err
+  }
   return data
 }
 
@@ -32,7 +39,9 @@ export function listApiTokens() {
 }
 
 // → { token: 'opat_…', id, name, token_prefix, … } — token plaintext is
-// returned exactly once; it is never retrievable again.
+// returned exactly once; it is never retrievable again. Expiry defaults to
+// 90 days server-side (max 365). A 2FA account must be at aal2 to mint —
+// see ensureAal2 in ../mfaStepUp.
 export function createApiToken({ name, expiresInDays } = {}) {
   return call('/tokens', { method: 'POST', body: { name, expires_in_days: expiresInDays } })
 }

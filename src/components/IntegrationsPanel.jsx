@@ -6,6 +6,7 @@ import { useLoadGuard } from '../lib/useLoadGuard'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { Skeleton, SkeletonRows } from '../lib/Skeleton'
+import { canWriteCompany, canAdminCompany } from '../lib/permissions'
 
 // ── INTEGRATIONS SETTINGS PANEL — Phase 2 ────────────────────────────
 // Settings → Integrations & data → Integrations.
@@ -17,7 +18,7 @@ import { Skeleton, SkeletonRows } from '../lib/Skeleton'
 // Per-connection settings: toggles for what to sync, account-code
 // pickers, per-property bank account overrides, etc.
 
-export default function IntegrationsPanel({ T, mono, companies = [], properties = [] }) {
+export default function IntegrationsPanel({ T, mono, companies = [], properties = [], permissionsMap = null, devModeActive = false }) {
   const [connections, setConnections] = useState([])
   const [lodgifyConnections, setLodgifyConnections] = useState([])
   const [lodgifyMappings, setLodgifyMappings] = useState([])
@@ -77,6 +78,8 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
             connection={conn}
             properties={(properties || []).filter(p => p.company_id === co.id)}
             onChanged={load}
+            canWrite={canWriteCompany(permissionsMap, co.id, devModeActive)}
+            canAdmin={canAdminCompany(permissionsMap, co.id, devModeActive)}
           />
         )
       })}
@@ -616,7 +619,11 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
 }
 
 // ── PER-COMPANY XERO CARD ──────────────────────────────────────────────
-function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }) {
+// The server is the gate (xero-oauth-callback: owner/admin to connect;
+// xero-sync: has_company_write to push/pull). The card mirrors it so a
+// viewer isn't offered buttons that would 403. Disconnect stays available:
+// it only removes the user's own connection row.
+function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, canWrite = false, canAdmin = false }) {
   const confirmDialog = useConfirm()
   const [showSettings, setShowSettings] = useState(false)
   const [busy, setBusy] = useState(null)
@@ -712,24 +719,35 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
             </div>
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
-            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-              {busy==='sync' ? 'Syncing…' : 'Sync now'}
-            </button>
-            <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
-              {showSettings ? 'Hide settings' : 'Settings'}
-            </button>
+            {canWrite && (
+              <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+                {busy==='sync' ? 'Syncing…' : 'Sync now'}
+              </button>
+            )}
+            {canWrite && (
+              <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
+                {showSettings ? 'Hide settings' : 'Settings'}
+              </button>
+            )}
             {/* Renews the Xero sign-in in place (same org, sync settings
                 kept). Disconnect + Connect would cascade-delete the
                 company's xero_sync_settings row. */}
-            <button onClick={connect} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}
-              title="Sign in to Xero again to renew this connection. Sync settings are kept.">
-              {busy==='connect' ? 'Redirecting…' : 'Reconnect'}
-            </button>
+            {canAdmin && (
+              <button onClick={connect} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}
+                title="Sign in to Xero again to renew this connection. Sync settings are kept.">
+                {busy==='connect' ? 'Redirecting…' : 'Reconnect'}
+              </button>
+            )}
             <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
               Disconnect
             </button>
           </div>
-          {showSettings && (
+          {!canWrite && (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>
+              You have read-only access to {company.name}, so you can't sync it with Xero.
+            </div>
+          )}
+          {showSettings && canWrite && (
             <XeroSettingsPanel
               T={T} mono={mono}
               company={company} properties={properties}
@@ -742,9 +760,15 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
             Push rent payments and expenses from {company.name} into a Xero organisation as bank transactions. Use Xero tracking categories to run P&L per property.
           </div>
-          <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
-            {busy==='connect' ? 'Redirecting…' : `Connect ${company.name} to Xero`}
-          </Button>
+          {canAdmin ? (
+            <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
+              {busy==='connect' ? 'Redirecting…' : `Connect ${company.name} to Xero`}
+            </Button>
+          ) : (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
+              Only an owner or admin of {company.name} can connect it to Xero.
+            </div>
+          )}
         </>
       )}
     </div>
