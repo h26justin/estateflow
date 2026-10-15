@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
+import { Skeleton } from '../lib/Skeleton'
 
 // ── REFERENCING PANEL (Feature 7 scaffold) ───────────────────────────
 // Order a tenant reference or Right-to-Rent check from the lettings /
@@ -91,14 +92,14 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
     catch (e) { showAppToast(e.message || 'Failed to delete', 'error') }
   }
 
-  const toneColor = (tone) => tone === 'good' ? '#3fb950' : tone === 'bad' ? '#f85149' : tone === 'gold' ? T.gold : T.muted
+  const toneColor = (tone) => tone === 'good' ? T.green : tone === 'bad' ? T.red : tone === 'gold' ? T.goldText : T.muted
 
   return (
     <div className="card" style={{ padding: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h3 style={{ margin: 0, fontSize: 14 }}>
           Referencing &amp; Right-to-Rent
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginLeft: 8 }}>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginLeft: 8 }}>
             ({items.length})
           </span>
         </h3>
@@ -118,12 +119,12 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
       </div>
 
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 12 }}>Loading…</div>
+        <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 12 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
       ) : (
         <>
           {adding && (
             <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
                 New check
               </div>
               <div style={{ marginBottom: 10 }}>
@@ -131,7 +132,7 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
                 <select aria-label="Check type" value={form.check_type} onChange={e => setForm(f => ({ ...f, check_type: e.target.value }))}>
                   {CHECK_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                 </select>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
                   {CHECK_TYPES.find(t => t.key === form.check_type)?.blurb}
                 </div>
               </div>
@@ -166,17 +167,17 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
                   <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{it.applicant_name}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2 }}>
+                      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                         {it.check_type === 'right_to_rent' ? 'Right-to-Rent' : 'Tenant reference'}
                         {it.applicant_email ? ` · ${it.applicant_email}` : ''}
                         {it.created_at ? ` · ${new Date(it.created_at).toLocaleDateString('en-GB')}` : ''}
                       </div>
                       {it.result?.summary && (
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: T.text, marginTop: 4 }}>{it.result.summary}</div>
+                        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.text, marginTop: 4 }}>{it.result.summary}</div>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 10, color: toneColor(st.tone), border: `1px solid ${toneColor(st.tone)}55`, borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontFamily: MONO, fontSize: FS.xs, color: toneColor(st.tone), border: `1px solid ${toneColor(st.tone)}55`, borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                         {st.label}
                       </span>
                       {canEdit && (it.status === 'draft' || it.status === 'cancelled' || it.status === 'failed') && (

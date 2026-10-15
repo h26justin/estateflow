@@ -17,13 +17,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import InsurancePage from './InsurancePage'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
 import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
+import { EmptyState } from './ui'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -33,7 +34,7 @@ const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Ins
 function CoPill({ company, T }) {
   if (!company) return null
   const col = company.color || T.gold
-  return <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: company.color || T.goldText, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
+  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: company.color || T.goldText, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
 // One requirement line on a property card: status glyph + label + detail.
@@ -55,7 +56,7 @@ function ReqRow({ req, status, T, onClick, property }) {
         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', textAlign: 'left', width: '100%', background: 'transparent', border: `1px dashed ${T.border}`, opacity: 0.45 }}>
         <Icon name="bell-off" size={14} color={T.faint} />
         <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.short}</span>
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.faint, whiteSpace: 'nowrap' }}>Off</span>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: T.faint, whiteSpace: 'nowrap' }}>Off</span>
       </button>
     )
   }
@@ -101,9 +102,9 @@ function ReqRow({ req, status, T, onClick, property }) {
       <Icon name={iconName} size={14} color={color} />
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, fontSize: 12, color: T.text, overflow: 'hidden', whiteSpace: 'nowrap' }}>
         {req.short}
-        {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
+        {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
       </span>
-      <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{detail}</span>
+      <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{detail}</span>
     </button>
   )
 }
@@ -118,7 +119,7 @@ function PrsPill({ property, T }) {
   const color = prs.ready ? T.green : T.amber
   return (
     <span title={prs.ready ? 'Gas, EICR, EPC and licensing all in date — ready for PRS database registration' : `PRS database gaps:\n• ${prs.gaps.join('\n• ')}`}
-      style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color, background: color + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+      style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color, background: color + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
       {prs.ready ? 'PRS ready' : `PRS: ${prs.gaps.length} gap${prs.gaps.length === 1 ? '' : 's'}`}
     </span>
   )
@@ -139,11 +140,11 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
           <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{property.name}</span>
         </button>
         <CoPill company={company} T={T} />
-        {property.prop_type && <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{property.prop_type}</span>}
+        {property.prop_type && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{property.prop_type}</span>}
         <span style={{ flex: 1 }} />
         <PrsPill property={property} T={T} />
         {allGood && <Icon name="check-circle" size={15} color={T.green} />}
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
           {summary.held}/{summary.total} in date
         </span>
       </div>
@@ -189,23 +190,23 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
   const tiles = [{ l: 'Expired', v: expired, c: T.red }, { l: 'Expiring soon', v: expiring, c: T.amber }, { l: 'Valid', v: valid, c: T.green }]
 
   const cellPill = (c) => {
-    if (c.state === 'na') return <span style={{ color: T.faint, fontFamily: mono, fontSize: 9 }}>n/a</span>
-    if (c.state === 'off') return <span style={{ color: T.faint, fontFamily: mono, fontSize: 9, opacity: 0.6 }}>off</span>
+    if (c.state === 'na') return <span style={{ color: T.faint, fontFamily: mono, fontSize: FS.xs }}>n/a</span>
+    if (c.state === 'off') return <span style={{ color: T.faint, fontFamily: mono, fontSize: FS.xs, opacity: 0.6 }}>off</span>
     if (c.state === 'missing') return <span style={{ color: T.faint, fontFamily: mono, fontSize: 12 }}>—</span>
     const map = { expired: [T.red, 'Expired'], expiring: [T.amber, `${c.days}d`], valid: [T.green, 'Valid'] }
     const [col, txt] = map[c.state]
-    return <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 8px', borderRadius: 999, background: col + '1A', color: col, fontFamily: mono, fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap' }}>{txt}</span>
+    return <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 8px', borderRadius: 999, background: col + '1A', color: col, fontFamily: mono, fontSize: FS.xs, fontWeight: 700, whiteSpace: 'nowrap' }}>{txt}</span>
   }
 
   const GRID = `minmax(150px,1.4fr) repeat(${cols.length}, minmax(58px,1fr))`
-  if (!properties.length) return <div style={{ fontFamily: mono, color: T.muted, fontSize: 12, padding: 32, textAlign: 'center' }}>No properties to track compliance for yet.</div>
+  if (!properties.length) return <EmptyState compact icon="shield-check" title="No properties to track compliance for yet." body="Add a property and its certificates will be tracked here."/>
   const ordered = [...companies, { id: null }].flatMap(co => properties.filter(p => p.company_id === co.id).map(p => ({ ...p, _co: co })))
   return (
     <div className="fade">
       <div className="summary-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 18 }}>
         {tiles.map(t => (
           <div key={t.l} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '16px 18px' }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t.l}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t.l}</div>
             <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 500, color: t.c }}>{t.v}</div>
           </div>
         ))}
@@ -220,7 +221,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                 <CoPill company={p._co?.id ? p._co : null} T={T} />
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
                   {issues.map(i => (
-                    <span key={i.lbl} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: (i.state === 'expired' ? T.red : T.amber) + '1A', color: i.state === 'expired' ? T.red : T.amber, fontFamily: mono, fontSize: 9, fontWeight: 700 }}>
+                    <span key={i.lbl} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, background: (i.state === 'expired' ? T.red : T.amber) + '1A', color: i.state === 'expired' ? T.red : T.amber, fontFamily: mono, fontSize: FS.xs, fontWeight: 700 }}>
                       {i.lbl} {i.state === 'expired' ? 'expired' : `${i.days}d`}
                     </span>
                   ))}
@@ -234,8 +235,8 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
       <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 14, background: T.card }}>
         <div style={{ minWidth: 380 + cols.length * 62 }}>
           <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${T.border}`, position: 'sticky', top: 0, background: T.card }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Property</div>
-            {cols.map(req => <div key={req.key} title={req.label} style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px' }}>{req.short}</div>)}
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Property</div>
+            {cols.map(req => <div key={req.key} title={req.label} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px' }}>{req.short}</div>)}
           </div>
           {ordered.map((p, i) => {
             const prev = i > 0 ? ordered[i - 1] : null
@@ -245,14 +246,14 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                 {showCo && p._co?.id && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
                     <span style={{ width: 3, height: 14, borderRadius: 2, background: p._co.color || T.gold }} />
-                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: p._co.color || T.goldText }}>{p._co.abbr}</span>
+                    <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: p._co.color || T.goldText }}>{p._co.abbr}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{p._co.name}</span>
                   </div>
                 )}
                 <div {...pressable(() => openDetail(p))} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
                   <div style={{ minWidth: 0, paddingRight: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>
                   </div>
                   {cols.map(req => <div key={req.key} style={{ textAlign: 'center' }}>{cellPill(cellFor(p, req))}</div>)}
                 </div>
@@ -357,7 +358,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
     setAdded(next); setBulkSaving(false); setBulk(null)
     showToast?.(`${req.short} logged for ${done} unit${done === 1 ? '' : 's'} in ${bulk.building}`, 'success')
   }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }
   const inp = { width: '100%', padding: '7px 8px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontFamily: mono, fontSize: 12 }
 
   // Portfolio-level summary tiles for the overview.
@@ -410,7 +411,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
         <>
           {companies.length > 1 && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
-              <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
+              <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
               {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
                 <button key={c.id} onClick={() => setCoFilter(c.id)}
                   style={{
@@ -450,7 +451,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                     <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</button>
                     <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</button>
                   </div>
-                  <div style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: 10, color: T.faint }}>
+                  <div style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: FS.xs, color: T.faint }}>
                     Units already in date for this certificate are skipped.{bulkTargets.length === 0 && bulk.building ? ' Every unit in this building is already covered.' : ''}
                   </div>
                 </div>
@@ -464,13 +465,13 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                   { l: 'Legally in date', v: totals.fullyInDate, c: T.green, hint: 'Properties with every legal requirement valid' },
                 ].map(t => (
                   <div key={t.l} title={t.hint || ''} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '16px 18px' }}>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t.l}</div>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t.l}</div>
                     <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 500, color: t.c }}>{t.v}</div>
                   </div>
                 ))}
               </div>
               {ordered.length === 0
-                ? <div style={{ fontFamily: mono, color: T.muted, fontSize: 12, padding: 32, textAlign: 'center' }}>No properties to track compliance for yet.</div>
+                ? <EmptyState compact icon="shield-check" title="No properties to track compliance for yet." body="Add a property and its certificates will be tracked here."/>
                 : <div style={{ display: 'grid', gap: 12 }}>
                     {ordered.map(({ p, co }, i) => {
                       const prev = i > 0 ? ordered[i - 1] : null
@@ -480,7 +481,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                           {showCo && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 10px 2px' }}>
                               <span style={{ width: 3, height: 14, borderRadius: 2, background: co.color || T.gold }} />
-                              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: co.color || T.goldText }}>{co.abbr}</span>
+                              <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: co.color || T.goldText }}>{co.abbr}</span>
                               <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{co.name}</span>
                             </div>
                           )}

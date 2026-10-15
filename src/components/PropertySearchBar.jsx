@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useId } from 'react'
 import { Icon } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { rankProperties } from '../lib/propertySearch'
 import { PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
 
@@ -118,7 +118,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
         {q
           ? <button onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Clear search"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontFamily: MONO, fontSize: 12, padding: '0 2px' }}>✕</button>
-          : slashToFocus && <kbd style={{ fontFamily: MONO, fontSize: 9, color: T.muted, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 3, padding: '1px 5px' }}>/</kbd>}
+          : slashToFocus && <kbd style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 3, padding: '1px 5px' }}>/</kbd>}
       </div>
 
       {showList && (
@@ -147,20 +147,20 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
                 }}>
                 <Icon name="home" size={14} color={T.muted}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, color: T.text, fontWeight: active ? 600 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: FS.base, color: T.text, fontWeight: active ? 600 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.name || p.address || 'Untitled property'}
                   </div>
                   {p.address && p.address !== p.name && (
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.address}
                     </div>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  {p.status && <span style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {p.status && <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {PROPERTY_STATUS_LABELS[p.status] || p.status}
                   </span>}
-                  {co && <span style={{ fontFamily: MONO, fontSize: 9, color: coColor, border: `1px solid ${coColor}55`, borderRadius: 4, padding: '1px 5px' }}>{co}</span>}
+                  {co && <span style={{ fontFamily: MONO, fontSize: FS.xs, color: coColor, border: `1px solid ${coColor}55`, borderRadius: 4, padding: '1px 5px' }}>{co}</span>}
                 </div>
               </div>
             )

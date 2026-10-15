@@ -16,12 +16,13 @@
 // countAssociatedCompanies in companyPnl.js.
 
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { fmt } from '../lib/format'
 import * as api from '../lib/api'
 import { companyEffectiveStakes } from '../lib/companyPnl'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
 import { propValue } from '../lib/propertyValue'
+import { Skeleton } from '../lib/Skeleton'
 
 export default function HoldingGroupPanel({ company, companies = [], properties = [], T, canEdit, onUpdateCompany, showToast }) {
   const [shareholders, setShareholders] = useState(null) // null = loading
@@ -48,7 +49,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
   }
 
   if (shareholders === null) {
-    return <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: '14px 4px' }}>Loading group holdings…</div>
+    return <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: '14px 4px' }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
   }
 
   const stakes = companyEffectiveStakes(shareholders, company.id)
@@ -73,9 +74,9 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
 
   const tile = (label, value, sub, accent) => (
     <div className="card" style={{ padding: '14px 16px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: accent || T.text }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{sub}</div>}
     </div>
   )
 
@@ -89,7 +90,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
 
       <div className="card" style={{ padding: '16px 18px', marginBottom: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>Group holdings</div>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 12, lineHeight: 1.6, maxWidth: 620 }}>
+        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 12, lineHeight: 1.6, maxWidth: 620 }}>
           Companies this one holds a stake in, from the shareholder links. Attributable figures are the stake %
           × each company's own numbers — a planning view, not a formal valuation of {company.abbr || company.name}.
         </div>
@@ -106,7 +107,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
                 <div style={{ flex: 1, minWidth: 160, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: r.c.color || T.gold }} />
                   <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{r.c.name}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{r.propCount} {r.propCount === 1 ? 'property' : 'properties'}</span>
+                  <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{r.propCount} {r.propCount === 1 ? 'property' : 'properties'}</span>
                 </div>
                 <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.goldText }} title="Effective stake, looking through any intermediate holding companies">{r.pct.toFixed(2)}%</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: T.text, minWidth: 90, textAlign: 'right' }} title="Stake × estimated value">{fmt(r.attrVal)}</span>
@@ -115,7 +116,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
             ))}
           </div>
         )}
-        <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 10 }}>
+        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
           Dividend income and the profit split live in Reports → Company P&L with {company.abbr || company.name} selected.
         </div>
       </div>
@@ -127,7 +128,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
             onChange={e => togglePassive(e.target.checked)} style={{ marginTop: 2 }} />
           <span style={{ fontFamily: MONO, fontSize: 11, color: T.text, lineHeight: 1.7 }}>
             Passive holding company — it only holds shares and passes dividends through.
-            <span style={{ color: T.muted, display: 'block', fontSize: 10 }}>
+            <span style={{ color: T.muted, display: 'block', fontSize: FS.xs }}>
               Passive holding companies are excluded from HMRC's associated-company count, which sets how the
               £50k/£250k corporation tax thresholds are split across your companies. Untick if it charges the
               group management fees or loan interest, holds its own assets, or retains dividends — it then

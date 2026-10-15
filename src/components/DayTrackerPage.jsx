@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
+import { Button } from './ui'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
 import { plural } from '../lib/format'
@@ -96,19 +97,21 @@ function isPropertyOverdue(prop) {
   return false
 }
 
-const STATUS_COLOR = {
-  paid:    '#2ECC8A',
+// Function of the theme so legacy hexes follow light/dark tokens; alpha
+// suffixes are still concatenated by callers, so values must stay hex.
+const statusColors = (T) => ({
+  paid:    T.green,
   stl:     '#9B6FDE',  // pseudo-status: paid segment linked to a Lodgify booking
   stl_pending: '#C4B3EA',  // STL booked, stay not yet completed
-  partial: '#E0943A',  // part-paid = attention, same amber as late
+  partial: T.amber,  // part-paid = attention, same amber as late
   pending: '#9B6FDE',  // legacy rows from the pre-2026-07 Lodgify sync
-  overdue: '#E05555',
-  missed:  '#E05555',  // legacy alias for pre-2026-05-25 rows
-  late:    '#E0943A',
-  refurb:  '#4B8FE0',
-  void:    '#888EA8',
+  overdue: T.red,
+  missed:  T.red,  // legacy alias for pre-2026-05-25 rows
+  late:    T.amber,
+  refurb:  T.blue,
+  void:    T.faint,
   future:  'transparent',
-}
+})
 
 const STATUS_LABEL = { paid:'Paid', stl:'STL', stl_pending:'STL booked', partial:'Partial', pending:'Pending', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
 
@@ -123,6 +126,7 @@ const SETTABLE_STATUSES = ['paid', 'late', 'overdue', 'void']
 // other mount site keeps today's behaviour.
 export default function DayTrackerPage({ companies, properties, setProperties, showToast, onBack, canEdit = true }) {
   const { T } = useTheme()
+  const STATUS_COLOR = statusColors(T)
   const now = new Date()
   const [year,  setYear]  = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -384,7 +388,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
       {/* Toolbar: filter mode + export */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:18 }}>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
-          <span style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginRight:4 }}>View:</span>
+          <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginRight:4 }}>View:</span>
           {[
             { v:'all',                 l:'All properties' },
             { v:'overdue-highlighted', l:'Highlight overdue' },
@@ -402,7 +406,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             </button>
           ))}
           {overdueMode !== 'all' && (
-            <span style={{ fontFamily:mono, fontSize:10, color:T.muted, marginLeft:6 }}>
+            <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginLeft:6 }}>
               {overdueIds.size} overdue
             </span>
           )}
@@ -434,7 +438,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, paddingBottom:8, borderBottom:`2px solid ${company.color||T.gold}` }}>
               <div style={{ width:3, height:16, background:company.color||T.gold, borderRadius:2 }}/>
               <span style={{ fontSize:14, fontWeight:700, color:T.text }}>{company.name}</span>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>{plural(compProps.length,'property','properties')}</span>
+              <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted }}>{plural(compProps.length,'property','properties')}</span>
             </div>
 
             {/* Day grid */}
@@ -443,7 +447,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                 <thead>
                   <tr>
                     {/* Property name column */}
-                    <th style={{ fontFamily:mono, fontSize:10, color:T.muted, textAlign:'left', padding:'0 12px 8px 0', whiteSpace:'nowrap', minWidth:160, position:'sticky', left:0, background:T.bg, zIndex:2 }}>
+                    <th style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textAlign:'left', padding:'0 12px 8px 0', whiteSpace:'nowrap', minWidth:160, position:'sticky', left:0, background:T.bg, zIndex:2 }}>
                       Property
                     </th>
                     {/* Day number columns */}
@@ -453,7 +457,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                       const isToday = toKey(year,month,d) === toKey(now.getFullYear(),now.getMonth()+1,now.getDate())
                       return (
                         <th key={d} style={{
-                          fontFamily:mono, fontSize:8, color:isToday?T.goldText:isWeekend?T.muted:T.muted,
+                          fontFamily:mono, fontSize:FS.xs, color:isToday?T.goldText:isWeekend?T.muted:T.muted,
                           textAlign:'center', padding:'0 1px 4px', fontWeight:isToday?700:400,
                           minWidth:20
                         }}>
@@ -462,8 +466,8 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                       )
                     })}
                     {/* Stats columns */}
-                    <th style={{ fontFamily:mono, fontSize:9, color:T.muted, padding:'0 0 4px 8px', whiteSpace:'nowrap' }}>Paid</th>
-                    <th style={{ fontFamily:mono, fontSize:9, color:T.muted, padding:'0 0 4px 6px', whiteSpace:'nowrap' }}>Void</th>
+                    <th style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, padding:'0 0 4px 8px', whiteSpace:'nowrap' }}>Paid</th>
+                    <th style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, padding:'0 0 4px 6px', whiteSpace:'nowrap' }}>Void</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -527,10 +531,10 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                           )
                         })}
                         {/* Stats */}
-                        <td style={{ fontFamily:mono, fontSize:10, fontWeight:700, color:paidDays>0?'#2ECC8A':T.muted, padding:'4px 0 4px 8px', textAlign:'center' }}>
+                        <td style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, color:paidDays>0?T.green:T.muted, padding:'4px 0 4px 8px', textAlign:'center' }}>
                           {paidDays}
                         </td>
-                        <td style={{ fontFamily:mono, fontSize:10, fontWeight:700, color:voidDays>0?'#888EA8':T.muted, padding:'4px 0 4px 6px', textAlign:'center' }}>
+                        <td style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, color:voidDays>0?STATUS_COLOR.void:T.muted, padding:'4px 0 4px 6px', textAlign:'center' }}>
                           {voidDays}
                         </td>
                       </tr>
@@ -578,14 +582,14 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             <div style={{ fontFamily:mono, fontSize:11, fontWeight:700, color:T.text, marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
               {editPopover.propName}
             </div>
-            <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:10 }}>
+            <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:10 }}>
               {editPopover.segmentId ? 'Edit rent period' : 'New rent period'}
             </div>
 
             {/* Date range */}
             <div style={{ display:'flex', gap:8, marginBottom:8 }}>
               {[['start','From'],['end','To']].map(([k,label]) => (
-                <label key={k} style={{ flex:1, minWidth:0, fontFamily:mono, fontSize:9, color:T.muted }}>
+                <label key={k} style={{ flex:1, minWidth:0, fontFamily:mono, fontSize:FS.xs, color:T.muted }}>
                   {label}
                   <input type="date" value={form[k]} disabled={savingPayment}
                     onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
@@ -596,7 +600,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             </div>
 
             {/* Amount paid */}
-            <label style={{ display:'block', fontFamily:mono, fontSize:9, color:T.muted, marginBottom:8 }}>
+            <label style={{ display:'block', fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:8 }}>
               Amount paid (£)
               <input type="number" min="0" step="0.01" value={form.amount} disabled={savingPayment}
                 onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
@@ -626,11 +630,9 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
 
             {/* Actions: never rendered without edit_rent on this row's company */}
             {popoverEditable && <div style={{ display:'flex', gap:6 }}>
-              <button onClick={saveSegment} disabled={savingPayment}
-                style={{ flex:1, fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 0', borderRadius:6,
-                  border:'none', background:T.gold, color:'#1A2530', cursor: savingPayment?'not-allowed':'pointer', opacity: savingPayment?0.6:1 }}>
+              <Button size="sm" onClick={saveSegment} disabled={savingPayment} style={{ flex:1 }}>
                 {savingPayment ? 'Saving…' : 'Save'}
-              </button>
+              </Button>
               {editPopover.segmentId && (
                 <button onClick={deleteSegment} disabled={savingPayment} title="Remove this period"
                   style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 10px', borderRadius:6,

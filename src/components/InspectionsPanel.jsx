@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { SignedPhoto } from '../lib/SignedPhoto'
+import { Skeleton } from '../lib/Skeleton'
 
 // ── INSPECTIONS PANEL ────────────────────────────────────────────────
 // Embedded on a property's Compliance tab. Lists scheduled +
@@ -124,7 +125,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           Property Inspections
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, fontWeight: 400 }}>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, fontWeight: 400 }}>
             {items.length} {items.length === 1 ? 'record' : 'records'}
           </span>
         </h3>
@@ -136,12 +137,12 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
       </div>
 
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 12 }}>Loading…</div>
+        <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 12 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
       ) : (
         <>
           {adding && (
             <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
                 {editingId ? 'Edit inspection' : 'New inspection'}
               </div>
               <div className="g2">
@@ -185,7 +186,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Photo evidence ({form.photos?.length || 0})</span>
                   <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto}
-                    style={{ fontFamily: MONO, fontSize: 10, padding: '4px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text, cursor: 'pointer' }}>
+                    style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text, cursor: 'pointer' }}>
                     {uploadingPhoto ? 'Uploading…' : 'Add photo'}
                   </button>
                 </label>
@@ -215,7 +216,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
 
           {upcoming.length > 0 && (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                 Upcoming ({upcoming.length})
               </div>
               <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
@@ -226,7 +227,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
 
           {completed.length > 0 && (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                 Completed ({completed.length})
               </div>
               <div style={{ display: 'grid', gap: 8 }}>
@@ -258,17 +259,17 @@ function InspectionRow({ item, T, canEdit, onEdit, onDelete }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             {typeLabel}
-            {isPast && <span style={{ marginLeft: 8, color: T.amber, fontSize: 10 }}>· OVERDUE</span>}
-            {condLabel && <span style={{ marginLeft: 8, color: condColor, fontSize: 10, padding: '1px 6px', background: condColor + '22', borderRadius: 8 }}>{condLabel}</span>}
+            {isPast && <span style={{ marginLeft: 8, color: T.amber, fontSize: FS.xs }}>· OVERDUE</span>}
+            {condLabel && <span style={{ marginLeft: 8, color: condColor, fontSize: FS.xs, padding: '1px 6px', background: condColor + '22', borderRadius: 8 }}>{condLabel}</span>}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
             {item.completed_date
               ? `Completed ${new Date(item.completed_date).toLocaleDateString('en-GB')}`
               : item.scheduled_date
                 ? `Scheduled ${new Date(item.scheduled_date).toLocaleDateString('en-GB')}`
                 : 'Not scheduled'}
             {item.inspector_name && ` · ${item.inspector_name}`}
-            {item.photos?.length > 0 && ` · 📷 ${item.photos.length} photo${item.photos.length === 1 ? '' : 's'}`}
+            {item.photos?.length > 0 && ` · ${item.photos.length} photo${item.photos.length === 1 ? '' : 's'}`}
           </div>
           {item.notes && (
             <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
@@ -285,8 +286,8 @@ function InspectionRow({ item, T, canEdit, onEdit, onDelete }) {
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => onEdit(item)} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
-            <button onClick={() => onDelete(item)} aria-label="Delete item" style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
+            <button onClick={() => onEdit(item)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
+            <button onClick={() => onDelete(item)} aria-label="Delete item" style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}
       </div>

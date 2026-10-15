@@ -1,4 +1,4 @@
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 // Maintenance & Repairs UI — extracted from FeatureComponents.jsx
 //
 // Exports a single MaintenanceTab component and keeps JobCard private.
@@ -16,6 +16,8 @@ import { useLoadGuard } from '../../lib/useLoadGuard'
 import { NotesTimeline } from '../FeatureComponents'
 import MoneyInput from '../../lib/MoneyInput'
 import TriageButton from './TriageButton'
+import { Button, EmptyState } from '../ui'
+import { SkeletonList } from '../../lib/Skeleton'
 
 // Local copy of formatDate (used by JobCard for raised/resolved dates).
 // Matches the implementation in FeatureComponents.jsx so behaviour is identical.
@@ -36,7 +38,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
 
   const CATEGORIES = ['plumbing','electrical','structural','appliance','decoration','roofing','damp','other']
-  const PRIORITIES = [{v:'low',c:'#6B7191'},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
+  const PRIORITIES = [{v:'low',c:T.muted},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
   const STATUSES   = [{v:'open',c:T.red,l:'Open'},{v:'in-progress',c:T.amber,l:'In Progress'},{v:'complete',c:T.green,l:'Complete'}]
 
   const beginLoad = useLoadGuard()
@@ -92,7 +94,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div>
           <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Maintenance & Repairs</div>
-          <div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:2}}>{openJobs.length} open · Total cost {fmt(totalCost)}</div>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{openJobs.length} open · Total cost {fmt(totalCost)}</div>
         </div>
         {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log Job</button>}
       </div>
@@ -123,15 +125,15 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
         </div>
       </div>}
 
-      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
-       : jobs.length===0 ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No maintenance jobs logged yet.</div>
+      {loading ? <SkeletonList count={3}/>
+       : jobs.length===0 ? <EmptyState compact icon="wrench" title="No maintenance jobs logged yet."/>
        : <div>
           {openJobs.length>0&&<div style={{marginBottom:16}}>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Open Jobs</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Open Jobs</div>
             {openJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit} activeFlags={activeFlags} showToast={showToast} onTriaged={handleTriaged}/>)}
           </div>}
           {completedJobs.length>0&&<div>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Completed</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Completed</div>
             {completedJobs.map(job=><JobCard key={job.id} job={job} fmt={fmt} onEdit={j=>{setEditJob(j);setForm({...j,quoted_cost:j.quoted_cost||'',actual_cost:j.actual_cost||''});setShowForm(true)}} onDelete={handleDelete} PRIORITIES={PRIORITIES} STATUSES={STATUSES} canEdit={canEdit} activeFlags={activeFlags} showToast={showToast} onTriaged={handleTriaged}/>)}
           </div>}
         </div>
@@ -153,11 +155,11 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
         <div style={{flex:1,minWidth:150}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
             <span style={{fontSize:13,fontWeight:600}}>{job.title}</span>
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:pCol,textTransform:'uppercase'}}>{job.priority}</span>
-            <span style={{fontFamily:MONO,fontSize:10,color:st?.c||T.muted,background:st?.c+'22',padding:'1px 8px',borderRadius:20}}>{st?.l}</span>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:pCol,textTransform:'uppercase'}}>{job.priority}</span>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,color:st?.c||T.muted,background:st?.c+'22',padding:'1px 8px',borderRadius:20}}>{st?.l}</span>
             {job.reported_by_tenant && (
               <span title="Submitted by tenant via portal"
-                style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:T.blue,background:T.blue+'22',padding:'1px 8px',borderRadius:20,letterSpacing:'0.05em'}}>
+                style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:T.blue,background:T.blue+'22',padding:'1px 8px',borderRadius:20,letterSpacing:'0.05em'}}>
                 TENANT
               </span>
             )}
@@ -166,12 +168,12 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
             <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
               {job.photos.slice(0,4).map((p,i) => (
                 <span key={i} title={p.name || ''}
-                  style={{fontFamily:MONO,fontSize:9,padding:'2px 6px',borderRadius:4,background:T.bg,border:`1px solid ${T.border}`,color:T.muted}}>
-                  📷 {p.name?.slice(0,18) || `photo ${i+1}`}
+                  style={{fontFamily:MONO,fontSize:FS.xs,padding:'2px 6px',borderRadius:4,background:T.bg,border:`1px solid ${T.border}`,color:T.muted}}>
+                  {p.name?.slice(0,18) || `photo ${i+1}`}
                 </span>
               ))}
               {job.photos.length > 4 && (
-                <span style={{fontFamily:MONO,fontSize:9,color:T.muted}}>+ {job.photos.length - 4} more</span>
+                <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>+ {job.photos.length - 4} more</span>
               )}
             </div>
           )}
@@ -185,7 +187,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
             />
           )}
           {job.description&&<div style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:3}}>{job.description}</div>}
-          <div style={{fontFamily:MONO,fontSize:10,color:T.faint}}>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint}}>
             {job.contractor&&`Contractor: ${job.contractor}`}
             {job.contractor_phone&&` · ${job.contractor_phone}`}
             {job.date_raised&&` · Raised: ${formatDate(job.date_raised)}`}
@@ -194,10 +196,10 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
         </div>
         <div style={{textAlign:'right',flexShrink:0}}>
           {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
-          {job.quoted_cost&&job.actual_cost&&<div style={{fontFamily:MONO,fontSize:9,color:T.muted}}>Quoted {fmt(job.quoted_cost)}</div>}
+          {job.quoted_cost&&job.actual_cost&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>Quoted {fmt(job.quoted_cost)}</div>}
           <div style={{display:'flex',gap:6,marginTop:6,justifyContent:'flex-end'}}>
-            {canEdit && <button onClick={()=>onEdit(job)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>}
-            {canEdit && <button onClick={()=>onDelete(job.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Remove</button>}
+            {canEdit && <Button variant="secondary" size="sm" onClick={()=>onEdit(job)}>Edit</Button>}
+            {canEdit && <Button variant="danger" size="sm" onClick={()=>onDelete(job.id)}>Remove</Button>}
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { MONO } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
+import { Button } from './ui'
 import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import {
@@ -180,7 +181,6 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
     }
   }
 
-  const btnSecondary = { fontFamily: mono, fontSize: 12, padding: '10px 18px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }
   const btnPrimary = (enabled) => ({ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 18px', borderRadius: 8, border: 'none', background: enabled ? T.gold : T.border, color: enabled ? '#1A2530' : T.muted, cursor: enabled ? 'pointer' : 'not-allowed' })
 
   // ─── DISCLAIMER STEP ─────────────────────────────────────────────────
@@ -224,7 +224,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
               {JURISDICTION_NOTE} We prepare the content of {meta.form} for you to copy onto the latest version published on GOV.UK.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button type="button" onClick={onClose} style={btnSecondary}>Cancel</button>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
               <button type="button" onClick={() => setStep('checklist')} style={{ ...btnPrimary(true), background: T.amber }}>
                 I understand, continue
               </button>
@@ -297,12 +297,12 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
           </div>
 
           <div style={{ padding: '0 26px 22px', display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => setStep('disclaimer')} style={btnSecondary}>Back</button>
+            <Button variant="secondary" onClick={() => setStep('disclaimer')}>Back</Button>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={onClose} style={btnSecondary}>Cancel</button>
-              <button type="button" onClick={() => setStep('form')} disabled={!allAnswered} style={btnPrimary(allAnswered)}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button onClick={() => setStep('form')} disabled={!allAnswered}>
                 Continue to form
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -420,9 +420,9 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
                     value={s8.possessionDate || ''} min={s8.earliest || undefined}
                     onChange={e => update({ expiry_date: e.target.value, expiry_manual: true })}/>
                   {form.expiry_manual && (
-                    <button type="button" onClick={() => update({ expiry_manual: false, expiry_date: '' })} style={{ ...btnSecondary, padding: '8px 12px' }}>
+                    <Button variant="secondary" size="sm" onClick={() => update({ expiry_manual: false, expiry_date: '' })}>
                       Use earliest ({s8.earliest || 'n/a'})
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <div style={hint}>Worked out from the longest notice period for the grounds chosen. The notice is normally valid for 12 months from service.</div>
@@ -456,9 +456,9 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
                     value={s13.startDate || ''} min={s13.earliest || undefined}
                     onChange={e => update({ start_date: e.target.value, start_manual: true })}/>
                   {form.start_manual && (
-                    <button type="button" onClick={() => update({ start_manual: false, start_date: '' })} style={{ ...btnSecondary, padding: '8px 12px' }}>
+                    <Button variant="secondary" size="sm" onClick={() => update({ start_manual: false, start_date: '' })}>
                       Use earliest ({s13.earliest || 'n/a'})
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <div style={hint}>Earliest is two months after service, and at least 52 weeks after the tenancy began and after the last section 13 increase. Pick the first day of a rental period.</div>
@@ -478,12 +478,12 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginTop: 6, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => setStep('checklist')} style={btnSecondary}>Back</button>
+            <Button variant="secondary" onClick={() => setStep('checklist')}>Back</Button>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={onClose} style={btnSecondary}>Cancel</button>
-              <button type="button" onClick={printAndLog} disabled={!isValid} style={btnPrimary(isValid)}>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+              <Button onClick={printAndLog} disabled={!isValid}>
                 Print / save as PDF
-              </button>
+              </Button>
             </div>
           </div>
         </div>

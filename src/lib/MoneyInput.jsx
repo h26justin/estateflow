@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react'
 import { parseMoney } from './format'
+import { CV } from './styles'
 
 // ── MoneyInput ────────────────────────────────────────────────────────────
 // A drop-in replacement for <input type="number"> that displays values with
@@ -231,7 +232,7 @@ export default function MoneyInput({
       {prefix && (
         <span style={{
           position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-          fontSize: 12, color: '#888', pointerEvents: 'none', userSelect: 'none',
+          fontSize: 12, color: CV.muted, pointerEvents: 'none', userSelect: 'none',
         }}>{prefix}</span>
       )}
       <input
@@ -255,7 +256,7 @@ export default function MoneyInput({
       {suffix && (
         <span style={{
           position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-          fontSize: 11, color: '#888', pointerEvents: 'none', userSelect: 'none',
+          fontSize: 11, color: CV.muted, pointerEvents: 'none', userSelect: 'none',
         }}>{suffix}</span>
       )}
     </div>

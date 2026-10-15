@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { groupNotifications } from '../lib/notificationsGroup'
 import { pressable } from '../lib/pressable'
+import { Skeleton } from '../lib/Skeleton'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
 const TYPE_ICON = {
@@ -142,7 +143,7 @@ export default function NotificationCentre() {
           <span aria-hidden="true" style={{
             position: 'absolute', top: -4, right: -4,
             background: '#B8392D', color: 'white', // fixed deep red: white on it is 5.7:1 in both themes
-            fontFamily: mono, fontSize: 9, fontWeight: 700,
+            fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
             borderRadius: 10, minWidth: 16, height: 16,
             padding: '0 4px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -176,7 +177,7 @@ export default function NotificationCentre() {
               {unread > 0 && (
                 <button onClick={handleMarkAll}
                   style={{ background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: mono, fontSize: 10, color: T.goldText, textDecoration: 'underline' }}>
+                    fontFamily: mono, fontSize: FS.xs, color: T.goldText, textDecoration: 'underline' }}>
                   Mark all read
                 </button>
               )}
@@ -184,14 +185,12 @@ export default function NotificationCentre() {
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {loading && items.length === 0 ? (
-                <div style={{ padding: '36px 20px', textAlign: 'center', fontFamily: mono, fontSize: 11, color: T.muted }}>
-                  Loading…
-                </div>
+                <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: '20px' }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
               ) : items.length === 0 ? (
                 <div style={{ padding: '36px 20px', textAlign: 'center' }}>
                   <div style={{ display:'flex', justifyContent:'center', marginBottom: 10, color: T.faint }}><Icon name="bell-off" size={26}/></div>
                   <div style={{ fontFamily: mono, fontSize: 12, color: T.text, fontWeight: 600, marginBottom: 4 }}>You're all caught up</div>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, lineHeight: 1.5, maxWidth: 240, margin: '0 auto' }}>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.5, maxWidth: 240, margin: '0 auto' }}>
                     Compliance reminders, rent activity and system updates will show up here.
                   </div>
                 </div>
@@ -200,11 +199,11 @@ export default function NotificationCentre() {
                   <Fragment key={g.type}>
                     {g.items.length > 1 && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px 4px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
-                        <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>
+                        <span style={{ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>
                           {g.label} · {g.items.length}{g.unread ? ` · ${g.unread} unread` : ''}
                         </span>
                         <button onClick={e => handleClearGroup(g.type, e)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: mono, fontSize: 10, color: T.muted, textDecoration: 'underline' }}>
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: mono, fontSize: FS.xs, color: T.muted, textDecoration: 'underline' }}>
                           Clear all
                         </button>
                       </div>
@@ -233,7 +232,7 @@ export default function NotificationCentre() {
                         <div style={{ fontSize: 13, fontWeight: !n.read_at ? 700 : 500, color: T.text, lineHeight: 1.35 }}>
                           {n.title}
                         </div>
-                        <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, flexShrink: 0 }}>
+                        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, flexShrink: 0 }}>
                           {timeAgo(n.created_at)}
                         </div>
                       </div>
@@ -247,7 +246,7 @@ export default function NotificationCentre() {
                           onClick={e => e.stopPropagation()}
                           style={{
                             display: 'inline-block', marginTop: 6,
-                            fontFamily: mono, fontSize: 10, fontWeight: 600,
+                            fontFamily: mono, fontSize: FS.xs, fontWeight: 600,
                             padding: '4px 9px', borderRadius: 6,
                             background: T.gold + '14', color: T.goldText,
                             border: `1px solid ${T.gold}55`,
@@ -258,7 +257,7 @@ export default function NotificationCentre() {
                       )}
                     </div>
                     <button onClick={e => handleSnooze(n, e)} title="Snooze for a week"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, fontFamily: mono, fontSize: 9, padding: 4, alignSelf: 'flex-start' }} aria-label="Snooze notification for 7 days">zz</button>
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, fontFamily: mono, fontSize: FS.xs, padding: 4, alignSelf: 'flex-start' }} aria-label="Snooze notification for 7 days">zz</button>
                     <button onClick={e => handleDismiss(n.id, e)}
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer',
