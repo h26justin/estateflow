@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
+import { SkeletonList } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 // Tenant referencing modal.
 //
@@ -27,16 +29,17 @@ const STATUS_LABEL = {
   failed:      'Could not complete',
 }
 
-const STATUS_COLOR = {
-  requested:   '#888EA8',
-  submitted:   '#4B8FE0',
-  in_progress: '#E0943A',
-  complete:    '#2ECC8A',
-  failed:      '#E05555',
-}
+const statusColors = (T) => ({
+  requested:   T.muted,
+  submitted:   T.blue,
+  in_progress: T.amber,
+  complete:    T.green,
+  failed:      T.red,
+})
 
 export default function TenantReferenceModal({ property, onClose }) {
   const { T } = useTheme()
+  const STATUS_COLOR = statusColors(T)
   const confirmDialog = useConfirm()
   const mono = MONO
   const [history, setHistory] = useState([])
@@ -105,7 +108,7 @@ export default function TenantReferenceModal({ property, onClose }) {
     background: T.bg, border: `1px solid ${T.border}`, color: T.text,
     borderRadius: 8, padding: '10px 12px', outline: 'none', width: '100%', boxSizing: 'border-box',
   }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
 
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
@@ -121,7 +124,7 @@ export default function TenantReferenceModal({ property, onClose }) {
             </p>
           </div>
           <span style={{
-            fontFamily: mono, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+            fontFamily: mono, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
             padding: '4px 9px', borderRadius: 12,
             background: T.amber + '22', color: T.amber, border: `1px solid ${T.amber}44`,
             flexShrink: 0,
@@ -204,15 +207,13 @@ export default function TenantReferenceModal({ property, onClose }) {
           )}
 
           {/* History */}
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
             Reference requests
           </div>
           {loading ? (
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+            <SkeletonList count={2} height={60}/>
           ) : history.length === 0 ? (
-            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>
-              No reference requests yet.
-            </div>
+            <EmptyState compact icon="users" title="No reference requests yet"/>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {history.map(r => (
@@ -221,13 +222,13 @@ export default function TenantReferenceModal({ property, onClose }) {
                     <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 3 }}>
                       {r.tenant_full_name}
                     </div>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 }}>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 6 }}>
                       {r.tenant_email || '—'}
                       {r.employer_name && ` · ${r.employer_name}`}
                       {r.monthly_income && ` · ${fmt(r.monthly_income)}/mo`}
                     </div>
                     <span style={{
-                      fontFamily: mono, fontSize: 10, fontWeight: 700,
+                      fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
                       padding: '2px 8px', borderRadius: 10,
                       background: (STATUS_COLOR[r.status] || T.muted) + '22',
                       color: STATUS_COLOR[r.status] || T.muted,

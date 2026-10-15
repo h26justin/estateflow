@@ -1,4 +1,4 @@
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 // Tenancy sub-tabs: extracted from FeatureComponents.jsx for maintainability.
 // All five components accept `T` (theme tokens) as a prop and use the shared
 // api module — no theme-context dependency, no other cross-cutting state.
@@ -7,8 +7,11 @@ import { useState, useEffect } from 'react'
 import * as api from '../../lib/api'
 import { fmt } from '../../lib/format'
 import MoneyInput from '../../lib/MoneyInput'
+import { Icon } from '../../lib/icons'
 import NoticeGenerator from '../NoticeGenerator'
 import { GROUNDS, groundLabel, earliestRentIncreaseDate, currentTenancyStart } from '../../lib/possessionRules'
+import { SkeletonList } from '../../lib/Skeleton'
+import { EmptyState, Button } from '../ui'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
 export function RightToRentTab({ propertyId, userId, showToast, T }) {
@@ -54,8 +57,8 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
   }
 
   const inp = { fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%' }
-  const lbl = { fontFamily:mono, fontSize:10, color:T.muted, display:'block', marginBottom:5 }
-  const errStyle = { fontFamily:mono, fontSize:10, color:T.red, display:'block', marginTop:4 }
+  const lbl = { fontFamily:mono, fontSize:FS.xs, color:T.muted, display:'block', marginBottom:5 }
+  const errStyle = { fontFamily:mono, fontSize:FS.xs, color:T.red, display:'block', marginTop:4 }
 
   const isExpired = (date) => date && new Date(date) < new Date()
   const isExpiring = (date) => {
@@ -68,13 +71,12 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
         <div>
-          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
+          <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
         </div>
-        <button onClick={() => { setForm({}); setTriedSave(false); setShowForm(true) }}
-          style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 14px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
-          + Add check
-        </button>
+        <Button size="sm" icon="plus" style={{ flexShrink:0 }} onClick={() => { setForm({}); setTriedSave(false); setShowForm(true) }}>
+          Add check
+        </Button>
       </div>
 
       {showForm && (
@@ -107,20 +109,17 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
           </div>
           <div style={{ marginBottom:10 }}><label style={lbl} htmlFor="rtr-notes">Notes</label><textarea id="rtr-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           <div style={{ display:'flex', gap:8 }}>
-            <button type="submit" disabled={saving}
-              style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'8px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
+            <Button type="submit" size="sm" disabled={saving}>
               {saving?'Saving…':'Save record'}
-            </button>
-            <button type="button" onClick={()=>setShowForm(false)} style={{ fontFamily:mono, fontSize:12, padding:'8px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Cancel</button>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={()=>setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>Loading…</div>
+      {loading ? <SkeletonList count={2} height={64}/>
       : records.length === 0 ? (
-        <div style={{ background:T.bg, borderRadius:10, padding:'20px', textAlign:'center', fontFamily:mono, fontSize:12, color:T.muted }}>
-          No right to rent checks recorded for this property.
-        </div>
+        <EmptyState compact icon="id-card" title="No right to rent checks recorded" body="Add a check for each adult tenant before the tenancy starts."/>
       ) : records.map(r => {
         const expired = isExpired(r.expiry_date)
         const expiring = isExpiring(r.expiry_date)
@@ -130,22 +129,22 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10 }}>
               <div>
                 <div style={{ fontSize:13, fontWeight:700, color:T.text, marginBottom:3 }}>{r.tenant_name}</div>
-                <div style={{ fontFamily:mono, fontSize:10, color:T.muted }}>
+                <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted }}>
                   {DOC_TYPES.find(d=>d.key===r.doc_type)?.label||r.doc_type}
                   {r.doc_reference && ` · ${r.doc_reference}`}
                 </div>
               </div>
               <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
-                {expired && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
-                {expiring && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
-                {followUpDue && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'#4B8FE022', color:'#4B8FE0' }}>Follow-up due</span>}
-                <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:mono, fontSize:10, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
+                {expired && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
+                {expiring && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
+                {followUpDue && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.blue+'22', color:T.blue }}>Follow-up due</span>}
+                <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:16, marginTop:8, flexWrap:'wrap' }}>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>Checked: {r.check_date}</span>
-              {r.expiry_date && <span style={{ fontFamily:mono, fontSize:10, color:expired?T.red:expiring?T.amber:T.muted }}>Expires: {r.expiry_date}</span>}
-              {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:10, color:followUpDue?'#4B8FE0':T.muted }}>Follow-up: {r.follow_up_date}</span>}
+              <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted }}>Checked: {r.check_date}</span>
+              {r.expiry_date && <span style={{ fontFamily:mono, fontSize:FS.xs, color:expired?T.red:expiring?T.amber:T.muted }}>Expires: {r.expiry_date}</span>}
+              {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:FS.xs, color:followUpDue?T.blue:T.muted }}>Follow-up: {r.follow_up_date}</span>}
             </div>
             {r.notes && <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>{r.notes}</div>}
           </div>
@@ -191,19 +190,18 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Deposit protection</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Deposit protection</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>You must protect deposits within 30 days of receipt and provide prescribed information to tenants.</div>
         </div>
-        <button onClick={() => { setForm({}); setShowForm(true) }}
-          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.gold, color: '#1C2830', cursor: 'pointer', flexShrink: 0 }}>
-          + Add record
-        </button>
+        <Button size="sm" icon="plus" style={{ flexShrink: 0 }} onClick={() => { setForm({}); setShowForm(true) }}>
+          Add record
+        </Button>
       </div>
 
       {showForm && (
@@ -227,33 +225,32 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="dp-notes">Notes</label><textarea id="dp-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving}
-              style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1C2830', cursor: 'pointer' }}>
+            <Button type="submit" size="sm" disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+      {loading ? <SkeletonList count={2} height={64}/>
       : records.length === 0 ? (
-        <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No deposit protection records for this property.</div>
+        <EmptyState compact icon="shield-check" title="No deposit protection records" body="Record where each deposit is protected and when prescribed information was sent."/>
       ) : records.map(r => (
         <div key={r.id} style={{ background: T.card, border: `1px solid ${r.prescribed_info_sent!=='yes'?T.amber:T.border}`, borderRadius: 10, padding: '12px 16px', marginBottom: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 3 }}>{r.tenant_name} — {SCHEMES.find(s=>s.key===r.scheme)?.label.split('—')[0]||r.scheme}</div>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                 Ref: {r.reference||'—'} · Registered: {r.registered_date||'—'} · Amount: {r.amount ? fmt(r.amount) : '—'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {r.prescribed_info_sent !== 'yes' && (
-                <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
+                <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
               )}
-              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#2ECC8A22', color: '#2ECC8A' }}>Protected</span>
-              <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: mono, fontSize: 10, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
+              <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.green+'22', color: T.green }}>Protected</span>
+              <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
             </div>
           </div>
         </div>
@@ -297,10 +294,10 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
   }
   const STATUSES = [
     { key: 'draft', label: 'Draft', color: T.muted },
-    { key: 'served', label: 'Served', color: '#4B8FE0' },
-    { key: 'court_filed', label: 'Court filed', color: '#C8A84B' },
-    { key: 'hearing', label: 'Hearing set', color: '#E0943A' },
-    { key: 'possession', label: 'Possession granted', color: '#2ECC8A' },
+    { key: 'served', label: 'Served', color: T.blue },
+    { key: 'court_filed', label: 'Court filed', color: T.goldText },
+    { key: 'hearing', label: 'Hearing set', color: T.amber },
+    { key: 'possession', label: 'Possession granted', color: T.green },
     { key: 'withdrawn', label: 'Withdrawn', color: T.muted },
   ]
 
@@ -321,13 +318,13 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal notices</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal notices</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Prepare and track possession (section 8) and rent increase (section 13) notices. England only; section 21 ended on 1 May 2026.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -335,14 +332,12 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.text, cursor: 'pointer' }}>
             Prepare Form 3A
           </button>
-          <button onClick={openRentIncrease}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, cursor: 'pointer' }}>
+          <Button variant="secondary" size="sm" onClick={openRentIncrease}>
             Prepare Form 4A
-          </button>
-          <button onClick={() => { setForm({ notice_type: 's8', status: 'draft' }); setShowForm(true) }}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>
-            + Log notice
-          </button>
+          </Button>
+          <Button variant="danger" size="sm" icon="plus" onClick={() => { setForm({ notice_type: 's8', status: 'draft' }); setShowForm(true) }}>
+            Log notice
+          </Button>
         </div>
       </div>
 
@@ -391,14 +386,14 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="nt-notes">Notes</label><textarea id="nt-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
-            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            <Button type="submit" variant="danger" size="sm" disabled={saving}>{saving?'Saving…':'Save notice'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
-      : notices.length === 0 ? <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No notices logged.</div>
+      {loading ? <SkeletonList count={2} height={64}/>
+      : notices.length === 0 ? <EmptyState compact icon="file-text" title="No notices logged"/>
       : notices.map(n => {
         const st = STATUSES.find(s => s.key === n.status) || STATUSES[0]
         const nt = NOTICE_TYPES.find(t => t.key === n.notice_type) || NOTICE_TYPES[0]
@@ -409,17 +404,17 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 3 }}>{nt.label}</div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                   Served: {n.served_date||'—'} · Expiry: {n.expiry_date||'—'}
                   {n.solicitor_ref && ` · Ref: ${n.solicitor_ref}`}
                 </div>
                 {daysToHearing !== null && daysToHearing > 0 && (
-                  <div style={{ fontFamily: mono, fontSize: 10, color: '#E0943A', marginTop: 4 }}>Hearing in {daysToHearing} days ({n.court_date})</div>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.amber, marginTop: 4 }}>Hearing in {daysToHearing} days ({n.court_date})</div>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.color+'22', color: st.color }}>{st.label}</span>
-                <button onClick={() => { setForm(n); setShowForm(true) }} style={{ fontFamily: mono, fontSize: 10, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
+                <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.color+'22', color: st.color }}>{st.label}</span>
+                <button onClick={() => { setForm(n); setShowForm(true) }} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
               </div>
             </div>
           </div>
@@ -456,24 +451,22 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rent history</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rent history</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track every rent change with dates and review schedules.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button onClick={() => setShowForm4A(true)}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, cursor: 'pointer' }}>
+          <Button variant="secondary" size="sm" onClick={() => setShowForm4A(true)}>
             Prepare Form 4A
-          </button>
-          <button onClick={() => { setForm({ change_type: 'increase' }); setShowForm(true) }}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.green, color: '#0E3B27', cursor: 'pointer' }}>
-            + Log change
-          </button>
+          </Button>
+          <Button size="sm" icon="plus" onClick={() => { setForm({ change_type: 'increase' }); setShowForm(true) }}>
+            Log change
+          </Button>
         </div>
       </div>
 
@@ -527,14 +520,14 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="rh-notes">Notes</label><input id="rh-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inp}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
-            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            <Button type="submit" size="sm" disabled={saving}>{saving?'Saving…':'Save'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
-      : history.length === 0 ? <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No rent history recorded.</div>
+      {loading ? <SkeletonList count={2} height={64}/>
+      : history.length === 0 ? <EmptyState compact icon="trending-up" title="No rent history recorded"/>
       : (
         <div style={{ position: 'relative' }}>
           <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 1, background: T.border }}/>
@@ -543,24 +536,24 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
             const isIncrease = parseFloat(pct) >= 0
             return (
               <div key={r.id} style={{ display: 'flex', gap: 16, marginBottom: 14, paddingLeft: 8 }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: isIncrease?'#2ECC8A':'#4B8FE0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 4, zIndex: 1 }}>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: 'white', fontWeight: 700 }}>{isIncrease?'↑':'↓'}</span>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: isIncrease?T.green:T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 4, zIndex: 1 }}>
+                  <span style={{ fontFamily: mono, fontSize: FS.xs, color: 'white', fontWeight: 700 }}>{isIncrease?'↑':'↓'}</span>
                 </div>
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 2 }}>
                         {r.new_rent ? `${fmt(r.new_rent)}/mo` : 'Rent review'}
-                        {pct && <span style={{ fontFamily: mono, fontSize: 10, marginLeft: 8, color: isIncrease?'#2ECC8A':'#4B8FE0' }}>({isIncrease?'+':''}{pct}%)</span>}
+                        {pct && <span style={{ fontFamily: mono, fontSize: FS.xs, marginLeft: 8, color: isIncrease?T.green:T.blue }}>({isIncrease?'+':''}{pct}%)</span>}
                       </div>
-                      {r.previous_rent && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Previous: {fmt(r.previous_rent)}/mo</div>}
+                      {r.previous_rent && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>Previous: {fmt(r.previous_rent)}/mo</div>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{r.effective_date}</div>
-                      {r.next_review_date && <div style={{ fontFamily: mono, fontSize: 10, color: '#4B8FE0', marginTop: 2 }}>Review: {r.next_review_date}</div>}
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{r.effective_date}</div>
+                      {r.next_review_date && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.blue, marginTop: 2 }}>Review: {r.next_review_date}</div>}
                     </div>
                   </div>
-                  {r.notes && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6 }}>{r.notes}</div>}
+                  {r.notes && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 6 }}>{r.notes}</div>}
                 </div>
               </div>
             )
@@ -596,7 +589,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
   if (daysLeft > 90 || daysLeft < -30) return null
 
   const urgency = daysLeft <= 0 ? 'expired' : daysLeft <= 30 ? 'urgent' : daysLeft <= 60 ? 'soon' : 'upcoming'
-  const color = { expired:'#E05555', urgent:'#E0943A', soon:'#C8A84B', upcoming:'#4B8FE0' }[urgency]
+  const color = { expired:T.red, urgent:T.amber, soon:T.goldText, upcoming:T.blue }[urgency]
 
   async function handleRenew() {
     if (!form.new_end_date) { setTriedSave(true); showToast('Enter new end date', 'error'); return }
@@ -616,10 +609,11 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
     <div style={{ background: color + '11', border: `1px solid ${color}44`, borderRadius: 10, padding: '12px 16px', marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3 }}>
-            {urgency === 'expired' ? 'Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
+          <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {urgency !== 'expired' && <Icon name="clock" size={13}/>}
+            {urgency === 'expired' ? 'Tenancy expired' : `Tenancy ends in ${daysLeft} days`}
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888' }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
             End date: {new Date(tenancy.tenancy_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             {rentPcm ? ` · Current rent: ${fmt(rentPcm)}/mo` : ''}
           </div>
@@ -634,27 +628,25 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
       {showForm && (
         <form onSubmit={e => { e.preventDefault(); handleRenew() }} style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4, display: 'block' }}>New end date</label>
+            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 4, display: 'block' }}>New end date</label>
             <input id="tr-end-date" type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
               aria-invalid={triedSave && !form.new_end_date ? 'true' : undefined}
               aria-describedby={triedSave && !form.new_end_date ? 'tr-end-date-err' : undefined}
-              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${triedSave && !form.new_end_date ? (T?.red || '#E05555') : (T?.border || '#ddd')}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px' }}/>
-            {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: 10, color: T?.red || '#E05555', display: 'block', marginTop: 4 }}>Required</span>}
+              style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${triedSave && !form.new_end_date ? T.red : T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px' }}/>
+            {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
           </div>
           <div>
-            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4, display: 'block' }}>New rent (optional)</label>
+            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 4, display: 'block' }}>New rent (optional)</label>
             <MoneyInput id="tr-new-rent" prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
               placeholder="Same as current"
-              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120 }}/>
+              style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px', width: 120 }}/>
           </div>
-          <button type="submit" disabled={saving}
-            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? 'Saving…' : 'Confirm renewal'}
-          </button>
-          <button type="button" onClick={() => setShowForm(false)}
-            style={{ fontFamily: mono, fontSize: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T?.border || '#ddd'}`, background: 'transparent', color: T?.muted || '#888', cursor: 'pointer' }}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>
             Cancel
-          </button>
+          </Button>
         </form>
       )}
     </div>

@@ -6,6 +6,7 @@ import Modal from '../../lib/Modal'
 import { Icon } from '../../lib/icons'
 import { coverImgStyle, normaliseCrop } from '../../lib/imageResize'
 import { mono, btn } from './ui'
+import { FS } from '../../lib/styles'
 
 export function CoverImage({ url, crop, alt = '', T, placeholder = 'No cover photo yet', compact = false }) {
   if (!url) return <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: `repeating-linear-gradient(135deg, ${T.bg}, ${T.bg} 10px, ${T.surface} 10px, ${T.surface} 20px)`, color: T.faint }}>
@@ -82,7 +83,7 @@ function CropModal({ url, crop, aspect, onClose, onSave, T }) {
         <img src={url} alt="" draggable={false} style={coverImgStyle(c)} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
-        <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Zoom</span>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>Zoom</span>
         <input type="range" min="1" max="3" step="0.05" value={c.zoom} onChange={e => setC(p => normaliseCrop({ ...p, zoom: Number(e.target.value) }))} style={{ flex: 1 }} aria-label="Zoom" />
         <button onClick={() => setC({ x: 50, y: 50, zoom: 1 })} style={btn(T)}>Reset</button>
       </div>

@@ -1,6 +1,6 @@
 // Shared presentational bits for the refurb workspace. Same look as
 // RefurbsPage.jsx (mono labels, gold primary, card panels).
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { STAGE_STATUS_CFG, statusLabel } from '../../lib/refurbWorkspace'
 
 export const mono = MONO
@@ -20,25 +20,25 @@ export const btn = (T, kind = 'ghost') => ({
   border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`, whiteSpace: 'nowrap',
 })
 export const panel = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 12, minWidth: 0 })
-export const label = T => ({ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 })
-export const sectionHead = T => ({ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 })
+export const label = T => ({ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 4 })
+export const sectionHead = T => ({ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 })
 
 export function Field({ label: text, children, T, hint }) {
   return <div style={{ minWidth: 0 }}>
     <label style={label(T)}>{text}</label>
     {children}
-    {hint && <div style={{ fontFamily: mono, fontSize: 9.5, color: T.faint, marginTop: 3 }}>{hint}</div>}
+    {hint && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 3 }}>{hint}</div>}
   </div>
 }
 
 export function StatusChip({ stage, T }) {
   const c = STAGE_STATUS_CFG[stage?.status] || STAGE_STATUS_CFG.not_started
-  return <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: c.color + '22', color: c.color, border: `1px solid ${c.color}44`, whiteSpace: 'nowrap' }}>{statusLabel(stage)}</span>
+  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: c.color + '22', color: c.color, border: `1px solid ${c.color}44`, whiteSpace: 'nowrap' }}>{statusLabel(stage)}</span>
 }
 
 export function Pill({ children, color, T }) {
   const col = color || T.muted
-  return <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '1f', color: col, whiteSpace: 'nowrap' }}>{children}</span>
+  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '1f', color: col, whiteSpace: 'nowrap' }}>{children}</span>
 }
 
 export function Bar({ pct, color, T, height = 6 }) {
@@ -61,9 +61,9 @@ export function Tile({ label: text, value, sub, onClick, color, T, icon }) {
   return <Tag onClick={onClick} style={{ textAlign: 'left', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '12px 14px', cursor: onClick ? 'pointer' : 'default', color: T.text, display: 'flex', gap: 12, alignItems: 'center', minWidth: 0, width: '100%' }}>
     {icon && <span style={{ width: 36, height: 36, borderRadius: 9, border: `1px solid ${T.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.goldText, flexShrink: 0 }}>{icon}</span>}
     <span style={{ minWidth: 0 }}>
-      <span style={{ display: 'block', fontFamily: mono, fontSize: 9.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>{text}</span>
+      <span style={{ display: 'block', fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>{text}</span>
       <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: color || T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
-      {sub && <span style={{ display: 'block', fontFamily: mono, fontSize: 10, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
+      {sub && <span style={{ display: 'block', fontFamily: mono, fontSize: FS.xs, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
     </span>
   </Tag>
 }

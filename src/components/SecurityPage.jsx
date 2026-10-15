@@ -1,5 +1,6 @@
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
+import { Button } from './ui'
 
 const mono = MONO
 
@@ -28,9 +29,9 @@ export default function SecurityPage({ onBack }) {
     <div style={{ minHeight: '100vh', background: T.bg, padding: '40px 24px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         {onBack && (
-          <button onClick={onBack} style={{ fontFamily: mono, fontSize: 11, background: 'none', border: `1px solid ${T.border}`, color: T.muted, borderRadius: 8, padding: '6px 14px', cursor: 'pointer', marginBottom: 32 }}>
-            ← Back
-          </button>
+          <Button variant="secondary" size="sm" icon="chevron-left" onClick={onBack} style={{ marginBottom: 32 }}>
+            Back
+          </Button>
         )}
 
         <div style={{ marginBottom: 40 }}>

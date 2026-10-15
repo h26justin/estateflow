@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { ChromeLogo } from './Logo'
+import { Button } from './ui'
 
 // ── TRIAL EXPIRED GATE ─────────────────────────────────────────────────
 // Full-screen blocker that appears the moment a user signs in and any
@@ -129,7 +130,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
             fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.6,
           }}>
             <strong>Couldn't open Stripe checkout:</strong><br/>{error}
-            <div style={{ marginTop:8, color:T.muted, fontSize:10 }}>
+            <div style={{ marginTop:8, color:T.muted, fontSize:FS.xs }}>
               Please email <a href="mailto:hello@ownproperly.com" style={{ color:T.goldText }}>hello@ownproperly.com</a> and
               we'll get your subscription set up directly.
             </div>
@@ -155,14 +156,14 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
                     {co.abbr && (
                       <span style={{
-                        fontFamily:MONO, fontSize:10, fontWeight:700,
+                        fontFamily:MONO, fontSize:FS.xs, fontWeight:700,
                         padding:'2px 8px', borderRadius:4,
                         background:(co.color||T.gold)+'22', color:co.color||T.goldText,
                       }}>{co.abbr}</span>
                     )}
                     <span style={{ fontSize:14, fontWeight:700, color:T.text }}>{co.name}</span>
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:10, color:T.muted }}>
+                  <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted }}>
                     {props} {props===1?'property':'properties'} · £{monthly}/month
                   </div>
                 </div>
@@ -178,17 +179,12 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
 
         {/* Footer — sign out + support */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginTop:24 }}>
-          <div style={{ fontFamily:MONO, fontSize:10, color:T.muted, lineHeight:1.6 }}>
+          <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, lineHeight:1.6 }}>
             Need help? Email <a href="mailto:hello@ownproperly.com" style={{ color:T.goldText }}>hello@ownproperly.com</a>
           </div>
-          <button onClick={onSignOut}
-            style={{
-              fontFamily:MONO, fontSize:11, padding:'7px 14px',
-              borderRadius:8, border:`1px solid ${T.border}`,
-              background:'transparent', color:T.muted, cursor:'pointer',
-            }}>
+          <Button variant="secondary" size="sm" onClick={onSignOut}>
             Sign out
-          </button>
+          </Button>
         </div>
       </div>
     </div>

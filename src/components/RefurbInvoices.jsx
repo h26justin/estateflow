@@ -8,7 +8,7 @@
 // in proportion to what each was allocated. All arithmetic is in
 // lib/refurbInvoices.js (pure, tested); this file is forms and layout.
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useConfirm } from '../lib/ConfirmContext'
 import { useTheme } from '../lib/ThemeContext'
@@ -22,6 +22,7 @@ import {
   paidAgainst, invoiceStatus, outstandingOn, invoicesForProject, defaultProjectFor, extractInvoiceFields, round2,
 } from '../lib/refurbInvoices'
 import { pressable } from '../lib/pressable'
+import { EmptyState } from './ui'
 
 const mono = MONO
 const fmt2 = n => '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -33,17 +34,17 @@ const btn = (T, kind = 'ghost') => ({
   border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`,
   background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#fff' : kind === 'danger' ? T.red : T.muted,
 })
-const lbl = T => ({ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 4 })
+const lbl = T => ({ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 4 })
 const panel = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '16px 18px', marginBottom: 14 })
 
 function statusTone(s, T) {
-  return { paid: T.green, part_paid: T.amber, approved: T.blue, awaiting_approval: T.amber, received: T.muted, credit: T.purple || '#9B6FDE' }[s] || T.muted
+  return { paid: T.green, part_paid: T.amber, approved: T.blue, awaiting_approval: T.amber, received: T.muted, credit: T.purple }[s] || T.muted
 }
 export function InvoiceStatusChip({ status, T: themeProp }) {
   const { T: themeCtx } = useTheme()
   const T = themeProp || themeCtx
   const c = statusTone(status, T)
-  return <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: c + '22', color: c, whiteSpace: 'nowrap' }}>{INVOICE_STATUS_LABEL[status] || status}</span>
+  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: c + '22', color: c, whiteSpace: 'nowrap' }}>{INVOICE_STATUS_LABEL[status] || status}</span>
 }
 
 // Invoices for the whole account, loaded once per page.
@@ -224,7 +225,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
   const head = <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
     <div>
       <div style={{ fontSize: 17, fontWeight: 700 }}>Import refurb invoice</div>
-      <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 2 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
         {['upload', 'details', 'allocate'].map((s, i) => <span key={s} style={{ color: step === s ? T.goldText : T.muted }}>{i ? ' → ' : ''}{i + 1}. {{ upload: 'Upload', details: 'Check details', allocate: 'Allocate' }[s]}</span>)}
       </div>
     </div>
@@ -277,12 +278,12 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         <textarea aria-label="Description of works" rows={2} value={inv.description} onChange={e => set('description', e.target.value)} style={{ ...inputStyle(T), resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }} /></div>
       <div style={{ marginTop: 10 }}>
         <label style={lbl(T)}>Allocate on</label>
-        <div style={{ display: 'flex', gap: 14, fontFamily: mono, fontSize: 11.5, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 14, fontFamily: mono, fontSize: FS.sm, flexWrap: 'wrap' }}>
           <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><input type="radio" checked={inv.allocation_basis === 'gross'} onChange={() => set('allocation_basis', 'gross')} style={{ width: 'auto', margin: 0 }} /> Gross (VAT is a cost{co ? ` to ${co.name}` : ''})</label>
           <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><input type="radio" checked={inv.allocation_basis === 'net'} onChange={() => set('allocation_basis', 'net')} style={{ width: 'auto', margin: 0 }} /> Net (VAT reclaimable)</label>
         </div>
       </div>
-      {duplicate && <div role="alert" style={{ marginTop: 12, fontFamily: mono, fontSize: 11.5, color: T.red, background: T.red + '14', borderRadius: 8, padding: '8px 10px' }}>
+      {duplicate && <div role="alert" style={{ marginTop: 12, fontFamily: mono, fontSize: FS.sm, color: T.red, background: T.red + '14', borderRadius: 8, padding: '8px 10px' }}>
         Already imported: {duplicate.supplier_name} {duplicate.invoice_number} ({fmt2(duplicate.gross_amount)}, {fmtDate(duplicate.invoice_date)}). The same invoice cannot be imported twice.
       </div>}
       {detailProblems.length > 0 && <div style={{ marginTop: 10, fontFamily: mono, fontSize: 11, color: T.amber }}>{detailProblems.join(' · ')}</div>}
@@ -313,10 +314,10 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search properties" style={{ ...inputStyle(T), marginBottom: 6 }} />
         <div style={{ maxHeight: 320, overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
           {shown.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: 10 }}>No properties for this company.</div>}
-          {shown.map(p => <label key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderBottom: `1px solid ${T.border}`, cursor: canEditFor(p.company_id) ? 'pointer' : 'not-allowed', fontSize: 12.5 }}>
+          {shown.map(p => <label key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderBottom: `1px solid ${T.border}`, cursor: canEditFor(p.company_id) ? 'pointer' : 'not-allowed', fontSize: FS.base }}>
             <input type="checkbox" checked={selectedIds.has(p.id)} disabled={!canEditFor(p.company_id)} onChange={() => toggle(p)} style={{ width: 'auto', margin: 0 }} />
             <span style={{ flex: 1 }}>{p.name}</span>
-            {!defaultProjectFor(p) && <span style={{ fontFamily: mono, fontSize: 9.5, color: T.faint }}>no refurb yet</span>}
+            {!defaultProjectFor(p) && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>no refurb yet</span>}
           </label>)}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
@@ -337,20 +338,20 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         {rows.map((r, i) => {
           const projs = projectsOf(r.property_id)
           return <div key={r.property_id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'minmax(0,1.3fr) minmax(0,1.2fr) 110px', gap: 6, alignItems: 'center', padding: '6px 0', borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 12.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={propName(r.property_id)}>{propName(r.property_id)}</div>
+            <div style={{ fontSize: FS.base, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={propName(r.property_id)}>{propName(r.property_id)}</div>
             <select value={r.create_project ? '__new' : r.project_id} onChange={e => setRow(i, e.target.value === '__new' ? { create_project: true, project_id: '' } : { create_project: false, project_id: e.target.value })} style={{ ...inputStyle(T), fontSize: 11 }} aria-label="Refurb to allocate to">
               {projs.map(p => <option key={p.id} value={p.id}>{p.title || 'Refurbishment'} · {STAGE_CFG[p.stage]?.label || p.stage}</option>)}
               <option value="__new">+ New refurb for this property</option>
             </select>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               {method === 'percent'
-                ? <><input type="number" min="0" max="100" step="0.01" value={r.pct} onChange={e => setRow(i, { pct: e.target.value })} style={{ ...inputStyle(T), width: 56, textAlign: 'right' }} aria-label="Percentage" /><span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>%</span></>
+                ? <><input type="number" min="0" max="100" step="0.01" value={r.pct} onChange={e => setRow(i, { pct: e.target.value })} style={{ ...inputStyle(T), width: 56, textAlign: 'right' }} aria-label="Percentage" /><span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>%</span></>
                 : method === 'amount'
                   ? <MoneyInput prefix="£" value={r.amount} onChange={v => setRow(i, { amount: v == null ? 0 : v })} style={{ ...inputStyle(T), textAlign: 'right' }} />
                   : <span style={{ fontFamily: mono, fontSize: 12, marginLeft: 'auto' }}>{fmt2(r.amount)}</span>}
             </div>
-            {method === 'percent' && <div style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: 10, color: T.muted, textAlign: 'right', marginTop: -4 }}>{fmt2(r.amount)}</div>}
-            {inv.doc_kind === 'invoice' && <label style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: 10, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+            {method === 'percent' && <div style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: FS.xs, color: T.muted, textAlign: 'right', marginTop: -4 }}>{fmt2(r.amount)}</div>}
+            {inv.doc_kind === 'invoice' && <label style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
               <input type="checkbox" checked={!!r.is_variation} onChange={e => setRow(i, { is_variation: e.target.checked })} style={{ width: 'auto', margin: 0 }} />
               Variation: work beyond the agreed price (adds to Agreed as an extra)
             </label>}
@@ -361,14 +362,14 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, fontFamily: mono }}>
           {[['Invoice total', rec.total, T.text], ['Allocated', rec.allocated, T.text], ['Remaining', rec.remaining, Math.abs(rec.remaining) < 0.005 ? T.green : T.red]].map(([l, v, c]) => (
             <div key={l} style={{ background: T.bg, borderRadius: 8, padding: '8px 10px' }}>
-              <div style={{ fontSize: 9.5, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{l}</div>
+              <div style={{ fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{l}</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: c }}>{fmt2(v)}</div>
             </div>
           ))}
         </div>
         {method === 'percent' && rows.length > 0 && Math.abs(pctTotal - 100) > 0.001 && <div style={{ fontFamily: mono, fontSize: 11, color: T.amber, marginTop: 6 }}>Percentages add to {pctTotal}%; they must add to 100%.</div>}
         {problems.length > 0 && rows.length > 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 6 }}>{problems.join(' · ')}</div>}
-        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
           Saving records the cost against each refurb. It does not mark anything paid: log the payment on the invoice when the money goes out.
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -390,8 +391,8 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
   const rows = invoices.map(inv => ({ inv, st: invoiceStatus(inv, lines), paid: paidAgainst(inv.id, lines), out: outstandingOn(inv, lines) }))
     .filter(r => status === 'all' || (status === 'open' ? !['paid', 'credit'].includes(r.st) : r.st === status))
   const coName = id => companies.find(c => c.id === id)?.abbr || companies.find(c => c.id === id)?.name || ''
-  const th = { fontFamily: mono, fontSize: 9.5, color: T.faint, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'left', padding: '0 8px 8px 0', fontWeight: 400, whiteSpace: 'nowrap' }
-  const td = { fontSize: 12.5, padding: '8px 8px 8px 0', borderTop: `1px solid ${T.border}`, verticalAlign: 'top' }
+  const th = { fontFamily: mono, fontSize: FS.xs, color: T.faint, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'left', padding: '0 8px 8px 0', fontWeight: 400, whiteSpace: 'nowrap' }
+  const td = { fontSize: FS.base, padding: '8px 8px 8px 0', borderTop: `1px solid ${T.border}`, verticalAlign: 'top' }
   const num = { ...td, fontFamily: mono, textAlign: 'right', whiteSpace: 'nowrap' }
   return <div style={panel(T)}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -401,20 +402,20 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
       </select>
       {canImport && <button onClick={onImport} style={btn(T, 'gold')}>Import refurb invoice</button>}
     </div>
-    {rows.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: '12px 0' }}>No invoices here yet. Import one to allocate it across properties.</div>}
-    {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    {rows.length === 0 && <EmptyState compact icon="receipt" title="No invoices here yet" body="Import one to allocate it across properties."/>}
+    {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead><tr><th style={th}>Date</th><th style={th}>Supplier</th><th style={th}>Number</th>{!isMobile && <th style={th}>Co</th>}<th style={th}>Properties</th><th style={{ ...th, textAlign: 'right' }}>Amount</th><th style={{ ...th, textAlign: 'right' }}>Paid</th><th style={{ ...th, textAlign: 'right' }}>Outstanding</th><th style={th}>Status</th></tr></thead>
       <tbody>{rows.map(({ inv, st, paid, out }) => (
         <tr key={inv.id} {...pressable(() => onOpen(inv), { role: null })} style={{ cursor: 'pointer' }}>
-          <td style={{ ...td, fontFamily: mono, whiteSpace: 'nowrap' }}>{fmtDate(inv.invoice_date)}</td>
-          <td style={td}>{inv.supplier_name}</td>
-          <td style={{ ...td, fontFamily: mono }}>{inv.invoice_number || '—'}</td>
-          {!isMobile && <td style={{ ...td, fontFamily: mono, fontSize: 11 }}>{coName(inv.company_id)}</td>}
-          <td style={{ ...td, fontFamily: mono }}>{(inv.refurb_invoice_allocations || []).length}</td>
-          <td style={num}>{inv.doc_kind === 'credit_note' ? '−' : ''}{fmt2(allocationBase(inv))}</td>
-          <td style={num}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(paid)}</td>
-          <td style={{ ...num, color: out > 0 ? T.goldText : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
-          <td style={td}><InvoiceStatusChip status={st} T={T} /></td>
+          <td data-label="Date" style={{ ...td, fontFamily: mono, whiteSpace: 'nowrap' }}>{fmtDate(inv.invoice_date)}</td>
+          <td data-label="Supplier" style={td}>{inv.supplier_name}</td>
+          <td data-label="Number" style={{ ...td, fontFamily: mono }}>{inv.invoice_number || '—'}</td>
+          {!isMobile && <td data-label="Co" style={{ ...td, fontFamily: mono, fontSize: 11 }}>{coName(inv.company_id)}</td>}
+          <td data-label="Properties" style={{ ...td, fontFamily: mono }}>{(inv.refurb_invoice_allocations || []).length}</td>
+          <td data-label="Amount" style={num}>{inv.doc_kind === 'credit_note' ? '−' : ''}{fmt2(allocationBase(inv))}</td>
+          <td data-label="Paid" style={num}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(paid)}</td>
+          <td data-label="Outstanding" style={{ ...num, color: out > 0 ? T.goldText : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
+          <td data-label="Status" style={td}><InvoiceStatusChip status={st} T={T} /></td>
         </tr>
       ))}</tbody>
     </table></div>}
@@ -466,7 +467,7 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
     catch (e) { showToast?.(e.message || 'Could not delete', 'error') }
   }
 
-  const row = { display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : 'minmax(0,1.6fr) minmax(0,1.2fr) 120px 90px', gap: 8, padding: '7px 0', borderTop: `1px solid ${T.border}`, fontSize: 12.5, alignItems: 'center' }
+  const row = { display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : 'minmax(0,1.6fr) minmax(0,1.2fr) 120px 90px', gap: 8, padding: '7px 0', borderTop: `1px solid ${T.border}`, fontSize: FS.base, alignItems: 'center' }
   return <div>
     <button onClick={onBack} style={{ ...btn(T), marginBottom: 12 }}>← Invoices</button>
     <div style={panel(T)}>
@@ -486,7 +487,7 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: 10, marginTop: 14, fontFamily: mono }}>
         {[['Net', invoice.net_amount], ['VAT', invoice.vat_amount], ['Gross', invoice.gross_amount], [`Allocated (${invoice.allocation_basis})`, allocationBase(invoice)], ['Paid', isCredit ? null : paidAgainst(invoice.id, lines)], ['Outstanding', isCredit ? null : out]].map(([l, v]) => (
-          <div key={l}><div style={{ fontSize: 9.5, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{l}</div><div style={{ fontSize: 14, fontWeight: 700 }}>{v == null || v === '' ? '—' : fmt2(v)}</div></div>
+          <div key={l}><div style={{ fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{l}</div><div style={{ fontSize: 14, fontWeight: 700 }}>{v == null || v === '' ? '—' : fmt2(v)}</div></div>
         ))}
       </div>
       {!isCredit && <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', fontFamily: mono, fontSize: 11 }}>
@@ -500,37 +501,37 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
     </div>
 
     <div style={panel(T)}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Allocated across {(invoice.refurb_invoice_allocations || []).length} {(invoice.refurb_invoice_allocations || []).length === 1 ? 'property' : 'properties'}</div>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Allocated across {(invoice.refurb_invoice_allocations || []).length} {(invoice.refurb_invoice_allocations || []).length === 1 ? 'property' : 'properties'}</div>
       {(invoice.refurb_invoice_allocations || []).slice().sort((a, b) => naturalCompare(propName(a.property_id), propName(b.property_id))).map(a => {
         const p = proj(a.project_id)
         return <div key={a.id} style={row}>
           <span>{propName(a.property_id)}</span>
           {!isMobile && <button onClick={() => p && onOpenProject(p)} style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: p ? 'pointer' : 'default', color: T.blue, fontSize: 12 }}>{p ? `${p.title || 'Refurbishment'} · ${STAGE_CFG[p.stage]?.label || p.stage}` : 'Refurb removed'}</button>}
           <span style={{ fontFamily: mono, textAlign: 'right' }}>{isCredit ? '−' : ''}{fmt2(a.amount)}</span>
-          {!isMobile && <span style={{ fontFamily: mono, fontSize: 10, color: a.is_variation ? T.amber : T.faint }}>{a.is_variation ? 'variation' : a.split_method}</span>}
+          {!isMobile && <span style={{ fontFamily: mono, fontSize: FS.xs, color: a.is_variation ? T.amber : T.faint }}>{a.is_variation ? 'variation' : a.split_method}</span>}
         </div>
       })}
     </div>
 
     {!isCredit && <div style={panel(T)}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Payments against this invoice</div>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Payments against this invoice</div>
       {paidLines.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: '6px 0' }}>Nothing paid yet. Importing an invoice never marks it paid.</div>}
       {paidLines.map(l => <div key={l.id} style={row}>
         <span style={{ fontFamily: mono }}>{fmtDate(l.date)}</span>
         {!isMobile && <span>{propName(proj(l.project_id)?.property_id)}</span>}
         <span style={{ fontFamily: mono, textAlign: 'right', color: l.kind === 'credit' ? T.red : T.green }}>{l.kind === 'credit' ? '−' : ''}{fmt2(l.amount)}</span>
-        {!isMobile && <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{l.kind === 'credit' ? 'refund' : 'payment'}</span>}
+        {!isMobile && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{l.kind === 'credit' ? 'refund' : 'payment'}</span>}
       </div>)}
       {canEdit && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '130px 150px minmax(0,1fr) auto auto', gap: 8, alignItems: 'end', marginTop: 12 }}>
         <div><label style={lbl(T)}>{pay.refund ? 'Refund' : 'Amount paid'}</label><MoneyInput prefix="£" value={pay.amount} onChange={v => setPay(p => ({ ...p, amount: v == null ? '' : v }))} style={inputStyle(T)} /></div>
         <div><label style={lbl(T)}>Date</label><input aria-label="Date" type="date" value={pay.date} onChange={e => setPay(p => ({ ...p, date: e.target.value }))} style={inputStyle(T)} /></div>
         <div><label style={lbl(T)}>Paid to</label><input aria-label="Paid to" value={pay.payee} onChange={e => setPay(p => ({ ...p, payee: e.target.value }))} style={inputStyle(T)} /></div>
-        <label style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, display: 'inline-flex', gap: 5, alignItems: 'center', paddingBottom: 8 }}>
+        <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'inline-flex', gap: 5, alignItems: 'center', paddingBottom: 8 }}>
           <input type="checkbox" checked={pay.refund} onChange={e => setPay(p => ({ ...p, refund: e.target.checked }))} style={{ width: 'auto', margin: 0 }} /> Refund from contractor
         </label>
         <button onClick={logPayment} disabled={busy || !(Number(pay.amount) > 0)} style={{ ...btn(T, 'gold'), opacity: busy || !(Number(pay.amount) > 0) ? 0.5 : 1 }}>{busy ? 'Saving…' : pay.refund ? 'Log refund' : 'Log payment'}</button>
       </div>}
-      {canEdit && <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 6 }}>Recorded only: nothing is sent to the bank or Xero. The amount is split across the properties in proportion to their allocation.</div>}
+      {canEdit && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 6 }}>Recorded only: nothing is sent to the bank or Xero. The amount is split across the properties in proportion to their allocation.</div>}
     </div>}
   </div>
 }
@@ -542,11 +543,11 @@ export function ProjectInvoices({ project, invoices, lines, onOpenInvoice, T: th
   const rows = invoicesForProject(project.id, invoices)
   if (!rows.length) return null
   return <div style={panel(T)}>
-    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Invoices allocated to this refurb</div>
+    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Invoices allocated to this refurb</div>
     {rows.map(({ invoice, allocated }) => (
       <button key={invoice.id} onClick={() => onOpenInvoice?.(invoice)}
-        style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 8, alignItems: 'center', width: '100%', background: 'none', border: 'none', borderTop: `1px solid ${T.border}`, padding: '7px 0', cursor: 'pointer', color: T.text, textAlign: 'left', fontSize: 12.5 }}>
-        <span>{invoice.supplier_name} · {invoice.invoice_number || 'no number'} <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{fmtDate(invoice.invoice_date)} · of {fmt2(allocationBase(invoice))} across {(invoice.refurb_invoice_allocations || []).length}</span></span>
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 8, alignItems: 'center', width: '100%', background: 'none', border: 'none', borderTop: `1px solid ${T.border}`, padding: '7px 0', cursor: 'pointer', color: T.text, textAlign: 'left', fontSize: FS.base }}>
+        <span>{invoice.supplier_name} · {invoice.invoice_number || 'no number'} <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{fmtDate(invoice.invoice_date)} · of {fmt2(allocationBase(invoice))} across {(invoice.refurb_invoice_allocations || []).length}</span></span>
         <span style={{ fontFamily: mono }}>{invoice.doc_kind === 'credit_note' ? '−' : ''}{fmt2(allocated)}</span>
         <InvoiceStatusChip status={invoiceStatus(invoice, lines)} T={T} />
       </button>
