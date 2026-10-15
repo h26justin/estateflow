@@ -1,4 +1,4 @@
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 
 // Rename-company dialog. Moved verbatim from App.jsx; every value it
 // reads is passed in explicitly.
@@ -37,7 +37,7 @@ export function RenameCompanyModal({
             Cancel
           </button>
           <button onClick={handleRenameCompany} disabled={renameCoSaving}
-            style={{flex:2,fontFamily:MONO,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameCoSaving?T.border:T.gold,color:'#1A2530',cursor:'pointer'}}>
+            style={{flex:2,fontFamily:MONO,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameCoSaving?T.border:T.gold,color:CV.onGold,cursor:'pointer'}}>
             {renameCoSaving?'Saving…':'Save new name'}
           </button>
         </div>

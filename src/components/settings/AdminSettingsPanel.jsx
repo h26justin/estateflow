@@ -178,7 +178,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                     <div key={co.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 60px 80px 120px', gap: 8, padding: '13px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || '#C8A84B') + '22', color: co.color || '#C8A84B' }}>{co.abbr}</span>
+                          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || T.gold) + '22', color: co.color || T.goldText }}>{co.abbr}</span>
                           <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{co.name}</span>
                         </div>
                         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{co.owner_email || '—'}</div>
@@ -231,7 +231,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                         {userCos.length === 0
                           ? <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>No companies</span>
                           : userCos.slice(0, 3).map(co => (
-                            <span key={co.id} style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || '#C8A84B') + '22', color: co.color || '#C8A84B' }}>{co.abbr}</span>
+                            <span key={co.id} style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || T.gold) + '22', color: co.color || T.goldText }}>{co.abbr}</span>
                           ))
                         }
                         {userCos.length > 3 && <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>+{userCos.length - 3}</span>}

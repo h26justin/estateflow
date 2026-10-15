@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { copyToClipboard } from '../../lib/clipboard'
 
@@ -50,7 +50,7 @@ export function ReferralPanel({ user, T, showToast }) {
               <input readOnly value={referralUrl}
                 style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.goldText, borderRadius:8, padding:'9px 12px' }}/>
               <button onClick={copy}
-                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:'#1C2830', cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
+                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:CV.onGold, cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
                 {copied ? 'Copied!' : 'Copy link'}
               </button>
             </div>

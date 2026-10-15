@@ -4,7 +4,7 @@ import { monthDominantStatus } from '../../lib/rentStats'
 import { evaluateProperty, groupByMonth, STATE_LABEL } from '../../lib/rentEngine'
 import { activePlan } from '../../lib/paymentPlans'
 import * as api from '../../lib/api'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair } from '../../lib/rentColors'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -187,7 +187,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
         {onDayTracker
           ? <button onClick={()=>{onClose();onDayTracker()}}
               style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
-                border:'none',background:T.gold,color:'#1C2830',cursor:'pointer'}}>
+                border:'none',background:T.gold,color:CV.onGold,cursor:'pointer'}}>
               View full day tracker →
             </button>
           : <div style={{fontFamily:mono,fontSize:10,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
@@ -260,9 +260,9 @@ export const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, 
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
             <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
-            {eng?.needsBackfill && <span aria-hidden="true" style={{position:'absolute',top:2,right:3,width:6,height:6,borderRadius:'50%',background:'#E0943A'}}/>}
+            {eng?.needsBackfill && <span aria-hidden="true" style={{position:'absolute',top:2,right:3,width:6,height:6,borderRadius:'50%',background:CV.amber}}/>}
             {eng?.override && <span aria-hidden="true" style={{position:'absolute',bottom:2,right:3,width:6,height:6,borderRadius:'50%',border:`1.5px solid ${pair.text}`}}/>}
-            {eng && eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) && <span aria-hidden="true" title="Historic arrears on a payment plan" style={{position:'absolute',top:2,left:3,width:6,height:6,borderRadius:'50%',background:'#4B8FE0'}}/>}
+            {eng && eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) && <span aria-hidden="true" title="Historic arrears on a payment plan" style={{position:'absolute',top:2,left:3,width:6,height:6,borderRadius:'50%',background:CV.blue}}/>}
           </button>
         )
       })}

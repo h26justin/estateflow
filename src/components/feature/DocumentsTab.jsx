@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { SignedPhoto } from '../../lib/SignedPhoto'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -441,7 +441,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                               </div>
                               <button onClick={()=>addToCompliance(doc)} disabled={complianceBusy===doc.id}
                                 style={{fontFamily:MONO,fontSize:11,padding:'6px 14px',
-                                  background:T.gold,color:'#1C2830',border:'none',borderRadius:8,
+                                  background:T.gold,color:CV.onGold,border:'none',borderRadius:8,
                                   cursor:complianceBusy===doc.id?'wait':'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
                                 {complianceBusy===doc.id ? 'Adding…' : '+ Add to Compliance'}
                               </button>

@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, lazy } from 'react'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { useTheme } from '../../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../../lib/icons'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_PAGES, resolveSettingsKey, settingsKeyFromHash } from '../../lib/nav'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS } from '../../lib/complianceCatalogue'
 import BillingPage from '../BillingPage'
@@ -308,7 +308,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                   <button key={p.key} onClick={()=>setSettingsTab(p.key)} aria-current={active?'page':undefined} style={{
                     fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${active?T.gold:T.border}`,background:active?T.gold:'transparent',
-                    color:active?'#1C2830':T.muted,fontWeight:active?700:400,
+                    color:active?CV.onGold:T.muted,fontWeight:active?700:400,
                   }}>{p.label}</button>
                 )
               })}

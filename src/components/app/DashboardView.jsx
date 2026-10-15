@@ -5,7 +5,7 @@ import { SmartAlerts } from '../DashboardComponents'
 import * as api from '../../lib/api'
 import { aggregateDeals } from '../../lib/dealCashflow'
 import { propertyComplianceSummary } from '../../lib/complianceStatus'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import PropertySearchBar from '../PropertySearchBar'
 import PortfolioInsightsWidget from '../PortfolioInsightsWidget'
@@ -113,7 +113,7 @@ export function DashboardView({
               style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                 border:`1px solid ${dashCoFilter.length===0?T.gold:T.border}`,
                 background:dashCoFilter.length===0?T.gold:'transparent',
-                color:dashCoFilter.length===0?'#1C2830':T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
+                color:dashCoFilter.length===0?CV.onGold:T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
               All companies
             </button>
             {companies.map(c=>{
@@ -449,7 +449,7 @@ export function DashboardView({
             mortgages: { icon:'landmark', label:'Mortgages Outstanding', render: () => (
               <StatCard icon="landmark" label="Mortgages Outstanding" value={fmt(stats.totalMortgage)} sub={`${stats.mortgaged} mortgaged properties`} accent={T.purple} onNavigate={()=>{setPortfolioTab('properties');setView('properties')}} navLabel="Portfolio"
                 breakdown={[
-                  {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:'#9B59B6'},
+                  {label:'Total mortgage debt', value:fmt(stats.totalMortgage), color:T.purple},
                   {label:'Total portfolio equity', value:fmt(stats.totalEquity), color:stats.totalEquity>0?T.green:T.red},
                   {label:'Monthly repayments', value:fmt(stats.monthlyMortgageCost)},
                   {label:'Annual repayments', value:fmt(stats.monthlyMortgageCost*12)},

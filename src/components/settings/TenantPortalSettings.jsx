@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import { naturalCompare } from '../../lib/addressUtils'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
@@ -166,7 +166,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
             </div>
           </div>
         )}
-        <button onClick={saveContact} disabled={saving} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
+        <button onClick={saveContact} disabled={saving} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer' }}>
           {saving?'Saving…':'Save contact & subdomain settings'}
         </button>
       </div>
@@ -190,7 +190,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
             </div>
           </div>
         </div>
-        <button onClick={saveBank} disabled={savingBank} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
+        <button onClick={saveBank} disabled={savingBank} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer' }}>
           {savingBank?'Saving…':'Save bank details'}
         </button>
       </div>
@@ -206,7 +206,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
             placeholder="e.g. justin@jvhammond.com"
             style={{...inp, flex:1}}/>
           <button onClick={saveNotifyEmail} disabled={savingNotify}
-            style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
+            style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer', flexShrink:0 }}>
             {savingNotify?'Saving…':'Save'}
           </button>
         </div>
@@ -225,7 +225,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
           </select>
         </div>
         <div style={{ display:'flex', gap:10, marginBottom: inviteLink ? 14 : 0, flexWrap:'wrap' }}>
-          <button onClick={generateInviteLink} disabled={!inviteProperty} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
+          <button onClick={generateInviteLink} disabled={!inviteProperty} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer' }}>
             Generate invite link
           </button>
           {inviteLink && (
@@ -250,7 +250,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
                     if (emailInput) emailInput.value = ''
                   } catch(e) { showToast(e.message || 'Failed to send', 'error') }
                 }}
-                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 16px', borderRadius:8, border:'none', background:'#4B8FE0', color:'white', cursor:'pointer', flexShrink:0 }}>
+                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 16px', borderRadius:8, border:'none', background:T.blue, color:'white', cursor:'pointer', flexShrink:0 }}>
                 Email invite
               </button>
             </div>

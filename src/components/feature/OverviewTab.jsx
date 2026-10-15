@@ -11,14 +11,14 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
   const [loading, setLoading] = useState(true)
 
   const CATEGORIES = {
-    general:     {label:'General',     color:'#C8A84B', icon:'📝'},
-    rent:        {label:'Rent',        color:'#2ECC8A', icon:'💷'},
-    refurb:      {label:'Refurb',      color:'#4B8FE0', icon:'🔨'},
-    financials:  {label:'Financials',  color:'#9B59B6', icon:'💰'},
-    compliance:  {label:'Compliance',  color:'#E0943A', icon:'📋'},
-    tenancy:     {label:'Tenancy',     color:'#2ECC8A', icon:'🤝'},
-    maintenance: {label:'Maintenance', color:'#E05555', icon:'🔧'},
-    expenses:    {label:'Expenses',    color:'#E05555', icon:'📊'},
+    general:     {label:'General',     color:T.goldText, icon:'📝'},
+    rent:        {label:'Rent',        color:T.green, icon:'💷'},
+    refurb:      {label:'Refurb',      color:T.blue, icon:'🔨'},
+    financials:  {label:'Financials',  color:T.purple, icon:'💰'},
+    compliance:  {label:'Compliance',  color:T.amber, icon:'📋'},
+    tenancy:     {label:'Tenancy',     color:T.green, icon:'🤝'},
+    maintenance: {label:'Maintenance', color:T.red, icon:'🔧'},
+    expenses:    {label:'Expenses',    color:T.red, icon:'📊'},
   }
 
   useEffect(()=>{
@@ -49,12 +49,12 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
       {/* Quick stats */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
         {[
-          {l:'Purchase Price',   v:canViewFinancial?fmt(selected.purchase_price):HIDDEN,     c:'#C8A84B'},
-          {l:'Estimated Value',  v:canViewFinancial?fmt(selected.est_value):HIDDEN,          c:'#C8A84B'},
-          {l:'Gross Yield',      v:canViewFinancial?(yield_>0?yield_.toFixed(1)+'%':'—'):HIDDEN, c:'#2ECC8A'},
-          {l:'Monthly Rent',     v:canViewFinancial?fmt(selected.rent_pcm):HIDDEN,           c:'#2ECC8A'},
-          {l:'Monthly Mortgage', v:canViewFinancial?(mortgage>0?fmt(mortgage):'—'):HIDDEN,   c:'#9B59B6'},
-          {l:'Arrears',          v:fmt(selected.arrears||0),                                  c:(selected.arrears||0)>0?'#E05555':'#2ECC8A'},
+          {l:'Purchase Price',   v:canViewFinancial?fmt(selected.purchase_price):HIDDEN,     c:T.goldText},
+          {l:'Estimated Value',  v:canViewFinancial?fmt(selected.est_value):HIDDEN,          c:T.goldText},
+          {l:'Gross Yield',      v:canViewFinancial?(yield_>0?yield_.toFixed(1)+'%':'—'):HIDDEN, c:T.green},
+          {l:'Monthly Rent',     v:canViewFinancial?fmt(selected.rent_pcm):HIDDEN,           c:T.green},
+          {l:'Monthly Mortgage', v:canViewFinancial?(mortgage>0?fmt(mortgage):'—'):HIDDEN,   c:T.purple},
+          {l:'Arrears',          v:fmt(selected.arrears||0),                                  c:(selected.arrears||0)>0?T.red:T.green},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
             <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
@@ -96,7 +96,7 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
                           <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
                         </div>
                         {isAdmin&&<button onClick={()=>deleteNote(n.id)}
-                          style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:'#E05555',border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
+                          style={{fontFamily:MONO,fontSize:10,background:T.red+'18',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
                           Delete
                         </button>}
                       </div>

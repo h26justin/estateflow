@@ -22,7 +22,7 @@ import { canonicalCertType } from './lib/complianceCatalogue'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
-import { MONO, SANS } from './lib/styles'
+import { MONO, SANS, CV } from './lib/styles'
 import { Icon, ICON_NAMES } from './lib/icons'
 import CommandPalette from './components/CommandPalette'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
@@ -1791,14 +1791,14 @@ export default function App({ initialLoginMode = null } = {}) {
       {isPlatformAdmin && !impersonatingUser && (
         <div style={{
           background: devModeActive ? '#1A2530' : '#2a4a2a',
-          color: devModeActive ? '#C8A84B' : '#9ecb9e',
+          color: devModeActive ? T.gold : '#9ecb9e',
           padding:'6px 16px',
           textAlign:'center',
           fontFamily:MONO,
           fontSize:10,
           fontWeight:700,
           letterSpacing:'0.1em',
-          borderBottom: devModeActive ? '1px solid #C8A84B44' : '1px solid #9ecb9e44',
+          borderBottom: devModeActive ? `1px solid ${T.gold}44` : '1px solid #9ecb9e44',
           display:'flex',
           alignItems:'center',
           justifyContent:'center',
@@ -1809,7 +1809,7 @@ export default function App({ initialLoginMode = null } = {}) {
             <>
               <span>DEVELOPER MODE — you see all user data across the platform</span>
               <button onClick={()=>{ setDevModeDisabled(true); window.location.reload() }}
-                style={{background:'#C8A84B',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
+                style={{background:T.gold,color:CV.onGold,border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
                 VIEW AS REGULAR USER
               </button>
             </>
@@ -1854,7 +1854,7 @@ export default function App({ initialLoginMode = null } = {}) {
 
       {/* Platform announcement banner */}
       {announcements.filter(a=>!dismissedAnns.includes(a.id)).map(a=>{
-        const colors={info:'#4B8FE0',warning:'#E0943A',success:'#2ECC8A'}
+        const colors={info:T.blue,warning:T.amber,success:T.green}
         const col=colors[a.type]||colors.info
         return (
           <div key={a.id} style={{background:col+'18',borderBottom:`1px solid ${col}33`,padding:'10px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>

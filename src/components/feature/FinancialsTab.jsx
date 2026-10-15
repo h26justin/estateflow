@@ -43,7 +43,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
       {l:'Refurb Cost',      v:fmt(selected.refurb_cost)},
       {l:'Stamp Duty',       v:fmt(selected.stamp_duty)},
       {l:'Legal Fees',       v:fmt(selected.legal_fees)},
-      {l:'Total Invested',   v:fmt(totalInvested), bold:true, color:'#C8A84B',
+      {l:'Total Invested',   v:fmt(totalInvested), bold:true, color:T.goldText,
         explain: {
           title: 'Total Invested',
           formula: 'Purchase Price + Refurb + Stamp Duty + Legal Fees',
@@ -63,7 +63,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
       {l:'Mortgage Term',    v:selected.mortgage_term?`${selected.mortgage_term} years`:'—'},
       {l:'Monthly Payment',  v:mortgage>0?fmt(mortgage):'—'},
       {l:'Annual Payments',  v:mortgage>0?fmt(mortgage*12):'—'},
-      {l:'Loan to Value',    v:ltv!=='—'?ltv+'%':'—', color:'#9B59B6',
+      {l:'Loan to Value',    v:ltv!=='—'?ltv+'%':'—', color:T.purple,
         explain: {
           title: 'Loan to Value (LTV)',
           formula: 'Mortgage Amount ÷ Current Value × 100',
@@ -78,9 +78,9 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
         }},
     ]},
     {title:'Returns', items:[
-      {l:'Estimated Value',  v:fmt(selected.est_value), color:'#C8A84B'},
-      {l:'Current Value',    v:fmt(currentVal), color:'#C8A84B'},
-      {l:'Equity',           v:fmt(equity), color:equity>0?'#2ECC8A':'#E05555',
+      {l:'Estimated Value',  v:fmt(selected.est_value), color:T.goldText},
+      {l:'Current Value',    v:fmt(currentVal), color:T.goldText},
+      {l:'Equity',           v:fmt(equity), color:equity>0?T.green:T.red,
         explain: {
           title: 'Equity',
           formula: 'Current Value − Mortgage Amount',
@@ -91,9 +91,9 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
           result: fmt(equity),
           note: 'Your stake in the property today. Goes negative if mortgage > value (negative equity).',
         }},
-      {l:'Monthly Rent',     v:fmt(selected.rent_pcm), color:'#2ECC8A'},
-      {l:'Annual Rent',      v:fmt(annualRent), color:'#2ECC8A'},
-      {l:'Gross Yield',      v:yield_>0?yield_.toFixed(2)+'%':'—', color:'#2ECC8A',
+      {l:'Monthly Rent',     v:fmt(selected.rent_pcm), color:T.green},
+      {l:'Annual Rent',      v:fmt(annualRent), color:T.green},
+      {l:'Gross Yield',      v:yield_>0?yield_.toFixed(2)+'%':'—', color:T.green,
         explain: {
           title: 'Gross Yield',
           formula: '(Monthly Rent × 12) ÷ Cost Basis × 100',
@@ -107,7 +107,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
           result: yield_ > 0 ? yield_.toFixed(2) + '%' : '—',
           note: 'Cost basis defaults to Purchase Price + Refurb. You can switch to Current Value in Settings → Display.',
         }},
-      {l:'Monthly Profit',   v:monthlyProfit>0?fmt(monthlyProfit):'—', color:monthlyProfit>0?'#2ECC8A':'#E05555',
+      {l:'Monthly Profit',   v:monthlyProfit>0?fmt(monthlyProfit):'—', color:monthlyProfit>0?T.green:T.red,
         explain: {
           title: 'Monthly Profit',
           formula: 'Monthly Rent − Monthly Mortgage − (Insurance ÷ 12)',

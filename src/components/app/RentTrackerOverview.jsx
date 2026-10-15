@@ -10,7 +10,7 @@ import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent } from
 import { buildingTailFromName, buildingKeyFromName, naturalCompare } from '../../lib/addressUtils'
 import { normaliseQuery, matchesQuery } from '../../lib/propertySearch'
 import { useScrollRestoreOnClear } from '../../lib/useScrollRestoreOnClear'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { STL_COLOR } from '../../lib/rentColors'
 import { engineSummary } from '../../lib/rentEngineSummary'
@@ -31,7 +31,7 @@ import { RentDots } from './RentDots'
 export function RentLegend({ small = false, collapsible = false }) {
   const { T } = useTheme()
   const [open, setOpen] = useState(false)
-  const items = [{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:'#E0943A',l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}]
+  const items = [{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:T.amber,l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}]
   const sw = small ? 8 : 10
   const list = (
     <ul id={collapsible ? 'rent-legend-list' : undefined} aria-label="Rent colour key"
@@ -135,7 +135,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                 style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${globalYear===yr?T.gold:T.border}`,
                   background:globalYear===yr?T.gold:'transparent',
-                  color:globalYear===yr?'#1C2830':T.muted,transition:'all 0.18s'}}>
+                  color:globalYear===yr?CV.onGold:T.muted,transition:'all 0.18s'}}>
                 {yr||'All'}
               </button>
             ))}
@@ -164,7 +164,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
             <button onClick={()=>setShowBankInbox(true)}
               title="Review bank transactions & match to rent"
               style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
-                border:`1px solid ${T.purple || '#9B7CC8'}`,background:(T.purple || '#9B7CC8')+'22',color:T.purple || '#9B7CC8',whiteSpace:'nowrap'}}>
+                border:`1px solid ${T.purple}`,background:(T.purple)+'22',color:T.purple,whiteSpace:'nowrap'}}>
               📥 {isMobile ? 'Inbox' : 'Bank inbox'}
             </button>
           )}
@@ -198,7 +198,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
               {PROPERTY_STATUSES.map(f=><option key={f} value={f}>{PROPERTY_STATUS_LABELS[f] || f}</option>)}
             </select>
           ) : ['all', ...PROPERTY_STATUSES].map(f=>(
-            <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
+            <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?CV.onGold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || f)}</button>
           ))}
           <div style={{width:1,alignSelf:'stretch',background:T.border,margin:'0 2px'}}/>
           <button onClick={()=>setArrearsOnly(v=>!v)} aria-pressed={arrearsOnly} title="Only show properties with arrears"
@@ -285,7 +285,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
             style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
               border:`1px solid ${coFilter.length===0?T.gold:T.border}`,
               background:coFilter.length===0?T.gold:'transparent',
-              color:coFilter.length===0?'#1C2830':T.muted,fontWeight:coFilter.length===0?700:400}}>
+              color:coFilter.length===0?CV.onGold:T.muted,fontWeight:coFilter.length===0?700:400}}>
             All companies
           </button>
           {companies.map(c => {
@@ -364,7 +364,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                   {v:totals.due,    c:T.amber, l:'due'},
                   {v:totals.missed, c:T.red,   l:'missed'},
                   {v:totals.nc,     c:T.faint, l:'not collectible'},
-                  {v:totals.backfill, c:'#E0943A', l:'need amount'},
+                  {v:totals.backfill, c:T.amber, l:'need amount'},
                 ].filter(x=>x.v>0).map(x=>(
                   <span key={x.l} style={{fontFamily:MONO,fontSize:11,color:x.c,fontWeight:600}}>
                     {x.v} {x.l}

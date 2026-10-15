@@ -47,8 +47,8 @@ export function PortfolioModellerWidget({ properties = [] }) {
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
         {[
           {label:'Today',value:f(currentIncome)+'/yr',sub:f(currentValue)+' portfolio',color:T.muted},
-          {label:'After buying '+extraProps+' more',value:f(totalIncome)+'/yr',sub:f(totalValue)+' portfolio',color:'#2ECC8A'},
-          {label:'In '+years+' years',value:f(futureIncome)+'/yr',sub:f(futureValue)+' portfolio',color:'#C8A84B'},
+          {label:'After buying '+extraProps+' more',value:f(totalIncome)+'/yr',sub:f(totalValue)+' portfolio',color:T.green},
+          {label:'In '+years+' years',value:f(futureIncome)+'/yr',sub:f(futureValue)+' portfolio',color:T.goldText},
         ].map(k=>(
           <div key={k.label} style={{background:T.bg,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${k.color}`}}>
             <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>

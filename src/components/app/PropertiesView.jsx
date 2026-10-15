@@ -1,13 +1,13 @@
 import { canDo } from '../../lib/permissions'
 import { ContractorsPage } from '../DashboardComponents'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { calcGrossYield } from '../../lib/propertyCalcs'
 import { plural } from '../../lib/format'
 import { PropertyMap } from './lazyViews'
 import { fmt } from '../../lib/appFmt'
-import { STATUS_CFG } from './Badges'
+import { statusCfg } from './Badges'
 import { PropertyGrid } from './PropertyGrid'
 import { DraggablePropertyList } from './DraggablePropertyList'
 
@@ -35,7 +35,7 @@ export function PropertiesView({
               style={{display:'inline-flex',alignItems:'center',gap:6,fontFamily:MONO,fontSize:11,padding:'6px 14px',borderRadius:8,cursor:'pointer',
                 border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
                 background:portfolioTab===k?T.gold:'transparent',
-                color:portfolioTab===k?'#1C2830':T.muted,fontWeight:portfolioTab===k?700:400}}>
+                color:portfolioTab===k?CV.onGold:T.muted,fontWeight:portfolioTab===k?700:400}}>
               <Icon name={ic} size={14}/>{l}
             </button>
           ))}
@@ -84,7 +84,7 @@ export function PropertiesView({
           ))}
           <div style={{width:1,background:T.border,margin:'0 2px'}}/>
           {['all', ...PROPERTY_STATUSES].map(f=>(
-            <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?'#1C2830':T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || STATUS_CFG[f]?.label || f)}</button>
+            <button key={f} onClick={()=>setStatusFilter(f)} aria-pressed={statusFilter===f} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${statusFilter===f?T.gold:T.border}`,background:statusFilter===f?T.gold:'transparent',color:statusFilter===f?CV.onGold:T.muted,transition:'all 0.18s'}}>{f==='all'?'All Status':(PROPERTY_STATUS_LABELS[f] || statusCfg(T)[f]?.label || f)}</button>
           ))}
           {archivedCount > 0 && (
             <>
@@ -118,7 +118,7 @@ export function PropertiesView({
             style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
               border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
               background:sortBy===opt.v?T.gold:'transparent',
-              color:sortBy===opt.v?'#1C2830':T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
+              color:sortBy===opt.v?CV.onGold:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
             {opt.l}
           </button>
         ))}
@@ -134,7 +134,7 @@ export function PropertiesView({
           {[['list','list','List'],['grid','grid-2','Grid']].map(([k,ic,lbl])=>(
             <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-label={`${lbl} view`} aria-pressed={propLayout===k}
               style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',minHeight:28,minWidth:36,justifyContent:'center',borderRadius:7,cursor:'pointer',border:'none',
-                background:propLayout===k?T.gold:'transparent',color:propLayout===k?'#1C2830':T.muted,
+                background:propLayout===k?T.gold:'transparent',color:propLayout===k?CV.onGold:T.muted,
                 fontFamily:MONO,fontSize:10,fontWeight:propLayout===k?700:400}}>
               <Icon name={ic} size={14}/>{!isMobile&&lbl}
             </button>

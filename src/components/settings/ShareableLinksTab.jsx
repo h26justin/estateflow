@@ -252,7 +252,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                                   const role = inv.role || (inv.is_admin ? 'admin' : 'editor')
                                   const meta = {
                                     admin:  { label: 'Admin',  bg: T.gold,  text: T.gold },
-                                    editor: { label: 'Editor', bg: T.blue || '#4B8FE0', text: T.blue || '#4B8FE0' },
+                                    editor: { label: 'Editor', bg: T.blue, text: T.blue },
                                     viewer: { label: 'Viewer', bg: T.muted, text: T.muted },
                                   }[role] || { label: role, bg: T.muted, text: T.muted }
                                   return (

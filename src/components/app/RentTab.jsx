@@ -4,7 +4,7 @@ import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, stlPaymentIds } from '../../lib/rentStats'
 import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../../lib/rentEngine'
 import * as api from '../../lib/api'
-import { MONO } from '../../lib/styles'
+import { MONO, CV } from '../../lib/styles'
 import { NotesTimeline, ReceiptsPanel, ArrearsPanel } from './lazyViews'
 import { RentDots } from './RentDots'
 import { RentLegend } from './RentTrackerOverview'
@@ -52,13 +52,13 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
               style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${filterYear===null?T.gold:T.border}`,
                 background:filterYear===null?T.gold:'transparent',
-                color:filterYear===null?'#1C2830':T.muted}}>All</button>
+                color:filterYear===null?CV.onGold:T.muted}}>All</button>
             {years.map(yr=>(
               <button key={yr} onClick={()=>setFilterYear(yr)}
                 style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${filterYear===yr?T.gold:T.border}`,
                   background:filterYear===yr?T.gold:'transparent',
-                  color:filterYear===yr?'#1C2830':T.muted}}>{yr}</button>
+                  color:filterYear===yr?CV.onGold:T.muted}}>{yr}</button>
             ))}
           </div>
         </div>

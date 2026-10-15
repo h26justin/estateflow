@@ -32,7 +32,7 @@ export function PropertyDetailView({
                 <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:3}}>{selected.name}</h1>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{selected.address}</div>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{selected.prop_type}</div>
-                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:'#1A1D27',border:'1px solid #2E3044',fontFamily:MONO,fontSize:10,color:'#8B8FA8'}}>🏢 {selected.managed_by}</div>}
+                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:T.card,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:10,color:T.muted}}>🏢 {selected.managed_by}</div>}
                 {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:10,color:T.muted}}>Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
               </div>
               <div style={{display:'flex',gap:8}}>
