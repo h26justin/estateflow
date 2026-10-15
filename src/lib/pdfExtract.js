@@ -1,4 +1,4 @@
-// Browser PDF -> text, shared by importers. pdf.js v3.11.174, bundled and
+// Browser PDF -> text, shared by importers. pdf.js 5.4 (legacy build), bundled and
 // lazy-loaded via lib/pdfLibs (no CDN). Lines are rebuilt through the page
 // viewport (lib/pdfText.js) so rotated pages and wrapped cells read correctly.
 import { loadPdfjs } from './pdfLibs'

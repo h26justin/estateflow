@@ -14,7 +14,7 @@ describe('pdfLibs (bundled, lazy jsPDF and pdf.js)', () => {
   it('loadPdfjs resolves pdf.js with the worker pointed at a same-origin asset', async () => {
     const lib = await loadPdfjs()
     expect(typeof lib.getDocument).toBe('function')
-    expect(lib.version).toBe('3.11.174')
+    expect(lib.version).toMatch(/^5\.4\./)
     const src = lib.GlobalWorkerOptions.workerSrc
     expect(typeof src).toBe('string')
     expect(src).not.toMatch(/^https?:/)
