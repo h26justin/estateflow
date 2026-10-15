@@ -32,7 +32,7 @@ const CSS = `
   .mkt-btn-white{background:white;color:${SLATE};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;}
   .mkt-btn-white:hover{background:${CREAM};}
   .feat-card{background:${CREAM};border:1px solid ${BORDER};border-radius:14px;padding:26px 26px;transition:border-color 0.18s,transform 0.18s,box-shadow 0.18s;}
-  .screen-tab{background:transparent;border:1px solid ${BORDER};color:${MUTED};font-family:${MONO};font-size:12px;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all 0.15s;}
+  .screen-tab{background:transparent;border:1px solid ${BORDER};color:${MUTED};font-family:${SANS};font-size:13px;font-weight:500;white-space:nowrap;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all 0.15s;}
   .screen-tab:hover{border-color:${SLATE};color:${SLATE};}
   .screen-tab.active{background:${SLATE};border-color:${SLATE};color:${WHITE};}
   .screen-tab:focus-visible{outline:2px solid ${GOLD};outline-offset:2px;}
@@ -59,15 +59,38 @@ const CSS = `
     .mkt-burger{display:inline-flex!important;}
   }
   .mkt-burger{display:none;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1.5px solid ${BORDER};background:transparent;color:${SLATE};cursor:pointer;}
-  .mkt-navlink{background:none;border:none;font-family:${MONO};font-size:12px;cursor:pointer;padding:10px 4px;min-height:40px;text-decoration:none;display:inline-flex;align-items:center;transition:color 0.15s;}
+  .mkt-navlink{background:none;border:none;font-family:${SANS};font-size:14px;cursor:pointer;padding:10px 4px;min-height:40px;text-decoration:none;display:inline-flex;align-items:center;transition:color 0.15s;}
   .mkt-mobile-menu{display:grid;gap:2px;padding:8px 0 16px;border-top:1px solid ${BORDER};}
-  .mkt-mobile-menu a,.mkt-mobile-menu button{display:flex;align-items:center;min-height:44px;width:100%;background:none;border:none;font-family:${MONO};font-size:14px;color:${SLATE};text-decoration:none;cursor:pointer;text-align:left;padding:0 4px;}
+  .mkt-mobile-menu a,.mkt-mobile-menu button{display:flex;align-items:center;min-height:44px;width:100%;background:none;border:none;font-family:${SANS};font-size:16px;color:${SLATE};text-decoration:none;cursor:pointer;text-align:left;padding:0 4px;}
   @media(min-width:769px){.mkt-mobile-menu{display:none;}}
   /* Visible keyboard focus. Gold-dark ring on cream/white; cream ring on the
      navy and slate panels (.mkt-dark) where a dark ring would vanish. */
   .mkt-root :focus-visible{outline:3px solid ${GOLD_T};outline-offset:2px;border-radius:6px;}
   .mkt-root .mkt-dark :focus-visible{outline-color:${CREAM};}
   .mkt-root summary:focus-visible{outline-offset:4px;}
+  /* Headings balance their lines (no orphaned "that" at 390px); body copy
+     avoids single-word last lines. */
+  .mkt-root h1,.mkt-root h2,.mkt-root h3,.mkt-root h4{text-wrap:balance;}
+  .mkt-root p{text-wrap:pretty;}
+  /* Feature-category accordion: only rendered as buttons on narrow screens
+     (see useNarrow); desktop keeps the open two-column grid. */
+  .feat-acc-btn{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 0;cursor:pointer;color:${SLATE};}
+  .feat-acc-btn .feat-acc-chev{margin-left:auto;transition:transform 0.18s;flex-shrink:0;}
+  .feat-acc-btn[aria-expanded="true"] .feat-acc-chev{transform:rotate(180deg);}
+  .mkt-root .feat-acc-btn:focus-visible{outline:3px solid ${GOLD_T};outline-offset:2px;border-radius:6px;}
+  @media(max-width:768px){
+    .mkt-sec{padding-top:56px!important;padding-bottom:56px!important;}
+    .mkt-sec-head{margin-bottom:32px!important;}
+    .feat-cat{margin-bottom:0!important;border-bottom:1px solid ${BORDER};}
+    .feat-cat-head{margin-bottom:0!important;padding-bottom:0!important;border-bottom:none!important;}
+    .feat-cat-body{padding:4px 0 20px;}
+    .feat-card{padding:18px!important;}
+    .feat-card:hover{transform:none;}
+    /* 12 screen tabs wrap to five rows on a phone; scroll them sideways. */
+    .screen-tabs{flex-wrap:nowrap!important;justify-content:flex-start!important;overflow-x:auto;scrollbar-width:none;margin-left:-24px;margin-right:-24px;padding:2px 24px 4px;}
+    .screen-tabs::-webkit-scrollbar{display:none;}
+    .screen-tab{flex-shrink:0;}
+  }
 `
 
 const FEATURE_CATS = [
@@ -152,7 +175,7 @@ const FEATURE_CATS = [
     color: '#4B8FE0',
     features: [
       { icon: 'file-text', title: '20 built-in reports', desc: 'P&L, rental income schedule, mortgage interest, capital gains, yield comparison, occupancy, collection rate, backfill, compliance, expenses and more. CSV and PDF, and a year-end tax pack.' },
-      { icon: 'landmark', title: 'Making Tax Digital for Income Tax', desc: 'Quarterly Property Business submissions to HMRC built in, with sandbox testing and a clear steer on when MTD applies and when it does not (limited companies).' },
+      { icon: 'landmark', title: 'Making Tax Digital for Income Tax', desc: 'Quarterly Property Business figures built from your rent and expenses, ready for MTD. HMRC filing runs in practice mode (HMRC\'s sandbox) today, with live filing as soon as HMRC approves us. Plus a clear steer on when MTD applies and when it does not (limited companies).' },
       { icon: 'folder', title: 'Documents, backups and audit log', desc: 'Leases, certificates and correspondence per property, weekly account backups you can download, and a full audit log of every change.' },
       { icon: 'download', title: 'Export everything', desc: 'Bookings, months, rooms, refurb payments and every report export to CSV. Your data is yours.' },
     ]
@@ -212,11 +235,106 @@ const SCREENS = [
 
 const NAV_LINKS = [['home','Home'],['features','Features'],['pricing','Pricing']]
 
+// Customer testimonials. Real, consented quotes only — never invent one, and
+// never add star ratings or "trusted by N landlords" counts that aren't
+// backed by data (LAUNCH_CHECKLIST item 21). Each entry:
+//   { quote: '…', name: 'First name + last initial', detail: 'e.g. 6 properties, Leeds' }
+// While this is empty the section renders nothing at all.
+const TESTIMONIALS = []
+
+export function Testimonials({ items = TESTIMONIALS }) {
+  if (!items || items.length === 0) return null
+  return (
+    <section className="mkt-sec" aria-labelledby="mkt-testimonials-title" style={{ padding: '72px 24px 80px', background: CREAM, borderTop: `1px solid ${BORDER}` }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+        <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>From landlords using Properly</div>
+          <h2 id="mkt-testimonials-title" style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>What landlords say</h2>
+        </div>
+        <div className="feat-grid-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(items.length, 3)}, 1fr)`, gap: 20 }}>
+          {items.map(t => (
+            <figure key={t.name + t.quote.slice(0, 20)} style={{ margin: 0, background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '26px 24px' }}>
+              <blockquote style={{ margin: 0, fontFamily: SANS, fontSize: 15, color: SLATE, lineHeight: 1.6 }}>{t.quote}</blockquote>
+              <figcaption style={{ marginTop: 16, fontFamily: SANS, fontSize: 14, fontWeight: 600, color: SLATE }}>
+                {t.name}{t.detail && <span style={{ display: 'block', fontWeight: 400, color: MUTED, fontSize: 13, marginTop: 2 }}>{t.detail}</span>}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// True below the 769px breakpoint. Starts false on the server (prerender) so
+// crawlers get the full desktop layout; on the client it reads the media
+// query up front so phones never flash the expanded sections.
+const NARROW_MQ = '(max-width: 768px)'
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function' && !!window.matchMedia(NARROW_MQ).matches)
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia(NARROW_MQ)
+    if (!mq) return
+    const on = () => setNarrow(!!mq.matches)
+    on()
+    mq.addEventListener?.('change', on)
+    return () => mq.removeEventListener?.('change', on)
+  }, [])
+  return narrow
+}
+
+// One feature category. Desktop: heading + two-column grid, always open.
+// Narrow screens: the heading becomes a disclosure button (aria-expanded,
+// aria-controls) and the cards collapse. Collapsed panels stay in the DOM
+// (hidden attribute) so the copy remains crawlable.
+function FeatureCategory({ cat, narrow, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const slug = cat.cat.toLowerCase().replace(/[^a-z]+/g, '-')
+  const panelId = `feat-panel-${slug}`
+  const btnId = `feat-btn-${slug}`
+  const expanded = !narrow || open
+  const iconTile = (
+    <div style={{ width: 40, height: 40, borderRadius: 10, background: cat.color + '18', border: `1px solid ${cat.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={cat.icon} size={20} color={cat.color}/></div>
+  )
+  return (
+    <div className="feat-cat" style={{ marginBottom: 64 }}>
+      <h3 className="feat-cat-head" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${BORDER}`, fontSize: 20, fontWeight: 600, color: SLATE, letterSpacing: '-0.01em' }}>
+        {narrow ? (
+          <button type="button" id={btnId} className="feat-acc-btn" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(o => !o)}>
+            {iconTile}
+            <span style={{ fontFamily: SANS, fontSize: 18, fontWeight: 600 }}>{cat.cat}</span>
+            <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 400, color: MUTED }}>{cat.features.length}</span>
+            <Icon name="chevron-down" size={20} color={MUTED} className="feat-acc-chev" aria-hidden="true"/>
+          </button>
+        ) : (<>{iconTile}<span>{cat.cat}</span></>)}
+      </h3>
+      <div id={panelId} className="feat-cat-body" role={narrow ? 'region' : undefined} aria-labelledby={narrow ? btnId : undefined} hidden={!expanded}>
+        <div className="feat-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+          {cat.features.map(f => (
+            <div key={f.title} className="feat-card">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 9, background: cat.color + '14', border: `1px solid ${cat.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={f.icon} size={18} color={cat.color}/></div>
+                <div>
+                  <h4 style={{ fontSize: 15, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{f.title}</h4>
+                  <p style={{ fontFamily: SANS, fontSize: 14, color: MUTED, lineHeight: 1.6 }}>{f.desc}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeNav, setActiveNav] = useState('home')
   const [screen, setScreen] = useState(SCREENS[0].id)
   const shot = SCREENS.find(x => x.id === screen) || SCREENS[0]
+  const narrow = useNarrow()
 
   // WAI-ARIA tabs pattern: arrows / Home / End move selection and focus.
   function onTabKey(e) {
@@ -305,16 +423,16 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             Built this decade · UK landlords
           </div>
           <h1 style={{ fontSize: 54, fontWeight: 600, color: WHITE, lineHeight: 1.13, letterSpacing: '-0.025em', marginBottom: 24 }}>
-            Property software that{' '}<br/>doesn't feel like 2010
+            Property software that doesn't feel like 2010
           </h1>
-          <p className="hero-sub" style={{ fontSize: 19, color: '#B0BEC5', lineHeight: 1.75, marginBottom: 40, fontFamily: MONO, fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
+          <p className="hero-sub" style={{ fontSize: 19, color: '#C5D0D6', lineHeight: 1.6, marginBottom: 40, fontFamily: SANS, fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
             Run your entire UK rental portfolio from one dashboard. Rent, compliance, tenant portal, reports and more from £2 per property a month (£10/mo minimum) — AI insights and the deals pipeline on the £5 Investor plan.
           </p>
           <div className="mkt-hero-btns" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={()=>scrollTo('features')} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff44', fontSize: 14, padding: '16px 36px' }}>See all features</button>
           </div>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: '#9AAAB8', marginTop: 20 }}>14-day free trial · Cancel anytime · No per-user fees, ever</p>
+          <p style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5', marginTop: 20 }}>14-day free trial · Cancel anytime · No per-user fees, ever</p>
         </div>
       </section>
 
@@ -329,12 +447,12 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </div>
 
-      <section id="screens" style={{ padding: '80px 24px 72px', background: CREAM, borderBottom: `1px solid ${BORDER}` }}>
+      <section className="mkt-sec" id="screens" style={{ padding: '80px 24px 72px', background: CREAM, borderBottom: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 36 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Inside Properly</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Real screens, live account</h2>
-            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>
+            <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 600, margin: '0 auto' }}>
               These are live pages from a working Properly account, not mock-ups: a two-company portfolio of houses, a block of flats, an HMO and six serviced apartments, exactly as it runs today.
             </p>
           </div>
@@ -361,19 +479,19 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <div className="screen-caption" style={{ display: 'flex', gap: 24, alignItems: 'flex-start', marginTop: 22, maxWidth: 860, margin: '22px auto 0' }}>
             <div style={{ flex: 1 }}>
               <h3 style={{ fontSize: 18, fontWeight: 600, color: SLATE, marginBottom: 8, letterSpacing: '-0.01em' }}>{shot.title}</h3>
-              <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED, lineHeight: 1.8 }}>{shot.desc}</p>
+              <p style={{ fontFamily: SANS, fontSize: 15, color: MUTED, lineHeight: 1.6 }}>{shot.desc}</p>
             </div>
           </div>
           </div>
         </div>
       </section>
 
-      <section style={{ padding: '88px 24px 72px', background: WHITE }}>
+      <section className="mkt-sec" style={{ padding: '88px 24px 72px', background: WHITE }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 52 }}>
+          <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 52 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Why Properly</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>The landlord tool you'd actually choose</h2>
-            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 580, margin: '0 auto' }}>
+            <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 580, margin: '0 auto' }}>
               Most property software was built before the iPhone. Ours wasn't. Here's what that means in practice.
             </p>
           </div>
@@ -401,19 +519,19 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               <div key={c.title} style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '28px 26px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                   <div style={{ width: 44, height: 44, borderRadius: 10, background: GOLD + '18', border: `1px solid ${GOLD}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={c.icon} size={22} color={GOLD}/></div>
-                  <span style={{ fontFamily: MONO, fontSize: 9, color: GOLD_T, background: GOLD + '14', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: GOLD_T, background: GOLD + '14', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
                 </div>
                 <h3 style={{ fontSize: 17, fontWeight: 600, color: SLATE, marginBottom: 10, lineHeight: 1.3 }}>{c.title}</h3>
-                <p style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.8 }}>{c.desc}</p>
+                <p style={{ fontFamily: SANS, fontSize: 14, color: MUTED, lineHeight: 1.6 }}>{c.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section style={{ padding: '72px 24px 88px', background: CREAM }}>
+      <section className="mkt-sec" style={{ padding: '72px 24px 88px', background: CREAM }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 56 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How it works</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Up and running in minutes</h2>
           </div>
@@ -422,46 +540,28 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               <div key={s.n} style={{ textAlign: 'center' }}>
                 <div style={{ width: 52, height: 52, borderRadius: 26, background: SLATE, color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 20, fontWeight: 700, margin: '0 auto 20px' }}>{s.n}</div>
                 <h3 style={{ fontSize: 18, fontWeight: 600, color: SLATE, marginBottom: 10 }}>{s.title}</h3>
-                <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED, lineHeight: 1.75 }}>{s.desc}</p>
+                <p style={{ fontFamily: SANS, fontSize: 15, color: MUTED, lineHeight: 1.6 }}>{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="features" style={{ padding: '88px 24px 100px', background: WHITE }}>
+      <section className="mkt-sec" id="features" style={{ padding: '88px 24px 100px', background: WHITE }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 64 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Everything you need</div>
             <h2 style={{ fontSize: 38, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Built for serious property investors</h2>
-            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.8, maxWidth: 560, margin: '0 auto' }}>
+            <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 560, margin: '0 auto' }}>
               Eight modules covering every part of running a portfolio: acquisition, refurb, letting, rent, short-term lets, compliance, tax and the tenants themselves.
             </p>
           </div>
 
-          {FEATURE_CATS.map(cat => (
-            <div key={cat.cat} style={{ marginBottom: 64 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${BORDER}` }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: cat.color + '18', border: `1px solid ${cat.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={cat.icon} size={20} color={cat.color}/></div>
-                <h3 style={{ fontSize: 20, fontWeight: 600, color: SLATE, letterSpacing: '-0.01em' }}>{cat.cat}</h3>
-              </div>
-              <div className="feat-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-                {cat.features.map(f => (
-                  <div key={f.title} className="feat-card">
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 9, background: cat.color + '14', border: `1px solid ${cat.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={f.icon} size={18} color={cat.color}/></div>
-                      <div>
-                        <h4 style={{ fontSize: 14, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{f.title}</h4>
-                        <p style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.75 }}>{f.desc}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {FEATURE_CATS.map((cat, i) => (
+            <FeatureCategory key={cat.cat} cat={cat} narrow={narrow} defaultOpen={i === 0} />
           ))}
 
-          <div style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 16, padding: '28px 32px', marginTop: 16 }}>
+          <div className="mkt-also" style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 16, padding: '28px 32px', marginTop: 16 }}>
             <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 18 }}>Also included</div>
             <div className="feat-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {[
@@ -476,7 +576,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{icon}</span>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: SLATE, marginBottom: 3 }}>{title}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, lineHeight: 1.65 }}>{desc}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: MUTED, lineHeight: 1.5 }}>{desc}</div>
                   </div>
                 </div>
               ))}
@@ -485,12 +585,12 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      <section className="mkt-dark" style={{ padding: '72px 24px', background: `linear-gradient(135deg, ${DARK} 0%, #1E3040 100%)` }}>
+      <section className="mkt-dark mkt-sec" style={{ padding: '72px 24px', background: `linear-gradient(135deg, ${DARK} 0%, #1E3040 100%)` }}>
         <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 280 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI tools · on the Investor plan</div>
             <h2 style={{ fontSize: 32, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16, lineHeight: 1.25 }}>Listings written for you in 10 seconds</h2>
-            <p style={{ fontFamily: MONO, fontSize: 13, color: '#9AAAB8', lineHeight: 1.8, marginBottom: 24 }}>
+            <p style={{ fontFamily: SANS, fontSize: 15, color: '#B0BEC5', lineHeight: 1.6, marginBottom: 24 }}>
               Generate Rightmove and Zoopla descriptions in your choice of tone — professional, warm or luxury. Plus AI that reads your uploaded gas certs, EICRs and tenancy agreements and fills in the data for you. All included in the £5/property Investor plan.
             </p>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 13, padding: '12px 24px' }}>Try it free</button>
@@ -498,7 +598,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <div style={{ flex: 1, minWidth: 280 }}>
             <div style={{ background: '#ffffff0D', border: '1px solid #ffffff18', borderRadius: 14, padding: '22px 24px' }}>
               <div style={{ fontFamily: MONO, fontSize: 10, color: '#9AAAB8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Generated listing · Zoopla · Warm tone</div>
-              <p style={{ fontFamily: MONO, fontSize: 12, color: '#C8D5E0', lineHeight: 1.9 }}>
+              <p style={{ fontFamily: SANS, fontSize: 14, color: '#C8D5E0', lineHeight: 1.65 }}>
                 "Tucked away in the heart of the city centre, this beautifully presented three-bedroom terraced home offers everything a modern family could wish for. The recently fitted kitchen floods the open-plan living space with natural light, while the south-facing garden provides a rare green retreat..."
               </p>
               <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -516,14 +616,14 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           inline table cuts that off at the pass. Numbers below are based
           on publicly-listed pricing as of May 2026 — update when they
           change. */}
-      <section style={{ padding: '72px 24px 80px', background: WHITE, borderTop: `1px solid ${BORDER}` }}>
+      <section className="mkt-sec" style={{ padding: '72px 24px 80px', background: WHITE, borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 40 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How we compare</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Properly vs the alternatives</h2>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: MONO, fontSize: 13, minWidth: 720 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: SANS, fontSize: 14, minWidth: 720 }}>
               <thead>
                 <tr style={{ borderBottom: `2px solid ${SLATE}` }}>
                   <th style={{ textAlign: 'left', padding: '14px 12px', color: MUTED, fontWeight: 600 }}></th>
@@ -536,7 +636,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               <tbody>
                 {[
                   ['Starting price', 'From £2/property/mo (£10/mo min)', 'Free', 'From £65/mo', 'From £15/mo'],
-                  ['MTD ITSA submissions', 'Built in', '✗', 'Roadmap', 'Add-on'],
+                  ['MTD ITSA quarterly figures', 'Built in (live filing on HMRC approval)', '✗', 'Roadmap', 'Add-on'],
                   ['Section 24 calculator', '✓', 'DIY', '✗', '✓'],
                   ['Compliance reminders', 'Auto', 'Manual', '✓', '✓'],
                   ['Branded tenant portal', 'Subdomain', '✗', '✓', 'Add-on'],
@@ -556,18 +656,20 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               </tbody>
             </table>
           </div>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 16 }}>
+          <p style={{ fontFamily: SANS, fontSize: 13, color: MUTED, textAlign: 'center', marginTop: 16 }}>
             Competitor pricing from public websites, May 2026. Features change — check directly before deciding.
           </p>
         </div>
       </section>
 
-      <section id="pricing" style={{ padding: '88px 24px 100px', background: CREAM }}>
+      <Testimonials />
+
+      <section className="mkt-sec" id="pricing" style={{ padding: '88px 24px 100px', background: CREAM }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 56 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Honest pricing</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Simple per-property pricing.</h2>
-            <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 600, margin: '0 auto' }}>Two plans: Starter at £2 a property and Investor at £5 a property, each with a £10/month minimum. No per-user fees, unlimited team members — whether you have one rental or a hundred.</p>
+            <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 600, margin: '0 auto' }}>Two plans: Starter at £2 a property and Investor at £5 a property, each with a £10/month minimum. No per-user fees, unlimited team members — whether you have one rental or a hundred.</p>
           </div>
 
           <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
@@ -575,9 +677,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Starter plan</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
                 <span style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-0.03em', color: WHITE }}>£2</span>
-                <span style={{ fontFamily: MONO, fontSize: 14, color: '#B0BEC5' }}>/property/month</span>
+                <span style={{ fontFamily: SANS, fontSize: 15, color: '#B0BEC5' }}>/property/month</span>
               </div>
-              <p style={{ fontFamily: MONO, fontSize: 12, color: '#B0BEC5', marginBottom: 28, lineHeight: 1.7 }}>
+              <p style={{ fontFamily: SANS, fontSize: 14, color: '#B0BEC5', marginBottom: 28, lineHeight: 1.6 }}>
                 Billed monthly with a £10/month minimum. Add or remove properties anytime — you only pay for what you have.
               </p>
               <div style={{ display: 'grid', gap: 11, marginBottom: 24 }}>
@@ -585,7 +687,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   'Rent, compliance, maintenance & lettings',
                   'Unlimited team members',
                   'Tenant portal with branded subdomain',
-                  'MTD ITSA submissions built in',
+                  'MTD-ready quarterly tax figures',
                   'Document storage & sharing',
                   'Email alerts & weekly digest',
                   '20 built-in reports with CSV and PDF export',
@@ -593,13 +695,13 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                 ].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ color: GOLD, fontWeight: 700, fontSize: 14 }}>✓</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, color: '#D0D8E0' }}>{item}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 14, color: '#D0D8E0' }}>{item}</span>
                   </div>
                 ))}
               </div>
               <div style={{ background: '#ffffff0D', border: `1px solid ${GOLD}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 24 }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 4 }}>Investor plan · £5/property/month</div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: '#B0BEC5', lineHeight: 1.6 }}>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5', lineHeight: 1.55 }}>
                   Everything in Starter, plus AI portfolio insights, the AI listing writer and the deals pipeline. Same £10/month minimum.
                 </div>
               </div>
@@ -615,7 +717,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                     <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: SLATE }}>{cost}</span>
                   </div>
                 ))}
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 10 }}>Starter plan shown — Investor is £5/property. A £10/month minimum applies to both. Prices exclude VAT where applicable.</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>Starter plan shown — Investor is £5/property. A £10/month minimum applies to both. Prices exclude VAT where applicable.</div>
               </div>
               <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px' }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Common questions</div>
@@ -626,8 +728,8 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   ['Is the tenant portal included?', 'Yes. Every company gets a branded subdomain portal for tenants at no extra cost.'],
                 ].map(([q,a]) => (
                   <div key={q} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${BORDER}` }}>
-                    <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{q}</div>
-                    <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, lineHeight: 1.7 }}>{a}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{q}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: MUTED, lineHeight: 1.55 }}>{a}</div>
                   </div>
                 ))}
               </div>
@@ -644,11 +746,11 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           CAL_BOOKING_URL secret on the trial-emails edge function.
           Conversion lift on similar landing pages is typically 5-12%
           when offered alongside (not instead of) the self-serve CTA. */}
-      <section style={{ background: WHITE, padding: '72px 24px', borderTop: `1px solid ${BORDER}` }}>
+      <section className="mkt-sec" style={{ background: WHITE, padding: '72px 24px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
           <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Prefer a real conversation?</div>
           <h2 style={{ fontSize: 32, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 16 }}>Book a 15-minute onboarding call</h2>
-          <p style={{ fontFamily: MONO, fontSize: 14, color: MUTED, lineHeight: 1.7, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px' }}>
+          <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px' }}>
             Stuck on whether Properly fits your portfolio? Book a call with Justin (founder).
             We'll go through your setup live and answer any questions about MTD ITSA, Section 24,
             multi-company billing or compliance tracking. No pitch, no follow-up unless you ask.
@@ -656,14 +758,14 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           <a
             href="mailto:hello@ownproperly.com?subject=Onboarding%20call%20request&body=Hi%20Justin%2C%0A%0AI%27d%20like%20to%20book%20a%2015-minute%20onboarding%20call.%20A%20few%20times%20that%20work%20for%20me%3A%0A%0A"
             style={{
-              display: 'inline-block', fontFamily: MONO, fontSize: 13, fontWeight: 700,
+              display: 'inline-block', fontFamily: SANS, fontSize: 14, fontWeight: 700,
               padding: '14px 28px', borderRadius: 10, border: `1px solid ${SLATE}`,
               background: SLATE, color: WHITE, textDecoration: 'none',
             }}
           >
             Email to book a call →
           </a>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 16 }}>
+          <p style={{ fontFamily: SANS, fontSize: 13, color: MUTED, marginTop: 16 }}>
             Free · 15 min · Zoom or Google Meet · usually same-day reply
           </p>
         </div>
@@ -674,9 +776,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           AI search (ChatGPT, Perplexity, Claude, Gemini) lifts these
           answers directly into their result cards. Phrased in the words
           real landlords use when searching. */}
-      <section id="faq" style={{ background: WHITE, padding: '80px 24px', borderTop: `1px solid ${BORDER}` }}>
+      <section className="mkt-sec" id="faq" style={{ background: WHITE, padding: '80px 24px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+          <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 48 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Frequently asked questions</div>
             <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Everything you might be wondering</h2>
           </div>
@@ -687,7 +789,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               ['How much does Properly cost?',
                'Properly is £2 per property per month on the Starter plan. The Investor plan is £5 per property per month and adds AI portfolio insights, the AI listing writer and the deals pipeline. Both plans have a £10/month minimum and include a 14-day free trial with no credit card required.'],
               ['Does Properly support Making Tax Digital (MTD) for landlords?',
-               "Yes. Properly is built for the MTD ITSA April 2026 mandate. It connects directly to HMRC via gov.uk OAuth, files quarterly Property Business submissions, and includes Section 24 mortgage interest restriction calculations. Sandbox mode lets you practice before going live."],
+               "Yes, Properly is MTD-ready. It keeps digital records of your rent and expenses, builds your quarterly Property Business figures with mortgage interest held separately for Section 24, and connects to HMRC through gov.uk sign-in. HMRC filing runs in practice mode (HMRC's sandbox) today; live filing switches on as soon as HMRC approves our production access."],
               ['What compliance certificates does Properly track?',
                'Properly tracks all UK landlord compliance: Gas Safety (CP12), EICR electrical reports, EPC energy performance ratings, HMO licences, Right to Rent expiry, deposit protection (TDS/DPS/MyDeposits), Legionella risk assessments and PAT testing. It sends automatic email reminders before each expiry.'],
               ['Can multiple landlords share an account?',
@@ -700,33 +802,33 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                'Yes. Each property has a branded tenant portal where tenants can see their tenancy details, payment history, request repairs with photos, and download shared documents (gas safety certificates, the How to Rent guide). The portal lives at your-company.ownproperly.com.'],
             ].map(([q, a]) => (
               <details key={q} style={{ background: '#FAFAF8', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '18px 22px' }}>
-                <summary style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: SLATE, cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <summary style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: SLATE, cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>{q}</span>
                   <span aria-hidden="true" style={{ color: GOLD_T, fontSize: 16, marginLeft: 12 }}>+</span>
                 </summary>
-                <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED, lineHeight: 1.75, marginTop: 14 }}>{a}</p>
+                <p style={{ fontFamily: SANS, fontSize: 15, color: MUTED, lineHeight: 1.6, marginTop: 14 }}>{a}</p>
               </details>
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: 40 }}>
-            <p style={{ fontFamily: MONO, fontSize: 13, color: MUTED }}>
+            <p style={{ fontFamily: SANS, fontSize: 15, color: MUTED }}>
               Have a question we haven't answered? Email <a href="mailto:hello@ownproperly.com" style={{ color: GOLD_T }}>hello@ownproperly.com</a>
             </p>
           </div>
         </div>
       </section>
 
-      <section className="mkt-dark" style={{ background: SLATE, padding: '80px 24px', textAlign: 'center' }}>
+      <section className="mkt-dark mkt-sec" style={{ background: SLATE, padding: '80px 24px', textAlign: 'center' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <h2 style={{ fontSize: 34, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to switch to modern property software?</h2>
-          <p style={{ fontFamily: MONO, fontSize: 14, color: '#B0BEC5', marginBottom: 32, lineHeight: 1.75 }}>
+          <p style={{ fontFamily: SANS, fontSize: 16, color: '#B0BEC5', marginBottom: 32, lineHeight: 1.6 }}>
             14 days free. No credit card. If it doesn't beat what you're using now, walk away.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
             <button onClick={onSignIn} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff33', fontSize: 14, padding: '16px 36px' }}>Sign in</button>
           </div>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: '#9AA6B0', marginTop: 20 }}>14-day free trial · From £2/property/month after (£10/mo minimum) · Cancel anytime</p>
+          <p style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5', marginTop: 20 }}>14-day free trial · From £2/property/month after (£10/mo minimum) · Cancel anytime</p>
         </div>
       </section>
 
@@ -742,9 +844,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             ))}
             <a href="/blog/" className="mkt-navlink" style={{ color: '#9AA6B0' }}>Guides</a>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: '#9AA6B0' }}>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5' }}>
             © {new Date().getFullYear()} Properly ·{' '}
-            <button onClick={onPrivacy} style={{ background: 'none', border: 'none', color: '#C8D5E0', cursor: 'pointer', fontFamily: MONO, fontSize: 'inherit', textDecoration: 'underline' }}>Privacy Policy</button>
+            <button onClick={onPrivacy} style={{ background: 'none', border: 'none', color: '#C8D5E0', cursor: 'pointer', fontFamily: SANS, fontSize: 'inherit', padding: 0, textDecoration: 'underline' }}>Privacy Policy</button>
             {' '} · {' '}
             <a href="mailto:hello@ownproperly.com" style={{ color: '#C8D5E0', textDecoration: 'none' }}>hello@ownproperly.com</a>
           </div>

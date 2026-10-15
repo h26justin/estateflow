@@ -25,19 +25,33 @@ const GOLD_T  = '#7A5E1C'   // gold as text on paper/white (5.5:1, WCAG AA)
 
 const CSS = `
   .lp-scope *{box-sizing:border-box;}
-  .lp-input{font-family:'DM Mono',monospace;background:#fff;border:1.5px solid ${BORDER};color:${INK};border-radius:10px;padding:12px 14px;width:100%;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+  .lp-input{font-family:${SANS};background:#fff;border:1.5px solid ${BORDER};color:${INK};border-radius:10px;padding:12px 14px;width:100%;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
   .lp-input:focus{border-color:${INK};box-shadow:0 0 0 3px rgba(28,40,48,0.08);}
-  .lp-input::placeholder{color:#B4B0A6;}
+  .lp-input::placeholder{color:#767B80;}
   .lp-label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${MUTED};display:block;margin-bottom:8px;}
   .lp-btn{font-family:${SANS};font-weight:700;background:${INK};color:white;border:none;border-radius:10px;padding:13px 20px;font-size:15px;width:100%;cursor:pointer;transition:background 0.18s,opacity 0.18s;}
   .lp-btn:hover:not(:disabled){background:#0F1A22;}
   .lp-btn:disabled{opacity:0.55;cursor:not-allowed;}
-  .lp-link{font-family:'DM Mono',monospace;font-size:12px;background:none;border:none;color:${GOLD_T};cursor:pointer;font-weight:500;}
-  .lp-link:hover{text-decoration:underline;text-underline-offset:3px;}
+  .lp-link{font-family:${SANS};font-size:13px;background:none;border:none;color:${GOLD_T};cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-color:${GOLD_T}55;text-underline-offset:3px;}
+  .lp-link:hover{text-decoration-color:currentColor;}
+  .lp-scope h1{text-wrap:balance;}
+  .lp-scope p{text-wrap:pretty;}
   .lp-page{min-height:100vh;display:flex;font-family:${SANS};color:${INK};}
   .lp-brandpanel{flex:1.1;background:${SLATE};color:${PAPER};padding:48px 56px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
   .lp-formside{flex:1;background:${PAPER};padding:48px 56px;display:flex;align-items:center;justify-content:center;min-width:0;}
   @media(max-width:860px){.lp-brandpanel{display:none;}.lp-formside{padding:36px 22px;}}
+  /* Sign-in modal. Desktop: a centred card. Under 769px: a full-screen sheet
+     (fixed to the viewport, scrolls on its own) so the form never floats
+     mid-screen with the keyboard pushing it about. */
+  .lp-modal{padding:28px;width:100%;max-width:440px;background:${PAPER};position:relative;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.35);max-height:calc(100vh - 32px);overflow-y:auto;}
+  .lp-modal-close{position:absolute;top:10px;right:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:${MUTED};font-size:18px;line-height:1;border-radius:8px;}
+  .lp-modal-close:focus-visible,.lp-link:focus-visible{outline:3px solid ${GOLD_T};outline-offset:2px;}
+  @media(max-width:768px){
+    .lp-modal{position:fixed;inset:0;max-width:none;max-height:none;height:100%;border-radius:0;box-shadow:none;
+      padding:calc(64px + env(safe-area-inset-top)) 22px calc(32px + env(safe-area-inset-bottom));
+      display:flex;justify-content:center;align-items:flex-start;overscroll-behavior:contain;}
+    .lp-modal-close{top:calc(10px + env(safe-area-inset-top));right:10px;width:44px;height:44px;}
+  }
 `
 
 // Decorative gold circle-check used in the brand panel feature list.
@@ -45,7 +59,7 @@ function BrandPanel({ branding, brandAccent }) {
   const points = [
     'Track rent across every tenancy',
     'Never miss a compliance deadline',
-    'File MTD ITSA straight to HMRC',
+    'MTD-ready quarterly tax figures',
   ]
   return (
     <div className="lp-brandpanel">
@@ -82,8 +96,8 @@ function BrandPanel({ branding, brandAccent }) {
         )}
       </div>
 
-      <div style={{ fontFamily:MONO, fontSize:11, color:'#6E7A84' }}>
-        {branding ? `Powered by Properly` : 'Trusted by UK landlords from 1 to 200+ properties'}
+      <div style={{ fontFamily:MONO, fontSize:11, color:'#A9B4BC' }}>
+        {branding ? `Powered by Properly` : 'From £2 per property a month · 14-day free trial'}
       </div>
     </div>
   )
@@ -255,7 +269,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
                 </div>
               </div>
               <div>
-                <label className="lp-label" htmlFor="lp-phone">Phone <span style={{textTransform:'none',letterSpacing:0,fontSize:10,opacity:0.7}}>(optional)</span></label>
+                <label className="lp-label" htmlFor="lp-phone">Phone <span style={{textTransform:'none',letterSpacing:0,fontSize:10}}>(optional)</span></label>
                 <input id="lp-phone" className="lp-input" type="tel" value={phone}
                   autoComplete="tel" inputMode="tel"
                   onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 900000"/>
@@ -297,8 +311,8 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 
           {/* aria-live so screen readers announce auth errors / success
               messages as they appear; without this they were silent. */}
-          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#B8392D', background:'#FAEAE8', border:'1px solid #B8392D33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-          {success&&<div role="status" aria-live="polite" style={{ fontFamily:MONO, fontSize:12, color:'#167A4C', background:'#E8F4EC', border:'1px solid #167A4C33', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
+          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:SANS, fontSize:13, color:'#B8392D', background:'#FAEAE8', border:'1px solid #B8392D33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+          {success&&<div role="status" aria-live="polite" style={{ fontFamily:SANS, fontSize:13, color:'#167A4C', background:'#E8F4EC', border:'1px solid #167A4C33', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
 
           <button type="submit" className="lp-btn" disabled={loading}
             style={{ marginTop:6, ...(branding ? { background: brandAccent } : null) }}>
@@ -306,14 +320,14 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
           </button>
         </form>
 
-        <div style={{ textAlign:'center', fontSize:13, color:MUTED, marginTop:28 }}>
+        <div style={{ textAlign:'center', fontSize:14, color:MUTED, marginTop:28 }}>
           {mode==='login' ? <>New to Properly? </> : <>Already have an account? </>}
-          <button className="lp-link" style={{ fontSize:13, color:GOLD_T, fontWeight:600 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
+          <button type="button" className="lp-link" style={{ fontSize:14 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
             {mode==='login' ? 'Start a 14-day free trial' : 'Sign in'}
           </button>
         </div>
 
-        <p style={{ fontFamily:MONO, fontSize:11, color:MUTED, textAlign:'center', marginTop:22 }}>
+        <p style={{ fontFamily:SANS, fontSize:13, color:MUTED, textAlign:'center', marginTop:22 }}>
           Your data is private and secure.
         </p>
       </div>
@@ -339,11 +353,10 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
   // focus lands on the first field rather than on Close.
   return (
     <FocusTrap>
-      <div className="lp-scope" role="dialog" aria-modal="true" aria-labelledby="lp-title"
-        style={{ padding:24, fontFamily:SANS, width:'100%', maxWidth:440, background:PAPER, position:'relative' }}>
+      <div className="lp-scope lp-modal" role="dialog" aria-modal="true" aria-labelledby="lp-title"
+        style={{ fontFamily:SANS }}>
         {inner}
-        <button type="button" onClick={onClose} aria-label="Close sign in"
-          style={{ position:'absolute', top:10, right:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', background:'none', border:'none', cursor:'pointer', color:MUTED, fontSize:18, lineHeight:1, borderRadius:8 }}>
+        <button type="button" onClick={onClose} aria-label="Close sign in" className="lp-modal-close">
           ✕
         </button>
       </div>
@@ -426,7 +439,7 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
       <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
         Two-factor authentication
       </h1>
-      <p style={{ fontFamily:MONO, fontSize:12, color:MUTED, marginBottom:24 }}>
+      <p style={{ fontFamily:SANS, fontSize:14, color:MUTED, marginBottom:24 }}>
         Enter the 6-digit code from your authenticator app to finish signing in.
       </p>
       <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -436,10 +449,10 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
             autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code}
             autoFocus aria-required="true" placeholder="000000"
             onChange={e=>setCode(e.target.value.replace(/\D/g, ''))}
-            style={{ textAlign:'center', fontSize:18, letterSpacing:'0.2em' }}/>
+            style={{ textAlign:'center', fontSize:18, letterSpacing:'0.2em', fontFamily:MONO }}/>
         </div>
-        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-        <label htmlFor="lp-mfa-remember" style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', fontFamily:MONO, fontSize:12, color:MUTED, marginTop:2 }}>
+        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:SANS, fontSize:13, color:'#B91C1C', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        <label htmlFor="lp-mfa-remember" style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', fontFamily:SANS, fontSize:13, color:MUTED, marginTop:2 }}>
           <input id="lp-mfa-remember" type="checkbox" checked={remember}
             onChange={e=>setRemember(e.target.checked)}
             style={{ width:16, height:16, marginTop:1, accentColor:SLATE, flexShrink:0 }}/>
@@ -487,7 +500,7 @@ export function SetNewPasswordScreen({ onDone }) {
       <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
         Set a new password
       </h1>
-      <p style={{ fontFamily:MONO, fontSize:12, color:MUTED, marginBottom:24 }}>
+      <p style={{ fontFamily:SANS, fontSize:14, color:MUTED, marginBottom:24 }}>
         You followed a password-reset link. Choose a new password to finish.
       </p>
       <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -503,7 +516,7 @@ export function SetNewPasswordScreen({ onDone }) {
             required minLength={8} aria-required="true" autoComplete="new-password"
             onChange={e=>setConfirmPw(e.target.value)} placeholder="••••••••"/>
         </div>
-        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:MONO, fontSize:12, color:'#DC2626', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:SANS, fontSize:13, color:'#B91C1C', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
         <button type="submit" className="lp-btn" disabled={busy} style={{ marginTop:4 }}>
           {busy ? 'Saving…' : 'Save new password'}
         </button>
