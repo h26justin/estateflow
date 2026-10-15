@@ -262,7 +262,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
 
           {scraped.address && (
             <div style={{fontFamily:mono, fontSize:11, color:T.muted, marginBottom:12}}>
-              📍 {scraped.address}
+              <Icon name="pin" size={12} style={{display:'inline-block', verticalAlign:'-2px', marginRight:4}}/>{scraped.address}
               {url && <> · <a href={url} target="_blank" rel="noreferrer" style={{color:T.blue, textDecoration:'none'}}>View listing →</a></>}
             </div>
           )}

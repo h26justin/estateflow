@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import * as api from '../../lib/api'
 import { fmt } from '../../lib/format'
 import MoneyInput from '../../lib/MoneyInput'
+import { Icon } from '../../lib/icons'
 import NoticeGenerator from '../NoticeGenerator'
 import { GROUNDS, groundLabel, earliestRentIncreaseDate, currentTenancyStart } from '../../lib/possessionRules'
 
@@ -616,8 +617,9 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
     <div style={{ background: color + '11', border: `1px solid ${color}44`, borderRadius: 10, padding: '12px 16px', marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3 }}>
-            {urgency === 'expired' ? 'Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
+          <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {urgency !== 'expired' && <Icon name="clock" size={13}/>}
+            {urgency === 'expired' ? 'Tenancy expired' : `Tenancy ends in ${daysLeft} days`}
           </div>
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
             End date: {new Date(tenancy.tenancy_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}

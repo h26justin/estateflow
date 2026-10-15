@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS } from '../lib/styles'
+import { Icon } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { fmt, plural } from '../lib/format'
@@ -184,7 +185,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                     <button className="btn btn-ghost" style={{ fontSize: 12, color: TIERS.investor.color, borderColor: TIERS.investor.color }}
                       onClick={() => handleCheckout(co.id, 'subscribe', 'investor')}
                       disabled={!!working}>
-                      {working===co.id ? 'Redirecting…' : `★ Upgrade to Investor — £${TIERS.investor.pricePerProp}/property`}
+                      {working===co.id ? 'Redirecting…' : <><Icon name="star" size={13} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }}/>{`Upgrade to Investor — £${TIERS.investor.pricePerProp}/property`}</>}
                     </button>
                   )}
                 </div>

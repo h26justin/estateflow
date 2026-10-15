@@ -155,7 +155,7 @@ export default function OnboardingTour({ user, onComplete }) {
                 fontFamily: MONO, fontSize: FS.sm,
                 color: T.text, lineHeight: 1.75,
               }}>
-                <span style={{ fontWeight: 700, color: T.goldText }}>💡 </span>
+                <Icon name="sparkle" size={13} color={T.goldText} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }}/>
                 {current.tip}
               </div>
             )}

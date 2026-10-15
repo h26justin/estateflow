@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
+import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
 import { FLAT_PREFIX_RE, groupKeyForAddress } from '../lib/addressUtils'
@@ -440,7 +441,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
         {/* Search input — top-left of map, hidden when a popup is open */}
         {libReady && !popupProp && !popupGroup && (
           <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 9, background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', padding: '4px 8px', gap: 6, minWidth: 220 }}>
-            <span style={{ fontSize: 12, color: T.muted, lineHeight: 1 }}>🔍</span>
+            <Icon name="search" size={14} color={T.muted}/>
             <input
               type="text"
               value={searchQ}
@@ -464,7 +465,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
         {/* Empty state when there are zero geocodable properties */}
         {libReady && withCoords === 0 && pending === 0 && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, fontFamily: mono, color: T.muted, pointerEvents: 'none' }}>
-            <div style={{ fontSize: 28 }}>🗺</div>
+            <Icon name="map" size={28}/>
             <div style={{ fontSize: 12 }}>No properties to display.</div>
             <div style={{ fontSize: FS.xs, color: T.faint }}>Add a property with an address and it will appear here.</div>
           </div>

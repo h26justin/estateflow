@@ -2876,7 +2876,7 @@ function ReportCompliance({ filtComp, T, accent }) {
       {(expired.length + expiring.length) > 0 && (
         <div style={{background:T.red+'11',border:`1px solid ${T.red}33`,borderRadius:12,padding:'16px 18px',marginBottom:20}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-            <span style={{fontSize:14}}>⏰</span>
+            <Icon name="clock" size={16} color={T.red}/>
             <h3 style={{fontSize:13,fontWeight:700,color:T.text,margin:0}}>Action needed — {expired.length + expiring.length} certificates need attention</h3>
           </div>
           <div style={{display:'grid',gap:6}}>
