@@ -69,7 +69,7 @@ describe('SettingsPage render order', () => {
   // Sections render in place, so the registry order (the jump list) must
   // match the order SettingsPage emits them in.
   it('matches SETTINGS_PAGES section order within each page', () => {
-    const src = readFileSync(resolve(process.cwd(), 'src/components/FeatureComponents.jsx'), 'utf8')
+    const src = readFileSync(resolve(process.cwd(), 'src/components/settings/SettingsPage.jsx'), 'utf8')
     const rendered = [...src.matchAll(/\{sectionHeading\('([a-z]+)'\)\}/g)].map(m => m[1])
     for (const page of SETTINGS_PAGES) {
       const keys = page.sections.map(s => s.key)
