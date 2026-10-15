@@ -403,19 +403,19 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
       {canImport && <button onClick={onImport} style={btn(T, 'gold')}>Import refurb invoice</button>}
     </div>
     {rows.length === 0 && <EmptyState compact icon="receipt" title="No invoices here yet" body="Import one to allocate it across properties."/>}
-    {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead><tr><th style={th}>Date</th><th style={th}>Supplier</th><th style={th}>Number</th>{!isMobile && <th style={th}>Co</th>}<th style={th}>Properties</th><th style={{ ...th, textAlign: 'right' }}>Amount</th><th style={{ ...th, textAlign: 'right' }}>Paid</th><th style={{ ...th, textAlign: 'right' }}>Outstanding</th><th style={th}>Status</th></tr></thead>
       <tbody>{rows.map(({ inv, st, paid, out }) => (
         <tr key={inv.id} {...pressable(() => onOpen(inv), { role: null })} style={{ cursor: 'pointer' }}>
-          <td style={{ ...td, fontFamily: mono, whiteSpace: 'nowrap' }}>{fmtDate(inv.invoice_date)}</td>
-          <td style={td}>{inv.supplier_name}</td>
-          <td style={{ ...td, fontFamily: mono }}>{inv.invoice_number || '—'}</td>
-          {!isMobile && <td style={{ ...td, fontFamily: mono, fontSize: 11 }}>{coName(inv.company_id)}</td>}
-          <td style={{ ...td, fontFamily: mono }}>{(inv.refurb_invoice_allocations || []).length}</td>
-          <td style={num}>{inv.doc_kind === 'credit_note' ? '−' : ''}{fmt2(allocationBase(inv))}</td>
-          <td style={num}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(paid)}</td>
-          <td style={{ ...num, color: out > 0 ? T.goldText : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
-          <td style={td}><InvoiceStatusChip status={st} T={T} /></td>
+          <td data-label="Date" style={{ ...td, fontFamily: mono, whiteSpace: 'nowrap' }}>{fmtDate(inv.invoice_date)}</td>
+          <td data-label="Supplier" style={td}>{inv.supplier_name}</td>
+          <td data-label="Number" style={{ ...td, fontFamily: mono }}>{inv.invoice_number || '—'}</td>
+          {!isMobile && <td data-label="Co" style={{ ...td, fontFamily: mono, fontSize: 11 }}>{coName(inv.company_id)}</td>}
+          <td data-label="Properties" style={{ ...td, fontFamily: mono }}>{(inv.refurb_invoice_allocations || []).length}</td>
+          <td data-label="Amount" style={num}>{inv.doc_kind === 'credit_note' ? '−' : ''}{fmt2(allocationBase(inv))}</td>
+          <td data-label="Paid" style={num}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(paid)}</td>
+          <td data-label="Outstanding" style={{ ...num, color: out > 0 ? T.goldText : T.muted }}>{inv.doc_kind === 'credit_note' ? '—' : fmt2(out)}</td>
+          <td data-label="Status" style={td}><InvoiceStatusChip status={st} T={T} /></td>
         </tr>
       ))}</tbody>
     </table></div>}

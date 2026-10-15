@@ -124,7 +124,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>By company · {cur.label}</div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={thFirst}>Company</th><th style={th}>Due</th><th style={th}>Collected</th><th style={th}>Outstanding</th>
@@ -139,13 +139,13 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
                   return (
                     <tr key={c.id}>
                       <td style={{ ...tdFirst, color: T.text }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: c.color, marginRight: 8, verticalAlign: 'middle' }} />{c.name}</td>
-                      <td style={td}>{fmt(s.expected)}</td>
-                      <td style={{ ...td, color: T.green }}>{fmt(s.received)}</td>
-                      <td style={{ ...td, color: outstanding > 0 ? T.amber : T.green }}>{fmt(outstanding)}</td>
+                      <td data-label="Due" style={td}>{fmt(s.expected)}</td>
+                      <td data-label="Collected" style={{ ...td, color: T.green }}>{fmt(s.received)}</td>
+                      <td data-label="Outstanding" style={{ ...td, color: outstanding > 0 ? T.amber : T.green }}>{fmt(outstanding)}</td>
                       {recent.map((mo, i) => {
                         const ms = mo.byCompany[c.id]
                         const r = ms ? monthRate(ms) : null
-                        return <td key={mo.key} style={{ ...td, color: rateColor(r, i === 0) }}>{i === 0 ? pct(curR) : pct(r)}</td>
+                        return <td key={mo.key} data-label={`${mo.label.slice(0, 3)} %`} style={{ ...td, color: rateColor(r, i === 0) }}>{i === 0 ? pct(curR) : pct(r)}</td>
                       })}
                     </tr>
                   )

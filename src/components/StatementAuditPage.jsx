@@ -392,7 +392,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     </div>
   )
   const th = (t, right) => <th style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: right ? 'right' : 'left', padding: '6px 8px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{t}</th>
-  const td = (content, opts = {}) => <td style={{ fontFamily: opts.mono === false ? undefined : MONO, fontSize: 11, color: opts.color || T.text, textAlign: opts.right ? 'right' : 'left', padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, whiteSpace: opts.wrap ? 'normal' : 'nowrap', maxWidth: opts.max || undefined, overflow: 'hidden', textOverflow: 'ellipsis' }} title={opts.title}>{content}</td>
+  const td = (content, opts = {}) => <td style={{ fontFamily: opts.mono === false ? undefined : MONO, fontSize: 11, color: opts.color || T.text, textAlign: opts.right ? 'right' : 'left', padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, whiteSpace: opts.wrap ? 'normal' : 'nowrap', maxWidth: opts.max || undefined, overflow: 'hidden', textOverflow: 'ellipsis' }} title={opts.title} data-label={opts.label}>{content}</td>
 
   function totalsGrid(check) {
     const t = check.totals
@@ -436,7 +436,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
   function lineTable(list, { decisions = null, editable = false } = {}) {
     return (
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead><tr>
             {th('#')}{th('Type')}{th('Property (as shown)')}{th('Tenant')}{th('Period')}{th('Date')}
             {th('Gross rent', true)}{th('Fee', true)}{th('VAT', true)}{th('Deduction', true)}{th('Credit', true)}{th('Net', true)}
@@ -453,24 +453,24 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               const feeNote = chk ? describeFeeCheck(chk) : ''
               return (
                 <tr key={l.id || i} style={{ opacity: NON_COUNTING_REVIEW.has(l.review_status) && !decisions ? 0.55 : 1 }}>
-                  {td(l.line_no ?? i + 1, { color: T.muted })}
-                  {td(LINE_TYPE_LABEL[l.line_type] || l.line_type, { color: ['rent', 'arrears', 'other_income'].includes(l.line_type) ? T.green : l.line_type === 'transfer' ? T.blue : T.amber })}
-                  {td(l.property_address || <span style={{ color: T.red }}>missing</span>, { max: 260, title: l.property_address })}
-                  {td(l.tenant_name || (['rent', 'arrears', 'other_income'].includes(l.line_type) ? <span style={{ color: T.amber }}>not shown</span> : '-'), { max: 220, title: l.tenant_name })}
-                  {td(l.period_start ? `${fmtDate(l.period_start)} - ${fmtDate(l.period_end)}` : (l.line_type === 'rent' ? <span style={{ color: T.amber }}>missing</span> : '-'))}
-                  {td(fmtDate(l.transaction_date || l.statement_date), { color: T.muted })}
-                  {td(l.gross_rent ? fmt(l.gross_rent) : '', { right: true })}
-                  {td(l.fee_amount ? fmt(l.fee_amount) + (l.fee_pct != null ? ` (${l.fee_pct}%)` : '') : '', { right: true })}
-                  {td(l.vat_amount ? fmt(l.vat_amount) : '', { right: true })}
-                  {td(l.deduction_amount ? fmt(l.deduction_amount) : '', { right: true })}
-                  {td(l.credit_amount ? fmt(l.credit_amount) : '', { right: true })}
-                  {td(l.line_type === 'transfer' ? <span style={{ color: T.blue }}>{fmt(l.net_amount)} paid</span> : fmt(l.net_amount), { right: true, color: l.net_amount < 0 ? T.amber : T.text })}
-                  <td style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22` }}>
+                  {td(l.line_no ?? i + 1, { color: T.muted, label: '#' })}
+                  {td(LINE_TYPE_LABEL[l.line_type] || l.line_type, { color: ['rent', 'arrears', 'other_income'].includes(l.line_type) ? T.green : l.line_type === 'transfer' ? T.blue : T.amber, label: 'Type' })}
+                  {td(l.property_address || <span style={{ color: T.red }}>missing</span>, { max: 260, title: l.property_address, label: 'Property' })}
+                  {td(l.tenant_name || (['rent', 'arrears', 'other_income'].includes(l.line_type) ? <span style={{ color: T.amber }}>not shown</span> : '-'), { max: 220, title: l.tenant_name, label: 'Tenant' })}
+                  {td(l.period_start ? `${fmtDate(l.period_start)} - ${fmtDate(l.period_end)}` : (l.line_type === 'rent' ? <span style={{ color: T.amber }}>missing</span> : '-'), { label: 'Period' })}
+                  {td(fmtDate(l.transaction_date || l.statement_date), { color: T.muted, label: 'Date' })}
+                  {td(l.gross_rent ? fmt(l.gross_rent) : '', { right: true, label: 'Gross rent' })}
+                  {td(l.fee_amount ? fmt(l.fee_amount) + (l.fee_pct != null ? ` (${l.fee_pct}%)` : '') : '', { right: true, label: 'Fee' })}
+                  {td(l.vat_amount ? fmt(l.vat_amount) : '', { right: true, label: 'VAT' })}
+                  {td(l.deduction_amount ? fmt(l.deduction_amount) : '', { right: true, label: 'Deduction' })}
+                  {td(l.credit_amount ? fmt(l.credit_amount) : '', { right: true, label: 'Credit' })}
+                  {td(l.line_type === 'transfer' ? <span style={{ color: T.blue }}>{fmt(l.net_amount)} paid</span> : fmt(l.net_amount), { right: true, color: l.net_amount < 0 ? T.amber : T.text, label: 'Net' })}
+                  <td data-label={decisions ? 'Result' : 'Status'} style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22` }}>
                     {pill(d ? DECISION_LABEL[rs] : (REVIEW_LABEL[rs] || rs), colour)}
                     {d?.note && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>{d.note}</div>}
                     {!d && l.error_reason && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3, maxWidth: 260, whiteSpace: 'normal' }}>{l.error_reason}</div>}
                   </td>
-                  <td style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, maxWidth: 220, whiteSpace: 'normal' }}>
+                  <td data-label="Flags" style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, maxWidth: 220, whiteSpace: 'normal' }}>
                     {flags.length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber }}>{[...new Set(flags)].map(f => FLAG_LABEL[f] || f.replace(/_/g, ' ')).join(', ')}</div>}
                     {feeNote && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: chk.ok ? T.green : T.amber, marginTop: 2 }}>{feeNote}</div>}
                   </td>
@@ -768,7 +768,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               </select>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead><tr>{th('No.')}{th('Date')}{th('Status')}{th('Lines', true)}{th('Transferred', true)}{th('Expected', true)}{th('Difference', true)}{th('Balances')}{th('Checked?')}{th('Checked by')}{th('Corr.')}{th('Bank')}{th('')}</tr></thead>
                 <tbody>
                   {filteredRows.map(({ s, ls, check, errors }) => {
@@ -776,24 +776,24 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     const counted = ls.filter(l => !NON_COUNTING_REVIEW.has(l.review_status)).length
                     return (
                       <tr key={s.id} style={{ background: isSel ? T.gold + '14' : 'transparent', cursor: 'pointer' }} {...pressable(() => setSelectedId(isSel ? null : s.id), { role: null, 'aria-selected': isSel })}>
-                        {td(<b>{s.statement_number}</b>)}
-                        {td(fmtDate(s.statement_date) || '-', { color: T.muted })}
-                        <td style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
+                        {td(<b>{s.statement_number}</b>, { label: 'No.' })}
+                        {td(fmtDate(s.statement_date) || '-', { color: T.muted, label: 'Date' })}
+                        <td data-label="Status" style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
                           <select value={s.status} onChange={e => patchStatement(s, { status: e.target.value })} style={{ width: 'auto', fontSize: FS.xs, padding: '3px 6px', color: colours[s.status], fontWeight: 700, background: T.bg }}>
                             {STATEMENT_STATUSES.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                           </select>
                         </td>
-                        {td(s.status === 'not_uploaded' ? '-' : `${counted}${ls.length !== counted ? ` (+${ls.length - counted})` : ''}${errors.length ? ` · ${errors.length} err` : ''}`, { right: true, color: errors.length ? T.red : T.text })}
-                        {td(s.payment_amount == null ? '-' : fmt(s.payment_amount), { right: true })}
-                        {td(check ? fmt(check.expected) : '-', { right: true })}
-                        {td(check && check.difference != null ? fmt(check.difference) : '-', { right: true, color: check && !check.balances ? T.red : T.green })}
-                        {td(check ? pill(check.balances ? 'Yes' : 'No', check.balances ? T.green : T.red) : '')}
-                        <td style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
+                        {td(s.status === 'not_uploaded' ? '-' : `${counted}${ls.length !== counted ? ` (+${ls.length - counted})` : ''}${errors.length ? ` · ${errors.length} err` : ''}`, { right: true, color: errors.length ? T.red : T.text, label: 'Lines' })}
+                        {td(s.payment_amount == null ? '-' : fmt(s.payment_amount), { right: true, label: 'Transferred' })}
+                        {td(check ? fmt(check.expected) : '-', { right: true, label: 'Expected' })}
+                        {td(check && check.difference != null ? fmt(check.difference) : '-', { right: true, color: check && !check.balances ? T.red : T.green, label: 'Difference' })}
+                        {td(check ? pill(check.balances ? 'Yes' : 'No', check.balances ? T.green : T.red) : '', { label: 'Balances' })}
+                        <td data-label="Checked?" style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
                           {yesNo(!!s.statement_checked, v => patchStatement(s, { statement_checked: v, checked_by: v ? (s.checked_by || user?.email || '') : s.checked_by, checked_at: v ? (s.checked_at || today()) : s.checked_at }), s.status === 'not_uploaded')}
                         </td>
-                        {td(s.checked_by ? `${s.checked_by}${s.checked_at ? ' · ' + fmtDate(s.checked_at) : ''}` : '', { color: T.muted, max: 200, title: s.checked_by })}
-                        {td(s.correction_required ? pill('Yes', T.amber) : <span style={{ color: T.faint }}>No</span>)}
-                        {td(s.bank_payment_matched ? pill('Yes', T.green) : <span style={{ color: T.faint }}>No</span>)}
+                        {td(s.checked_by ? `${s.checked_by}${s.checked_at ? ' · ' + fmtDate(s.checked_at) : ''}` : '', { color: T.muted, max: 200, title: s.checked_by, label: 'Checked by' })}
+                        {td(s.correction_required ? pill('Yes', T.amber) : <span style={{ color: T.faint }}>No</span>, { label: 'Corr.' })}
+                        {td(s.bank_payment_matched ? pill('Yes', T.green) : <span style={{ color: T.faint }}>No</span>, { label: 'Bank' })}
                         {td(<span style={{ color: T.goldText }}>{isSel ? 'Close' : 'Open'}</span>)}
                       </tr>
                     )

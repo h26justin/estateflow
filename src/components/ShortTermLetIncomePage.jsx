@@ -710,7 +710,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+                    <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 0 : 760 }}>
                       <thead><tr>
                         <th style={th}>Check-in</th><th style={th}>Check-out</th><th style={{ ...th, textAlign: 'right' }}>Nights</th>
                         <th style={th}>Room</th><th style={th}>Channel</th><th style={th}>Reference</th><th style={th}>Guest</th>
@@ -723,23 +723,23 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                           const prop = propById[b.property_id]
                           return (
                             <tr key={b.id} style={{ opacity: rev ? 1 : 0.6 }}>
-                              <td style={td}>{fmtDate(b.arrival)}</td>
-                              <td style={td}>{fmtDate(b.departure)}</td>
-                              <td style={tdR}>{bookingNights(b)}</td>
-                              <td style={{ ...td, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <td data-label="Check-in" style={td}>{fmtDate(b.arrival)}</td>
+                              <td data-label="Check-out" style={td}>{fmtDate(b.departure)}</td>
+                              <td data-label="Nights" style={tdR}>{bookingNights(b)}</td>
+                              <td data-label="Room" style={{ ...td, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {prop && openDetail
                                   ? <button onClick={() => openDetail(prop, 'rent')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: T.text, fontFamily: MONO, fontSize: 12, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>{roomLabel(b)}</button>
                                   : roomLabel(b)}
                               </td>
-                              <td style={td}>{channelLabel(b.source)}</td>
-                              <td style={{ ...td, color: T.muted }}>{bookingReference(b)}</td>
-                              <td style={td}>{guestDisplayName(b.guest_name)}</td>
-                              <td style={{ ...tdR, fontWeight: rev ? 600 : 400, textDecoration: rev ? 'none' : 'line-through', color: rev ? T.text : T.faint }}>{fmtMoney(b.total_amount)}</td>
+                              <td data-label="Channel" style={td}>{channelLabel(b.source)}</td>
+                              <td data-label="Reference" style={{ ...td, color: T.muted }}>{bookingReference(b)}</td>
+                              <td data-label="Guest" style={td}>{guestDisplayName(b.guest_name)}</td>
+                              <td data-label="Gross" style={{ ...tdR, fontWeight: rev ? 600 : 400, textDecoration: rev ? 'none' : 'line-through', color: rev ? T.text : T.faint }}>{fmtMoney(b.total_amount)}</td>
                               {(() => { const f = effectiveFees(b, rates); return (<>
-                              <td style={{ ...tdR, color: rev && f.total ? T.red : T.faint, fontStyle: f.estimated ? 'italic' : 'normal' }} title={f.known ? `Channel ${fmtMoney(f.channel)}${f.hostaway ? ` · Hostaway ${fmtMoney(f.hostaway)}` : ''}` : f.estimated ? `Estimated at ${f.rate}% until the channel reports it` : 'No fee reported'}>{rev ? (f.total ? `${fmtMoney(-f.total)}${f.estimated ? '*' : ''}` : (f.known ? fmtMoney(0) : '—')) : '·'}</td>
-                              <td style={{ ...tdR, fontWeight: rev ? 600 : 400, color: rev ? T.green : T.faint }}>{rev ? fmtMoney(bookingNetAfterFees(b, rates)) : '·'}</td>
+                              <td data-label="Fee" style={{ ...tdR, color: rev && f.total ? T.red : T.faint, fontStyle: f.estimated ? 'italic' : 'normal' }} title={f.known ? `Channel ${fmtMoney(f.channel)}${f.hostaway ? ` · Hostaway ${fmtMoney(f.hostaway)}` : ''}` : f.estimated ? `Estimated at ${f.rate}% until the channel reports it` : 'No fee reported'}>{rev ? (f.total ? `${fmtMoney(-f.total)}${f.estimated ? '*' : ''}` : (f.known ? fmtMoney(0) : '—')) : '·'}</td>
+                              <td data-label="Net" style={{ ...tdR, fontWeight: rev ? 600 : 400, color: rev ? T.green : T.faint }}>{rev ? fmtMoney(bookingNetAfterFees(b, rates)) : '·'}</td>
                               </>) })()}
-                              <td style={td}>{statusPill(b)}</td>
+                              <td data-label="Status" style={td}>{statusPill(b)}</td>
                               {canAdd && (
                                 <td style={{ ...td, textAlign: 'right' }}>
                                   {rev && prop && canEditCompany(prop.company_id) && (
@@ -972,7 +972,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
+                    <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 0 : 680 }}>
                       <thead><tr>
                         <th style={th}>Date</th><th style={th}>Property</th><th style={th}>Kind</th><th style={th}>Channel</th><th style={th}>Reference</th><th style={th}>Booking</th><th style={th}>Notes</th>
                         <th style={{ ...th, textAlign: 'right' }}>Amount</th>{canAdd && <th style={th}></th>}
@@ -983,14 +983,14 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                           const prop = propById[a.property_id]
                           return (
                             <tr key={a.id}>
-                              <td style={td}>{fmtDate(a.adjustment_date)}</td>
-                              <td style={td}>{propLabel(a.property_id)}</td>
-                              <td style={td}>{ADJUSTMENT_KINDS.find(k => k.v === a.kind)?.l || a.kind}</td>
-                              <td style={td}>{a.channel || '—'}</td>
-                              <td style={{ ...td, color: T.muted }}>{a.reference || '—'}</td>
-                              <td style={{ ...td, color: T.muted }}>{bkg ? `${fmtDateShort(bkg.arrival)} · ${guestDisplayName(bkg.guest_name)}` : '—'}</td>
-                              <td style={{ ...td, whiteSpace: 'normal', maxWidth: 260, color: T.muted }}>{a.notes || ''}</td>
-                              <td style={{ ...tdR, fontWeight: 600, color: Number(a.amount) < 0 ? T.red : T.green }}>{fmtMoney(a.amount)}</td>
+                              <td data-label="Date" style={td}>{fmtDate(a.adjustment_date)}</td>
+                              <td data-label="Property" style={td}>{propLabel(a.property_id)}</td>
+                              <td data-label="Kind" style={td}>{ADJUSTMENT_KINDS.find(k => k.v === a.kind)?.l || a.kind}</td>
+                              <td data-label="Channel" style={td}>{a.channel || '—'}</td>
+                              <td data-label="Reference" style={{ ...td, color: T.muted }}>{a.reference || '—'}</td>
+                              <td data-label="Booking" style={{ ...td, color: T.muted }}>{bkg ? `${fmtDateShort(bkg.arrival)} · ${guestDisplayName(bkg.guest_name)}` : '—'}</td>
+                              <td data-label="Notes" style={{ ...td, whiteSpace: 'normal', maxWidth: 260, color: T.muted }}>{a.notes || ''}</td>
+                              <td data-label="Amount" style={{ ...tdR, fontWeight: 600, color: Number(a.amount) < 0 ? T.red : T.green }}>{fmtMoney(a.amount)}</td>
                               {canAdd && (
                                 <td style={{ ...td, textAlign: 'right' }}>
                                   {prop && canEditCompany(prop.company_id) && (
