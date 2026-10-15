@@ -50,7 +50,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const colours = STATUS_COLOUR(T)
-  const fileRef = useRef()
+  const fileRef = useRef(null)
 
   const [series, setSeries] = useState([])
   const [seriesKey, setSeriesKey] = useState(null)

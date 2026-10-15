@@ -43,7 +43,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
   // Learned label -> property mappings, so a spelling corrected once matches
   // outright next time. An empty list on failure falls back to name scoring.
   const [aliases, setAliases] = useState([])
-  const fileRef = useRef()
+  const fileRef = useRef(null)
 
   useEffect(() => {
     let live = true
