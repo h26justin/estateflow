@@ -776,6 +776,16 @@ var ALIAS_TO_KEY = (() => {
 })();
 var canonicalCertType = (t) => ALIAS_TO_KEY[String(t || "").toLowerCase()] || t;
 
+// src/lib/subscriptionLive.js
+function subscriptionGrantsLive(sub, now = /* @__PURE__ */ new Date()) {
+  if (!sub) return false;
+  if (sub.status === "active" || sub.status === "past_due") return true;
+  if (sub.status !== "trialing") return false;
+  if (sub.stripe_subscription_id) return true;
+  const end = sub.current_period_end ? new Date(sub.current_period_end).getTime() : 0;
+  return end > now.getTime();
+}
+
 // src/lib/weeklySummary.js
 var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 var round22 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -810,7 +820,7 @@ var money0 = (n) => "\xA3" + Math.round(Number(n) || 0).toLocaleString("en-GB");
 function companyIsLive(company, subscriptions = [], now = /* @__PURE__ */ new Date()) {
   if (!company || company.deleted_at) return false;
   if (company.is_free_tier === true) return true;
-  if ((subscriptions || []).some((s) => s.company_id === company.id && ["active", "trialing", "past_due"].includes(s.status))) return true;
+  if ((subscriptions || []).some((s) => s.company_id === company.id && subscriptionGrantsLive(s, now))) return true;
   const end = company.trial_ends_at ? new Date(company.trial_ends_at).getTime() : 0;
   return end > now.getTime();
 }

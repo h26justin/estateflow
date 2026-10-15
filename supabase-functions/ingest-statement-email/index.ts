@@ -83,8 +83,10 @@ function base64Bytes(b64: string): number {
 }
 
 // Mirrors public.company_is_live (2026-06-10_security_01_helpers.sql) for the
-// service role: live while an active / trialing / past_due subscription
-// exists, the company is free-tier, or its trial hasn't ended. Never run paid
+// service role (as hardened in 2026-10-15_billing_trialing_guard.sql): live
+// while an active / past_due subscription exists, or a trialing one backed by
+// Stripe (subscription id or a billing period not yet ended), the company is
+// free-tier, or its trial hasn't ended. Never run paid
 // AI for a company that isn't live.
 async function companyIsLive(companyId: string): Promise<boolean> {
   const { data: co } = await admin
@@ -96,11 +98,12 @@ async function companyIsLive(companyId: string): Promise<boolean> {
   if (co?.trial_ends_at && new Date(co.trial_ends_at).getTime() > Date.now()) return true
   const { data: subs } = await admin
     .from('subscriptions')
-    .select('id')
+    .select('status, stripe_subscription_id, current_period_end')
     .eq('company_id', companyId)
     .in('status', ['active', 'trialing', 'past_due'])
-    .limit(1)
-  return (subs || []).length > 0
+  const now = Date.now()
+  return (subs || []).some(s => s.status !== 'trialing' || !!s.stripe_subscription_id ||
+    (!!s.current_period_end && new Date(s.current_period_end).getTime() > now))
 }
 
 // Keep background work alive after the response is sent. On Supabase,

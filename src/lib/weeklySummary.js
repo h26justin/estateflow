@@ -19,6 +19,7 @@
 import { evaluateProperty, arrearsSummary, monthBounds, addDays, STATE, GO_LIVE } from './rentEngine'
 import { getEffectivePermissions } from './api/roles'
 import { CATALOGUE_BY_KEY, canonicalCertType } from './complianceCatalogue'
+import { subscriptionGrantsLive } from './subscriptionLive'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const round2 = n => Math.round((Number(n) || 0) * 100) / 100
@@ -51,14 +52,16 @@ export function dateShort(iso) {
 }
 export const money0 = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
 
-// Mirrors public.company_is_live (2026-06-10_security_01_helpers.sql) without
-// the developer / platform-admin bypass, which does not apply to an email:
-// live while an active / trialing / past_due subscription exists, the company
-// is free tier, or its in-app trial has not ended.
+// Mirrors public.company_is_live (as hardened in
+// 2026-10-15_billing_trialing_guard.sql) without the developer /
+// platform-admin bypass, which does not apply to an email: live while a
+// subscription grants it (subscriptionGrantsLive: active / past_due, or
+// trialing backed by Stripe), the company is free tier, or its in-app trial
+// has not ended.
 export function companyIsLive(company, subscriptions = [], now = new Date()) {
   if (!company || company.deleted_at) return false
   if (company.is_free_tier === true) return true
-  if ((subscriptions || []).some(s => s.company_id === company.id && ['active', 'trialing', 'past_due'].includes(s.status))) return true
+  if ((subscriptions || []).some(s => s.company_id === company.id && subscriptionGrantsLive(s, now))) return true
   const end = company.trial_ends_at ? new Date(company.trial_ends_at).getTime() : 0
   return end > now.getTime()
 }

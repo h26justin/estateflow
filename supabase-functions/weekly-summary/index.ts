@@ -119,7 +119,7 @@ async function loadUser(admin: any, userId: string, now: Date) {
   const companies = [...owned, ...shared]
   const allIds = companies.map((c: any) => c.id)
   const subscriptions = allIds.length
-    ? await allRows((a, b) => admin.from('subscriptions').select('company_id,status').in('company_id', allIds).order('company_id').range(a, b))
+    ? await allRows((a, b) => admin.from('subscriptions').select('company_id,status,stripe_subscription_id,current_period_end').in('company_id', allIds).order('company_id').range(a, b))
     : []
   const scoped = scopeCompanies({ userId, companies, access, subscriptions, now })
   if (!scoped.length) return { scoped, properties: [], complianceItems: [] }

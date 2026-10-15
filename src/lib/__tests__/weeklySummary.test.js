@@ -38,6 +38,9 @@ describe('companyIsLive / scopeCompanies', () => {
     expect(companyIsLive({ id: 'a' }, [{ company_id: 'a', status: 'canceled' }], NOW)).toBe(false)
     expect(companyIsLive({ id: 'a' }, [{ company_id: 'b', status: 'active' }], NOW)).toBe(false)
     expect(companyIsLive({ id: 'a', is_free_tier: true, deleted_at: '2026-10-01' }, [], NOW)).toBe(false)
+    // A bare 'trialing' row (checkout opened, never paid) is not live; one backed by Stripe is.
+    expect(companyIsLive({ id: 'a' }, [{ company_id: 'a', status: 'trialing' }], NOW)).toBe(false)
+    expect(companyIsLive({ id: 'a' }, [{ company_id: 'a', status: 'trialing', stripe_subscription_id: 'sub_1' }], NOW)).toBe(true)
   })
 
   it('keeps only owned or granted, live companies', () => {
