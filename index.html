@@ -229,8 +229,13 @@
       /* Cookie consent banner (rendered by /src/main.jsx). Styles kept
          inline so the banner can show during the React-hydration window
          before our component tree is ready. */
+      /* z-index sits above page chrome (sticky nav / mobile tab bar: 100) but
+         below every modal overlay (app .overlay 200, sign-in 1000, confirm
+         2000) — at max z-index it used to cover the sign-in form on phones.
+         While a modal dialog is open the banner is hidden outright so it
+         can't be tabbed into behind the focus trap. */
       #op-cookie-banner {
-        position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483647;
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 150;
         background: #1A2530; color: #fff; padding: 18px 22px;
         font-family: 'DM Mono', monospace; font-size: 13px; line-height: 1.6;
         box-shadow: 0 -8px 24px rgba(0,0,0,0.25);
@@ -245,6 +250,8 @@
       }
       #op-cookie-banner .op-cookie-accept { background: #C8A84B; color: #1A2530; }
       #op-cookie-banner .op-cookie-reject { background: transparent; color: #B0BEC5; border: 1px solid #B0BEC5; }
+      body:has([aria-modal="true"]) #op-cookie-banner { display: none; }
+      #op-cookie-banner button:focus-visible, #op-cookie-banner a:focus-visible { outline: 2px solid #F4F3EF; outline-offset: 2px; }
       @media (max-width: 600px) { #op-cookie-banner { padding: 14px 16px; } #op-cookie-banner p { font-size: 12px; flex-basis: 100%; } }
     </style>
 
@@ -269,31 +276,12 @@
     <!-- Google consent mode v2 — default-deny everything until the user
          accepts. The cookie banner below flips these to 'granted' on
          accept and persists the choice in localStorage. -->
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('consent', 'default', {
-        'ad_storage': 'denied',
-        'ad_user_data': 'denied',
-        'ad_personalization': 'denied',
-        'analytics_storage': 'denied',
-        'functionality_storage': 'granted',
-        'security_storage': 'granted',
-        'wait_for_update': 500,
-      });
-      // Honour any prior consent from localStorage so returning visitors
-      // don't see the banner again.
-      try {
-        var prior = JSON.parse(localStorage.getItem('op_cookie_consent') || 'null');
-        if (prior && prior.v === 1 && prior.choice === 'accept') {
-          gtag('consent', 'update', {
-            'ad_storage': 'granted', 'ad_user_data': 'granted',
-            'ad_personalization': 'granted', 'analytics_storage': 'granted',
-          });
-        }
-      } catch (e) {}
-    </script>
+    <script src="/js/consent-default.js"></script>
 
+    <!-- CSP NOTE: script-src has no 'unsafe-inline' (vercel.json). Any snippet
+         below must be moved into a file under public/js/ (and its host added
+         to script-src / connect-src) before it is enabled; inline <script>
+         blocks and on* attributes will be blocked. -->
     <!-- Google Analytics 4 — PLACEHOLDER. Replace G-XXXXXXXXXX with your
          GA4 measurement ID after you create the property at
          analytics.google.com. Until then this is a no-op (404 on the JS
@@ -340,69 +328,9 @@
          fails to load. Gated by localStorage so returning visitors aren't
          re-prompted. ICO/PECR-compliant: explicit reject is just as easy
          as accept; analytics/ads do not fire until accept. -->
-    <script>
-    (function() {
-      try {
-        var prior = JSON.parse(localStorage.getItem('op_cookie_consent') || 'null');
-        if (prior && prior.v === 1) return; // already decided
-      } catch (e) {}
-
-      function persist(choice) {
-        try { localStorage.setItem('op_cookie_consent', JSON.stringify({ v:1, choice: choice, at: Date.now() })); } catch (e) {}
-        var b = document.getElementById('op-cookie-banner');
-        if (b) b.remove();
-      }
-
-      function accept() {
-        persist('accept');
-        if (typeof gtag === 'function') {
-          gtag('consent', 'update', {
-            'ad_storage': 'granted', 'ad_user_data': 'granted',
-            'ad_personalization': 'granted', 'analytics_storage': 'granted',
-          });
-        }
-        if (typeof fbq === 'function') { fbq('consent', 'grant'); }
-      }
-
-      function reject() {
-        persist('reject');
-        // gtag default is already 'denied' — nothing else to do.
-      }
-
-      function render() {
-        var banner = document.createElement('div');
-        banner.id = 'op-cookie-banner';
-        banner.setAttribute('role', 'dialog');
-        banner.setAttribute('aria-label', 'Cookie consent');
-        banner.innerHTML =
-          '<p>We use cookies to understand how visitors use Properly and to measure our advertising. ' +
-          'Analytics and ads use cookies; essential cookies (sign-in session) always work. ' +
-          '<a href="/privacy" target="_blank" rel="noopener">Read our privacy policy</a>.</p>' +
-          '<div class="op-cookie-actions">' +
-          '  <button class="op-cookie-reject" type="button">Reject non-essential</button>' +
-          '  <button class="op-cookie-accept" type="button">Accept all</button>' +
-          '</div>';
-        document.body.appendChild(banner);
-        banner.querySelector('.op-cookie-accept').addEventListener('click', accept);
-        banner.querySelector('.op-cookie-reject').addEventListener('click', reject);
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', render);
-      } else {
-        render();
-      }
-    })();
-    </script>
+    <script src="/js/cookie-banner.js"></script>
 
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        // A worker script may not sit behind a redirect (apex -> www), so on the bare host this rejects; swallow it.
-        navigator.serviceWorker.register('/sw.js').catch(() => {})
-      })
-    }
-    </script>
+    <script src="/js/sw-register.js" defer></script>
   </body>
 </html>

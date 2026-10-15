@@ -20,15 +20,15 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, obj } from './anthropic.ts'
 
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
 const ANON_KEY          = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
 
-// Reuse the same model constants as extract-document for consistency.
-const MODEL_PRIMARY  = 'claude-sonnet-4-5'
-const MODEL_FALLBACK = 'claude-opus-4-7'
+// Standard tier (./anthropic.ts); escalates only on an unparseable /
+// off-schema answer. Per-user cap via ai_usage.
+const RATE_LIMIT = { perHour: 10, perDay: 40 }
 
 const TARGET_RATING = 'C'
 const DEADLINE      = '2030-12-31'
@@ -50,6 +50,24 @@ function jsonError(status: number, message: string) {
 
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
+const PLAN_SCHEMA = obj({
+  assumed_current_rating: { type: 'string', enum: RATINGS },
+  measures: {
+    type: 'array',
+    items: obj({
+      name: { type: 'string' },
+      category: { type: 'string', enum: ['insulation', 'heating', 'glazing', 'renewables', 'controls', 'ventilation', 'other'] },
+      rough_cost_gbp: { type: 'number' },
+      expected_sap_uplift: { type: 'number' },
+      priority: { type: 'integer' },
+      notes: { type: 'string' },
+    }),
+  },
+  est_total_cost_gbp: { type: 'number' },
+  projected_rating_after: { type: 'string', enum: RATINGS },
+  summary: { type: 'string' },
+})
+
 function normaliseRating(r: unknown): string | null {
   if (typeof r !== 'string') return null
   const up = r.trim().toUpperCase()
@@ -67,7 +85,7 @@ Property details:
 
 Produce a PRIORITISED retrofit plan: the cheapest, most cost-effective route to reach band ${TARGET_RATING}. Order measures by best SAP-uplift-per-pound first ("fabric first"). Use realistic UK installed-cost ranges (2026 money). Be conservative — these are rough planning estimates, not quotes.
 
-Return ONLY a single JSON object, no markdown fences, with this shape:
+Return a single JSON object with this shape:
 {
   "assumed_current_rating": "A|B|C|D|E|F|G",
   "measures": [
@@ -90,40 +108,6 @@ Rules:
 - "priority" is 1-based, 1 = do first.
 - "est_total_cost_gbp" must equal the sum of the measures' rough_cost_gbp.
 - All costs are GBP integers, no currency symbol.`
-}
-
-async function callClaude(model: string, prompt: string): Promise<any> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
-    }),
-  })
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`Anthropic ${model} ${res.status}: ${errText.slice(0, 300)}`)
-  }
-  const data = await res.json()
-  const textResponse: string = data.content?.[0]?.text || ''
-  const clean = textResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-  try {
-    return JSON.parse(clean)
-  } catch (e) {
-    return { _parse_error: (e as Error).message, _raw_response: textResponse }
-  }
-}
-
-function needsFallback(plan: any): boolean {
-  if (!plan || plan._parse_error) return true
-  if (!Array.isArray(plan.measures) || plan.measures.length === 0) return true
-  return false
 }
 
 serve(async (req) => {
@@ -182,15 +166,29 @@ serve(async (req) => {
       source = 'epc_register'
     }
 
-    // Ask Claude for the prioritised plan; fall back to Opus on a poor first pass.
-    const prompt = buildPrompt(currentRating, propertyType, region, floorArea)
-    let plan = await callClaude(MODEL_PRIMARY, prompt)
-    let modelUsed = MODEL_PRIMARY
-    if (needsFallback(plan)) {
-      plan = await callClaude(MODEL_FALLBACK, prompt)
-      modelUsed = MODEL_FALLBACK
+    const gate = await checkAiRateLimit(admin, caller.id, 'epc-planner', RATE_LIMIT)
+    if (!gate.allowed) {
+      return new Response(JSON.stringify({ error: gate.message }), {
+        status: gate.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(gate.retryAfterSec) },
+      })
     }
-    if (needsFallback(plan)) {
+
+    // Ask Claude for the prioritised plan. Structured output; escalation only
+    // if the answer cannot be parsed / does not match the schema.
+    const prompt = buildPrompt(currentRating, propertyType, region, floorArea)
+    let aiResult
+    try {
+      aiResult = await callClaudeWithEscalation<any>({
+        tier: 'standard', content: prompt, maxTokens: 8000, schema: PLAN_SCHEMA, timeoutMs: 90_000,
+      })
+    } catch (e) {
+      return jsonError(502, 'AI could not produce a retrofit plan: ' + (e as Error).message)
+    }
+    await recordAiUsage(admin, gate.usageId, aiResult)
+    const plan = aiResult.data
+    const modelUsed = aiResult.model
+    if (!Array.isArray(plan?.measures) || plan.measures.length === 0) {
       return jsonError(502, 'AI could not produce a retrofit plan. Please try again.')
     }
 

@@ -4,6 +4,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import { SignedPhoto } from '../lib/SignedPhoto'
 
 // ── INSPECTIONS PANEL ────────────────────────────────────────────────
@@ -41,11 +42,19 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const fileRef = useRef(null)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [propertyId])
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
-    try { setItems(await api.fetchInspections(propertyId)) }
-    catch (e) { showAppToast(e.message || 'Failed to load inspections', 'error') }
+    try {
+      const rows = await api.fetchInspections(propertyId)
+      if (!isCurrent()) return
+      setItems(rows)
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast(e.message || 'Failed to load inspections', 'error')
+    }
     setLoading(false)
   }
 
@@ -138,29 +147,29 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
               <div className="g2">
                 <div>
                   <label>Type</label>
-                  <select value={form.inspection_type} onChange={e => setForm(f => ({ ...f, inspection_type: e.target.value }))}>
+                  <select aria-label="Type" value={form.inspection_type} onChange={e => setForm(f => ({ ...f, inspection_type: e.target.value }))}>
                     {INSPECTION_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label>Scheduled date</label>
-                  <input type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}/>
+                  <input aria-label="Scheduled date" type="date" value={form.scheduled_date} onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}/>
                 </div>
               </div>
               <div className="g2" style={{ marginTop: 10 }}>
                 <div>
                   <label>Completed date <span style={{ color: T.muted, fontWeight: 400 }}>(leave blank if scheduled)</span></label>
-                  <input type="date" value={form.completed_date} onChange={e => setForm(f => ({ ...f, completed_date: e.target.value }))}/>
+                  <input aria-label="Completed date" type="date" value={form.completed_date} onChange={e => setForm(f => ({ ...f, completed_date: e.target.value }))}/>
                 </div>
                 <div>
                   <label>Inspector name</label>
-                  <input value={form.inspector_name} onChange={e => setForm(f => ({ ...f, inspector_name: e.target.value }))} placeholder="e.g. Jane Smith"/>
+                  <input aria-label="Inspector name" value={form.inspector_name} onChange={e => setForm(f => ({ ...f, inspector_name: e.target.value }))} placeholder="e.g. Jane Smith"/>
                 </div>
               </div>
               {form.completed_date && (
                 <div style={{ marginTop: 10 }}>
                   <label>Overall condition</label>
-                  <select value={form.overall_condition} onChange={e => setForm(f => ({ ...f, overall_condition: e.target.value }))}>
+                  <select aria-label="Overall condition" value={form.overall_condition} onChange={e => setForm(f => ({ ...f, overall_condition: e.target.value }))}>
                     <option value="">— not rated —</option>
                     {CONDITIONS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                   </select>
@@ -168,7 +177,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
               )}
               <div style={{ marginTop: 10 }}>
                 <label>Notes</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} style={{ resize: 'vertical' }} placeholder="Observations, repairs needed, tenant comments..."/>
+                <textarea aria-label="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} style={{ resize: 'vertical' }} placeholder="Observations, repairs needed, tenant comments..."/>
               </div>
 
               {/* Photos */}
@@ -185,7 +194,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
                 {form.photos?.length > 0 && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 6, marginTop: 8 }}>
                     {form.photos.map((p, i) => (
-                      <div key={i} style={{ position: 'relative' }}>
+                      <div key={p.path || p.url || i} style={{ position: 'relative' }}>
                         <SignedPhoto path={p.path} url={p.url} wrapAnchor={false} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 6, border: `1px solid ${T.border}` }}/>
                         <button onClick={() => removePhoto(i)} title="Remove"
                           aria-label="Remove photo" style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: 10, width: 18, height: 18, fontSize: 11, lineHeight: 1, cursor: 'pointer', padding: 0 }}>×</button>

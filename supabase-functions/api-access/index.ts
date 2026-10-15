@@ -6,7 +6,8 @@
 //   1. Token management routes — require a normal Supabase user JWT
 //      (called from the app's Settings → Security → API Access panel):
 //        POST   /api-access/tokens        { name?, expires_in_days? }
-//                 → mints a token, returns { token } ONCE plus metadata
+//                 → mints a token, returns { token } ONCE plus metadata.
+//                   expires_in_days defaults to (and is capped at) 365.
 //        GET    /api-access/tokens        → list token metadata
 //        DELETE /api-access/tokens/:id    → revoke (sets revoked_at)
 //
@@ -47,6 +48,11 @@ const TOKEN_PREFIX = 'opat_' // "OwnProperly access token"
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 1000
 const MAX_TOKENS_PER_USER = 10
+// Every token expires. Default (and maximum) lifetime is one year; legacy
+// rows minted without an expiry are treated as expiring a year after
+// created_at.
+const MAX_TOKEN_DAYS = 365
+const DAY_MS = 86_400_000
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -140,9 +146,10 @@ serve(async (req) => {
       try { body = await req.json() } catch { /* empty body is fine */ }
       const name = (typeof body.name === 'string' && body.name.trim().slice(0, 80)) || 'Claude'
       const expiresDays = Number(body.expires_in_days)
-      const expiresAt = Number.isFinite(expiresDays) && expiresDays > 0
-        ? new Date(Date.now() + Math.min(expiresDays, 365) * 86_400_000).toISOString()
-        : null
+      const days = Number.isFinite(expiresDays) && expiresDays > 0
+        ? Math.min(expiresDays, MAX_TOKEN_DAYS)
+        : MAX_TOKEN_DAYS
+      const expiresAt = new Date(Date.now() + days * DAY_MS).toISOString()
 
       const { count } = await admin.from('api_access_tokens')
         .select('id', { count: 'exact', head: true })
@@ -201,11 +208,14 @@ serve(async (req) => {
 
   const tokenHash = await sha256Hex(bearer)
   const { data: tok } = await admin.from('api_access_tokens')
-    .select('id, user_id, scopes, expires_at, revoked_at')
+    .select('id, user_id, scopes, expires_at, revoked_at, created_at')
     .eq('token_hash', tokenHash)
     .maybeSingle()
   if (!tok || tok.revoked_at) return json({ error: 'Invalid or revoked token' }, 401)
-  if (tok.expires_at && new Date(tok.expires_at) < new Date()) return json({ error: 'Token expired' }, 401)
+  const expiryMs = tok.expires_at
+    ? new Date(tok.expires_at).getTime()
+    : new Date(tok.created_at).getTime() + MAX_TOKEN_DAYS * DAY_MS
+  if (!Number.isFinite(expiryMs) || expiryMs <= Date.now()) return json({ error: 'Token expired' }, 401)
   if (!(tok.scopes || []).includes('read')) return json({ error: 'Token lacks read scope' }, 403)
 
   // Fire-and-forget usage stamp.

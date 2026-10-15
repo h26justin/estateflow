@@ -6,15 +6,16 @@
 // portfolio_insights for the widget to read; the widget polls the cached
 // row rather than calling this function on every load.
 //
-// POST (no body required). Caller's JWT identifies the user.
+// POST. Optional body: { company_id?: string } to scope insights to a
+// single company; omitted/null means the caller's full portfolio.
 // Response: { id, insights, stats, generated_at } (the row that was stored).
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { callClaudeWithEscalation, nullable, obj } from './anthropic.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
 
 // Don't allow the same user to regenerate insights more than once every
 // REGEN_COOLDOWN_MIN minutes. Each call costs a few cents in Claude tokens;
@@ -130,9 +131,24 @@ ${dealLines || '(none in progress)'}
   return { summary, stats }
 }
 
-const SYSTEM_PROMPT = `You are an analyst reviewing a UK landlord's property portfolio. Identify 4-7 SPECIFIC, ACTIONABLE observations. Return ONLY valid JSON.
+// Structured-output schema — the shape the widget reads.
+const INSIGHTS_SCHEMA = obj({
+  insights: {
+    type: 'array',
+    items: obj({
+      category: { type: 'string', enum: ['yield', 'rent', 'compliance', 'expenses', 'arrears', 'opportunity', 'risk'] },
+      severity: { type: 'string', enum: ['info', 'opportunity', 'warning', 'critical'] },
+      title: { type: 'string' },
+      body: { type: 'string' },
+      action_label: nullable({ type: 'string' }),
+      action_link: nullable({ type: 'string' }),
+    }),
+  },
+})
 
-Output schema (return EXACTLY this shape, no markdown, no explanation):
+const SYSTEM_PROMPT = `You are an analyst reviewing a UK landlord's property portfolio. Identify 4-7 SPECIFIC, ACTIONABLE observations.
+
+Output shape:
 {
   "insights": [
     {
@@ -168,12 +184,22 @@ serve(async (req) => {
   const caller = userData?.user
   if (userErr || !caller) return jsonError(401, 'Invalid or expired session')
 
+  // Optional company scoping. Body is optional; if absent/malformed we
+  // fall back to the caller's full portfolio (companyId = null).
+  const body = await req.json().catch(() => ({}))
+  const companyId = body?.company_id || null
+
   try {
-    // Rate-limit per user
-    const { data: latest } = await admin
+    // Rate-limit per (user, company). Each scope gets its own cooldown so a
+    // full-portfolio regen doesn't block a per-company one and vice versa.
+    let rateQuery = admin
       .from('portfolio_insights')
       .select('id, generated_at')
       .eq('user_id', caller.id)
+    rateQuery = companyId
+      ? rateQuery.eq('company_id', companyId)
+      : rateQuery.is('company_id', null)
+    const { data: latest } = await rateQuery
       .order('generated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -185,21 +211,44 @@ serve(async (req) => {
       }
     }
 
-    // Pull the data we need. All server-side, scoped to the caller.
+    // Pull the data we need. All server-side, scoped to the caller. When a
+    // company is specified, properties are scoped via company_id and the
+    // other tables are filtered down to that property set after the fact —
+    // safe regardless of whether they carry their own company_id column.
+    let propsQuery = admin
+      .from('properties')
+      .select('id, name, address, prop_type, status, purchase_price, refurb_cost, current_value, est_value, rent_pcm, mortgage_amount, mortgage_rate, arrears, deleted_at')
+      .eq('user_id', caller.id)
+    if (companyId) propsQuery = propsQuery.eq('company_id', companyId)
+
     const [propsRes, complianceRes, insuranceRes, dealsRes] = await Promise.all([
-      admin.from('properties').select('id, name, address, prop_type, status, purchase_price, refurb_cost, current_value, est_value, rent_pcm, mortgage_amount, mortgage_rate, arrears, deleted_at').eq('user_id', caller.id),
+      propsQuery,
       admin.from('compliance_items').select('id, cert_type, expiry_date, property_id, deleted_at').eq('user_id', caller.id),
-      admin.from('insurance_policies').select('id, policy_type, provider, premium, expiry_date, deleted_at').eq('user_id', caller.id).then((r: any) => r),
+      admin.from('insurance_policies').select('id, policy_type, provider, premium, expiry_date, company_id, deleted_at').eq('user_id', caller.id).then((r: any) => r),
       // deals has no estimated_rent column (it's monthly_rent) — selecting it
       // errored the query and silently blanked deals out of the AI insights.
       admin.from('deals').select('id, name, address, status, purchase_type, purchase_price, refurb_cost, monthly_rent, deleted_at').eq('user_id', caller.id).then((r: any) => r),
     ])
 
+    // When scoped to a company, restrict the dependent tables to rows that
+    // belong to one of the company's properties. Deals don't reliably link
+    // to a property, so we drop them from the per-company view rather than
+    // mixing in cross-company deals.
+    const allProps = (propsRes.data || []) as any[]
+    const propIds = new Set(allProps.map((p) => p.id))
+    const rawCompliance = (complianceRes.data || []) as any[]
+    const rawInsurance = (insuranceRes.data || []) as any[]
+    const rawDeals = (dealsRes.data || []) as any[]
+
     const data = {
-      properties: propsRes.data || [],
-      compliance: complianceRes.data || [],
-      insurance: insuranceRes.data || [],
-      deals: dealsRes.data || [],
+      properties: allProps,
+      compliance: companyId
+        ? rawCompliance.filter((c) => c.property_id && propIds.has(c.property_id))
+        : rawCompliance,
+      insurance: companyId
+        ? rawInsurance.filter((i) => i.company_id === companyId)
+        : rawInsurance,
+      deals: companyId ? [] : rawDeals,
     }
 
     if ((data.properties as any[]).filter((p: any) => !p.deleted_at).length === 0) {
@@ -208,41 +257,23 @@ serve(async (req) => {
 
     const { summary, stats } = buildPortfolioSummary(data)
 
-    // Call Claude. Haiku-4.5 is plenty for this — it's pattern-spotting on a
-    // small structured summary, not deep reasoning. Cheap + fast.
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1500,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: summary }],
-      }),
+    // Call Claude — fast tier: pattern-spotting on a small structured
+    // summary, not deep reasoning. Structured output guarantees the shape;
+    // only an unparseable / off-schema answer escalates.
+    const result = await callClaudeWithEscalation<{ insights: any[] }>({
+      tier: 'fast',
+      // Vary the prompt slightly when scoped so Claude doesn't reach for
+      // "across all your companies" framing.
+      system: companyId
+        ? `Focus exclusively on this single company's portfolio. ${SYSTEM_PROMPT}`
+        : SYSTEM_PROMPT,
+      content: summary,
+      maxTokens: 4000,
+      schema: INSIGHTS_SCHEMA,
     })
-
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text()
-      throw new Error(`Anthropic API error (${anthropicRes.status}): ${errText.slice(0, 300)}`)
-    }
-
-    const anthropicData = await anthropicRes.json()
-    const textResponse = anthropicData.content?.[0]?.text || ''
-    const tokensIn = anthropicData.usage?.input_tokens || null
-    const tokensOut = anthropicData.usage?.output_tokens || null
-
-    // Parse Claude's JSON. Strip ```json fences just in case.
-    let parsed: any
-    try {
-      const clean = textResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-      parsed = JSON.parse(clean)
-    } catch (_) {
-      throw new Error('AI returned a response that could not be parsed.')
-    }
+    const parsed = result.data
+    const tokensIn = result.usage.input_tokens || null
+    const tokensOut = result.usage.output_tokens || null
 
     const insights = Array.isArray(parsed?.insights) ? parsed.insights : []
     if (insights.length === 0) {
@@ -258,6 +289,7 @@ serve(async (req) => {
         stats,
         tokens_input: tokensIn,
         tokens_output: tokensOut,
+        company_id: companyId || null,
       })
       .select('id, insights, stats, generated_at, tokens_input, tokens_output')
       .single()

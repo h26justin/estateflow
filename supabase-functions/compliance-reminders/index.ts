@@ -13,6 +13,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { sendGmail } from './gmail.ts'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -114,7 +115,7 @@ serve(async (req) => {
   // CRON-only function — no JWT auth. Gate with shared secret (mirrors
   // trial-emails). Fails closed when CRON_SECRET isn't configured.
   const cronSecret = req.headers.get('x-cron-secret') || ''
-  if (!CRON_SECRET || cronSecret !== CRON_SECRET) {
+  if (!secretMatches(cronSecret, CRON_SECRET)) {
     return new Response('Forbidden', { status: 403 })
   }
 

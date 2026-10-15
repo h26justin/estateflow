@@ -33,6 +33,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const ANON_KEY         = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -427,7 +428,7 @@ serve(async (req) => {
     // ── Cron mode: refresh every live property (fail-closed) ────────────────
     const cronHeader = req.headers.get('x-cron-secret')
     if (cronHeader !== null) {
-      if (!CRON_SECRET || cronHeader !== CRON_SECRET) return jsonError(403, 'Forbidden')
+      if (!secretMatches(cronHeader, CRON_SECRET)) return jsonError(403, 'Forbidden')
       const { data: props, error } = await admin.from('properties').select(PROPERTY_COLS)
       if (error) throw error
       const live = (props || []).filter(isLiveProperty) as unknown as PropertyRow[]
@@ -488,6 +489,7 @@ serve(async (req) => {
     return jsonError(400, `Unknown action: ${action}`)
   } catch (e) {
     if (e instanceof RegisterAuthError) return jsonError(502, e.message)
-    return jsonError(500, (e as Error).message || 'Unexpected error')
+    console.error('epc-sync failed:', (e as Error)?.message || e)
+    return jsonError(500, 'Unexpected error')
   }
 })

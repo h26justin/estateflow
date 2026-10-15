@@ -6,6 +6,7 @@ import { MONO } from '../lib/styles'
 import { fmt, fmtMoney2dp } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import FocusTrap from '../lib/FocusTrap'
 import {
   currentTaxYear, parseTaxYear, quartersForTaxYear,
@@ -44,6 +45,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
   const quarters = useMemo(() => quartersForTaxYear(taxYear), [taxYear])
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [taxYear])
 
   // OAuth return-handler: after the user finishes the gov.uk dance, HMRC
@@ -63,15 +65,18 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
   }, [])
 
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [s, subs] = await Promise.all([
         api.fetchMtdSettings(),
         api.fetchMtdSubmissions(taxYear),
       ])
+      if (!isCurrent()) return
       setSettings(s)
       setSubmissions(subs)
     } catch (e) {
+      if (!isCurrent()) return
       showAppToast('Could not load MTD data: ' + e.message, 'error')
     }
     setLoading(false)
@@ -203,7 +208,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
             <button key={y} onClick={() => setTaxYear(y)}
               style={{ fontFamily: MONO, fontSize: 11, padding: '6px 12px', borderRadius: 8,
                 background: y === taxYear ? T.gold+'22' : 'transparent',
-                color: y === taxYear ? T.gold : T.muted,
+                color: y === taxYear ? T.goldText : T.muted,
                 border: `1px solid ${y === taxYear ? T.gold+'66' : T.border}`,
                 cursor: 'pointer', fontWeight: y === taxYear ? 700 : 500 }}>
               {y}{y === currentTaxYear() && ' (current)'}
@@ -249,7 +254,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
               <div style={{ textAlign: 'right' }}>
                 {cached && (
                   <>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: T.gold }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: T.goldText }}>
                       {fmt(cached.totals?.net || 0)}
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
@@ -362,12 +367,12 @@ function SettingsPanel({ T, settings, onSaved }) {
       <div style={{ display: 'grid', gap: 12 }}>
         <div>
           <label>National Insurance Number</label>
-          <input value={nino} onChange={e => setNino(e.target.value)} placeholder="QQ123456C"
+          <input aria-label="National Insurance Number" value={nino} onChange={e => setNino(e.target.value)} placeholder="QQ123456C"
             style={{ fontFamily: MONO, textTransform: 'uppercase' }}/>
         </div>
         <div>
           <label>HMRC Property Business ID</label>
-          <input value={businessId} onChange={e => setBusinessId(e.target.value)} placeholder="From HMRC online account"
+          <input aria-label="HMRC Property Business ID" value={businessId} onChange={e => setBusinessId(e.target.value)} placeholder="From HMRC online account"
             style={{ fontFamily: MONO }}/>
           <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
             Sign in to gov.uk → Self Assessment → "My businesses" to find this.

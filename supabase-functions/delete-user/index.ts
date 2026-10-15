@@ -67,7 +67,7 @@ serve(async (req) => {
   const { error: delErr } = await admin.auth.admin.deleteUser(targetUserId)
   if (delErr) {
     console.error('[delete-user] deletion failed:', delErr.message)
-    return jsonError(500, 'Deletion failed: ' + delErr.message)
+    return jsonError(500, 'Deletion failed')
   }
 
   // Audit log — best-effort; the deletion already happened.

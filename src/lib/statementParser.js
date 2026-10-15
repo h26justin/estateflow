@@ -1,8 +1,14 @@
 // Statement parser - plain JS file (no JSX) so esbuild handles regex correctly
 
-function parseCurrency(str) {
-  if (!str) return 0
-  return parseFloat(String(str).replace(/[^0-9.]/g, '')) || 0
+// Signed: '-650.00', '(50.00)', '£-20' and '-£20' are all negative. Callers
+// that need a magnitude take Math.abs themselves; most capture only the
+// digits, so the sign matters only where a '-' is part of the matched cell.
+export function parseCurrency(str) {
+  if (str == null || str === '') return 0
+  const s = String(str).trim()
+  const negative = /^\(.*\)$/.test(s) || /^[^0-9]*-/.test(s)
+  const n = parseFloat(s.replace(/[^0-9.]/g, '')) || 0
+  return negative && n ? -n : n
 }
 
 // ── Format detection ─────────────────────────────────────────────────────────
@@ -113,7 +119,9 @@ export function parseRMSInvoice(text) {
     var period = pm ? pm[1] + ' to ' + pm[2] : result.date
     var what = pm ? pm[3] : desc
     if (/Rent Receipt|Rent Received|^Rent\b/i.test(what)) {
-      if (amount > 0 && amount < 1000000) {
+      // A negative rent line is a reversal (bounced or refunded rent): keep
+      // its sign so it reduces income rather than adding to it.
+      if (amount !== 0 && Math.abs(amount) < 1000000) {
         result.items.push({ propertyName: property, type: 'rent', amount: amount, tenant: tenant, period: period,
           description: 'Rent ' + period + (tenant ? ' \u2014 ' + tenant : ''), include: true, matched: false, propertyId: null, editAmount: amount })
         result.totalIncome += amount
@@ -125,7 +133,7 @@ export function parseRMSInvoice(text) {
       result.totalFees += amount
     } else if (/Balance|Totals?/i.test(what)) {
       continue
-    } else if (amount > 0 && amount < 1000000) {
+    } else if (amount !== 0 && Math.abs(amount) < 1000000) {
       result.items.push({ propertyName: property, type: 'maintenance', amount: amount, tenant: '', period: period,
         description: what.replace(/\s+/g, ' ').trim(), include: true, matched: false, propertyId: null, editAmount: amount })
     }
@@ -147,7 +155,6 @@ export function parsePNE(text) {
   var amtRe    = /[\u00A3]([\d,]+\.?\d*)/
   // 'of £X' may follow the percentage directly or trail the amounts (wrapped cell)
   var commRe   = /Management Commission\s+([\d.]+)%(?:[^\n]*?\bof\s+[\u00A3]([\d,]+\.?\d*))?/i
-  var commAmt  = /[\u00A3]([\d,]+\.?\d*)\s*[\u00A3]0/
   var expRe    = /^Expenditure\s*$/i
   var expAmt   = /^Expenditure\s+Amount/i
   var incRe    = /^Income\s*$/i
@@ -250,16 +257,23 @@ export function parsePNE(text) {
     // ("Management Commission x% of £y") can never match an income line.
     var commM = line.match(commRe)
     if (commM) {
-      var ca = line.match(commAmt)
-      if (ca) {
-        var camount = parseCurrency(ca[1])
-        result.items.push({
-          propertyName: currentProperty || '', type: 'fee',
-          amount: camount, tenant: '', period: result.date,
-          description: 'Management fee ' + commM[1] + '%',
-          include: true, matched: false, propertyId: null, editAmount: camount
-        })
-        result.totalFees += camount
+      // Amount / VAT / Gross columns, ignoring the "of £X" rent base wherever
+      // it sits. The fee is the gross (what was deducted), so a fee with VAT
+      // is read as well as a VAT-free one.
+      var cAmts = (line.replace(/\bof\s+[\u00A3][\d,]+\.?\d*/i, '').match(/[\u00A3]-?[\d,]+\.?\d*/g) || []).map(parseCurrency)
+      if (cAmts.length) {
+        var cVat = cAmts.length >= 2 ? cAmts[cAmts.length >= 3 ? cAmts.length - 2 : 1] : 0
+        var camount = cAmts.length >= 3 ? cAmts[cAmts.length - 1] : cAmts[0] + cVat
+        camount = Math.round(camount * 100) / 100
+        if (camount) {
+          result.items.push({
+            propertyName: currentProperty || '', type: 'fee',
+            amount: camount, tenant: '', period: result.date,
+            description: 'Management fee ' + commM[1] + '%' + (cVat ? ' (inc VAT)' : ''),
+            include: true, matched: false, propertyId: null, editAmount: camount
+          })
+          result.totalFees += camount
+        }
       }
       continue
     }

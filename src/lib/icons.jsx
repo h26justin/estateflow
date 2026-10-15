@@ -34,6 +34,7 @@ const PATHS = {
   'check': '<path d="M4 12.5 9 17.5 20 6.5"/>',
   'check-circle': '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
   'x': '<path d="M6 6l12 12M18 6 6 18"/>',
+  'menu': '<path d="M4 7h16M4 12h16M4 17h16"/>',
   'plus': '<path d="M12 5v14M5 12h14"/>',
   'chevron-down': '<path d="M6 9.5 12 15.5 18 9.5"/>',
   'chevron-right': '<path d="M9.5 6 15.5 12 9.5 18"/>',
@@ -89,6 +90,13 @@ const PATHS = {
   'door': '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12" r="0.8"/>',
 }
 
+// `title` is interpolated into innerHTML below (the path strings are static
+// markup), so it must be escaped: callers pass user data such as property
+// names as tooltips.
+export const escapeSvgText = (s) => String(s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
 export function Icon({ name, size = 20, stroke = 1.7, color = 'currentColor', style, title, ...rest }) {
   const inner = PATHS[name]
   if (!inner) return null
@@ -105,7 +113,7 @@ export function Icon({ name, size = 20, stroke = 1.7, color = 'currentColor', st
       aria-hidden={title ? undefined : true}
       role={title ? 'img' : undefined}
       style={{ display: 'block', flexShrink: 0, ...style }}
-      dangerouslySetInnerHTML={{ __html: (title ? `<title>${title}</title>` : '') + inner }}
+      dangerouslySetInnerHTML={{ __html: (title ? `<title>${escapeSvgText(title)}</title>` : '') + inner }}
       {...rest}
     />
   )

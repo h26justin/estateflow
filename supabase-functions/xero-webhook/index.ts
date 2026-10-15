@@ -25,6 +25,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { timingSafeEqual } from './secrets.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -42,7 +43,7 @@ async function verifyXeroSignature(rawBody: string, signature: string, key: stri
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(rawBody))
   const computed = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
-  return computed === signature
+  return timingSafeEqual(computed, signature)
 }
 
 serve(async (req) => {

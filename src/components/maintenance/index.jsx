@@ -12,6 +12,7 @@ import { MONO } from '../../lib/styles'
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
+import { useLoadGuard } from '../../lib/useLoadGuard'
 import { NotesTimeline } from '../FeatureComponents'
 import MoneyInput from '../../lib/MoneyInput'
 import TriageButton from './TriageButton'
@@ -38,12 +39,20 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   const PRIORITIES = [{v:'low',c:'#6B7191'},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
   const STATUSES   = [{v:'open',c:T.red,l:'Open'},{v:'in-progress',c:T.amber,l:'In Progress'},{v:'complete',c:T.green,l:'Complete'}]
 
+  const beginLoad = useLoadGuard()
   useEffect(()=>{ loadJobs() },[propertyId])
 
   async function loadJobs() {
+    const isCurrent = beginLoad()
     setLoading(true)
-    try { setJobs(await api.fetchMaintenance(propertyId)) }
-    catch(e) { showToast(e.message || 'Failed to load maintenance jobs', 'error') }
+    try {
+      const rows = await api.fetchMaintenance(propertyId)
+      if (!isCurrent()) return
+      setJobs(rows)
+    } catch(e) {
+      if (!isCurrent()) return
+      showToast(e.message || 'Failed to load maintenance jobs', 'error')
+    }
     setLoading(false)
   }
 
@@ -90,23 +99,23 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Job Title *</label><input value={form.title} onChange={e=>s('title',e.target.value)} placeholder="e.g. Fix leaking tap"/></div>
-          <div><label>Category</label><select value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c} style={{textTransform:'capitalize'}}>{c}</option>)}</select></div>
+          <div><label>Job Title *</label><input aria-label="Job Title" value={form.title} onChange={e=>s('title',e.target.value)} placeholder="e.g. Fix leaking tap"/></div>
+          <div><label>Category</label><select aria-label="Category" value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c} style={{textTransform:'capitalize'}}>{c}</option>)}</select></div>
         </div>
-        <div style={{marginBottom:12}}><label>Description</label><textarea value={form.description} onChange={e=>s('description',e.target.value)} rows={2} style={{resize:'vertical'}}/></div>
+        <div style={{marginBottom:12}}><label>Description</label><textarea aria-label="Description" value={form.description} onChange={e=>s('description',e.target.value)} rows={2} style={{resize:'vertical'}}/></div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Priority</label><select value={form.priority} onChange={e=>s('priority',e.target.value)}>{PRIORITIES.map(p=><option key={p.v} value={p.v} style={{textTransform:'capitalize'}}>{p.v}</option>)}</select></div>
-          <div><label>Status</label><select value={form.status} onChange={e=>s('status',e.target.value)}>{STATUSES.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}</select></div>
-          <div><label>Date Raised</label><input type="date" value={form.date_raised} onChange={e=>s('date_raised',e.target.value)}/></div>
+          <div><label>Priority</label><select aria-label="Priority" value={form.priority} onChange={e=>s('priority',e.target.value)}>{PRIORITIES.map(p=><option key={p.v} value={p.v} style={{textTransform:'capitalize'}}>{p.v}</option>)}</select></div>
+          <div><label>Status</label><select aria-label="Status" value={form.status} onChange={e=>s('status',e.target.value)}>{STATUSES.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}</select></div>
+          <div><label>Date Raised</label><input aria-label="Date Raised" type="date" value={form.date_raised} onChange={e=>s('date_raised',e.target.value)}/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Contractor</label><input value={form.contractor} onChange={e=>s('contractor',e.target.value)} placeholder="e.g. Bob's Plumbing"/></div>
-          <div><label>Contractor Phone</label><input value={form.contractor_phone} onChange={e=>s('contractor_phone',e.target.value)}/></div>
+          <div><label>Contractor</label><input aria-label="Contractor" value={form.contractor} onChange={e=>s('contractor',e.target.value)} placeholder="e.g. Bob's Plumbing"/></div>
+          <div><label>Contractor Phone</label><input aria-label="Contractor Phone" value={form.contractor_phone} onChange={e=>s('contractor_phone',e.target.value)}/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Quoted Cost</label><MoneyInput prefix="£" value={form.quoted_cost} onChange={v=>s('quoted_cost',v)}/></div>
-          <div><label>Actual Cost</label><MoneyInput prefix="£" value={form.actual_cost} onChange={v=>s('actual_cost',v)}/></div>
-          <div><label>Date Resolved</label><input type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
+          <div><label>Quoted Cost</label><MoneyInput aria-label="Quoted Cost" prefix="£" value={form.quoted_cost} onChange={v=>s('quoted_cost',v)}/></div>
+          <div><label>Actual Cost</label><MoneyInput aria-label="Actual Cost" prefix="£" value={form.actual_cost} onChange={v=>s('actual_cost',v)}/></div>
+          <div><label>Date Resolved</label><input aria-label="Date Resolved" type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
         </div>
         <div style={{display:'flex',gap:8}}>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>{editJob?'Update Job':'Add Job'}</button>
@@ -184,10 +193,10 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
           </div>
         </div>
         <div style={{textAlign:'right',flexShrink:0}}>
-          {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.gold}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
+          {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
           {job.quoted_cost&&job.actual_cost&&<div style={{fontFamily:MONO,fontSize:9,color:T.muted}}>Quoted {fmt(job.quoted_cost)}</div>}
           <div style={{display:'flex',gap:6,marginTop:6,justifyContent:'flex-end'}}>
-            {canEdit && <button onClick={()=>onEdit(job)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>}
+            {canEdit && <button onClick={()=>onEdit(job)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>}
             {canEdit && <button onClick={()=>onDelete(job.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Remove</button>}
           </div>
         </div>

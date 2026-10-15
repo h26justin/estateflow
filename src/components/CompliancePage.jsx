@@ -22,6 +22,8 @@ import InsurancePage from './InsurancePage'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
 import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
+import { pressable } from '../lib/pressable'
+import { plural } from '../lib/format'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -31,7 +33,7 @@ const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Ins
 function CoPill({ company, T }) {
   if (!company) return null
   const col = company.color || T.gold
-  return <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: col, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
+  return <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: company.color || T.goldText, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
 // One requirement line on a property card: status glyph + label + detail.
@@ -133,7 +135,7 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
   return (
     <div className="card" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button onClick={() => openDetail(property)} style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}>
+        <button onClick={() => openDetail(property)} style={{ background: 'transparent', border: 'none', padding: '4px 0', minHeight: 24, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{property.name}</span>
         </button>
         <CoPill company={company} T={T} />
@@ -213,7 +215,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
           <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>Needs attention</h2>
           <div style={{ display: 'grid', gap: 8 }}>
             {attention.slice(0, 8).map(({ p, issues }) => (
-              <div key={p.id} className="card pcard" onClick={() => openDetail(p)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', flexWrap: 'wrap' }}>
+              <div key={p.id} className="card pcard" {...pressable(() => openDetail(p))} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{p.name}</span>
                 <CoPill company={p._co?.id ? p._co : null} T={T} />
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
@@ -223,7 +225,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                     </span>
                   ))}
                 </div>
-                <span style={{ fontFamily: mono, fontSize: 11, color: T.gold, whiteSpace: 'nowrap' }}>Review →</span>
+                <span style={{ fontFamily: mono, fontSize: 11, color: T.goldText, whiteSpace: 'nowrap' }}>Review →</span>
               </div>
             ))}
           </div>
@@ -243,11 +245,11 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                 {showCo && p._co?.id && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
                     <span style={{ width: 3, height: 14, borderRadius: 2, background: p._co.color || T.gold }} />
-                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: p._co.color || T.gold }}>{p._co.abbr}</span>
+                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: p._co.color || T.goldText }}>{p._co.abbr}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{p._co.name}</span>
                   </div>
                 )}
-                <div onClick={() => openDetail(p)} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
+                <div {...pressable(() => openDetail(p))} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
                   <div style={{ minWidth: 0, paddingRight: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                     <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>
@@ -396,7 +398,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                 fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
                 border: `1px solid ${sub === k ? T.gold : T.border}`,
                 background: sub === k ? T.gold + '22' : 'transparent',
-                color: sub === k ? T.gold : T.muted, fontWeight: sub === k ? 700 : 400,
+                color: sub === k ? T.goldText : T.muted, fontWeight: sub === k ? 700 : 400,
               }}>{l}</button>
           ))}
         </div>
@@ -409,13 +411,13 @@ export default function CompliancePage({ user, companies = [], properties = [], 
           {companies.length > 1 && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
               <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
-              {[{ id: 'all', abbr: 'All', color: T.gold }, ...companies].map(c => (
+              {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
                 <button key={c.id} onClick={() => setCoFilter(c.id)}
                   style={{
                     fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                     border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                     background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
-                    color: coFilter === c.id ? (c.color || T.gold) : T.muted, transition: 'all 0.18s',
+                    color: coFilter === c.id ? (c.color || T.goldText) : T.muted, transition: 'all 0.18s',
                   }}>{c.abbr || c.name}</button>
               ))}
             </div>
@@ -433,17 +435,17 @@ export default function CompliancePage({ user, companies = [], properties = [], 
               {bulk && (
                 <div style={{ background: T.card, border: `1px solid ${T.gold}`, borderRadius: 14, padding: '14px 16px', marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'end' }}>
                   <div><label style={lbl}>Building</label>
-                    <select value={bulk.building} onChange={e => setBulk(b => ({ ...b, building: e.target.value }))} style={inp}>
-                      {buildings.map(g => <option key={g.tail} value={g.tail}>{g.tail} · {g.items.length} units</option>)}
+                    <select aria-label="Building" value={bulk.building} onChange={e => setBulk(b => ({ ...b, building: e.target.value }))} style={inp}>
+                      {buildings.map(g => <option key={g.tail} value={g.tail}>{g.tail} · {plural(g.items.length,'unit')}</option>)}
                     </select></div>
                   <div><label style={lbl}>Certificate</label>
-                    <select value={bulk.key} onChange={e => setBulkKey(e.target.value)} style={inp}>
+                    <select aria-label="Certificate" value={bulk.key} onChange={e => setBulkKey(e.target.value)} style={inp}>
                       {bulkReqs.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
                     </select></div>
                   <div><label style={lbl}>Issued</label>
-                    <input type="date" value={bulk.issue} onChange={e => setBulkIssue(e.target.value)} style={inp} /></div>
+                    <input aria-label="Issued" type="date" value={bulk.issue} onChange={e => setBulkIssue(e.target.value)} style={inp} /></div>
                   <div><label style={lbl}>Expires</label>
-                    <input type="date" value={bulk.expiry} onChange={e => setBulk(b => ({ ...b, expiry: e.target.value }))} style={inp} /></div>
+                    <input aria-label="Expires" type="date" value={bulk.expiry} onChange={e => setBulk(b => ({ ...b, expiry: e.target.value }))} style={inp} /></div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</button>
                     <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</button>
@@ -478,7 +480,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                           {showCo && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 10px 2px' }}>
                               <span style={{ width: 3, height: 14, borderRadius: 2, background: co.color || T.gold }} />
-                              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: co.color || T.gold }}>{co.abbr}</span>
+                              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: co.color || T.goldText }}>{co.abbr}</span>
                               <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{co.name}</span>
                             </div>
                           )}

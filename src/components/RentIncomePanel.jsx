@@ -70,7 +70,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, marginBottom: 18 }}>
-        {tile(`Due · ${cur.label}`, fmt(cur.expected), 'Collectible rent from tenancies this month', T.gold)}
+        {tile(`Due · ${cur.label}`, fmt(cur.expected), 'Collectible rent from tenancies this month', T.goldText)}
         {tile(`Collected so far · ${cur.label.slice(0, 3)}`, fmt(cur.received), cur.expected > 0 ? `${pct(curRate)} of what is due` : 'Nothing due yet', T.green)}
         {tile(`Outstanding · ${cur.label.slice(0, 3)}`, fmt(cur.outstanding), 'Still to collect this month', cur.outstanding > 0 ? T.amber : T.green)}
         {tile(`${year} to date`, fmt(ytd.received), `${pct(ytdRate)} of ${fmt(ytd.expected)} due · ${fmt(ytd.outstanding)} outstanding`, T.text)}

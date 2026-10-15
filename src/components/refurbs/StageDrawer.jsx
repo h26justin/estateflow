@@ -138,7 +138,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
             <div style={sectionHead(T)}><span>Dates</span><span style={{ textTransform: 'none', letterSpacing: 0, color: T.faint }}>Planned = baseline · Forecast = expected now · Actual = what happened</span></div>
             {[['Planned', 'planned'], ['Forecast', 'forecast'], ['Actual', 'actual']].map(([lbl, k]) => (
               <div key={k} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontFamily: mono, fontSize: 11, color: k === 'forecast' ? T.gold : k === 'actual' ? T.text : T.muted, fontWeight: 700 }}>{lbl}</span>
+                <span style={{ fontFamily: mono, fontSize: 11, color: k === 'forecast' ? T.goldText : k === 'actual' ? T.text : T.muted, fontWeight: 700 }}>{lbl}</span>
                 <input type="date" aria-label={`${lbl} start`} value={form[`${k}_start`]} onChange={e => set(`${k}_start`, e.target.value)} onBlur={() => save(`${k}_start`)} disabled={dis} style={inputStyle(T)} />
                 <input type="date" aria-label={`${lbl} finish`} value={form[`${k}_end`]} onChange={e => set(`${k}_end`, e.target.value)} onBlur={() => save(`${k}_end`)} disabled={dis} style={inputStyle(T)} />
               </div>
@@ -308,7 +308,7 @@ export function TaskList({ ws, stage, items, title = 'Tasks and milestones' }) {
       <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} onChange={() => ops.toggleTask(t)} style={{ width: 18, height: 18, margin: 0 }} aria-label={t.title} />
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          {t.kind === 'milestone' && <span title="Milestone" style={{ color: T.gold }}>◆</span>}
+          {t.kind === 'milestone' && <span title="Milestone" style={{ color: T.goldText }}>◆</span>}
           <span style={{ textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>{t.title}</span>
           {t.priority === 'urgent' && <Pill color={T.red} T={T}>Urgent</Pill>}
           {t.priority === 'high' && <Pill color={T.amber} T={T}>High</Pill>}
@@ -367,7 +367,7 @@ export function Updates({ ws, stage, items, title = 'Notes and updates' }) {
         {canEdit && <button onClick={() => ops.removeUpdate(u)} style={{ background: 'none', border: 'none', color: T.faint, cursor: 'pointer', fontSize: 11 }} aria-label="Delete update">✕</button>}
       </div>
       <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', marginTop: 3 }}>{u.body}</div>
-      {u.next_action && <div style={{ fontFamily: mono, fontSize: 10.5, color: T.gold, marginTop: 3 }}>Next: {u.next_action}</div>}
+      {u.next_action && <div style={{ fontFamily: mono, fontSize: 10.5, color: T.goldText, marginTop: 3 }}>Next: {u.next_action}</div>}
     </div>)}
   </div>
 }

@@ -75,7 +75,7 @@ export default function FeedbackPage({ user, showToast }) {
                   borderRadius: 10, padding: '10px 8px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s'
                 }}>
                   <div style={{ display:'flex', justifyContent:'center', marginBottom: 4 }}>{ICON_NAMES.includes(t.icon)?<Icon name={t.icon} size={20}/>:t.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: type === t.key ? T.gold : T.text }}>{t.label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: type === t.key ? T.goldText : T.text }}>{t.label}</div>
                   <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>{t.desc}</div>
                 </button>
               ))}
@@ -84,13 +84,13 @@ export default function FeedbackPage({ user, showToast }) {
 
           <div style={{ marginBottom: 16 }}>
             <label style={lbl}>Subject</label>
-            <input style={inp} value={subject} onChange={e => setSubject(e.target.value)}
+            <input aria-label="Subject" style={inp} value={subject} onChange={e => setSubject(e.target.value)}
               placeholder={type === 'feature' ? 'e.g. Bulk rent payment import' : type === 'bug' ? 'e.g. PDF report not downloading' : 'e.g. Love the compliance tracker'} />
           </div>
 
           <div style={{ marginBottom: 20 }}>
             <label style={lbl}>Details</label>
-            <textarea style={{ ...inp, height: 130, resize: 'vertical', lineHeight: 1.5 }}
+            <textarea aria-label="Details" style={{ ...inp, height: 130, resize: 'vertical', lineHeight: 1.5 }}
               value={message} onChange={e => setMessage(e.target.value)}
               placeholder={type === 'feature' ? 'Describe the feature and how it would help you...' : type === 'bug' ? 'What happened? What did you expect? Steps to reproduce...' : 'Share your thoughts...'} />
           </div>
@@ -105,7 +105,7 @@ export default function FeedbackPage({ user, showToast }) {
 
           <p style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
             Or email us directly at{' '}
-            <a href="mailto:hello@ownproperly.com" style={{ color: T.gold, textDecoration: 'none' }}>hello@ownproperly.com</a>
+            <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText, textDecoration: 'none' }}>hello@ownproperly.com</a>
           </p>
         </div>
       )}

@@ -27,7 +27,7 @@ const DISCLAIMER =
 function Banner({ T }) {
   return (
     <div className="card" style={{ borderColor: T.gold, background: 'transparent', padding: '12px 14px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
-      <strong style={{ color: T.gold }}>Renters Rights copilot</strong>
+      <strong style={{ color: T.goldText }}>Renters Rights copilot</strong>
       <div style={{ marginTop: 4, opacity: 0.85 }}>{DISCLAIMER}</div>
     </div>
   )
@@ -130,7 +130,7 @@ function NoticeModal({ T, property, tenantName, onClose }) {
 
           {result && (
             <>
-              <div style={{ fontSize: 11, color: T.gold, marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: T.goldText, marginBottom: 6 }}>
                 {result.confidence} · {result.model_used}
               </div>
               <pre style={{ whiteSpace: 'pre-wrap', fontFamily: "'DM Mono', monospace", fontSize: 12, background: T.surface, padding: 12, borderRadius: 6, maxHeight: '46vh', overflow: 'auto' }}>
@@ -258,7 +258,7 @@ export function RentersRightsCopilot({ companyId, property }) {
         <h3 style={{ margin: 0, fontFamily: "'DM Mono', monospace" }}>
           Compliance checklist {property ? `· ${property.name || property.address}` : '· portfolio'}
         </h3>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: done === RRA_CHECKLIST.length ? T.green : T.gold }}>
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: done === RRA_CHECKLIST.length ? T.green : T.goldText }}>
           {done}/{RRA_CHECKLIST.length} complete
         </span>
       </div>

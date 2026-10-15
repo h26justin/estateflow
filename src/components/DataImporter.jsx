@@ -21,6 +21,7 @@ import { naturalCompare } from '../lib/addressUtils'
 import {
   parseCsv, detectColumns, buildRentPlan, buildExpensePlan, aliasesToLearn, summarise,
 } from '../lib/csvImport'
+import { pressable } from '../lib/pressable'
 
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(n || 0)
 
@@ -64,7 +65,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   // figure but not something the rent model can hold — and a blocked row stops
   // the whole import. Without a way to set those aside the import deadlocks.
   const [excluded, setExcluded] = useState(() => new Set())
-  const fileRef = useRef()
+  const fileRef = useRef(null)
 
   const sortedProps = useMemo(
     () => [...(properties || [])].sort((a, b) => naturalCompare(a.name, b.name)),
@@ -310,7 +311,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
               </div>
             )}
 
-            <div onClick={() => fileRef.current?.click()}
+            <div {...pressable(() => fileRef.current?.click())}
               style={{
                 border: `2px dashed ${T.border}`, borderRadius: 12, padding: '36px 20px',
                 textAlign: 'center', cursor: 'pointer', marginBottom: 18,

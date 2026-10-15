@@ -126,7 +126,7 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <div style={{fontFamily:MONO,fontSize:12,color:T.text,fontWeight:600}}>{u.email}</div>
-                      {u.id===userId&&<span style={{fontFamily:MONO,fontSize:9,background:T.gold+'22',color:T.gold,border:`1px solid ${T.gold}44`,borderRadius:4,padding:'2px 6px'}}>YOU · ADMIN</span>}
+                      {u.id===userId&&<span style={{fontFamily:MONO,fontSize:9,background:T.gold+'22',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:4,padding:'2px 6px'}}>YOU · ADMIN</span>}
                       {u.id!==userId&&!(access[u.id]||[]).length&&<span style={{fontFamily:MONO,fontSize:9,background:T.green+'22',color:T.green,border:`1px solid ${T.green}44`,borderRadius:4,padding:'2px 6px'}}>ADMIN</span>}
                     </div>
                     {u.id!==userId&&<button className="btn btn-danger" style={{fontSize:10,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>}

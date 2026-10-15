@@ -85,7 +85,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
                   href={`mailto:${ownerEmail}?subject=${encodeURIComponent('Properly subscription needs updating')}&body=${encodeURIComponent(`Hi,\n\nMy Properly access to ${cos.map(c => c.name).join(', ')} has been paused. Could you update the subscription so I can get back in?\n\nThanks`)}`}
                   style={{
                     display: 'inline-block', marginTop: 2,
-                    fontFamily: MONO, fontSize: 11, color: T.gold,
+                    fontFamily: MONO, fontSize: 11, color: T.goldText,
                     textDecoration: 'underline',
                   }}>
                   Email them
@@ -109,7 +109,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
                         fontFamily: MONO, fontSize: 10, fontWeight: 700,
                         padding: '2px 8px', borderRadius: 4,
                         background: (co.color || T.gold) + '22',
-                        color: co.color || T.gold,
+                        color: co.color || T.goldText,
                       }}>{co.abbr}</span>
                     )}
                     <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
@@ -137,7 +137,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
           <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.6 }}>
             Signed in as <strong style={{ color: T.text }}>{user?.email}</strong>
             <br/>
-            Questions? Email <a href="mailto:hello@ownproperly.com" style={{ color: T.gold }}>hello@ownproperly.com</a>
+            Questions? Email <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText }}>hello@ownproperly.com</a>
           </div>
           <button onClick={onSignOut}
             style={{

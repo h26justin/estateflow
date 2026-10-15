@@ -132,7 +132,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                   padding: '5px 14px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${filter === f ? T.gold : T.border}`,
                   background: filter === f ? T.gold + '22' : 'transparent',
-                  color: filter === f ? T.gold : T.muted,
+                  color: filter === f ? T.goldText : T.muted,
                   textTransform: 'capitalize',
                 }}>
                 {f}
@@ -200,7 +200,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                             style={{
                               fontFamily: mono, fontSize: 11, fontWeight: 700,
                               padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
-                              border: `1px solid ${T.gold}`, background: T.gold + '22', color: T.gold,
+                              border: `1px solid ${T.gold}`, background: T.gold + '22', color: T.goldText,
                             }}>
                             Match →
                           </button>

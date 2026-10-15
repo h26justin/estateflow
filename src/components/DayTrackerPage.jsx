@@ -3,6 +3,7 @@ import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
+import { plural } from '../lib/format'
 
 const mono = MONO
 
@@ -394,7 +395,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                 fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer',
                 border: `1px solid ${overdueMode === opt.v ? T.gold : T.border}`,
                 background: overdueMode === opt.v ? T.gold + '22' : 'transparent',
-                color: overdueMode === opt.v ? T.gold : T.muted,
+                color: overdueMode === opt.v ? T.goldText : T.muted,
                 fontWeight: overdueMode === opt.v ? 700 : 400,
               }}>
               {opt.l}
@@ -433,7 +434,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, paddingBottom:8, borderBottom:`2px solid ${company.color||T.gold}` }}>
               <div style={{ width:3, height:16, background:company.color||T.gold, borderRadius:2 }}/>
               <span style={{ fontSize:14, fontWeight:700, color:T.text }}>{company.name}</span>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>{compProps.length} properties</span>
+              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>{plural(compProps.length,'property','properties')}</span>
             </div>
 
             {/* Day grid */}
@@ -452,7 +453,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                       const isToday = toKey(year,month,d) === toKey(now.getFullYear(),now.getMonth()+1,now.getDate())
                       return (
                         <th key={d} style={{
-                          fontFamily:mono, fontSize:8, color:isToday?T.gold:isWeekend?T.muted:T.muted,
+                          fontFamily:mono, fontSize:8, color:isToday?T.goldText:isWeekend?T.muted:T.muted,
                           textAlign:'center', padding:'0 1px 4px', fontWeight:isToday?700:400,
                           minWidth:20
                         }}>

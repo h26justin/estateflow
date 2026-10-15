@@ -94,7 +94,7 @@ export default function CustomizeDashModal({
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="customize-dash-modal-title" style={{maxWidth:680,padding:24}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
-            <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Customize Dashboard</h2>
+            <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Customise dashboard</h2>
             <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Drag to reorder, toggle to show/hide. {enabledCount} {tab === 'sections' ? 'sections' : 'cards'} on.</div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
@@ -105,7 +105,7 @@ export default function CustomizeDashModal({
           {['sections','widgets'].map(t => (
             <button key={t} onClick={()=>setTab(t)}
               style={{fontFamily:mono,fontSize:11,padding:'8px 14px',cursor:'pointer',background:'transparent',border:'none',
-                color: tab === t ? T.gold : T.muted,
+                color: tab === t ? T.goldText : T.muted,
                 borderBottom: tab === t ? `2px solid ${T.gold}` : '2px solid transparent',
                 fontWeight: tab === t ? 700 : 400,
                 marginBottom: -1,

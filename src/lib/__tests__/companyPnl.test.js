@@ -58,11 +58,46 @@ describe('dividendTax', () => {
   })
 })
 
+describe('ukCorporationTax — short periods', () => {
+  it('pro-rates the limits by period length', () => {
+    // A quarter: limits become 50k x 92/365 and 250k x 92/365.
+    const r = ukCorporationTax(30_000, { periodDays: 92 })
+    expect(r.lowerLimit).toBeCloseTo(50_000 * 92 / 365, 6)
+    expect(r.band).toBe('marginal')
+    expect(r.tax).toBeGreaterThan(30_000 * 0.19)
+    // 30k in a quarter is ~120k a year: same effective rate as the annual figure.
+    expect(r.effectiveRate).toBeCloseTo(ukCorporationTax(30_000 * 365 / 92).effectiveRate, 6)
+  })
+  it('a full year keeps the annual limits', () => {
+    expect(ukCorporationTax(40_000, { periodDays: 365 }).tax).toBe(7_600)
+  })
+  it('buildCompanyPnl tests a 3-month profit against 3 months of limits', () => {
+    const pnl = buildCompanyPnl({
+      properties: [{ id: 'p', rent_pcm: 10_000, status: 'rented' }], payments: [], months: 3,
+    })
+    expect(pnl.corporationTax.band).toBe('marginal')
+  })
+})
+
 describe('monthsInRange', () => {
-  it('counts inclusive calendar months', () => {
-    expect(monthsInRange('2026-04-06', '2027-04-05')).toBe(13) // tax year touches 13 calendar months
+  it('counts the months a range lasts, not the calendar months it touches', () => {
+    expect(monthsInRange('2026-04-06', '2027-04-05')).toBe(12) // a UK tax year is 12 months
     expect(monthsInRange('2026-01-01', '2026-12-31')).toBe(12)
     expect(monthsInRange('2026-06-01', '2026-06-30')).toBe(1)
+    expect(monthsInRange('2026-03-01', '2026-03-31')).toBe(1)
+    expect(monthsInRange('2026-01-15', '2026-02-14')).toBe(1)
+    expect(monthsInRange('2026-01-31', '2026-02-28')).toBe(1)
+    expect(monthsInRange('2026-01-01', '2026-03-31')).toBe(3)
+  })
+  it('accepts Date objects as the Reports page passes them', () => {
+    expect(monthsInRange(new Date('2026-04-06'), new Date('2027-04-05'))).toBe(12)
+  })
+  it('the expected-rent fallback over a tax year is 12 months of rent', () => {
+    const pnl = buildCompanyPnl({
+      properties: [{ id: 'p', rent_pcm: 1000, status: 'rented' }], payments: [],
+      months: monthsInRange('2026-04-06', '2027-04-05'),
+    })
+    expect(pnl.income.rentCollected).toBe(12000)
   })
   it('floors at 1 for bad input', () => {
     expect(monthsInRange('nope', '2026-01-01')).toBe(1)
@@ -868,5 +903,41 @@ describe('holding companies', () => {
     expect(stakes.cOp2).toBe(20) // 25% × 80%
     expect(stakes.cH).toBeUndefined() // never itself
     expect(companyEffectiveStakes(shareholders, null)).toEqual({})
+  })
+})
+
+describe('rent collected counts late and partial receipts', () => {
+  it('buildCompanyPnl includes late/partial rows that carry an amount', () => {
+    const pnl = buildCompanyPnl({
+      properties: [{ id: 'p', rent_pcm: 1000, status: 'rented' }],
+      payments: [
+        { property_id: 'p', status: 'paid', amount: 1000 },
+        { property_id: 'p', status: 'late', amount: 1000 },
+        { property_id: 'p', status: 'partial', amount: 400 },
+        { property_id: 'p', status: 'overdue', amount: 1000 },
+        { property_id: 'p', status: 'late', amount: null },
+      ],
+      months: 3,
+    })
+    expect(pnl.income.rentCollected).toBe(2400)
+  })
+  it('a portfolio with only late receipts uses them, not the expected-rent fallback', () => {
+    const pnl = buildCompanyPnl({
+      properties: [{ id: 'p', rent_pcm: 1000, status: 'rented' }],
+      payments: [{ property_id: 'p', status: 'late', amount: 900 }],
+      months: 3,
+    })
+    expect(pnl.income.rentCollected).toBe(900)
+  })
+  it('buildPortfolioPnl includes late/partial rows too', () => {
+    const r = buildPortfolioPnl({
+      properties: [{ id: 'p', rent_pcm: 1000, status: 'rented', company_id: null }],
+      payments: [
+        { property_id: 'p', status: 'paid', amount: 1000 },
+        { property_id: 'p', status: 'partial', amount: 400 },
+      ],
+      months: 2,
+    })
+    expect(r.grand.income).toBe(1400)
   })
 })

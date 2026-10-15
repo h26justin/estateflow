@@ -7,7 +7,7 @@
 // function, or third-party fetch should at minimum log so the error
 // surfaces in Vercel logs.
 //
-// Vite's esbuild config drops console.log/debug/info in prod builds but
+// The Vite build config drops console.log/debug/info in prod builds but
 // keeps console.error, so this stays useful in production.
 //
 // Usage:

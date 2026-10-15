@@ -6,6 +6,7 @@ import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
+import { rowKey } from '../lib/rowKey'
 
 const money = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -29,7 +30,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
   const periodsFor = p => (p.rent_payments || []).filter(x => x.period_start).slice().sort((a, b) => (a.period_start < b.period_start ? 1 : -1))
 
   function startEdit(r) {
-    setEditing({ receipt: r, allocations: (r.rent_allocations || []).map(a => ({ target: a.target === 'unallocated' ? 'current_rent' : a.target, rent_payment_id: a.rent_payment_id || '', amount: Number(a.amount) })) })
+    setEditing({ receipt: r, allocations: (r.rent_allocations || []).map(a => ({ _key: rowKey(), target: a.target === 'unallocated' ? 'current_rent' : a.target, rent_payment_id: a.rent_payment_id || '', amount: Number(a.amount) })) })
   }
   const setAlloc = (i, k, v) => setEditing(e => ({ ...e, allocations: e.allocations.map((a, j) => j === i ? { ...a, [k]: v } : a) }))
   const remainder = editing ? Math.round((Number(editing.receipt.amount) - editing.allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0)) * 100) / 100 : 0
@@ -72,7 +73,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
             <div key={r.id} style={{ border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.amber}`, borderRadius: 10, padding: '10px 14px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.text }}>{money(r.amount)}</div>
-                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: MONO, fontSize: 9, color: co.color || T.gold, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
+                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: MONO, fontSize: 9, color: co.color || T.goldText, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{fmtDate(r.received_date)} · {r.payer?.replace('_', ' ')} · {r.source}{r.reference ? ` · ${r.reference}` : ''}</div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                   {canEdit && !isEditing && <button className="btn btn-gold" style={{ fontSize: 10 }} onClick={() => startEdit(r)}>Allocate</button>}
@@ -84,19 +85,19 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
               {isEditing && (
                 <div style={{ marginTop: 10 }}>
                   {editing.allocations.map((a, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 120px 30px', gap: 8, alignItems: 'end', marginBottom: 6 }}>
-                      <div><label>Applies to</label><select value={a.target} onChange={e => setAlloc(i, 'target', e.target.value)}>
+                    <div key={a._key} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 120px 30px', gap: 8, alignItems: 'end', marginBottom: 6 }}>
+                      <div><label>Applies to</label><select aria-label="Applies to" value={a.target} onChange={e => setAlloc(i, 'target', e.target.value)}>
                         <option value="current_rent">Current rent</option><option value="historic_arrears">Historic arrears</option><option value="deposit">Deposit</option><option value="other">Other</option>
                       </select></div>
                       <div><label>Period</label>{a.target === 'current_rent'
                         ? <select value={a.rent_payment_id || ''} onChange={e => setAlloc(i, 'rent_payment_id', e.target.value)}><option value="">Choose…</option>{periodsFor(p).map(x => <option key={x.id} value={x.id}>{x.month_label} · {fmtDate(x.period_start)} → {fmtDate(x.period_end)} · {x.status}</option>)}</select>
                         : <input value={a.notes || ''} onChange={e => setAlloc(i, 'notes', e.target.value)} placeholder="optional note" />}</div>
-                      <div><label>Amount</label><MoneyInput prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
+                      <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
                       <button className="btn" style={{ fontSize: 10, color: T.red, height: 34 }} onClick={() => setEditing(e => ({ ...e, allocations: e.allocations.filter((_, j) => j !== i) }))} disabled={editing.allocations.length === 1}>✕</button>
                     </div>
                   ))}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditing(e => ({ ...e, allocations: [...e.allocations, { target: 'historic_arrears', rent_payment_id: '', amount: '' }] }))}>+ Split</button>
+                    <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditing(e => ({ ...e, allocations: [...e.allocations, { _key: rowKey(), target: 'historic_arrears', rent_payment_id: '', amount: '' }] }))}>+ Split</button>
                     <span style={{ fontFamily: MONO, fontSize: 10, color: Math.abs(remainder) < 0.005 ? T.green : T.amber }}>{Math.abs(remainder) < 0.005 ? 'Fully allocated' : `${money(Math.abs(remainder))} ${remainder > 0 ? 'unallocated' : 'over-allocated'}`}</span>
                     <button className="btn btn-gold" style={{ fontSize: 10, marginLeft: 'auto' }} onClick={saveAlloc} disabled={saving}>{saving ? 'Saving…' : 'Save allocation'}</button>
                     <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditing(null)}>Cancel</button>

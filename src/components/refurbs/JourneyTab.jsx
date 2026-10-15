@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import * as api from '../../lib/api'
 import Modal from '../../lib/Modal'
 import { useConfirm } from '../../lib/ConfirmContext'
+import { rowKey } from '../../lib/rowKey'
 import {
   BUILT_IN_TEMPLATES, stageTree, archivedStages, worksProgress, stageCompletion, stageDelay,
   STAGE_STATUSES, STAGE_STATUS_CFG, statusOptions, statusValue, parseStatusValue, templateFromStages,
@@ -99,7 +100,7 @@ export default function JourneyTab({ ws }) {
           </select>
         : <StatusChip stage={s} T={T} />)}
       {!isMobile && <span style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }} title="Planned">{s.planned_start || s.planned_end ? `${fmtShort(s.planned_start)} – ${fmtShort(s.planned_end)}` : 'No plan'}</span>}
-      {!isMobile && <span style={{ fontFamily: mono, fontSize: 10.5, color: s.forecast_end && s.forecast_end !== s.planned_end ? T.gold : T.muted }} title="Forecast finish">{expectedEnd(s) ? `→ ${fmtShort(s.actual_end || expectedEnd(s))}` : ''}</span>}
+      {!isMobile && <span style={{ fontFamily: mono, fontSize: 10.5, color: s.forecast_end && s.forecast_end !== s.planned_end ? T.goldText : T.muted }} title="Forecast finish">{expectedEnd(s) ? `→ ${fmtShort(s.actual_end || expectedEnd(s))}` : ''}</span>}
       {!isMobile && <span style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{Math.round(comp.value * 100)}%</span>}
       <div style={{ display: 'flex', gap: 3, justifyContent: 'flex-end' }}>
         {canEdit && !isMobile && <>
@@ -213,21 +214,21 @@ function TemplatePicker({ ws }) {
 
 function StatusEditor({ ws, onClose }) {
   const { project, ops, T } = ws
-  const [rows, setRows] = useState(() => (Array.isArray(project.custom_statuses) ? project.custom_statuses : []).map(r => ({ ...r })))
+  const [rows, setRows] = useState(() => (Array.isArray(project.custom_statuses) ? project.custom_statuses : []).map(r => ({ ...r, _key: rowKey() })))
   const [saving, setSaving] = useState(false)
   const clean = rows.map(r => ({ label: String(r.label || '').trim(), category: r.category })).filter(r => r.label && STAGE_STATUSES.includes(r.category))
   return <Modal onClose={onClose} size="md" ariaLabel="Custom statuses">
     <div style={{ padding: '20px 22px' }}>
       <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>Custom statuses</h2>
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12 }}>Name your own statuses, e.g. "Waiting on building control". Each one behaves like the status it is based on, so progress and delay warnings stay correct.</div>
-      {rows.map((r, i) => <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr auto', gap: 6, marginBottom: 6 }}>
+      {rows.map((r, i) => <div key={r._key} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr auto', gap: 6, marginBottom: 6 }}>
         <input value={r.label} onChange={e => setRows(rs => rs.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="Status name" style={inputStyle(T)} aria-label="Status name" />
         <select value={r.category} onChange={e => setRows(rs => rs.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={inputStyle(T)} aria-label="Behaves like">
           {STAGE_STATUSES.map(s => <option key={s} value={s}>Like {STAGE_STATUS_CFG[s].label}</option>)}
         </select>
         <button onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} style={btn(T)} aria-label="Remove status">✕</button>
       </div>)}
-      <button onClick={() => setRows(rs => [...rs, { label: '', category: 'blocked' }])} style={btn(T)}>+ Add status</button>
+      <button onClick={() => setRows(rs => [...rs, { _key: rowKey(), label: '', category: 'blocked' }])} style={btn(T)}>+ Add status</button>
       <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10 }}>Removing a status here does not change stages already using it; they keep the label until changed.</div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
         <button onClick={onClose} style={btn(T)}>Cancel</button>
@@ -249,7 +250,7 @@ export function CascadeModal({ moves, projectEnd, newEnd, onApply, onSkip, T }) 
       {moves.map(m => <div key={m.stage_id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 8, padding: '7px 0', borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
         <span><b>{m.name}</b><div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>waits for {m.because}</div></span>
         <span style={{ fontFamily: mono, fontSize: 11 }}>{fmtShort(m.from_start)} – {fmtShort(m.from_end)}</span>
-        <span style={{ fontFamily: mono, fontSize: 11, color: T.gold }}>→ {fmtShort(m.to_start)} – {fmtShort(m.to_end)} <Pill color={T.red} T={T}>+{m.days}d</Pill></span>
+        <span style={{ fontFamily: mono, fontSize: 11, color: T.goldText }}>→ {fmtShort(m.to_start)} – {fmtShort(m.to_end)} <Pill color={T.red} T={T}>+{m.days}d</Pill></span>
       </div>)}
       {moved && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: T.amber + '18', border: `1px solid ${T.amber}55`, fontSize: 13 }}>
         The programme would finish <b>{fmtDate(newEnd)}</b>, after the current forecast completion of <b>{fmtDate(projectEnd)}</b>. Applying also moves the forecast completion, so give a reason for the record.

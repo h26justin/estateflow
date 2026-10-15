@@ -6,16 +6,15 @@
 //
 // Same look as the Reports PDFs (shared reportPdfKit): letterhead with the
 // company's logo and brand colour, KPI tiles, bordered tables, Properly
-// footer with page numbers. jsPDF is lazy-loaded from the CDN and drawn with
+// footer with page numbers. jsPDF is lazy-loaded (bundled chunk) and drawn with
 // the built-in Helvetica, so there is nothing to embed.
 //
 // Outward-facing by design: the loan's internal `notes` are never printed.
 
-import { loadCdnScript } from './loadCdnScript'
+import { loadJsPDF } from './pdfLibs'
 import { loanStatus, statementLines, summariseLoans, REPAYMENT_TYPES, LENDER_TYPES, todayISO } from './externalLoans'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from './reportPdfKit'
 
-const JSPDF_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 
 const { ink: DARK, slate: SLATE, muted: MUTED, green: GREEN, red: RED } = PALETTE
 
@@ -55,8 +54,7 @@ export async function exportLoansPdf({ loans, companies = [], companySettings = 
     loadPdfImage('/icon-512.png', 256),
   ])
 
-  await loadCdnScript(JSPDF_CDN_URL, 'jspdf')
-  const { jsPDF } = window.jspdf
+  const jsPDF = await loadJsPDF()
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const k = createPdfWriter(doc, {
     accent: hexToRgb(headCo?.color), logo, mark,

@@ -238,7 +238,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
               {split.ok && (Number(form.benefit_contribution) || Number(form.tenant_contribution)) ? <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 11, color: T.green }}>Contributions tie to the rent.</div> : null}
             </div>
           )}
-          <div style={{ marginBottom: 14 }}><label>Notes</label><textarea value={form.notes} onChange={e => s('notes', e.target.value)} rows={2} style={{ resize: 'vertical' }} /></div>
+          <div style={{ marginBottom: 14 }}><label>Notes</label><textarea aria-label="Notes" value={form.notes} onChange={e => s('notes', e.target.value)} rows={2} style={{ resize: 'vertical' }} /></div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save tenancy'}</button>
             <button className="btn" style={{ fontSize: 11 }} onClick={() => setEditing(null)}>Cancel</button>
@@ -269,7 +269,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
                 {NON_CHARGEABLE_REASONS.map(r => <option key={r.v} value={r.v}>{r.l}</option>)}
               </select></Field>
             </div>
-            <div style={{ marginBottom: 10 }}><label>Notes</label><input value={periodForm.notes || ''} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} /></div>
+            <div style={{ marginBottom: 10 }}><label>Notes</label><input aria-label="Notes" value={periodForm.notes || ''} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} /></div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={savePeriod}>Save period</button>
               <button className="btn" style={{ fontSize: 11 }} onClick={() => setPeriodForm(null)}>Cancel</button>

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
+import { pressable } from '../lib/pressable'
 
 const CATEGORIES = [
   { key: 'start',       label: 'Getting Started',      icon: 'sparkle' },
@@ -695,7 +696,7 @@ export default function HelpCenter() {
           <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>
             {"▶ Replay app tour"}
           </button>
-          <a href="/blog/" target="_blank" rel="noopener noreferrer" style={{ fontFamily: mono, fontSize: 11, color: T.gold, textDecoration: 'none' }}>
+          <a href="/blog/" target="_blank" rel="noopener noreferrer" style={{ fontFamily: mono, fontSize: 11, color: T.goldText, textDecoration: 'none' }}>
             {"Read full blog guides →"}
           </a>
         </div>
@@ -705,7 +706,7 @@ export default function HelpCenter() {
       <div style={{ marginBottom: 16 }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search guides... e.g. mortgage, deposit, tenant"
-          style={{ width: '100%', fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: '10px 16px', outline: 'none', boxSizing: 'border-box' }}/>
+          style={{ width: '100%', fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: '10px 16px', boxSizing: 'border-box' }}/>
       </div>
 
       {/* Category filter */}
@@ -714,7 +715,7 @@ export default function HelpCenter() {
           style={{ fontFamily: mono, fontSize: 10, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
             border: `1px solid ${activeCat === 'all' ? T.gold : T.border}`,
             background: activeCat === 'all' ? T.gold + '22' : 'transparent',
-            color: activeCat === 'all' ? T.gold : T.muted, fontWeight: activeCat === 'all' ? 700 : 400 }}>
+            color: activeCat === 'all' ? T.goldText : T.muted, fontWeight: activeCat === 'all' ? 700 : 400 }}>
           All ({GUIDES.length})
         </button>
         {CATEGORIES.map(c => {
@@ -724,7 +725,7 @@ export default function HelpCenter() {
               style={{ fontFamily: mono, fontSize: 10, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                 border: `1px solid ${activeCat === c.key ? T.gold : T.border}`,
                 background: activeCat === c.key ? T.gold + '22' : 'transparent',
-                color: activeCat === c.key ? T.gold : T.muted, fontWeight: activeCat === c.key ? 700 : 400 }}>
+                color: activeCat === c.key ? T.goldText : T.muted, fontWeight: activeCat === c.key ? 700 : 400 }}>
               {ICON_NAMES.includes(c.icon)?<Icon name={c.icon} size={14}/>:c.icon} {c.label} ({count})
             </button>
           )
@@ -749,7 +750,7 @@ export default function HelpCenter() {
                 const isOpen = openGuide === guide.id
                 return (
                   <div key={guide.id} style={{ background: T.card, border: `1px solid ${isOpen ? T.gold : T.border}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.2s' }}>
-                    <div onClick={() => setOpenGuide(isOpen ? null : guide.id)}
+                    <div {...pressable(() => setOpenGuide(isOpen ? null : guide.id), { 'aria-expanded': isOpen })}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', gap: 12 }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{guide.title}</div>
@@ -761,7 +762,7 @@ export default function HelpCenter() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         <span style={{ fontFamily: mono, fontSize: 9, color: T.muted }}>{guide.steps.length} steps</span>
-                        <span style={{ fontFamily: mono, fontSize: 12, color: isOpen ? T.gold : T.muted, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+                        <span style={{ fontFamily: mono, fontSize: 12, color: isOpen ? T.goldText : T.muted, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
                       </div>
                     </div>
                     {isOpen && (
@@ -772,7 +773,7 @@ export default function HelpCenter() {
                               {/* Step number + connector line */}
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 28 }}>
                                 <div style={{ width: 24, height: 24, borderRadius: 12, background: T.gold + '22', border: `1.5px solid ${T.gold}`,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.gold, flexShrink: 0 }}>
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.goldText, flexShrink: 0 }}>
                                   {i + 1}
                                 </div>
                                 {i < guide.steps.length - 1 && (
@@ -799,7 +800,7 @@ export default function HelpCenter() {
         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Need more help?</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
           {"Email us at "}
-          <a href="mailto:hello@ownproperly.com" style={{ color: T.gold, fontWeight: 700 }}>hello@ownproperly.com</a>
+          <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText, fontWeight: 700 }}>hello@ownproperly.com</a>
           {" or use the Feedback tab to send us a message directly from the app."}
         </div>
       </div>

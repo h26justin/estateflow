@@ -7,7 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied, isPropertyLettable, occupancySummary, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
-import { evaluateProperty, collectionStats, arrearsSummary, periodBreakdown, BUCKET_LABEL, STATE_LABEL, GO_LIVE } from '../lib/rentEngine'
+import { evaluateProperty, collectionStats, arrearsSummary, periodBreakdown, BUCKET_LABEL, STATE_LABEL, GO_LIVE, isoToday } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
 import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { renderReportPDF, renderYearEndPackPDF } from '../lib/reportPdf'
@@ -18,6 +18,8 @@ import { planToC, fmtCostRange, BELOW_C } from '../lib/epcUpgrade'
 import { EPC_BAND_COLOR } from '../lib/complianceCatalogue'
 import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport'
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
+import { pressable } from '../lib/pressable'
+import { plural } from '../lib/format'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
 // "£12,000" at small sizes.
@@ -89,10 +91,16 @@ function daysUntil(dateStr) {
 }
 
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
-const CAT_COLORS = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#9B59B6', maintenance:'#E0943A' }
+// Category accents double as text colour (chips, "View report →"), so each
+// theme gets a variant that clears WCAG AA 4.5:1 on its card background.
+// The dark set is the original palette (all ≥4.7:1 on #1B242D) bar purple;
+// the light set is the same hues darkened (≥5.5:1 on #FAF9F6).
+const CAT_COLORS_DARK  = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#B98AD0', maintenance:'#E0943A' }
+const CAT_COLORS_LIGHT = { tax:'#2D6FA8', performance:'#167A4C', finance:'#7A5E1C', compliance:'#7B3FA0', maintenance:'#A34A12' }
 
 export default function ReportsPage({ properties, companies, companySettings, user, selectedReportId, onSelectReport }) {
-  const { T } = useTheme()
+  const { T, darkMode } = useTheme()
+  const CAT_COLORS = darkMode ? CAT_COLORS_DARK : CAT_COLORS_LIGHT
   // Local view state: 'catalogue' shows the grid of reports, 'report'
   // shows a specific report's content. Driven by the selectedReportId
   // prop (which is URL-synced) when provided — falls back to local state
@@ -313,14 +321,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
           </div>
           <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
             {companies.length > 1 && (
-              <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)}
+              <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} aria-label="Company"
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
                 <option value="all">All companies</option>
                 {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
             <select value={year} onChange={e=>setYear(Number(e.target.value))}
-              title="Tax year applied to the Year-End Pack"
+              aria-label="Tax year for the Year-End Pack" title="Tax year applied to the Year-End Pack"
               style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               {[2022,2023,2024,2025,2026,2027].map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
@@ -334,7 +342,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
 
         {/* Category filter pills */}
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:24}}>
-          <button onClick={()=>setCatFilter('all')} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter==='all'?T.gold:T.border}`,background:catFilter==='all'?T.gold+'22':'transparent',color:catFilter==='all'?T.gold:T.muted}}>All reports</button>
+          <button onClick={()=>setCatFilter('all')} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter==='all'?T.gold:T.border}`,background:catFilter==='all'?T.gold+'22':'transparent',color:catFilter==='all'?T.goldText:T.muted}}>All reports</button>
           {Object.entries(CAT_LABELS).map(([k,l])=>(
             <button key={k} onClick={()=>setCatFilter(k)} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter===k?CAT_COLORS[k]:T.border}`,background:catFilter===k?CAT_COLORS[k]+'22':'transparent',color:catFilter===k?CAT_COLORS[k]:T.muted}}>{l}</button>
           ))}
@@ -349,7 +357,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:12}}>
               {REPORT_CATALOGUE.filter(r=>r.cat===cat).map(report=>(
                 <div key={report.id}
-                  onClick={()=>openReport(report)}
+                  {...pressable(()=>openReport(report))}
                   style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'18px 20px',cursor:'pointer',transition:'all 0.18s',borderLeft:`3px solid ${CAT_COLORS[cat]}`}}
                   onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'}}
                   onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none'}}>
@@ -383,7 +391,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
           {companies.length > 1 && (
-            <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)}
+            <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} aria-label="Company"
               style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               <option value="all">All companies</option>
               {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
@@ -392,12 +400,12 @@ export default function ReportsPage({ properties, companies, companySettings, us
           {/* Year type toggle */}
           <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
             {[['tax','Tax year'],['calendar','Calendar'],['custom','Custom']].map(([k,l])=>(
-              <button key={k} onClick={()=>saveYearType(k)} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
+              <button key={k} onClick={()=>saveYearType(k)} aria-pressed={yearType===k} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
             ))}
           </div>
           {yearType==='custom' ? (
             <div style={{display:'flex',gap:6,alignItems:'center'}}>
-              <input type="date" value={customStart} max={customEnd||undefined}
+              <input type="date" aria-label="Custom range start" value={customStart} max={customEnd||undefined}
                 onChange={e=>{
                   const s=e.target.value
                   if(customEnd && s && s>customEnd) return
@@ -405,7 +413,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
                 }}
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}/>
               <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>—</span>
-              <input type="date" value={customEnd} min={customStart||undefined}
+              <input type="date" aria-label="Custom range end" value={customEnd} min={customStart||undefined}
                 onChange={e=>{
                   const en=e.target.value
                   if(customStart && en && en<customStart) return
@@ -414,7 +422,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}/>
             </div>
           ) : (
-            <select value={year} onChange={e=>setYear(Number(e.target.value))}
+            <select value={year} onChange={e=>setYear(Number(e.target.value))} aria-label="Report year"
               style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
@@ -480,7 +488,7 @@ function StatCards({ items, T }) {
       {items.map((item,i)=>(
         <div key={i} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
           <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.label}</div>
-          <div style={{fontSize:22,fontWeight:700,color:item.color||T.gold,letterSpacing:'-0.02em'}}>{item.value}</div>
+          <div style={{fontSize:22,fontWeight:700,color:item.color||T.goldText,letterSpacing:'-0.02em'}}>{item.value}</div>
           {item.sub && <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:3}}>{item.sub}</div>}
         </div>
       ))}
@@ -603,7 +611,7 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
   return (
     <div style={{display:'flex',gap:8}}>
       <button onClick={exportPDF} disabled={exporting}
-        style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.gold,cursor:exporting?'wait':'pointer',fontWeight:700}}>
+        style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText,cursor:exporting?'wait':'pointer',fontWeight:700}}>
         {exporting?'Generating...':'↓ PDF'}
       </button>
       <button onClick={exportCSV} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>↓ CSV</button>
@@ -813,17 +821,6 @@ const EPC_UPGRADE_NOTE = 'Works and costs are the indicative ranges published on
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   switch(id) {
-    case 'rent_outstanding': {
-      // Every period since go-live with tenant, receipts and the full
-      // override history (the PDF carries the unpaid lines only).
-      const d = rentOutstandingData(filtProps)
-      return [
-        ...RENT_OUT_KPIS.map(([k, l]) => [l, d.totals[k]]),
-        [''],
-        RENT_OUT_HEADERS,
-        ...d.rows.map(r => rentOutstandingCells(r)),
-      ]
-    }
     case 'company_pnl': {
       const { companies = [], selectedCompany = 'all', user } = extras || {}
       const months = monthsInRange(range.start, range.end)
@@ -1218,6 +1215,17 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
   const stripCurrency = (s) => typeof s === 'string' ? s.replace(/[£,]/g, '').trim() : s
 
   switch(id) {
+    case 'rent_outstanding': {
+      // Every period since go-live with tenant, receipts and the full
+      // override history (the PDF carries the unpaid lines only).
+      const d = rentOutstandingData(filtProps)
+      return [
+        ...RENT_OUT_KPIS.map(([k, l]) => [l, d.totals[k]]),
+        [''],
+        RENT_OUT_HEADERS,
+        ...d.rows.map(r => rentOutstandingCells(r)),
+      ]
+    }
     case 'company_pnl':
     case 'epc_upgrade': {
       // Emit each section (per-company summary / portfolio totals, P&L
@@ -2360,21 +2368,23 @@ function rangeIso(range) {
 function rentCollectionData(filtProps, filtRent, range) {
   const { start, end } = rangeIso(range)
   if (start < GO_LIVE) {
-    const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*12,0)
+    // Expected rent covers the months in the selected range, not a fixed year.
+    const nMonths = monthsInRange(range.start, range.end)
+    const expected = filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0)*nMonths,0)
     const collected = filtRent.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
     const lateCollected = filtRent.filter(r=>r.status==='late'||r.status==='partial').reduce((s,r)=>s+(r.amount||0),0)
     const missed = filtRent.filter(r=>r.status==='overdue'||r.status==='missed').length
     const rate = expected>0?((collected+lateCollected)/expected)*100:null
     const rows = filtProps.filter(p=>isPropertyEarningRent(p.status)).map(p => {
       const own = filtRent.filter(r => r.property_id === p.id)
-      return { p, name: p.name, expected: (p.rent_pcm||0) * 12,
+      return { p, name: p.name, expected: (p.rent_pcm||0) * nMonths,
         paid: own.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.amount||0),0),
         late: own.filter(r=>r.status==='late').length,
         missed: own.filter(r=>r.status==='overdue'||r.status==='missed').length }
     }).sort((a,b) => (b.missed+b.late) - (a.missed+a.late))
     return { legacy: true, rate, expected, collected, missed, rows }
   }
-  const today = new Date().toISOString().slice(0, 10)
+  const today = isoToday()   // local (UK) date, not UTC
   const asOf = end < today ? end : today
   const props = filtProps.filter(p => p.status !== 'short_term_let')
   const stlExcluded = filtProps.length - props.length
@@ -2404,7 +2414,7 @@ const RENT_OUT_KPIS = [['outstanding','Outstanding (live)'],['overdue','Overdue'
 const RENT_OUT_PDF_COLS = [1, 5, 7, 8, 9, 11, 12, 15]
 const RENT_OUT_HEADERS = ['Company','Property','Tenant','Tenancy start','Tenancy end','Period start','Period end','Due date','Expected','Received','Receipts','Unpaid','Category','Status','Set by','Override','Override history','Explanation']
 function rentOutstandingData(filtProps) {
-  const asOf = new Date().toISOString().slice(0, 10)
+  const asOf = isoToday()   // local (UK) date, not UTC
   const rows = []
   const totals = { outstanding: 0, overdue: 0, window: 0, pendingReview: 0, combined: 0, notYetDue: 0, needsInfo: 0 }
   const add = (k, v) => { totals[k] = Math.round((totals[k] + (Number(v) || 0)) * 100) / 100 }
@@ -2599,12 +2609,12 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
             <div style={{width:3,height:20,background:g.color||T.gold,borderRadius:2}}/>
             {g.logoUrl && <img src={g.logoUrl} alt="" style={{height:26,maxWidth:80,objectFit:'contain'}}/>}
             <span style={{fontSize:15,fontWeight:700,color:T.text}}>{g.company}</span>
-            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{g.cards.length} properties</span>
+            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{plural(g.cards.length,'property','properties')}</span>
             <span style={{marginLeft:'auto',display:'flex',gap:14,flexWrap:'wrap',alignItems:'center'}}>
               {[['paid','paid'],['due','due'],['missed','missed'],['nc','not collectible'],['backfill','need amount']].filter(([k])=>g.counts[k]>0).map(([k,l])=>(
                 <span key={k} style={{fontFamily:mono,fontSize:11,fontWeight:600,color:countColor[k]}}>{g.counts[k]} {l}</span>
               ))}
-              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(g.received)}</span>
+              <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>{fmt(g.received)}</span>
               {g.owed>0 && <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.red}}>{fmt(g.owed)} owed</span>}
             </span>
           </div>
@@ -2623,11 +2633,11 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
               <div key={gr.key}>
                 {gr.building && (
                   <div style={{padding:'8px 16px',background:T.bg,borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:11,display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <b style={{color:T.text}}>{gr.name}</b><span style={{color:T.muted}}>· {gr.cards.length} units · {fmt(gr.rent)}/mo</span>
+                    <b style={{color:T.text}}>{gr.name}</b><span style={{color:T.muted}}>· {plural(gr.cards.length,'unit')} · {fmt(gr.rent)}/mo</span>
                     <span style={{marginLeft:'auto',display:'flex',gap:10}}>
                       {gr.missed>0&&<span style={{color:T.red,fontWeight:700}}>{gr.missed} missed</span>}
                       {gr.due>0&&<span style={{color:T.amber,fontWeight:700}}>{gr.due} due</span>}
-                      <span style={{color:T.gold,fontWeight:700}}>{fmt(gr.received)}</span>
+                      <span style={{color:T.goldText,fontWeight:700}}>{fmt(gr.received)}</span>
                     </span>
                   </div>
                 )}
@@ -2654,7 +2664,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
                       <span style={{display:'flex',gap:8,fontFamily:mono,fontSize:10}}>
                         {[['paid','paid'],['due','due'],['missed','missed'],['nc','n/c']].map(([k,l])=><span key={k} style={{color:c.counts[k]>0?countColor[k]:T.faint}}>{c.counts[k]} {l}</span>)}
                       </span>
-                      <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.gold}}>{fmt(c.received)}</span>
+                      <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>{fmt(c.received)}</span>
                       {c.shortfallYear>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.shortfallYear)} short in {model.year}</span>}
                       {c.shortfallTenancy>0 && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.red}}>{fmt(c.shortfallTenancy)} this tenancy</span>}
                       {c.let && !c.stl && <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{c.tenancyStart ? `Tenancy since ${c.tenancyStart}` : 'Tenancy start not recorded'}</span>}
@@ -2911,7 +2921,7 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
     <>
       <StatCards T={T} items={[
         {label:'Below band C',value:d.belowC.length,color:d.belowC.length>0?T.red:T.green},
-        {label:'Est. cost to reach C',value:d.belowC.length?fmtCostRange({lo:d.costLo,hi:d.costHi}):'—',color:T.gold,
+        {label:'Est. cost to reach C',value:d.belowC.length?fmtCostRange({lo:d.costLo,hi:d.costHi}):'—',color:T.goldText,
           sub:d.anyUnknownCost?'+ items without a published cost':(d.notReachable>0?`${d.notReachable} can't reach C from listed works`:undefined)},
         {label:'At C or better',value:d.atOrAbove.length,color:T.green},
         {label:'No EPC on record',value:d.missing.length,color:d.missing.length>0?T.amber:T.green},
@@ -2935,7 +2945,7 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
             </div>
             <div style={{textAlign:'right'}}>
               <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Est. to band C</div>
-              <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.gold}}>
+              <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.goldText}}>
                 {plan.measures.length?fmtCostRange({lo:plan.costLo,hi:plan.costHi}):'—'}{plan.hasUnknownCost && plan.measures.length ? ' +' : ''}
               </div>
             </div>

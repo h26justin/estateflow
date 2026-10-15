@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import {
   taxYearForDate, parseTaxYear, quartersForTaxYear,
   mapExpenseCategoryToHmrc, buildQuarterlySummary, quarterStatusLabel,
+  currentQuarter, estimateMortgageInterest,
 } from '../mtdItsa'
 
 describe('taxYearForDate — 5/6 April boundary', () => {
@@ -61,6 +62,48 @@ describe('mapExpenseCategoryToHmrc', () => {
   it('unknown categories land in other', () => {
     expect(mapExpenseCategoryToHmrc('mystery')).toBe('other')
   })
+
+  it('maps every ExpensesTab picker key to the right HMRC bucket', () => {
+    expect(mapExpenseCategoryToHmrc('repairs')).toBe('repairsAndMaintenance')
+    expect(mapExpenseCategoryToHmrc('insurance')).toBe('premisesRunningCosts')
+    expect(mapExpenseCategoryToHmrc('ground_rent')).toBe('premisesRunningCosts')
+    expect(mapExpenseCategoryToHmrc('service_charge')).toBe('premisesRunningCosts')
+    expect(mapExpenseCategoryToHmrc('utilities')).toBe('premisesRunningCosts')
+    expect(mapExpenseCategoryToHmrc('agent_fees')).toBe('professionalFees')
+    expect(mapExpenseCategoryToHmrc('legal')).toBe('professionalFees')
+    expect(mapExpenseCategoryToHmrc('accountancy')).toBe('professionalFees')
+    expect(mapExpenseCategoryToHmrc('other')).toBe('other')
+  })
+
+  it('a full mortgage payment is not an allowable expense', () => {
+    expect(mapExpenseCategoryToHmrc('mortgage')).toBeNull()
+  })
+})
+
+describe('estimateMortgageInterest', () => {
+  const periodFrom = '2026-07-06'
+  const periodTo = '2026-10-05'   // 92 days
+  const mortgageProps = [
+    { id: 'a', mortgage_amount: 100000, mortgage_rate: 0.05 },
+    { id: 'b', mortgage_amount: 200000, mortgage_rate: 0.04 },
+  ]
+
+  it('estimates balance x rate x days / 365 across mortgaged properties', () => {
+    expect(estimateMortgageInterest({ mortgageProps, periodFrom, periodTo }))
+      .toBe(Math.round(13000 * 92 / 365 * 100) / 100)
+  })
+
+  it('skips the estimate for a property with recorded interest in the period', () => {
+    const expenses = [{ property_id: 'a', category: 'mortgage_interest', amount: 410, date: '2026-08-01' }]
+    expect(estimateMortgageInterest({ mortgageProps, expenses, periodFrom, periodTo }))
+      .toBe(Math.round(8000 * 92 / 365 * 100) / 100)
+  })
+
+  it('recorded interest outside the period does not suppress the estimate', () => {
+    const expenses = [{ property_id: 'a', category: 'mortgage_interest', amount: 410, date: '2026-06-01' }]
+    expect(estimateMortgageInterest({ mortgageProps, expenses, periodFrom, periodTo }))
+      .toBe(Math.round(13000 * 92 / 365 * 100) / 100)
+  })
 })
 
 describe('buildQuarterlySummary — income aggregation', () => {
@@ -77,6 +120,20 @@ describe('buildQuarterlySummary — income aggregation', () => {
       periodFrom, periodTo,
     })
     expect(s.income.periodAmount).toBe(800)
+  })
+
+  it('counts late and partial rows that carry money received', () => {
+    const s = buildQuarterlySummary({
+      payments: [
+        { status: 'paid', amount: 1000, period_start: '2026-04-06' },
+        { status: 'late', amount: 1000, period_start: '2026-05-06' },
+        { status: 'partial', amount: 400, period_start: '2026-06-06' },
+        { status: 'late', amount: null, period_start: '2026-06-06' },   // nothing received
+        { status: 'void', amount: 1000, period_start: '2026-06-06' },
+      ],
+      periodFrom, periodTo,
+    })
+    expect(s.income.periodAmount).toBe(2400)
   })
 
   it('falls back to year/month for legacy rows with NULL period_start', () => {
@@ -123,9 +180,36 @@ describe('buildQuarterlySummary — income aggregation', () => {
     expect(s.expenses.repairsAndMaintenance).toBe(120)
     expect(s.expenses.residentialFinancialCost).toBe(300.46)
   })
+
+  it('maps repairs, leaves out the full mortgage payment and adds estimated interest once', () => {
+    const s = buildQuarterlySummary({
+      expenses: [
+        { amount: 800, date: '2026-05-01', category: 'mortgage' },
+        { amount: 200, date: '2026-05-03', category: 'repairs' },
+        { amount: 90, date: '2026-05-03', category: 'legal' },
+        { amount: 50, date: '2026-05-04', category: 'ground_rent' },
+      ],
+      mortgageInterest: 300,
+      periodFrom, periodTo,
+    })
+    expect(s.expenses).toEqual({
+      repairsAndMaintenance: 200, professionalFees: 90,
+      premisesRunningCosts: 50, residentialFinancialCost: 300,
+    })
+    expect(s.totals.expenses).toBe(640)
+  })
 })
 
+// Run the date tests on UK time so the local-vs-UTC difference is real
+// whatever zone the machine (or CI) is in.
+const ukTime = () => {
+  let prev
+  beforeAll(() => { prev = process.env.TZ; process.env.TZ = 'Europe/London' })
+  afterAll(() => { if (prev === undefined) delete process.env.TZ; else process.env.TZ = prev })
+}
+
 describe('quarterStatusLabel', () => {
+  ukTime()
   const q = { from: '2026-04-06', to: '2026-07-05', deadline: '2026-08-07' }
 
   it('is not overdue between quarter end and the 7th deadline', () => {
@@ -136,7 +220,21 @@ describe('quarterStatusLabel', () => {
     expect(quarterStatusLabel(q, null, new Date('2026-08-08T12:00:00Z')).label).toBe('Overdue')
   })
 
+  it('uses the local (UK) date, not UTC, just after midnight BST', () => {
+    // 00:30 BST on 8 Aug is still 7 Aug in UTC: the quarter is now overdue.
+    const d = new Date(2026, 7, 8, 0, 30)
+    expect(quarterStatusLabel(q, null, d).label).toBe('Overdue')
+  })
+
   it('reports submitted status regardless of dates', () => {
     expect(quarterStatusLabel(q, { status: 'submitted' }, new Date('2026-09-01')).label).toBe('Submitted')
+  })
+})
+
+describe('currentQuarter', () => {
+  ukTime()
+  it('uses the local calendar date', () => {
+    expect(currentQuarter(new Date(2026, 6, 6, 0, 30)).quarter).toBe(2)
+    expect(currentQuarter(new Date(2026, 6, 5, 23, 30)).quarter).toBe(1)
   })
 })

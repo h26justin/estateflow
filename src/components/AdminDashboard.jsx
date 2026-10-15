@@ -5,9 +5,11 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
-import { fmtTimeAgo } from '../lib/format'
+import { logError } from '../lib/logError'
+import { fmtTimeAgo, plural } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
+import { pressable } from '../lib/pressable'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const mono = MONO
@@ -91,7 +93,10 @@ export default function AdminDashboard({ onClose, user }) {
         api.fetchAllAccessRows().catch(()=>[]),
       ])
       setCompanies(cos); setUsers(us); setAccessRows(accessRows)
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:loadAll', e)
+      showAppToast('Could not load admin data: ' + (e.message || 'unknown error'), 'error')
+    }
     setLoading(false)
   }
 
@@ -101,7 +106,10 @@ export default function AdminDashboard({ onClose, user }) {
       await api.setCompanyFreeTier(id, !current)
       setCompanies(prev=>prev.map(c=>c.id===id?{...c,is_free_tier:!current}:c))
       if (selectedAccount?.id===id) setSelectedAccount(a=>({...a,is_free_tier:!current}))
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:toggleFreeTier', e)
+      showAppToast('Failed: ' + (e.message || 'unknown error'), 'error')
+    }
     setSaving(null)
   }
 
@@ -110,7 +118,10 @@ export default function AdminDashboard({ onClose, user }) {
       await api.setCompanyFlag(id, !current)
       setCompanies(prev=>prev.map(c=>c.id===id?{...c,flagged:!current}:c))
       if (selectedAccount?.id===id) setSelectedAccount(a=>({...a,flagged:!current}))
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:toggleFlag', e)
+      showAppToast('Failed: ' + (e.message || 'unknown error'), 'error')
+    }
   }
 
   async function handleDeleteUser() {
@@ -156,7 +167,7 @@ export default function AdminDashboard({ onClose, user }) {
   // Style helpers
   const tabBtn = k => ({
     fontFamily:mono,fontSize:11,padding:'8px 18px',borderRadius:8,border:'none',cursor:'pointer',
-    background:tab===k?T.gold+'22':'transparent',color:tab===k?T.gold:T.muted,fontWeight:tab===k?700:400,
+    background:tab===k?T.gold+'22':'transparent',color:tab===k?T.goldText:T.muted,fontWeight:tab===k?700:400,
   })
   const card = (accent) => ({
     background:T.card,border:`1px solid ${T.border}`,borderRadius:14,
@@ -176,7 +187,7 @@ export default function AdminDashboard({ onClose, user }) {
           <div style={{display:'flex',alignItems:'center',gap:16}}>
             <ChromeLogo height={26}/>
             <div style={{width:1,height:24,background:T.border}}/>
-            <span style={{fontFamily:mono,fontSize:11,color:T.gold,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
+            <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
             {metrics.flagged>0&&<span style={{fontFamily:mono,fontSize:10,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}>⚑ {metrics.flagged} flagged</span>}
           </div>
           <button onClick={onClose} style={{fontFamily:mono,fontSize:12,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 16px',cursor:'pointer'}}>← Back to app</button>
@@ -227,7 +238,7 @@ export default function AdminDashboard({ onClose, user }) {
             {tab==='billing'&&<BillingTab companies={companies} T={T} fmt={fmt} pill={pill}/>}
 
             {/* ═══ COMMS TAB ═══ */}
-            {tab==='comms'&&<CommsTab user={user} users={users} T={T}/>}
+            {tab==='comms'&&<CommsTab users={users} T={T}/>}
 
             {/* ═══ PLATFORM TAB ═══ */}
             {tab==='platform'&&<PlatformTab user={user} companies={companies} T={T}/>}
@@ -247,10 +258,10 @@ export default function AdminDashboard({ onClose, user }) {
               </p>
             </div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',display:'block',marginBottom:8}}>Enter your admin password</label>
-            <input type="password" value={deletePassword} autoFocus
+            <input aria-label="Enter your admin password" type="password" value={deletePassword} autoFocus
               onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
               onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
-              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',marginBottom:deleteError?8:16}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',marginBottom:deleteError?8:16}}/>
             {deleteError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:16}}>{deleteError}</div>}
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setDeleteTarget(null)} style={{flex:1,fontFamily:mono,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
@@ -276,7 +287,7 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
     {label:'ARR (est.)',            value:fmt(metrics.mrrStripe*12), sub:'annualised run rate',     color:T.text},
     {label:'Active accounts',       value:metrics.active,         sub:'paying subscribers',         color:T.green},
     {label:'On trial',              value:metrics.trialing,       sub:'not yet paying',             color:'#4B8FE0'},
-    {label:'Free tier',             value:metrics.free,           sub:'manually granted',           color:T.gold},
+    {label:'Free tier',             value:metrics.free,           sub:'manually granted',           color:T.goldText},
     {label:'Past due',              value:metrics.pastDue,        sub:'payment failed',             color:T.red},
     {label:'Total accounts',        value:metrics.total,          sub:'all companies',              color:T.text},
     {label:'Total users',           value:metrics.users,          sub:'registered accounts',        color:T.text},
@@ -314,7 +325,7 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
         <div style={{display:'flex',gap:8,alignItems:'flex-end',height:120}}>
           {monthlySignups.map((m,i)=>(
             <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-              <div style={{fontFamily:mono,fontSize:10,color:T.gold,fontWeight:700}}>{m.count||''}</div>
+              <div style={{fontFamily:mono,fontSize:10,color:T.goldText,fontWeight:700}}>{m.count||''}</div>
               <div style={{width:'100%',background:T.gold+(m.count>0?'':'11'),borderRadius:'4px 4px 0 0',
                 height:`${Math.max((m.count/maxSignups)*90,m.count>0?4:0)}px`,transition:'height 0.3s'}}/>
               <div style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{m.label}</div>
@@ -334,7 +345,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
     <div>
       <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search company or email…"
-          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px',outline:'none'}}/>
+          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
           style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
           <option value="all">All statuses</option>
@@ -358,7 +369,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
           const props  = co.paid_property_count||co.subscriptions?.[0]?.property_count||0
           const mrr    = status==='active'?props*2:0
           return (
-            <div key={co.id} onClick={()=>onSelect(co)}
+            <div key={co.id} {...pressable(()=>onSelect(co))}
               style={{display:'grid',gridTemplateColumns:'1fr 140px 90px 90px 80px 120px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center',cursor:'pointer',transition:'background 0.15s'}}
               onMouseEnter={e=>e.currentTarget.style.background=T.surface}
               onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -374,13 +385,13 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
               <div style={{fontFamily:mono,fontSize:12,color:T.text}}>{co.real_property_count||0} <span style={{fontFamily:mono,fontSize:9,color:T.muted}}>total</span></div>
               <div style={{fontFamily:mono,fontSize:12,color:props>0?T.green:T.muted}}>{props>0?props:'—'} {props>0&&<span style={{fontFamily:mono,fontSize:9,color:T.muted}}>billed</span>}</div>
               <div style={{fontFamily:mono,fontSize:12,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr):'—'}</div>
-              <div style={{display:'flex',alignItems:'center',gap:6}} onClick={e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}}>
-                <span style={{fontFamily:mono,fontSize:10,color:co.is_free_tier?T.gold:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
+              <div style={{display:'flex',alignItems:'center',gap:6}} {...pressable(e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}, { role: 'switch', 'aria-checked': !!co.is_free_tier, 'aria-label': 'Free tier' })}>
+                <span style={{fontFamily:mono,fontSize:10,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
                 <div style={{width:36,height:20,borderRadius:10,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',opacity:saving===co.id?0.5:1,transition:'background 0.2s'}}>
                   <div style={{position:'absolute',top:2,left:co.is_free_tier?18:2,width:16,height:16,borderRadius:8,background:'white',transition:'left 0.2s'}}/>
                 </div>
               </div>
-              <div style={{fontFamily:mono,fontSize:11,color:T.gold,textAlign:'right'}}>View →</div>
+              <div style={{fontFamily:mono,fontSize:11,color:T.goldText,textAlign:'right'}}>View →</div>
             </div>
           )
         })}
@@ -430,7 +441,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
     setAdminPw(''); setAdminPwErr('')
   }
 
-  useEffect(()=>{ api.fetchAdminNotes(co.id).then(setNotes).catch(()=>{}) },[co.id])
+  useEffect(()=>{ api.fetchAdminNotes(co.id).then(setNotes).catch(e => logError('AdminDashboard:fetchAdminNotes', e)) },[co.id])
 
   async function submitNote() {
     if (!newNote.trim()) return
@@ -438,12 +449,19 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
     try {
       const note = await api.addAdminNote(user?.id||user?.sub, co.id, newNote.trim())
       setNotes(prev=>[note,...prev]); setNewNote('')
-    } catch(e) {}
+    } catch(e) {
+      logError('AdminDashboard:addAdminNote', e)
+      showAppToast('Could not add note: ' + (e.message || 'unknown error'), 'error')
+    }
     setAddingNote(false)
   }
 
   async function deleteNote(id) {
-    try { await api.deleteAdminNote(id); setNotes(prev=>prev.filter(n=>n.id!==id)) } catch(e) {}
+    try { await api.deleteAdminNote(id); setNotes(prev=>prev.filter(n=>n.id!==id)) }
+    catch(e) {
+      logError('AdminDashboard:deleteAdminNote', e)
+      showAppToast('Could not delete note: ' + (e.message || 'unknown error'), 'error')
+    }
   }
 
   async function extendTrial() {
@@ -488,7 +506,10 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         await api.updateCompany(co.id, { name: renameName.trim(), abbr })
         if (onRename) onRename(co.id, renameName.trim(), abbr)
         setShowRename(false)
-      } catch(e) {}
+      } catch(e) {
+        logError('AdminDashboard:rename', e)
+        showAppToast('Rename failed: ' + (e.message || 'unknown error'), 'error')
+      }
       setRenameSaving(false)
     })
   }
@@ -561,8 +582,8 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Free tier</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontFamily:mono,fontSize:11,color:co.is_free_tier?T.gold:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
-                  <div onClick={()=>requireConfirm(co.is_free_tier?'Remove free tier':'Grant free tier', co.is_free_tier?`Remove free tier from "${co.name}". They will need an active subscription.`:`Grant free tier to "${co.name}". They will not be billed.`, async()=>{ onToggleFreeTier() })} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                  <span style={{fontFamily:mono,fontSize:11,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
+                  <div {...pressable(()=>requireConfirm(co.is_free_tier?'Remove free tier':'Grant free tier', co.is_free_tier?`Remove free tier from "${co.name}". They will need an active subscription.`:`Grant free tier to "${co.name}". They will not be billed.`, async()=>{ onToggleFreeTier() }))} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.is_free_tier?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
                 </div>
@@ -571,7 +592,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Flag account</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontFamily:mono,fontSize:11,color:co.flagged?T.red:T.muted}}>{co.flagged?'Flagged':'Clear'}</span>
-                  <div onClick={()=>requireConfirm(co.flagged?'Unflag account':'Flag account', co.flagged?`Remove the flag from "${co.name}".`:`Flag "${co.name}" for review. This does not affect the account but marks it for admin attention.`, async()=>{ onToggleFlag() })} style={{width:44,height:24,borderRadius:12,background:co.flagged?T.red:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                  <div {...pressable(()=>requireConfirm(co.flagged?'Unflag account':'Flag account', co.flagged?`Remove the flag from "${co.name}".`:`Flag "${co.name}" for review. This does not affect the account but marks it for admin attention.`, async()=>{ onToggleFlag() }))} style={{width:44,height:24,borderRadius:12,background:co.flagged?T.red:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.flagged?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
                 </div>
@@ -612,7 +633,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Admin notes</div>
         <div style={{display:'flex',gap:10,marginBottom:16}}>
           <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} rows={2} placeholder="Add a note about this account..."
-            style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',outline:'none'}}/>
+            style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none'}}/>
           <button onClick={submitNote} disabled={addingNote||!newNote.trim()}
             style={{fontFamily:mono,fontSize:12,padding:'0 20px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer',fontWeight:700,alignSelf:'stretch'}}>
             {addingNote?'…':'Add'}
@@ -636,13 +657,13 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,marginBottom:20,color:T.text}}>Rename company</h3>
             <div style={{marginBottom:12}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
-              <input value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+              <input aria-label="Company name" value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{marginBottom:20}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
-              <input value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+              <input aria-label="Abbreviation" value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setShowRename(false)}
@@ -666,10 +687,10 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             </div>
             <div style={{marginBottom:16}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password to confirm</label>
-              <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
+              <input aria-label="Enter your admin password to confirm" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
               {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -869,7 +890,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   // ── PILLS AND HELPERS ─────────────────────────────────────────────────────
   const statusPill = (co) => {
     const status = co.is_free_tier ? 'free' : (co.subscriptions?.[0]?.status || 'trialing')
-    const cfg = { active:{bg:T.green+'22',c:T.green,l:'Active'}, trialing:{bg:T.amber+'22',c:T.amber,l:'Trial'}, free:{bg:T.gold+'22',c:T.gold,l:'Free'}, past_due:{bg:T.red+'22',c:T.red,l:'Past due'}, canceled:{bg:T.muted+'22',c:T.muted,l:'Canceled'} }[status] || {bg:T.muted+'22',c:T.muted,l:status}
+    const cfg = { active:{bg:T.green+'22',c:T.green,l:'Active'}, trialing:{bg:T.amber+'22',c:T.amber,l:'Trial'}, free:{bg:T.gold+'22',c:T.gold,l:'Free'}, past_due:{bg:T.red+'22',c:T.red,l:'Past due'}, canceled:{bg:T.muted+'22',c:T.muted,l:'Cancelled'} }[status] || {bg:T.muted+'22',c:T.muted,l:status}
     return <span style={{fontFamily:mono,fontSize:10,background:cfg.bg,color:cfg.c,padding:'2px 8px',borderRadius:10,fontWeight:700}}>{cfg.l}</span>
   }
 
@@ -880,11 +901,11 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       {/* ── TOP BAR: search + view toggle + global actions ── */}
       <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by company, email, or abbreviation…"
-          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px',outline:'none'}}/>
+          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
         <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:2,gap:2}}>
           {[['by-company','By company'],['by-user','By user']].map(([k,l])=>(
             <button key={k} onClick={()=>setView(k)}
-              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.gold:T.muted,fontWeight:view===k?700:400}}>
+              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.goldText:T.muted,fontWeight:view===k?700:400}}>
               {l}
             </button>
           ))}
@@ -919,9 +940,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
             return (
               <div key={co.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:12,overflow:'hidden',borderLeft:`4px solid ${coColor}`}}>
                 {/* Company header row */}
-                <div onClick={()=>toggleExpand(co.id)}
+                <div {...pressable(()=>toggleExpand(co.id))}
                   style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto auto',gap:14,padding:'14px 20px',cursor:'pointer',alignItems:'center',background:isOpen?T.bg:'transparent'}}>
-                  <span style={{fontFamily:mono,fontSize:12,color:isOpen?T.gold:T.faint,fontWeight:700}}>
+                  <span style={{fontFamily:mono,fontSize:12,color:isOpen?T.goldText:T.faint,fontWeight:700}}>
                     {isOpen ? '▼' : '▶'}
                   </span>
                   <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}>
@@ -1055,7 +1076,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       {/* ── BY USER VIEW ── */}
       {view==='by-user' && (
         <>
-          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14}}>{filteredUsers.length} of {users.length} users</div>
+          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14}}>{filteredUsers.length} of {plural(users.length,'user')}</div>
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
             {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
             <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
@@ -1072,7 +1093,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               return (
                 <div key={u.id} style={{display:'grid',gridTemplateColumns:'1.4fr 200px 100px 110px 280px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-                    <div style={{width:34,height:34,borderRadius:17,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:13,fontWeight:700,color:orphan?T.amber:T.gold,flexShrink:0}}>
+                    <div style={{width:34,height:34,borderRadius:17,background:(orphan?T.amber:T.gold)+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:13,fontWeight:700,color:orphan?T.amber:T.goldText,flexShrink:0}}>
                       {userInitial(u)}
                     </div>
                     <div style={{minWidth:0,flex:1}}>
@@ -1080,7 +1101,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                         <span style={{fontSize:13,fontWeight:600,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                           {name || u.email}
                         </span>
-                        {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.gold,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
+                        {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.goldText,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
                         {orphan&&<span style={{fontFamily:mono,fontSize:9,color:T.amber,background:T.amber+'22',padding:'1px 6px',borderRadius:4}}>orphan</span>}
                       </div>
                       <div style={{fontFamily:mono,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -1147,10 +1168,10 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
             </div>
             <div style={{marginBottom:16}}>
               <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password</label>
-              <input type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
+              <input aria-label="Enter your admin password" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
               {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -1174,7 +1195,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               <div style={{fontSize:32,marginBottom:10}}>🔑</div>
               <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Send password reset?</h3>
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
-                {"Send a password reset email to "}<strong style={{color:T.gold}}>{resetConfirm.email}</strong>.
+                {"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.
               </p>
             </div>
             <div style={{display:'flex',gap:10}}>
@@ -1266,7 +1287,7 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
         </div>
       </div>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>
-        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.gold,fontWeight:700}}>Role</button>}
+        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText,fontWeight:700}}>Role</button>}
         {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Access</button>}
         {onReset && <button onClick={onReset} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset</button>}
         {onRemove && <button onClick={onRemove} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.amber}44`,background:'transparent',color:T.amber}}>Remove</button>}
@@ -1301,30 +1322,30 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
       <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:460,padding:'28px',border:`1px solid ${T.border}`}}>
         <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Create company for user</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.gold}}>{target.email}</strong></p>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.goldText}}>{target.email}</strong></p>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
-          <input value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+          <input aria-label="Company name" value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 100px',gap:10,marginBottom:12}}>
           <div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
-            <input value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
-              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            <input aria-label="Abbreviation" value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
+              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           </div>
           <div>
             <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Colour</label>
-            <input type="color" value={color} onChange={e=>setColor(e.target.value)}
+            <input aria-label="Colour" type="color" value={color} onChange={e=>setColor(e.target.value)}
               style={{width:'100%',height:40,padding:0,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',background:'transparent'}}/>
           </div>
         </div>
         <div style={{marginBottom:16,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
         <div style={{display:'flex',gap:10}}>
@@ -1370,8 +1391,8 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Source company (will be deleted)</label>
-          <select value={sourceId} onChange={e=>setSourceId(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}>
+          <select aria-label="Source company (will be deleted)" value={sourceId} onChange={e=>setSourceId(e.target.value)}
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
           </select>
@@ -1381,8 +1402,8 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Target company (keeps everything)</label>
-          <select value={targetId} onChange={e=>setTargetId(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}>
+          <select aria-label="Target company (keeps everything)" value={targetId} onChange={e=>setTargetId(e.target.value)}
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.filter(c=>c.id!==sourceId).map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
           </select>
@@ -1390,15 +1411,15 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
 
         {source && target && (
           <div style={{background:T.bg,borderRadius:10,padding:'12px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,lineHeight:1.7}}>
-            {(source.real_property_count||0)} properties will move from <strong style={{color:source.color||T.gold}}>{source.name}</strong> into <strong style={{color:target.color||T.gold}}>{target.name}</strong>, then <strong style={{color:T.red}}>{source.name}</strong> will be deleted.
+            {(source.real_property_count||0)} properties will move from <strong style={{color:source.color||T.goldText}}>{source.name}</strong> into <strong style={{color:target.color||T.goldText}}>{target.name}</strong>, then <strong style={{color:T.red}}>{source.name}</strong> will be deleted.
           </div>
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
 
@@ -1437,12 +1458,12 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
       <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
         <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Transfer ownership</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.gold}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.goldText}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
-          <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+          <input aria-label="Search new owner by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
         {search && !selectedUser && (
@@ -1451,7 +1472,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
               : filtered.map(u => {
                 const n = userName(u)
                 return (
-                  <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`}}>
+                  <div key={u.id} {...pressable(()=>{setSelectedUser(u);setSearch(u.email)})} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`}}>
                     {n && <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{n}</div>}
                     <div style={{fontFamily:mono,fontSize:11,color:n?T.muted:T.text}}>{u.email}</div>
                   </div>
@@ -1462,15 +1483,15 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
 
         {selectedUser && (
           <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text}}>
-            New owner: <strong style={{color:T.gold}}>{selectedUser.email}</strong>
+            New owner: <strong style={{color:T.goldText}}>{selectedUser.email}</strong>
           </div>
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
 
@@ -1522,12 +1543,12 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
       <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
         <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Add user access</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.gold}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
+        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.goldText}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
-          <input value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+          <input aria-label="Search user by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
         {!selectedUser && (
@@ -1536,8 +1557,8 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
               : filtered.map(u => {
                 const n = userName(u)
                 return (
-                  <div key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.email)}} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:10}}>
-                    <div style={{width:28,height:28,borderRadius:14,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.gold,flexShrink:0}}>
+                  <div key={u.id} {...pressable(()=>{setSelectedUser(u);setSearch(u.email)})} style={{padding:'10px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:10}}>
+                    <div style={{width:28,height:28,borderRadius:14,background:T.gold+'33',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:11,fontWeight:700,color:T.goldText,flexShrink:0}}>
                       {userInitial(u)}
                     </div>
                     <div style={{minWidth:0,flex:1}}>
@@ -1552,16 +1573,16 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
 
         {selectedUser && (
           <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span>Grant access to: <strong style={{color:T.gold}}>{selectedUser.email}</strong></span>
+            <span>Grant access to: <strong style={{color:T.goldText}}>{selectedUser.email}</strong></span>
             <button onClick={()=>{setSelectedUser(null);setSearch('')}} style={{background:'none',border:'none',color:T.muted,fontFamily:mono,fontSize:10,cursor:'pointer'}}>change</button>
           </div>
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
           <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
+          <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',outline:'none',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
 
@@ -1629,7 +1650,7 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
         <div style={{marginBottom:20}}>
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Manage company access</h2>
           <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.6}}>
-            Grant or revoke access for <span style={{color:T.gold,fontWeight:700}}>{targetUser.email}</span>.
+            Grant or revoke access for <span style={{color:T.goldText,fontWeight:700}}>{targetUser.email}</span>.
             Owned companies cannot be removed here.
           </p>
         </div>
@@ -1739,64 +1760,18 @@ function BillingTab({ companies, T, fmt, pill }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMMS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
-function CommsTab({ user, users, T }) {
-  const [to, setTo]           = useState('all')
-  const [customEmail, setCustomEmail] = useState('')
-  const [subject, setSubject] = useState('')
-  const [message, setMessage] = useState('')
-  const [sending, setSending] = useState(false)
-  const [sent, setSent]       = useState(null)
-
-  async function send() {
-    if (!subject.trim()||!message.trim()) return
-    setSending(true); setSent(null)
-    try {
-      const { data:{session} } = await supabase.auth.getSession()
-      const recipientTo = to==='individual' ? customEmail : null
-      const result = await api.sendAdminEmail(session, recipientTo, subject, message)
-      setSent(`✓ Sent to ${result.sent} recipient${result.sent!==1?'s':''} successfully`)
-      setSubject(''); setMessage('')
-    } catch(e) { setSent(`✗ Error: ${e.message}`) }
-    setSending(false)
-  }
-
+// Bulk email was never wired up: the send-admin-email edge function it called
+// does not exist in production, so every send failed. Building one means a new
+// outbound-email path to real customers, which needs an explicit decision —
+// until then, point admins at the in-app announcements instead.
+function CommsTab({ users, T }) {
   return (
     <div style={{maxWidth:680}}>
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'24px 28px'}}>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:20}}>Send email to users</div>
-
-        <div style={{marginBottom:16}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Recipients</label>
-          <select value={to} onChange={e=>setTo(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px'}}>
-            <option value="all">All users ({users.length})</option>
-            <option value="individual">Individual user…</option>
-          </select>
-          {to==='individual'&&(
-            <input value={customEmail} onChange={e=>setCustomEmail(e.target.value)} placeholder="user@email.com"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px',marginTop:8,outline:'none'}}/>
-          )}
-        </div>
-
-        <div style={{marginBottom:16}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Subject</label>
-          <input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Email subject line"
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'9px 12px',outline:'none'}}/>
-        </div>
-
-        <div style={{marginBottom:20}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Message</label>
-          <textarea value={message} onChange={e=>setMessage(e.target.value)} rows={8} placeholder="Write your message here…"
-            style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'vertical',outline:'none'}}/>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:4}}>Sent from hello@ownproperly.com using your Properly branding</div>
-        </div>
-
-        {sent&&<div style={{fontFamily:mono,fontSize:12,color:sent.startsWith('✓')?T.green:T.red,marginBottom:16,padding:'10px 14px',background:sent.startsWith('✓')?T.green+'18':T.red+'18',borderRadius:8}}>{sent}</div>}
-
-        <button onClick={send} disabled={sending||!subject.trim()||!message.trim()||(to==='individual'&&!customEmail.trim())}
-          style={{fontFamily:mono,fontSize:13,fontWeight:700,padding:'12px 28px',borderRadius:10,border:'none',background:T.gold,color:T.surface,cursor:'pointer',opacity:sending?0.6:1}}>
-          {sending?'Sending…':`Send email${to==='all'?` to all ${users.length} users`:''}`}
-        </button>
+        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Email users</div>
+        <p style={{fontSize:13,color:T.text,lineHeight:1.6,margin:'0 0 8px'}}>
+          Email to users ({users.length}) isn't available yet. To reach everyone in the app, post an announcement from the Platform tab.
+        </p>
       </div>
     </div>
   )
@@ -1847,7 +1822,7 @@ function PlatformTab({ user, companies, T }) {
 
           <div style={{marginBottom:12}}>
             <textarea value={newMsg} onChange={e=>setNewMsg(e.target.value)} rows={3} placeholder="Announcement message…"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',outline:'none',marginBottom:8}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',marginBottom:8}}/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
               <select value={newType} onChange={e=>setNewType(e.target.value)}
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}>
@@ -1856,10 +1831,10 @@ function PlatformTab({ user, companies, T }) {
                 <option value="success">Success (green)</option>
               </select>
               <input value={newLinkText} onChange={e=>setNewLinkText(e.target.value)} placeholder="Link text (optional)"
-                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',outline:'none'}}/>
+                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}/>
             </div>
             <input value={newLink} onChange={e=>setNewLink(e.target.value)} placeholder="Link URL (optional)"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',outline:'none',marginBottom:12}}/>
+              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',marginBottom:12}}/>
             <button onClick={addAnnouncement} disabled={saving||!newMsg.trim()}
               style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 20px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer'}}>
               {saving?'Publishing…':'Publish announcement'}

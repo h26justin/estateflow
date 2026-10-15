@@ -20,9 +20,11 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken, resolveToken } from './encryption.ts'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const ANON_KEY           = Deno.env.get('SUPABASE_ANON_KEY')!
 const XERO_CLIENT_ID     = Deno.env.get('XERO_CLIENT_ID') || ''
 const XERO_CLIENT_SECRET = Deno.env.get('XERO_CLIENT_SECRET') || ''
 
@@ -212,6 +214,17 @@ function pushSetupMissing(settings: any): string[] {
   return missing
 }
 
+// Owner of the company, or granted shared access (user_company_access).
+// Mirrors has_company_access() for callers without a JWT (cron path).
+async function userCanAccessCompany(admin: any, userId: string, companyId: string): Promise<boolean> {
+  const { data: owned } = await admin.from('companies')
+    .select('id').eq('id', companyId).eq('owner_id', userId).maybeSingle()
+  if (owned) return true
+  const { data: shared } = await admin.from('user_company_access')
+    .select('company_id').eq('company_id', companyId).eq('user_id', userId).limit(1)
+  return !!(shared && shared.length)
+}
+
 const rentDate = (p: any) => p.period_start
   || (p.year && p.month ? `${p.year}-${String(p.month).padStart(2, '0')}-01` : null)
 
@@ -236,7 +249,7 @@ serve(async (req) => {
   const cronSecret = req.headers.get('x-cron-secret') || ''
   const cronUserId = req.headers.get('x-cron-user-id') || ''
   let caller: any = null
-  if (CRON_SECRET && cronSecret === CRON_SECRET && cronUserId) {
+  if (secretMatches(cronSecret, CRON_SECRET) && cronUserId) {
     if (action !== 'reconcile_only') return jsonError(403, 'Cron callers may only run reconcile_only')
     const { data: sched } = await admin.from('xero_cron_schedules')
       .select('user_id')
@@ -252,6 +265,12 @@ serve(async (req) => {
       bound = !!pendingConn
     }
     if (!bound) return jsonError(403, 'No scheduled or pending sync for this user/company')
+    // No JWT on this path: check the same owner / shared-access rule
+    // directly so a user who has since lost access to the company can't
+    // be acted for by a stale schedule row.
+    if (!(await userCanAccessCompany(admin, cronUserId, companyId))) {
+      return jsonError(403, 'Forbidden')
+    }
     caller = { id: cronUserId }
   } else {
     const authHeader = req.headers.get('Authorization') || ''
@@ -260,7 +279,21 @@ serve(async (req) => {
     const { data: userData, error: userErr } = await admin.auth.getUser(token)
     caller = userData?.user
     if (userErr || !caller) return jsonError(401, 'Invalid session')
+    // Company access under the caller's own JWT (same rule as RLS).
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    })
+    const { data: hasAccess } = await userClient.rpc('has_company_access', { p_company_id: companyId })
+    if (hasAccess !== true) return jsonError(403, 'Forbidden')
   }
+
+  // Every property of this company. Pull-back writes into rent_payments /
+  // property_expenses (reconciliation flags, reverse-sync edits) are
+  // constrained to these ids so a sync-map row can never touch another
+  // company's records via the service-role client.
+  const { data: companyProps } = await admin.from('properties')
+    .select('id').eq('company_id', companyId)
+  const allowedPropIds: string[] = (companyProps || []).map((p: any) => p.id)
 
   // Load the connection for this (user, company)
   const { data: conn, error: ce } = await admin
@@ -383,11 +416,11 @@ serve(async (req) => {
     const expIds = targets.filter((r: any) => r.entity_type === 'expense').map((r: any) => r.local_id)
     let total = 0
     for (let i = 0; i < rentIds.length; i += 200) {
-      const { data } = await admin.from('rent_payments').select('amount').in('id', rentIds.slice(i, i + 200))
+      const { data } = await admin.from('rent_payments').select('amount').in('id', rentIds.slice(i, i + 200)).in('property_id', allowedPropIds)
       for (const r of (data || [])) total += Number(r.amount || 0)
     }
     for (let i = 0; i < expIds.length; i += 200) {
-      const { data } = await admin.from('property_expenses').select('amount').in('id', expIds.slice(i, i + 200))
+      const { data } = await admin.from('property_expenses').select('amount').in('id', expIds.slice(i, i + 200)).in('property_id', allowedPropIds)
       for (const r of (data || [])) total -= Number(r.amount || 0)
     }
     const summary = { since, count: targets.length, rent: rentIds.length, expenses: expIds.length,
@@ -907,16 +940,16 @@ serve(async (req) => {
           if (page > 200) { errors.push('reconciliation pull capped at 200 pages'); break }
         }
         if (reconciledByType.rent_payment.length > 0) {
-          const { error: re } = await admin.from('rent_payments').update({
+          const { data: rd, error: re } = await admin.from('rent_payments').update({
             xero_reconciled: true, xero_reconciled_at: new Date().toISOString(),
-          }).in('id', reconciledByType.rent_payment)
-          if (!re) updated += reconciledByType.rent_payment.length
+          }).in('id', reconciledByType.rent_payment).in('property_id', allowedPropIds).select('id')
+          if (!re) updated += (rd || []).length
         }
         if (reconciledByType.expense.length > 0) {
-          const { error: ee } = await admin.from('property_expenses').update({
+          const { data: ed, error: ee } = await admin.from('property_expenses').update({
             xero_reconciled: true, xero_reconciled_at: new Date().toISOString(),
-          }).in('id', reconciledByType.expense)
-          if (!ee) updated += reconciledByType.expense.length
+          }).in('id', reconciledByType.expense).in('property_id', allowedPropIds).select('id')
+          if (!ee) updated += (ed || []).length
         }
       }
     }
@@ -960,9 +993,14 @@ serve(async (req) => {
             const dateCol = map.entity_type === 'rent_payment' ? 'period_start' : 'date'
             const patch: any = { amount: Number(xeroAmount) }
             if (xeroDate) patch[dateCol] = xeroDate
-            const { error: upErr } = await admin.from(table).update(patch).eq('id', map.local_id)
+            const { data: upRows, error: upErr } = await admin.from(table).update(patch)
+              .eq('id', map.local_id).in('property_id', allowedPropIds).select('id')
             if (upErr) {
               errors.push(`reverse-sync ${map.entity_type} ${map.local_id}: ${upErr.message}`)
+              continue
+            }
+            if (!upRows || upRows.length === 0) {
+              errors.push(`reverse-sync ${map.entity_type} ${map.local_id}: not a record of this company — skipped`)
               continue
             }
             await admin.from('xero_sync_map').update({

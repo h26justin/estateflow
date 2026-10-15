@@ -4,6 +4,7 @@ import { MONO } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { groupNotifications } from '../lib/notificationsGroup'
+import { pressable } from '../lib/pressable'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
 const TYPE_ICON = {
@@ -140,7 +141,7 @@ export default function NotificationCentre() {
         {unread > 0 && (
           <span aria-hidden="true" style={{
             position: 'absolute', top: -4, right: -4,
-            background: T.red, color: 'white',
+            background: '#B8392D', color: 'white', // fixed deep red: white on it is 5.7:1 in both themes
             fontFamily: mono, fontSize: 9, fontWeight: 700,
             borderRadius: 10, minWidth: 16, height: 16,
             padding: '0 4px',
@@ -175,7 +176,7 @@ export default function NotificationCentre() {
               {unread > 0 && (
                 <button onClick={handleMarkAll}
                   style={{ background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: mono, fontSize: 10, color: T.gold, textDecoration: 'underline' }}>
+                    fontFamily: mono, fontSize: 10, color: T.goldText, textDecoration: 'underline' }}>
                   Mark all read
                 </button>
               )}
@@ -209,7 +210,7 @@ export default function NotificationCentre() {
                       </div>
                     )}
                     {g.items.map((n, i) => (
-                  <div key={n.id} onClick={() => handleClick(n)}
+                  <div key={n.id} {...pressable(() => handleClick(n))}
                     style={{
                       padding: '12px 16px',
                       borderBottom: i < g.items.length - 1 ? `1px solid ${T.border}` : 'none',
@@ -248,7 +249,7 @@ export default function NotificationCentre() {
                             display: 'inline-block', marginTop: 6,
                             fontFamily: mono, fontSize: 10, fontWeight: 600,
                             padding: '4px 9px', borderRadius: 6,
-                            background: T.gold + '14', color: T.gold,
+                            background: T.gold + '14', color: T.goldText,
                             border: `1px solid ${T.gold}55`,
                             textDecoration: 'none',
                           }}>

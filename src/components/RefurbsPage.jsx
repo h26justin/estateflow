@@ -28,11 +28,12 @@ import {
   projectTotals, daysLeft, isOverdue, suggestStage, mirrorFields,
   projectsFromProperties, summariseProjects, ledgerLines, knownPayees, isActiveProject,
 } from '../lib/refurbs'
-import { invoicedByProject, outstandingOn } from '../lib/refurbInvoices'
+import { invoicedByProject, outstandingOn, canApproveRefurbInvoices } from '../lib/refurbInvoices'
 import { BUILT_IN_TEMPLATES, PROJECT_TYPES, filterProjects, distinctValues, journeySummary, forecastFinalCost } from '../lib/refurbWorkspace'
 import { useRefurbInvoices, allLinesOf, ImportRefurbInvoice, InvoiceList, InvoiceDetail, ProjectInvoices } from './RefurbInvoices'
 import RefurbWorkspace, { WORKSPACE_TABS } from './refurbs/RefurbWorkspace'
 import { CoverImage } from './refurbs/CoverPhoto'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -191,11 +192,11 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = '
 
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 12, padding: 18, marginBottom: 16 }}>
-    <div style={{ fontFamily: mono, fontSize: 11, color: T.gold, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>New refurb</div>
+    <div style={{ fontFamily: mono, fontSize: 11, color: T.goldText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>New refurb</div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
       {!fixedPropertyId && <div>
         <label style={lbl}>Property</label>
-        <select value={propertyId} onChange={e => setPropertyId(e.target.value)} style={inputStyle(T)}>
+        <select aria-label="Property" value={propertyId} onChange={e => setPropertyId(e.target.value)} style={inputStyle(T)}>
           <option value="">Choose a property</option>
           {[...byCompany.entries()].map(([cid, list]) => (
             <optgroup key={cid || 'none'} label={coName(cid)}>
@@ -206,38 +207,38 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = '
       </div>}
       <div>
         <label style={lbl}>Type</label>
-        <select value={type} onChange={e => setType(e.target.value)} style={inputStyle(T)}>
+        <select aria-label="Type" value={type} onChange={e => setType(e.target.value)} style={inputStyle(T)}>
           {PROJECT_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
       <div>
         <label style={lbl}>Project name (optional)</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Full refurb and rewire" style={inputStyle(T)} />
+        <input aria-label="Project name (optional)" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Full refurb and rewire" style={inputStyle(T)} />
       </div>
       <div>
         <label style={lbl}>Agreed price</label>
-        <MoneyInput prefix="£" value={price} onChange={v => setPrice(v == null ? '' : v)} placeholder="0" style={inputStyle(T)} />
+        <MoneyInput aria-label="Agreed price" prefix="£" value={price} onChange={v => setPrice(v == null ? '' : v)} placeholder="0" style={inputStyle(T)} />
       </div>
       <div>
         <label style={lbl}>Main contractor</label>
-        <input list="refurb-payees" value={contractor} onChange={e => setContractor(e.target.value)} placeholder="e.g. GLB Builders" style={inputStyle(T)} />
+        <input aria-label="Main contractor" list="refurb-payees" value={contractor} onChange={e => setContractor(e.target.value)} placeholder="e.g. GLB Builders" style={inputStyle(T)} />
       </div>
       <div>
         <label style={lbl}>Project manager</label>
-        <input list="refurb-new-people" value={manager} onChange={e => setManager(e.target.value)} placeholder="Name" style={inputStyle(T)} />
+        <input aria-label="Project manager" list="refurb-new-people" value={manager} onChange={e => setManager(e.target.value)} placeholder="Name" style={inputStyle(T)} />
         <datalist id="refurb-new-people">{people.map(p => <option key={p} value={p} />)}</datalist>
       </div>
       <div>
         <label style={lbl}>Planned start</label>
-        <input type="date" value={start} onChange={e => setStart(e.target.value)} style={inputStyle(T)} />
+        <input aria-label="Planned start" type="date" value={start} onChange={e => setStart(e.target.value)} style={inputStyle(T)} />
       </div>
       <div>
         <label style={lbl}>Planned completion</label>
-        <input type="date" value={end} onChange={e => setEnd(e.target.value)} style={inputStyle(T)} />
+        <input aria-label="Planned completion" type="date" value={end} onChange={e => setEnd(e.target.value)} style={inputStyle(T)} />
       </div>
       <div>
         <label style={lbl}>Journey</label>
-        <select value={journey} onChange={e => setJourney(e.target.value)} style={inputStyle(T)}>
+        <select aria-label="Journey" value={journey} onChange={e => setJourney(e.target.value)} style={inputStyle(T)}>
           <option value="builtin">{type === 'commercial' ? 'Commercial' : 'Residential'} template</option>
           {saved.map(t => <option key={t.id} value={t.id}>Saved: {t.name}</option>)}
           <option value="none">Choose later</option>
@@ -356,10 +357,10 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   const renderLine = (l, showKind) => editingLine === l.id ? (
     <div key={l.id} style={{ ...lineRow, gridTemplateColumns: '1fr', border: `1px solid ${T.gold}44`, borderRadius: 8, padding: 10, marginBottom: 6 }}>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1.2fr 1.4fr', gap: 8 }}>
-        <div><label style={lbl}>Amount</label><MoneyInput prefix="£" value={lineEdit.amount} onChange={v => setLineEdit(e => ({ ...e, amount: v == null ? '' : v }))} allowDecimals style={inputStyle(T)} /></div>
-        <div><label style={lbl}>Date</label><input type="date" value={lineEdit.date} onChange={e => setLineEdit(x => ({ ...x, date: e.target.value }))} style={inputStyle(T)} /></div>
-        <div><label style={lbl}>Paid to</label><input list="refurb-payees" value={lineEdit.payee} onChange={e => setLineEdit(x => ({ ...x, payee: e.target.value }))} style={inputStyle(T)} /></div>
-        <div><label style={lbl}>Note</label><input value={lineEdit.description} onChange={e => setLineEdit(x => ({ ...x, description: e.target.value }))} style={inputStyle(T)} /></div>
+        <div><label style={lbl}>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={lineEdit.amount} onChange={v => setLineEdit(e => ({ ...e, amount: v == null ? '' : v }))} allowDecimals style={inputStyle(T)} /></div>
+        <div><label style={lbl}>Date</label><input aria-label="Date" type="date" value={lineEdit.date} onChange={e => setLineEdit(x => ({ ...x, date: e.target.value }))} style={inputStyle(T)} /></div>
+        <div><label style={lbl}>Paid to</label><input aria-label="Paid to" list="refurb-payees" value={lineEdit.payee} onChange={e => setLineEdit(x => ({ ...x, payee: e.target.value }))} style={inputStyle(T)} /></div>
+        <div><label style={lbl}>Note</label><input aria-label="Note" value={lineEdit.description} onChange={e => setLineEdit(x => ({ ...x, description: e.target.value }))} style={inputStyle(T)} /></div>
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         {showKind && <select value={lineEdit.kind} onChange={e => setLineEdit(x => ({ ...x, kind: e.target.value }))} style={{ ...inputStyle(T), width: 'auto' }}><option value="payment">Payment</option><option value="credit">Credit / refund</option></select>}
@@ -471,7 +472,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
             <span style={{ color: T.muted }}>Paid so far</span><b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(t.paid)}</b>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: mono, fontSize: 12, paddingTop: 4 }}>
-            <span style={{ color: T.muted }}>{t.overpaid > 0 ? 'Paid over agreed' : 'Remaining to pay'}</span><b style={{ color: t.overpaid > 0 ? T.red : T.gold, fontVariantNumeric: 'tabular-nums' }}>{fmt(t.overpaid > 0 ? t.overpaid : t.remaining)}</b>
+            <span style={{ color: T.muted }}>{t.overpaid > 0 ? 'Paid over agreed' : 'Remaining to pay'}</span><b style={{ color: t.overpaid > 0 ? T.red : T.goldText, fontVariantNumeric: 'tabular-nums' }}>{fmt(t.overpaid > 0 ? t.overpaid : t.remaining)}</b>
           </div>
           {canEdit && quick.kind !== 'extra' && <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} T={T} isMobile={isMobile} allowCredit />}
         </div>
@@ -482,24 +483,24 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         <div style={panel}>
           <div style={ph}><span>Details</span></div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={lbl}>Contractor</label><input list="refurb-payees" value={form.contractor_name} onChange={e => set('contractor_name', e.target.value)} onBlur={() => saveField('contractor_name')} disabled={!canEdit} placeholder="Main contractor" style={inputStyle(T)} /></div>
+            <div><label style={lbl}>Contractor</label><input aria-label="Contractor" list="refurb-payees" value={form.contractor_name} onChange={e => set('contractor_name', e.target.value)} onBlur={() => saveField('contractor_name')} disabled={!canEdit} placeholder="Main contractor" style={inputStyle(T)} /></div>
             <div><label style={lbl}>Funded by</label>
-              <select value={form.funding} onChange={e => { set('funding', e.target.value); setTimeout(() => saveField('funding'), 0) }} onBlur={() => saveField('funding')} disabled={!canEdit} style={inputStyle(T)}>
+              <select aria-label="Funded by" value={form.funding} onChange={e => { set('funding', e.target.value); setTimeout(() => saveField('funding'), 0) }} onBlur={() => saveField('funding')} disabled={!canEdit} style={inputStyle(T)}>
                 <option value="">Not set</option>{FUNDING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select></div>
-            <div><label style={lbl}>Started</label><input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} onBlur={() => saveField('start_date')} disabled={!canEdit} style={inputStyle(T)} /></div>
-            <div><label style={lbl}>Target finish</label><input type="date" value={form.target_end_date} onChange={e => set('target_end_date', e.target.value)} onBlur={() => saveField('target_end_date')} disabled={!canEdit} style={inputStyle(T)} /></div>
-            {project.stage === 'complete' && <div><label style={lbl}>Finished</label><input type="date" value={form.completed_date} onChange={e => set('completed_date', e.target.value)} onBlur={() => saveField('completed_date')} disabled={!canEdit} style={inputStyle(T)} /></div>}
-            <div><label style={lbl}>Expected rent after</label><MoneyInput prefix="£" value={form.expected_rent_after} onChange={v => set('expected_rent_after', v == null ? '' : v)} onBlur={() => saveField('expected_rent_after')} disabled={!canEdit} placeholder="pcm" style={inputStyle(T)} /></div>
-            <div><label style={lbl}>Expected value after</label><MoneyInput prefix="£" value={form.expected_value_after} onChange={v => set('expected_value_after', v == null ? '' : v)} onBlur={() => saveField('expected_value_after')} disabled={!canEdit} placeholder="0" style={inputStyle(T)} /></div>
+            <div><label style={lbl}>Started</label><input aria-label="Started" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} onBlur={() => saveField('start_date')} disabled={!canEdit} style={inputStyle(T)} /></div>
+            <div><label style={lbl}>Target finish</label><input aria-label="Target finish" type="date" value={form.target_end_date} onChange={e => set('target_end_date', e.target.value)} onBlur={() => saveField('target_end_date')} disabled={!canEdit} style={inputStyle(T)} /></div>
+            {project.stage === 'complete' && <div><label style={lbl}>Finished</label><input aria-label="Finished" type="date" value={form.completed_date} onChange={e => set('completed_date', e.target.value)} onBlur={() => saveField('completed_date')} disabled={!canEdit} style={inputStyle(T)} /></div>}
+            <div><label style={lbl}>Expected rent after</label><MoneyInput aria-label="Expected rent after" prefix="£" value={form.expected_rent_after} onChange={v => set('expected_rent_after', v == null ? '' : v)} onBlur={() => saveField('expected_rent_after')} disabled={!canEdit} placeholder="pcm" style={inputStyle(T)} /></div>
+            <div><label style={lbl}>Expected value after</label><MoneyInput aria-label="Expected value after" prefix="£" value={form.expected_value_after} onChange={v => set('expected_value_after', v == null ? '' : v)} onBlur={() => saveField('expected_value_after')} disabled={!canEdit} placeholder="0" style={inputStyle(T)} /></div>
             <div><label style={lbl}>Treatment</label>
-              <select value={form.treatment} onChange={e => { set('treatment', e.target.value); setTimeout(() => saveField('treatment'), 0) }} disabled={!canEdit} style={inputStyle(T)}>
+              <select aria-label="Treatment" value={form.treatment} onChange={e => { set('treatment', e.target.value); setTimeout(() => saveField('treatment'), 0) }} disabled={!canEdit} style={inputStyle(T)}>
                 <option value="capital">Capital (improvement)</option><option value="revenue">Revenue (repair)</option>
               </select></div>
           </div>
           <div style={{ marginTop: 10 }}>
             <label style={lbl}>Notes</label>
-            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} onBlur={() => saveField('notes')} disabled={!canEdit} rows={3} placeholder="Scope, quotes, anything worth remembering" style={{ ...inputStyle(T), resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }} />
+            <textarea aria-label="Notes" value={form.notes} onChange={e => set('notes', e.target.value)} onBlur={() => saveField('notes')} disabled={!canEdit} rows={3} placeholder="Scope, quotes, anything worth remembering" style={{ ...inputStyle(T), resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }} />
           </div>
         </div>
 
@@ -526,11 +527,11 @@ function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit =
   const isExtra = quick.kind === 'extra'
   const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ marginTop: 12, padding: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8 }}>
-    <div style={{ fontFamily: mono, fontSize: 10, color: isExtra ? T.amber : T.gold, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{isExtra ? 'Add an extra' : 'Log a payment'}</div>
+    <div style={{ fontFamily: mono, fontSize: 10, color: isExtra ? T.amber : T.goldText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{isExtra ? 'Add an extra' : 'Log a payment'}</div>
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1.2fr 1.6fr auto', gap: 8, alignItems: 'end' }}>
-      <div><label style={lbl}>Amount</label><MoneyInput prefix="£" value={quick.amount} onChange={v => setQuick(q => ({ ...q, amount: v == null ? '' : v }))} allowDecimals placeholder="0" style={inputStyle(T)}
+      <div><label style={lbl}>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={quick.amount} onChange={v => setQuick(q => ({ ...q, amount: v == null ? '' : v }))} allowDecimals placeholder="0" style={inputStyle(T)}
         onKeyDown={e => { if (e.key === 'Enter') onAdd() }} /></div>
-      <div><label style={lbl}>Date</label><input type="date" value={quick.date} onChange={e => setQuick(q => ({ ...q, date: e.target.value }))} style={inputStyle(T)} /></div>
+      <div><label style={lbl}>Date</label><input aria-label="Date" type="date" value={quick.date} onChange={e => setQuick(q => ({ ...q, date: e.target.value }))} style={inputStyle(T)} /></div>
       <div><label style={lbl}>{isExtra ? 'Agreed with' : 'Paid to'}</label><input list="refurb-payees" value={quick.payee} onChange={e => setQuick(q => ({ ...q, payee: e.target.value }))} placeholder="Contractor" style={inputStyle(T)} /></div>
       <div><label style={lbl}>{isExtra ? 'What was added' : 'Note'}</label><input value={quick.description} onChange={e => setQuick(q => ({ ...q, description: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') onAdd() }} placeholder={isExtra ? 'e.g. Rewire to current regs' : 'e.g. Second stage payment'} style={inputStyle(T)} /></div>
       <div style={{ display: 'flex', gap: 6 }}>
@@ -554,7 +555,7 @@ function ProjectRow({ project, journey, canEdit, onOpen, onQuickPay, T, isMobile
   const stripe = tone === 'bad' ? T.red : tone === 'warn' ? T.amber : (STAGE_CFG[project.stage]?.color || T.blue)
   const p = project.property
   return <div style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `4px solid ${stripe}`, borderRadius: 12, padding: '14px 18px', marginBottom: 10, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 12, alignItems: 'center' }}>
-    <div style={{ minWidth: 0, cursor: 'pointer' }} onClick={onOpen}>
+    <div style={{ minWidth: 0, cursor: 'pointer' }} {...pressable(onOpen)}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <b style={{ fontSize: 15 }}>{p?.name || p?.address || 'Property'}</b>
         <StageChip stage={project.stage} T={T} />
@@ -611,7 +612,7 @@ function Board({ projects, canEdit, onOpen, onStage, T }) {
           {items.map(p => {
             const t = projectTotals(p)
             const tone = toneFor(p, t, new Date())
-            return <div key={p.id} draggable={canEdit} onDragStart={() => setDragId(p.id)} onDragEnd={() => setDragId(null)} onClick={() => onOpen(p)}
+            return <div key={p.id} draggable={canEdit} onDragStart={() => setDragId(p.id)} onDragEnd={() => setDragId(null)} {...pressable(() => onOpen(p))}
               style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', marginBottom: 8, cursor: 'pointer', opacity: dragId === p.id ? 0.5 : 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
                 <b style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.property?.name || p.property?.address}</b>
@@ -699,7 +700,7 @@ function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T })
         <StageChip stage={project.stage} T={T} />
         {project.archived_at && <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#000a', color: '#fff' }}>Archived</span>}
       </div>
-      {(overdue > 0 || blocked > 0) && <div style={{ position: 'absolute', top: 8, right: 8, fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red, color: '#fff' }}>
+      {(overdue > 0 || blocked > 0) && <div style={{ position: 'absolute', top: 8, right: 8, fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red, color: T.bg }}>
         {[overdue ? `${overdue} overdue` : null, blocked ? `${blocked} blocked` : null].filter(Boolean).join(' · ')}
       </div>}
     </div>
@@ -725,7 +726,7 @@ function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T })
         <Metric label="Agreed budget" value={fmt(t.agreed)} T={T} />
         <Metric label="Forecast cost" value={fmt(ffc.value)} color={ffc.variance > 0 ? T.red : undefined} T={T} />
       </div>
-      <div style={{ fontFamily: mono, fontSize: 10.5, color: project.next_action ? T.gold : T.faint, marginTop: 'auto', paddingTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontFamily: mono, fontSize: 10.5, color: project.next_action ? T.goldText : T.faint, marginTop: 'auto', paddingTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {project.next_action ? `Next: ${project.next_action}` : 'No next action set'}
       </div>
     </div>
@@ -756,6 +757,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   const isMobile = useIsMobile(769)
   const confirmDialog = useConfirm()
   const canEditFor = useCanEdit(permissionsMap, devModeActive)
+  const canApproveFor = useCallback(companyId => canApproveRefurbInvoices(permissionsMap, companyId, devModeActive), [permissionsMap, devModeActive])
   const mutations = useRefurbMutations({ properties, onPropertyPatch, showToast })
 
   const initial = parseRefurbHash()
@@ -915,7 +917,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
 
   if (sub === 'invoices' && importing) return <div className="fade">
     {pageHead}
-    <ImportRefurbInvoice properties={properties} companies={companies} invoices={invoices} canEditFor={canEditFor} mutations={mutations}
+    <ImportRefurbInvoice properties={properties} companies={companies} invoices={invoices} canEditFor={canEditFor} canApproveFor={canApproveFor} mutations={mutations}
       defaultCompanyId={filters.companyId !== 'all' ? filters.companyId : null} showToast={showToast} T={T} isMobile={isMobile}
       onCancel={() => setImporting(false)}
       onCreated={({ invoice, extras }) => {
@@ -929,7 +931,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   if (sub === 'invoices' && selectedInvoice) return <div className="fade">
     {pageHead}
     <InvoiceDetail invoice={selectedInvoice} properties={properties} companies={companies} projects={allProjects} lines={allLines}
-      canEdit={canEditFor(selectedInvoice.company_id)} showToast={showToast} T={T} isMobile={isMobile}
+      canEdit={canEditFor(selectedInvoice.company_id)} canApprove={canApproveFor(selectedInvoice.company_id)} showToast={showToast} T={T} isMobile={isMobile}
       onBack={() => setInvoiceId(null)}
       onUpdated={inv => setInvoices(list => list.map(i => i.id === inv.id ? inv : i))}
       onDeleted={(inv, removedExtras) => { setInvoices(list => list.filter(i => i.id !== inv.id)); applyLineChanges([], removedExtras); setInvoiceId(null); showToast?.('Invoice deleted') }}
@@ -1112,7 +1114,7 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
         {projects.length > 1 && projects.map(p => {
           const t = projectTotals(p)
           return <button key={p.id} onClick={() => setSelectedId(p.id)}
-            style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${selectedId === p.id ? T.gold : T.border}`, background: selectedId === p.id ? T.gold + '22' : 'transparent', color: selectedId === p.id ? T.gold : T.muted }}>
+            style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${selectedId === p.id ? T.gold : T.border}`, background: selectedId === p.id ? T.gold + '22' : 'transparent', color: selectedId === p.id ? T.goldText : T.muted }}>
             {STAGE_CFG[p.stage]?.label} · {fmt(t.agreed)}
           </button>
         })}

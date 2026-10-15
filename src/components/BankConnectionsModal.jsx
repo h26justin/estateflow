@@ -190,8 +190,7 @@ export default function BankConnectionsModal({ onClose }) {
                     style={{
                       flex: 1, fontFamily: mono, fontSize: 13,
                       background: T.surface, border: `1px solid ${T.border}`, color: T.text,
-                      borderRadius: 8, padding: '10px 12px', outline: 'none',
-                    }}/>
+                      borderRadius: 8, padding: '10px 12px', }}/>
                   <button onClick={registerInterest} disabled={busy}
                     className="btn btn-gold" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                     {busy ? 'Saving…' : 'Register interest'}

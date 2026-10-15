@@ -42,10 +42,14 @@ async function invoke(action, payload = {}) {
 }
 
 // ── Connections ────────────────────────────────────────────────────────
+// partner_data holds the Plaid / TrueLayer tokens and is not readable by the
+// browser (2026-10-14_integration_token_column_grants.sql) — never select '*'.
+export const BANK_CONNECTION_SAFE_COLS = 'id, user_id, provider, provider_consent_id, institution_id, institution_name, status, last_synced_at, created_at, updated_at'
+
 export async function fetchBankConnections() {
   const { data, error } = await supabase
     .from('bank_connections')
-    .select('*')
+    .select(BANK_CONNECTION_SAFE_COLS)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
@@ -68,7 +72,7 @@ export async function registerBankInterest(provider = 'pending-partner', institu
       institution_name: institutionName || null,
       status: 'requested',
     })
-    .select()
+    .select(BANK_CONNECTION_SAFE_COLS)
     .single()
   if (error) throw error
   return data

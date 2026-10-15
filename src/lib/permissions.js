@@ -2,7 +2,7 @@
 // gate write surfaces (Day Tracker, importers, Team & Access).
 //
 // The source of truth for what a role may do is ROLE_DEFAULTS in
-// src/lib/api/_monolith.js; the permissions JSONB on a user_company_access row
+// src/lib/api/roles.js; the permissions JSONB on a user_company_access row
 // overrides individual keys. This module only knows how to READ a loaded
 // permissions map and how to describe a member's row as one of the four
 // role presets shown in the Team & Access tab.

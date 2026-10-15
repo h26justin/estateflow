@@ -40,6 +40,14 @@ describe('helpers', () => {
     const m = T({ payment_source: 'housing_benefit', benefit_frequency: 'monthly', benefit_next_payment_date: '2026-06-10' })
     expect(benefitDueOnOrAfter(m, '2026-08-01')).toBe('2026-08-10')
   })
+  it('a monthly benefit schedule anchored on the 31st does not drift after a short month', () => {
+    const m = T({ payment_source: 'housing_benefit', benefit_frequency: 'monthly', benefit_next_payment_date: '2026-05-31' })
+    expect(benefitDueOnOrAfter(m, '2026-01-15')).toBe('2026-01-31')
+    expect(benefitDueOnOrAfter(m, '2026-02-10')).toBe('2026-02-28')
+    expect(benefitDueOnOrAfter(m, '2026-03-01')).toBe('2026-03-31')
+    expect(benefitDueOnOrAfter(m, '2026-09-01')).toBe('2026-09-30')
+    expect(benefitDueOnOrAfter(m, '2026-10-01')).toBe('2026-10-31')
+  })
   it('collectible days exclude non-chargeable periods and days outside the tenancy', () => {
     expect(collectibleDays('2026-03-01', '2026-03-31', T({ tenancy_start: '2026-03-18' }), [])).toBe(14)
     expect(collectibleDays('2026-03-01', '2026-03-31', T(), [{ start_date: '2026-03-01', end_date: '2026-03-10' }])).toBe(21)
@@ -343,6 +351,15 @@ describe('investigation 13 Oct 2026', () => {
     expect(e.expected).toBe(500); expect(e.state).toBe(STATE.PAID)
     const part = evaluatePeriod(row('p', '2026-06-01', '2026-06-29', 'paid', 500), ctx({ today: '2026-10-13' }))
     expect(part.expected).toBe(483.33)
+  })
+  it('a mid-month move-in period that stays inside the month is prorated, not a full cycle', () => {
+    const e = evaluatePeriod(row('m', '2026-03-02', '2026-03-31', 'void'),
+      ctx({ tenancies: [T({ tenancy_start: '2026-03-02', rent_due_day: 2 })], today: '2026-10-13' }))
+    expect(e.collectibleDays).toBe(30)
+    expect(e.expected).toBe(483.87)   // 500 x 30/31
+    const cycle = evaluatePeriod(row('c', '2026-03-02', '2026-04-01', 'void'),
+      ctx({ tenancies: [T({ tenancy_start: '2026-03-02', rent_due_day: 2 })], today: '2026-10-13' }))
+    expect(cycle.expected).toBe(500)
   })
   it('a tenancy with no rent amount is not collectible, never GBP 0 paid', () => {
     const p = prop({ tenancies: [T({ rent_amount: null, needs_confirmation: true })], rent_payments: [month('m5', 2026, 5, 'void')] })

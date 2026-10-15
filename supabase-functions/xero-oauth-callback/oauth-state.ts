@@ -16,6 +16,10 @@
 // Payloads should carry { user_id, nonce, exp, ... }. The nonce must be
 // persisted in oauth_nonces at "start" and deleted (burned) at callback so
 // a captured state can't be replayed.
+//
+// Needs ./secrets.ts alongside it (copy of _shared/secrets.ts).
+
+import { timingSafeEqual } from './secrets.ts'
 
 const enc = new TextEncoder()
 
@@ -103,4 +107,71 @@ export function escapeHtml(value: unknown): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+// ── Browser binding (login-CSRF / session-swap defence) ──────────────
+//
+// The signed state + one-time nonce prove a state was minted by us for a
+// user, but not that the browser finishing the flow is the one that
+// started it: an attacker could start a flow on their own account and get
+// a victim to consent, landing the victim's Xero / HMRC tokens on the
+// attacker's account. So the flow is bound to the initiating browser.
+//
+// Why a "launch" hop instead of setting the cookie at action=start: the
+// app (ownproperly.com) calls start with fetch() to <ref>.supabase.co — a
+// cross-site subresource request, so a cookie set on that response is a
+// third-party cookie (blocked by Safari/Firefox, needs SameSite=None and
+// credentialed CORS). Instead start returns a launch URL on this same
+// function; the browser navigates there top-level (first-party), we set
+// an HttpOnly, Secure, SameSite=Lax cookie holding a random value, put
+// SHA-256(value) into the signed state, and 302 to the provider. The
+// provider's redirect back is a top-level GET, so the Lax cookie is sent
+// and the callback requires SHA-256(cookie) === state.bind. A state or
+// authorize URL replayed in another browser has no cookie and is refused.
+//
+// The launch hop itself is only honoured when the navigation's Referer is
+// an allow-listed app origin (the app sends strict-origin-when-cross-
+// origin), so an attacker can't hand a victim the launch URL either.
+
+export function launchRefererAllowed(req: Request): boolean {
+  const ref = req.headers.get('referer') || ''
+  try { return ALLOWED_APP_ORIGINS.has(new URL(ref).origin) } catch { return false }
+}
+
+export function randomToken(bytes = 32): string {
+  return b64urlEncode(crypto.getRandomValues(new Uint8Array(bytes)))
+}
+
+export async function sha256Hex(value: string): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(value)))
+  return Array.from(d).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+export function readCookie(req: Request, name: string): string | null {
+  const header = req.headers.get('cookie') || ''
+  for (const part of header.split(';')) {
+    const i = part.indexOf('=')
+    if (i < 0) continue
+    if (part.slice(0, i).trim() === name) return part.slice(i + 1).trim()
+  }
+  return null
+}
+
+// `__Secure-` prefix: browsers only accept it with Secure over https.
+// Path-scoped to the callback function so no other function sees it.
+export function bindCookieHeader(name: string, value: string, path: string, maxAgeSeconds = 900): string {
+  return `${name}=${value}; Path=${path}; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=Lax`
+}
+
+export function clearBindCookieHeader(name: string, path: string): string {
+  return `${name}=; Path=${path}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`
+}
+
+// True when the request carries the binding cookie whose SHA-256 matches
+// the hash stored in the signed state.
+export async function browserBindingMatches(req: Request, cookieName: string, expectedHash: unknown): Promise<boolean> {
+  if (typeof expectedHash !== 'string' || !expectedHash) return false
+  const value = readCookie(req, cookieName)
+  if (!value) return false
+  return timingSafeEqual(await sha256Hex(value), expectedHash)
 }

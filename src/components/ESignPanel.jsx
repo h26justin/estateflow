@@ -4,6 +4,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -47,14 +48,18 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
   const [busy, setBusy] = useState(false)
   const [busyId, setBusyId] = useState(null)
 
+  const beginLoad = useLoadGuard()
   async function load() {
+    const isCurrent = beginLoad()
     try {
       const rows = await api.fetchEsignEnvelopes({ propertyId, companyId })
+      if (!isCurrent()) return
       setEnvelopes(rows)
     } catch (e) {
+      if (!isCurrent()) return
       showAppToast(e.message || 'Could not load envelopes', 'error')
     } finally {
-      setLoading(false)
+      if (isCurrent()) setLoading(false)
     }
   }
 

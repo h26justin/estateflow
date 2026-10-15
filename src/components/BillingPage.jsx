@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
-import { fmt } from '../lib/format'
+import { fmt, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
 
@@ -73,7 +73,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
       trialing:  { bg: T.blue+'22',  color: T.blue,   label: 'Free Trial' },
       past_due:  { bg: T.amber+'22', color: T.amber,  label: 'Payment due' },
       canceled:  { bg: T.red+'22',   color: T.red,    label: 'Cancelled' },
-      free_tier: { bg: T.gold+'22',  color: T.gold,   label: 'Free tier' },
+      free_tier: { bg: T.gold+'22',  color: T.goldText,   label: 'Free tier' },
     }[status] || { bg: T.border, color: T.muted, label: status }
     return <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
   }
@@ -99,7 +99,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
               fontFamily: mono, fontSize: 11, padding: '8px 16px', borderRadius: '8px 8px 0 0',
               border: 'none', cursor: 'pointer', transition: 'all 0.15s',
               background: adminTab===k ? T.gold+'22' : 'transparent',
-              color: adminTab===k ? T.gold : T.muted, fontWeight: adminTab===k ? 600 : 400,
+              color: adminTab===k ? T.goldText : T.muted, fontWeight: adminTab===k ? 600 : 400,
             }}>{l}</button>
           ))}
         </div>
@@ -141,13 +141,13 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                             {tierMeta.label}
                           </span>
                         </div>
-                        <div style={{ fontSize: 24, fontWeight: 700, color: T.gold, letterSpacing: '-0.02em' }}><span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>from </span>{fmt(monthly)}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: T.goldText, letterSpacing: '-0.02em' }}><span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>from </span>{fmt(monthly)}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
                         <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
                           {propCount} {propCount===1?'property':'properties'} × £{tierMeta.pricePerProp}/mo · £10/mo minimum applies
                         </div>
                       </>
                     )}
-                    {status === 'free_tier' && <div style={{ fontFamily: mono, fontSize: 13, color: T.gold, fontWeight: 700 }}>Free tier ✓</div>}
+                    {status === 'free_tier' && <div style={{ fontFamily: mono, fontSize: 13, color: T.goldText, fontWeight: 700 }}>Free tier ✓</div>}
                   </div>
                 </div>
 
@@ -198,7 +198,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
       {adminTab === 'admin' && isPlatformAdmin && (
         <>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
-            All customer accounts — {allCompanies.length} companies
+            All customer accounts — {plural(allCompanies.length,'company','companies')}
           </div>
           <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontFamily: mono, fontSize: 11, color: T.amber }}>
             Toggle free tier to exempt any company from billing permanently.
@@ -210,11 +210,11 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: (co.color||'#C8A84B')+'22', color: co.color||'#C8A84B' }}>{co.abbr}</span>
                     <span style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{co.name}</span>
-                    {co.is_free_tier && <span style={{ fontFamily: mono, fontSize: 10, background: T.gold+'22', color: T.gold, padding: '2px 8px', borderRadius: 10 }}>FREE TIER</span>}
+                    {co.is_free_tier && <span style={{ fontFamily: mono, fontSize: 10, background: T.gold+'22', color: T.goldText, padding: '2px 8px', borderRadius: 10 }}>FREE TIER</span>}
                   </div>
                   <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
                     Owner: {co.owner_email || co.owner_id?.slice(0,8)}
-                    {co.free_tier_reason && <span style={{ marginLeft: 10, color: T.gold }}>· {co.free_tier_reason}</span>}
+                    {co.free_tier_reason && <span style={{ marginLeft: 10, color: T.goldText }}>· {co.free_tier_reason}</span>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

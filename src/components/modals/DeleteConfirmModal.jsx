@@ -29,7 +29,7 @@ export default function DeleteConfirmModal({ propName, onClose, onConfirm }) {
           <p style={{fontFamily:MONO,color:T.muted,fontSize:11,marginBottom:16,textAlign:'center'}}>This will delete all associated rent history, refurb data and notes. This cannot be undone.<br/><br/>Enter your password to confirm.</p>
           <div style={{marginBottom:16}}>
             <label>Your Password</label>
-            <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+            <input aria-label="Your Password" type="password" value={password} onChange={e=>setPassword(e.target.value)}
               onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
               placeholder="••••••••" autoFocus/>
           </div>

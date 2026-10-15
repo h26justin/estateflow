@@ -79,4 +79,19 @@ describe('Invoice detail', () => {
     expect(logRefurbInvoicePayment.mock.calls[0][1]).toMatchObject({ amount: 1000, kind: 'payment' })
     expect(onLinesAdded).toHaveBeenCalled()
   })
+
+  it('an editor cannot approve or un-approve; an admin can', () => {
+    const base = { properties: props, companies, projects, lines: [], canEdit: true, onUpdated: vi.fn(), onDeleted: vi.fn(), onLinesAdded: vi.fn(), onOpenProject: vi.fn(), onBack: vi.fn(), showToast: vi.fn(), isMobile: false }
+    const approvalSelect = () => screen.getAllByRole('combobox').find(s => [...s.options].some(o => o.value === 'awaiting_approval'))
+    const { unmount } = wrap(<InvoiceDetail invoice={invoice} {...base} />)
+    expect(approvalSelect().disabled).toBe(true)
+    expect(screen.getByText(/Only an owner or admin can approve/)).toBeTruthy()
+    unmount()
+    const { unmount: u2 } = wrap(<InvoiceDetail invoice={{ ...invoice, approval_status: 'received' }} {...base} />)
+    expect(approvalSelect().disabled).toBe(false)
+    expect([...approvalSelect().options].find(o => o.value === 'approved').disabled).toBe(true)
+    u2()
+    wrap(<InvoiceDetail invoice={invoice} {...base} canApprove />)
+    expect(approvalSelect().disabled).toBe(false)
+  })
 })

@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
+import { pressable } from '../lib/pressable'
 
 const mono = MONO
 const PRIORITY_CFG = {
@@ -158,7 +159,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       style={{ fontFamily:mono, fontSize:11, padding:'6px 16px', borderRadius:20, cursor:'pointer',
         border:`1px solid ${view===k ? T.gold : T.border}`,
         background: view===k ? T.gold+'22' : 'transparent',
-        color: view===k ? T.gold : T.muted }}>
+        color: view===k ? T.goldText : T.muted }}>
       {label}{count > 0 ? ` (${count})` : ''}
     </button>
   )
@@ -271,7 +272,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
 
   return (
     <div>
-      <div onClick={() => onOpen(job)}
+      <div {...pressable(() => onOpen(job), { 'aria-expanded': isExpanded })}
         style={{ background:T.card, border:`1px solid ${isExpanded ? T.gold : job.status==='complete' ? T.border : T.border}`, borderRadius:isExpanded?'12px 12px 0 0':12, padding:'14px 18px', cursor:'pointer', opacity: job.status==='complete' ? 0.7 : 1 }}
         onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold+'88'}
         onMouseLeave={e=>e.currentTarget.style.borderColor=isExpanded?T.gold:T.border}>
@@ -311,7 +312,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
               <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Photos from tenant</div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 {photos.map((p,i) => (
-                  <SignedPhoto key={i} path={p.path} url={p.url}
+                  <SignedPhoto key={p.path || p.url || i} path={p.path} url={p.url}
                     style={{ width:100, height:100, objectFit:'cover', borderRadius:8, border:`1px solid ${T.border}`, cursor:'pointer' }}/>
                 ))}
               </div>
@@ -354,16 +355,16 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
 
   return (
     <div>
-      <div onClick={() => onOpen(convo)}
+      <div {...pressable(() => onOpen(convo), { 'aria-expanded': isExpanded })}
         style={{ background:T.card, border:`1px solid ${isExpanded ? T.gold : hasUnread ? T.gold+'44' : T.border}`, borderRadius:isExpanded?'12px 12px 0 0':12, padding:'14px 18px', cursor:'pointer' }}
         onMouseEnter={e=>e.currentTarget.style.borderColor=T.gold+'88'}
         onMouseLeave={e=>e.currentTarget.style.borderColor=isExpanded?T.gold:hasUnread?T.gold+'44':T.border}>
         <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-          <div style={{ width:36, height:36, borderRadius:8, background:T.gold+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:T.gold }}><Icon name="mail" size={17}/></div>
+          <div style={{ width:36, height:36, borderRadius:8, background:T.gold+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:T.goldText }}><Icon name="mail" size={17}/></div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.gold }}>Message</span>
+                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.goldText }}>Message</span>
                 {hasUnread && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>{convo.unread_count} unread</span>}
               </div>
               <span style={{ fontFamily:mono, fontSize:10, color:T.muted, flexShrink:0 }}>
@@ -422,7 +423,7 @@ function MessageThread({ thread, loading, replyText, setReplyText, replying, onR
         <input value={replyText} onChange={e=>setReplyText(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&(e.preventDefault(),onReply())}
           placeholder="Reply to tenant…"
-          style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 14px', outline:'none' }}/>
+          style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 14px' }}/>
         <button onClick={onReply} disabled={replying||!replyText.trim()}
           style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 20px', borderRadius:8, border:'none',
             background:replying||!replyText.trim()?T.border:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>

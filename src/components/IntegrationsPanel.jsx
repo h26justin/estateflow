@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as api from '../lib/api'
+import { useLoadGuard } from '../lib/useLoadGuard'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 
@@ -749,15 +750,18 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  const beginLoad = useLoadGuard()
   useEffect(() => { load() /* eslint-disable-next-line */ }, [company.id])
 
   async function load() {
+    const isCurrent = beginLoad()
     setLoading(true)
     try {
       const [s, accts] = await Promise.all([
         api.fetchXeroSyncSettings(company.id),
         api.fetchXeroAccounts(company.id).catch(() => []),
       ])
+      if (!isCurrent()) return
       setSettings(s || {
         sync_rent: false, sync_expenses: false, sync_mortgage_interest: false,
         sync_tracking_categories: true, sync_real_tenant_contacts: false,
@@ -765,7 +769,10 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         per_property_bank_accounts: {},
       })
       setAccounts(accts || [])
-    } catch (e) { showAppToast(e.message, 'error') }
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast(e.message, 'error')
+    }
     setLoading(false)
   }
 
@@ -865,7 +872,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         <div style={{ display:'grid', gap: 10 }}>
           <div>
             <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Rent income account</label>
-            <select style={selectStyle}
+            <select aria-label="Rent income account" style={selectStyle}
               value={settings?.income_account_code || ''}
               onChange={e => patch('income_account_code', e.target.value || null)}>
               <option value="">(choose one: required before anything is posted)</option>
@@ -874,7 +881,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Expense account</label>
-            <select style={selectStyle}
+            <select aria-label="Expense account" style={selectStyle}
               value={settings?.expense_account_code || ''}
               onChange={e => patch('expense_account_code', e.target.value || null)}>
               <option value="">(choose one: required before anything is posted)</option>
@@ -883,7 +890,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Mortgage interest account (optional)</label>
-            <select style={selectStyle}
+            <select aria-label="Mortgage interest account (optional)" style={selectStyle}
               value={settings?.mortgage_interest_account_code || ''}
               onChange={e => patch('mortgage_interest_account_code', e.target.value || null)}>
               <option value="">(use expense account)</option>
@@ -917,13 +924,13 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         <div style={{ display:'grid', gap: 10 }}>
           <div>
             <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Post to Xero from (required): nothing dated earlier is ever posted</label>
-            <input type="date" style={selectStyle}
+            <input aria-label="Post to Xero from (required): nothing dated earlier is ever posted" type="date" style={selectStyle}
               value={settings?.push_from_date || ''}
               onChange={e => patch('push_from_date', e.target.value || null)}/>
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Default bank account (used unless overridden per property)</label>
-            <select style={selectStyle}
+            <select aria-label="Default bank account (used unless overridden per property)" style={selectStyle}
               value={settings?.default_bank_account_id || ''}
               onChange={e => patch('default_bank_account_id', e.target.value || null)}>
               <option value="">(choose one: required before anything is posted)</option>
@@ -932,7 +939,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
           </div>
           {properties.length > 0 && (
             <details style={{ marginTop: 6 }}>
-              <summary style={{ fontFamily: mono, fontSize: 11, color: T.gold, cursor: 'pointer', userSelect: 'none' }}>
+              <summary style={{ fontFamily: mono, fontSize: 11, color: T.goldText, cursor: 'pointer', userSelect: 'none' }}>
                 Per-property overrides ({properties.length} properties)
               </summary>
               <div style={{ display:'grid', gap: 6, marginTop: 10, paddingLeft: 8, borderLeft: `2px solid ${T.border}` }}>

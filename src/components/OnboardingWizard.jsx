@@ -30,7 +30,7 @@ const buildCSS = (T) => `
   .ob-btn:hover:not(:disabled){background:${T.gold}dd;}
   .ob-btn:disabled{background:${T.border};color:${T.muted};cursor:not-allowed;}
   .ob-btn-ghost{background:transparent;border:1.5px solid ${T.border};color:${T.text};font-weight:600;}
-  .ob-btn-ghost:hover:not(:disabled){background:transparent;border-color:${T.gold};color:${T.gold};}
+  .ob-btn-ghost:hover:not(:disabled){background:transparent;border-color:${T.gold};color:${T.goldText};}
   .ob-btn-ghost:disabled{background:transparent;}
   .ob-choice{font-family:'DM Mono',monospace;background:${T.surface};border:1.5px solid ${T.border};color:${T.text};border-radius:14px;padding:20px 22px;cursor:pointer;text-align:left;width:100%;transition:border-color 0.18s, transform 0.12s, box-shadow 0.18s;display:block;}
   .ob-choice:hover{border-color:${T.gold};transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.10);}
@@ -244,7 +244,7 @@ export default function OnboardingWizard({ user, onComplete }) {
               <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
                 Invite Code
               </label>
-              <input className="ob-input" value={inviteCode}
+              <input aria-label="Invite Code" className="ob-input" value={inviteCode}
                 onChange={e => { setInviteCode(e.target.value); setError('') }}
                 placeholder="e.g. ABC-XYZ" autoFocus
                 style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
@@ -285,7 +285,7 @@ export default function OnboardingWizard({ user, onComplete }) {
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Company Name</label>
-              <input className="ob-input" value={companyName} onChange={e => handleNameChange(e.target.value)}
+              <input aria-label="Company Name" className="ob-input" value={companyName} onChange={e => handleNameChange(e.target.value)}
                 placeholder="e.g. Acme Property Group" autoFocus/>
             </div>
 
@@ -308,7 +308,7 @@ export default function OnboardingWizard({ user, onComplete }) {
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Short Code (2–4 letters)</label>
-              <input className="ob-input" value={companyAbbr} onChange={e => setCompanyAbbr(e.target.value.toUpperCase().slice(0,4))}
+              <input aria-label="Short Code (2–4 letters)" className="ob-input" value={companyAbbr} onChange={e => setCompanyAbbr(e.target.value.toUpperCase().slice(0,4))}
                 placeholder="APG" maxLength={4}/>
               <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 5 }}>
                 Shown as a badge on every property in this company
@@ -406,19 +406,19 @@ export default function OnboardingWizard({ user, onComplete }) {
 
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Property Name</label>
-              <input className="ob-input" value={propName} onChange={e => setPropName(e.target.value)}
+              <input aria-label="Property Name" className="ob-input" value={propName} onChange={e => setPropName(e.target.value)}
                 placeholder="e.g. Flat 1, Station Road" autoFocus/>
             </div>
 
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Address</label>
-              <input className="ob-input" value={propAddress} onChange={e => setPropAddress(e.target.value)}
+              <input aria-label="Address" className="ob-input" value={propAddress} onChange={e => setPropAddress(e.target.value)}
                 placeholder="Full UK address"/>
             </div>
 
             <div style={{ marginBottom: 22 }}>
               <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Monthly Rent (optional)</label>
-              <input className="ob-input" value={propRent}
+              <input aria-label="Monthly Rent (optional)" className="ob-input" value={propRent}
                 onChange={e => setPropRent(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="£" inputMode="decimal"/>
             </div>

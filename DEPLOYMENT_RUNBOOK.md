@@ -64,7 +64,7 @@ missing `stripe_events` table but you've already created it).
 
 ## 4. Update the pg_cron job for compliance-reminders
 
-The job defined per `supabase-migrations/compliance-reminders.sql` must now send header
+The job defined per `supabase-migrations/archive/compliance-reminders.sql` must now send header
 `x-cron-secret: <CRON_SECRET>` — it currently sends only an Authorization bearer.
 Edit the `net.http_post` headers in the cron definition. Until then the function 403s
 (safe direction: reminders pause rather than leak).

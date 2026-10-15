@@ -639,7 +639,7 @@ function HistoryTab({ ws }) {
     </div>
     {rows.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Nothing recorded yet. Changes to dates, stages, budgets and sign-offs appear here, with who made them and why.</div>}
     {rows.map(e => <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0 }}>
-      {e.stage_id && <div style={{ fontFamily: mono, fontSize: 9.5, color: T.gold, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
+      {e.stage_id && <div style={{ fontFamily: mono, fontSize: 9.5, color: T.goldText, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
       <HistoryRow e={e} T={T} />
     </div>)}
     <div style={{ marginTop: 10 }}><ProgressExplainer stages={data.stages} tasks={data.tasks} T={T} /></div>

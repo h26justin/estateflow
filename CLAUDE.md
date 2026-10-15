@@ -1,7 +1,7 @@
 # EstateFlow — project notes
 
 EstateFlow (package `ownproperly`) is a UK landlord / property-portfolio SaaS: a
-Vite + React 19 single-page app backed by Supabase (Postgres + Edge Functions),
+Vite 8 + React 19.3 single-page app backed by Supabase (Postgres + Edge Functions),
 hosted on Vercel. It is **customer-facing production software** handling real
 landlord financial, tenancy, and compliance data, multi-tenant via Postgres RLS.
 
@@ -116,7 +116,8 @@ set up a worktree before editing.
 
 ## Stack (summary)
 
-- **Frontend:** Vite + React 18.3 (plain `.jsx`, no TypeScript) in `src/`. Mapbox,
+- **Frontend:** Vite 8 (Rolldown) + React 19.3 (plain `.jsx`, no TypeScript) in `src/`;
+  Vitest 5 + jsdom tests; Node 22 in CI. Mapbox,
   Plausible + Vercel analytics. Service worker is version-stamped on build.
 - **Hosting:** Vercel; `main` auto-deploys. Security headers + CSP in `vercel.json`.
 - **Backend:** Supabase project **`hqrhqbkqxzllmzhcofrh`** (production) — Postgres

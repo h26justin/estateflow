@@ -144,6 +144,6 @@ Deno.serve(async (req) => {
     return json({ success: true, email_id: resData.id })
   } catch (err) {
     console.error('send-invite error:', err)
-    return json({ error: (err as Error).message }, 500)
+    return json({ error: 'Could not send the invitation — please try again' }, 500)
   }
 })

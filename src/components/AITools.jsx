@@ -3,6 +3,7 @@ import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
+import { plural } from '../lib/format'
 
 const mono = MONO
 
@@ -69,28 +70,28 @@ export function AIListingWriter({ property, T: TProp }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
         <div>
           <label style={lbl}>Property type</label>
-          <select value={form.property_type} onChange={e => set('property_type', e.target.value)} style={inp}>
+          <select aria-label="Property type" value={form.property_type} onChange={e => set('property_type', e.target.value)} style={inp}>
             {['flat','terraced house','semi-detached house','detached house','bungalow','HMO','studio'].map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
           </select>
         </div>
         <div>
           <label style={lbl}>Bedrooms</label>
-          <input type="number" min={0} max={20} value={form.bedrooms} onChange={e => set('bedrooms', e.target.value)} placeholder="e.g. 3" style={inp}/>
+          <input aria-label="Bedrooms" type="number" min={0} max={20} value={form.bedrooms} onChange={e => set('bedrooms', e.target.value)} placeholder="e.g. 3" style={inp}/>
         </div>
         <div>
           <label style={lbl}>Bathrooms</label>
-          <input type="number" min={1} max={10} value={form.bathrooms} onChange={e => set('bathrooms', e.target.value)} placeholder="e.g. 1" style={inp}/>
+          <input aria-label="Bathrooms" type="number" min={1} max={10} value={form.bathrooms} onChange={e => set('bathrooms', e.target.value)} placeholder="e.g. 1" style={inp}/>
         </div>
       </div>
 
       <div style={{ marginBottom: 12 }}>
         <label style={lbl}>Location (street, area, town)</label>
-        <input value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Chapel Street, Sunderland city centre" style={inp}/>
+        <input aria-label="Location (street, area, town)" value={form.location} onChange={e => set('location', e.target.value)} placeholder="e.g. Chapel Street, Sunderland city centre" style={inp}/>
       </div>
 
       <div style={{ marginBottom: 12 }}>
         <label style={lbl}>Key features (comma separated)</label>
-        <input value={form.features} onChange={e => set('features', e.target.value)}
+        <input aria-label="Key features (comma separated)" value={form.features} onChange={e => set('features', e.target.value)}
           placeholder="e.g. recently refurbished kitchen, private garden, off-street parking, close to schools" style={inp}/>
       </div>
 
@@ -100,7 +101,7 @@ export function AIListingWriter({ property, T: TProp }) {
           <div style={{ display: 'flex', gap: 6 }}>
             {[['rightmove','Rightmove'],['zoopla','Zoopla'],['general','General']].map(([k,l]) => (
               <button key={k} onClick={() => set('target', k)} style={{ fontFamily:mono, fontSize:10, padding:'4px 10px', borderRadius:20, cursor:'pointer',
-                border:`1px solid ${form.target===k?T.gold:T.border}`, background:form.target===k?T.gold+'22':'transparent', color:form.target===k?T.gold:T.muted }}>{l}</button>
+                border:`1px solid ${form.target===k?T.gold:T.border}`, background:form.target===k?T.gold+'22':'transparent', color:form.target===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
         </div>
@@ -109,7 +110,7 @@ export function AIListingWriter({ property, T: TProp }) {
           <div style={{ display: 'flex', gap: 6 }}>
             {[['professional','Professional'],['warm','Warm'],['luxury','Luxury']].map(([k,l]) => (
               <button key={k} onClick={() => set('tone', k)} style={{ fontFamily:mono, fontSize:10, padding:'4px 10px', borderRadius:20, cursor:'pointer',
-                border:`1px solid ${form.tone===k?T.gold:T.border}`, background:form.tone===k?T.gold+'22':'transparent', color:form.tone===k?T.gold:T.muted }}>{l}</button>
+                border:`1px solid ${form.tone===k?T.gold:T.border}`, background:form.tone===k?T.gold+'22':'transparent', color:form.tone===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
         </div>
@@ -205,7 +206,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
         <input value={url} onChange={e=>setUrl(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&analyse()}
           placeholder="https://www.rightmove.co.uk/properties/172607333..."
-          style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px', outline:'none'}}/>
+          style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px'}}/>
         <button onClick={analyse} disabled={loading || !url.trim()}
           style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none',
             background:loading||!url.trim()?T.border:T.gold, color:'#1C2830', cursor:loading?'wait':'pointer', flexShrink:0}}>
@@ -227,7 +228,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
                 onChange={v=>setScraped(p=>({...p, price:v||0}))}
                 placeholder="e.g. 175,000"
                 style={{fontFamily:mono, fontSize:13, background:scraped.price?T.gold+'11':T.bg,
-                  border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%', outline:'none'}}/>
+                  border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%'}}/>
             </div>
             <div>
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
@@ -236,7 +237,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               <select value={scraped.propertyType || ''}
                 onChange={e=>setScraped(p=>({...p, propertyType:e.target.value}))}
                 style={{fontFamily:mono, fontSize:12, background:scraped.propertyType?T.gold+'11':T.bg,
-                  border:`1px solid ${scraped.propertyType?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%', outline:'none'}}>
+                  border:`1px solid ${scraped.propertyType?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%'}}>
                 <option value="">Select type…</option>
                 {['flat','terraced','semi-detached','detached','bungalow','HMO'].map(t=>(
                   <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>
@@ -246,7 +247,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
             {scraped.bedrooms && (
               <div>
                 <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Bedrooms ✓ auto-detected</div>
-                <div style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.gold, padding:'7px 10px', background:T.gold+'11', borderRadius:6, border:`1px solid ${T.gold}`}}>
+                <div style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.goldText, padding:'7px 10px', background:T.gold+'11', borderRadius:6, border:`1px solid ${T.gold}`}}>
                   {scraped.bedrooms} bed
                 </div>
               </div>
@@ -255,7 +256,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Expected monthly rent</div>
               <MoneyInput prefix="£" value={rent} onChange={v=>setRent(v)}
                 placeholder="e.g. 850"
-                style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%', outline:'none'}}/>
+                style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%'}}/>
             </div>
           </div>
 
@@ -355,7 +356,7 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
           <div key={s.label}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{s.label}</span>
-              <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.gold }}>
+              <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.goldText }}>
                 {s.prefix||''}{s.fmt ? parseInt(s.value).toLocaleString('en-GB') : s.value}{s.suffix||''}
               </span>
             </div>
@@ -371,13 +372,13 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Today (current portfolio)</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 2 }}>{fmt(currentIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(currentValue)}</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{currentProperties.length} properties</div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length,'property','properties')}</div>
         </div>
         <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#2ECC8A'}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>After buying {extraProps} more</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#2ECC8A', marginBottom: 2 }}>{fmt(totalIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(totalValue)}</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{currentProperties.length + extraProps} properties</div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length + extraProps,'property','properties')}</div>
         </div>
         <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#C8A84B'}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>In {years} years (with {growthRate}% growth)</div>
