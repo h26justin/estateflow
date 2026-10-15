@@ -4,6 +4,7 @@ import { SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
+import { Button, EmptyState } from './ui'
 
 const mono = MONO
 
@@ -128,14 +129,12 @@ export default function BackupsPage({ user, showToast }) {
             )}
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={quickBackup} disabled={creating}
-              style={{fontFamily:mono,fontSize:12,padding:'10px 18px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:creating?'wait':'pointer',fontWeight:600}}>
-              ↓ Quick download
-            </button>
-            <button onClick={createBackup} disabled={creating}
-              style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px 22px',borderRadius:8,border:'none',background:creating?T.border:T.gold,color:'#1A2530',cursor:creating?'wait':'pointer'}}>
+            <Button variant="secondary" icon="download" onClick={quickBackup} disabled={creating}>
+              Quick download
+            </Button>
+            <Button onClick={createBackup} disabled={creating}>
               {creating ? 'Creating...' : 'Create backup now'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -149,10 +148,8 @@ export default function BackupsPage({ user, showToast }) {
       {loading ? (
         <SkeletonRows rows={4}/>
       ) : backups.length === 0 ? (
-        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'60px 20px',textAlign:'center'}}>
-          <div style={{fontSize:48,marginBottom:12}}>📦</div>
-          <div style={{fontFamily:mono,fontSize:13,color:T.muted,marginBottom:8}}>No backup history yet</div>
-          <div style={{fontFamily:mono,fontSize:11,color:T.faint,marginBottom:20}}>Click "Create backup now" to create your first backup</div>
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14}}>
+          <EmptyState icon="folder" title="No backup history yet" body={'Click "Create backup now" to create your first backup'}/>
         </div>
       ) : (
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>

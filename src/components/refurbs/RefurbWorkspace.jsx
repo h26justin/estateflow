@@ -29,6 +29,7 @@ import { Icon } from '../../lib/icons'
 import MoneyInput from '../../lib/MoneyInput'
 import { mono, fmt, fmtDate, btn, inputStyle, panel, sectionHead, Field, Pill, Bar, Tile, todayISO } from './ui'
 import { FS } from '../../lib/styles'
+import { SkeletonRows, SkeletonTiles } from '../../lib/Skeleton'
 
 export const WORKSPACE_TABS = [
   ['overview', 'Overview'],
@@ -430,7 +431,7 @@ export default function RefurbWorkspace({
     {hero}
     {tabs}
     {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: mono, fontSize: 12 }}>{error} <button onClick={ops.reload} style={btn(T)}>Try again</button></div>}
-    {loading && !error && <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: 20 }}>Loading the workspace…</div>}
+    {loading && !error && <div aria-busy="true" aria-label="Loading the workspace" style={{ padding: 20 }}><SkeletonTiles count={4}/><div style={{ marginTop: 16 }}><SkeletonRows rows={4}/></div></div>}
     {!loading && !error && <>
       {section === 'overview' && <Overview ws={ws} wp={wp} cur={cur} t={t} ffc={ffc} invoiced={invoiced} onSection={onSection} />}
       {section === 'journey' && <JourneyTab ws={ws} />}

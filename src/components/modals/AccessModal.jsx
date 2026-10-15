@@ -6,6 +6,8 @@ import { useConfirm } from '../../lib/ConfirmContext'
 import { supabase } from '../../lib/supabase'
 import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
+import { EmptyState } from '../ui'
+import { SkeletonRows } from '../../lib/Skeleton'
 
 export default function AccessModal({ companies, userId, onClose, showToast }) {
   const confirmDiscard = useConfirm()
@@ -118,9 +120,9 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
             </div>
           </div>
 
-          {loading ? <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.muted}}>Loading...</div> : (
+          {loading ? <SkeletonRows rows={3} height={64}/> : (
             allUsers.length===0
-              ? <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.muted,fontSize:12}}>No users found. Make sure the <code>list_auth_users</code> SQL function has been created.</div>
+              ? <EmptyState compact icon="users" title="No users found" body={<>Make sure the <code>list_auth_users</code> SQL function has been created.</>}/>
               : allUsers.map(u=>(
                 <div key={u.id} style={{marginBottom:16,padding:'14px 16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>

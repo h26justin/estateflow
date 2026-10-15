@@ -5,6 +5,8 @@ import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -185,9 +187,9 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
         Envelopes
       </div>
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted }}>Loading…</div>
+        <SkeletonRows rows={2} height={48}/>
       ) : envelopes.length === 0 ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted }}>No envelopes yet.</div>
+        <EmptyState compact icon="send" title="No envelopes yet"/>
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
           {envelopes.map(env => {

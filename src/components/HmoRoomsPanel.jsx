@@ -13,6 +13,8 @@ import {
   rollupRooms, daysUntilExpiry, setPropertyHmo,
   ROOM_STATUSES, LICENCE_TYPES, LICENCE_STATUSES,
 } from '../lib/api/hmoRooms'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 // ── HMO ROOMS PANEL ──────────────────────────────────────────────────
 // Embedded on a property's Rooms tab (shown when property.is_hmo or the
@@ -166,7 +168,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
   }
 
   if (loading) {
-    return <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 12 }}>Loading…</div>
+    return <SkeletonRows rows={3} height={56}/>
   }
 
   return (
@@ -302,8 +304,8 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       )}
 
       {rooms.length === 0 && !addingRoom ? (
-        <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', fontFamily: MONO, fontSize: 11, color: T.muted }}>
-          No rooms yet. {editable && 'Add one above to start letting by the room.'}
+        <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
+          <EmptyState compact icon="bed" title="No rooms yet" body={editable ? 'Add one above to start letting by the room.' : undefined}/>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>

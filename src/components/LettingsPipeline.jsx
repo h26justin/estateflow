@@ -6,6 +6,8 @@ import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { Icon } from '../lib/icons'
 import { pressable } from '../lib/pressable'
+import { Button, EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = MONO
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
@@ -268,19 +270,13 @@ export default function LettingsPipeline({ user, companies = [], properties = []
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, fontFamily: mono, color: T.muted, fontSize: 12 }}>Loading…</div>
+        <SkeletonRows rows={4} height={72}/>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom: 12 }}><Icon name="home" size={30} color={T.faint}/></div>
-          <div style={{ fontFamily: mono, fontSize: 13, color: T.muted, marginBottom: 16 }}>
-            {lettings.length === 0 ? 'No active lettings. Start tracking a property.' : 'No lettings in this stage.'}
-          </div>
-          {lettings.length === 0 && (
-            <button onClick={() => setShowNewForm(true)}
-              style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1A2530', cursor: 'pointer' }}>
-              + New letting
-            </button>
-          )}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
+          <EmptyState icon="home"
+            title={lettings.length === 0 ? 'No active lettings' : 'No lettings in this stage.'}
+            body={lettings.length === 0 ? 'Start tracking a property.' : undefined}
+            action={lettings.length === 0 ? <Button size="sm" icon="plus" onClick={() => setShowNewForm(true)}>New letting</Button> : undefined}/>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 360px' : '1fr', gap: 14 }}>

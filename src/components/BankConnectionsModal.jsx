@@ -5,6 +5,8 @@ import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { openPlaidLink } from '../lib/plaidLink'
 import FocusTrap from '../lib/FocusTrap'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 // Open Banking — live integration via Plaid UK.
 //
@@ -253,10 +255,10 @@ export default function BankConnectionsModal({ onClose }) {
             Your connections
           </div>
           {loading ? (
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+            <SkeletonRows rows={2} height={56}/>
           ) : rows.length === 0 ? (
-            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>
-              No bank connections yet.
+            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
+              <EmptyState compact icon="landmark" title="No bank connections yet"/>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>

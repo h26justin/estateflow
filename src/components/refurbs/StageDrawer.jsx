@@ -10,6 +10,7 @@ import {
 } from '../../lib/refurbWorkspace'
 import { mono, btn, inputStyle, panel, sectionHead, Field, StatusChip, Pill, fmtDate, fmtWhen, todayISO } from './ui'
 import { FS } from '../../lib/styles'
+import { EmptyState } from '../ui'
 
 const TEXT_FIELDS = ['name', 'scope', 'next_action', 'blockers', 'decisions', 'notes', 'responsible_name']
 const DATE_FIELDS = ['planned_start', 'planned_end', 'forecast_start', 'forecast_end', 'actual_start', 'actual_end']
@@ -206,7 +207,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
           {/* Stage history */}
           <div style={panel(T)}>
             <div style={sectionHead(T)}><span>History</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{history.length}</span></div>
-            {history.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No changes recorded yet.</div>}
+            {history.length === 0 && <EmptyState compact icon="clock" title="No changes recorded yet"/>}
             <div style={{ maxHeight: 260, overflowY: 'auto' }}>
               {history.map(e => <HistoryRow key={e.id} e={e} T={T} />)}
             </div>
@@ -281,7 +282,7 @@ function Checklist({ ws, stage, items }) {
   const live = items.filter(t => t.status !== 'cancelled')
   return <div style={panel(T)}>
     <div style={sectionHead(T)}><span>Completion checklist</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{live.filter(t => t.status === 'done').length}/{live.length}</span></div>
-    {live.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No checklist yet. Items ticked here count toward this stage's progress.</div>}
+    {live.length === 0 && <EmptyState compact icon="clipboard-check" title="No checklist yet" body="Items ticked here count toward this stage's progress."/>}
     {live.map(t => <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0' }}>
       <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} onChange={() => ops.toggleTask(t)} style={{ width: 18, height: 18, margin: 0 }} aria-label={t.title} />
       <span style={{ flex: 1, fontSize: 13, textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? T.muted : T.text }}>{t.title}</span>
@@ -361,7 +362,7 @@ export function Updates({ ws, stage, items, title = 'Notes and updates' }) {
         <button onClick={add} disabled={!draft.body.trim()} style={{ ...btn(T, 'gold'), opacity: draft.body.trim() ? 1 : 0.5 }}>Post</button>
       </div>
     </div>}
-    {items.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No updates yet.</div>}
+    {items.length === 0 && <EmptyState compact icon="message" title="No updates yet"/>}
     {items.map(u => <div key={u.id} style={{ padding: '8px 0', borderBottom: `1px solid ${T.border}` }}>
       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'flex', justifyContent: 'space-between', gap: 6 }}>
         <span>{fmtDate(u.update_date)} · {UPDATE_KINDS[u.kind] || 'Note'}{u.author_name ? ` · ${u.author_name}` : ''}{!stage && u.stage_id && ws.stageName ? ` · ${ws.stageName(u.stage_id)}` : ''}</span>

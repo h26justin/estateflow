@@ -7,6 +7,7 @@ import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { listAutopilotActions, actOnAutopilotAction, dismissAutopilotAction, bulkActOnAutopilotActions, bulkDismissAutopilotActions, snoozeAutopilotAction } from '../lib/api/autopilot'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const KIND_META = {
   arrears:         { icon: 'pound', label: 'Arrears' },
@@ -68,7 +69,7 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
       </div>
 
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 12, color: T.muted, padding: 12 }}>Loading…</div>
+        <SkeletonRows rows={3} height={44}/>
       ) : actions.length === 0 ? (
         <div style={{ fontFamily: MONO, color: T.green, fontSize: 12, padding: 16 }}>
           No actions awaiting review
@@ -286,7 +287,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
       )}
 
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 13, color: T.muted, padding: 40, textAlign: 'center' }}>Loading…</div>
+        <SkeletonRows rows={5} height={64}/>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ fontFamily: MONO, color: actions.length === 0 ? T.green : T.muted, fontSize: 13, textAlign: 'center', padding: 48 }}>
           {actions.length === 0

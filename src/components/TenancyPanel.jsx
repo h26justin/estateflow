@@ -16,6 +16,7 @@ import {
   TENANCY_STATUSES, PAYMENT_SOURCES, RENT_FREQUENCIES, BENEFIT_FREQUENCIES, DEFAULT_PAYMENT_WINDOW_DAYS,
   usesBenefit, benefitSplitCheck, tenancyDraftFromProperty, currentTenancy,
 } from '../lib/tenancyUtils'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const label = (list, v) => list.find(x => x.v === v)?.l || v || '—'
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -186,7 +187,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
         </>
       ))}
 
-      {tenancies === null && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>Loading…</div>}
+      {tenancies === null && <SkeletonRows rows={2} height={56}/>}
 
       {tenancies && tenancies.length === 0 && editing === null && (
         <div className="card" style={{ padding: '16px 18px', marginBottom: 10, fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>

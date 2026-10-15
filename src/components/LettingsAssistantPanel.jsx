@@ -11,6 +11,8 @@ import {
 } from '../lib/api/lettingsAssistant'
 import { pressable } from '../lib/pressable'
 import { FS } from '../lib/styles'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = "'DM Mono', monospace"
 
@@ -241,11 +243,10 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, fontFamily: mono, color: T.muted, fontSize: 12 }}>Loading…</div>
+        <SkeletonRows rows={4} height={72}/>
       ) : enquiries.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 50 }}>
-          <div style={{ fontSize: 30, marginBottom: 10 }}>✉️</div>
-          <div style={{ fontFamily: mono, fontSize: 13, color: T.muted }}>No enquiries yet. Add one to draft an AI reply.</div>
+        <div className="card">
+          <EmptyState icon="mail" title="No enquiries yet" body="Add one to draft an AI reply."/>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 420px' : '1fr', gap: 14 }}>

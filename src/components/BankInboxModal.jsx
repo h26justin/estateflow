@@ -4,6 +4,8 @@ import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 // Bank Inbox — review and match incoming transactions to rent payments.
 //
@@ -141,12 +143,12 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
           </div>
 
           {loading ? (
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+            <SkeletonRows rows={4} height={56}/>
           ) : txs.length === 0 ? (
-            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '24px 16px', textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>
+            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
               {filter === 'unmatched'
-                ? 'No unmatched transactions — everything is accounted for.'
-                : 'No transactions yet. Sync a connection to pull them in.'}
+                ? <EmptyState compact icon="check-circle" title="No unmatched transactions" body="Everything is accounted for."/>
+                : <EmptyState compact icon="inbox" title="No transactions yet" body="Sync a connection to pull them in."/>}
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 8, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>

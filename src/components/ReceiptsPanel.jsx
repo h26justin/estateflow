@@ -11,6 +11,8 @@ import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
 import { currentTenancy, usesBenefit } from '../lib/tenancyUtils'
 import { activePlan } from '../lib/paymentPlans'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const PAYERS = [
   { v: 'tenant', l: 'Tenant' }, { v: 'housing_benefit', l: 'Housing Benefit' },
@@ -168,8 +170,8 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
         </div>
       )}
 
-      {receipts === null && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>Loading…</div>}
-      {receipts && receipts.length === 0 && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>No receipts recorded yet. Month tiles still show the legacy paid amounts until receipts exist.</div>}
+      {receipts === null && <SkeletonRows rows={3} height={40}/>}
+      {receipts && receipts.length === 0 && <EmptyState compact icon="receipt" title="No receipts recorded yet" body="Month tiles still show the legacy paid amounts until receipts exist."/>}
       {receipts && receipts.length > 0 && (
         <div style={{ display: 'grid', gap: 6 }}>
           {receipts.map(r => (

@@ -4,6 +4,7 @@ import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
+import { SkeletonTiles } from '../lib/Skeleton'
 
 // Dashboard widget for #6: AI-generated portfolio insights.
 // Reads the latest stored insights row on mount; provides a "Regenerate"
@@ -82,7 +83,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span aria-hidden="true">✨</span> Portfolio Insights
+            <Icon name="sparkle" size={14} aria-hidden="true" style={{ verticalAlign: '-2px' }}/> Portfolio Insights
             <span style={{
               fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
               padding: '2px 7px', borderRadius: 10,
@@ -110,12 +111,10 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
       </div>
 
       {loading && !row ? (
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 22px', fontFamily: MONO, fontSize: 12, color: T.muted, textAlign: 'center' }}>
-          Loading insights…
-        </div>
+        <div aria-busy="true" aria-label="Loading insights"><SkeletonTiles count={3}/></div>
       ) : !row ? (
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 22px', textAlign: 'center' }}>
-          <div style={{ fontSize: 26, marginBottom: 10, opacity: 0.6 }} aria-hidden="true">✨</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, opacity: 0.6, color: T.goldText }} aria-hidden="true"><Icon name="sparkle" size={26}/></div>
           <div style={{ fontSize: 14, color: T.text, fontWeight: 600, marginBottom: 4 }}>No insights yet</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 14px' }}>
             Click below and Claude will scan your portfolio for opportunities — under-rented properties, expiring certs, high LTVs, things worth your attention.
