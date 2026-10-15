@@ -16,6 +16,7 @@ import { useLoadGuard } from '../../lib/useLoadGuard'
 import { NotesTimeline } from '../FeatureComponents'
 import MoneyInput from '../../lib/MoneyInput'
 import TriageButton from './TriageButton'
+import { Button } from '../ui'
 
 // Local copy of formatDate (used by JobCard for raised/resolved dates).
 // Matches the implementation in FeatureComponents.jsx so behaviour is identical.
@@ -36,7 +37,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
 
   const CATEGORIES = ['plumbing','electrical','structural','appliance','decoration','roofing','damp','other']
-  const PRIORITIES = [{v:'low',c:'#6B7191'},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
+  const PRIORITIES = [{v:'low',c:T.muted},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
   const STATUSES   = [{v:'open',c:T.red,l:'Open'},{v:'in-progress',c:T.amber,l:'In Progress'},{v:'complete',c:T.green,l:'Complete'}]
 
   const beginLoad = useLoadGuard()
@@ -196,8 +197,8 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
           {(job.actual_cost||job.quoted_cost)&&<div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{fmt(job.actual_cost||job.quoted_cost)}</div>}
           {job.quoted_cost&&job.actual_cost&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>Quoted {fmt(job.quoted_cost)}</div>}
           <div style={{display:'flex',gap:6,marginTop:6,justifyContent:'flex-end'}}>
-            {canEdit && <button onClick={()=>onEdit(job)} style={{fontFamily:MONO,fontSize:FS.xs,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Edit</button>}
-            {canEdit && <button onClick={()=>onDelete(job.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>Remove</button>}
+            {canEdit && <Button variant="secondary" size="sm" onClick={()=>onEdit(job)}>Edit</Button>}
+            {canEdit && <Button variant="danger" size="sm" onClick={()=>onDelete(job.id)}>Remove</Button>}
           </div>
         </div>
       </div>

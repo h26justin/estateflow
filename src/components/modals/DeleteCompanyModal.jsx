@@ -5,6 +5,9 @@ import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
+import { Icon } from '../../lib/icons'
+import { Skeleton } from '../../lib/Skeleton'
+import { Button } from '../ui'
 
 function PreviewRow({ label, value, T, mono }) {
   const dim = !value
@@ -59,7 +62,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
       <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
       <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="delete-company-modal-title">
         <div style={{ padding: '24px 28px 0' }}>
-          <div style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>🗑️</div>
+          <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.red }}><Icon name="trash" size={32}/></div>
           <h2 id="delete-company-modal-title" style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 6, color: T.text }}>
             Delete {company.name}?
           </h2>
@@ -74,7 +77,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
               Will be removed
             </div>
             {preview === null ? (
-              <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+              <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 6 }}>{[0, 1, 2, 3].map(i => <Skeleton key={i} h={14}/>)}</div>
             ) : (
               <div style={{ display: 'grid', gap: 6 }}>
                 <PreviewRow label="Properties"          value={preview.properties}        T={T} mono={mono}/>
@@ -98,18 +101,12 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
           {error && <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginBottom: 14 }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={onClose}
-              style={{ flex: 1, fontFamily: mono, fontSize: 12, padding: '11px', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+            <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>
               Cancel
-            </button>
-            <button onClick={handleDelete} disabled={!isConfirmed || busy}
-              style={{ flex: 2, fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '11px', borderRadius: 10, border: 'none',
-                background: (!isConfirmed || busy) ? T.border : T.red,
-                color: 'white',
-                cursor: (!isConfirmed || busy) ? 'not-allowed' : 'pointer',
-                opacity: (!isConfirmed || busy) ? 0.6 : 1 }}>
+            </Button>
+            <Button variant="danger" style={{ flex: 2 }} onClick={handleDelete} disabled={!isConfirmed || busy}>
               {busy ? 'Deleting…' : 'Delete company'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

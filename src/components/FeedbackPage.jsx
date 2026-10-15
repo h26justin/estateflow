@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
+import { Button } from './ui'
 
 export default function FeedbackPage({ user, showToast }) {
   const { T } = useTheme()
@@ -55,12 +56,12 @@ export default function FeedbackPage({ user, showToast }) {
 
       {sent ? (
         <div style={{ background: T.card, border: `1px solid ${T.green}44`, borderRadius: 14, padding: '40px 28px', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🙏</div>
+          <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.green }}><Icon name="check-circle" size={40}/></div>
           <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, color: T.text }}>Thanks for your feedback!</div>
           <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 20 }}>We read every message and will be in touch if we have questions.</div>
-          <button onClick={() => setSent(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 20px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+          <Button variant="secondary" size="sm" onClick={() => setSent(false)}>
             Send another
-          </button>
+          </Button>
         </div>
       ) : (
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 24px' }}>
@@ -95,13 +96,9 @@ export default function FeedbackPage({ user, showToast }) {
               placeholder={type === 'feature' ? 'Describe the feature and how it would help you...' : type === 'bug' ? 'What happened? What did you expect? Steps to reproduce...' : 'Share your thoughts...'} />
           </div>
 
-          <button onClick={handleSubmit} disabled={sending} style={{
-            width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-            background: sending ? T.border : T.gold, color: sending ? T.muted : '#000',
-            fontFamily: mono, fontSize: 13, fontWeight: 700, cursor: sending ? 'default' : 'pointer', transition: 'all 0.2s'
-          }}>
+          <Button fullWidth size="lg" onClick={handleSubmit} disabled={sending}>
             {sending ? 'Sending...' : 'Send Feedback'}
-          </button>
+          </Button>
 
           <p style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
             Or email us directly at{' '}
