@@ -28,6 +28,7 @@ import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { getStoredDevice, clearStoredDevice } from '../lib/trustedDevice'
 import { Skeleton } from '../lib/Skeleton'
+import { Button } from './ui'
 
 export default function TwoFactorPanel({ T }) {
   const mono = MONO
@@ -382,14 +383,9 @@ export default function TwoFactorPanel({ T }) {
         <li>Takes about 60 seconds to set up</li>
         <li>You can disable it later from this page</li>
       </ul>
-      <button
-        onClick={startEnroll}
-        style={{
-          fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 22px',
-          borderRadius: 8, border: 'none', background: T.gold, color: '#1A2530', cursor: 'pointer',
-        }}>
+      <Button onClick={startEnroll}>
         Enable two-factor authentication
-      </button>
+      </Button>
       {unverified.length > 0 && (
         <div style={{ marginTop: 14, fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
           ({unverified.length} half-completed setup{unverified.length > 1 ? 's' : ''} pending — will be cleaned up when you start a new one.)

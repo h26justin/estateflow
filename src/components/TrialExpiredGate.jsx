@@ -3,6 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { ChromeLogo } from './Logo'
+import { Button } from './ui'
 
 // ── TRIAL EXPIRED GATE ─────────────────────────────────────────────────
 // Full-screen blocker that appears the moment a user signs in and any
@@ -181,14 +182,9 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, lineHeight:1.6 }}>
             Need help? Email <a href="mailto:hello@ownproperly.com" style={{ color:T.goldText }}>hello@ownproperly.com</a>
           </div>
-          <button onClick={onSignOut}
-            style={{
-              fontFamily:MONO, fontSize:11, padding:'7px 14px',
-              borderRadius:8, border:`1px solid ${T.border}`,
-              background:'transparent', color:T.muted, cursor:'pointer',
-            }}>
+          <Button variant="secondary" size="sm" onClick={onSignOut}>
             Sign out
-          </button>
+          </Button>
         </div>
       </div>
     </div>

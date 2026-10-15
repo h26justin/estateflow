@@ -20,7 +20,7 @@ import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
-import { EmptyState } from './ui'
+import { EmptyState, Button } from './ui'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
 // "£12,000" at small sizes.
@@ -646,16 +646,10 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
     setBusy(false)
   }
   return (
-    <button onClick={run} disabled={busy}
-      title="Bundle the 5 HMRC tax reports into one PDF"
-      style={{
-        fontFamily:mono, fontSize:11, padding:'8px 14px', borderRadius:8,
-        border:`1px solid ${T.gold}`, background:T.gold,
-        color:'#0B0D14', cursor:busy?'wait':'pointer', fontWeight:700,
-        whiteSpace:'nowrap',
-      }}>
+    <Button size="sm" onClick={run} disabled={busy}
+      title="Bundle the 5 HMRC tax reports into one PDF">
       {busy ? 'Generating pack…' : 'Year-End Tax Pack'}
-    </button>
+    </Button>
   )
 }
 

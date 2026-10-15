@@ -4,6 +4,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 import { plural } from '../lib/format'
+import { Button } from './ui'
 
 const mono = MONO
 
@@ -116,11 +117,9 @@ export function AIListingWriter({ property, T: TProp }) {
         </div>
       </div>
 
-      <button onClick={generate} disabled={loading || !form.location}
-        style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none',
-          background: loading||!form.location ? T.border : T.gold, color:'#1C2830', cursor:'pointer', width:'100%', marginBottom: result?12:0 }}>
+      <Button fullWidth onClick={generate} disabled={loading || !form.location} style={{ marginBottom: result?12:0 }}>
         {loading ? 'Writing…' : 'Generate description'}
-      </button>
+      </Button>
 
       {result && (
         <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '14px 16px' }}>
@@ -207,11 +206,9 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           onKeyDown={e=>e.key==='Enter'&&analyse()}
           placeholder="https://www.rightmove.co.uk/properties/172607333..."
           style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px'}}/>
-        <button onClick={analyse} disabled={loading || !url.trim()}
-          style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none',
-            background:loading||!url.trim()?T.border:T.gold, color:'#1C2830', cursor:loading?'wait':'pointer', flexShrink:0}}>
+        <Button onClick={analyse} disabled={loading || !url.trim()} style={{flexShrink:0}}>
           {loading ? 'Fetching…' : 'Analyse →'}
-        </button>
+        </Button>
       </div>
 
       {error && <div style={{fontFamily:mono, fontSize:11, color:T.amber, marginBottom:10}}>{error}</div>}
@@ -287,16 +284,16 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
 
           <div style={{display:'flex', gap:8}}>
             {onAutoFill && scraped.price > 0 && (
-              <button onClick={()=>onAutoFill({
+              <Button onClick={()=>onAutoFill({
                 purchase_price:scraped.price,
                 estimated_monthly_rent:parseFloat(rent)||0,
                 property_type:scraped.propertyType,
                 bedrooms:scraped.bedrooms,
                 location:scraped.address
               })}
-                style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer'}}>
-                → Open full deal calculator
-              </button>
+                icon="arrow-right">
+                Open full deal calculator
+              </Button>
             )}
             <button onClick={()=>{setUrl('');setScraped(null);setRent('');setError('')}}
               style={{fontFamily:mono, fontSize:12, padding:'9px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer'}}>

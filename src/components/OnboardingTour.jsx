@@ -5,6 +5,7 @@ import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import FocusTrap from '../lib/FocusTrap'
 import { ChromeLogo } from './Logo'
+import { Button } from './ui'
 
 const STEPS = [
   {
@@ -183,27 +184,13 @@ export default function OnboardingTour({ user, onComplete }) {
           {/* Footer */}
           <div style={{ padding: '18px 32px 28px', display: 'flex', gap: 10 }}>
             {!isFirst && (
-              <button onClick={() => setStep(s => s - 1)} style={{
-                flex: 1, fontFamily: MONO, fontWeight: 600,
-                fontSize: 13, padding: '12px 20px', borderRadius: 10,
-                border: `1.5px solid ${T.border}`, background: 'transparent',
-                color: T.text, cursor: 'pointer',
-              }}>← Back</button>
+              <Button variant="secondary" size="lg" style={{ flex: 1 }} onClick={() => setStep(s => s - 1)}>← Back</Button>
             )}
-            <button
+            <Button size="lg" style={{ flex: isFirst ? 1 : 2 }}
               onClick={isLast ? finish : () => setStep(s => s + 1)}
-              disabled={saving}
-              style={{
-                flex: isFirst ? 1 : 2,
-                fontFamily: MONO, fontWeight: 700,
-                fontSize: 13, padding: '12px 20px', borderRadius: 10,
-                border: 'none',
-                background: T.gold,
-                color: '#1C2830',
-                cursor: 'pointer', transition: 'all 0.18s',
-              }}>
+              disabled={saving}>
               {saving ? 'Starting…' : isLast ? 'Start using Properly' : 'Next →'}
-            </button>
+            </Button>
           </div>
         </div>
       </FocusTrap>

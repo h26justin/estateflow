@@ -74,10 +74,9 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
         </div>
-        <button onClick={() => { setForm({}); setTriedSave(false); setShowForm(true) }}
-          style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 14px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
-          + Add check
-        </button>
+        <Button size="sm" icon="plus" style={{ flexShrink:0 }} onClick={() => { setForm({}); setTriedSave(false); setShowForm(true) }}>
+          Add check
+        </Button>
       </div>
 
       {showForm && (
@@ -110,11 +109,10 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
           </div>
           <div style={{ marginBottom:10 }}><label style={lbl} htmlFor="rtr-notes">Notes</label><textarea id="rtr-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           <div style={{ display:'flex', gap:8 }}>
-            <button type="submit" disabled={saving}
-              style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'8px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer' }}>
+            <Button type="submit" size="sm" disabled={saving}>
               {saving?'Saving…':'Save record'}
-            </button>
-            <button type="button" onClick={()=>setShowForm(false)} style={{ fontFamily:mono, fontSize:12, padding:'8px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Cancel</button>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={()=>setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
@@ -201,10 +199,9 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Deposit protection</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>You must protect deposits within 30 days of receipt and provide prescribed information to tenants.</div>
         </div>
-        <button onClick={() => { setForm({}); setShowForm(true) }}
-          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.gold, color: '#1C2830', cursor: 'pointer', flexShrink: 0 }}>
-          + Add record
-        </button>
+        <Button size="sm" icon="plus" style={{ flexShrink: 0 }} onClick={() => { setForm({}); setShowForm(true) }}>
+          Add record
+        </Button>
       </div>
 
       {showForm && (
@@ -228,11 +225,10 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="dp-notes">Notes</label><textarea id="dp-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving}
-              style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1C2830', cursor: 'pointer' }}>
+            <Button type="submit" size="sm" disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
@@ -336,14 +332,12 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.text, cursor: 'pointer' }}>
             Prepare Form 3A
           </button>
-          <button onClick={openRentIncrease}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, cursor: 'pointer' }}>
+          <Button variant="secondary" size="sm" onClick={openRentIncrease}>
             Prepare Form 4A
-          </button>
-          <button onClick={() => { setForm({ notice_type: 's8', status: 'draft' }); setShowForm(true) }}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>
-            + Log notice
-          </button>
+          </Button>
+          <Button variant="danger" size="sm" icon="plus" onClick={() => { setForm({ notice_type: 's8', status: 'draft' }); setShowForm(true) }}>
+            Log notice
+          </Button>
         </div>
       </div>
 
@@ -392,8 +386,8 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="nt-notes">Notes</label><textarea id="nt-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:'none'}}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>{saving?'Saving…':'Save notice'}</button>
-            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            <Button type="submit" variant="danger" size="sm" disabled={saving}>{saving?'Saving…':'Save notice'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
@@ -467,14 +461,12 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track every rent change with dates and review schedules.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button onClick={() => setShowForm4A(true)}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, cursor: 'pointer' }}>
+          <Button variant="secondary" size="sm" onClick={() => setShowForm4A(true)}>
             Prepare Form 4A
-          </button>
-          <button onClick={() => { setForm({ change_type: 'increase' }); setShowForm(true) }}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.green, color: '#0E3B27', cursor: 'pointer' }}>
-            + Log change
-          </button>
+          </Button>
+          <Button size="sm" icon="plus" onClick={() => { setForm({ change_type: 'increase' }); setShowForm(true) }}>
+            Log change
+          </Button>
         </div>
       </div>
 
@@ -528,8 +520,8 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="rh-notes">Notes</label><input id="rh-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inp}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.green, color: '#0E3B27', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
-            <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
+            <Button type="submit" size="sm" disabled={saving}>{saving?'Saving…':'Save'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
           </div>
         </form>
       )}
@@ -649,14 +641,12 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
               placeholder="Same as current"
               style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px', width: 120 }}/>
           </div>
-          <button type="submit" disabled={saving}
-            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: T.green, color: '#0E3B27', cursor: 'pointer' }}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? 'Saving…' : 'Confirm renewal'}
-          </button>
-          <button type="button" onClick={() => setShowForm(false)}
-            style={{ fontFamily: mono, fontSize: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>
             Cancel
-          </button>
+          </Button>
         </form>
       )}
     </div>

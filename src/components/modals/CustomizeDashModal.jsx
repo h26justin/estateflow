@@ -3,6 +3,7 @@ import { MONO, FS } from '../../lib/styles'
 import FocusTrap from '../../lib/FocusTrap'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
+import { Button } from '../ui'
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────
 // Combined dashboard customization modal. Two tabs: Sections (top-level
@@ -167,18 +168,16 @@ export default function CustomizeDashModal({
           })}
         </div>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
-          <button onClick={resetToDefault}
-            style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
-            ↻ Reset {tab === 'sections' ? 'sections' : 'cards'} to default
-          </button>
+          <Button variant="secondary" size="sm" icon="refresh" onClick={resetToDefault}>
+            Reset {tab === 'sections' ? 'sections' : 'cards'} to default
+          </Button>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={onClose}
-              style={{fontFamily:mono,fontSize:11,padding:'8px 16px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+            <Button variant="secondary" size="sm" onClick={onClose}>
               Cancel
-            </button>
-            <button onClick={handleSave} className="btn btn-gold" style={{fontSize:11,padding:'8px 20px'}}>
+            </Button>
+            <Button size="sm" onClick={handleSave}>
               Save
-            </button>
+            </Button>
           </div>
         </div>
       </div>
