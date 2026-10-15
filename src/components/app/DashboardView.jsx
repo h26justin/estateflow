@@ -5,7 +5,7 @@ import { SmartAlerts } from '../DashboardComponents'
 import * as api from '../../lib/api'
 import { aggregateDeals } from '../../lib/dealCashflow'
 import { propertyComplianceSummary } from '../../lib/complianceStatus'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import PropertySearchBar from '../PropertySearchBar'
 import PortfolioInsightsWidget from '../PortfolioInsightsWidget'
@@ -107,7 +107,7 @@ export function DashboardView({
         {/* Company filter pills */}
         {companies.length > 1 && (
           <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
-            <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
             <button
               onClick={()=>setDashCoFilter([])}
               style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
@@ -221,7 +221,7 @@ export function DashboardView({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <span style={{ fontSize: 16 }}>✨</span>
                       <h2 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>AI Portfolio Insights</h2>
-                      <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.gold + '22', color: T.goldText }}>INVESTOR</span>
+                      <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.gold + '22', color: T.goldText }}>INVESTOR</span>
                     </div>
                     <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.7, marginBottom: 12 }}>
                       Get Claude-generated weekly observations about under-rented units, expiring certs, high LTVs and refinance opportunities. Available on the £5/property Investor tier.
@@ -689,7 +689,7 @@ export function DashboardView({
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                           {[{l:'Properties',v:c.count},{l:'Rented',v:`${c.rented}/${c.count}`},{l:'Monthly Income',v:fmt(c.monthlyRent)},{l:'Arrears',v:fmt(c.arrears),red:c.arrears>0}].map((item,i)=>(
                             <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                              <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
+                              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
                               <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.goldText}}>{item.v}</div>
                             </div>
                           ))}
@@ -709,11 +709,11 @@ export function DashboardView({
           <>
             {/* Customize Dashboard button — single source of truth for both sections and widget toggles */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
-              <div style={{flex:'1 1 auto',minWidth:0,fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+              <div style={{flex:'1 1 auto',minWidth:0,fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                 Dashboard · {visibleSections.length} sections shown
               </div>
               <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
-                style={{fontFamily:MONO,fontSize:10,padding:'4px 10px',minHeight:28,borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                style={{fontFamily:MONO,fontSize:FS.xs,padding:'4px 10px',minHeight:28,borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
                 Customise
               </button>
             </div>

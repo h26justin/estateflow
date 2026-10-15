@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
@@ -246,7 +246,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
 
           {/* ── INVITE NEW USER ── */}
           <div style={{background:T.bg,borderRadius:10,padding:'14px 16px',marginBottom:20,border:`1px solid ${T.border}`}}>
-            <label style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Invite user by email</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Invite user by email</label>
             <div style={{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}}>
               <input value={newEmail} onChange={e=>setNewEmail(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&sendInvite()}
@@ -254,7 +254,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                 style={{flex:1,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
               <div style={{display:'flex',alignItems:'center',gap:6}}>
                 <input type="checkbox" id="invite-admin" checked={newIsAdmin} onChange={e=>setNewIsAdmin(e.target.checked)} style={{width:'auto',margin:0}}/>
-                <label htmlFor="invite-admin" style={{fontFamily:mono,fontSize:10,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
+                <label htmlFor="invite-admin" style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
               </div>
               <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}}
                 onClick={sendInvite} disabled={adding||!newEmail.trim()}>
@@ -265,7 +265,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
             {companies.length > 1 && (
               <div style={{marginTop:10}}>
                 <button onClick={()=>setShowCoSelect(s=>!s)}
-                  style={{fontFamily:mono,fontSize:10,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
+                  style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
                   {showCoSelect ? '▲ Hide' : '▼ Choose'} which companies ({selectedCoIds.length} of {companies.length} selected)
                 </button>
                 {showCoSelect && (
@@ -288,7 +288,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
               </div>
             )}
 
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.6}}>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:8,lineHeight:1.6}}>
               An invitation link will be sent. They must sign up at <span style={{color:T.goldText}}>www.ownproperly.com</span> to accept it.
             </div>
           </div>
@@ -312,7 +312,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                               </div>
                               <div>
                                 <div style={{fontSize:13,fontWeight:600,color:T.text}}>{u.email}</div>
-                                <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>
+                                <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>
                                   {hasNone(u)?'No access':hasAll(u)?'All companies':totalAccess(u)+' of '+companies.length+' companies'}
                                 </div>
                               </div>
@@ -320,16 +320,16 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                               <button onClick={()=>setAllCompanies(u.id,u.email,true)}
                                 disabled={!!saving||hasAll(u)}
-                                style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.green}`,color:T.green,background:T.green+'11',opacity:hasAll(u)?0.4:1}}>
+                                style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.green}`,color:T.green,background:T.green+'11',opacity:hasAll(u)?0.4:1}}>
                                 All ✓
                               </button>
                               <button onClick={()=>setAllCompanies(u.id,u.email,false)}
                                 disabled={!!saving||hasNone(u)}
-                                style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.amber}`,color:T.amber,background:T.amber+'11',opacity:hasNone(u)?0.4:1}}>
+                                style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.amber}`,color:T.amber,background:T.amber+'11',opacity:hasNone(u)?0.4:1}}>
                                 None ✗
                               </button>
                               <button onClick={()=>removeUser(u.id)}
-                                style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11'}}>
+                                style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11'}}>
                                 Remove
                               </button>
                             </div>
@@ -354,7 +354,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                               your own row, and where you lack manage_users. */}
                           {(access[u.id]||[]).length>0 && (
                             <div style={{marginTop:12,paddingTop:10,borderTop:`1px solid ${T.border}`,display:'grid',gap:6}}>
-                              <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Role per company</div>
+                              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Role per company</div>
                               {companies.filter(co=>(access[u.id]||[]).includes(co.id)).map(co=>{
                                 const key = u.id+':'+co.id
                                 const row = rowMap[key]
@@ -369,9 +369,9 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                                 const busyHere = saving === key+':role'
                                 return (
                                   <div key={co.id} style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                                    <span style={{fontFamily:mono,fontSize:10,color:co.color||T.goldText,minWidth:56}}>{co.abbr}</span>
+                                    <span style={{fontFamily:mono,fontSize:FS.xs,color:co.color||T.goldText,minWidth:56}}>{co.abbr}</span>
                                     {locked
-                                      ? <span title={lockReason} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,border:`1px solid ${T.border}`,color:T.muted,background:T.surface}}>
+                                      ? <span title={lockReason} style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,border:`1px solid ${T.border}`,color:T.muted,background:T.surface}}>
                                           {isCompanyOwner ? 'Owner' : (ROLE_OPTION_LABELS[current] || current)}
                                         </span>
                                       : <select value={current} disabled={!!saving} aria-label={`Role for ${u.email} on ${co.name}`}
@@ -379,14 +379,14 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                                           style={{fontFamily:mono,fontSize:11,padding:'4px 8px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,cursor:saving?'wait':'pointer'}}>
                                           {ROLE_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
                                         </select>}
-                                    {busyHere && <span style={{fontFamily:mono,fontSize:9,color:T.muted}}>Saving…</span>}
+                                    {busyHere && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>Saving…</span>}
                                     {!locked && !busyHere && (
                                       <button onClick={()=>setRoleTarget({user:u,company:co,accessRow:row})}
-                                        style={{fontFamily:mono,fontSize:10,color:T.goldText,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
+                                        style={{fontFamily:mono,fontSize:FS.xs,color:T.goldText,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
                                         Advanced…
                                       </button>
                                     )}
-                                    <span style={{fontFamily:mono,fontSize:9,color:T.faint}}>
+                                    <span style={{fontFamily:mono,fontSize:FS.xs,color:T.faint}}>
                                       {isCompanyOwner ? '' : (ROLE_OPTIONS.find(o=>o.value===current)?.hint || '')}
                                     </span>
                                   </div>
@@ -410,16 +410,16 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                         <div key={inv.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:T.bg,borderRadius:10,border:`1px solid ${T.border}`,gap:12,flexWrap:'wrap'}}>
                           <div>
                             <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{inv.email}</div>
-                            <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>
+                            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>
                               Invited to <span style={{color:inv.companyColor||T.goldText}}>{inv.companyAbbr}</span> {inv.companyName}
                               {inv.is_admin && <span style={{marginLeft:8,background:T.gold+'22',color:T.goldText,padding:'1px 6px',borderRadius:4}}>Admin</span>}
                             </div>
-                            <div style={{fontFamily:mono,fontSize:10,color:T.faint,marginTop:2}}>
+                            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.faint,marginTop:2}}>
                               Expires {new Date(inv.expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}
                             </div>
                           </div>
                           <button onClick={()=>cancelInvite(inv.id)}
-                            style={{fontFamily:mono,fontSize:10,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11',flexShrink:0}}>
+                            style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11',flexShrink:0}}>
                             Cancel
                           </button>
                         </div>

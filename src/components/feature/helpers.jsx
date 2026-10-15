@@ -1,5 +1,5 @@
 import { useTheme } from '../../lib/ThemeContext'
-import { statusPill } from '../../lib/styles'
+import { statusPill, FS } from '../../lib/styles'
 
 export const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
@@ -19,7 +19,7 @@ export function ExpiryBadge({dateStr}) {
   // dark-mode backgrounds that rendered wrong in light mode).
   const { darkMode } = useTheme()
   const days = daysUntil(dateStr)
-  const pill = (key, txt) => <span style={{...statusPill(key, darkMode), fontSize:10}}>{txt}</span>
+  const pill = (key, txt) => <span style={{...statusPill(key, darkMode), fontSize:FS.xs}}>{txt}</span>
   if (days === null) return pill('void', 'No expiry set')
   if (days < 0)   return pill('bad',  `Expired ${Math.abs(days)}d ago`)
   if (days <= 30) return pill('warn', `Expires in ${days}d`)

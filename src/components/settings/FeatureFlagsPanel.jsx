@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -76,18 +76,18 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
           <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:10,textTransform:'uppercase',letterSpacing:'0.1em'}}>New feature flag</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
             <div>
-              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Key (snake_case, unique)</label>
+              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:4}}>Key (snake_case, unique)</label>
               <input aria-label="Key (snake_case, unique)" value={newFlag.key} onChange={e=>setNewFlag({...newFlag,key:e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'_')})}
                 placeholder="eg. advanced_reports" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
             </div>
             <div>
-              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Display name</label>
+              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:4}}>Display name</label>
               <input aria-label="Display name" value={newFlag.name} onChange={e=>setNewFlag({...newFlag,name:e.target.value})}
                 placeholder="eg. Advanced Reports" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
             </div>
           </div>
           <div style={{marginBottom:10}}>
-            <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:4}}>Description</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:4}}>Description</label>
             <input aria-label="Description" value={newFlag.description} onChange={e=>setNewFlag({...newFlag,description:e.target.value})}
               placeholder="What does this feature do?" style={{width:'100%',padding:'8px 10px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,fontFamily:mono,fontSize:12}}/>
           </div>
@@ -110,8 +110,8 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
               <div style={{flex:1,minWidth:200}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4,flexWrap:'wrap'}}>
                   <span style={{fontSize:14,fontWeight:700,color:T.text}}>{flag.name}</span>
-                  <code style={{fontFamily:mono,fontSize:10,background:T.bg,padding:'2px 8px',borderRadius:4,color:T.muted}}>{flag.key}</code>
-                  <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:flag.enabled_globally?T.green+'22':T.muted+'22',color:flag.enabled_globally?T.green:T.muted,textTransform:'uppercase'}}>
+                  <code style={{fontFamily:mono,fontSize:FS.xs,background:T.bg,padding:'2px 8px',borderRadius:4,color:T.muted}}>{flag.key}</code>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:flag.enabled_globally?T.green+'22':T.muted+'22',color:flag.enabled_globally?T.green:T.muted,textTransform:'uppercase'}}>
                     {flag.enabled_globally ? 'Globally ON' : 'Globally OFF'}
                   </span>
                 </div>
@@ -119,15 +119,15 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
               </div>
               <div style={{display:'flex',gap:6}}>
                 <button onClick={()=>toggleGlobal(flag)}
-                  style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${flag.enabled_globally?T.red:T.green}`,background:(flag.enabled_globally?T.red:T.green)+'22',color:flag.enabled_globally?T.red:T.green}}>
+                  style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${flag.enabled_globally?T.red:T.green}`,background:(flag.enabled_globally?T.red:T.green)+'22',color:flag.enabled_globally?T.red:T.green}}>
                   {flag.enabled_globally ? 'Disable globally' : 'Enable globally'}
                 </button>
                 <button onClick={()=>setEditingFlag(flag)}
-                  style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:T.bg,color:T.text}}>
+                  style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:T.bg,color:T.text}}>
                   Overrides →
                 </button>
                 <button onClick={()=>removeFlag(flag.key)}
-                  style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
+                  style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
                   🗑
                 </button>
               </div>
@@ -186,7 +186,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
           <div>
             <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>🚩 {flag.name}</h2>
-            <code style={{fontFamily:mono,fontSize:10,color:T.muted}}>{flag.key}</code>
+            <code style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{flag.key}</code>
           </div>
           <button onClick={onClose} aria-label="Close" style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'6px 10px',margin:'-6px -10px'}}>✕</button>
         </div>
@@ -197,8 +197,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         {/* USER OVERRIDES */}
         <div style={{marginBottom:20}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-user overrides ({userOverrides.length})</div>
-            <button onClick={()=>setPickMode('user')} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>+ Add user</button>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-user overrides ({userOverrides.length})</div>
+            <button onClick={()=>setPickMode('user')} style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>+ Add user</button>
           </div>
           {userOverrides.length === 0 && <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:10}}>No user overrides.</div>}
           {userOverrides.map(o => {
@@ -207,10 +207,10 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
               <div key={o.user_id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:T.bg,borderRadius:6,marginBottom:6}}>
                 <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{u?.email || o.user_id}</span>
                 <div style={{display:'flex',gap:6}}>
-                  <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
                     {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
                   </span>
-                  <button onClick={()=>removeUserOverride(o.user_id)} aria-label="Remove user override" style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                  <button onClick={()=>removeUserOverride(o.user_id)} aria-label="Remove user override" style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
                 </div>
               </div>
             )
@@ -220,8 +220,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         {/* COMPANY OVERRIDES */}
         <div style={{marginBottom:20}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-company overrides ({companyOverrides.length})</div>
-            <button onClick={()=>setPickMode('company')} style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>+ Add company</button>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-company overrides ({companyOverrides.length})</div>
+            <button onClick={()=>setPickMode('company')} style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>+ Add company</button>
           </div>
           {companyOverrides.length === 0 && <div style={{fontFamily:mono,fontSize:11,color:T.muted,padding:10}}>No company overrides.</div>}
           {companyOverrides.map(o => {
@@ -230,10 +230,10 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
               <div key={o.company_id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:T.bg,borderRadius:6,marginBottom:6}}>
                 <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{c?.name || o.company_id}</span>
                 <div style={{display:'flex',gap:6}}>
-                  <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
                     {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
                   </span>
-                  <button onClick={()=>removeCompanyOverride(o.company_id)} aria-label="Remove company override" style={{fontFamily:mono,fontSize:9,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                  <button onClick={()=>removeCompanyOverride(o.company_id)} aria-label="Remove company override" style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
                 </div>
               </div>
             )
@@ -243,7 +243,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         {/* PICK SUBJECT */}
         {pickMode && (
           <div style={{background:T.bg,border:`2px dashed ${T.gold}`,borderRadius:10,padding:14,marginTop:10}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.1em'}}>
               Select {pickMode === 'user' ? 'user' : 'company'} to add override
             </div>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…"
@@ -253,8 +253,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                 <div key={u.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',marginBottom:4,background:T.surface,borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{u.email}</span>
                   <div style={{display:'flex',gap:4}}>
-                    <button onClick={()=>addUserOverride(u.id, true)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
-                    <button onClick={()=>addUserOverride(u.id, false)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
+                    <button onClick={()=>addUserOverride(u.id, true)} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
+                    <button onClick={()=>addUserOverride(u.id, false)} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
                   </div>
                 </div>
               ))}
@@ -262,13 +262,13 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                 <div key={c.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',marginBottom:4,background:T.surface,borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{c.name}</span>
                   <div style={{display:'flex',gap:4}}>
-                    <button onClick={()=>addCompanyOverride(c.id, true)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
-                    <button onClick={()=>addCompanyOverride(c.id, false)} style={{fontFamily:mono,fontSize:9,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
+                    <button onClick={()=>addCompanyOverride(c.id, true)} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
+                    <button onClick={()=>addCompanyOverride(c.id, false)} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
                   </div>
                 </div>
               ))}
             </div>
-            <button onClick={()=>{setPickMode(null);setSearch('')}} style={{marginTop:8,fontFamily:mono,fontSize:10,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Cancel</button>
+            <button onClick={()=>{setPickMode(null);setSearch('')}} style={{marginTop:8,fontFamily:mono,fontSize:FS.xs,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Cancel</button>
           </div>
         )}
       </div>

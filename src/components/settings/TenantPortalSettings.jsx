@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import { naturalCompare } from '../../lib/addressUtils'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
@@ -102,7 +102,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
   }
 
   const inp = { fontFamily:mono, fontSize:12, background:T.surface, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%' }
-  const lbl = { fontFamily:mono, fontSize:10, color:T.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' }
+  const lbl = { fontFamily:mono, fontSize:FS.xs, color:T.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' }
 
   return (
     <div>
@@ -117,7 +117,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
 
       {/* Subdomain */}
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 24px', marginBottom:16 }}>
-        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Tenant portal subdomain</div>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Tenant portal subdomain</div>
         <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:12 }}>
           <input value={subdomain} onChange={e=>setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))}
             placeholder="e.g. nouchette"
@@ -132,14 +132,14 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
             </div>
           </div>
         )}
-        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, lineHeight:1.6 }}>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, lineHeight:1.6 }}>
           Auto-generated from company name. Lowercase letters, numbers and hyphens only.
         </div>
       </div>
 
       {/* Contact mode */}
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 24px', marginBottom:16 }}>
-        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:14 }}>Contact mode</div>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:14 }}>Contact mode</div>
         <div style={{ display:'grid', gap:10, marginBottom:16 }}>
           {[
             ['landlord','Landlord mode','Tenants message you via the portal. No direct contact details shown.'],
@@ -173,7 +173,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
 
       {/* Bank details */}
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 24px', marginBottom:16 }}>
-        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Bank payment details</div>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Bank payment details</div>
         <div style={{ fontFamily:mono, fontSize:12, color:T.text, marginBottom:14, lineHeight:1.7 }}>
           These details are shown to tenants on their Home and Rent tabs so they know where to pay.
         </div>
@@ -197,7 +197,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
 
       {/* Notification email */}
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 24px', marginBottom:16 }}>
-        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Tenant notification email</div>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Tenant notification email</div>
         <div style={{ fontFamily:mono, fontSize:12, color:T.text, marginBottom:14, lineHeight:1.7 }}>
           When a tenant submits a repair request or sends a message, we will email this address instantly. Leave blank to disable email notifications.
         </div>
@@ -214,7 +214,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
 
       {/* Invite tenant */}
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 24px' }}>
-        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Invite a tenant</div>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Invite a tenant</div>
         <div style={{ fontFamily:mono, fontSize:12, color:T.text, marginBottom:14, lineHeight:1.7 }}>
           Generate a sign-up link for a specific property. Share it with your tenant — when they create an account, they're automatically linked to that property.
         </div>
@@ -258,7 +258,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
         </div>
         {inviteLink && (
           <div style={{ background:T.bg, borderRadius:10, padding:'14px 16px' }}>
-            <div style={{ fontFamily:mono, fontSize:10, color:T.muted, marginBottom:8 }}>Share this with your tenant:</div>
+            <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:8 }}>Share this with your tenant:</div>
             <div style={{ display:'flex', gap:10 }}>
               <input readOnly value={inviteLink} style={{ ...inp, color:T.goldText, fontWeight:600 }}/>
               <button onClick={()=>{navigator.clipboard.writeText(inviteLink);showToast('Copied!')}}

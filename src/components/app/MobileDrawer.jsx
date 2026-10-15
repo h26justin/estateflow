@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ChromeLogo } from '../Logo'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 
 // Mobile navigation drawer (opened from the bottom nav's More button).
@@ -41,7 +41,7 @@ export function MobileDrawer({
             const newGroup = i>0 && n.group !== navItems[i-1].group
             return (
             <Fragment key={n.key}>
-            {newGroup && <div style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'14px 20px 4px'}}>{n.group}</div>}
+            {newGroup && <div style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'14px 20px 4px'}}>{n.group}</div>}
             <button aria-current={active?'page':undefined}
               onClick={()=>{setView(n.key);setSelectedId(null);setShowDrawer(false)}}
               style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 20px',

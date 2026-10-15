@@ -3,7 +3,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
 import { buildingTailFromName, buildingKeyFromName, naturalCompare } from '../../lib/addressUtils'
 import { complianceStatusFor, complianceBadge } from '../../lib/complianceStatus'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { pressable } from '../../lib/pressable'
 import { plural } from '../../lib/format'
@@ -140,7 +140,7 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
               <div style={{width:3,height:18,background:co.color||T.gold,borderRadius:2,flexShrink:0}}/>
               <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:co.color||T.goldText}}>{co.abbr}</span>
               <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
-              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+              <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                 {renderItems.filter(x=>x.company_id===co.id).length} properties
               </span>
             </div>
@@ -149,7 +149,7 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
               <Icon name="building" size={14} color={T.muted}/>
               <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{buildingTailFromName(p.name)}</span>
-              <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {plural(buildingSize,'unit')}</span>
+              <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>· {plural(buildingSize,'unit')}</span>
             </div>
           )}
           <div
@@ -202,7 +202,7 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
                     onClick={(e)=>{e.stopPropagation(); openDetail(p)}}
                     style={{display:'flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,
                       background:cfg.bg,color:cfg.color,
-                      fontFamily:MONO,fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>
+                      fontFamily:MONO,fontSize:FS.xs,fontWeight:700,whiteSpace:'nowrap'}}>
                     <Icon name={cfg.iconName} size={12}/><span>{cfg.label}</span>
                   </div>
                 )

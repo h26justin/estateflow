@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { Icon } from '../../lib/icons'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import MoneyInput from '../../lib/MoneyInput'
@@ -102,12 +102,12 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
               <span style={{fontFamily:MONO,fontSize:11,color:T.muted,flexShrink:0,marginRight:16}}>{item.l}</span>
               <div style={{textAlign:'right'}}>
                 <span style={{fontFamily:MONO,fontSize:11,fontWeight:600,color:item.alert?T.amber:T.text}}>{item.v}</span>
-                {item.sub&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{item.sub}</div>}
+                {item.sub&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{item.sub}</div>}
               </div>
             </div>
           ))}
           {details.notes&&<div className="card" style={{padding:'12px 14px'}}>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>Notes</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginBottom:6}}>Notes</div>
             <div style={{fontFamily:MONO,fontSize:12,color:T.text}}>{details.notes}</div>
           </div>}
         </div>

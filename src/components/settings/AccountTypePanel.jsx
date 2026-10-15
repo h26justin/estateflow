@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import * as api from '../../lib/api'
 import { showAppToast } from '../../lib/toast'
+import { FS } from '../../lib/styles'
 
 // ── ACCOUNT TYPE PANEL ──────────────────────────────────────────────
 // Lets the user say whether they file taxes as a sole-trader (individual),
@@ -26,7 +27,7 @@ export function AccountTypePanel({ T, mono, user, accountType, setAccountType })
   }
   return (
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
         Tax setup
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.5 }}>
@@ -45,7 +46,7 @@ export function AccountTypePanel({ T, mono, user, accountType, setAccountType })
                 fontFamily: 'inherit',
               }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: active ? T.goldText : T.text, marginBottom: 3 }}>
-                {o.label} {active && <span style={{ fontFamily: mono, fontSize: 10, color: T.goldText, marginLeft: 4 }}>selected</span>}
+                {o.label} {active && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginLeft: 4 }}>selected</span>}
               </div>
               <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.45 }}>{o.desc}</div>
             </button>
@@ -53,7 +54,7 @@ export function AccountTypePanel({ T, mono, user, accountType, setAccountType })
         })}
       </div>
       {!accountType && (
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
           Not picked yet — by default we show everything.
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { showAppToast } from '../../lib/toast'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -148,38 +148,38 @@ export function ShareableLinksTab({ companies, showToast, T }) {
       {/* Create invite form */}
       <form onSubmit={createInvite}
         style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
           Generate new invite
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 10 }}>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Company</label>
+            <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Company</label>
             <select aria-label="Company" value={formCompanyId} onChange={e => setFormCompanyId(e.target.value)}
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Max uses</label>
+            <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Max uses</label>
             <input aria-label="Max uses" type="number" min={1} placeholder="Unlimited" value={formMaxUses}
               onChange={e => setFormMaxUses(e.target.value)}
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Expires</label>
+            <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Expires</label>
             <select aria-label="Expires" value={formExpiry} onChange={e => setFormExpiry(e.target.value)}
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
               {EXPIRY_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Label (optional)</label>
+            <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Label (optional)</label>
             <input aria-label="Label (optional)" value={formLabel} onChange={e => setFormLabel(e.target.value)} placeholder="e.g. WhatsApp share"
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
           </div>
         </div>
         <div style={{ marginBottom: 10 }}>
-          <label style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Role for joiners</label>
+          <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Role for joiners</label>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {[
               { v: 'viewer', l: 'Viewer',  desc: 'Read-only access' },
@@ -202,7 +202,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                   <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: active ? T.goldText : T.text, verticalAlign: 'middle' }}>
                     {opt.l}
                   </span>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2, marginLeft: 22 }}>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2, marginLeft: 22 }}>
                     {opt.desc}
                   </div>
                 </label>
@@ -230,7 +230,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                 if (!list.length) return null
                 return (
                   <div key={co.id}>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
                       <span style={{ color: co.color || T.goldText }}>{co.abbr}</span> {co.name} · {list.length} active
                     </div>
                     <div style={{ display: 'grid', gap: 8 }}>
@@ -256,17 +256,17 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                                     viewer: { label: 'Viewer', bg: T.muted, text: T.muted },
                                   }[role] || { label: role, bg: T.muted, text: T.muted }
                                   return (
-                                    <span style={{ fontFamily: mono, fontSize: 9, color: meta.text, background: meta.bg + '22', padding: '2px 6px', borderRadius: 4 }}>
+                                    <span style={{ fontFamily: mono, fontSize: FS.xs, color: meta.text, background: meta.bg + '22', padding: '2px 6px', borderRadius: 4 }}>
                                       {meta.label}
                                     </span>
                                   )
                                 })()}
                                 {inv.label && (
-                                  <span style={{ fontFamily: mono, fontSize: 10, color: T.faint, fontStyle: 'italic' }}>{inv.label}</span>
+                                  <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>{inv.label}</span>
                                 )}
                               </div>
                               <button onClick={() => revoke(inv)}
-                                style={{ fontFamily: mono, fontSize: 10, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}`, color: T.red, background: T.red + '11' }}>
+                                style={{ fontFamily: mono, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}`, color: T.red, background: T.red + '11' }}>
                                 Revoke
                               </button>
                             </div>
@@ -276,16 +276,16 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                                 onClick={e => e.target.select()}
                                 style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '6px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.muted, minWidth: 0 }}/>
                               <button onClick={() => copy(inviteUrl(inv.code), inv.id + '-url')}
-                                style={{ fontFamily: mono, fontSize: 10, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-url' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-url' ? T.green : T.text, whiteSpace: 'nowrap' }}>
+                                style={{ fontFamily: mono, fontSize: FS.xs, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-url' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-url' ? T.green : T.text, whiteSpace: 'nowrap' }}>
                                 {copiedId === inv.id + '-url' ? 'Copied' : 'Copy URL'}
                               </button>
                               <button onClick={() => copy(inv.code, inv.id + '-code')}
-                                style={{ fontFamily: mono, fontSize: 10, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-code' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-code' ? T.green : T.text, whiteSpace: 'nowrap' }}>
+                                style={{ fontFamily: mono, fontSize: FS.xs, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-code' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-code' ? T.green : T.text, whiteSpace: 'nowrap' }}>
                                 {copiedId === inv.id + '-code' ? 'Copied' : 'Copy code'}
                               </button>
                             </div>
                             {/* Status row */}
-                            <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                               <span>{usesLabel(inv)}</span>
                               <span>·</span>
                               <span>{expiryLabel(inv.expires_at)}</span>

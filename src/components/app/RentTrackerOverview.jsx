@@ -10,7 +10,7 @@ import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent } from
 import { buildingTailFromName, buildingKeyFromName, naturalCompare } from '../../lib/addressUtils'
 import { normaliseQuery, matchesQuery } from '../../lib/propertySearch'
 import { useScrollRestoreOnClear } from '../../lib/useScrollRestoreOnClear'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { STL_COLOR } from '../../lib/rentColors'
 import { engineSummary } from '../../lib/rentEngineSummary'
@@ -37,7 +37,7 @@ export function RentLegend({ small = false, collapsible = false }) {
     <ul id={collapsible ? 'rent-legend-list' : undefined} aria-label="Rent colour key"
       style={{display:'flex',gap:12,flexWrap:'wrap',listStyle:'none',margin:collapsible?'8px 0 0':0,padding:0}}>
       {items.map(x=>(
-        <li key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:small?10:11,color:T.muted}}>
+        <li key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:small?FS.xs:11,color:T.muted}}>
           <span aria-hidden="true" style={{width:sw,height:sw,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
         </li>
       ))}
@@ -129,7 +129,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
         {/* Right side: year filter + day tracker button */}
         <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
           <div style={{display:'flex',gap:6,alignItems:'center'}}>
-            <span style={{fontFamily:MONO,fontSize:10,color:T.muted,marginRight:4}}>FILTER YEAR:</span>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginRight:4}}>FILTER YEAR:</span>
             {[null,...allYears].map(yr=>(
               <button key={yr||'all'} onClick={()=>setGlobalYear(yr)}
                 style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',
@@ -210,10 +210,10 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
         </div>
       </div>
       {narrowing && (
-        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:14,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginBottom:14,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <span>{shownProps.length} of {plural(trackedProps.length,'property','properties')} match{hasQuery ? ` "${searchQ.trim()}"` : ''}</span>
           <button type="button" onClick={clearSearchAndFilters}
-            style={{fontFamily:MONO,fontSize:10,background:'transparent',border:'none',cursor:'pointer',color:T.goldText,padding:0,textDecoration:'underline'}}>Clear</button>
+            style={{fontFamily:MONO,fontSize:FS.xs,background:'transparent',border:'none',cursor:'pointer',color:T.goldText,padding:0,textDecoration:'underline'}}>Clear</button>
         </div>
       )}
 
@@ -253,9 +253,9 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
           <div className="summary-cards" style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:isMobile?14:20}}>
             {tiles.map(t=>(
               <div key={t.label} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'16px 18px'}}>
-                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{t.label}</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{t.label}</div>
                 <div style={{fontFamily:MONO,fontSize:20,fontWeight:500,color:t.accent,letterSpacing:'-0.01em'}}>{t.value}</div>
-                {t.sub && <div style={{fontFamily:MONO,fontSize:9,color:T.muted,marginTop:4}}>{t.sub}</div>}
+                {t.sub && <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginTop:4}}>{t.sub}</div>}
               </div>
             ))}
           </div>
@@ -269,7 +269,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
         return (
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,padding:'10px 14px',border:`1px solid ${T.amber}55`,background:T.amber+'12',borderRadius:12}}>
             <span style={{fontFamily:MONO,fontSize:11,color:T.amber,fontWeight:700}}>{pending.length} receipt{pending.length===1?'':'s'} to review</span>
-            <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>unallocated money or possible duplicates, held until someone decides</span>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>unallocated money or possible duplicates, held until someone decides</span>
             <button className="btn btn-gold" style={{fontSize:11,marginLeft:'auto'}} onClick={()=>setShowReview(true)}>Review</button>
           </div>
         )
@@ -280,7 +280,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
           company to choose from — saves vertical space for solo landlords) */}
       {companies.length > 1 && (
         <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginBottom:18}}>
-          <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
           <button onClick={()=>setCoFilter([])}
             style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
               border:`1px solid ${coFilter.length===0?T.gold:T.border}`,
@@ -334,7 +334,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
               <div style={{flex:1}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <h2 style={{fontSize:15,fontWeight:700}}>{c.name}</h2>
-                  <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{plural(cps.length,'property','properties')}</span>
+                  <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{plural(cps.length,'property','properties')}</span>
                   {(() => {
                     // Tenancy coverage for this company: how many earning units
                     // still have no tenancy record, and how many drafts await a
@@ -342,13 +342,13 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                     const missing = cps.filter(p => propertyNeedsTenancy(p.status) && !(p.tenancies||[]).length).length
                     const drafts = cps.filter(p => (p.tenancies||[]).some(t => t.needs_confirmation)).length
                     return (<>
-                      {drafts>0 && <span style={{fontFamily:MONO,fontSize:10,color:T.amber}}>{drafts} tenanc{drafts===1?'y':'ies'} to confirm</span>}
+                      {drafts>0 && <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.amber}}>{drafts} tenanc{drafts===1?'y':'ies'} to confirm</span>}
                       {missing>0 && canSeed?.(c.id) && (
                         <button onClick={async e=>{ e.stopPropagation();
                             try { const r = await api.seedTenanciesFromProperties(c.id, properties)
                               showToast?.(`${r.created} draft tenanc${r.created===1?'y':'ies'} created${r.skipped?`, ${r.skipped} already had one`:''}${r.failed.length?`, ${r.failed.length} failed`:''}. Confirm each in the property's Tenancy tab.`)
                               onRefresh?.() } catch(err) { showToast?.(err.message||'Seeding failed','error') } }}
-                          style={{fontFamily:MONO,fontSize:10,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.goldText,cursor:'pointer'}}
+                          style={{fontFamily:MONO,fontSize:FS.xs,padding:'2px 8px',borderRadius:20,border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.goldText,cursor:'pointer'}}
                           title="Create a draft tenancy for every rented unit from its property fields">
                           Seed {missing} tenanc{missing===1?'y':'ies'}
                         </button>
@@ -431,17 +431,17 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                           <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
                             {group.name}
                           </span>
-                          <span style={{ fontSize: 10, color: T.muted }}>
+                          <span style={{ fontSize: FS.xs, color: T.muted }}>
                             · {plural(group.items.length,'unit')} · {fmt(bgRent)}/mo
                           </span>
                           <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
                             {bgStats.missed > 0 && (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: T.red }}>{bgStats.missed} missed</span>
+                              <span style={{ fontSize: FS.xs, fontWeight: 700, color: T.red }}>{bgStats.missed} missed</span>
                             )}
                             {bgStats.late > 0 && (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: T.amber }}>{bgStats.late} due</span>
+                              <span style={{ fontSize: FS.xs, fontWeight: 700, color: T.amber }}>{bgStats.late} due</span>
                             )}
-                            <span style={{ fontSize: 10, color: T.muted }}>
+                            <span style={{ fontSize: FS.xs, color: T.muted }}>
                               {globalYear ? `${globalYear} revenue` : 'all-years revenue'}
                             </span>
                             <span style={{ fontSize: 12, fontWeight: 700, color: T.goldText }}>
@@ -476,19 +476,19 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                                   </span>
                                   {hasQuery && p.company && (
                                     <span title={p.company.name}
-                                      style={{fontFamily:MONO,fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:10,
+                                      style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,padding:'1px 6px',borderRadius:10,
                                         border:`1px solid ${(p.company.color||T.gold)}55`,background:(p.company.color||T.gold)+'22',color:p.company.color||T.goldText}}>
                                       {p.company.abbr || p.company.name}
                                     </span>
                                   )}
-                                  {(p.arrears||0)>0&&<span style={{fontFamily:MONO,fontSize:10,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
+                                  {(p.arrears||0)>0&&<span style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
                                 </div>
                                 {hasQuery && (p.address || p.tenant_name) && (
-                                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:3,overflowWrap:'anywhere'}}>
+                                  <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginBottom:3,overflowWrap:'anywhere'}}>
                                     {p.address}{p.address && p.tenant_name ? ' · ' : ''}{p.tenant_name ? `Tenant: ${p.tenant_name}` : ''}
                                   </div>
                                 )}
-                                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:6}}>
+                                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginBottom:6}}>
                                   {`${fmt(p.rent_pcm)}/mo`} · Due {p.rent_due_day||'-'}
                                 </div>
                                 <RentDots payments={p.rent_payments||[]} stlIds={stlPaymentIds(p)} filterYear={globalYear} onDayTracker={onDayTracker} property={p} canEdit={canEditRent?.(p.company_id)} onChanged={onRefresh} showToast={showToast}/>
@@ -503,7 +503,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                                     {v:e.missed, c:T.red,   l:'missed'},
                                     {v:e.nc,     c:T.faint, l:'n/c'},
                                   ] })().map(x=>(
-                                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.v>0?x.c:T.faint}} title={x.l==='n/c'?'not collectible (vacant, refurbishment, before or after the tenancy)':x.l}>
+                                    <span key={x.l} style={{fontFamily:MONO,fontSize:FS.xs,color:x.v>0?x.c:T.faint}} title={x.l==='n/c'?'not collectible (vacant, refurbishment, before or after the tenancy)':x.l}>
                                       {x.v} {x.l}
                                     </span>
                                   ))}

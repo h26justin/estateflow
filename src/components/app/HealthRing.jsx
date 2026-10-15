@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 
 // Portfolio health ring (redesign Dashboard hero). `score` is 0-100; the band
 // label + colour follow the same thresholds the per-property HealthBadge uses.
@@ -24,7 +24,7 @@ export const HealthRing = memo(({ score }) => {
         </div>
       </div>
       <div>
-        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>Portfolio health</div>
+        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>Portfolio health</div>
         <div style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600,color:band.color}}>
           <span style={{width:7,height:7,borderRadius:'50%',background:band.color}}/>{band.label}
         </div>

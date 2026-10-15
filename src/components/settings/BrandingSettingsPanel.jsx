@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 
@@ -93,7 +93,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
       {/* Company selector */}
       {companies.length > 1 && (
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Select company</label>
+          <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Select company</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {companies.map(c => (
               <button key={c.id} onClick={() => setSelectedCo(c.id)}
@@ -114,13 +114,13 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
 
           {/* Logo upload */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Company logo for reports</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Company logo for reports</div>
             <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
               {/* Preview */}
               <div style={{ width: 160, height: 80, background: T.bg, border: `1px dashed ${T.border}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                 {logoPreview
                   ? <img src={logoPreview} alt="Company logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}/>
-                  : <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>No logo</span>
+                  : <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>No logo</span>
                 }
               </div>
               <div style={{ flex: 1 }}>
@@ -146,7 +146,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
 
           {/* Report accent colour */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Report colour</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Report colour</div>
             <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
               PDF report headers and accents will use this colour. It is also used as the accent colour for this company throughout the app.
             </div>
@@ -185,7 +185,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current:</div>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current:</div>
               <div style={{ width: 48, height: 24, borderRadius: 6, background: co.color || T.gold }}/>
               <span style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700 }}>{co.color || '#C8A84B'}</span>
             </div>
@@ -230,7 +230,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
   return (
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Company logos for PDF reports</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Company logos for PDF reports</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
           Upload a logo for each company. It will appear on all PDF reports generated for that company. Supported formats: PNG, JPG, SVG. Recommended: PNG with transparent background, at least 400px wide.
         </div>
@@ -252,7 +252,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                 <div style={{ width: 180, height: 80, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                   {cs.logo_url
                     ? <img src={cs.logo_url} alt={co.name} style={{ maxWidth: '90%', maxHeight: '70%', objectFit: 'contain' }}/>
-                    : <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>No logo uploaded</span>
+                    : <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>No logo uploaded</span>
                   }
                 </div>
 
@@ -272,7 +272,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                       </button>
                     )}
                   </div>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>
                     This logo will appear on all PDF reports for {co.name}.<br/>
                     PNG with transparent background works best on dark PDF headers.
                   </div>

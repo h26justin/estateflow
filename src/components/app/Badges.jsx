@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 
 // Status hues. The core statuses use theme tokens so badges follow
 // light/dark mode and match the PropertyMap pins; the remaining hues have no
@@ -51,5 +51,5 @@ export const HealthBadge = memo(({property, tenancy=null}) => {
 export const CompanyPill = memo(({company}) => {
   const { T } = useTheme()
   if (!company) return null
-  return <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||T.gold)+'22',color:company.color||T.goldText,border:`1px solid ${(company.color||T.gold)}44`}}>{company.abbr}</span>
+  return <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(company.color||T.gold)+'22',color:company.color||T.goldText,border:`1px solid ${(company.color||T.gold)}44`}}>{company.abbr}</span>
 })

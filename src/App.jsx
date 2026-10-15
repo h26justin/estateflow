@@ -22,7 +22,7 @@ import { canonicalCertType } from './lib/complianceCatalogue'
 import { useConfirm } from './lib/ConfirmContext'
 import { looksLikeCompanyInviteCode } from './lib/inviteUtils'
 import { logError } from './lib/logError'
-import { MONO, SANS, CV } from './lib/styles'
+import { MONO, SANS, CV, FS } from './lib/styles'
 import { Icon, ICON_NAMES } from './lib/icons'
 import CommandPalette from './components/CommandPalette'
 import TrialExpiredGate, { getOverdueCompanies } from './components/TrialExpiredGate'
@@ -1683,8 +1683,8 @@ export default function App({ initialLoginMode = null } = {}) {
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:10,height:10,borderRadius:'50%',background:c.color||T.gold}}/>
                 <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
-                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.goldText,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
-                {holding&&<span style={{fontFamily:mono,fontSize:9,fontWeight:700,color:T.muted,border:`1px solid ${T.border}`,padding:'2px 8px',borderRadius:4,letterSpacing:'0.05em'}}
+                <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.goldText,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
+                {holding&&<span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:T.muted,border:`1px solid ${T.border}`,padding:'2px 8px',borderRadius:4,letterSpacing:'0.05em'}}
                   title="Holding company — owns companies, not properties">HOLDING</span>}
               </div>
               {canEditCo && (
@@ -1725,7 +1725,7 @@ export default function App({ initialLoginMode = null } = {}) {
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
                       <span style={{fontSize:13}} aria-hidden="true">🏘</span>
                       <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
-                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>· {plural(group.items.length,'unit')}</span>
+                      <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>· {plural(group.items.length,'unit')}</span>
                     </div>
                   )}
                   <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
@@ -1795,7 +1795,7 @@ export default function App({ initialLoginMode = null } = {}) {
           padding:'6px 16px',
           textAlign:'center',
           fontFamily:MONO,
-          fontSize:10,
+          fontSize:FS.xs,
           fontWeight:700,
           letterSpacing:'0.1em',
           borderBottom: devModeActive ? `1px solid ${T.gold}44` : '1px solid #9ecb9e44',
@@ -1809,7 +1809,7 @@ export default function App({ initialLoginMode = null } = {}) {
             <>
               <span>DEVELOPER MODE — you see all user data across the platform</span>
               <button onClick={()=>{ setDevModeDisabled(true); window.location.reload() }}
-                style={{background:T.gold,color:CV.onGold,border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
+                style={{background:T.gold,color:CV.onGold,border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:FS.xs,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
                 VIEW AS REGULAR USER
               </button>
             </>
@@ -1817,7 +1817,7 @@ export default function App({ initialLoginMode = null } = {}) {
             <>
               <span>REGULAR USER VIEW — permission gates active (data-level access unchanged)</span>
               <button onClick={()=>{ setDevModeDisabled(false); window.location.reload() }}
-                style={{background:'#9ecb9e',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:9,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
+                style={{background:'#9ecb9e',color:'#1A2530',border:'none',padding:'3px 10px',borderRadius:4,fontFamily:'inherit',fontSize:FS.xs,fontWeight:700,cursor:'pointer',letterSpacing:'0.05em'}}>
                 ENABLE DEVELOPER MODE
               </button>
             </>
@@ -2107,10 +2107,10 @@ export default function App({ initialLoginMode = null } = {}) {
           return (
             <button key={key} aria-current={active?'page':undefined} onClick={()=>{setView(key);setSelectedId(null)}}
               style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
-                alignItems:'center',gap:2,padding:'4px 8px',flex:1,
+                alignItems:'center',gap:2,padding:'4px 8px',flex:1,minWidth:0,
                 color:active?T.goldText:T.muted,fontFamily:MONO}}>
               <span style={{display:'flex'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:<span style={{fontSize:20}}>{n.icon}</span>}</span>
-              <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>{n.short}</span>
+              <span style={{fontSize:FS.xs,textTransform:'uppercase',letterSpacing:'0.02em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{n.short}</span>
             </button>
           )
         })}
@@ -2118,8 +2118,8 @@ export default function App({ initialLoginMode = null } = {}) {
           style={{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',
             alignItems:'center',gap:2,padding:'4px 8px',flex:1,
             color:T.muted,fontFamily:MONO}}>
-          <span style={{fontSize:20}}>☰</span>
-          <span style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.04em'}}>More</span>
+          <span style={{display:'flex'}} aria-hidden="true"><Icon name="menu" size={20}/></span>
+          <span style={{fontSize:FS.xs,textTransform:'uppercase',letterSpacing:'0.02em',whiteSpace:'nowrap'}}>More</span>
         </button>
       </nav>
 

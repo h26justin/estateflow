@@ -1,7 +1,7 @@
 import { canDo } from '../../lib/permissions'
 import { ContractorsPage } from '../DashboardComponents'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { calcGrossYield } from '../../lib/propertyCalcs'
 import { plural } from '../../lib/format'
@@ -48,7 +48,7 @@ export function PropertiesView({
       {portfolioTab==='contractors'&&<ContractorsPage user={user} companies={companies} showToast={showToast}/>}
       {portfolioTab==='map'&&<>
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
-          <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
           {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
             <button key={c.id} onClick={()=>setCoFilter(c.id)} aria-pressed={coFilter===c.id} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr||c.name}</button>
           ))}
@@ -103,7 +103,7 @@ export function PropertiesView({
       </div>
       {/* Sort control */}
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap'}}>
-        <span style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',flexShrink:0}}>Sort by:</span>
+        <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',flexShrink:0}}>Sort by:</span>
         {[
           {v:'company-name', l:'Company / Name'},
           {v:'name',         l:'Name A-Z'},
@@ -115,7 +115,7 @@ export function PropertiesView({
           {v:'custom',       l:'Custom Order'},
         ].map(opt=>(
           <button key={opt.v} onClick={()=>setSortBy(opt.v)} aria-pressed={sortBy===opt.v}
-            style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
+            style={{fontFamily:MONO,fontSize:FS.xs,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
               border:`1px solid ${sortBy===opt.v?T.gold:T.border}`,
               background:sortBy===opt.v?T.gold:'transparent',
               color:sortBy===opt.v?CV.onGold:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
@@ -124,7 +124,7 @@ export function PropertiesView({
         ))}
         {sortBy==='custom'&&(
           <button onClick={resetCustomOrder} title="Reset to the default order (company → building → unit)"
-            style={{fontFamily:MONO,fontSize:isMobile?9:10,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
+            style={{fontFamily:MONO,fontSize:FS.xs,padding:isMobile?'3px 8px':'4px 12px',minHeight:28,borderRadius:20,cursor:'pointer',
               border:`1px dashed ${T.border}`,background:'transparent',color:T.muted,transition:'all 0.18s',whiteSpace:'nowrap'}}>
             ↺ Reset to default
           </button>
@@ -135,7 +135,7 @@ export function PropertiesView({
             <button key={k} onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-label={`${lbl} view`} aria-pressed={propLayout===k}
               style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',minHeight:28,minWidth:36,justifyContent:'center',borderRadius:7,cursor:'pointer',border:'none',
                 background:propLayout===k?T.gold:'transparent',color:propLayout===k?CV.onGold:T.muted,
-                fontFamily:MONO,fontSize:10,fontWeight:propLayout===k?700:400}}>
+                fontFamily:MONO,fontSize:FS.xs,fontWeight:propLayout===k?700:400}}>
               <Icon name={ic} size={14}/>{!isMobile&&lbl}
             </button>
           ))}

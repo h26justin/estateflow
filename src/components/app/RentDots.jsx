@@ -4,7 +4,7 @@ import { monthDominantStatus } from '../../lib/rentStats'
 import { evaluateProperty, groupByMonth, STATE_LABEL } from '../../lib/rentEngine'
 import { activePlan } from '../../lib/paymentPlans'
 import * as api from '../../lib/api'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair } from '../../lib/rentColors'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -106,11 +106,11 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
           return (
             <div style={{marginBottom:12,paddingBottom:12,borderBottom:`1px solid ${T.border}`}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
-                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:pair?.bg,color:pair?.text,border:`1px solid ${pair?.text}44`}}>{STATE_LABEL[m.state] || m.state}</span>
-                {m.needsBackfill && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.amber+'22',color:T.amber}}>Needs backfill</span>}
-                {m.state === 'legacy' && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.border,color:T.muted}}>Legacy data</span>}
-                {m.override && <span style={{fontFamily:mono,fontSize:9,padding:'2px 6px',borderRadius:20,background:T.blue+'22',color:T.blue}}>Override</span>}
-                {ev?.fallback && <span title="No tenancy record yet: using the property's rent and due day" style={{fontFamily:mono,fontSize:9,color:T.muted}}>no tenancy record</span>}
+                <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:20,background:pair?.bg,color:pair?.text,border:`1px solid ${pair?.text}44`}}>{STATE_LABEL[m.state] || m.state}</span>
+                {m.needsBackfill && <span style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:20,background:T.amber+'22',color:T.amber}}>Needs backfill</span>}
+                {m.state === 'legacy' && <span style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:20,background:T.border,color:T.muted}}>Legacy data</span>}
+                {m.override && <span style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:20,background:T.blue+'22',color:T.blue}}>Override</span>}
+                {ev?.fallback && <span title="No tenancy record yet: using the property's rent and due day" style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>no tenancy record</span>}
               </div>
               <div style={{display:'grid',gap:4}}>
                 {rows.map(([l,v])=>(
@@ -121,17 +121,17 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
               </div>
               {allocs.length > 0 && (
                 <div style={{marginTop:8}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Receipts</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Receipts</div>
                   {allocs.map(a=>(
-                    <div key={a.id} style={{display:'flex',justifyContent:'space-between',fontFamily:mono,fontSize:10,color:T.text}}>
+                    <div key={a.id} style={{display:'flex',justifyContent:'space-between',fontFamily:mono,fontSize:FS.xs,color:T.text}}>
                       <span>{fmtD(a.receipt?.received_date)} · {(a.receipt?.payer||'tenant').replace('_',' ')}{a.receipt?.kind && a.receipt.kind!=='receipt' ? ` · ${a.receipt.kind}` : ''}</span>
                       <span style={{color:Number(a.amount)<0?T.red:T.text}}>{fmtGBP(a.amount)}</span>
                     </div>
                   ))}
                 </div>
               )}
-              {ev?.reasons?.length > 0 && <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:6}}>{ev.reasons.join(' · ')}</div>}
-              {m.override && <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:4}}>Override by {m.override.created_by ? 'a user' : 'system'} on {new Date(m.override.created_at).toLocaleDateString('en-GB')}: {m.override.reason}</div>}
+              {ev?.reasons?.length > 0 && <div style={{fontFamily:mono,fontSize:FS.xs,color:T.faint,marginTop:6}}>{ev.reasons.join(' · ')}</div>}
+              {m.override && <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:4}}>Override by {m.override.created_by ? 'a user' : 'system'} on {new Date(m.override.created_at).toLocaleDateString('en-GB')}: {m.override.reason}</div>}
               {canEdit && m.state !== 'legacy' && m.state !== 'stl' && m.state !== 'future' && (
                 ovOpen ? (
                   <div style={{marginTop:8,display:'grid',gap:6}}>
@@ -146,7 +146,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
                     </div>
                   </div>
                 ) : (
-                  <button className="btn" style={{fontSize:10,marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</button>
+                  <button className="btn" style={{fontSize:FS.xs,marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</button>
                 )
               )}
             </div>
@@ -154,7 +154,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
         })()}
         <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:4}}>
           {['M','T','W','T','F','S','S'].map((d,i)=>(
-            <div key={i} style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{d}</div>
+            <div key={i} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textAlign:'center'}}>{d}</div>
           ))}
         </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:14}}>
@@ -177,12 +177,12 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
         </div>
         <div style={{display:'flex',gap:14,marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${T.border}`,flexWrap:'wrap'}}>
           {[[paidDays,rentStatusPair('paid',darkMode).text,'paid'],[voidDays,rentStatusPair('void',darkMode).text,'void'],[missedDays,rentStatusPair('missed',darkMode).text,'missed']].map(([v,c,l])=>(
-            <div key={l} style={{fontFamily:mono,fontSize:10}}>
+            <div key={l} style={{fontFamily:mono,fontSize:FS.xs}}>
               <span style={{color:c,fontWeight:700}}>{v}</span>
               <span style={{color:T.muted}}> {l}</span>
             </div>
           ))}
-          {payment.period_start&&<div style={{fontFamily:mono,fontSize:9,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
+          {payment.period_start&&<div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
         </div>
         {onDayTracker
           ? <button onClick={()=>{onClose();onDayTracker()}}
@@ -190,7 +190,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
                 border:'none',background:T.gold,color:CV.onGold,cursor:'pointer'}}>
               View full day tracker →
             </button>
-          : <div style={{fontFamily:mono,fontSize:10,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
+          : <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
       </div>
     </div>
   )
@@ -259,7 +259,7 @@ export const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, 
             onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${pair.text}55`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
-            <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
             {eng?.needsBackfill && <span aria-hidden="true" style={{position:'absolute',top:2,right:3,width:6,height:6,borderRadius:'50%',background:CV.amber}}/>}
             {eng?.override && <span aria-hidden="true" style={{position:'absolute',bottom:2,right:3,width:6,height:6,borderRadius:'50%',border:`1.5px solid ${pair.text}`}}/>}
             {eng && eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) && <span aria-hidden="true" title="Historic arrears on a payment plan" style={{position:'absolute',top:2,left:3,width:6,height:6,borderRadius:'50%',background:CV.blue}}/>}

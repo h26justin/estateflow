@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import { ChromeLogo, ChromeIcon } from '../Logo'
-import { MONO, SANS } from '../../lib/styles'
+import { MONO, SANS, FS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 
 // Desktop left navigation rail (redesign app shell). Moved verbatim from
@@ -25,7 +25,7 @@ export function LeftRail({
           const newGroup = i>0 && n.group !== navItems[i-1].group
           const header = newGroup && (railCollapsed
             ? <div key={`hdr-${n.group}`} aria-hidden="true" style={{height:1,background:T.border,margin:'8px 10px'}}/>
-            : <div key={`hdr-${n.group}`} style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'12px 11px 4px'}}>{n.group}</div>)
+            : <div key={`hdr-${n.group}`} style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:T.faint,textTransform:'uppercase',letterSpacing:'0.12em',padding:'12px 11px 4px'}}>{n.group}</div>)
           return (
             <Fragment key={n.key}>
             {header}

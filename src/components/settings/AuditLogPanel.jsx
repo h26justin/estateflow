@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
@@ -112,7 +112,7 @@ export function AuditLogPanel({ user, companies, T }) {
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '140px 160px 1fr 1fr', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
           {['Date & time', 'Action', 'Item', 'Details'].map(h => (
-            <div key={h} style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
+            <div key={h} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
           ))}
         </div>
 
@@ -125,7 +125,7 @@ export function AuditLogPanel({ user, companies, T }) {
             const cfg = ACTION_LABELS[log.action] || { label: log.action, color: T.muted }
             return (
               <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '85px minmax(150px, 200px) minmax(0, 1.5fr) minmax(0, 2fr)', gap: 12, padding: '11px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                   {new Date(log.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   <br/>
                   {new Date(log.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
@@ -133,7 +133,7 @@ export function AuditLogPanel({ user, companies, T }) {
                 <div style={{ minWidth: 0 }}>
                   {/* inline-block + max-width so long labels truncate inside their column
                       instead of overlapping into the entity column */}
-                  <span style={{ display: 'inline-block', maxWidth: '100%', fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.color + '22', color: cfg.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', boxSizing: 'border-box' }}
+                  <span style={{ display: 'inline-block', maxWidth: '100%', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.color + '22', color: cfg.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', boxSizing: 'border-box' }}
                     title={log.action}>
                     {cfg.label}
                   </span>
@@ -142,7 +142,7 @@ export function AuditLogPanel({ user, companies, T }) {
                   title={log.entity_name || log.entity_type || ''}>
                   {log.entity_name || log.entity_type || '—'}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
                   title={log.metadata && Object.keys(log.metadata).length > 0 ? JSON.stringify(log.metadata) : ''}>
                   {log.metadata && Object.keys(log.metadata).length > 0 ? JSON.stringify(log.metadata) : '—'}
                 </div>

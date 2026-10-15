@@ -4,7 +4,7 @@ import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, stlPaymentIds } from '../../lib/rentStats'
 import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../../lib/rentEngine'
 import * as api from '../../lib/api'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import { NotesTimeline, ReceiptsPanel, ArrearsPanel } from './lazyViews'
 import { RentDots } from './RentDots'
 import { RentLegend } from './RentTrackerOverview'
@@ -34,7 +34,7 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
           {l:'Arrears',      v:fmt(selected.arrears||0), accent:selected.arrears>0?T.red:T.green},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
-            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
             <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.accent||T.text}}>{item.v}</div>
           </div>
         ))}
@@ -44,18 +44,18 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
       {payments.length>0&&<div className="card" style={{padding:'16px 20px',marginBottom:14}}>
         {/* Year filter buttons */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:12}}>
-          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
-            Payment History <span style={{fontSize:9}}>{canEdit ? '(click dot to update)' : '(read-only)'}</span>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+            Payment History <span style={{fontSize:FS.xs}}>{canEdit ? '(click dot to update)' : '(read-only)'}</span>
           </div>
           <div style={{display:'flex',gap:6}}>
             <button onClick={()=>setFilterYear(null)}
-              style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+              style={{fontFamily:MONO,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${filterYear===null?T.gold:T.border}`,
                 background:filterYear===null?T.gold:'transparent',
                 color:filterYear===null?CV.onGold:T.muted}}>All</button>
             {years.map(yr=>(
               <button key={yr} onClick={()=>setFilterYear(yr)}
-                style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                style={{fontFamily:MONO,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${filterYear===yr?T.gold:T.border}`,
                   background:filterYear===yr?T.gold:'transparent',
                   color:filterYear===yr?CV.onGold:T.muted}}>{yr}</button>
@@ -78,7 +78,7 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
 
         {/* Year summary */}
         <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.border}`}}>
-          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>
             {filterYear ? `${filterYear} Summary` : 'All Time Summary'}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
@@ -106,9 +106,9 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
               ]
             })().map((item,i)=>(
               <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
                 <div style={{fontFamily:MONO,fontSize:item.big?15:17,fontWeight:700,color:item.c}}>{item.v}</div>
-                {item.sub&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2}}>{item.sub}</div>}
+                {item.sub&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{item.sub}</div>}
               </div>
             ))}
           </div>

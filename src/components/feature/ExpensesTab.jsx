@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import MoneyInput from '../../lib/MoneyInput'
@@ -83,7 +83,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
           {l:'Net Profit (Est.)',   v:fmt(netProfit),     c:netProfit>0?T.green:T.red},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'12px 14px'}}>
-            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
             <div style={{fontFamily:MONO,fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
           </div>
         ))}
@@ -131,13 +131,13 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
               <div key={exp.id} className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                 <div style={{flex:1,minWidth:150}}>
                   <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{exp.description}</div>
-                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+                  <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                     {cat?.l} · {formatDate(exp.date)}
                     {exp.recurring&&<span style={{marginLeft:6,color:T.blue}}>↻ {exp.recurring_freq}</span>}
                   </div>
                 </div>
                 <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:T.red}}>{fmt(exp.amount)}</div>
-                {canEdit && <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
+                {canEdit && <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
               </div>
             )
           })}

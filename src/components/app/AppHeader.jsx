@@ -1,7 +1,7 @@
 import { VIEW_LABELS } from '../../lib/nav'
 import { supabase } from '../../lib/supabase'
 import { ChromeLogo } from '../Logo'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import NotificationCentre from '../NotificationCentre'
 import PropertySearchBar from '../PropertySearchBar'
@@ -72,7 +72,7 @@ export function AppHeader({
               <button className="btn btn-gold" style={{fontSize:11,padding:'6px 14px',display:'flex',alignItems:'center',gap:6}}
                 onClick={()=>setShowNewMenu(m=>!m)}>
                 <span style={{fontSize:14,fontWeight:700}}>+</span> New
-                <span style={{fontSize:9,opacity:0.8}}>{showNewMenu?'▲':'▼'}</span>
+                <span style={{fontSize:FS.xs,opacity:0.8}}>{showNewMenu?'▲':'▼'}</span>
               </button>
               {showNewMenu&&(
                 <>
@@ -201,7 +201,7 @@ export function AppHeader({
                         onMouseLeave={e=>e.currentTarget.style.background='none'}>
                         <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={15}/>:<span style={{fontSize:14}}>{item.icon}</span>}</span>
                         <span style={{flex:1,fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
-                        {item.hint && <span style={{fontFamily:MONO,fontSize:10,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
+                        {item.hint && <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
                       </button>
                     ))}
                   </div>

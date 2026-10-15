@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 
@@ -51,7 +51,7 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperti
 
   return (
     <div style={{background:T.card,borderRadius:12,padding:'16px 20px',border:`1px solid ${T.border}`}}>
-      {!compact&&<div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>
+      {!compact&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>
         {category ? category.charAt(0).toUpperCase()+category.slice(1)+' Notes' : 'Notes Timeline'}
       </div>}
       {isAdmin&&<>
@@ -71,11 +71,11 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, setProperti
                 <div key={n.id} style={{background:T.bg,borderRadius:8,padding:'10px 14px'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,flexWrap:'wrap',gap:6}}>
                     <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      <span style={{fontFamily:MONO,fontSize:10,color:T.goldText}}>{n.user_email}</span>
-                      <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                      <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText}}>{n.user_email}</span>
+                      <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(n.created_at)}</span>
                     </div>
                     {isAdmin&&<button onClick={()=>handleDelete(n.id)}
-                      style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
+                      style={{fontFamily:MONO,fontSize:FS.xs,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
                       Delete
                     </button>}
                   </div>

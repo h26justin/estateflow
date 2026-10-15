@@ -3,7 +3,7 @@ import { canDo } from '../../lib/permissions'
 import * as api from '../../lib/api'
 import CalcExplain from '../CalcExplain'
 import ActionMenu from '../ActionMenu'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit } from '../../lib/propertyCalcs'
 import { ComplianceTab, TenancyTab, ExpensesTab, OverviewTab, FinancialsTab, DocumentsTab, MaintenanceTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert, TenancyPanel, RefurbPropertyTab, HmoRoomsPanel, EpcPlanner, RentCollectionPanel, ESignPanel, ReferencingPanel } from './lazyViews'
 import { fmt } from '../../lib/appFmt'
@@ -32,8 +32,8 @@ export function PropertyDetailView({
                 <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:3}}>{selected.name}</h1>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{selected.address}</div>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{selected.prop_type}</div>
-                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:T.card,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:10,color:T.muted}}>🏢 {selected.managed_by}</div>}
-                {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:10,color:T.muted}}>Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
+                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:T.card,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>🏢 {selected.managed_by}</div>}
+                {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
               </div>
               <div style={{display:'flex',gap:8}}>
                 {(canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive) && (
@@ -137,16 +137,16 @@ export function PropertyDetailView({
               <div className="card" style={{padding:'16px 20px',marginTop:14,borderLeft:`3px solid ${T.green}`}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                    <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                    <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                       Rent · {focusYear}
                     </div>
                     {arrears > 0 && (
-                      <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:10,background:T.red+'22',color:T.red}}>
+                      <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:T.red+'22',color:T.red}}>
                         {fmt(arrears)} in arrears
                       </span>
                     )}
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>setDetailTab('rent')}>
+                  <button className="btn btn-ghost" style={{fontSize:FS.xs}} onClick={()=>setDetailTab('rent')}>
                     Full history →
                   </button>
                 </div>
@@ -165,9 +165,9 @@ export function PropertyDetailView({
                     {l:'Monthly rent',   v:fmt(selected.rent_pcm), c:T.gold},
                   ].map((item,i)=>(
                     <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                      <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
+                      <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
                       <div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:item.c}}>{item.v}</div>
-                      {item.sub&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2}}>{item.sub}</div>}
+                      {item.sub&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{item.sub}</div>}
                     </div>
                   ))}
                 </div>
@@ -190,7 +190,7 @@ export function PropertyDetailView({
               return (
                 <div className="card" style={{padding:'14px 20px',marginTop:14,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
                   <div>
-                    <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Insurance</div>
+                    <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Insurance</div>
                     <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>No policies cover this property yet.</div>
                   </div>
                   <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Add policy →</button>
@@ -204,10 +204,10 @@ export function PropertyDetailView({
             return (
               <div className="card" style={{padding:'16px 20px',marginTop:14}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
-                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                  <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                     Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:10}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Manage →</button>
+                  <button className="btn btn-ghost" style={{fontSize:FS.xs}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Manage →</button>
                 </div>
                 <div style={{display:'grid',gap:6}}>
                   {sorted.map(pol => {
@@ -223,9 +223,9 @@ export function PropertyDetailView({
                         <div style={{minWidth:0}}>
                           <div style={{fontFamily:MONO,fontSize:12,fontWeight:700,color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                             {pol.policy_name}
-                            {isCompanyWide && <span style={{fontSize:9,color:T.muted,marginLeft:6,fontWeight:400}}>· company-wide</span>}
+                            {isCompanyWide && <span style={{fontSize:FS.xs,color:T.muted,marginLeft:6,fontWeight:400}}>· company-wide</span>}
                           </div>
-                          <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{pol.provider || '—'} · expires {pol.expiry_date}</div>
+                          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{pol.provider || '—'} · expires {pol.expiry_date}</div>
                         </div>
                         <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:color}}>{status}</div>
                         <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{fmt(pol.premium)}/yr</div>
@@ -240,13 +240,13 @@ export function PropertyDetailView({
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
               {[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)},{l:'Total Invested',v:fmt((selected.purchase_price||0)+(selected.refurb_cost||0)),gold:true},{l:'Est. Value',v:fmt(selected.est_value)},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(1)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0}].map((item,i)=>(
                 <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
-                  <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+                  <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
                   <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.gold?T.goldText:item.green?T.green:T.text}}>{item.v}</div>
                 </div>
               ))}
             </div>
             {selected.notes&&<div className="card" style={{padding:'16px 20px'}}>
-              <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Notes</div>
+              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Notes</div>
               <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
             </div>}
           </div>}
@@ -256,7 +256,7 @@ export function PropertyDetailView({
           {false&&<div style={{display:'grid',gap:12}}>
             {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
               <div key={si} className="card" style={{padding:'18px 22px'}}>
-                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                   {section.items.map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
@@ -335,7 +335,7 @@ export function PropertyDetailView({
         </div>
         <div style={{display:'grid',gap:12}}>
           <div className="card" style={{padding:'18px 20px'}}>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
             {(() => {
               const cv = selected.current_value || selected.est_value || 0
               const totalCapIn = (selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0)
@@ -401,7 +401,7 @@ export function PropertyDetailView({
             ))}
           </div>
           {(selected.arrears||0)>0&&<div className="card" style={{padding:'16px 18px',borderLeft:`3px solid ${T.red}`}}>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.red,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Rent Arrears</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Rent Arrears</div>
             <div style={{fontFamily:MONO,fontSize:22,fontWeight:700,color:T.red,marginBottom:4}}>{fmt(selected.arrears)}</div>
             {selected.notes&&<div style={{fontFamily:MONO,fontSize:11,color:T.muted,lineHeight:1.6}}>{selected.notes}</div>}
           </div>}

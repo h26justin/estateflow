@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 
 export function PortfolioModellerWidget({ properties = [] }) {
   const { T } = useTheme()
@@ -51,7 +51,7 @@ export function PortfolioModellerWidget({ properties = [] }) {
           {label:'In '+years+' years',value:f(futureIncome)+'/yr',sub:f(futureValue)+' portfolio',color:T.goldText},
         ].map(k=>(
           <div key={k.label} style={{background:T.bg,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${k.color}`}}>
-            <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>
             <div style={{fontSize:18,fontWeight:800,color:k.color}}>{k.value}</div>
             <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{k.sub}</div>
           </div>

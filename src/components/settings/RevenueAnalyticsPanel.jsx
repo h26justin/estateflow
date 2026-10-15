@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { plural } from '../../lib/format'
@@ -77,9 +77,9 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
           { label:'Signups (30d)', value: stats.signupsLast30, color:T.goldText, sub:`${stats.signupsLast7} last 7 days`},
         ].map((k,i) => (
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:14}}>
-            <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>
             <div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:k.color,marginBottom:4}}>{k.value}</div>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{k.sub}</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{k.sub}</div>
           </div>
         ))}
       </div>
@@ -111,7 +111,7 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
             </tbody>
           </table>
         </div>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.6}}>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:10,lineHeight:1.6}}>
           "Activated" = user has created at least one property. Retention = % of signups who activated.
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../../lib/icons'
-import { MONO, statusPill } from '../../lib/styles'
+import { MONO, statusPill, FS } from '../../lib/styles'
 import { COMPLIANCE_CATALOGUE, canonicalCertType, requirementsForProperty, canOptOut, isOptedOut, RENEWAL_BOOKING, DOC_CATEGORY_FOR_CERT, TENANCY_PAPERWORK_KEYS } from '../../lib/complianceCatalogue'
 import { requirementStatus, itemPredatesTenancy } from '../../lib/complianceStatus'
 import EpcBadge from '../EpcBadge'
@@ -170,7 +170,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
   const otherItems = activeItems.filter(i => !reqKeys.has(canonicalCertType(i.cert_type)))
     .sort((a,b)=>{ const da=daysUntil(a.expiry_date)??9999, db=daysUntil(b.expiry_date)??9999; return da-db })
 
-  const pill = (key, txt) => <span style={{...statusPill(key, darkMode), fontSize:10, whiteSpace:'nowrap'}}>{txt}</span>
+  const pill = (key, txt) => <span style={{...statusPill(key, darkMode), fontSize:FS.xs, whiteSpace:'nowrap'}}>{txt}</span>
   const statusFor = ({ status, req }) => {
     if (status.state === 'off')      return pill('void','Off')
     if (status.state === 'valid')    return status.days == null ? pill('ok','On file') : pill('ok', `${status.days}d remaining`)
@@ -186,13 +186,13 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
     reminder_days: row.item.reminder_days ?? 30,
     notes: row.item.notes || '',
   })
-  const smallBtnStyle = { fontFamily:MONO, fontSize:10, padding:'4px 10px', borderRadius:6, cursor:'pointer', background:'transparent', border:`1px solid ${T.border}`, color:T.muted, whiteSpace:'nowrap' }
+  const smallBtnStyle = { fontFamily:MONO, fontSize:FS.xs, padding:'4px 10px', borderRadius:6, cursor:'pointer', background:'transparent', border:`1px solid ${T.border}`, color:T.muted, whiteSpace:'nowrap' }
 
   // One shared form card, rendered wherever formAnchor points — under the
   // header for the top-level "+ Add Certificate" button, or inline beneath
   // the row whose Add/Edit was clicked, so the user isn't bounced to the top.
   const formCard = showForm && <div className="card" style={{padding:'16px 18px',marginBottom:14}}>
-        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{editingId ? 'Edit certificate' : 'Add certificate'}</div>
+        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{editingId ? 'Edit certificate' : 'Add certificate'}</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
           <div>
             <label>Certificate Type</label>
@@ -215,7 +215,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
           <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>{editingId ? 'Update' : 'Save'}</button>
           <button className="btn btn-ghost" style={{fontSize:11}} onClick={closeForm}>Cancel</button>
           {editingId && canEdit && (
-            <button onClick={()=>handleDelete(editingId)} style={{marginLeft:'auto',fontFamily:MONO,fontSize:10,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>Remove</button>
+            <button onClick={()=>handleDelete(editingId)} style={{marginLeft:'auto',fontFamily:MONO,fontSize:FS.xs,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>Remove</button>
           )}
         </div>
       </div>
@@ -254,7 +254,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                           right where the landlord is looking at the cert. */}
                       {req.key==='epc' && !off && <EpcBadge property={property} T={T}/>}
                     </div>
-                    <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+                    <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                       {off ? 'Switched off for this property'
                         : item ? <>Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}{count>1 && ` · ${count} on file (latest shown)`}</>
                         : 'Nothing on file yet'}
@@ -264,7 +264,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                     </div>
                     {booking && (
                       <a href={booking.url} target="_blank" rel="noreferrer"
-                        style={{fontFamily:MONO,fontSize:10,color:T.goldText,textDecoration:'underline'}}>{booking.label} →</a>
+                        style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,textDecoration:'underline'}}>{booking.label} →</a>
                     )}
                   </div>
                   {statusFor(row)}
@@ -298,7 +298,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
         {/* Custom / untracked certificates */}
         {otherItems.length > 0 && (
           <>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',margin:'4px 0 10px'}}>Other certificates</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',margin:'4px 0 10px'}}>Other certificates</div>
             <div style={{display:'grid',gap:10,marginBottom:18}}>
               {otherItems.map(item=>{
                 const ct = CERT_TYPES.find(t=>t.value===canonicalCertType(item.cert_type))
@@ -308,16 +308,16 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                     <span style={{width:38,height:38,borderRadius:9,background:T.gold+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={ICON_NAMES.includes(ct?.icon)?ct.icon:'file-text'} size={19} color={T.gold}/></span>
                     <div style={{flex:1,minWidth:150}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{item.cert_name}</div>
-                      <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+                      <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                         Issued: {formatDate(item.issue_date)} · Expires: {formatDate(item.expiry_date)}
                       </div>
-                      {item.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:2}}>{item.notes}</div>}
+                      {item.notes&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{item.notes}</div>}
                     </div>
                     <ExpiryBadge dateStr={item.expiry_date}/>
                     {canEdit && item.document_id && <button style={smallBtnStyle} title="View the attached certificate file" onClick={()=>viewDocument(item.document_id)}>View</button>}
                     {canEdit && !item.document_id && <button style={smallBtnStyle} disabled={attaching} title="Attach the certificate file (PDF or photo)" onClick={()=>startAttach(item, null)}>Attach</button>}
                     {canEdit && <button style={smallBtnStyle} onClick={()=>{ (showForm && formAnchor===`other:${item.id}`) ? closeForm() : openForm({cert_type:canonicalCertType(item.cert_type),cert_name:item.cert_name||'',issue_date:item.issue_date||'',expiry_date:item.expiry_date||'',reminder_days:item.reminder_days??30,notes:item.notes||''}, item.id, `other:${item.id}`) }}>Edit</button>}
-                    {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:MONO,fontSize:10,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>Remove</button>}
+                    {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>Remove</button>}
                   </div>
                   {formAnchor===`other:${item.id}` && formCard}
                   </Fragment>

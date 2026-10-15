@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -149,14 +149,14 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
                     <div style={{flex:1,minWidth:150}}>
                       <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                        <span style={{fontFamily:MONO,fontSize:9,color:T.goldText,
+                        <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,
                           background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
                           {cat.icon} {cat.label}
                         </span>
-                        <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+                        <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                           {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                         </span>
-                        {doc.size&&<span style={{fontFamily:MONO,fontSize:10,color:T.faint}}>
+                        {doc.size&&<span style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint}}>
                           {formatSize(doc.size)}
                         </span>}
                       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 
 // ── SECURITY & DATA PANEL ─────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ export function SecurityDataPanel({ user, T, showToast }) {
     <div>
       {/* GDPR Data Export */}
       <div style={sectionCard}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your data</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your data</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
           Under GDPR you have the right to data portability and to request deletion of your account. Download your complete data at any time from the Backups tab, or request account deletion here.
         </div>
@@ -63,14 +63,14 @@ export function SecurityDataPanel({ user, T, showToast }) {
             Request account deletion
           </button>
         </div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 12, lineHeight: 1.7 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 12, lineHeight: 1.7 }}>
           For account deletion requests, we'll respond within 30 days. Note: financial records may be retained for 7 years to comply with HMRC requirements.
         </div>
       </div>
 
       {/* Deleted properties trash */}
       <div style={sectionCard}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Recently deleted properties</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Recently deleted properties</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
           Deleted properties are kept here for 30 days before permanent removal. You can restore any property within that window.
         </div>
@@ -84,7 +84,7 @@ export function SecurityDataPanel({ user, T, showToast }) {
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: T.bg, borderRadius: 10, border: `1px solid ${T.border}` }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</div>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                     Deleted {new Date(p.deleted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     {p.company && ` · ${p.company.name}`}
                   </div>
@@ -101,7 +101,7 @@ export function SecurityDataPanel({ user, T, showToast }) {
 
       {/* Privacy policy link */}
       <div style={sectionCard}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Legal</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Legal</div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <button onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:show-privacy'))}
             style={{ fontFamily: mono, fontSize: 12, color: T.goldText, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>

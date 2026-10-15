@@ -1,5 +1,5 @@
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import CalcExplain from '../CalcExplain'
 import { NotesTimeline } from './NotesTimeline'
 
@@ -127,7 +127,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
       <div style={{display:'grid',gap:12,marginBottom:20}}>
         {sections.map((section,si)=>(
           <div key={si} className="card" style={{padding:'18px 22px'}}>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
               {section.items.map((item,i)=>(
                 <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>

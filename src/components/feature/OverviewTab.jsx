@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { NotesTimeline } from './NotesTimeline'
 
@@ -57,7 +57,7 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
           {l:'Arrears',          v:fmt(selected.arrears||0),                                  c:(selected.arrears||0)>0?T.red:T.green},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
-            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
             <div style={{fontFamily:MONO,fontSize:17,fontWeight:700,color:item.c}}>{item.v}</div>
           </div>
         ))}
@@ -65,13 +65,13 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
 
       {/* Property notes */}
       {selected.notes&&<div className="card" style={{padding:'14px 18px',marginBottom:16,borderLeft:`3px solid ${T.gold}`}}>
-        <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Property Description</div>
+        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Property Description</div>
         <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
       </div>}
 
       {/* All notes timeline */}
       <div className="card" style={{padding:'16px 20px'}}>
-        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>
+        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>
           All Notes — {allNotes.length} total
         </div>
 
@@ -87,16 +87,16 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
                       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:8,flexWrap:'wrap'}}>
                         <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
                           {/* Category tag */}
-                          <span style={{fontFamily:MONO,fontSize:10,fontWeight:700,
+                          <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,
                             color:cat.color,background:cat.color+'22',
                             padding:'2px 8px',borderRadius:20,display:'flex',alignItems:'center',gap:3}}>
                             {cat.icon} {cat.label}
                           </span>
-                          <span style={{fontFamily:MONO,fontSize:10,color:T.goldText,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
-                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{formatDate(n.created_at)}</span>
+                          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
+                          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(n.created_at)}</span>
                         </div>
                         {isAdmin&&<button onClick={()=>deleteNote(n.id)}
-                          style={{fontFamily:MONO,fontSize:10,background:T.red+'18',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
+                          style={{fontFamily:MONO,fontSize:FS.xs,background:T.red+'18',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
                           Delete
                         </button>}
                       </div>

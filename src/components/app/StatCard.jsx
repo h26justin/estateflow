@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { pressable } from '../../lib/pressable'
 
@@ -26,12 +26,12 @@ const BreakdownRow = memo(({item, T}) => {
   }
   const inner = (
     <>
-      <span style={{fontFamily:MONO,fontSize:item.indent?9:10,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
+      <span style={{fontFamily:MONO,fontSize:FS.xs,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
         {item.indent&&<span style={{color:T.border}}>└</span>}
         <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.label}</span>
         {clickable&&<Icon name="arrow-right" size={10} color={hover?T.gold:T.faint}/>}
       </span>
-      <span style={{fontFamily:MONO,fontSize:item.indent?10:11,fontWeight:item.indent?400:700,color:item.color||(item.indent?T.muted:T.text),flexShrink:0,paddingLeft:8}}>{item.value}</span>
+      <span style={{fontFamily:MONO,fontSize:item.indent?FS.xs:11,fontWeight:item.indent?400:700,color:item.color||(item.indent?T.muted:T.text),flexShrink:0,paddingLeft:8}}>{item.value}</span>
     </>
   )
   if (!clickable) return <div style={rowStyle}>{inner}</div>
@@ -89,15 +89,15 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
           {onNavigate&&(
             <button onClick={e=>{e.stopPropagation();onNavigate()}}
               aria-label={navLabel||`Open ${label}`}
-              style={{background:'none',border:'none',cursor:'pointer',padding:'6px 4px',margin:'-6px -4px',minHeight:24,fontFamily:MONO,fontSize:9,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
+              style={{background:'none',border:'none',cursor:'pointer',padding:'6px 4px',margin:'-6px -4px',minHeight:24,fontFamily:MONO,fontSize:FS.xs,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
               onMouseEnter={e=>e.currentTarget.style.color=T.goldText} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
               {(navLabel||'VIEW').toUpperCase()}<Icon name="arrow-right" size={11}/>
             </button>
           )}
-          {breakdown&&<span style={{fontFamily:MONO,fontSize:9,color:open?T.goldText:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
+          {breakdown&&<span style={{fontFamily:MONO,fontSize:FS.xs,color:open?T.goldText:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
         </span>
       </div>
-      <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
+      <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:(!accent||accent===T.gold)?T.goldText:accent,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
       {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
       {/* Optional 2-column strip of small label/value pairs on the card face,
@@ -121,7 +121,7 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
               {table.rows.map((r,ri)=>(
                 <tr key={ri}>
                   {r.cells.map((cell,ci)=>(
-                    <td key={ci} style={{fontFamily:MONO,fontSize:10,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
+                    <td key={ci} style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
                   ))}
                 </tr>
               ))}
@@ -133,7 +133,7 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px 12px',marginTop:10}}>
           {strip.map((s,i)=>(
             <div key={i}>
-              <div style={{fontFamily:MONO,fontSize:9,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>{s.label}</div>
+              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>{s.label}</div>
               <div style={{fontFamily:MONO,fontSize:12,color:s.color||T.text}}>{s.value}</div>
             </div>
           ))}
@@ -148,7 +148,7 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
             <div key={i} style={{minWidth:0}}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
               <BreakdownRow item={item} T={T}/>
-              {item.note&&<div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
+              {item.note&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
             </div>
           ))}
         </div>

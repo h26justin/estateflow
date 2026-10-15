@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { copyToClipboard } from '../../lib/clipboard'
 
@@ -40,7 +40,7 @@ export function ReferralPanel({ user, T, showToast }) {
   return (
     <div>
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'24px', marginBottom:16 }}>
-        <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Refer a landlord, get a free month</div>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Refer a landlord, get a free month</div>
         <div style={{ fontFamily:mono, fontSize:12, color:T.text, lineHeight:1.8, marginBottom:20 }}>
           Share your referral link with another landlord. When they sign up and become a paying customer, we'll give you both a free month.
         </div>
@@ -61,7 +61,7 @@ export function ReferralPanel({ user, T, showToast }) {
                 { label:'Free months earned', value: paying },
               ].map(k => (
                 <div key={k.label} style={{ background:T.bg, borderRadius:8, padding:'12px 14px' }}>
-                  <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
+                  <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
                   <div style={{ fontSize:20, fontWeight:700, color:k.value>0?T.green:T.text }}>{k.value}</div>
                 </div>
               ))}
@@ -72,14 +72,14 @@ export function ReferralPanel({ user, T, showToast }) {
 
       {referrals.length > 0 && (
         <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, overflow:'hidden' }}>
-          <div style={{ padding:'10px 20px', background:T.bg, borderBottom:`1px solid ${T.border}`, fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Referral history</div>
+          <div style={{ padding:'10px 20px', background:T.bg, borderBottom:`1px solid ${T.border}`, fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Referral history</div>
           {referrals.map(r => (
             <div key={r.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 20px', borderBottom:`1px solid ${T.border}` }}>
               <div>
                 <div style={{ fontFamily:mono, fontSize:12, color:T.text }}>{r.referred_email || 'Link shared'}</div>
-                <div style={{ fontFamily:mono, fontSize:10, color:T.muted }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+                <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
               </div>
-              <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:20,
+              <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'3px 10px', borderRadius:20,
                 background: r.status==='paying'?T.green+'22':r.status==='signed_up'?T.blue+'22':T.border,
                 color: r.status==='paying'?T.green:r.status==='signed_up'?T.blue:T.muted }}>
                 {r.status === 'paying' ? 'Paying' : r.status === 'signed_up' ? 'Signed up' : 'Pending'}

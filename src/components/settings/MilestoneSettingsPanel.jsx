@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 
 // ── MASTER MILESTONE SETTINGS PANEL ──────────────────────────────────────────
@@ -53,7 +53,7 @@ export function MilestoneSettingsPanel({ user, config, onChange, showToast, T })
   return (
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 16 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Master deal milestone defaults</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Master deal milestone defaults</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
           Configure which steps appear by default when you create a new deal. You can still toggle individual steps on or off inside each deal — these are just the starting defaults.
         </div>
@@ -73,7 +73,7 @@ export function MilestoneSettingsPanel({ user, config, onChange, showToast, T })
         return (
           <div key={stage} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 12 }}>
             <div style={{ padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
-              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {STAGE_LABELS[stage] || stage}
               </span>
             </div>
@@ -88,10 +88,10 @@ export function MilestoneSettingsPanel({ user, config, onChange, showToast, T })
                   <div style={{ flex: 1 }}>
                     <span style={{ fontFamily: mono, fontSize: 12, color: T.text }}>{m.label}</span>
                     {m.required && (
-                      <span style={{ fontFamily: mono, fontSize: 9, color: T.goldText, marginLeft: 8 }}>recommended</span>
+                      <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginLeft: 8 }}>recommended</span>
                     )}
                   </div>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: enabled ? T.blue : T.muted }}>
+                  <span style={{ fontFamily: mono, fontSize: FS.xs, color: enabled ? T.blue : T.muted }}>
                     {enabled ? 'Default ON' : 'Default OFF'}
                   </span>
                 </div>

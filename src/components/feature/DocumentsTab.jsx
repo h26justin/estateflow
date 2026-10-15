@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { SignedPhoto } from '../../lib/SignedPhoto'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, CV } from '../../lib/styles'
+import { MONO, CV, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -197,7 +197,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>
           {uploading?'Uploading...':'Drop files here or click to browse'}
         </div>
-        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginBottom:12}}>
+        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginBottom:12}}>
           PDF, images, Word docs — any file type accepted
         </div>
         <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
@@ -218,7 +218,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
       {/* Filter bar */}
       {docs.length>0&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
         <button onClick={()=>setFilterCategory('all')}
-          style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+          style={{fontFamily:MONO,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
             border:`1px solid ${filterCategory==='all'?T.gold:T.border}`,
             background:filterCategory==='all'?T.gold+'22':'transparent',
             color:filterCategory==='all'?T.goldText:T.muted}}>
@@ -226,7 +226,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         </button>
         {DOC_CATEGORIES.filter(c=>docs.some(d=>d.category===c.value)).map(c=>(
           <button key={c.value} onClick={()=>setFilterCategory(c.value)}
-            style={{fontFamily:MONO,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+            style={{fontFamily:MONO,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${filterCategory===c.value?T.gold:T.border}`,
               background:filterCategory===c.value?T.gold+'22':'transparent',
               color:filterCategory===c.value?T.goldText:T.muted}}>
@@ -238,7 +238,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
       {/* Photo gallery */}
       {!loading && photoDocs.length>0 && (
         <div style={{marginBottom:14}}>
-          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Photos ({photoDocs.length})</div>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Photos ({photoDocs.length})</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))',gap:10}}>
             {photoDocs.map(doc=>(
               <div key={doc.id} style={{position:'relative',minWidth:0}}>
@@ -246,8 +246,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                   style={{width:'100%',aspectRatio:'4 / 3',objectFit:'cover',borderRadius:10,border:`1px solid ${T.border}`,display:'block'}}/>
                 {isAdmin&&<button onClick={()=>handleDelete(doc)} aria-label="Move photo to Trash" title="Move to Trash"
                   style={{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:11,border:'none',background:'rgba(0,0,0,0.6)',color:'white',cursor:'pointer',fontSize:12,lineHeight:1,padding:0}}>×</button>}
-                <div style={{fontFamily:MONO,fontSize:10,color:T.text,marginTop:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{doc.name}</div>
-                <div style={{fontFamily:MONO,fontSize:9,color:T.muted}}>{formatDate(doc.created_at)}</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.text,marginTop:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{doc.name}</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(doc.created_at)}</div>
               </div>
             ))}
           </div>
@@ -306,20 +306,20 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                       <div style={{flex:1,minWidth:150}}>
                         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                          <span style={{fontFamily:MONO,fontSize:9,color:T.goldText,
+                          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,
                             background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
                             {cat.icon} {cat.label}
                           </span>
-                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+                          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                             {formatDate(doc.created_at)}
                           </span>
-                          {doc.file_size&&<span style={{fontFamily:MONO,fontSize:10,color:T.faint}}>
+                          {doc.file_size&&<span style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint}}>
                             {formatSize(doc.file_size)}
                           </span>}
                           {/* OCR status badge */}
-                          {status === 'processing' && <span style={{fontFamily:MONO,fontSize:9,color:T.blue,background:T.blue+'22',padding:'1px 6px',borderRadius:20}}>Extracting…</span>}
-                          {status === 'completed' && <span style={{fontFamily:MONO,fontSize:9,color:T.green,background:T.green+'22',padding:'1px 6px',borderRadius:20}}>AI-extracted</span>}
-                          {status === 'failed' && <span style={{fontFamily:MONO,fontSize:9,color:T.red,background:T.red+'22',padding:'1px 6px',borderRadius:20}} title={doc.extraction_error}>Extraction failed</span>}
+                          {status === 'processing' && <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.blue,background:T.blue+'22',padding:'1px 6px',borderRadius:20}}>Extracting…</span>}
+                          {status === 'completed' && <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.green,background:T.green+'22',padding:'1px 6px',borderRadius:20}}>AI-extracted</span>}
+                          {status === 'failed' && <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,background:T.red+'22',padding:'1px 6px',borderRadius:20}} title={doc.extraction_error}>Extraction failed</span>}
                         </div>
                       </div>
                       {/* Actions */}
@@ -369,7 +369,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                     {isExpanded && status === 'completed' && extractedFields && (
                       <div style={{background:T.surface,borderRadius:8,padding:'12px 16px',border:`1px dashed ${T.green}44`,marginTop:4}}>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                             AI-extracted fields {doc.extracted_at && <span style={{color:T.faint,textTransform:'none',letterSpacing:0,marginLeft:6}}>— extracted {formatDate(doc.extracted_at)}</span>}
                           </div>
                         </div>
@@ -409,7 +409,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                               else displayValue = String(value)
                               return (
                                 <div key={key} style={{display:'flex',gap:10,padding:'6px 10px',background:T.bg,borderRadius:6,alignItems:'flex-start'}}>
-                                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,minWidth:140,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
+                                  <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,minWidth:140,flexShrink:0,textTransform:'uppercase',letterSpacing:'0.05em'}}>{label}</div>
                                   <div style={{fontFamily:MONO,fontSize:12,color:T.text,wordBreak:'break-word',whiteSpace:'pre-line'}}>{displayValue}</div>
                                 </div>
                               )
@@ -448,7 +448,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                             </div>
                           )
                         })()}
-                        <div style={{fontFamily:MONO,fontSize:9,color:T.faint,marginTop:10,lineHeight:1.5}}>
+                        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:10,lineHeight:1.5}}>
                           AI extraction is best-effort. Always verify critical values against the original document.
                         </div>
                       </div>
@@ -456,7 +456,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
                     {/* Failed extraction details */}
                     {status === 'failed' && doc.extraction_error && (
-                      <div style={{background:T.red+'11',borderRadius:6,padding:'8px 12px',border:`1px solid ${T.red}44`,fontFamily:MONO,fontSize:10,color:T.red,lineHeight:1.5}}>
+                      <div style={{background:T.red+'11',borderRadius:6,padding:'8px 12px',border:`1px solid ${T.red}44`,fontFamily:MONO,fontSize:FS.xs,color:T.red,lineHeight:1.5}}>
                         <strong>Extraction error:</strong> {doc.extraction_error.slice(0,200)}
                       </div>
                     )}

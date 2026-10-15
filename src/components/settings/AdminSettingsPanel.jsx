@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -124,7 +124,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
           { label: 'Est. MRR',       value: fmt(mrr),         color: T.green },
         ].map(m => (
           <div key={m.label} style={{ background: T.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${T.border}` }}>
-            <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{m.label}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{m.label}</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: m.color, letterSpacing: '-0.02em' }}>{m.value}</div>
           </div>
         ))}
@@ -163,7 +163,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                 {/* Header */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 60px 80px 120px', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
                   {['Company / Owner', 'Status', 'Props', 'MRR', 'Free tier'].map(h => (
-                    <div key={h} style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
+                    <div key={h} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
                   ))}
                 </div>
                 {filtered.length === 0 && (
@@ -178,18 +178,18 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                     <div key={co.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 60px 80px 120px', gap: 8, padding: '13px 20px', borderBottom: `1px solid ${T.border}`, alignItems: 'center' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || T.gold) + '22', color: co.color || T.goldText }}>{co.abbr}</span>
+                          <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || T.gold) + '22', color: co.color || T.goldText }}>{co.abbr}</span>
                           <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{co.name}</span>
                         </div>
-                        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{co.owner_email || '—'}</div>
+                        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{co.owner_email || '—'}</div>
                       </div>
                       <div>
-                        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: sc.color + '22', color: sc.color }}>{sc.label}</span>
+                        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: sc.color + '22', color: sc.color }}>{sc.label}</span>
                       </div>
                       <div style={{ fontFamily: mono, fontSize: 12, color: T.text }}>{propCount}</div>
                       <div style={{ fontFamily: mono, fontSize: 12, color: monthlyRev > 0 ? T.green : T.muted }}>{monthlyRev > 0 ? fmt(monthlyRev) : '—'}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: mono, fontSize: 10, color: co.is_free_tier ? T.goldText : T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
+                        <span style={{ fontFamily: mono, fontSize: FS.xs, color: co.is_free_tier ? T.goldText : T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
                         <button role="switch" aria-checked={!!co.is_free_tier} aria-label={`Free tier for ${co.name}`} disabled={saving === co.id} onClick={() => saving !== co.id && toggleFreeTier(co.id, co.is_free_tier)}
                           style={{ border:'none', padding:0, width: 38, height: 22, borderRadius: 11, background: co.is_free_tier ? T.gold : T.border, cursor: saving === co.id ? 'wait' : 'pointer', position: 'relative', transition: 'background 0.2s', opacity: saving === co.id ? 0.5 : 1, flexShrink: 0 }}>
                           <div style={{ position: 'absolute', top: 3, left: co.is_free_tier ? 19 : 3, width: 16, height: 16, borderRadius: 8, background: 'white', transition: 'left 0.2s' }}/>
@@ -214,7 +214,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
               <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 80px', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
                   {['Email', 'Companies', 'Signed up', ''].map(h => (
-                    <div key={h} style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
+                    <div key={h} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</div>
                   ))}
                 </div>
                 {users.filter(u => !search || u.email?.toLowerCase().includes(search.toLowerCase())).map(u => {
@@ -229,12 +229,12 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                       </div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {userCos.length === 0
-                          ? <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>No companies</span>
+                          ? <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>No companies</span>
                           : userCos.slice(0, 3).map(co => (
-                            <span key={co.id} style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || T.gold) + '22', color: co.color || T.goldText }}>{co.abbr}</span>
+                            <span key={co.id} style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (co.color || T.gold) + '22', color: co.color || T.goldText }}>{co.abbr}</span>
                           ))
                         }
-                        {userCos.length > 3 && <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>+{userCos.length - 3}</span>}
+                        {userCos.length > 3 && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>+{userCos.length - 3}</span>}
                       </div>
                       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
                         {u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
@@ -244,7 +244,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                           <button
                             onClick={() => { setDeleteTarget({ id: u.id, email: u.email }); setDeletePassword(''); setDeleteError('') }}
                             title="Delete user"
-                            style={{ fontFamily: mono, fontSize: 10, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}44`, background: 'transparent', color: T.red }}>
+                            style={{ fontFamily: mono, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}44`, background: 'transparent', color: T.red }}>
                             Delete
                           </button>
                         )}
@@ -281,7 +281,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
 
             {/* Password confirmation */}
             <div style={{ marginBottom: 20 }}>
-              <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+              <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
                 Enter your admin password to confirm
               </label>
               <input aria-label="Enter your admin password to confirm"
