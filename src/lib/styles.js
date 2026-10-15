@@ -53,7 +53,7 @@ export const CV = {
 // Small uppercase mono label. Used above inputs and on small captions.
 export const monoLabel = (T) => ({
   fontFamily: MONO,
-  fontSize: 10,
+  fontSize: FS.xs,
   color: T.muted,
   textTransform: 'uppercase',
   letterSpacing: '0.1em',

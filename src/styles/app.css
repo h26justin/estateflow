@@ -101,7 +101,7 @@ html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; 
 :where(.ef-app) input:focus, :where(.ef-app) select:focus, :where(.ef-app) textarea:focus { border-color: var(--gold); }
 :where(.ef-app) :focus-visible { outline: 2px solid var(--gold-text); outline-offset: 2px; }
 :where(.ef-app) select option { background: var(--surface); }
-:where(.ef-app) label { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 5px; }
+:where(.ef-app) label { font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 5px; }
 
 /* ── Component classes (global, opt-in) ───────────────────────────────── */
 .skip-link { position: absolute; left: -9999px; top: 8px; z-index: 3000; background: var(--surface); color: var(--text); border: 2px solid var(--gold-text); border-radius: 8px; padding: 10px 16px; font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-decoration: none; }
@@ -237,7 +237,7 @@ html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; 
 .ui-spin { display: inline-block; width: 1em; height: 1em; flex-shrink: 0; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
 
 .ui-field { display: flex; flex-direction: column; min-width: 0; }
-.ui-field__label { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 5px; }
+.ui-field__label { font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 5px; }
 .ui-field__req { color: var(--red); }
 .ui-field__hint { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--faint); margin-top: var(--sp-1); line-height: 1.5; }
 .ui-field__error { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--red); margin-top: var(--sp-1); line-height: 1.5; }
