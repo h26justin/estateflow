@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rentMonthSnapshot, recentMonthKeys, monthRate, monthLabel } from '../rentForecast'
+import { rentMonthSnapshot, recentMonthKeys, monthRate, monthLabel, occupancyRate } from '../rentForecast'
 import { evaluateProperty, collectionStats } from '../rentEngine'
 
 // Dashboard "Rent Forecast" / "Rent Received" arithmetic. These lean on the
@@ -181,5 +181,51 @@ describe('monthRate', () => {
     expect(monthRate({ expected: 0, received: 0 })).toBeNull()
     expect(monthRate({ expected: 600, received: 300 })).toBe(50)
     expect(monthRate({ expected: 600, received: 700 })).toBe(100)
+  })
+})
+
+describe('occupancy (units let / units)', () => {
+  it('counts a unit as let when rent was due for the month, vacant otherwise', () => {
+    const letUnit = prop({ id: 'a', rent_payments: [month('sep', 2026, 9, 'paid', 600)] })
+    const vacant = prop({ id: 'b', status: 'vacant', tenancies: [], rent_payments: [] })
+    const [sep] = rentMonthSnapshot([letUnit, vacant], { asOf: '2026-09-08', count: 1 })
+    expect(sep.units).toBe(2)
+    expect(sep.unitsLet).toBe(1)
+    expect(occupancyRate(sep)).toBe(50)
+  })
+
+  it('a void month between tenancies reads as vacant', () => {
+    const p = prop({ tenancies: [T({ tenancy_end: '2026-07-31', status: 'ended' })], rent_payments: [
+      month('jul', 2026, 7, 'paid', 600), month('aug', 2026, 8, 'void'),
+    ] })
+    const [aug, jul] = rentMonthSnapshot([p], { asOf: '2026-08-20', count: 2 })
+    expect(jul.unitsLet).toBe(1)
+    expect(aug.units).toBe(1)
+    expect(aug.unitsLet).toBe(0)
+  })
+
+  it('falls back to tenancy records when a month has no rent rows', () => {
+    const p = prop({ rent_payments: [] })
+    const [sep] = rentMonthSnapshot([p], { asOf: '2026-09-08', count: 1 })
+    expect(sep.units).toBe(1)
+    expect(sep.unitsLet).toBe(1)
+  })
+
+  it('ignores units before purchase and after sale, and short-term lets', () => {
+    const bought = prop({ id: 'n', purchase_date: '2026-09-15', tenancies: [], rent_payments: [] })
+    const sold = prop({ id: 's', sale_date: '2026-07-10', tenancies: [], rent_payments: [] })
+    const stl = prop({ id: 'x', status: 'short_term_let', tenancies: [], rent_payments: [] })
+    const [sep, aug] = rentMonthSnapshot([bought, sold, stl], { asOf: '2026-09-08', count: 2 })
+    expect(aug.units).toBe(0)
+    expect(sep.units).toBe(1)
+    expect(occupancyRate({ units: 0, unitsLet: 0 })).toBeNull()
+  })
+
+  it('splits units by company', () => {
+    const a = prop({ id: 'a', company_id: 'coA', rent_payments: [month('sep', 2026, 9, 'paid', 600)] })
+    const b = prop({ id: 'b', company_id: 'coB', status: 'vacant', tenancies: [], rent_payments: [] })
+    const [sep] = rentMonthSnapshot([a, b], { asOf: '2026-09-08', count: 1 })
+    expect(sep.byCompany.coA).toMatchObject({ units: 1, unitsLet: 1 })
+    expect(sep.byCompany.coB).toMatchObject({ units: 1, unitsLet: 0 })
   })
 })

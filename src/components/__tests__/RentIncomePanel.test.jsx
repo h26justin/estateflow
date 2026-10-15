@@ -67,4 +67,17 @@ describe('RentIncomePanel', () => {
     const { container } = render(<RentIncomePanel months={[]} companies={companies} />)
     expect(container.innerHTML).toBe('')
   })
+
+  it('shows occupancy as let/units with a percentage, per month and on average', () => {
+    const occ = months.map((mo, i) => ({ ...mo, units: 90, unitsLet: [80, 85, 90][i] }))
+    render(<RentIncomePanel months={occ} companies={companies} />)
+    const rows = screen.getAllByRole('row').map(r => r.textContent)
+    expect(rows.find(t => t.startsWith('Sep 2026'))).toContain('80/90 · 89%')
+    expect(rows.find(t => t.startsWith('Jul 2026'))).toContain('90/90 · 100%')
+    // (80 + 85 + 90) / 270 = 94%
+    expect(rows.find(t => t.startsWith('2026 to date'))).toContain('94% avg')
+    expect(screen.getByText('Occupied · Sep')).toBeTruthy()
+    expect(screen.getAllByText('80/90').length).toBeGreaterThan(0)
+    expect(screen.getByText('89% of units let · 94% average this year')).toBeTruthy()
+  })
 })

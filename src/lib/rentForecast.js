@@ -22,6 +22,15 @@
 // has no monthly expectation to forecast against and is reported on the
 // Short-Term Let Income page. It is still returned (stlReceived) so a card can
 // show it as a footnote.
+//
+// Occupancy (units / unitsLet) rides on the same evaluation: a unit is LET in
+// a month when rent was due on it for any part of that month (a chargeable
+// period, including one marked paid with no amount yet; before go-live, money
+// received). A void, an approved non-chargeable period or no tenancy reads as
+// vacant. Units are the properties in the set owned during the month
+// (purchase_date on or before its last day, no sale_date before its first),
+// short-term lets excluded on both sides like the money figures. A property
+// with no rent rows for the month counts as let when a tenancy covers it.
 
 import { evaluateProperty, monthBounds, isoToday, STATE, rateContribution } from './rentEngine'
 
@@ -47,6 +56,7 @@ function emptyMonth(year, month) {
     year, month, key: `${year}-${month}`, label: monthLabel(year, month),
     expected: 0, received: 0, outstanding: 0,
     stlReceived: 0, needsBackfill: 0, backfillRent: 0, excess: 0, otherReceived: 0, periods: 0, propertiesWithRows: 0,
+    units: 0, unitsLet: 0,
     byCompany: {},
   }
 }
@@ -69,8 +79,26 @@ export function rentMonthSnapshot(properties, { asOf = isoToday(), count = 3, of
   const byKey = new Map(months.map(mo => [mo.key, mo]))
 
   for (const p of properties || []) {
+    const isStl = p.status === 'short_term_let'
+    // Which months this property is a unit in, and in which of those it was
+    // let. Filled from the evaluation below; months with no rent rows fall
+    // back to the tenancy records.
+    const letKeys = new Set()
+    const unitMonths = isStl ? [] : months.filter(mo => ownedDuring(p, mo))
     const rows = (p.rent_payments || []).filter(r => byKey.has(`${r.year}-${r.month}`))
-    if (!rows.length) continue
+    const rowKeys = new Set(rows.map(r => `${r.year}-${r.month}`))
+    for (const mo of unitMonths) {
+      if (!rowKeys.has(mo.key) && tenancyCovers(p, mo)) letKeys.add(mo.key)
+    }
+    const countUnits = () => {
+      for (const mo of unitMonths) {
+        const cs = (mo.byCompany[p.company_id || 'none'] ||= { expected: 0, received: 0, needsBackfill: 0 })
+        const isLet = letKeys.has(mo.key) ? 1 : 0
+        mo.units++; mo.unitsLet += isLet
+        cs.units = (cs.units || 0) + 1; cs.unitsLet = (cs.unitsLet || 0) + isLet
+      }
+    }
+    if (!rows.length) { countUnits(); continue }
     // Evaluate each month as at its own last day: the engine short-circuits
     // periods that have not started yet (FUTURE) before it works out an
     // expectation, which would hide a mid-month move-in from the forecast.
@@ -86,6 +114,7 @@ export function rentMonthSnapshot(properties, { asOf = isoToday(), count = 3, of
         mo.periods++
         const rec = e.received == null ? 0 : e.received
         if (e.state === STATE.STL) { mo.stlReceived = round2(mo.stlReceived + rec); continue }
+        if (e.needsBackfill || rateContribution(e) || (e.state === STATE.LEGACY && rec > 0)) letKeys.add(k)
         // Paid with no amount: excluded from BOTH due and collected (decision
         // 2, 2 Sep 2026), the same as the Rent Tracker. Counting its rent as
         // due with GBP 0 collected is what dragged Jan 2026 to ~57%.
@@ -112,9 +141,39 @@ export function rentMonthSnapshot(properties, { asOf = isoToday(), count = 3, of
         }
       }
     }
+    countUnits()
   }
   for (const mo of months) mo.outstanding = round2(Math.max(0, mo.expected - mo.received))
   return months
+}
+
+const dateOnly = d => (d ? String(d).slice(0, 10) : '')
+
+// Owned at some point in the month: bought by its last day, not sold before
+// its first. Missing dates mean "always owned".
+function ownedDuring(p, mo) {
+  const { start, end } = monthBounds(mo.year, mo.month)
+  const bought = dateOnly(p.purchase_date), sold = dateOnly(p.sale_date)
+  if (bought && bought > end) return false
+  if (sold && sold < start) return false
+  return true
+}
+
+// A tenancy record overlaps the month (used only when there are no rent rows).
+function tenancyCovers(p, mo) {
+  const { start, end } = monthBounds(mo.year, mo.month)
+  return (p.tenancies || []).some(t => {
+    const from = dateOnly(t.tenancy_start)
+    if (!from || from > end) return false
+    const to = dateOnly(t.expected_move_out) || dateOnly(t.tenancy_end)
+    return !to || to >= start
+  })
+}
+
+// Share of units let, 0-100. Null when there are no units.
+export function occupancyRate(mo) {
+  if (!mo || !(mo.units > 0)) return null
+  return Math.round((mo.unitsLet / mo.units) * 100)
 }
 
 // Collection percentage for a month, capped at 100. Null when nothing was expected.
