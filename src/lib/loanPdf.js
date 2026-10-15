@@ -6,7 +6,7 @@
 //
 // Same look as the Reports PDFs (shared reportPdfKit): letterhead with the
 // company's logo and brand colour, KPI tiles, bordered tables, Properly
-// footer with page numbers. jsPDF is lazy-loaded from the CDN and drawn with
+// footer with page numbers. jsPDF is lazy-loaded (bundled chunk) and drawn with
 // the built-in Helvetica, so there is nothing to embed.
 //
 // Outward-facing by design: the loan's internal `notes` are never printed.

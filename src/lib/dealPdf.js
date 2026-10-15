@@ -4,8 +4,8 @@
 // progress, contacts, notes, a list of attached documents and the photos
 // themselves. Meant for sending to a partner, broker or lender.
 //
-// Same approach as the other exports in the app: jsPDF lazy-loaded from the
-// CDN (already on the CSP allow-list), everything drawn with the built-in
+// Same approach as the other exports in the app: jsPDF lazy-loaded as a
+// bundled chunk (lib/pdfLibs), everything drawn with the built-in
 // Helvetica so there is nothing to embed. Photos are pulled through signed
 // URLs, downscaled on a canvas and embedded as JPEG so a 20-photo pack stays
 // a few MB rather than a few hundred.

@@ -133,7 +133,7 @@ export async function unarchiveProperty(id) {
 
 /**
  * Generate a single-property summary PDF and trigger download.
- * Lazy-loads jsPDF from CDN if not already present (matches ReportsPage pattern).
+ * Lazy-loads jsPDF via lib/pdfLibs (matches ReportsPage pattern).
  * Returns nothing — opens a download in the browser.
  */
 export async function exportPropertySummaryPDF(property) {
