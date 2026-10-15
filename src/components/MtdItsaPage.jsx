@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -46,7 +46,24 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
   const quarters = useMemo(() => quartersForTaxYear(taxYear), [taxYear])
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [taxYear])
+  const load = useCallback(async () => {
+    const isCurrent = beginLoad()
+    setLoading(true)
+    try {
+      const [s, subs] = await Promise.all([
+        api.fetchMtdSettings(),
+        api.fetchMtdSubmissions(taxYear),
+      ])
+      if (!isCurrent()) return
+      setSettings(s)
+      setSubmissions(subs)
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast('Could not load MTD data: ' + e.message, 'error')
+    }
+    setLoading(false)
+  }, [beginLoad, taxYear])
+  useEffect(() => { load() }, [load])
 
   // OAuth return-handler: after the user finishes the gov.uk dance, HMRC
   // bounces them back to /?hmrc_connected=1. Show a toast + scrub the
@@ -63,24 +80,6 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  async function load() {
-    const isCurrent = beginLoad()
-    setLoading(true)
-    try {
-      const [s, subs] = await Promise.all([
-        api.fetchMtdSettings(),
-        api.fetchMtdSubmissions(taxYear),
-      ])
-      if (!isCurrent()) return
-      setSettings(s)
-      setSubmissions(subs)
-    } catch (e) {
-      if (!isCurrent()) return
-      showAppToast('Could not load MTD data: ' + e.message, 'error')
-    }
-    setLoading(false)
-  }
 
   async function previewQ(q) {
     setBusy(`preview-${q.quarter}`)

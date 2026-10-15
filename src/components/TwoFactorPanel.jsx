@@ -22,7 +22,7 @@ import { MONO } from '../lib/styles'
 // must have TOTP toggled on (one-click in the dashboard). Without that,
 // `supabase.auth.mfa.enroll()` returns a 422.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -46,7 +46,7 @@ export default function TwoFactorPanel({ T }) {
   const [deviceBusy, setDeviceBusy] = useState(null)    // 'revoke-<id>' | 'revoke-all'
   const thisDeviceId = getStoredDevice()?.id || null
 
-  async function loadDevices() {
+  const loadDevices = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('list_trusted_devices')
       if (error) throw error
@@ -56,9 +56,9 @@ export default function TwoFactorPanel({ T }) {
       console.error('list_trusted_devices', e)
       setDevices([])
     }
-  }
+  }, [])
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true)
     try {
       const { data, error } = await supabase.auth.mfa.listFactors()
@@ -76,7 +76,7 @@ export default function TwoFactorPanel({ T }) {
       console.error('listFactors', e)
     }
     setLoading(false)
-  }
+  }, [loadDevices])
 
   async function revokeDevice(id) {
     setDeviceBusy(`revoke-${id}`)
@@ -111,7 +111,7 @@ export default function TwoFactorPanel({ T }) {
     setDeviceBusy(null)
   }
 
-  useEffect(() => { refresh() }, [])
+  useEffect(() => { refresh() }, [refresh])
 
   async function startEnroll() {
     setEnrolling(true)
