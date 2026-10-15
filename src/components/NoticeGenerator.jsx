@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
@@ -387,7 +387,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
                 <legend style={lbl}>Grounds (tick all that apply)</legend>
                 <div style={{ display: 'grid', gap: 4, maxHeight: 260, overflowY: 'auto', padding: '6px 10px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8 }}>
                   {GROUNDS.map(g => (
-                    <label key={g.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: T.text, cursor: 'pointer', lineHeight: 1.45, padding: '6px 0' }}>
+                    <label key={g.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 13, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', marginBottom: 0, color: T.text, cursor: 'pointer', lineHeight: 1.45, padding: '6px 0' }}>
                       <input type="checkbox" checked={form.grounds.includes(g.id)} onChange={() => toggleGround(g.id)} style={{ marginTop: 3, width: 16, height: 16 }}/>
                       <span>
                         <span style={{ fontWeight: 600 }}>{groundLabel(g)}</span>
