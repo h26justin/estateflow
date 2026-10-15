@@ -6,7 +6,8 @@
 // portfolio_insights for the widget to read; the widget polls the cached
 // row rather than calling this function on every load.
 //
-// POST (no body required). Caller's JWT identifies the user.
+// POST. Optional body: { company_id?: string } to scope insights to a
+// single company; omitted/null means the caller's full portfolio.
 // Response: { id, insights, stats, generated_at } (the row that was stored).
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
@@ -183,12 +184,22 @@ serve(async (req) => {
   const caller = userData?.user
   if (userErr || !caller) return jsonError(401, 'Invalid or expired session')
 
+  // Optional company scoping. Body is optional; if absent/malformed we
+  // fall back to the caller's full portfolio (companyId = null).
+  const body = await req.json().catch(() => ({}))
+  const companyId = body?.company_id || null
+
   try {
-    // Rate-limit per user
-    const { data: latest } = await admin
+    // Rate-limit per (user, company). Each scope gets its own cooldown so a
+    // full-portfolio regen doesn't block a per-company one and vice versa.
+    let rateQuery = admin
       .from('portfolio_insights')
       .select('id, generated_at')
       .eq('user_id', caller.id)
+    rateQuery = companyId
+      ? rateQuery.eq('company_id', companyId)
+      : rateQuery.is('company_id', null)
+    const { data: latest } = await rateQuery
       .order('generated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -200,21 +211,44 @@ serve(async (req) => {
       }
     }
 
-    // Pull the data we need. All server-side, scoped to the caller.
+    // Pull the data we need. All server-side, scoped to the caller. When a
+    // company is specified, properties are scoped via company_id and the
+    // other tables are filtered down to that property set after the fact —
+    // safe regardless of whether they carry their own company_id column.
+    let propsQuery = admin
+      .from('properties')
+      .select('id, name, address, prop_type, status, purchase_price, refurb_cost, current_value, est_value, rent_pcm, mortgage_amount, mortgage_rate, arrears, deleted_at')
+      .eq('user_id', caller.id)
+    if (companyId) propsQuery = propsQuery.eq('company_id', companyId)
+
     const [propsRes, complianceRes, insuranceRes, dealsRes] = await Promise.all([
-      admin.from('properties').select('id, name, address, prop_type, status, purchase_price, refurb_cost, current_value, est_value, rent_pcm, mortgage_amount, mortgage_rate, arrears, deleted_at').eq('user_id', caller.id),
+      propsQuery,
       admin.from('compliance_items').select('id, cert_type, expiry_date, property_id, deleted_at').eq('user_id', caller.id),
-      admin.from('insurance_policies').select('id, policy_type, provider, premium, expiry_date, deleted_at').eq('user_id', caller.id).then((r: any) => r),
+      admin.from('insurance_policies').select('id, policy_type, provider, premium, expiry_date, company_id, deleted_at').eq('user_id', caller.id).then((r: any) => r),
       // deals has no estimated_rent column (it's monthly_rent) — selecting it
       // errored the query and silently blanked deals out of the AI insights.
       admin.from('deals').select('id, name, address, status, purchase_type, purchase_price, refurb_cost, monthly_rent, deleted_at').eq('user_id', caller.id).then((r: any) => r),
     ])
 
+    // When scoped to a company, restrict the dependent tables to rows that
+    // belong to one of the company's properties. Deals don't reliably link
+    // to a property, so we drop them from the per-company view rather than
+    // mixing in cross-company deals.
+    const allProps = (propsRes.data || []) as any[]
+    const propIds = new Set(allProps.map((p) => p.id))
+    const rawCompliance = (complianceRes.data || []) as any[]
+    const rawInsurance = (insuranceRes.data || []) as any[]
+    const rawDeals = (dealsRes.data || []) as any[]
+
     const data = {
-      properties: propsRes.data || [],
-      compliance: complianceRes.data || [],
-      insurance: insuranceRes.data || [],
-      deals: dealsRes.data || [],
+      properties: allProps,
+      compliance: companyId
+        ? rawCompliance.filter((c) => c.property_id && propIds.has(c.property_id))
+        : rawCompliance,
+      insurance: companyId
+        ? rawInsurance.filter((i) => i.company_id === companyId)
+        : rawInsurance,
+      deals: companyId ? [] : rawDeals,
     }
 
     if ((data.properties as any[]).filter((p: any) => !p.deleted_at).length === 0) {
@@ -228,7 +262,11 @@ serve(async (req) => {
     // only an unparseable / off-schema answer escalates.
     const result = await callClaudeWithEscalation<{ insights: any[] }>({
       tier: 'fast',
-      system: SYSTEM_PROMPT,
+      // Vary the prompt slightly when scoped so Claude doesn't reach for
+      // "across all your companies" framing.
+      system: companyId
+        ? `Focus exclusively on this single company's portfolio. ${SYSTEM_PROMPT}`
+        : SYSTEM_PROMPT,
       content: summary,
       maxTokens: 4000,
       schema: INSIGHTS_SCHEMA,
@@ -251,6 +289,7 @@ serve(async (req) => {
         stats,
         tokens_input: tokensIn,
         tokens_output: tokensOut,
+        company_id: companyId || null,
       })
       .select('id, insights, stats, generated_at, tokens_input, tokens_output')
       .single()
