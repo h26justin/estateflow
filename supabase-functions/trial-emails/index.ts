@@ -128,7 +128,7 @@ Quick midweek tip. Most landlord fines I've seen don't come from "doing somethin
 
 The four UK landlord compliance dates that catch people out:
 
-· Gas Safety (CP12) — every 12 months. Unlimited fine + 6 months prison + automatic Section 21 invalidation.
+· Gas Safety (CP12) — every 12 months. Unlimited fine + up to 6 months in prison.
 · EICR (electrical) — every 5 years. Up to £30,000 fine.
 · EPC — every 10 years (or when re-let if E or below). Up to £5,000 fine.
 · Right to Rent — per tenant, ongoing for time-limited. Up to £20,000 per occupier.
