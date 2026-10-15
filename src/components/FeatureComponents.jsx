@@ -4,7 +4,7 @@ import { SignedPhoto } from '../lib/SignedPhoto'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { MONO, statusPill } from '../lib/styles'
-import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_TABS } from '../lib/nav'
+import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_PAGES, resolveSettingsKey, settingsKeyFromHash } from '../lib/nav'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, canonicalCertType, requirementsForProperty, canOptOut, isOptedOut, RENEWAL_BOOKING, DOC_CATEGORY_FOR_CERT, TENANCY_PAPERWORK_KEYS } from '../lib/complianceCatalogue'
 import { requirementStatus, itemPredatesTenancy } from '../lib/complianceStatus'
 import EpcBadge from './EpcBadge'
@@ -679,30 +679,31 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   const isMobile = useIsMobile(769)
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
-  const [settingsTab, setSettingsTabInternal] = useState(() => {
-    // Initialize from URL hash if it matches a settings route
-    const h = window.location.hash.replace(/^#\/?/, '')
-    const parts = h.split('/').filter(Boolean)
-    if (parts[0] === 'settings' && parts[1]) return parts[1]
-    return 'account'
-  })
+  // Settings is five pages of stacked sections (lib/nav.js SETTINGS_PAGES).
+  // The URL keeps one key — #/settings/<page-or-section> — so every old
+  // sub-tab link (#/settings/billing, #/settings/backups…) still resolves:
+  // it opens the section's page and scrolls to the section. `n` bumps on
+  // every request so re-picking the same section scrolls again.
+  const [settingsJump, setSettingsJump] = useState(() => ({ key: settingsKeyFromHash(window.location.hash) || 'account', n: 0 }))
 
-  // Wrapper that syncs tab changes to the URL. replaceState, not pushState:
-  // flipping through 19 settings tabs must not bury the page the user came
-  // from under 19 history entries (Back should leave Settings, and
-  // refresh/bookmark still restore the tab from the hash).
-  const setSettingsTab = (tab) => {
-    setSettingsTabInternal(tab)
-    const target = `#/settings/${tab}`
+  // replaceState, not pushState: flipping through settings pages/sections
+  // must not bury the page the user came from under a pile of history
+  // entries (Back should leave Settings; refresh/bookmark still restore the
+  // section from the hash).
+  const setSettingsTab = (key) => {
+    setSettingsJump(prev => ({ key, n: prev.n + 1 }))
+    const target = `#/settings/${key}`
     if (window.location.hash !== target) {
-      window.history.replaceState({ view: 'settings', settingsTab: tab }, '', target)
+      window.history.replaceState({ view: 'settings', settingsTab: key }, '', target)
     }
   }
 
-  // Listen for URL-driven tab changes (from browser back/forward)
+  // Listen for URL-driven changes (browser back/forward, command palette,
+  // drawer shortcuts) — they still send old tab keys.
   useEffect(() => {
     const handler = (e) => {
-      if (e.detail?.tab) setSettingsTabInternal(e.detail.tab)
+      const key = e.detail?.tab
+      if (key) setSettingsJump(prev => ({ key, n: prev.n + 1 }))
     }
     window.addEventListener('ownproperly:set-settings-tab', handler)
     return () => window.removeEventListener('ownproperly:set-settings-tab', handler)
@@ -716,7 +717,6 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   const [settingsCoFilter, setSettingsCoFilter] = useState(activeCompanyId || 'all')
   const coFilter = settingsCoFilter !== 'all' && companies.some(c => c.id === settingsCoFilter) ? settingsCoFilter : 'all'
   const scopedCompanies = coFilter === 'all' ? companies : companies.filter(c => c.id === coFilter)
-  const companyScopedTabs = ['branding', 'tenant', 'features', 'inbox', 'reporting', 'integrations', 'bookkeeping', 'billing']
 
   // ── Account state ──────────────────────────────────────────────────────────
   const [fullName, setFullName]             = useState('')
@@ -867,64 +867,117 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     } catch(e) { showToast(e.message,'error') }
   }
 
-  // Base tab registry lives in lib/nav.js (shared with the command palette);
-  // conditional tabs are appended here.
-  const accountTabs = SETTINGS_TABS.account
-  const portfolioTabs = [
-    ...SETTINGS_TABS.portfolio,
-    ...(activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin })
-      ? [{ key: 'bookkeeping', label: 'AI Bookkeeping' }] : []),
-  ]
-  const preferencesTabs = [
-    ...SETTINGS_TABS.preferences,
-    ...(isPlatformAdmin ? [{ key: 'admin', label: 'Developer' }] : []),
-  ]
-  const settingsTabs = [...accountTabs, ...portfolioTabs, ...preferencesTabs]
+  // Conditional sections: shown only when their gate passes. A deep link to
+  // a hidden one opens its page at the top.
+  const showBookkeeping = activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin })
+  const hiddenSections = new Set([
+    ...(showBookkeeping ? [] : ['bookkeeping']),
+    ...(isPlatformAdmin ? [] : ['admin']),
+  ])
+  const settingsPages = SETTINGS_PAGES.map(p => ({ ...p, sections: p.sections.filter(sec => !hiddenSections.has(sec.key)) }))
+  const { page: settingsPageKey, section: targetSection } = resolveSettingsKey(settingsJump.key, hiddenSections)
+  const currentPage = settingsPages.find(p => p.key === settingsPageKey) || settingsPages[0]
+  const shownSections = new Set(currentPage.sections.map(sec => sec.key))
+  const show = key => shownSections.has(key)
+  const activeSection = targetSection || currentPage.sections[0]?.key
+  const pageIsCompanyScoped = currentPage.sections.some(sec => sec.companyScoped)
+
+  // Scroll to the requested section (or the top for a bare page). Sections
+  // above the target can still be loading and grow, so settle once more
+  // shortly after.
+  useEffect(() => {
+    const go = () => {
+      const el = targetSection && document.getElementById(`settings-section-${targetSection}`)
+      if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start' })
+      else if (!targetSection && typeof window.scrollTo === 'function') { try { window.scrollTo(0, 0) } catch { /* jsdom */ } }
+    }
+    const raf = requestAnimationFrame(go)
+    const t = targetSection ? setTimeout(go, 400) : null
+    return () => { cancelAnimationFrame(raf); if (t) clearTimeout(t) }
+  }, [settingsJump.n, settingsJump.key, targetSection])
+
+  const sectionHeading = key => {
+    if (!show(key)) return null
+    const sec = currentPage.sections.find(x => x.key === key)
+    const first = currentPage.sections[0]?.key === key
+    return (
+      <h2 id={`settings-section-${key}`} style={{
+        fontSize:17,fontWeight:700,letterSpacing:'-0.02em',color:T.text,scrollMarginTop:84,
+        margin:first?'0 0 12px':'32px 0 12px',paddingTop:first?0:20,borderTop:first?'none':`1px solid ${T.border}`,
+      }}>{sec.label}</h2>
+    )
+  }
 
   return (
     <div className="fade">
       <div style={{marginBottom:24}}>
         <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Settings</h1>
-        <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>Manage your profile, portfolio setup and personal preferences.</p>
+        <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>{currentPage.desc}</p>
       </div>
 
-      {/* Settings navigation: a grouped left sub-rail on desktop (19 flat
-          pills were unscannable), the familiar pill groups on mobile. */}
+      {/* Settings navigation: five pages, each a stack of sections. Desktop
+          gets a sticky left rail with the open page's jump list nested under
+          it; mobile gets page pills plus a "Jump to" select. */}
       <div style={{display:'flex',gap:28,alignItems:'flex-start',flexDirection:isMobile?'column':'row'}}>
-      <nav aria-label="Settings sections" style={isMobile
-        ? {width:'100%',borderBottom:`1px solid ${T.border}`,paddingBottom:12,display:'grid',gap:12}
-        : {width:200,flexShrink:0,position:'sticky',top:76,display:'grid',gap:18}}>
-        {[['My Account',accountTabs],['Portfolio Setup',portfolioTabs],['Preferences',preferencesTabs]].map(([groupLabel,tabs])=>(
-          <div key={groupLabel}>
-            <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:6,paddingLeft:isMobile?0:11}}>{groupLabel}</div>
-            <div style={isMobile?{display:'flex',gap:5,flexWrap:'wrap'}:{display:'grid',gap:1}}>
-              {tabs.map(t=>{
-                const active = settingsTab===t.key
-                const accent = t.key==='admin'?T.red:T.gold
-                return isMobile ? (
-                  <button key={t.key} onClick={()=>setSettingsTab(t.key)} aria-current={active?'page':undefined} style={{
+      <nav aria-label="Settings pages" style={isMobile
+        ? {width:'100%',borderBottom:`1px solid ${T.border}`,paddingBottom:12,display:'grid',gap:10}
+        : {width:210,flexShrink:0,position:'sticky',top:76,display:'grid',gap:2}}>
+        {isMobile ? (
+          <>
+            <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+              {settingsPages.map(p=>{
+                const active = p.key===currentPage.key
+                return (
+                  <button key={p.key} onClick={()=>setSettingsTab(p.key)} aria-current={active?'page':undefined} style={{
                     fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
-                    border:`1px solid ${active?accent:T.border}`,
-                    background:active?accent:'transparent',
-                    color:active?(t.key==='admin'?'#fff':'#1C2830'):T.muted,fontWeight:active?700:400,
-                  }}>{t.label}</button>
-                ) : (
-                  <button key={t.key} onClick={()=>setSettingsTab(t.key)} aria-current={active?'page':undefined} style={{
-                    fontFamily:mono,fontSize:12,padding:'8px 11px',borderRadius:8,cursor:'pointer',textAlign:'left',width:'100%',
-                    border:'none',borderLeft:`3px solid ${active?accent:'transparent'}`,background:active?accent+'18':'transparent',
-                    color:active?T.text:T.muted,fontWeight:active?700:400,transition:'background 0.15s,color 0.15s',
-                  }}
-                  onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
-                  onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>{t.label}</button>
+                    border:`1px solid ${active?T.gold:T.border}`,background:active?T.gold:'transparent',
+                    color:active?'#1C2830':T.muted,fontWeight:active?700:400,
+                  }}>{p.label}</button>
                 )
               })}
             </div>
-          </div>
-        ))}
+            {currentPage.sections.length > 1 && (
+              <label style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Jump to</span>
+                <select value={activeSection} onChange={e=>setSettingsTab(e.target.value)}
+                  style={{flex:1,fontFamily:mono,fontSize:12,padding:'6px 10px',borderRadius:8,background:T.bg,color:T.text,border:`1px solid ${T.border}`}}>
+                  {currentPage.sections.map(sec=><option key={sec.key} value={sec.key}>{sec.label}</option>)}
+                </select>
+              </label>
+            )}
+          </>
+        ) : settingsPages.map(p=>{
+          const active = p.key===currentPage.key
+          return (
+            <div key={p.key}>
+              <button onClick={()=>setSettingsTab(p.key)} aria-current={active?'page':undefined} style={{
+                fontFamily:mono,fontSize:12,padding:'8px 11px',borderRadius:8,cursor:'pointer',textAlign:'left',width:'100%',
+                border:'none',borderLeft:`3px solid ${active?T.gold:'transparent'}`,background:active?T.gold+'18':'transparent',
+                color:active?T.text:T.muted,fontWeight:active?700:400,transition:'background 0.15s,color 0.15s',
+              }}
+              onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
+              onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>{p.label}</button>
+              {active && p.sections.length > 1 && (
+                <div role="list" aria-label={`${p.label} sections`} style={{display:'grid',gap:1,margin:'4px 0 8px 14px',borderLeft:`1px solid ${T.border}`}}>
+                  {p.sections.map(sec=>{
+                    const on = sec.key===activeSection
+                    return (
+                      <a role="listitem" key={sec.key} href={`#/settings/${sec.key}`}
+                        onClick={e=>{e.preventDefault();setSettingsTab(sec.key)}}
+                        aria-current={on?'location':undefined}
+                        style={{fontFamily:mono,fontSize:11,padding:'5px 10px',textDecoration:'none',
+                          color:on?(sec.key==='admin'?T.red:T.goldText):T.muted,fontWeight:on?700:400}}>{sec.label}</a>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </nav>
       <div style={{flex:1,minWidth:0,width:'100%'}}>
-      {/* Company switcher — only on tabs whose content is per-company */}
-      {companies.length > 1 && companyScopedTabs.includes(settingsTab) && (
+      {/* Company switcher — only on pages with per-company sections */}
+      {companies.length > 1 && pageIsCompanyScoped && (
         <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center',marginBottom:18}}>
           <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Company:</span>
           {[{id:'all',name:'All companies',color:T.goldText},...companies].map(c=>{
@@ -946,7 +999,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         </div>
       )}
       {/* ── ACCOUNT TAB ── */}
-      {settingsTab==='account' && (
+      {sectionHeading('account')}
+      {show('account') && (
         profileLoading
           ? <div style={{fontFamily:mono,color:T.muted,fontSize:12}}>Loading…</div>
           : <>
@@ -963,7 +1017,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               <div style={fieldStyle}>
                 <label style={labelStyle} htmlFor="settings-email">Email Address</label>
                 <input id="settings-email" value={user?.email||''} disabled style={{opacity:0.5,cursor:'not-allowed'}}/>
-                <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:5}}>To change your email or password go to the Security tab.</div>
+                <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:5}}>To change your email or password, see Security &amp; Data below.</div>
               </div>
               <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
                 {profileSaving ? 'Saving…' : 'Save Profile'}
@@ -981,7 +1035,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {/* ── SECURITY TAB ── */}
-      {settingsTab==='security' && (
+      {sectionHeading('security')}
+      {show('security') && (
         <>
           <div style={sectionStyle}>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Email Address</div>
@@ -1026,7 +1081,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {/* ── DISPLAY TAB ── */}
-      {settingsTab==='display' && (
+      {sectionHeading('display')}
+      {show('display') && (
         <>
           <div style={sectionStyle}>
             <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Colour Mode</div>
@@ -1087,7 +1143,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {/* ── NOTIFICATIONS TAB ── */}
-      {settingsTab==='notifications' && (
+      {sectionHeading('notifications')}
+      {show('notifications') && (
         <div style={sectionStyle}>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Alert Preferences</div>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:16,lineHeight:1.6}}>Control which alerts appear in your Smart Alerts dashboard panel.</div>
@@ -1119,7 +1176,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {/* ── FEATURES TAB ── */}
-      {settingsTab==='features' && <>
+      {sectionHeading('features')}
+      {show('features') && <>
       {scopedCompanies.map(company=>{
         const settings = companySettings[company.id] || {}
         return (
@@ -1216,7 +1274,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           page chases per company. Everything defaults ON; property-level
           applicability flags (gas supply, HMO, licensing) do the fine-grain
           filtering, so these toggles are for "we never want to track X". */}
-      {settingsTab==='compliance' && <>
+      {sectionHeading('compliance')}
+      {show('compliance') && <>
       <div style={{...sectionStyle,paddingBottom:18}}>
         <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Compliance tracking</div>
         <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6}}>
@@ -1276,15 +1335,18 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       })}
       </>}
 
-      {settingsTab==='billing' && (
+      {sectionHeading('billing')}
+      {show('billing') && (
         <BillingPage key={coFilter} companies={scopedCompanies} user={user} isPlatformAdmin={isPlatformAdmin}/>
       )}
 
-      {settingsTab==='integrations' && (
+      {sectionHeading('integrations')}
+      {show('integrations') && (
         <IntegrationsPanel T={T} mono={mono} companies={scopedCompanies} properties={properties}/>
       )}
 
-      {settingsTab==='bookkeeping' && activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin }) && (
+      {sectionHeading('bookkeeping')}
+      {show('bookkeeping') && activeFlags.has('ai_bookkeeping') && canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin }) && (
         <Suspense fallback={null}>
           {/* Keyed by filter so the panel's internal company selection resets
               to the newly scoped company when the page-level filter changes */}
@@ -1292,7 +1354,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         </Suspense>
       )}
 
-      {settingsTab==='navbar' && (
+      {sectionHeading('navbar')}
+      {show('navbar') && (
         <div style={sectionStyle}>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Navigation bar</div>
           <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:16}}>Choose which sections appear in your navigation. Dashboard, Properties and Settings are always shown.</div>
@@ -1316,12 +1379,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         </div>
       )}
 
-      {settingsTab==='admin' && isPlatformAdmin && (
-        <AdminSettingsPanel user={user} T={T} showToast={showToast}/>
-      )}
 
-
-      {settingsTab==='branding' && (
+      {sectionHeading('branding')}
+      {show('branding') && (
         <BrandingSettingsPanel
           key={coFilter}
           companies={scopedCompanies}
@@ -1334,15 +1394,18 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         />
       )}
 
-      {settingsTab==='tenant' && (
+      {sectionHeading('tenant')}
+      {show('tenant') && (
         <TenantPortalSettings key={coFilter} companies={scopedCompanies} companySettings={companySettings} setCompanySettings={setCompanySettings} showToast={showToast} T={T}/>
       )}
 
-      {settingsTab==='inbox' && (
+      {sectionHeading('inbox')}
+      {show('inbox') && (
         <CompanyInboxPanel key={coFilter} companies={scopedCompanies} T={T}/>
       )}
 
-      {settingsTab==='milestones' && (
+      {sectionHeading('milestones')}
+      {show('milestones') && (
         <MilestoneSettingsPanel
           user={user}
           config={milestoneConfig}
@@ -1352,27 +1415,37 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         />
       )}
 
-      {settingsTab==='trash' && (
-        <TrashPage user={user}/>
-      )}
-
-      {settingsTab==='backups' && (
+      {sectionHeading('backups')}
+      {show('backups') && (
         <BackupsPage user={user} showToast={showToast}/>
       )}
 
-      {settingsTab==='referral' && (
+      {sectionHeading('trash')}
+      {show('trash') && (
+        <TrashPage user={user}/>
+      )}
+
+      {sectionHeading('admin')}
+      {show('admin') && isPlatformAdmin && (
+        <AdminSettingsPanel user={user} T={T} showToast={showToast}/>
+      )}
+
+      {sectionHeading('referral')}
+      {show('referral') && (
         <ReferralPanel user={user} T={T} showToast={showToast}/>
       )}
 
       {/* ── HELP & GUIDES TAB ── */}
-      {settingsTab==='help' && (
+      {sectionHeading('help')}
+      {show('help') && (
         <Suspense fallback={null}>
           <HelpCenter/>
         </Suspense>
       )}
 
       {/* ── REPORTING TAB ── */}
-      {settingsTab==='reporting' && (
+      {sectionHeading('reporting')}
+      {show('reporting') && (
         <div style={sectionStyle}>
           <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Default Reporting Period</div>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20,lineHeight:1.7}}>
@@ -1442,7 +1515,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       )}
 
       {/* ── TEAM & ACCESS TAB ── */}
-      {settingsTab==='team' && (
+      {sectionHeading('team')}
+      {show('team') && (
         <>
           {isAdmin&&(
             <div style={sectionStyle}>
