@@ -71,16 +71,6 @@ export async function fetchReferrals(userId) {
   return data || []
 }
 
-// ── ONBOARDING EMAIL ──────────────────────────────────────────────────────────
-// No-op stub. The /functions/v1/onboarding-email edge function was
-// never deployed, so every call from App.jsx login → 404 + CORS spam
-// in the logs (was firing on every page load). Kept the export so we
-// don't have to rip the call site out; when we want real onboarding
-// emails, build the edge function and replace this body.
-export async function sendOnboardingEmail(_email, _name, _sequence) {
-  return null
-}
-
 // ── DASHBOARD WIDGET + SECTION PREFS ─────────────────────────────────────────
 // Stored per-user in user_profiles as JSONB arrays of { key, enabled }:
 // dashboard_widgets (KPI cards) and dashboard_sections (page sections).
