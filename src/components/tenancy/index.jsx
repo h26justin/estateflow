@@ -8,6 +8,7 @@ import * as api from '../../lib/api'
 import { fmt } from '../../lib/format'
 import MoneyInput from '../../lib/MoneyInput'
 import NoticeGenerator from '../NoticeGenerator'
+import { GROUNDS, groundLabel, earliestRentIncreaseDate, currentTenancyStart } from '../../lib/possessionRules'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
 export function RightToRentTab({ propertyId, userId, showToast, T }) {
@@ -261,24 +262,39 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
   )
 }
 
-// ── NOTICE TRACKER (S21 / S8) ─────────────────────────────────────────────────
+// ── NOTICE TRACKER (S8 / S13) ─────────────────────────────────────────────────
 export function NoticeTrackerTab({ propertyId, userId, showToast, T, property }) {
   const mono = MONO
   const [notices, setNotices] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [showGenerator, setShowGenerator] = useState(false)
+  // null | 's8' | 's13' — which generator is open
+  const [generator, setGenerator] = useState(null)
+  const [lastIncreaseDate, setLastIncreaseDate] = useState('')
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
 
+  // Section 21 was abolished in England from 1 May 2026. It stays as a type
+  // so older records still display, but can't be chosen for a new notice.
   const NOTICE_TYPES = [
-    { key: 's21', label: 'Section 21 — No-fault possession' },
-    { key: 's8', label: 'Section 8 — Fault-based possession' },
-    { key: 's13', label: 'Section 13 — Rent increase' },
+    { key: 's8', label: 'Section 8 — Possession (Form 3A)' },
+    { key: 's13', label: 'Section 13 — Rent increase (Form 4A)' },
     { key: 's48', label: 'Section 48 — Landlord address' },
     { key: 'other', label: 'Other notice' },
+    { key: 's21', label: 'Section 21 — served before 1 May 2026', legacy: true },
   ]
-  const S8_GROUNDS = ['Ground 8 (2mo+ arrears)','Ground 10 (some arrears)','Ground 11 (persistent late)','Ground 12 (breach of tenancy)','Ground 14 (nuisance)','Ground 17 (false statement)']
+  const S8_GROUNDS = GROUNDS.map(groundLabel)
+
+  async function openRentIncrease() {
+    // Prefill the 52-week rule from the most recent logged increase.
+    try {
+      const hist = await api.fetchRentHistory(propertyId)
+      const last = (hist || []).filter(r => r.change_type === 'increase' && r.effective_date)
+        .map(r => r.effective_date).sort().pop()
+      setLastIncreaseDate(last || '')
+    } catch { setLastIncreaseDate('') }
+    setGenerator('s13')
+  }
   const STATUSES = [
     { key: 'draft', label: 'Draft', color: T.muted },
     { key: 'served', label: 'Served', color: '#4B8FE0' },
@@ -312,27 +328,34 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal notices</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track Section 21, Section 8 and other notices served on tenants.</div>
+          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Prepare and track possession (section 8) and rent increase (section 13) notices. England only; section 21 ended on 1 May 2026.</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button onClick={() => setShowGenerator(true)}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.amber, cursor: 'pointer' }}>
-            Generate S21/S8
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button onClick={() => setGenerator('s8')}
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.text, cursor: 'pointer' }}>
+            Prepare Form 3A
           </button>
-          <button onClick={() => { setForm({ notice_type: 's21', status: 'draft' }); setShowForm(true) }}
+          <button onClick={openRentIncrease}
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, cursor: 'pointer' }}>
+            Prepare Form 4A
+          </button>
+          <button onClick={() => { setForm({ notice_type: 's8', status: 'draft' }); setShowForm(true) }}
             style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.red, color: T.bg, cursor: 'pointer' }}>
             + Log notice
           </button>
         </div>
       </div>
 
-      {showGenerator && (
+      {generator && (
         <NoticeGenerator
+          key={generator}
+          initialType={generator}
+          lastIncreaseDate={lastIncreaseDate}
           property={property || { id: propertyId, address: '' }}
           userId={userId}
           showToast={showToast}
           onClose={() => {
-            setShowGenerator(false)
+            setGenerator(null)
             // Refresh in case a draft was logged
             api.fetchNotices(propertyId).then(setNotices).catch(()=>{})
           }}/>
@@ -342,8 +365,8 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
         <form onSubmit={e=>{e.preventDefault(); save()}} style={{ background: T.card, border: `1px solid ${T.red}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div><label style={lbl} htmlFor="nt-type">Notice type</label>
-              <select id="nt-type" value={form.notice_type||'s21'} onChange={e=>setForm(p=>({...p,notice_type:e.target.value}))} style={inp}>
-                {NOTICE_TYPES.map(n => <option key={n.key} value={n.key}>{n.label}</option>)}
+              <select id="nt-type" value={form.notice_type||'s8'} onChange={e=>setForm(p=>({...p,notice_type:e.target.value}))} style={inp}>
+                {NOTICE_TYPES.filter(n => !n.legacy || form.notice_type === n.key).map(n => <option key={n.key} value={n.key}>{n.label}</option>)}
               </select>
             </div>
             <div><label style={lbl} htmlFor="nt-status">Status</label>
@@ -355,7 +378,9 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
               <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="nt-grounds">Ground(s)</label>
                 <select id="nt-grounds" value={form.grounds||''} onChange={e=>setForm(p=>({...p,grounds:e.target.value}))} style={inp}>
                   <option value="">Select ground…</option>
-                  {S8_GROUNDS.map(g => <option key={g} value={g}>{g}</option>)}
+                  {/* Older records may hold pre-reform labels or several grounds: keep them selectable. */}
+                  {(form.grounds && !S8_GROUNDS.includes(form.grounds) ? [form.grounds, ...S8_GROUNDS] : S8_GROUNDS)
+                    .map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
             )}
@@ -405,11 +430,12 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
 }
 
 // ── RENT INCREASE TRACKER ─────────────────────────────────────────────────────
-export function RentHistoryTab({ propertyId, userId, showToast, T }) {
+export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
   const mono = MONO
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showForm4A, setShowForm4A] = useState(false)
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
 
@@ -439,11 +465,43 @@ export function RentHistoryTab({ propertyId, userId, showToast, T }) {
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rent history</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track every rent change with dates and review schedules.</div>
         </div>
-        <button onClick={() => { setForm({ change_type: 'increase' }); setShowForm(true) }}
-          style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer', flexShrink: 0 }}>
-          + Log change
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button onClick={() => setShowForm4A(true)}
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, cursor: 'pointer' }}>
+            Prepare Form 4A
+          </button>
+          <button onClick={() => { setForm({ change_type: 'increase' }); setShowForm(true) }}
+            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: 'none', background: T.green, color: '#0E3B27', cursor: 'pointer' }}>
+            + Log change
+          </button>
+        </div>
       </div>
+
+      {!loading && (() => {
+        // Section 13: when could a rent increase served today take effect?
+        const tenancyStart = currentTenancyStart(property)
+        const last = history.filter(r => r.change_type === 'increase' && r.effective_date).map(r => r.effective_date).sort().pop()
+        const today = new Date().toISOString().slice(0, 10)
+        const { date } = earliestRentIncreaseDate({ dateServed: today, tenancyStart, lastIncreaseDate: last })
+        if (!date) return null
+        return (
+          <div style={{ fontSize: 12, color: T.text, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, lineHeight: 1.55 }}>
+            A section 13 increase served today could take effect from <strong>{date}</strong>
+            {!tenancyStart && ' (add the tenancy start date for an exact answer)'}.
+            {' '}Rent can rise once every 52 weeks, with at least two months&rsquo; notice on Form 4A.
+          </div>
+        )
+      })()}
+
+      {showForm4A && (
+        <NoticeGenerator
+          initialType="s13"
+          lastIncreaseDate={history.filter(r => r.change_type === 'increase' && r.effective_date).map(r => r.effective_date).sort().pop() || ''}
+          property={property || { id: propertyId, address: '' }}
+          userId={userId}
+          showToast={showToast}
+          onClose={() => setShowForm4A(false)}/>
+      )}
 
       {showForm && (
         <form onSubmit={e=>{e.preventDefault(); save()}} style={{ background: T.card, border: `1px solid ${T.gold}44`, borderRadius: 12, padding: '18px 20px', marginBottom: 14 }}>

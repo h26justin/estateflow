@@ -52,7 +52,11 @@ const json = (body: unknown, status = 200) =>
 const NOTICE_GUIDES: Record<string, string> = {
   possession_ground_8:
     'A possession notice relying on a rent-arrears ground. Set out the arrears clearly, ' +
-    'reference the relevant ground, and state the notice period. Do NOT invent specific ' +
+    'reference the relevant ground, and state the notice period. Rules in England from ' +
+    '1 May 2026: section 21 no longer exists; the notice is served on Form 3A under ' +
+    'section 8; Ground 8 needs at least 3 months\' rent (13 weeks if paid weekly or ' +
+    'fortnightly) owed at service and at the hearing, with 4 weeks\' notice; Grounds 10 ' +
+    'and 11 need 4 weeks\' notice. Never mention section 21 or Form 3. Do NOT invent specific ' +
     'arrears figures or dates — use only the facts supplied; insert [PLACEHOLDER] where a ' +
     'fact is missing.',
   periodic_conversion:

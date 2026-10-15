@@ -166,7 +166,7 @@ Rules:
 - Each insight must be specific (mention a property name, certificate type, percentage, or amount).
 - Avoid generic advice that applies to every landlord.
 - Prefer observations grounded in the data above bland tips.
-- Use UK terminology (HMO, BTL, EPC, EICR, gas safe, S21, S24).
+- Use UK terminology (HMO, BTL, EPC, EICR, gas safe, S8, S13, S24).
 - "critical" = imminent legal/financial risk; "warning" = should look at soon; "opportunity" = positive but worth acting on; "info" = noteworthy context.
 - Sort highest severity first.
 - Maximum 7 insights.`
