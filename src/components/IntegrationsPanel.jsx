@@ -5,7 +5,7 @@ import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 
 // ── INTEGRATIONS SETTINGS PANEL — Phase 2 ────────────────────────────
-// Settings → Portfolio Setup → Integrations.
+// Settings → Integrations & data → Integrations.
 //
 // Multi-company: each of the user's Properly companies gets its own
 // Xero connection card. A user with N companies can link N separate

@@ -903,11 +903,13 @@ export default function App({ initialLoginMode = null } = {}) {
     portfolio_modeller: { icon:'trending-up',    label:'Portfolio What-If Modeller',  description:'Model rent changes, refinancing, and other scenarios' },
     company_documents:  { icon:'folder',         label:'Company Documents',           description:'Documents stored at company level (only shows when a company is selected)' },
   }
-  // Rental Income leads the page for every user who has not positioned it
-  // (ruled 8 Sep 2026: new section, everyone should see it first). Being the
-  // first default key, the resolver inserts it at the top of any saved layout
-  // that lacks it; once saved from Customize > Sections, the user's order wins.
-  const SECTION_DEFAULT_ORDER   = ['rent_income','smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
+  // The KPI grid leads the default layout (2026-10: the headline numbers
+  // were sixth, below alerts, inbox and AI widgets), with Rental Income
+  // straight after it. Only the DEFAULT changes: a saved layout
+  // (user_profiles.dashboard_sections) keeps its own order, and the resolver
+  // slots any section it lacks in after its nearest default predecessor, so
+  // a layout saved before Rental Income existed gets it just below the KPIs.
+  const SECTION_DEFAULT_ORDER   = ['kpi_grid','rent_income','smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','by_company','property_map','portfolio_modeller','company_documents']
   const SECTION_DEFAULT_ENABLED = { rent_income:true, kpi_grid:true, by_company:true, smart_alerts:true, autopilot_widget:true, tenant_inbox:true, portfolio_insights:true, property_map:true, portfolio_modeller:false, company_documents:true }
 
   const WIDGET_META = {
@@ -3252,8 +3254,8 @@ export default function App({ initialLoginMode = null } = {}) {
               // to silently miss new sections (e.g. portfolio_insights).
               // Resolve current section prefs, filling in any missing keys from defaults.
               // Same resolver as the KPI widgets: a section the user has never
-              // saved lands where the default order puts it (Rental Income sits
-              // just above the KPI cards), not at the bottom of the page.
+              // saved lands where the default order puts it (after its nearest
+              // default predecessor), not at the bottom of the page.
               const resolvedSections = resolveWidgetPrefs(sectionPrefs, SECTION_DEFAULT_ORDER, SECTION_DEFAULT_ENABLED)
                 .filter(s => SECTION_DEFS[s.key])
 
@@ -4729,8 +4731,12 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
                 {p.managed_by&&<span style={{marginLeft:8,color:T.faint,display:'inline-flex',alignItems:'center',gap:4,verticalAlign:'middle'}}><Icon name="building" size={11}/> {p.managed_by}</span>}
               </div>
             </div>
-            {/* Stats */}
-            <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} onClick={()=>openDetail(p)}>
+            {/* Stats — same action as the name block, via pressable() so it
+                carries role=button and Enter/Space handling. Kept out of the
+                tab order (tabIndex -1): the name block above is already the
+                row's focusable "open property" control, and two tab stops per
+                row doubled the keyboard path through a long portfolio. */}
+            <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} {...pressable(()=>openDetail(p), { tabIndex: -1 })}>
               {/* Compliance status pill — only renders for properties
                   that have something expired/expiring/missing. Silently
                   absent for fully-compliant or unoccupied properties so

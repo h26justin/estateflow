@@ -526,7 +526,7 @@ const GUIDES = [
     ]},
   { id: 57, cat: 'reports', title: 'Setting default reporting period', tags: ['report','period','tax','year','calendar'],
     steps: [
-      "Go to Settings > Reporting (under the Preferences group).",
+      "Go to Settings > Portfolio > Reporting.",
       "For each company, choose whether reports default to the UK tax year (6 April \u2013 5 April) or the calendar year (1 January \u2013 31 December).",
       "This sets the default \u2014 you can always override the period when running an individual report.",
       "Most landlords use the UK tax year for personal holdings and calendar year for limited company accounts.",
@@ -584,13 +584,13 @@ const GUIDES = [
   // ── SETTINGS & ACCOUNT ───────────────────────────────────────────────────
   { id: 64, cat: 'settings', title: 'Changing dark/light mode', tags: ['dark','light','mode','theme','display'],
     steps: [
-      "Go to Settings > Display (under the Preferences group).",
+      "Go to Settings > Account > Display.",
       "Click \"Dark\" or \"Light\" to switch the app theme.",
       "The change takes effect immediately and is saved to your account \u2014 it persists across devices.",
     ]},
   { id: 65, cat: 'settings', title: 'Changing yield basis (cost vs value)', tags: ['yield','basis','cost','value','setting'],
     steps: [
-      "Go to Settings > Display (under the Preferences group).",
+      "Go to Settings > Account > Display.",
       "In the Yield Calculation section, choose: \"Purchase + refurb cost\" (on cost) or \"Current property value\" (on value).",
       "On cost: Yield is calculated as annual rent divided by purchase price plus refurb cost. This shows your return on actual money invested.",
       "On value: Yield is calculated as annual rent divided by current estimated value. This shows what the property yields at current market prices.",
@@ -607,7 +607,7 @@ const GUIDES = [
     ]},
   { id: 67, cat: 'settings', title: 'Setting up notifications & alerts', tags: ['notification','alert','setting','email'],
     steps: [
-      "Go to Settings > Notifications (under Portfolio Setup).",
+      "Go to Settings > Account > Notifications.",
       "Toggle each alert type on or off: Rent Arrears, Lease Expiry, Compliance Expiry, Vacant Properties, and Weekly Summary.",
       "These control which alerts appear in the Smart Alerts panel on your Dashboard.",
       "The Weekly Summary sends a portfolio overview email every Monday (coming soon).",
@@ -615,7 +615,7 @@ const GUIDES = [
     ]},
   { id: 68, cat: 'settings', title: 'Managing user access (multi-user)', tags: ['access','user','multi','team','permission'],
     steps: [
-      "Go to Settings > Team & Access (under the Preferences group). You must be an admin to see this section.",
+      "Go to Settings > Companies & team > Team & Access. You must be an admin to see this section.",
       "Click \"Manage User Access\" to open the access management modal.",
       "You will see all users in your account with checkboxes for each company.",
       "Check a company to grant access or uncheck to revoke it.",

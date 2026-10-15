@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { resolveWidgetPrefs } from '../dashboardPrefs'
 
+// Mirror of App.jsx SECTION_DEFAULT_ORDER (2026-10: KPI grid first).
+const SECTION_ORDER = ['kpi_grid','rent_income','smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','by_company','property_map','portfolio_modeller','company_documents']
+
 const ORDER = ['value', 'rent', 'forecast', 'received', 'arrears', 'count']
 const ENABLED = { value: true, rent: true, forecast: true, received: true, arrears: true, count: false }
 
@@ -56,6 +59,27 @@ describe('resolveWidgetPrefs', () => {
     const order = ['income', 'alerts', 'grid', 'company']
     const saved = [{ key: 'grid', enabled: true }, { key: 'company', enabled: true }, { key: 'alerts', enabled: true }]
     expect(resolveWidgetPrefs(saved, order, {}).map(w => w.key)).toEqual(['income', 'grid', 'company', 'alerts'])
+  })
+
+  it('dashboard sections: new users get the KPI grid first', () => {
+    expect(resolveWidgetPrefs(null, SECTION_ORDER, {}).map(w => w.key)[0]).toBe('kpi_grid')
+  })
+
+  it('dashboard sections: a saved layout keeps its order when the KPI grid moves to the default front', () => {
+    // Saved under the old default (KPIs sixth). Every key present: nothing moves.
+    const oldDefault = ['rent_income','smart_alerts','autopilot_widget','tenant_inbox','portfolio_insights','kpi_grid','by_company','property_map','portfolio_modeller','company_documents']
+    const saved = oldDefault.map(key => ({ key, enabled: key !== 'portfolio_modeller' }))
+    expect(resolveWidgetPrefs(saved, SECTION_ORDER, {})).toEqual(saved)
+  })
+
+  it('dashboard sections: a saved layout missing a section gets it after its default predecessor, not at the top', () => {
+    // Saved before Rental Income existed, KPIs below alerts. KPIs stay where
+    // the user put them; Rental Income slots in right after them.
+    const saved = [{ key: 'smart_alerts', enabled: true }, { key: 'kpi_grid', enabled: true }, { key: 'by_company', enabled: true }]
+    const keys = resolveWidgetPrefs(saved, SECTION_ORDER, {}).map(w => w.key)
+    expect(keys[0]).toBe('smart_alerts')
+    expect(keys.indexOf('rent_income')).toBe(keys.indexOf('kpi_grid') + 1)
+    expect(keys.filter(k => saved.some(w => w.key === k))).toEqual(['smart_alerts', 'kpi_grid', 'by_company'])
   })
 
   it('does not mutate the saved array', () => {
