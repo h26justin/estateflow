@@ -1,7 +1,7 @@
 import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
-import { monthRate } from '../lib/rentForecast'
+import { monthRate, occupancyRate } from '../lib/rentForecast'
 
 // ── RENTAL INCOME DASHBOARD SECTION ──────────────────────────────────────────
 // The one place on the dashboard that answers, month by month, "what should
@@ -15,6 +15,8 @@ import { monthRate } from '../lib/rentForecast'
 //
 // Figures are by rent period (the month the rent is for), matching the Rent
 // Tracker. Short-term-let income is excluded: it has no monthly expectation.
+// Occupied = units with rent due that month out of units owned that month
+// (rentMonthSnapshot units / unitsLet), short-term lets excluded too.
 
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
 const pct = r => r == null ? '–' : `${r}%`
@@ -30,6 +32,13 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
   ytd.outstanding = Math.max(0, ytd.expected - ytd.received)
   const ytdRate = monthRate(ytd)
   const curRate = monthRate(cur)
+  // Year-to-date occupancy is the average over the months: let unit-months
+  // over unit-months, so a unit empty for one month of ten costs 10%.
+  const unitMonths = months.reduce((a, mo) => a + (mo.units || 0), 0)
+  const letMonths = months.reduce((a, mo) => a + (mo.unitsLet || 0), 0)
+  const ytdOcc = unitMonths > 0 ? Math.round((letMonths / unitMonths) * 100) : null
+  const curOcc = occupancyRate(cur)
+  const occColor = r => r == null ? T.muted : r >= 95 ? T.green : r >= 85 ? T.amber : T.red
   const year = cur.year
 
   // Warning colours belong to completed months only; this month is still
@@ -50,6 +59,17 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
     </div>
   )
 
+  // "80/90" with the percentage, coloured by how full the portfolio was.
+  const occCell = mo => {
+    if (!(mo.units > 0)) return '–'
+    const r = occupancyRate(mo)
+    return (
+      <span aria-label={`${mo.unitsLet} of ${mo.units} units let, ${r}%`}>
+        {mo.unitsLet}/{mo.units} <span style={{ color: occColor(r) }}>· {r}%</span>
+      </span>
+    )
+  }
+
   const backfillMonths = chrono.filter(mo => mo.needsBackfill > 0)
   const overpaid = chrono.reduce((a, mo) => a + (mo.excess || 0), 0)
   const recent = months.slice(0, 3) // newest first: this month and the two before
@@ -69,11 +89,13 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)', gap: 10, marginBottom: 18 }}>
         {tile(`Due · ${cur.label}`, fmt(cur.expected), 'Collectible rent from tenancies this month', T.goldText)}
         {tile(`Collected so far · ${cur.label.slice(0, 3)}`, fmt(cur.received), cur.expected > 0 ? `${pct(curRate)} of what is due` : 'Nothing due yet', T.green)}
         {tile(`Outstanding · ${cur.label.slice(0, 3)}`, fmt(cur.outstanding), 'Still to collect this month', cur.outstanding > 0 ? T.amber : T.green)}
         {tile(`${year} to date`, fmt(ytd.received), `${pct(ytdRate)} of ${fmt(ytd.expected)} due · ${fmt(ytd.outstanding)} outstanding`, T.text)}
+        {tile(`Occupied · ${cur.label.slice(0, 3)}`, cur.units > 0 ? `${cur.unitsLet}/${cur.units}` : '–',
+          cur.units > 0 ? `${pct(curOcc)} of units let · ${pct(ytdOcc)} average this year` : 'No units', occColor(curOcc))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', gap: 22 }}>
@@ -82,7 +104,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr><th style={thFirst}>Month</th><th style={th}>Due</th><th style={th}>Collected</th><th style={th}>Outstanding</th><th style={th}>Collected %</th></tr>
+                <tr><th style={thFirst}>Month</th><th style={th}>Due</th><th style={th}>Collected</th><th style={th}>Outstanding</th><th style={th}>Collected %</th><th style={th} title="Units with rent due that month out of units owned">Occupied</th></tr>
               </thead>
               <tbody>
                 {chrono.map(mo => {
@@ -96,6 +118,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
                       <td style={{ ...td, color: T.green }}>{empty ? '–' : fmt(mo.received)}</td>
                       <td style={{ ...td, color: empty ? T.muted : outstandingColor(mo, isCurrent) }}>{empty ? '–' : fmt(mo.outstanding)}</td>
                       <td style={{ ...td, color: rateColor(r, isCurrent) }}>{pct(r)}</td>
+                      <td style={td}>{occCell(mo)}</td>
                     </tr>
                   )
                 })}
@@ -105,6 +128,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
                   <td style={{ ...td, color: T.green, borderTop: `2px solid ${T.border}` }}>{fmt(ytd.received)}</td>
                   <td style={{ ...td, color: ytd.outstanding > 0 ? T.amber : T.green, borderTop: `2px solid ${T.border}` }}>{fmt(ytd.outstanding)}</td>
                   <td style={{ ...td, color: rateColor(ytdRate, true), borderTop: `2px solid ${T.border}` }}>{pct(ytdRate)}</td>
+                  <td style={{ ...td, color: occColor(ytdOcc), borderTop: `2px solid ${T.border}` }} title="Average occupancy over the months shown">{ytdOcc == null ? '–' : `${ytdOcc}% avg`}</td>
                 </tr>
               </tbody>
             </table>
@@ -155,7 +179,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
             </table>
           </div>
           <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
-            Figures are by rent period, the month the rent is for, matching the Rent Tracker. Short-term-let income is reported on its own page.
+            Figures are by rent period, the month the rent is for, matching the Rent Tracker. Occupied counts units with rent due that month out of units owned that month. Short-term lets are reported on their own page and left out of both.
           </div>
         </div>
       </div>
