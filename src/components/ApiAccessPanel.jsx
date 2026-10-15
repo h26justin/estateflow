@@ -135,7 +135,7 @@ export default function ApiAccessPanel({ T }) {
                   </div>
                   <button
                     className="btn btn-ghost"
-                    style={{ fontSize: 11, color: '#e5484d', flexShrink: 0 }}
+                    style={{ fontSize: 11, color: T.red, flexShrink: 0 }}
                     disabled={busy === `revoke-${tok.id}`}
                     onClick={() => handleRevoke(tok)}
                   >

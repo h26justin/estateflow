@@ -91,7 +91,7 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
     catch (e) { showAppToast(e.message || 'Failed to delete', 'error') }
   }
 
-  const toneColor = (tone) => tone === 'good' ? '#3fb950' : tone === 'bad' ? '#f85149' : tone === 'gold' ? T.gold : T.muted
+  const toneColor = (tone) => tone === 'good' ? T.green : tone === 'bad' ? T.red : tone === 'gold' ? T.goldText : T.muted
 
   return (
     <div className="card" style={{ padding: 18 }}>

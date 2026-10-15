@@ -96,19 +96,21 @@ function isPropertyOverdue(prop) {
   return false
 }
 
-const STATUS_COLOR = {
-  paid:    '#2ECC8A',
+// Function of the theme so legacy hexes follow light/dark tokens; alpha
+// suffixes are still concatenated by callers, so values must stay hex.
+const statusColors = (T) => ({
+  paid:    T.green,
   stl:     '#9B6FDE',  // pseudo-status: paid segment linked to a Lodgify booking
   stl_pending: '#C4B3EA',  // STL booked, stay not yet completed
-  partial: '#E0943A',  // part-paid = attention, same amber as late
+  partial: T.amber,  // part-paid = attention, same amber as late
   pending: '#9B6FDE',  // legacy rows from the pre-2026-07 Lodgify sync
-  overdue: '#E05555',
-  missed:  '#E05555',  // legacy alias for pre-2026-05-25 rows
-  late:    '#E0943A',
-  refurb:  '#4B8FE0',
-  void:    '#888EA8',
+  overdue: T.red,
+  missed:  T.red,  // legacy alias for pre-2026-05-25 rows
+  late:    T.amber,
+  refurb:  T.blue,
+  void:    T.faint,
   future:  'transparent',
-}
+})
 
 const STATUS_LABEL = { paid:'Paid', stl:'STL', stl_pending:'STL booked', partial:'Partial', pending:'Pending', overdue:'Overdue', missed:'Overdue', late:'Late', refurb:'Refurb', void:'Void', future:'Future' }
 
@@ -123,6 +125,7 @@ const SETTABLE_STATUSES = ['paid', 'late', 'overdue', 'void']
 // other mount site keeps today's behaviour.
 export default function DayTrackerPage({ companies, properties, setProperties, showToast, onBack, canEdit = true }) {
   const { T } = useTheme()
+  const STATUS_COLOR = statusColors(T)
   const now = new Date()
   const [year,  setYear]  = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -527,10 +530,10 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                           )
                         })}
                         {/* Stats */}
-                        <td style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, color:paidDays>0?'#2ECC8A':T.muted, padding:'4px 0 4px 8px', textAlign:'center' }}>
+                        <td style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, color:paidDays>0?T.green:T.muted, padding:'4px 0 4px 8px', textAlign:'center' }}>
                           {paidDays}
                         </td>
-                        <td style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, color:voidDays>0?'#888EA8':T.muted, padding:'4px 0 4px 6px', textAlign:'center' }}>
+                        <td style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, color:voidDays>0?STATUS_COLOR.void:T.muted, padding:'4px 0 4px 6px', textAlign:'center' }}>
                           {voidDays}
                         </td>
                       </tr>

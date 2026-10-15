@@ -293,7 +293,7 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
               })}
             </div>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber || '#c90', marginBottom: 6 }}>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber, marginBottom: 6 }}>
               No listings mapped yet — nothing will sync until you map one.
             </div>
           )}
@@ -532,7 +532,7 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
               })}
             </div>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber || '#c90', marginBottom: 6 }}>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber, marginBottom: 6 }}>
               No listings mapped yet — nothing will sync until you map one.
             </div>
           )}
@@ -675,7 +675,7 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
     <div style={card}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom: 14, flexWrap:'wrap', gap: 10 }}>
         <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 8, background: (company.color || '#C8A84B') + '22', color: company.color || '#C8A84B', display:'flex', alignItems:'center', justifyContent:'center', fontFamily: mono, fontSize: 11, fontWeight: 700 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: (company.color || T.gold) + '22', color: company.color || T.goldText, display:'flex', alignItems:'center', justifyContent:'center', fontFamily: mono, fontSize: 11, fontWeight: 700 }}>
             {company.abbr}
           </div>
           <div>

@@ -275,10 +275,10 @@ function PortfolioModellerInDeals({ properties = [], T }) {
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:10}}>
         {[
           {label:'Current portfolio', value:f(currentIncome)+'/yr', sub:f(currentValue)+' value · '+properties.length+' properties', color:T.muted},
-          {label:'After buying '+extra+' more', value:f(totalIncome)+'/yr', sub:f(totalValue)+' combined value', color:'#2ECC8A'},
+          {label:'After buying '+extra+' more', value:f(totalIncome)+'/yr', sub:f(totalValue)+' combined value', color:T.green},
           {label:'Monthly take-home now', value:f(currentIncome/12)+'/mo', sub:'gross, before costs', color:T.text},
-          {label:'Monthly take-home after', value:f(totalIncome/12)+'/mo', sub:'gross, before costs', color:'#2ECC8A'},
-          {label:'In '+yrs+' years ('+growth+'% growth)', value:f(futureIncome/12)+'/mo', sub:f(futureValue)+' portfolio', color:'#C8A84B'},
+          {label:'Monthly take-home after', value:f(totalIncome/12)+'/mo', sub:'gross, before costs', color:T.green},
+          {label:'In '+yrs+' years ('+growth+'% growth)', value:f(futureIncome/12)+'/mo', sub:f(futureValue)+' portfolio', color:T.goldText},
         ].map(k => (
           <div key={k.label} style={{background:T.bg, borderRadius:10, padding:'12px 14px', borderLeft:`3px solid ${k.color}`}}>
             <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4}}>{k.label}</div>
@@ -658,7 +658,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
                           <span style={{fontSize:15,fontWeight:700,color:T.text}}>{deal.name}</span>
                           <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:sc.color+'22',color:sc.color}}>{sc.label}</span>
-                          {co && <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>}
+                          {co && <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText}}>{co.abbr}</span>}
                           <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{DEAL_TYPE_LABELS[deal.deal_type]||'BTL'}{deal.is_auction?' · Auction':''}</span>
                           <DocCountBadge counts={counts} T={T}/>
                         </div>
@@ -2501,7 +2501,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
         {[
           { label:'Total deals', value: deals.length, color: T.text },
           { label:'Pipeline value', value: fmt(totalValue), color: T.goldText },
-          { label:'Active', value: deals.filter(d=>!['dead','completed'].includes(d.status||'analysing')).length, color: '#4B8FE0' },
+          { label:'Active', value: deals.filter(d=>!['dead','completed'].includes(d.status||'analysing')).length, color: T.blue },
           { label:'Completed', value: byStage.completed?.length||0, color: STATUS_CFG.completed.color },
         ].map(k => (
           <div key={k.label} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 16px' }}>

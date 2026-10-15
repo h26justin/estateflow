@@ -8,16 +8,18 @@ import { SignedPhoto } from '../lib/SignedPhoto'
 import { pressable } from '../lib/pressable'
 
 const mono = MONO
-const PRIORITY_CFG = {
-  urgent: { color:'#E05555', label:'Urgent' },
-  high:   { color:'#E0943A', label:'High' },
-  normal: { color:'#4B8FE0', label:'Normal' },
-}
-const STATUS_CFG = {
-  open:          { bg:'#E0943A22', color:'#E0943A', label:'Open' },
-  'in-progress': { bg:'#4B8FE022', color:'#4B8FE0', label:'In progress' },
-  complete:      { bg:'#2ECC8A22', color:'#2ECC8A', label:'Complete' },
-}
+// Functions of the theme so the colours follow light/dark tokens. Values are
+// hex, so callers can still append alpha suffixes.
+const priorityCfg = (T) => ({
+  urgent: { color:T.red, label:'Urgent' },
+  high:   { color:T.amber, label:'High' },
+  normal: { color:T.blue, label:'Normal' },
+})
+const statusCfg = (T) => ({
+  open:          { bg:T.amber+'22', color:T.amber, label:'Open' },
+  'in-progress': { bg:T.blue+'22', color:T.blue, label:'In progress' },
+  complete:      { bg:T.green+'22', color:T.green, label:'Complete' },
+})
 
 export default function TenantInbox({ user, companies, showToast, companySettings = {} }) {
   const { T } = useTheme()
@@ -266,6 +268,8 @@ export default function TenantInbox({ user, companies, showToast, companySetting
 // ── JOB CARD ─────────────────────────────────────────────────────────────────
 function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread, replyText, setReplyText, replying, onReply, bottomRef, T }) {
   const isExpanded = expanded?.id === job.id && expanded?.itemType === 'job'
+  const STATUS_CFG = statusCfg(T)
+  const PRIORITY_CFG = priorityCfg(T)
   const sc = STATUS_CFG[job.status] || STATUS_CFG.open
   const pc = PRIORITY_CFG[job.priority] || PRIORITY_CFG.normal
   const photos = Array.isArray(job.photos) ? job.photos : []
