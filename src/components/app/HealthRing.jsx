@@ -14,7 +14,7 @@ export const HealthRing = memo(({ score }) => {
   return (
     <div style={{display:'flex',alignItems:'center',gap:14}}>
       <div style={{position:'relative',width:74,height:74,flexShrink:0}}>
-        <svg width="74" height="74" viewBox="0 0 74 74" style={{transform:'rotate(-90deg)'}}>
+        <svg aria-hidden="true" width="74" height="74" viewBox="0 0 74 74" style={{transform:'rotate(-90deg)'}}>
           <circle cx="37" cy="37" r={r} fill="none" stroke={T.border} strokeWidth="6"/>
           <circle cx="37" cy="37" r={r} fill="none" stroke={band.color} strokeWidth="6"
             strokeLinecap="round" strokeDasharray={`${dash} ${c}`}/>
