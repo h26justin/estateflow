@@ -314,7 +314,7 @@ export function PropertyDetailView({
                       cursor:'pointer',display:'flex',alignItems:'center',gap:6,
                     }}>
                     Tenant Referencing
-                    <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.goldText}}>EARLY</span>
+                    <span style={{fontSize:FS.xs,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.goldText}}>EARLY</span>
                   </button>
                 </div>
                 {subTab==='details'      &&<><TenancyPanel property={selected} showToast={showToast} canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive} onChanged={t=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,tenancies:t}:p))}/><TenancyTab key={selected.id} propertyId={selected.id} showToast={showToast} fmt={fmt} isAdmin={isAdmin} user={user} category="tenancy" canEdit={canDo(permissionsMap, selected.company_id, 'edit_tenancies') || devModeActive} canViewPersonal={canDo(permissionsMap, selected.company_id, 'view_tenant_personal') || devModeActive}/></>}

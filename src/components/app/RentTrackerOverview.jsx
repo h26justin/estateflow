@@ -152,7 +152,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
             style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${T.blue}`,background:T.blue+'22',color:T.blue,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6}}>
             <Icon name="landmark" size={13}/> {isMobile ? 'Bank' : 'Connect bank'}
-            <span style={{fontSize:8,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>SOON</span>
+            <span style={{fontSize:FS.xs,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.blue+'33',color:T.blue}}>SOON</span>
           </button>
           {/* Bank Inbox hidden while Open Banking integration is paused —
               we don't yet have an approved AISP partner (GoCardless paused

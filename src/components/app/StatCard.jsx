@@ -113,7 +113,7 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
             <thead>
               <tr>
                 {table.columns.map((c,i)=>(
-                  <th key={'h'+i} style={{fontFamily:MONO,fontSize:8,fontWeight:400,color:T.faint,textTransform:'uppercase',letterSpacing:'0.06em',textAlign:i?'right':'left',padding:`0 0 4px ${i?6:0}px`,whiteSpace:'nowrap'}}>{c}</th>
+                  <th key={'h'+i} style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:400,color:T.faint,textTransform:'uppercase',letterSpacing:'0.06em',textAlign:i?'right':'left',padding:`0 0 4px ${i?6:0}px`,whiteSpace:'nowrap'}}>{c}</th>
                 ))}
               </tr>
             </thead>

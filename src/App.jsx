@@ -1656,7 +1656,7 @@ export default function App({ initialLoginMode = null } = {}) {
           {companies.map(c=>(
             <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`}
               style={{border:`1px solid ${activeCoTab===c.id?c.color:T.border}`,color:activeCoTab===c.id?c.color:T.muted,background:activeCoTab===c.id?c.color+'11':'transparent'}}
-              onClick={()=>setActiveCoTab(c.id)}>{c.name}{isHoldingCompany(c)&&<span style={{fontFamily:mono,fontSize:8,fontWeight:700,marginLeft:6,opacity:0.8,letterSpacing:'0.05em'}}>HOLDING</span>}</button>
+              onClick={()=>setActiveCoTab(c.id)}>{c.name}{isHoldingCompany(c)&&<span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,marginLeft:6,opacity:0.8,letterSpacing:'0.05em'}}>HOLDING</span>}</button>
           ))}
         </div>
         {companies.filter(c=>c.id===activeCoTab).map(c=>{
@@ -1742,7 +1742,7 @@ export default function App({ initialLoginMode = null } = {}) {
                         {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
                         {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
                             <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                            <div style={{fontFamily:MONO,fontSize:8,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
                           </div>}
                         {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
                         <Badge status={p.status}/>

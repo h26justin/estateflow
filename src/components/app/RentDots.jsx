@@ -170,7 +170,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
                 border:isFuture?`1px dashed ${T.border}`:`1px solid ${pair.text}44`,
                 display:'flex',alignItems:'center',justifyContent:'center',
               }}>
-                <span style={{fontFamily:mono,fontSize:8,color:isFuture?T.muted:pair.text,fontWeight:700}}>{d}</span>
+                <span style={{fontFamily:mono,fontSize:FS.xs,color:isFuture?T.muted:pair.text,fontWeight:700}}>{d}</span>
               </div>
             )
           })}

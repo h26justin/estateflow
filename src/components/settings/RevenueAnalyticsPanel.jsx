@@ -89,7 +89,7 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:16,marginBottom:20}}>
         <div style={{fontFamily:mono,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Monthly cohort performance</div>
         <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontFamily:mono,fontSize:11}}>
+          <table className="table-stack" style={{width:'100%',borderCollapse:'collapse',fontFamily:mono,fontSize:11}}>
             <thead>
               <tr style={{borderBottom:`1px solid ${T.border}`}}>
                 <th style={{textAlign:'left',padding:'6px 8px',color:T.muted,fontWeight:700}}>Cohort</th>
@@ -101,10 +101,10 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
             <tbody>
               {stats.cohorts.map((c,i) => (
                 <tr key={i} style={{borderBottom:`1px solid ${T.border}`}}>
-                  <td style={{padding:'8px',color:T.text}}>{c.month}</td>
-                  <td style={{padding:'8px',textAlign:'right',color:T.text}}>{c.signups}</td>
-                  <td style={{padding:'8px',textAlign:'right',color:T.green}}>{c.active}</td>
-                  <td style={{padding:'8px',textAlign:'right',fontWeight:700,color:c.retention>=50?T.green:c.retention>=25?T.amber:T.red}}>
+                  <td data-label="Cohort" style={{padding:'8px',color:T.text}}>{c.month}</td>
+                  <td data-label="Signups" style={{padding:'8px',textAlign:'right',color:T.text}}>{c.signups}</td>
+                  <td data-label="Activated" style={{padding:'8px',textAlign:'right',color:T.green}}>{c.active}</td>
+                  <td data-label="Retention %" style={{padding:'8px',textAlign:'right',fontWeight:700,color:c.retention>=50?T.green:c.retention>=25?T.amber:T.red}}>
                     {c.signups === 0 ? '—' : c.retention.toFixed(0)+'%'}
                   </td>
                 </tr>

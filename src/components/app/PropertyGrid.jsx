@@ -56,11 +56,11 @@ export function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldB
             {/* Footer: rent / yield / compliance */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,paddingTop:10,borderTop:`1px solid ${T.border}`}}>
               <div>
-                <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Rent</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Rent</div>
                 <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.text}}>{fmt(p.rent_pcm)}<span style={{fontSize:FS.xs,color:T.muted,fontWeight:400}}>/mo</span></div>
               </div>
               <div>
-                <div style={{fontFamily:MONO,fontSize:8,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
                 <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{gy.toFixed(1)}%</div>
               </div>
               {compliancePill(cfg)}
