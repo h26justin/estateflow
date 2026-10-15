@@ -40,9 +40,11 @@
 //     free tier or in trial). A suspended or lapsed company's data is not
 //     served. Soft-deleted rows are excluded.
 //   - Minting needs aal2 when the user has 2FA (a long-lived token must
-//     not be a way round the second factor). Tokens are revoked when the
-//     password changes or the user is banned (trigger on auth.users,
-//     2026-10-15_api_tokens_revoke_on_password_change.sql).
+//     not be a way round the second factor). The app revokes every token
+//     when the password is changed or reset and on "sign out all devices"
+//     (revokeAllApiTokens in src/lib/api/apiAccess.js; a trigger on
+//     auth.users isn't possible, Supabase owns that table). A token whose
+//     user is deleted or banned is refused here on every request.
 //   - Service role is used the same way the other edge
 //     functions use it; RLS remains untouched.
 //   - No writes of any kind to portfolio data. The only writes here are the
@@ -250,6 +252,12 @@ serve(async (req) => {
     : new Date(tok.created_at).getTime() + MAX_TOKEN_DAYS * DAY_MS
   if (!Number.isFinite(expiryMs) || expiryMs <= Date.now()) return json({ error: 'Token expired' }, 401)
   if (!(tok.scopes || []).includes('read')) return json({ error: 'Token lacks read scope' }, 403)
+
+  // The owner must still be an active account: a banned or deleted user's
+  // tokens stop working immediately.
+  const { data: owner } = await admin.auth.admin.getUserById(tok.user_id)
+  const bannedUntil = owner?.user?.banned_until ? new Date(owner.user.banned_until).getTime() : 0
+  if (!owner?.user || bannedUntil > Date.now()) return json({ error: 'Invalid or revoked token' }, 401)
 
   // Fire-and-forget usage stamp.
   admin.from('api_access_tokens').update({ last_used_at: new Date().toISOString() }).eq('id', tok.id)

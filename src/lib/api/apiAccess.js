@@ -49,3 +49,16 @@ export function createApiToken({ name, expiresInDays } = {}) {
 export function revokeApiToken(id) {
   return call(`/tokens/${id}`, { method: 'DELETE' })
 }
+
+// Revoke every API token the signed-in user holds. Called when the account's
+// credentials change (password change or reset) and on "sign out all
+// devices": a token minted from a stolen session must not outlive the owner
+// recovering the account. Done here rather than by a trigger on auth.users,
+// which Supabase owns (supabase_auth_admin) and won't let us attach one to.
+// RLS (api_access_tokens_delete) limits the delete to the caller's own rows.
+export async function revokeAllApiTokens() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const { error } = await supabase.from('api_access_tokens').delete().eq('user_id', user.id)
+  if (error) throw error
+}

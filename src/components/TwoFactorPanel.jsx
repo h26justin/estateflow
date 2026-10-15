@@ -28,6 +28,7 @@ import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { getStoredDevice, clearStoredDevice } from '../lib/trustedDevice'
 import { Skeleton } from '../lib/Skeleton'
+import { revokeAllApiTokens } from '../lib/api/apiAccess'
 import { Button } from './ui'
 
 export default function TwoFactorPanel({ T }) {
@@ -97,7 +98,7 @@ export default function TwoFactorPanel({ T }) {
   async function revokeAllDevices() {
     if (!await confirmDialog({
       title: 'Sign out all remembered devices?',
-      body: 'Every device will need a 6-digit code at the next sign-in, including this one.',
+      body: 'Every device will need a 6-digit code at the next sign-in, including this one. Any API tokens you have created are revoked too.',
       confirmLabel: 'Remove all', destructive: true,
     })) return
     setDeviceBusy('revoke-all')
@@ -105,6 +106,8 @@ export default function TwoFactorPanel({ T }) {
       const { error } = await supabase.rpc('revoke_all_trusted_devices')
       if (error) throw error
       clearStoredDevice()
+      // Signing out everywhere also cuts off API tokens (non-fatal).
+      try { await revokeAllApiTokens() } catch (e) { console.error('revokeAllApiTokens', e) }
       showAppToast('All remembered devices removed.')
       await loadDevices()
     } catch (e) {

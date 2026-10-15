@@ -1,5 +1,7 @@
 // Account: user profile, auth, onboarding, referrals and dashboard prefs.
 import { supabase } from '../supabase'
+import { revokeAllApiTokens } from './apiAccess'
+import { logError } from '../logError'
 
 // ── USER PROFILE ──────────────────────────────────────────────────────────────
 export async function fetchUserProfile(userId) {
@@ -26,6 +28,8 @@ export async function updateUserPassword(currentPassword, newPassword, email) {
   if (signInErr) throw new Error('Current password is incorrect')
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw error
+  // New password: any API token minted under the old one stops working.
+  try { await revokeAllApiTokens() } catch (e) { logError('updateUserPassword:revokeApiTokens', e) }
 }
 
 export async function sendPasswordReset(email) {

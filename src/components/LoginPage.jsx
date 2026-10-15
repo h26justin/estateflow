@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import * as api from '../lib/api'
 import { looksLikeCompanyInviteCode } from '../lib/inviteUtils'
 import { logError } from '../lib/logError'
+import { revokeAllApiTokens } from '../lib/api/apiAccess'
 import { MONO, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import { setStoredDevice, clearStoredDevice, deviceLabel } from '../lib/trustedDevice'
@@ -490,6 +491,8 @@ export function SetNewPasswordScreen({ onDone }) {
     // a trust token must re-verify. Non-fatal if it fails (the rows still
     // expire on their own); always drop the local token on this browser.
     try { await supabase.rpc('revoke_all_trusted_devices') } catch (e) { logError('setNewPassword:revokeTrusted', e) }
+    // Same for API tokens: a reset is how an owner recovers a stolen account.
+    try { await revokeAllApiTokens() } catch (e) { logError('setNewPassword:revokeApiTokens', e) }
     clearStoredDevice()
     setBusy(false)
     onDone?.()
