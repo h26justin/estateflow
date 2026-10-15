@@ -821,17 +821,6 @@ const EPC_UPGRADE_NOTE = 'Works and costs are the indicative ranges published on
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   switch(id) {
-    case 'rent_outstanding': {
-      // Every period since go-live with tenant, receipts and the full
-      // override history (the PDF carries the unpaid lines only).
-      const d = rentOutstandingData(filtProps)
-      return [
-        ...RENT_OUT_KPIS.map(([k, l]) => [l, d.totals[k]]),
-        [''],
-        RENT_OUT_HEADERS,
-        ...d.rows.map(r => rentOutstandingCells(r)),
-      ]
-    }
     case 'company_pnl': {
       const { companies = [], selectedCompany = 'all', user } = extras || {}
       const months = monthsInRange(range.start, range.end)
@@ -1226,6 +1215,17 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
   const stripCurrency = (s) => typeof s === 'string' ? s.replace(/[£,]/g, '').trim() : s
 
   switch(id) {
+    case 'rent_outstanding': {
+      // Every period since go-live with tenant, receipts and the full
+      // override history (the PDF carries the unpaid lines only).
+      const d = rentOutstandingData(filtProps)
+      return [
+        ...RENT_OUT_KPIS.map(([k, l]) => [l, d.totals[k]]),
+        [''],
+        RENT_OUT_HEADERS,
+        ...d.rows.map(r => rentOutstandingCells(r)),
+      ]
+    }
     case 'company_pnl':
     case 'epc_upgrade': {
       // Emit each section (per-company summary / portfolio totals, P&L
