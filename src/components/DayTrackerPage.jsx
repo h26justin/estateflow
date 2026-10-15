@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
+import { Button } from './ui'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
 import { plural } from '../lib/format'
@@ -629,11 +630,9 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
 
             {/* Actions: never rendered without edit_rent on this row's company */}
             {popoverEditable && <div style={{ display:'flex', gap:6 }}>
-              <button onClick={saveSegment} disabled={savingPayment}
-                style={{ flex:1, fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 0', borderRadius:6,
-                  border:'none', background:T.gold, color:'#1A2530', cursor: savingPayment?'not-allowed':'pointer', opacity: savingPayment?0.6:1 }}>
+              <Button size="sm" onClick={saveSegment} disabled={savingPayment} style={{ flex:1 }}>
                 {savingPayment ? 'Saving…' : 'Save'}
-              </button>
+              </Button>
               {editPopover.segmentId && (
                 <button onClick={deleteSegment} disabled={savingPayment} title="Remove this period"
                   style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 10px', borderRadius:6,
