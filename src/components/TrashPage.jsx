@@ -5,6 +5,7 @@ import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = MONO
 
@@ -120,7 +121,7 @@ export default function TrashPage({ user, onRestored }) {
   ]
 
   if (loading) {
-    return <div style={{textAlign:'center',padding:60,fontFamily:mono,fontSize:12,color:T.muted}}>Loading trash...</div>
+    return <SkeletonRows rows={5}/>
   }
 
   return (

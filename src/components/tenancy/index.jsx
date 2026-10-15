@@ -10,6 +10,7 @@ import MoneyInput from '../../lib/MoneyInput'
 import { Icon } from '../../lib/icons'
 import NoticeGenerator from '../NoticeGenerator'
 import { GROUNDS, groundLabel, earliestRentIncreaseDate, currentTenancyStart } from '../../lib/possessionRules'
+import { SkeletonList } from '../../lib/Skeleton'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
 export function RightToRentTab({ propertyId, userId, showToast, T }) {
@@ -117,7 +118,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>Loading…</div>
+      {loading ? <SkeletonList count={2} height={64}/>
       : records.length === 0 ? (
         <div style={{ background:T.bg, borderRadius:10, padding:'20px', textAlign:'center', fontFamily:mono, fontSize:12, color:T.muted }}>
           No right to rent checks recorded for this property.
@@ -237,7 +238,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+      {loading ? <SkeletonList count={2} height={64}/>
       : records.length === 0 ? (
         <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No deposit protection records for this property.</div>
       ) : records.map(r => (
@@ -398,7 +399,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+      {loading ? <SkeletonList count={2} height={64}/>
       : notices.length === 0 ? <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No notices logged.</div>
       : notices.map(n => {
         const st = STATUSES.find(s => s.key === n.status) || STATUSES[0]
@@ -534,7 +535,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
         </form>
       )}
 
-      {loading ? <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+      {loading ? <SkeletonList count={2} height={64}/>
       : history.length === 0 ? <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No rent history recorded.</div>
       : (
         <div style={{ position: 'relative' }}>

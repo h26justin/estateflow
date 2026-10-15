@@ -12,6 +12,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { evaluateProperty, collectionStats, arrearsSummary } from '../lib/rentEngine'
 import { planProgress, activePlan, PLAN_STATUS_LABEL, PLAN_FREQUENCIES } from '../lib/paymentPlans'
 import { currentTenancy } from '../lib/tenancyUtils'
+import { SkeletonList } from '../lib/Skeleton'
 
 const money = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -136,7 +137,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
           </div>
         </div>
       )}
-      {plans === null && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>Loading…</div>}
+      {plans === null && <SkeletonList count={2} height={56}/>}
       <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>Receipts allocated to "Historic arrears" reduce the balance and count towards the plan. Current rent is judged on its own.</div>
     </div>
   )

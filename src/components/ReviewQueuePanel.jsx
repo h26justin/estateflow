@@ -7,6 +7,7 @@ import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
 import { rowKey } from '../lib/rowKey'
+import { SkeletonList } from '../lib/Skeleton'
 
 const money = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -63,7 +64,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
           </div>
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', fontSize: 20, color: T.muted, cursor: 'pointer' }}>×</button>
         </div>
-        {items === null && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>Loading…</div>}
+        {items === null && <SkeletonList count={2} height={56}/>}
         {items && items.length === 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: T.green, padding: '12px 0' }}>Nothing waiting for review.</div>}
         {items && items.map(r => {
           const p = propFor(r)

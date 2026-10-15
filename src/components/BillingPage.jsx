@@ -6,6 +6,7 @@ import * as api from '../lib/api'
 import { fmt, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
+import { SkeletonList } from '../lib/Skeleton'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
@@ -79,7 +80,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
     return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>Loading billing…</div>
+  if (loading) return <div style={{ padding: 40 }}><SkeletonList count={2} height={120}/></div>
 
   // A failed load must never masquerade as "no subscription / free trial".
   if (loadError) return (

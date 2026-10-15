@@ -27,6 +27,7 @@ import { supabase } from '../lib/supabase'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { getStoredDevice, clearStoredDevice } from '../lib/trustedDevice'
+import { Skeleton } from '../lib/Skeleton'
 
 export default function TwoFactorPanel({ T }) {
   const mono = MONO
@@ -201,7 +202,7 @@ export default function TwoFactorPanel({ T }) {
     return (
       <div style={sectionStyle}>
         <div style={headerStyle}>Two-Factor Authentication</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+        <div aria-busy="true" aria-label="Loading"><Skeleton w="60%" h={12} style={{ marginBottom: 8 }}/><Skeleton w="40%" h={12}/></div>
       </div>
     )
   }

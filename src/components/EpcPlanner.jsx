@@ -5,6 +5,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment, fetchEpcCertificate, syncEpcFromRegister, syncAllEpcFromRegister } from '../lib/api/epc'
+import { Skeleton } from '../lib/Skeleton'
 
 const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -183,7 +184,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
 
   if (loading) {
-    return <div style={{ ...card, fontFamily: mono, fontSize: 12, color: T.muted }}>Loading EPC plan…</div>
+    return <div style={card} aria-busy="true" aria-label="Loading EPC plan"><Skeleton w="35%" h={14} style={{ marginBottom: 12 }}/><Skeleton w="70%" h={10} style={{ marginBottom: 8 }}/><Skeleton w="55%" h={10}/></div>
   }
 
   return (

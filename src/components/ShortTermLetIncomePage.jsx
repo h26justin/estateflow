@@ -23,6 +23,7 @@ import {
   roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, payoutCorrections, snapshotRooms, snapshotCorrections,
 } from '../lib/stlIncome'
 import { downloadCsv } from '../lib/csv'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const fmtMoney = n => {
   const v = Number(n) || 0
@@ -486,7 +487,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
           {loadError && <div style={{ ...card(T), borderColor: T.red, color: T.red, fontFamily: MONO, fontSize: 12, marginBottom: 14 }}>{loadError}</div>}
 
           {bookings === null ? (
-            <div style={{ ...card(T), textAlign: 'center', fontFamily: MONO, fontSize: 12, color: T.muted, padding: 40 }}>Loading bookings…</div>
+            <SkeletonRows rows={4}/>
           ) : (
             <>
               {/* Summary tiles */}

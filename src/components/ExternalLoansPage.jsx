@@ -22,6 +22,7 @@ import {
   summariseLoans, upcomingPayments, validateLoan, firstPaymentDate, todayISO,
 } from '../lib/externalLoans'
 import { pressable } from '../lib/pressable'
+import { Skeleton, SkeletonList } from '../lib/Skeleton'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -485,7 +486,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
 
   if ((mode === 'view' || mode === 'edit') && selectedId && !selected) {
     return <div className="fade">{pageHead}<div style={{ ...card(T), textAlign: 'center', color: T.muted, fontFamily: mono, fontSize: 12 }}>
-      {loading ? 'Loading…' : <>That loan was not found. <button style={btn(T)} onClick={() => { setSelectedId(null); setMode('list') }}>All loans</button></>}
+      {loading ? <Skeleton w="40%" h={14} style={{ margin: '0 auto' }}/> : <>That loan was not found. <button style={btn(T)} onClick={() => { setSelectedId(null); setMode('list') }}>All loans</button></>}
     </div></div>
   }
 
@@ -524,7 +525,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
         sub={summary.overdueCount ? `${summary.overdueCount} payment${summary.overdueCount === 1 ? '' : 's'} not ticked` : null} />
     </div>
 
-    {loading ? <div style={{ ...card(T), textAlign: 'center', color: T.muted, fontFamily: mono, fontSize: 12 }}>Loading…</div>
+    {loading ? <SkeletonList count={3}/>
     : loans.length === 0 ? <div style={{ ...card(T), textAlign: 'center', padding: '40px 20px' }}>
       <Icon name="wallet" size={28} color={T.faint} />
       <div style={{ fontFamily: mono, fontSize: 13, color: T.text, marginTop: 10, fontWeight: 600 }}>No external loans yet</div>

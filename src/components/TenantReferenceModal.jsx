@@ -6,6 +6,7 @@ import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
+import { SkeletonList } from '../lib/Skeleton'
 
 // Tenant referencing modal.
 //
@@ -209,7 +210,7 @@ export default function TenantReferenceModal({ property, onClose }) {
             Reference requests
           </div>
           {loading ? (
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+            <SkeletonList count={2} height={60}/>
           ) : history.length === 0 ? (
             <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>
               No reference requests yet.

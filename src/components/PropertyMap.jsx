@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
 import { FLAT_PREFIX_RE, groupKeyForAddress } from '../lib/addressUtils'
+import { Skeleton } from '../lib/Skeleton'
 
 /**
  * PropertyMap — a Mapbox-powered map of all visible properties.
@@ -457,8 +458,8 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 
         {/* Loading overlay until lib + first pins are ready */}
         {!libReady && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, fontFamily: mono, fontSize: 11, color: T.muted }}>
-            Loading map…
+          <div aria-busy="true" aria-label="Loading map" style={{ position: 'absolute', inset: 0, background: T.bg }}>
+            <Skeleton w="100%" h="100%" r={0}/>
           </div>
         )}
 
