@@ -103,7 +103,11 @@ serve(async (req) => {
         products: ['transactions'],
         country_codes: ['GB'],
         language: 'en',
-        webhook: `${SUPABASE_URL}/functions/v1/bank-plaid-webhook`,
+        // No `webhook`: transactions are pulled by the 'sync' action, and no
+        // Plaid webhook receiver exists (bank-plaid-webhook was never built or
+        // deployed). Registering a dead URL only made Plaid post item events
+        // into a 404. Add a webhook here only alongside a real, verified
+        // receiver (Plaid webhook JWT verification).
         redirect_uri: BANK_REDIRECT_BASE,
       })
       return jsonResp(200, { link_token: result.link_token, expiration: result.expiration })
