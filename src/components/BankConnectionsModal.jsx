@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { openPlaidLink } from '../lib/plaidLink'
@@ -151,7 +151,7 @@ export default function BankConnectionsModal({ onClose }) {
             </p>
           </div>
           <span style={{
-            fontFamily: mono, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+            fontFamily: mono, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
             padding: '4px 9px', borderRadius: 12,
             background: T.amber + '22', color: T.amber, border: `1px solid ${T.amber}44`,
             flexShrink: 0,
@@ -181,7 +181,7 @@ export default function BankConnectionsModal({ onClose }) {
               </div>
 
               <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
                   Which bank do you use? (Optional)
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -196,7 +196,7 @@ export default function BankConnectionsModal({ onClose }) {
                     {busy ? 'Saving…' : 'Register interest'}
                   </button>
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6 }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 6 }}>
                   We'll never charge extra for Open Banking — it's included in your plan.
                 </div>
               </div>
@@ -229,7 +229,7 @@ export default function BankConnectionsModal({ onClose }) {
                   picks their bank, signs in, consents, and comes back to
                   ?bank_callback=1&code=…&state=… which App.jsx finalises. */}
               <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '16px 18px', marginBottom: 16 }}>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                   Add a connection
                 </div>
                 <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12, lineHeight: 1.65 }}>
@@ -241,7 +241,7 @@ export default function BankConnectionsModal({ onClose }) {
                   className="btn btn-gold" style={{ fontSize: 13, padding: '10px 22px', width: '100%' }}>
                   {connecting ? 'Redirecting…' : 'Connect a bank account →'}
                 </button>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10, textAlign: 'center' }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 10, textAlign: 'center' }}>
                   Supported: Barclays · HSBC · Lloyds · NatWest · Santander · Monzo · Starling · Revolut · and 30+ more
                 </div>
               </div>
@@ -249,7 +249,7 @@ export default function BankConnectionsModal({ onClose }) {
             </>
           )}
 
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
             Your connections
           </div>
           {loading ? (
@@ -267,13 +267,13 @@ export default function BankConnectionsModal({ onClose }) {
                       {r.institution_name || 'Bank not specified'}
                     </div>
                     <span style={{
-                      fontFamily: mono, fontSize: 10, fontWeight: 700,
+                      fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
                       padding: '2px 8px', borderRadius: 10,
                       background: (STATUS_COLOR[r.status] || T.muted) + '22',
                       color: STATUS_COLOR[r.status] || T.muted,
                     }}>{STATUS_LABEL[r.status] || r.status}</span>
                     {r.last_synced_at && (
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 4 }}>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
                         Last synced {new Date(r.last_synced_at).toLocaleString('en-GB')}
                       </div>
                     )}

@@ -3,7 +3,7 @@ import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { Icon } from '../lib/icons'
-import { MONO, SANS, statusColors } from '../lib/styles'
+import { MONO, SANS, statusColors, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 const TenantRentCollectionConsent = lazy(() => import('./RentCollectionPanel').then(m => ({ default: m.TenantRentCollectionConsent })))
 
@@ -230,7 +230,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
                   </>)
               }
               <div style={{width:1,height:20,background:'#ffffff22'}}/>
-              <span style={{fontFamily:mono,fontSize:10,color:'#7A8899',letterSpacing:'0.1em',textTransform:'uppercase'}}>Tenant Portal</span>
+              <span style={{fontFamily:mono,fontSize:FS.xs,color:'#7A8899',letterSpacing:'0.1em',textTransform:'uppercase'}}>Tenant Portal</span>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <span style={{fontFamily:mono,fontSize:11,color:'#7A8899',display:'none'}}>{user.email}</span>
@@ -259,7 +259,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
             {property?.address||property?.name||'Your property'}
           </div>
           {tenancies.length > 1 && (
-            <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:mono,fontSize:10,color:'#8A9BAB'}}>
+            <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:mono,fontSize:FS.xs,color:'#8A9BAB'}}>
               <span style={{textTransform:'uppercase',letterSpacing:'0.08em'}}>Property</span>
               <select value={property?.id||''} onChange={e=>switchProperty(e.target.value)}
                 style={{fontFamily:mono,fontSize:11,background:'#2D3C4A',color:'#E7E4DC',border:'1px solid #ffffff22',borderRadius:6,padding:'5px 8px',maxWidth:260}}>
@@ -297,11 +297,11 @@ function Card({ children, style={} }) {
   return <div style={{background:'white',borderRadius:14,padding:'20px 22px',...style}}>{children}</div>
 }
 function SectionLabel({ children }) {
-  return <div style={{fontFamily:mono,fontSize:9,color:TENANT_MUTED,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:12}}>{children}</div>
+  return <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,textTransform:'uppercase',letterSpacing:'0.12em',marginBottom:12}}>{children}</div>
 }
 function StatusPill({ status, cfg }) {
   const sc = cfg[status] || { bg:'#eee', color:TENANT_MUTED, label: status }
-  return <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 10px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
+  return <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 10px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
 }
 
 // ── HOME TAB ──────────────────────────────────────────────────────────────────
@@ -394,7 +394,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
               <span style={{fontFamily:mono,fontSize:12,color:'#2D3C4A',fontWeight:700}}>{v}</span>
             </div>
           ))}
-          <div style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,marginTop:10,lineHeight:1.6}}>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,marginTop:10,lineHeight:1.6}}>
             Please always use your reference when making payment so we can allocate it correctly.
           </div>
         </Card>
@@ -491,18 +491,18 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
             const sc = statusConfig[m.status]||statusConfig.unknown
             return (
               <div key={i} style={{textAlign:'center'}}>
-                <div style={{fontFamily:mono,fontSize:10,color:TENANT_FAINT,marginBottom:6}}>{m.label}</div>
+                <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,marginBottom:6}}>{m.label}</div>
                 <div style={{width:'100%',aspectRatio:'1',borderRadius:8,background:sc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:16,color:sc.color,fontWeight:700,border:`1px solid ${sc.color}33`}}>
                   {sc.label}
                 </div>
-                {!m.isFuture&&m.status!=='unknown'&&<div style={{fontFamily:mono,fontSize:9,color:TENANT_FAINT,marginTop:4}}>{fmt(m.amount)}</div>}
+                {!m.isFuture&&m.status!=='unknown'&&<div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,marginTop:4}}>{fmt(m.amount)}</div>}
               </div>
             )
           })}
         </div>
         <div style={{display:'flex',gap:16,marginTop:16,flexWrap:'wrap'}}>
           {['paid','overdue','pending','unknown'].map(k=>(
-            <div key={k} style={{display:'flex',alignItems:'center',gap:6,fontFamily:mono,fontSize:10,color:TENANT_MUTED}}>
+            <div key={k} style={{display:'flex',alignItems:'center',gap:6,fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED}}>
               <div style={{width:18,height:18,borderRadius:4,background:statusConfig[k]?.bg,display:'flex',alignItems:'center',justifyContent:'center',color:statusConfig[k]?.color,fontWeight:700,fontSize:11}}>{statusConfig[k]?.label}</div>
               {k.charAt(0).toUpperCase()+k.slice(1)}
             </div>
@@ -528,7 +528,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
               </div>
             ))}
           </div>
-          <div style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,marginTop:10,padding:'10px 12px',background:'#f8f8f8',borderRadius:8}}>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,marginTop:10,padding:'10px 12px',background:'#f8f8f8',borderRadius:8}}>
             Always use your reference exactly as shown so we can match your payment.
           </div>
         </Card>
@@ -544,7 +544,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
         : <div style={{overflowX:'auto'}}>
            <div style={{minWidth:460}}>
             <div style={{display:'grid',gridTemplateColumns:'110px minmax(120px,1fr) 110px 90px',gap:8,padding:'8px 0',borderBottom:'1px solid #f0f0f0'}}>
-              {['Date','Period','Amount','Status'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:TENANT_FAINT,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+              {['Date','Period','Amount','Status'].map(h=><div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
             {payments.map(p=>{
               const sc = STATUS_COLORS[p.status]||STATUS_COLORS.pending
@@ -553,7 +553,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
                   <div style={{fontFamily:mono,fontSize:11,color:'#888'}}>{p.period_start?new Date(p.period_start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}</div>
                   <div style={{fontFamily:mono,fontSize:11,color:'#2D3C4A'}}>{p.month_label||(p.year&&p.month?`${MONTHS[Number(p.month)-1]} ${p.year}`:'—')}</div>
                   <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:'#2D3C4A'}}>{fmt(p.amount||property?.rent_pcm)}</div>
-                  <div><span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span></div>
+                  <div><span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 9px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span></div>
                 </div>
               )
             })}
@@ -663,20 +663,20 @@ function TenantMaintenance({ property, user, brandColor }) {
 
       {showForm && (
         <Card style={{marginBottom:20,border:`1px solid ${brandColor}44`}}>
-          <div style={{fontFamily:mono,fontSize:10,color:brandColor,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Report a repair</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:brandColor,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Report a repair</div>
 
           <div style={{marginBottom:12}}>
-            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:6}}>What needs fixing? *</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:6}}>What needs fixing? *</label>
             <input aria-label="What needs fixing?" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Boiler not working, Leak under sink" style={inp}/>
           </div>
 
           <div style={{marginBottom:12}}>
-            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:6}}>Details (optional)</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:6}}>Details (optional)</label>
             <textarea aria-label="Details (optional)" value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe the issue, when it started, how bad it is…" style={{...inp,resize:'vertical'}}/>
           </div>
 
           <div style={{marginBottom:14}}>
-            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:8}}>How urgent is this?</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:8}}>How urgent is this?</label>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
               {/* AA text hues (info/warn/bad) — the old raw hues failed 4.5:1 at 11px */}
               {[['normal','Normal',S('info').text],['high','High priority',S('warn').text],['urgent','Urgent — safety risk',S('bad').text]].map(([k,l,c])=>(
@@ -691,7 +691,7 @@ function TenantMaintenance({ property, user, brandColor }) {
 
           {/* Photo upload */}
           <div style={{marginBottom:16}}>
-            <label style={{fontFamily:mono,fontSize:10,color:TENANT_MUTED,display:'block',marginBottom:8}}>Add photos (optional, up to 5)</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:8}}>Add photos (optional, up to 5)</label>
             <label style={{display:'inline-block',cursor:'pointer'}}>
               <span style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:'1px solid #e0e0e0',background:'#f8f8f8',color:'#666'}}>
                 {uploading?'Uploading…':'Add photos'}
@@ -709,7 +709,7 @@ function TenantMaintenance({ property, user, brandColor }) {
                     <button onClick={()=>setPhotos(prev=>prev.filter((_,j)=>j!==i))}
                       aria-label={`Remove photo ${p.name||i+1}`}
                       style={{position:'absolute',top:-19,right:-19,width:44,height:44,padding:0,background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      <span aria-hidden="true" style={{width:18,height:18,borderRadius:9,background:S('bad').text,color:'white',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</span>
+                      <span aria-hidden="true" style={{width:18,height:18,borderRadius:9,background:S('bad').text,color:'white',fontSize:FS.xs,display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>✕</span>
                     </button>
                   </div>
                 ))}
@@ -758,7 +758,7 @@ function TenantMaintenance({ property, user, brandColor }) {
                     ))}
                   </div>
                 )}
-                <div style={{display:'flex',gap:16,fontFamily:mono,fontSize:10,color:TENANT_FAINT,flexWrap:'wrap'}}>
+                <div style={{display:'flex',gap:16,fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,flexWrap:'wrap'}}>
                   <span>Reported {new Date(job.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
                   {job.priority&&job.priority!=='normal'&&<span style={{color:job.priority==='urgent'?S('bad').text:S('warn').text}}>⚑ {job.priority}</span>}
                 </div>
@@ -809,7 +809,7 @@ function TenantDocuments({ property, user, brandColor }) {
               <span style={{fontSize:24,flexShrink:0}}>{getIcon(doc.name)}</span>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:600,color:'#2D3C4A',marginBottom:3}}>{doc.name}</div>
-                <div style={{fontFamily:mono,fontSize:10,color:TENANT_FAINT}}>
+                <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT}}>
                   {doc.size?`${(doc.size/1024).toFixed(0)}KB · `:''}Added {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                 </div>
               </div>
@@ -872,7 +872,7 @@ function TenantMessages({ property, user, contactInfo, brandColor }) {
             return (
               <div key={m.id} style={{display:'flex',justifyContent:isMe?'flex-end':'flex-start',marginBottom:14}}>
                 <div style={{maxWidth:'72%'}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:TENANT_FAINT,marginBottom:4,textAlign:isMe?'right':'left'}}>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,marginBottom:4,textAlign:isMe?'right':'left'}}>
                     {isMe?'You':'Landlord'} · {new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(m.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
                   </div>
                   <div style={{background:isMe?brandColor+'22':'#f4f4f4',borderRadius:isMe?'14px 14px 4px 14px':'14px 14px 14px 4px',padding:'10px 14px',fontFamily:mono,fontSize:12,color:'#2D3C4A',lineHeight:1.7}}>

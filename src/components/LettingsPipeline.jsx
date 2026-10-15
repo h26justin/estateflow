@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
@@ -181,7 +181,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   const totalVacantDays = lettings.filter(l => l.stage === 'vacant').reduce((s, l) => s + (daysSince(l.created_at) || 0), 0)
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 7, padding: '8px 10px', outline: 'none', width: '100%', boxSizing: 'border-box' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }
 
   return (
     <div>
@@ -194,7 +194,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
           { label: 'Rent pending', value: fmt(lettings.filter(l => l.stage !== 'vacant').reduce((s, l) => s + (l.agreed_rent || 0), 0)), color: T.goldText },
         ].map(s => (
           <div key={s.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px' }}>
-            <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5 }}>{s.label}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5 }}>{s.label}</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
           </div>
         ))}
@@ -239,7 +239,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <option key={p.id} value={p.id}>{p.name || p.address}</option>
                 ))}
               </select>
-              {triedSave && !newForm.property_id && <span id="lp-new-property-err" style={{ fontFamily: mono, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
+              {triedSave && !newForm.property_id && <span id="lp-new-property-err" style={{ fontFamily: mono, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
             </div>
             <div>
               <label style={lbl} htmlFor="lp-new-rent">Expected rent</label>
@@ -311,7 +311,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         {coName}{coName && ' · '}{letting.agreed_rent ? fmt(letting.agreed_rent) + '/mo' : 'Rent TBC'}
                       </div>
                     </div>
-                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color, flexShrink: 0, marginLeft: 10 }}>
+                    <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color, flexShrink: 0, marginLeft: 10 }}>
                       <StageTag stage={stage}/>
                     </span>
                   </div>
@@ -322,11 +322,11 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7 }}>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                       {progress}% checklist · {letting.stage === 'vacant' && days !== null ? `${days} days vacant` : letting.applicant_name ? `Applicant: ${letting.applicant_name}` : 'No applicant yet'}
                     </div>
                     {letting.stage === 'vacant' && days > 14 && (
-                      <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily: mono, fontSize: 10, color: '#E05555' }}><Icon name="alert-triangle" size={11}/> {days} days</span>
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily: mono, fontSize: FS.xs, color: '#E05555' }}><Icon name="alert-triangle" size={11}/> {days} days</span>
                     )}
                   </div>
                 </div>
@@ -351,7 +351,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 3 }}>{propName}</div>
-                      <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color }}>
+                      <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color }}>
                         <StageTag stage={stage}/>
                       </span>
                     </div>
@@ -433,7 +433,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   {/* Checklist tab */}
                   {detailTab === 'checklist' && (
                     <div>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 12 }}>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 12 }}>
                         Stage: {stage.label} · {checkItems.filter(i => checklist[i.key]).length}/{checkItems.length} complete
                       </div>
                       {/* Progress */}
@@ -446,7 +446,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                           <div style={{
                             width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: `2px solid ${checklist[item.key] ? stage.color : T.border}`,
                             background: checklist[item.key] ? stage.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 10, color: '#fff', transition: 'all 0.15s',
+                            fontSize: FS.xs, color: '#fff', transition: 'all 0.15s',
                           }}>
                             {checklist[item.key] ? '✓' : ''}
                           </div>
@@ -472,7 +472,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
 
                 {/* Actions */}
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 14 }}>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Actions</div>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Actions</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {nextStage && (
                       <button onClick={() => moveStage(selected.id, nextStageKey)}

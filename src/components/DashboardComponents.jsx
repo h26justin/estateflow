@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
@@ -144,9 +144,9 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
             <span style={{flexShrink:0,display:'flex',color:alert.color}}>{ICON_NAMES.includes(alert.icon)?<Icon name={alert.icon} size={17}/>:<span style={{fontSize:16}}>{alert.icon}</span>}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{alert.title}</div>
-              <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{alert.detail}</div>
+              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{alert.detail}</div>
             </div>
-            <span style={{fontFamily:MONO,fontSize:9,fontWeight:700,color:badgeColor(alert.badge),background:badgeColor(alert.badge)+'22',padding:'2px 6px',borderRadius:20,flexShrink:0}}>{alert.badge}</span>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:badgeColor(alert.badge),background:badgeColor(alert.badge)+'22',padding:'2px 6px',borderRadius:20,flexShrink:0}}>{alert.badge}</span>
           </div>
         ))}
         {alerts.length===0&&(
@@ -551,9 +551,9 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           {l:'Average Gross Yield',  v:avgYield.toFixed(2)+'%', c:T.blue, sub:'By estimated value'},
         ].map((item,i)=>(
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
-            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
             <div style={{fontFamily:MONO,fontSize:20,fontWeight:700,color:item.c,marginBottom:2}}>{item.v}</div>
-            <div style={{fontFamily:MONO,fontSize:10,color:T.faint}}>{item.sub}</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint}}>{item.sub}</div>
           </div>
         ))}
       </div>
@@ -561,13 +561,13 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:20}}>
         {/* Per property P&L table */}
         <div className="card" style={{padding:'18px 20px'}}>
-          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Property P&L — {selectedYear}</div>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Property P&L — {selectedYear}</div>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontFamily:MONO,fontSize:11}}>
               <thead>
                 <tr style={{borderBottom:`1px solid ${T.border}`}}>
                   {['Property','Rent','Expenses','Net','Yield'].map(h=>(
-                    <th key={h} style={{padding:'6px 8px',textAlign:h==='Property'?'left':'right',color:T.muted,fontWeight:400,fontSize:10}}>{h}</th>
+                    <th key={h} style={{padding:'6px 8px',textAlign:h==='Property'?'left':'right',color:T.muted,fontWeight:400,fontSize:FS.xs}}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -588,7 +588,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
 
         {/* Expense breakdown */}
         <div className="card" style={{padding:'18px 20px'}}>
-          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Expenses by Category</div>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Expenses by Category</div>
           {Object.keys(expByCategory).length===0
             ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>No expenses recorded for {selectedYear}</div>
             : Object.entries(expByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>(
@@ -612,7 +612,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
 
       {/* Yield chart - simple bar chart per company */}
       <div className="card" style={{padding:'18px 20px',marginBottom:20}}>
-        <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Income vs Expenses by Company</div>
+        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Income vs Expenses by Company</div>
         <div style={{display:'grid',gap:12}}>
           {companies.filter(c=>selectedCompany==='all'||c.id===selectedCompany).map(c=>{
             const cProps = properties.filter(p=>p.company_id===c.id)
@@ -628,18 +628,18 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
                 </div>
                 <div style={{display:'grid',gap:4}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontFamily:MONO,fontSize:9,color:T.muted,width:50,flexShrink:0}}>INCOME</span>
+                    <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,width:62,flexShrink:0}}>INCOME</span>
                     <div style={{flex:1,height:12,background:T.bg,borderRadius:3}}>
                       <div style={{height:12,background:T.green,borderRadius:3,width:`${(cRent/maxVal)*100}%`,transition:'width 0.5s'}}/>
                     </div>
-                    <span style={{fontFamily:MONO,fontSize:10,color:T.green,width:70,textAlign:'right'}}>{fmt(cRent)}</span>
+                    <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.green,width:70,textAlign:'right'}}>{fmt(cRent)}</span>
                   </div>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontFamily:MONO,fontSize:9,color:T.muted,width:50,flexShrink:0}}>EXPENSES</span>
+                    <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,width:62,flexShrink:0}}>EXPENSES</span>
                     <div style={{flex:1,height:12,background:T.bg,borderRadius:3}}>
                       <div style={{height:12,background:T.red,borderRadius:3,width:`${(cExp/maxVal)*100}%`,opacity:0.7,transition:'width 0.5s'}}/>
                     </div>
-                    <span style={{fontFamily:MONO,fontSize:10,color:T.red,width:70,textAlign:'right'}}>{cExp>0?fmt(cExp):'—'}</span>
+                    <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,width:70,textAlign:'right'}}>{cExp>0?fmt(cExp):'—'}</span>
                   </div>
                 </div>
               </div>
@@ -767,7 +767,7 @@ export function ContractorsPage({companies, showToast}) {
           ? <div style={{fontFamily:MONO,fontSize:12,color:T.faint,textAlign:'center',padding:40,background:T.card,borderRadius:12}}>No contractors added yet. Add your plumber, electrician and other regular trades here.</div>
           : Object.entries(byTrade).sort().map(([trade,list])=>(
             <div key={trade} style={{marginBottom:20}}>
-              <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{trade}</div>
+              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{trade}</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
                 {list.map(c=>(
                   <div key={c.id} className="card" style={{padding:'14px 16px',borderLeft:c.preferred?`3px solid ${T.gold}`:`3px solid ${T.border}`}}>
@@ -776,20 +776,20 @@ export function ContractorsPage({companies, showToast}) {
                         <div style={{fontSize:13,fontWeight:700,marginBottom:1}}>
                           {c.preferred&&<span style={{marginRight:4}}>⭐</span>}{c.name}
                         </div>
-                        <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>{c.trade}</div>
+                        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{c.trade}</div>
                       </div>
-                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:MONO,fontSize:10,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
+                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
                     </div>
                     {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:MONO,fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}>📞 {c.phone}</a>}
                     {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}>✉ {c.email}</a>}
-                    {c.notes&&<div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
+                    {c.notes&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
                     {(()=>{
                       const ids = c.company_ids_json ? JSON.parse(c.company_ids_json) : (c.company_id ? [c.company_id] : [])
                       return ids.length>0&&(
                         <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:6}}>
                           {ids.map(id=>{
                             const co = companies.find(x=>x.id===id)
-                            return co ? <span key={id} style={{fontFamily:MONO,fontSize:9,color:co.color,background:co.color+'22',padding:'2px 6px',borderRadius:4,border:`1px solid ${co.color}44`}}>{co.abbr}</span> : null
+                            return co ? <span key={id} style={{fontFamily:MONO,fontSize:FS.xs,color:co.color,background:co.color+'22',padding:'2px 6px',borderRadius:4,border:`1px solid ${co.color}44`}}>{co.abbr}</span> : null
                           })}
                         </div>
                       )
@@ -821,7 +821,7 @@ export function PortfolioChart({properties, companies}) {
 
   return (
     <div className="card" style={{padding:'18px 20px',marginBottom:20}}>
-      <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Portfolio at a Glance</div>
+      <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Portfolio at a Glance</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
         {[
           {l:'Total Properties', v:properties.length, c:T.gold},
@@ -829,7 +829,7 @@ export function PortfolioChart({properties, companies}) {
           {l:'Est. Portfolio Value', v:`£${(properties.reduce((s,p)=>s+propValue(p),0)/1000000).toFixed(1)}m`, c:T.gold},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px',textAlign:'center'}}>
-            <div style={{fontFamily:MONO,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.l}</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.l}</div>
             <div style={{fontFamily:MONO,fontSize:24,fontWeight:700,color:item.c}}>{item.v}</div>
           </div>
         ))}
@@ -993,27 +993,27 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
         <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:12, padding:'18px 22px', marginBottom:20 }}>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:16 }}>
             <div>
-              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Current monthly</div>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Current monthly</div>
               <div style={{ fontSize:20, fontWeight:700, color:T.text }}>{fmt(totals.current)}</div>
             </div>
             <div>
-              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>New monthly</div>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>New monthly</div>
               <div style={{ fontSize:20, fontWeight:700, color:T.goldText }}>{fmt(totals.next)}</div>
             </div>
             <div>
-              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Monthly Δ</div>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Monthly Δ</div>
               <div style={{ fontSize:20, fontWeight:700, color: monthlyDelta >= 0 ? T.green : T.red }}>
                 {monthlyDelta >= 0 ? '+' : ''}{fmt(monthlyDelta)}
               </div>
             </div>
             <div>
-              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Annual Δ</div>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Annual Δ</div>
               <div style={{ fontSize:20, fontWeight:700, color: annualDelta >= 0 ? T.green : T.red }}>
                 {annualDelta >= 0 ? '+' : ''}{fmt(annualDelta)}
               </div>
             </div>
             <div>
-              <div style={{ fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Yield {yieldBasis === 'value' ? '(on value)' : '(on cost)'}</div>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>Yield {yieldBasis === 'value' ? '(on value)' : '(on cost)'}</div>
               <div style={{ fontSize:14, fontWeight:700, color:T.text }}>
                 {currentYield.toFixed(2)}% <span style={{ color:T.muted }}>→</span> <span style={{ color:T.goldText }}>{newYield.toFixed(2)}%</span>
               </div>
@@ -1024,7 +1024,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
         {/* Slider + presets */}
         <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'18px 22px', marginBottom:16 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:8 }}>
-            <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Global rent change</div>
+            <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Global rent change</div>
             <div style={{ fontFamily:mono, fontSize:22, fontWeight:700, color: globalPct === 0 ? T.muted : globalPct > 0 ? T.green : T.red }}>
               {globalPct > 0 ? '+' : ''}{globalPct.toFixed(1)}%
             </div>
@@ -1032,7 +1032,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           <input type="range" min={-10} max={10} step={0.1} value={globalPct}
             onChange={e => setGlobalPct(parseFloat(e.target.value))}
             style={{ width:'100%', accentColor:T.gold, marginBottom:12 }}/>
-          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:mono, fontSize:9, color:T.muted, marginBottom:14 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:14 }}>
             <span>−10%</span><span>0%</span><span>+10%</span>
           </div>
           <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
@@ -1058,7 +1058,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
         {/* Scope filter */}
         <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16, alignItems:'center' }}>
-          <span style={{ fontFamily:mono, fontSize:10, color:T.muted, marginRight:4 }}>SCOPE:</span>
+          <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginRight:4 }}>SCOPE:</span>
           {[{ k:'all', l:'All' }, { k:'rented', l:'Rented only' }, ...companies.map(c => ({ k:c.id, l:c.abbr || c.name }))].map(opt => (
             <button key={opt.k} onClick={() => setScope(opt.k)}
               style={{ fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer',
@@ -1085,7 +1085,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
         ) : (
           <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, overflow:'hidden' }}>
             <div style={{ display:'grid', gridTemplateColumns: showOverrides ? '1fr 70px 90px 90px 90px 110px 180px' : '1fr 70px 90px 90px 90px 140px',
-              gap:10, padding:'12px 18px', background:T.bg, fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>
+              gap:10, padding:'12px 18px', background:T.bg, fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>
               <div>Property</div>
               <div>Co.</div>
               <div style={{ textAlign:'right' }}>Current</div>
@@ -1100,11 +1100,11 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                 <div style={{ fontFamily:mono, fontSize:12, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   {r.p.name}
                   {overrides[r.p.id] !== undefined && (
-                    <span style={{ marginLeft:8, fontSize:9, color:T.goldText, fontWeight:700 }}>·OVERRIDE</span>
+                    <span style={{ marginLeft:8, fontSize:FS.xs, color:T.goldText, fontWeight:700 }}>·OVERRIDE</span>
                   )}
                 </div>
                 <div>
-                  <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, color:r.co?.color || T.muted, background:(r.co?.color || T.border) + '22', padding:'2px 7px', borderRadius:4 }}>
+                  <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, color:r.co?.color || T.muted, background:(r.co?.color || T.border) + '22', padding:'2px 7px', borderRadius:4 }}>
                     {r.co?.abbr || '—'}
                   </span>
                 </div>
@@ -1114,7 +1114,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                   {r.delta >= 0 ? '+' : ''}{fmt(r.delta)}
                 </div>
                 <div style={{ textAlign:'right' }}>
-                  <span style={{ fontFamily:mono, fontSize:10, color:r.badge.color, background:r.badge.color + '22', padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
+                  <span style={{ fontFamily:mono, fontSize:FS.xs, color:r.badge.color, background:r.badge.color + '22', padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
                     {r.badge.label}
                   </span>
                 </div>
@@ -1124,12 +1124,12 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                       value={overrides[r.p.id] !== undefined ? overrides[r.p.id] : globalPct}
                       onChange={e => setOverride(r.p.id, parseFloat(e.target.value))}
                       style={{ flex:1, accentColor:T.gold }}/>
-                    <span style={{ fontFamily:mono, fontSize:10, color: r.pct === 0 ? T.muted : r.pct > 0 ? T.green : T.red, width:40, textAlign:'right', fontWeight:700 }}>
+                    <span style={{ fontFamily:mono, fontSize:FS.xs, color: r.pct === 0 ? T.muted : r.pct > 0 ? T.green : T.red, width:46, textAlign:'right', fontWeight:700 }}>
                       {r.pct > 0 ? '+' : ''}{r.pct.toFixed(1)}%
                     </span>
                     {overrides[r.p.id] !== undefined && (
                       <button onClick={() => clearOverride(r.p.id)}
-                        style={{ fontFamily:mono, fontSize:10, padding:'2px 6px', cursor:'pointer', border:'none', background:'transparent', color:T.muted }}
+                        style={{ fontFamily:mono, fontSize:FS.xs, padding:'2px 6px', cursor:'pointer', border:'none', background:'transparent', color:T.muted }}
                         title="Reset to global" aria-label="Reset to global">✕</button>
                     )}
                   </div>
@@ -1139,7 +1139,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           </div>
         )}
 
-        <div style={{ fontFamily:mono, fontSize:10, color:T.faint, marginTop:16, lineHeight:1.6 }}>
+        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.faint, marginTop:16, lineHeight:1.6 }}>
           Yield calculated {yieldBasis === 'value' ? 'on current property value' : 'on purchase + refurb cost'}.
           Tenancy badges based on tenancy end dates: 🟢 expired or vacant · 🟡 ends within 90 days · 🔴 fixed term &gt; 90 days remaining.
           This tool is for scenario modelling — actual rent increases must follow legal notice requirements (Section 13 etc.).

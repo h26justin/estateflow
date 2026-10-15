@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -112,7 +112,7 @@ export default function BackupsPage({ user, showToast }) {
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px',marginBottom:16}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:16}}>
           <div style={{flex:1,minWidth:220}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Latest backup</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Latest backup</div>
             {latestBackup ? (
               <>
                 <div style={{fontSize:18,fontWeight:700,color:T.green,marginBottom:4}}>{relativeTime(latestBackup.created_at)}</div>
@@ -161,7 +161,7 @@ export default function BackupsPage({ user, showToast }) {
           <div style={{minWidth:640}}>
           <div style={{display:'grid',gridTemplateColumns:'1.4fr 100px 90px 1fr 180px',gap:14,padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
             {['Created','Type','Size','Contents','Actions'].map(h=>(
-              <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
+              <div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
             ))}
           </div>
           {backups.map((b, i) => {
@@ -179,12 +179,12 @@ export default function BackupsPage({ user, showToast }) {
                 <div>
                   <div style={{fontSize:13,color:T.text,fontWeight:600,marginBottom:2}}>
                     {formatDate(b.created_at)}
-                    {isLatest && <span style={{fontFamily:mono,fontSize:9,color:T.green,background:T.green+'22',padding:'2px 7px',borderRadius:4,marginLeft:8,fontWeight:700}}>LATEST</span>}
+                    {isLatest && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.green,background:T.green+'22',padding:'2px 7px',borderRadius:4,marginLeft:8,fontWeight:700}}>LATEST</span>}
                   </div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{relativeTime(b.created_at)}</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{relativeTime(b.created_at)}</div>
                 </div>
                 <div>
-                  <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:4,
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 8px',borderRadius:4,
                     background: b.type==='automatic' ? T.blue+'22' : b.type==='manual' ? T.gold+'22' : T.muted+'22',
                     color:     b.type==='automatic' ? T.blue      : b.type==='manual' ? T.goldText      : T.muted}}>
                     {b.type === 'automatic' ? 'Auto' : b.type === 'manual' ? 'Manual' : b.type}
@@ -196,11 +196,11 @@ export default function BackupsPage({ user, showToast }) {
                 </div>
                 <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
                   <button onClick={()=>download(b)} disabled={downloading===b.id}
-                    style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'5px 12px',borderRadius:6,cursor:downloading===b.id?'wait':'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText}}>
+                    style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'5px 12px',borderRadius:6,cursor:downloading===b.id?'wait':'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText}}>
                     {downloading===b.id?'…':'↓ Download'}
                   </button>
                   <button onClick={()=>remove(b)} disabled={deleting===b.id}
-                    style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:deleting===b.id?'wait':'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
+                    style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:deleting===b.id?'wait':'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
                     ✕
                   </button>
                 </div>
@@ -220,7 +220,7 @@ export default function BackupsPage({ user, showToast }) {
 
       {/* Restore help */}
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px',marginTop:20}}>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Need to restore data?</div>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Need to restore data?</div>
         <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.7,marginBottom:12}}>
           If you've lost data or need to roll back to a previous state, download the backup you want to restore from and email it to us with details of what you need restored.
         </div>

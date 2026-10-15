@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 
@@ -84,20 +84,20 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
           <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span aria-hidden="true">✨</span> Portfolio Insights
             <span style={{
-              fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+              fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
               padding: '2px 7px', borderRadius: 10,
               background: T.gold + '22', color: T.goldText, border: `1px solid ${T.gold}44`,
             }}>AI</span>
             {companyName && (
               <span style={{
-                fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                fontFamily: MONO, fontSize: FS.xs, fontWeight: 600, letterSpacing: '0.05em',
                 padding: '2px 8px', borderRadius: 10,
                 background: T.muted + '22', color: T.muted,
               }}>· {companyName}</span>
             )}
           </h2>
           {row?.generated_at && (
-            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
               Generated {timeAgo(row.generated_at)} · refreshes available every 30 min
             </div>
           )}
@@ -142,7 +142,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                   <span style={{ display:'inline-flex' }} aria-hidden="true">{ICON_NAMES.includes(CATEGORY_ICON[it.category])?<Icon name={CATEGORY_ICON[it.category]} size={14}/>:(CATEGORY_ICON[it.category]||'•')}</span>
                   <span style={{
-                    fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+                    fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
                     textTransform: 'uppercase', color: palette.fg,
                   }}>{it.severity}</span>
                 </div>
@@ -157,7 +157,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                     style={{
                       alignSelf: 'flex-start', marginTop: 4,
                       background: 'transparent', border: `1px solid ${palette.fg}66`,
-                      color: palette.fg, fontFamily: MONO, fontSize: 10, fontWeight: 600,
+                      color: palette.fg, fontFamily: MONO, fontSize: FS.xs, fontWeight: 600,
                       padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
                     }}>
                     {it.action_label} →

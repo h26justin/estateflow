@@ -21,7 +21,7 @@
 // account owner signing in and paying. They get the trial-expired gate
 // on their own session, which is the right place for the action.
 
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { ChromeLogo } from './Logo'
 
 export default function SuspendedAccessBanner({ suspended = [], user, T, onSignOut }) {
@@ -74,7 +74,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
               background: T.card, border: `1px solid ${T.border}`,
               borderRadius: 12, padding: '18px 20px',
             }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
                 Account owner
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 4, wordBreak: 'break-word' }}>
@@ -94,7 +94,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
 
               <div style={{ borderTop: `1px solid ${T.border}`, margin: '14px 0' }}/>
 
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
                 Paused {cos.length === 1 ? 'company' : 'companies'}
               </div>
               <div style={{ display: 'grid', gap: 8 }}>
@@ -106,7 +106,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
                   }}>
                     {co.abbr && (
                       <span style={{
-                        fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                        fontFamily: MONO, fontSize: FS.xs, fontWeight: 700,
                         padding: '2px 8px', borderRadius: 4,
                         background: (co.color || T.gold) + '22',
                         color: co.color || T.goldText,
@@ -134,7 +134,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.6 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
             Signed in as <strong style={{ color: T.text }}>{user?.email}</strong>
             <br/>
             Questions? Email <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText }}>hello@ownproperly.com</a>

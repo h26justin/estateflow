@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -87,7 +87,7 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
               )
             })}
           </div>
-          <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 10, color: T.muted }}>
+          <div style={{ marginTop: 10, fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
             AI-drafted suggestions — review before acting. Nothing is sent automatically.
           </div>
         </>
@@ -242,7 +242,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
 
       {showCoFilter && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Company:</span>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Company:</span>
           {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => {
             const n = c.id === 'all' ? actions.length : actions.filter(a => a.company_id === c.id).length
             return (
@@ -265,7 +265,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
           work through the whole list, then move to the next type. */}
       {kindsPresent.length > 1 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Task:</span>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Task:</span>
           {['all', ...kindsPresent].map(k => {
             const n = k === 'all' ? companyFiltered.length : companyFiltered.filter(a => a.kind === k).length
             const label = k === 'all' ? 'All' : (KIND_META[k]?.label || k)
@@ -314,7 +314,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                       <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={18}/>:meta.icon}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{a.title}</div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                           <span>{meta.label}</span>
                           {a.property?.name && <span>· {a.property.name}</span>}
                           {due && <span>· due {due}</span>}
@@ -406,7 +406,7 @@ function DraftModal({ action, onClose }) {
           <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
             {action.draft_body}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 16 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 16 }}>
             AI-generated draft. Review and edit before sending — Properly does not send this for you.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import Modal from '../../lib/Modal'
 import { COPY_OPTIONS, DEFAULT_COPY_OPTIONS, isCopyOptionActive } from '../../lib/dealCopy'
@@ -15,9 +15,9 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
   const setAll = (value) => setOpts(COPY_OPTIONS.reduce((acc, o) => { acc[o.key] = value; return acc }, {}))
 
   const label = { fontFamily: MONO, fontSize: 12, color: T.text, fontWeight: 600 }
-  const hint = { fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2, lineHeight: 1.5 }
+  const hint = { fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2, lineHeight: 1.5 }
   const quick = {
-    fontFamily: MONO, fontSize: 10, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+    fontFamily: MONO, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
     border: `1px solid ${T.border}`, background: 'transparent', color: T.muted,
   }
 
@@ -62,7 +62,7 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
           })}
         </div>
 
-        <p style={{ fontFamily: MONO, fontSize: 10, color: T.faint, lineHeight: 1.6, marginBottom: 18 }}>
+        <p style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, lineHeight: 1.6, marginBottom: 18 }}>
           The copy always keeps the deal type, purchase type and company, and starts back at
           Analysing. {opts.tracker ? '' : 'With tracker steps unticked it gets a fresh tracker from your milestone defaults.'}
         </p>

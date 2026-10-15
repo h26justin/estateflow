@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { naturalCompare } from '../lib/addressUtils'
@@ -175,7 +175,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>Let by the room (HMO)</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
             {isHmo
               ? 'Rooms are let individually — manage each room and the HMO licence below.'
               : 'This property is let as a whole, not room by room.'}
@@ -221,7 +221,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       {/* ── Arrears / lapsed-tenancy flags ── */}
       {roll.arrears.length > 0 && (
         <div style={{ background: T.red + '11', border: `1px solid ${T.red}44`, borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.red, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.red, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
             ⚠ {roll.arrears.length} room{roll.arrears.length === 1 ? '' : 's'} need attention
           </div>
           {roll.arrears.map(a => (
@@ -236,7 +236,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           Rooms
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, fontWeight: 400 }}>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, fontWeight: 400 }}>
             {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'}
           </span>
         </h3>
@@ -247,7 +247,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
 
       {addingRoom && (
         <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
             {editingRoomId ? 'Edit room' : 'New room'}
           </div>
           <form onSubmit={e => { e.preventDefault(); saveRoom() }}>
@@ -258,7 +258,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
                 style={triedRoomSave && !roomForm.room_name.trim() ? { borderColor: T.red } : undefined}
                 aria-invalid={triedRoomSave && !roomForm.room_name.trim() ? 'true' : undefined}
                 aria-describedby={triedRoomSave && !roomForm.room_name.trim() ? 'room-name-err' : undefined} />
-              {triedRoomSave && !roomForm.room_name.trim() && <span id="room-name-err" style={{ fontFamily: MONO, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
+              {triedRoomSave && !roomForm.room_name.trim() && <span id="room-name-err" style={{ fontFamily: MONO, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
             </div>
             <div>
               <label htmlFor="room-rent">Rent (PCM)</label>
@@ -317,7 +317,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 12px', flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           HMO Licence
-          <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, fontWeight: 400 }}>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, fontWeight: 400 }}>
             {licences.length} {licences.length === 1 ? 'record' : 'records'}
           </span>
         </h3>
@@ -328,7 +328,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
 
       {addingLic && (
         <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
             {editingLicId ? 'Edit licence' : 'New licence'}
           </div>
           <form onSubmit={e => { e.preventDefault(); saveLic() }}>
@@ -399,7 +399,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
 function Stat({ T, label, value, color }) {
   return (
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: color || T.text }}>{value}</div>
     </div>
   )
@@ -415,10 +415,10 @@ function RoomRow({ room, T, canEdit, flagged, onEdit, onRemove }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             {room.room_name}
-            <span style={{ marginLeft: 8, color: statusColor, fontSize: 10, padding: '1px 6px', background: statusColor + '22', borderRadius: 8 }}>{roomLabel(room.status)}</span>
-            {flagged && <span style={{ marginLeft: 8, color: T.red, fontSize: 10 }}>· LAPSED</span>}
+            <span style={{ marginLeft: 8, color: statusColor, fontSize: FS.xs, padding: '1px 6px', background: statusColor + '22', borderRadius: 8 }}>{roomLabel(room.status)}</span>
+            {flagged && <span style={{ marginLeft: 8, color: T.red, fontSize: FS.xs }}>· LAPSED</span>}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
             {room.rent_pcm != null ? `${fmt(room.rent_pcm)}/mo` : 'No rent set'}
             {room.tenant_name && ` · ${room.tenant_name}`}
             {room.tenancy_start && ` · from ${dateGB(room.tenancy_start)}`}
@@ -430,8 +430,8 @@ function RoomRow({ room, T, canEdit, flagged, onEdit, onRemove }) {
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => onEdit(room)} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
-            <button onClick={() => onRemove(room)} aria-label={`Remove ${room.room_name}`} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
+            <button onClick={() => onEdit(room)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
+            <button onClick={() => onRemove(room)} aria-label={`Remove ${room.room_name}`} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}
       </div>
@@ -457,9 +457,9 @@ function LicenceCard({ licence, T, canEdit, onEdit, onRemove }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             {licTypeLabel(licence.licence_type)}
-            <span style={{ marginLeft: 8, color: accent, fontSize: 10, padding: '1px 6px', background: accent + '22', borderRadius: 8 }}>{licStatusLabel(licence.status)}</span>
+            <span style={{ marginLeft: 8, color: accent, fontSize: FS.xs, padding: '1px 6px', background: accent + '22', borderRadius: 8 }}>{licStatusLabel(licence.status)}</span>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
             {licence.authority || 'No authority'}
             {licence.licence_number && ` · #${licence.licence_number}`}
             {licence.issued_date && ` · issued ${dateGB(licence.issued_date)}`}
@@ -473,8 +473,8 @@ function LicenceCard({ licence, T, canEdit, onEdit, onRemove }) {
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => onEdit(licence)} style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
-            <button onClick={() => onRemove(licence)} aria-label="Remove licence" style={{ fontFamily: MONO, fontSize: 10, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
+            <button onClick={() => onEdit(licence)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
+            <button onClick={() => onRemove(licence)} aria-label="Remove licence" style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}
       </div>

@@ -10,6 +10,7 @@ import {
   triageEnquiry,
 } from '../lib/api/lettingsAssistant'
 import { pressable } from '../lib/pressable'
+import { FS } from '../lib/styles'
 
 const mono = "'DM Mono', monospace"
 
@@ -152,7 +153,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
     )
   }
 
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }
   const inp = { width: '100%', fontFamily: mono, fontSize: 12, padding: '8px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, color: T.text, boxSizing: 'border-box' }
 
   return (
@@ -160,7 +161,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>AI Lettings Assistant</div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>
             Capture enquiries, draft replies, pre-screen and score — all drafts, nothing auto-sent.
           </div>
         </div>
@@ -262,12 +263,12 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                       <div style={{ fontWeight: 700, fontSize: 13, color: T.text, marginBottom: 2 }}>
                         {e.applicant_name || 'Unnamed applicant'}
                       </div>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {propName}{e.applicant_email ? ` · ${e.applicant_email}` : ''}
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                      <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: statusColor(e.status, T) + '22', color: statusColor(e.status, T) }}>
+                      <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: statusColor(e.status, T) + '22', color: statusColor(e.status, T) }}>
                         {(STATUS_META[e.status] || { label: e.status }).label}
                       </span>
                       {e.ai_score != null && (
@@ -294,7 +295,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14, color: T.text }}>{selected.applicant_name || 'Unnamed applicant'}</div>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>{propName}</div>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{propName}</div>
                     </div>
                     <button onClick={() => setSelectedId(null)}
                       aria-label="Close" style={{ fontFamily: mono, fontSize: 18, background: 'none', border: 'none', color: T.muted, cursor: 'pointer', lineHeight: 1, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
@@ -318,7 +319,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                   {selected.ai_score != null && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                       <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 700, color: scoreColor(selected.ai_score) }}>{selected.ai_score}</div>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>lead score / 100{screening.confidence ? ` · ${screening.confidence} confidence` : ''}</div>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>lead score / 100{screening.confidence ? ` · ${screening.confidence} confidence` : ''}</div>
                     </div>
                   )}
 
@@ -332,9 +333,9 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                           <div key={key} style={{ padding: '7px 0', borderBottom: `1px solid ${T.border}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{label}</span>
-                              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: screenColor(row.status), textTransform: 'uppercase' }}>{row.status}</span>
+                              <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: screenColor(row.status), textTransform: 'uppercase' }}>{row.status}</span>
                             </div>
-                            {row.note && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>{row.note}</div>}
+                            {row.note && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>{row.note}</div>}
                           </div>
                         )
                       })}
@@ -354,7 +355,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                         <button className="btn btn-gold" style={{ flex: 1 }} onClick={() => copyDraft(selected.id)}>Copy reply</button>
                         <button className="btn btn-ghost" onClick={() => setStatus(selected.id, 'replied')}>Mark replied</button>
                       </div>
-                      <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
                         AI-generated draft. Review and edit before sending. Screening is a triage aid, not a right-to-rent or affordability decision.
                       </div>
                     </div>

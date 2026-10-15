@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
@@ -175,7 +175,7 @@ export default function AdminDashboard({ onClose, user }) {
   })
   const pill = (status) => {
     const cfg=STATUS_CFG[status]||{label:status,bg:T.border,color:T.muted}
-    return <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'3px 10px',borderRadius:20,background:cfg.bg,color:cfg.color}}>{cfg.label}</span>
+    return <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 10px',borderRadius:20,background:cfg.bg,color:cfg.color}}>{cfg.label}</span>
   }
 
   return (
@@ -188,7 +188,7 @@ export default function AdminDashboard({ onClose, user }) {
             <ChromeLogo height={26}/>
             <div style={{width:1,height:24,background:T.border}}/>
             <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
-            {metrics.flagged>0&&<span style={{fontFamily:mono,fontSize:10,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}>⚑ {metrics.flagged} flagged</span>}
+            {metrics.flagged>0&&<span style={{fontFamily:mono,fontSize:FS.xs,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}>⚑ {metrics.flagged} flagged</span>}
           </div>
           <button onClick={onClose} style={{fontFamily:mono,fontSize:12,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 16px',cursor:'pointer'}}>← Back to app</button>
         </div>
@@ -257,7 +257,7 @@ export default function AdminDashboard({ onClose, user }) {
                 Permanently deletes <strong style={{color:T.text}}>{deleteTarget.email}</strong> and all their data. Cannot be undone.
               </p>
             </div>
-            <label style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',display:'block',marginBottom:8}}>Enter your admin password</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',display:'block',marginBottom:8}}>Enter your admin password</label>
             <input aria-label="Enter your admin password" type="password" value={deletePassword} autoFocus
               onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
               onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
@@ -313,22 +313,22 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:28}}>
         {kpis.map((k,i)=>(
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
-            <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{k.label}</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{k.label}</div>
             <div style={{fontSize:24,fontWeight:700,color:k.color,letterSpacing:'-0.02em',marginBottom:3}}>{k.value}</div>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{k.sub}</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{k.sub}</div>
           </div>
         ))}
       </div>
 
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px'}}>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:20}}>New signups — last 12 months</div>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:20}}>New signups — last 12 months</div>
         <div style={{display:'flex',gap:8,alignItems:'flex-end',height:120}}>
           {monthlySignups.map((m,i)=>(
             <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-              <div style={{fontFamily:mono,fontSize:10,color:T.goldText,fontWeight:700}}>{m.count||''}</div>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.goldText,fontWeight:700}}>{m.count||''}</div>
               <div style={{width:'100%',background:T.gold+(m.count>0?'':'11'),borderRadius:'4px 4px 0 0',
                 height:`${Math.max((m.count/maxSignups)*90,m.count>0?4:0)}px`,transition:'height 0.3s'}}/>
-              <div style={{fontFamily:mono,fontSize:9,color:T.muted,textAlign:'center'}}>{m.label}</div>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textAlign:'center'}}>{m.label}</div>
             </div>
           ))}
         </div>
@@ -360,7 +360,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
         <div style={{minWidth:760}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 140px 90px 90px 80px 120px 80px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
           {['Company / Owner','Status','Platform props','Billed props','MRR','Free tier',''].map(h=>(
-            <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
+            <div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
           ))}
         </div>
         {filtered.length===0&&<div style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>No accounts match your filter</div>}
@@ -376,17 +376,17 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
               <div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
                   {co.flagged&&<span style={{fontSize:12,color:T.red}}>⚑</span>}
-                  <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
                 </div>
-                <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{co.owner_email||'—'}</div>
+                <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{co.owner_email||'—'}</div>
               </div>
               <div>{pill(status)}</div>
-              <div style={{fontFamily:mono,fontSize:12,color:T.text}}>{co.real_property_count||0} <span style={{fontFamily:mono,fontSize:9,color:T.muted}}>total</span></div>
-              <div style={{fontFamily:mono,fontSize:12,color:props>0?T.green:T.muted}}>{props>0?props:'—'} {props>0&&<span style={{fontFamily:mono,fontSize:9,color:T.muted}}>billed</span>}</div>
+              <div style={{fontFamily:mono,fontSize:12,color:T.text}}>{co.real_property_count||0} <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>total</span></div>
+              <div style={{fontFamily:mono,fontSize:12,color:props>0?T.green:T.muted}}>{props>0?props:'—'} {props>0&&<span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>billed</span>}</div>
               <div style={{fontFamily:mono,fontSize:12,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr):'—'}</div>
               <div style={{display:'flex',alignItems:'center',gap:6}} {...pressable(e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}, { role: 'switch', 'aria-checked': !!co.is_free_tier, 'aria-label': 'Free tier' })}>
-                <span style={{fontFamily:mono,fontSize:10,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
+                <span style={{fontFamily:mono,fontSize:FS.xs,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
                 <div style={{width:36,height:20,borderRadius:10,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',opacity:saving===co.id?0.5:1,transition:'background 0.2s'}}>
                   <div style={{position:'absolute',top:2,left:co.is_free_tier?18:2,width:16,height:16,borderRadius:8,background:'white',transition:'left 0.2s'}}/>
                 </div>
@@ -543,7 +543,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:20}}>
         <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Account overview</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Account overview</div>
           {[
             ['Owner email', co.owner_email||'—'],
             ['Platform properties', co.real_property_count||0],
@@ -563,7 +563,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
 
         <div style={{display:'grid',gap:14,alignContent:'start'}}>
           <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Quick actions</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Quick actions</div>
             <div style={{display:'grid',gap:10}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Rename company</span>
@@ -601,7 +601,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
           </div>
 
           <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Trial controls</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Trial controls</div>
             <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10}}>
               <select value={extendDays} onChange={e=>setExtendDays(Number(e.target.value))}
                 style={{fontFamily:mono,fontSize:12,background:T.surface,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'7px 10px',flex:1}}>
@@ -620,7 +620,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
                 cursor:endingTrial?'wait':'pointer',fontWeight:700,width:'100%'}}>
               {endingTrial?'Ending…':'End trial now — require payment'}
             </button>
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:6,lineHeight:1.5}}>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:6,lineHeight:1.5}}>
               Sets trial end to today and flips subscription to <em>past due</em>.
               Customer sees “Add payment method” next time they sign in.
             </div>
@@ -630,7 +630,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
       </div>
 
       <div style={{background:T.card,border:'1px solid '+T.border,borderRadius:14,padding:'20px 24px'}}>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Admin notes</div>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Admin notes</div>
         <div style={{display:'flex',gap:10,marginBottom:16}}>
           <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} rows={2} placeholder="Add a note about this account..."
             style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none'}}/>
@@ -644,9 +644,9 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
           <div key={n.id} style={{padding:'12px 0',borderBottom:'1px solid '+T.border,display:'flex',gap:12,alignItems:'flex-start'}}>
             <div style={{flex:1}}>
               <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6,marginBottom:4}}>{n.note}</div>
-              <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{new Date(n.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{new Date(n.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
             </div>
-            <button onClick={()=>deleteNote(n.id)} style={{fontFamily:mono,fontSize:10,color:T.muted,background:'none',border:'none',cursor:'pointer'}}>x</button>
+            <button onClick={()=>deleteNote(n.id)} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:'none',border:'none',cursor:'pointer'}}>x</button>
           </div>
         ))}
       </div>
@@ -656,12 +656,12 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
           <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:'1px solid '+T.border}}>
             <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,marginBottom:20,color:T.text}}>Rename company</h3>
             <div style={{marginBottom:12}}>
-              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
+              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
               <input aria-label="Company name" value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
                 style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{marginBottom:20}}>
-              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
+              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
               <input aria-label="Abbreviation" value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
                 style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
@@ -686,7 +686,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
             </div>
             <div style={{marginBottom:16}}>
-              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password to confirm</label>
+              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password to confirm</label>
               <input aria-label="Enter your admin password to confirm" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
@@ -891,10 +891,10 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   const statusPill = (co) => {
     const status = co.is_free_tier ? 'free' : (co.subscriptions?.[0]?.status || 'trialing')
     const cfg = { active:{bg:T.green+'22',c:T.green,l:'Active'}, trialing:{bg:T.amber+'22',c:T.amber,l:'Trial'}, free:{bg:T.gold+'22',c:T.gold,l:'Free'}, past_due:{bg:T.red+'22',c:T.red,l:'Past due'}, canceled:{bg:T.muted+'22',c:T.muted,l:'Cancelled'} }[status] || {bg:T.muted+'22',c:T.muted,l:status}
-    return <span style={{fontFamily:mono,fontSize:10,background:cfg.bg,color:cfg.c,padding:'2px 8px',borderRadius:10,fontWeight:700}}>{cfg.l}</span>
+    return <span style={{fontFamily:mono,fontSize:FS.xs,background:cfg.bg,color:cfg.c,padding:'2px 8px',borderRadius:10,fontWeight:700}}>{cfg.l}</span>
   }
 
-  const btnSm = (color, bg, border) => ({fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${border||T.border}`,background:bg||'transparent',color:color||T.muted,fontWeight:600})
+  const btnSm = (color, bg, border) => ({fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${border||T.border}`,background:bg||'transparent',color:color||T.muted,fontWeight:600})
 
   return (
     <div>
@@ -949,19 +949,19 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:coColor+'22',color:coColor,flexShrink:0}}>{co.abbr}</span>
                     <div style={{minWidth:0}}>
                       <div style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{co.name}</div>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                         {owner ? (userName(owner) ? `${userName(owner)} · ${owner.email}` : owner.email) : (co.owner_email || 'No owner')}
                       </div>
                     </div>
                   </div>
                   <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
                     <div style={{fontFamily:mono,fontSize:11,color:T.text,fontWeight:700}}>{props} {props===1?'prop':'props'}</div>
-                    <div style={{fontFamily:mono,fontSize:10,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr)+'/mo':'—'}</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr)+'/mo':'—'}</div>
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center'}}>
                     {statusPill(co)}
-                    {co.flagged && <span style={{fontFamily:mono,fontSize:10,color:T.red}}>⚑</span>}
-                    {shared.length>0 && <span style={{fontFamily:mono,fontSize:10,color:T.muted,background:T.bg,padding:'2px 8px',borderRadius:10}}>+{shared.length}</span>}
+                    {co.flagged && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.red}}>⚑</span>}
+                    {shared.length>0 && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:T.bg,padding:'2px 8px',borderRadius:10}}>+{shared.length}</span>}
                   </div>
                 </div>
 
@@ -971,7 +971,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     {/* OWNER */}
                     {owner && (
                       <div style={{marginBottom:14}}>
-                        <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Owner</div>
+                        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Owner</div>
                         <UserRow user={owner} role="Owner" co={co} T={T}
                           onManageAccess={()=>setAccessTarget(owner)}
                           onReset={()=>setResetConfirm(owner)}
@@ -988,7 +988,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     {/* SHARED USERS */}
                     {shared.length>0 && (
                       <div style={{marginBottom:14}}>
-                        <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Shared access ({shared.length})</div>
+                        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Shared access ({shared.length})</div>
                         {shared.map(u=>(
                           <UserRow key={u.id} user={u} role={u._role || 'editor'} co={co} T={T}
                             onManageAccess={()=>setAccessTarget(u)}
@@ -1004,7 +1004,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
 
                     {/* COMPANY ADMIN ACTIONS */}
                     <div style={{borderTop:`1px dashed ${T.border}`,paddingTop:14,marginTop:10}}>
-                      <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Company actions</div>
+                      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Company actions</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         <button onClick={()=>setAddUserTarget(co)} style={btnSm(T.blue, T.blue+'11', T.blue+'44')}>+ Add user access</button>
                         <button onClick={async ()=>{
@@ -1052,7 +1052,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     </div>
                     <div>
                       <div style={{fontSize:13,color:T.text,fontWeight:600}}>{userName(u) || u.email}</div>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>
+                      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2}}>
                         {userName(u) ? u.email : null}
                         {userName(u) && u.profile?.phone ? ' · ' : ''}
                         {u.profile?.phone ? u.profile.phone : null}
@@ -1082,7 +1082,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
             <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
             <div style={{minWidth:860}}>
             <div style={{display:'grid',gridTemplateColumns:'1.4fr 200px 100px 110px 280px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-              {['User','Companies','Signed up','Last active','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+              {['User','Companies','Signed up','Last active','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
             {filteredUsers.map(u=>{
               const { all: userCos } = getUserCompanies(u)
@@ -1101,10 +1101,10 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                         <span style={{fontSize:13,fontWeight:600,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                           {name || u.email}
                         </span>
-                        {isMe&&<span style={{fontFamily:mono,fontSize:9,color:T.goldText,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
-                        {orphan&&<span style={{fontFamily:mono,fontSize:9,color:T.amber,background:T.amber+'22',padding:'1px 6px',borderRadius:4}}>orphan</span>}
+                        {isMe&&<span style={{fontFamily:mono,fontSize:FS.xs,color:T.goldText,background:T.gold+'22',padding:'1px 6px',borderRadius:4}}>you</span>}
+                        {orphan&&<span style={{fontFamily:mono,fontSize:FS.xs,color:T.amber,background:T.amber+'22',padding:'1px 6px',borderRadius:4}}>orphan</span>}
                       </div>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                         {name ? u.email : null}
                         {name && phone ? ' · ' : ''}
                         {phone ? phone : null}
@@ -1112,9 +1112,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     </div>
                   </div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {userCos.length===0?<span style={{fontFamily:mono,fontSize:10,color:T.muted}}>None</span>
-                      :userCos.slice(0,4).map(co=><span key={co.id} style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>)}
-                    {userCos.length>4&&<span style={{fontFamily:mono,fontSize:10,color:T.muted}}>+{userCos.length-4}</span>}
+                    {userCos.length===0?<span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>None</span>
+                      :userCos.slice(0,4).map(co=><span key={co.id} style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>)}
+                    {userCos.length>4&&<span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>+{userCos.length-4}</span>}
                   </div>
                   <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
                     {u.created_at?new Date(u.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
@@ -1167,7 +1167,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
             </div>
             <div style={{marginBottom:16}}>
-              <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password</label>
+              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password</label>
               <input aria-label="Enter your admin password" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
                 onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
                 autoFocus placeholder="Your password"
@@ -1272,26 +1272,26 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
           <span style={{fontSize:13,color:T.text,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {name || user.email}
           </span>
-          <span style={{fontFamily:mono,fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:4,background:pillColor+'22',color:pillColor,textTransform:'capitalize'}}>
+          <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:pillColor+'22',color:pillColor,textTransform:'capitalize'}}>
             {ROLE_ICONS[roleLower] || '●'} {roleLower}
           </span>
         </div>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
           {name ? user.email : null}
           {name && phone ? ' · ' : ''}
           {phone ? phone : null}
         </div>
-        <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:2}}>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.faint,marginTop:2}}>
           signed up {user.created_at?new Date(user.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}
           {user.last_active_at ? ` · active ${fmtTimeAgo(user.last_active_at)}` : ''}
         </div>
       </div>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>
-        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText,fontWeight:700}}>Role</button>}
-        {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Access</button>}
-        {onReset && <button onClick={onReset} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset</button>}
-        {onRemove && <button onClick={onRemove} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.amber}44`,background:'transparent',color:T.amber}}>Remove</button>}
-        {onDelete && <button onClick={onDelete} style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Delete</button>}
+        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText,fontWeight:700}}>Role</button>}
+        {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Access</button>}
+        {onReset && <button onClick={onReset} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset</button>}
+        {onRemove && <button onClick={onRemove} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.amber}44`,background:'transparent',color:T.amber}}>Remove</button>}
+        {onDelete && <button onClick={onDelete} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Delete</button>}
       </div>
     </div>
   )
@@ -1325,24 +1325,24 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
         <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.goldText}}>{target.email}</strong></p>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
           <input aria-label="Company name" value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 100px',gap:10,marginBottom:12}}>
           <div>
-            <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
             <input aria-label="Abbreviation" value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
               style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           </div>
           <div>
-            <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Colour</label>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Colour</label>
             <input aria-label="Colour" type="color" value={color} onChange={e=>setColor(e.target.value)}
               style={{width:'100%',height:40,padding:0,border:`1px solid ${T.border}`,borderRadius:8,cursor:'pointer',background:'transparent'}}/>
           </div>
         </div>
         <div style={{marginBottom:16,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
@@ -1390,7 +1390,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
         </div>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Source company (will be deleted)</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Source company (will be deleted)</label>
           <select aria-label="Source company (will be deleted)" value={sourceId} onChange={e=>setSourceId(e.target.value)}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
@@ -1401,7 +1401,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
         <div style={{textAlign:'center',margin:'8px 0',fontFamily:mono,fontSize:18,color:T.muted}}>↓</div>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Target company (keeps everything)</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Target company (keeps everything)</label>
           <select aria-label="Target company (keeps everything)" value={targetId} onChange={e=>setTargetId(e.target.value)}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
@@ -1416,7 +1416,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
@@ -1461,7 +1461,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
         <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.goldText}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
           <input aria-label="Search new owner by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
@@ -1488,7 +1488,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
@@ -1546,7 +1546,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
         <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.goldText}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
           <input aria-label="Search user by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
@@ -1574,12 +1574,12 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
         {selectedUser && (
           <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span>Grant access to: <strong style={{color:T.goldText}}>{selectedUser.email}</strong></span>
-            <button onClick={()=>{setSelectedUser(null);setSearch('')}} style={{background:'none',border:'none',color:T.muted,fontFamily:mono,fontSize:10,cursor:'pointer'}}>change</button>
+            <button onClick={()=>{setSelectedUser(null);setSearch('')}} style={{background:'none',border:'none',color:T.muted,fontFamily:mono,fontSize:FS.xs,cursor:'pointer'}}>change</button>
           </div>
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:10,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
@@ -1664,9 +1664,9 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
                 style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderBottom:`1px solid ${T.border}`,cursor:isOwner?'not-allowed':'pointer',opacity:isOwner?0.75:1}}>
                 <input type="checkbox" checked={isChecked} disabled={isOwner} readOnly
                   style={{width:18,height:18,accentColor:co.color||T.gold,margin:0,cursor:isOwner?'not-allowed':'pointer'}}/>
-                <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',minWidth:40,textAlign:'center'}}>{co.abbr}</span>
+                <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',minWidth:40,textAlign:'center'}}>{co.abbr}</span>
                 <span style={{flex:1,fontSize:13,color:T.text}}>{co.name}</span>
-                {isOwner && <span style={{fontFamily:mono,fontSize:9,color:T.green,background:T.green+'22',padding:'2px 6px',borderRadius:4,fontWeight:700}}>OWNER</span>}
+                {isOwner && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.green,background:T.green+'22',padding:'2px 6px',borderRadius:4,fontWeight:700}}>OWNER</span>}
               </label>
             )
           })}
@@ -1702,7 +1702,7 @@ function BillingTab({ companies, T, fmt, pill }) {
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:14,marginBottom:24}}>
         {[{label:'Active paying',value:active.length,color:T.green},{label:'Past due',value:pastDue.length,color:pastDue.length>0?T.red:T.green},{label:'Total properties billed',value:mrrByProps,color:T.text}].map(k=>(
           <div key={k.label} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
-            <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{k.label}</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{k.label}</div>
             <div style={{fontSize:28,fontWeight:700,color:k.color}}>{k.value}</div>
           </div>
         ))}
@@ -1717,9 +1717,9 @@ function BillingTab({ companies, T, fmt, pill }) {
             {pastDue.map(co=>(
               <div key={co.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                 <div>
-                  <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',marginRight:8}}>{co.abbr}</span>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',marginRight:8}}>{co.abbr}</span>
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>{co.owner_email}</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2}}>{co.owner_email}</div>
                 </div>
                 <div>{pill('past_due')}</div>
                 <div style={{fontFamily:mono,fontSize:12,color:T.red,fontWeight:700}}>{fmt(co.subscriptions?.[0]?.property_count||0)}/mo</div>
@@ -1736,12 +1736,12 @@ function BillingTab({ companies, T, fmt, pill }) {
         <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
         <div style={{minWidth:520}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 140px 80px 130px',gap:8,padding:'10px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-          {['Account','Status','Props','MRR'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+          {['Account','Status','Props','MRR'].map(h=><div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
         </div>
         {active.map(co=>(
           <div key={co.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px 130px',gap:8,padding:'12px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
             <div>
-              <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',marginRight:8}}>{co.abbr}</span>
+              <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',marginRight:8}}>{co.abbr}</span>
               <span style={{fontSize:13,color:T.text}}>{co.name}</span>
             </div>
             <div>{pill('active')}</div>
@@ -1768,7 +1768,7 @@ function CommsTab({ users, T }) {
   return (
     <div style={{maxWidth:680}}>
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'24px 28px'}}>
-        <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Email users</div>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Email users</div>
         <p style={{fontSize:13,color:T.text,lineHeight:1.6,margin:'0 0 8px'}}>
           Email to users ({users.length}) isn't available yet. To reach everyone in the app, post an announcement from the Platform tab.
         </p>
@@ -1815,7 +1815,7 @@ function PlatformTab({ user, companies, T }) {
       {/* Announcements */}
       <div>
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px',marginBottom:16}}>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Platform announcements</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Platform announcements</div>
           <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14,lineHeight:1.6}}>
             Announcements appear as a dismissable banner at the top of the app for all users.
           </div>
@@ -1845,15 +1845,15 @@ function PlatformTab({ user, companies, T }) {
         {/* Active announcements */}
         {announcements.length>0&&(
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
-            <div style={{padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Active announcements</div>
+            <div style={{padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`,fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Active announcements</div>
             {announcements.map(a=>(
               <div key={a.id} style={{padding:'12px 20px',borderBottom:`1px solid ${T.border}`,display:'flex',gap:12,alignItems:'flex-start'}}>
                 <div style={{width:8,height:8,borderRadius:4,background:typeColors[a.type]||typeColors.info,marginTop:4,flexShrink:0}}/>
                 <div style={{flex:1}}>
                   <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6}}>{a.message}</div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:3}}>{new Date(a.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:3}}>{new Date(a.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
                 </div>
-                <button onClick={()=>deactivate(a.id)} style={{fontFamily:mono,fontSize:10,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:'4px 8px',borderRadius:4}}>Dismiss</button>
+                <button onClick={()=>deactivate(a.id)} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:'4px 8px',borderRadius:4}}>Dismiss</button>
               </div>
             ))}
           </div>
@@ -1863,7 +1863,7 @@ function PlatformTab({ user, companies, T }) {
       {/* Platform stats */}
       <div>
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px'}}>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Platform statistics</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Platform statistics</div>
           {[
             ['Total accounts',    companies.length],
             ['Total properties',  companies.reduce((s,c)=>s+(c.subscriptions?.[0]?.property_count||0),0)],

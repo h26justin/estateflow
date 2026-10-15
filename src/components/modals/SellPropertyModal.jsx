@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { safeOverlayClose } from '../../lib/modalUtils'
@@ -62,7 +62,7 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
                 <span>Capital gain (gross)</span>
                 <span>{gain>=0?'+':''}{fmt(gain)}</span>
               </div>
-              <div style={{fontSize:9,color:T.faint,marginTop:8,lineHeight:1.5}}>
+              <div style={{fontSize:FS.xs,color:T.faint,marginTop:8,lineHeight:1.5}}>
                 Excludes selling costs (estate agent fees, solicitor) and CGT. For an actual tax figure, consult your accountant.
               </div>
             </div>

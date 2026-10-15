@@ -7,7 +7,7 @@
 // someone confirms or corrects it. The logic is in lib/statementImport.js
 // (pure, tested); this file is the screen and the commit call.
 import { useState, useEffect, useMemo } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
@@ -105,7 +105,7 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
   }
 
   const statusColor = s => ({ ready: T.green, matched: T.blue, needs_review: T.amber, unmatched: T.red, duplicate: T.muted }[s] || T.muted)
-  const th = { fontFamily: MONO, fontSize: 9, color: T.faint, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '0 8px 6px 0', fontWeight: 400, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: T.card }
+  const th = { fontFamily: MONO, fontSize: FS.xs, color: T.faint, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '0 8px 6px 0', fontWeight: 400, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: T.card }
   const td = { fontSize: 12, padding: '7px 8px 7px 0', borderTop: `1px solid ${T.border}`, verticalAlign: 'top' }
   const num = { ...td, fontFamily: MONO, textAlign: 'right', whiteSpace: 'nowrap' }
   const inp = { fontFamily: MONO, fontSize: 11, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '4px 6px' }
@@ -122,7 +122,7 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
         ['Paid to you', gbp(header.paymentAmount)],
         ['Agent invoice', header.invoiceNumber ? `${header.invoiceNumber}${header.invoiceFees != null ? ` · ${gbp(header.invoiceFees)}` : ''}` : '–'],
       ].map(([l, v]) => <div key={l} style={{ background: T.bg, borderRadius: 8, padding: '8px 10px' }}>
-        <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</div>
+        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</div>
         <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{v}</div>
       </div>)}
     </div>
@@ -136,19 +136,19 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
         {bal.balances ? `Balances: income less fees and deductions = ${gbp(bal.stated)} paid` : `Does not balance: expected ${gbp(bal.expected)}, statement says ${gbp(bal.stated)}`}
       </span>}
     </div>
-    {bal && !bal.balances && bal.causes?.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10.5, color: T.muted, marginBottom: 10 }}>{bal.causes.join(' ')}</div>}
-    {previous.length > 0 && <div role="alert" style={{ background: T.red + '14', border: `1px solid ${T.red}55`, color: T.text, borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 12.5 }}>
+    {bal && !bal.balances && bal.causes?.length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 10 }}>{bal.causes.join(' ')}</div>}
+    {previous.length > 0 && <div role="alert" style={{ background: T.red + '14', border: `1px solid ${T.red}55`, color: T.text, borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: FS.base }}>
       <b>This statement has already been imported</b> ({previous.map(p => `${new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${p.filename ? `, ${p.filename}` : ''}`).join('; ')}). Lines already recorded show as Duplicate and will not be added again. Revert the earlier import from Data import → History if it was wrong.
     </div>}
-    {(parsed.warnings || []).filter(w => !/audit statement number/i.test(w)).length > 0 && <div style={{ fontFamily: MONO, fontSize: 10.5, color: T.amber, marginBottom: 10 }}>{parsed.warnings.filter(w => !/audit statement number/i.test(w)).join(' ')}</div>}
-    {(parsed.errors || []).length > 0 && <div style={{ fontFamily: MONO, fontSize: 10.5, color: T.red, marginBottom: 10 }}>{parsed.errors.length} {parsed.errors.length === 1 ? 'entry' : 'entries'} could not be read: {parsed.errors.map(e => `${e.property_address || 'no property'} (${e.reason})`).join('; ')}. Add them by hand in the Rent Tracker.</div>}
+    {(parsed.warnings || []).filter(w => !/audit statement number/i.test(w)).length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginBottom: 10 }}>{parsed.warnings.filter(w => !/audit statement number/i.test(w)).join(' ')}</div>}
+    {(parsed.errors || []).length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.red, marginBottom: 10 }}>{parsed.errors.length} {parsed.errors.length === 1 ? 'entry' : 'entries'} could not be read: {parsed.errors.map(e => `${e.property_address || 'no property'} (${e.reason})`).join('; ')}. Add them by hand in the Rent Tracker.</div>}
 
     {/* Status filter */}
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
       {[['all', `All ${rows.length}`], ...['ready', 'needs_review', 'unmatched', 'duplicate', 'matched'].filter(s => counts[s]).map(s => [s, `${REVIEW_STATUS_LABEL[s]} ${counts[s]}`])].map(([k, l]) => (
-        <button key={k} onClick={() => setFilter(k)} style={{ fontFamily: MONO, fontSize: 10.5, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${filter === k ? (k === 'all' ? T.gold : statusColor(k)) : T.border}`, background: filter === k ? (k === 'all' ? T.gold : statusColor(k)) + '22' : 'transparent', color: k === 'all' ? T.text : statusColor(k) }}>{l}</button>
+        <button key={k} onClick={() => setFilter(k)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${filter === k ? (k === 'all' ? T.gold : statusColor(k)) : T.border}`, background: filter === k ? (k === 'all' ? T.gold : statusColor(k)) + '22' : 'transparent', color: k === 'all' ? T.text : statusColor(k) }}>{l}</button>
       ))}
-      {!ctxLoaded && <span style={{ fontFamily: MONO, fontSize: 10, color: T.faint, alignSelf: 'center' }}>Checking what is already recorded…</span>}
+      {!ctxLoaded && <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, alignSelf: 'center' }}>Checking what is already recorded…</span>}
     </div>
 
     {/* Review table */}
@@ -167,13 +167,13 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
           return <tr key={r.lineNo} style={{ opacity: r.include ? 1 : 0.78 }}>
             <td style={td}><input type="checkbox" checked={r.include} disabled={!canInclude} onChange={e => set(r.lineNo, { include: e.target.checked })} aria-label={`Import line ${r.lineNo}`} style={{ width: 'auto', margin: 0 }} /></td>
             <td style={{ ...td, minWidth: 190 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.faint }}>{KIND_LABEL[r.kind]} · "{r.line.property_address || '—'}"</div>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>{KIND_LABEL[r.kind]} · "{r.line.property_address || '—'}"</div>
               <select value={r.propertyId || ''} onChange={e => set(r.lineNo, { propertyId: e.target.value || null })} style={{ ...inp, width: '100%', marginTop: 2 }} aria-label="Property">
                 <option value="">Choose property…</option>
                 {propOptions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </td>
-            <td style={{ ...td, minWidth: 110 }}>{r.tenant || <span style={{ color: T.faint }}>—</span>}{r.tenancy && <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.faint }}>tenancy: {r.tenancy.tenant_name || 'on record'}</div>}</td>
+            <td style={{ ...td, minWidth: 110 }}>{r.tenant || <span style={{ color: T.faint }}>—</span>}{r.tenancy && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>tenancy: {r.tenancy.tenant_name || 'on record'}</div>}</td>
             <td style={{ ...td, whiteSpace: 'nowrap' }}>
               {r.kind === 'rent'
                 ? <div style={{ display: 'grid', gap: 3 }}>
@@ -182,27 +182,27 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
                   </div>
                 : <span style={{ fontFamily: MONO, fontSize: 11 }}>{r.periodStart ? `${dmy(r.periodStart)} – ${dmy(r.periodEnd)}` : '—'}</span>}
             </td>
-            <td style={num}>{r.kind === 'rent' ? gbp(r.rentDue) : ''}{r.kind === 'rent' && r.alreadyReceived > 0 && <div style={{ fontSize: 9.5, color: T.faint }}>{gbp(r.alreadyReceived)} in</div>}</td>
+            <td style={num}>{r.kind === 'rent' ? gbp(r.rentDue) : ''}{r.kind === 'rent' && r.alreadyReceived > 0 && <div style={{ fontSize: FS.xs, color: T.faint }}>{gbp(r.alreadyReceived)} in</div>}</td>
             <td style={num}>{isMoneyIn || r.kind === 'credit'
               ? <MoneyInput prefix="£" value={r.amount} onChange={v => set(r.lineNo, { amount: v == null ? 0 : v })} style={{ ...inp, width: 90, textAlign: 'right' }} />
               : ''}</td>
-            <td style={num}>{r.kind === 'fee' ? gbp(r.fee) : ''}{r.kind === 'fee' && r.line.fee_pct != null && <div style={{ fontSize: 9.5, color: T.faint }}>{r.line.fee_pct}%</div>}</td>
+            <td style={num}>{r.kind === 'fee' ? gbp(r.fee) : ''}{r.kind === 'fee' && r.line.fee_pct != null && <div style={{ fontSize: FS.xs, color: T.faint }}>{r.line.fee_pct}%</div>}</td>
             <td style={num}>{r.vat ? gbp(r.vat) : ''}</td>
             <td style={num}>{r.kind === 'deduction' ? gbp(r.deduction) : ''}</td>
-            <td style={{ ...td, minWidth: 170, fontSize: 11.5 }}>
+            <td style={{ ...td, minWidth: 170, fontSize: FS.sm }}>
               {r.property ? <>
                 <div>{r.property.name}</div>
-                <div style={{ fontFamily: MONO, fontSize: 9.5, color: T.faint }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>
                   {r.matchedVia === 'alias' ? 'remembered label' : r.matchedVia === 'manual' ? 'chosen by you' : r.matchScore != null ? `name match ${r.matchScore}` : ''}
                   {r.targetLabel ? ` → ${r.targetLabel}` : ''}
                 </div>
               </> : <span style={{ color: T.faint }}>—</span>}
             </td>
             <td style={{ ...td, minWidth: 190 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: statusColor(r.status) }}>{REVIEW_STATUS_LABEL[r.status]}</span>
-              {r.reasons.length > 0 && <ul style={{ margin: '3px 0 0', paddingLeft: 14, fontSize: 10.5, color: T.muted, lineHeight: 1.4 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>}
-              {needsConfirm && !r.blocked && <button onClick={() => set(r.lineNo, { confirmed: true, include: true })} style={{ marginTop: 4, fontFamily: MONO, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.amber}`, background: 'transparent', color: T.amber, cursor: 'pointer' }}>Checked: import it</button>}
-              {r.confirmed && <button onClick={() => set(r.lineNo, { confirmed: false, include: undefined })} style={{ marginTop: 4, marginLeft: 4, fontFamily: MONO, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Undo</button>}
+              <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: statusColor(r.status) }}>{REVIEW_STATUS_LABEL[r.status]}</span>
+              {r.reasons.length > 0 && <ul style={{ margin: '3px 0 0', paddingLeft: 14, fontSize: FS.xs, color: T.muted, lineHeight: 1.4 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+              {needsConfirm && !r.blocked && <button onClick={() => set(r.lineNo, { confirmed: true, include: true })} style={{ marginTop: 4, fontFamily: MONO, fontSize: FS.xs, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.amber}`, background: 'transparent', color: T.amber, cursor: 'pointer' }}>Checked: import it</button>}
+              {r.confirmed && <button onClick={() => set(r.lineNo, { confirmed: false, include: undefined })} style={{ marginTop: 4, marginLeft: 4, fontFamily: MONO, fontSize: FS.xs, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Undo</button>}
             </td>
           </tr>
         })}</tbody>
