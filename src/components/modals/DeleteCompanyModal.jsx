@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
@@ -70,7 +70,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
         <div style={{ padding: '0 28px 20px' }}>
           {/* What gets deleted */}
           <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 18 }}>
-            <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
               Will be removed
             </div>
             {preview === null ? (
@@ -87,7 +87,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
 
           {/* Type-the-name confirmation */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Type <strong style={{ color: T.text }}>{expectedConfirm}</strong> to confirm
             </label>
             <input aria-label="Type to confirm" value={confirmText} onChange={e => setConfirmText(e.target.value)} autoFocus

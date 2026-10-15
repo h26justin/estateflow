@@ -9,7 +9,7 @@
 // copy button until dismissed. Revocation is immediate and permanent.
 
 import { useEffect, useState } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { listApiTokens, createApiToken, revokeApiToken } from '../lib/api/apiAccess'
@@ -88,7 +88,7 @@ export default function ApiAccessPanel({ T }) {
 
   return (
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 24, marginBottom: 20 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         API Access
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.7, marginBottom: 16 }}>
@@ -102,7 +102,7 @@ export default function ApiAccessPanel({ T }) {
           <div style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700, marginBottom: 6 }}>
             Token created — copy it now
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 10 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 10 }}>
             This is the only time it will be shown. Store it somewhere safe.
           </div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.text, wordBreak: 'break-all', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
@@ -127,7 +127,7 @@ export default function ApiAccessPanel({ T }) {
                     <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
                       {tok.name} <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>({tok.token_prefix}…)</span>
                     </div>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                       Created {fmtDate(tok.created_at)}
                       {' · '}Last used {tok.last_used_at ? fmtDate(tok.last_used_at) : 'never'}
                       {tok.expires_at ? ` · Expires ${fmtDate(tok.expires_at)}` : ''}

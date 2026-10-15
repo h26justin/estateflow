@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 
@@ -39,7 +39,7 @@ export default function FeedbackPage({ user, showToast }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 13, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none', width: '100%', boxSizing: 'border-box' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }
   const TYPES = [
     { key: 'feature', icon: 'sparkle', label: 'Feature Request', desc: 'Suggest something new' },
     { key: 'bug',     icon: 'alert-circle', label: 'Bug Report',      desc: 'Something not working?' },
@@ -76,7 +76,7 @@ export default function FeedbackPage({ user, showToast }) {
                 }}>
                   <div style={{ display:'flex', justifyContent:'center', marginBottom: 4 }}>{ICON_NAMES.includes(t.icon)?<Icon name={t.icon} size={20}/>:t.icon}</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: type === t.key ? T.goldText : T.text }}>{t.label}</div>
-                  <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>{t.desc}</div>
+                  <div style={{ fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{t.desc}</div>
                 </button>
               ))}
             </div>
@@ -103,7 +103,7 @@ export default function FeedbackPage({ user, showToast }) {
             {sending ? 'Sending...' : 'Send Feedback'}
           </button>
 
-          <p style={{ fontFamily: mono, fontSize: 10, color: T.muted, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
+          <p style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
             Or email us directly at{' '}
             <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText, textDecoration: 'none' }}>hello@ownproperly.com</a>
           </p>

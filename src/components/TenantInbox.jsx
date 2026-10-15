@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
@@ -175,7 +175,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <h2 style={{ fontSize:18, fontWeight:600, letterSpacing:'-0.02em', margin:0 }}>Tenant inbox</h2>
           {totalUnread > 0 && (
-            <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:20, background:T.red+'22', color:T.red }}>
+            <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'3px 10px', borderRadius:20, background:T.red+'22', color:T.red }}>
               {totalUnread} new
             </span>
           )}
@@ -281,13 +281,13 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>Repair request</span>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:sc.bg, color:sc.color }}>{sc.label}</span>
+                <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>Repair request</span>
+                <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:sc.bg, color:sc.color }}>{sc.label}</span>
                 {job.priority && job.priority !== 'normal' && (
-                  <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color, display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="flag" size={10}/>{pc.label}</span>
+                  <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color, display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="flag" size={10}/>{pc.label}</span>
                 )}
               </div>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted, flexShrink:0 }}>
+              <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, flexShrink:0 }}>
                 {new Date(job.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(job.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
               </span>
             </div>
@@ -309,7 +309,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
           {/* Photos */}
           {photos.length > 0 && (
             <div style={{ marginBottom:16 }}>
-              <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Photos from tenant</div>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Photos from tenant</div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 {photos.map((p,i) => (
                   <SignedPhoto key={p.path || p.url || i} path={p.path} url={p.url}
@@ -320,7 +320,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
           )}
           {/* Status update */}
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Update status</div>
+            <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Update status</div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               {['open','in-progress','complete'].map(s => (
                 <button key={s} onClick={() => onStatusChange(job.id, s)}
@@ -333,7 +333,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
               ))}
             </div>
             {job.status === 'complete' && (
-              <div style={{ fontFamily:mono, fontSize:10, color:T.green, marginTop:8 }}>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.green, marginTop:8 }}>
                 Marked complete — this repair will move to the archive
               </div>
             )}
@@ -364,10 +364,10 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.goldText }}>Message</span>
-                {hasUnread && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>{convo.unread_count} unread</span>}
+                <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.goldText }}>Message</span>
+                {hasUnread && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>{convo.unread_count} unread</span>}
               </div>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted, flexShrink:0 }}>
+              <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, flexShrink:0 }}>
                 {new Date(lastMsg.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(lastMsg.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
               </span>
             </div>
@@ -394,7 +394,7 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
 function MessageThread({ thread, loading, replyText, setReplyText, replying, onReply, bottomRef, T }) {
   return (
     <div>
-      <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:10 }}>Conversation</div>
+      <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:10 }}>Conversation</div>
       <div style={{ maxHeight:320, overflowY:'auto', marginBottom:12, padding:'4px 0' }}>
         {loading && <div style={{ fontFamily:mono, fontSize:12, color:T.muted, textAlign:'center', padding:20 }}>Loading…</div>}
         {!loading && thread.length === 0 && (
@@ -405,7 +405,7 @@ function MessageThread({ thread, loading, replyText, setReplyText, replying, onR
           return (
             <div key={m.id} style={{ display:'flex', justifyContent:isLandlord?'flex-end':'flex-start', marginBottom:12 }}>
               <div style={{ maxWidth:'75%' }}>
-                <div style={{ fontFamily:mono, fontSize:9, color:T.muted, marginBottom:4, textAlign:isLandlord?'right':'left' }}>
+                <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4, textAlign:isLandlord?'right':'left' }}>
                   {isLandlord?'You':'Tenant'} · {new Date(m.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} {new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}
                 </div>
                 <div style={{ background:isLandlord?T.gold+'22':T.bg, border:`1px solid ${isLandlord?T.gold+'44':T.border}`,

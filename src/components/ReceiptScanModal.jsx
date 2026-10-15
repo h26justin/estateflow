@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
@@ -139,7 +139,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
                 className="btn btn-gold" style={{ fontSize: 14, padding: '14px 28px', width: '100%' }}>
                 Open camera
               </button>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
                 On mobile this opens your camera. Desktop opens a file picker.
               </div>
             </div>
@@ -149,7 +149,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               {previewUrl && <img src={previewUrl} alt="" style={{ maxWidth: '60%', maxHeight: 200, borderRadius: 10, marginBottom: 16, objectFit: 'contain' }}/>}
               <div style={{ fontFamily: MONO, fontSize: 12, color: T.goldText, marginBottom: 6 }}>Reading receipt…</div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>Usually takes 5-10 seconds</div>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>Usually takes 5-10 seconds</div>
             </div>
           )}
 

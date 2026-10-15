@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { showAppToast } from '../lib/toast'
@@ -51,7 +52,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
 
   return (
     <div>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom: 6 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom: 6 }}>
         Integrations
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
@@ -78,7 +79,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
         )
       })}
 
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', margin: '26px 0 6px' }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', margin: '26px 0 6px' }}>
         Short-term lets
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
@@ -239,12 +240,12 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Hostaway</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
               Airbnb · Booking.com · Vrbo · direct bookings
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Connected' : 'Not connected'}
         </span>
       </div>
@@ -305,10 +306,10 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
             </div>
           )}
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
               {lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
               {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
             </div>
@@ -324,13 +325,13 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
               Disconnect
             </button>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:10, 12:10, 18:10 UTC).
           </div>
 
           {hostawayProps && (
             <div style={{ marginTop: 16, padding: '16px 0 4px', borderTop: `1px dashed ${T.border}` }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
                 Map Hostaway listings to properties
               </div>
               {hostawayProps.length === 0 && (
@@ -487,12 +488,12 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Lodgify</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
               Airbnb · Booking.com · direct bookings
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Connected' : 'Not connected'}
         </span>
       </div>
@@ -544,10 +545,10 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
             </div>
           )}
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
               {lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
               {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
             </div>
@@ -563,13 +564,13 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
               Disconnect
             </button>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:00, 12:00, 18:00 UTC).
           </div>
 
           {lodgifyProps && (
             <div style={{ marginTop: 16, padding: '16px 0 4px', borderTop: `1px dashed ${T.border}` }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
                 Map Lodgify listings to properties
               </div>
               {lodgifyProps.length === 0 && (
@@ -679,12 +680,12 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name}</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
               {properties.length} {properties.length === 1 ? 'property' : 'properties'}
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Xero connected' : 'Not connected'}
         </span>
       </div>
@@ -814,14 +815,14 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer', accentColor: T.gold }}/>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{label}</div>
-        {desc && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
+        {desc && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
       </div>
     </div>
   )
 
   const Section = ({ title, children }) => (
     <div style={{ marginTop: 18 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 8 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 8 }}>
         {title}
       </div>
       {children}
@@ -972,7 +973,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
                   showAppToast(`Synced ${p.name || 'property'}: ${r.created || 0} new, ${r.failed || 0} failed`)
                   onSaved?.()
                 } catch (e) { showAppToast(e.message, 'error') }
-              }} className="btn btn-ghost" style={{ fontSize: 10, padding: '4px 10px' }}>
+              }} className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '4px 10px' }}>
                 Sync this one
               </button>
             </div>

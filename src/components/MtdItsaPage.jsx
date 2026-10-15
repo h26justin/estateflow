@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { fmt, fmtMoney2dp } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
@@ -258,7 +258,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <span style={{ fontSize: 17, fontWeight: 700, color: T.text }}>Quarter {q.quarter}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: toneColor+'22', color: toneColor }}>
+                  <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: toneColor+'22', color: toneColor }}>
                     {status.label}
                   </span>
                 </div>
@@ -272,7 +272,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                     <div style={{ fontSize: 20, fontWeight: 700, color: T.goldText }}>
                       {fmt(cached.totals?.net || 0)}
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
                       net · in {fmt(cached.totals?.income || 0)} · out {fmt(cached.totals?.expenses || 0)}
                     </div>
                   </>
@@ -281,7 +281,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
             </div>
 
             {sub?.hmrc_reference && (
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.green, marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.green, marginBottom: 12 }}>
                 HMRC ref: {sub.hmrc_reference}
                 {sub.hmrc_reference.startsWith('SANDBOX-') && (
                   <span style={{ color: T.muted, marginLeft: 6 }}>
@@ -303,7 +303,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                   {issues.map((i, idx) => <li key={idx}>{i}</li>)}
                 </ul>
                 <button onClick={() => setShowSettings(true)}
-                  style={{ background: 'none', border: `1px solid ${T.amber}66`, borderRadius: 6, padding: '4px 10px', fontFamily: MONO, fontSize: 10, color: T.amber, cursor: 'pointer', fontWeight: 700, marginTop: 2 }}>
+                  style={{ background: 'none', border: `1px solid ${T.amber}66`, borderRadius: 6, padding: '4px 10px', fontFamily: MONO, fontSize: FS.xs, color: T.amber, cursor: 'pointer', fontWeight: 700, marginTop: 2 }}>
                   Open settings
                 </button>
               </div>
@@ -393,7 +393,7 @@ function SettingsPanel({ T, settings, liveAvailable, onSaved }) {
           <label>HMRC Property Business ID</label>
           <input aria-label="HMRC Property Business ID" value={businessId} onChange={e => setBusinessId(e.target.value)} placeholder="From HMRC online account"
             style={{ fontFamily: MONO }}/>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
             Sign in to gov.uk → Self Assessment → "My businesses" to find this.
           </div>
         </div>
@@ -498,16 +498,16 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
 
   return (
     <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px dashed ${T.border}` }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         HMRC gov.uk connection
       </div>
       {connected && !expired ? (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: T.green+'22', color: T.green }}>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: T.green+'22', color: T.green }}>
               Connected
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
               Token expires {expiresAt.toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
             </span>
           </div>
@@ -521,7 +521,7 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (expired ? T.amber : T.border), color: (expired ? T.amber : T.muted) }}>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (expired ? T.amber : T.border), color: (expired ? T.amber : T.muted) }}>
               {expired ? 'Token expired' : 'Not connected'}
             </span>
           </div>
@@ -566,7 +566,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
           {/* Expense breakdown */}
           {Object.keys(summary.expenses).length > 0 && (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
                 Expenses by HMRC category
               </div>
               <div style={{ display: 'grid', gap: 4, marginBottom: 18 }}>
@@ -580,7 +580,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
             </>
           )}
 
-          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 16 }}>
+          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 16 }}>
             Saving this as a draft locks the quarter snapshot. You can refresh anytime before submission to HMRC.
           </div>
 
@@ -600,7 +600,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
 function Tile({ T, label, value, color }) {
   return (
     <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 700, color }}>{fmt(value)}</div>
     </div>
   )

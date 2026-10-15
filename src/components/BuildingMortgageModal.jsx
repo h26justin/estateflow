@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
@@ -191,7 +191,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
         <div style={{ padding: '14px 26px 22px' }}>
           {/* Building picker */}
           <div style={{ marginBottom: 16 }}>
-            <label htmlFor="bm-building" style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
+            <label htmlFor="bm-building" style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
               Building ({buildings.length} eligible)
             </label>
             {buildings.length === 0 ? (
@@ -233,7 +233,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                   <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, fontWeight: 700, marginBottom: 2 }}>
                     Scan a mortgage offer / facility agreement
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.5 }}>
+                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.5 }}>
                     We'll extract loan amount, rate, term, type, monthly payment and fees, then pre-fill the form for you to verify.
                   </div>
                 </div>
@@ -298,20 +298,20 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
 
               {/* Per-unit preview */}
               <div style={{ background: T.gold + '11', border: `1px solid ${T.gold}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
                   Split per unit ({unitCount} × equal share)
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 2 }}>Loan / unit</div>
+                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 2 }}>Loan / unit</div>
                     <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(perUnitLoan)}</div>
                   </div>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 2 }}>Monthly / unit</div>
+                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 2 }}>Monthly / unit</div>
                     <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(perUnitMonthly)}</div>
                   </div>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 2 }}>Fees / unit</div>
+                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 2 }}>Fees / unit</div>
                     <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(perUnitFees)}</div>
                   </div>
                 </div>

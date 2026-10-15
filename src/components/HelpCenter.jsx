@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { pressable } from '../lib/pressable'
@@ -688,7 +688,7 @@ export default function HelpCenter() {
   return (
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 16 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Getting Started</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Getting Started</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.7 }}>
           Step-by-step guides for every feature in Properly. Search or browse by category.
         </div>
@@ -712,7 +712,7 @@ export default function HelpCenter() {
       {/* Category filter */}
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 20 }}>
         <button onClick={() => setActiveCat('all')}
-          style={{ fontFamily: mono, fontSize: 10, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+          style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
             border: `1px solid ${activeCat === 'all' ? T.gold : T.border}`,
             background: activeCat === 'all' ? T.gold + '22' : 'transparent',
             color: activeCat === 'all' ? T.goldText : T.muted, fontWeight: activeCat === 'all' ? 700 : 400 }}>
@@ -722,7 +722,7 @@ export default function HelpCenter() {
           const count = GUIDES.filter(g => g.cat === c.key).length
           return (
             <button key={c.key} onClick={() => setActiveCat(c.key)}
-              style={{ fontFamily: mono, fontSize: 10, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+              style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                 border: `1px solid ${activeCat === c.key ? T.gold : T.border}`,
                 background: activeCat === c.key ? T.gold + '22' : 'transparent',
                 color: activeCat === c.key ? T.goldText : T.muted, fontWeight: activeCat === c.key ? 700 : 400 }}>
@@ -743,7 +743,7 @@ export default function HelpCenter() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <span style={{ display:'flex' }}>{ICON_NAMES.includes(group.icon)?<Icon name={group.icon} size={18}/>:group.icon}</span>
               <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{group.label}</span>
-              <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>({group.guides.length})</span>
+              <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>({group.guides.length})</span>
             </div>
             <div style={{ display: 'grid', gap: 6 }}>
               {group.guides.map(guide => {
@@ -756,12 +756,12 @@ export default function HelpCenter() {
                         <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{guide.title}</div>
                         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                           {guide.tags.slice(0, 4).map(tag => (
-                            <span key={tag} style={{ fontFamily: mono, fontSize: 8, color: T.faint, background: T.bg, padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tag}</span>
+                            <span key={tag} style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, background: T.bg, padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tag}</span>
                           ))}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: T.muted }}>{guide.steps.length} steps</span>
+                        <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{guide.steps.length} steps</span>
                         <span style={{ fontFamily: mono, fontSize: 12, color: isOpen ? T.goldText : T.muted, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
                       </div>
                     </div>
@@ -773,7 +773,7 @@ export default function HelpCenter() {
                               {/* Step number + connector line */}
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 28 }}>
                                 <div style={{ width: 24, height: 24, borderRadius: 12, background: T.gold + '22', border: `1.5px solid ${T.gold}`,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.goldText, flexShrink: 0 }}>
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: T.goldText, flexShrink: 0 }}>
                                   {i + 1}
                                 </div>
                                 {i < guide.steps.length - 1 && (
@@ -797,7 +797,7 @@ export default function HelpCenter() {
       )}
 
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginTop: 8 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Need more help?</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Need more help?</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
           {"Email us at "}
           <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText, fontWeight: 700 }}>hello@ownproperly.com</a>

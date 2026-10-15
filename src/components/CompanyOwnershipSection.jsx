@@ -19,7 +19,7 @@
 // Data feeds the "Company P&L & Profit Share" report (ReportsPage).
 
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -36,7 +36,7 @@ function CardShell({ title, sub, T, children, action }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{title}</div>
-          {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2, maxWidth: 560, lineHeight: 1.6 }}>{sub}</div>}
+          {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2, maxWidth: 560, lineHeight: 1.6 }}>{sub}</div>}
         </div>
         {action}
       </div>
@@ -196,19 +196,19 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                           const isSelf = email && user?.email && email.toLowerCase() === user.email.toLowerCase()
                           patchShareholder(s.id, { email: email || null, ...(isSelf && !s.user_id ? { user_id: user.id } : {}) })
                         }}
-                        style={{ ...inp, fontSize: 10, minWidth: 170, flex: 1 }} />
+                        style={{ ...inp, fontSize: FS.xs, minWidth: 170, flex: 1 }} />
                     </>
                   ) : (
                     <div>
                       <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{s.name}</span>
-                      {s.email && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{s.email}</div>}
+                      {s.email && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{s.email}</div>}
                     </div>
                   )}
                   {isCorp(s) &&
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.muted, border: `1px solid ${T.border}`, padding: '1px 7px', borderRadius: 4 }}
+                    <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: T.muted, border: `1px solid ${T.border}`, padding: '1px 7px', borderRadius: 4 }}
                       title="Corporate shareholder — no personal dividend tax is estimated (company-to-company dividends are normally CT-exempt)">COMPANY</span>}
                   {!isCorp(s) && (s.user_id === user?.id || (s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase())) &&
-                    <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color: T.goldText, background: T.gold + '22', padding: '1px 7px', borderRadius: 4 }}>YOU</span>}
+                    <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: T.goldText, background: T.gold + '22', padding: '1px 7px', borderRadius: 4 }}>YOU</span>}
                 </div>
                 {canEdit && (
                   <select value={isCorp(s) ? 'company' : 'individual'} aria-label={`${s.name} shareholder type`}
@@ -216,7 +216,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                     onChange={e => patchShareholder(s.id, e.target.value === 'company'
                       ? { shareholder_type: 'company', tax_band: null, user_id: null }
                       : { shareholder_type: 'individual', shareholder_company_id: null })}
-                    style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
+                    style={{ ...inp, padding: '5px 8px', fontSize: FS.xs }}>
                     <option value="individual">Person</option>
                     <option value="company">Company</option>
                   </select>
@@ -226,23 +226,23 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                     <select value={s.shareholder_company_id || ''} aria-label={`${s.name} linked company`}
                       title="Link to this holding company's own record — 'My share' reports then follow your stake through it"
                       onChange={e => patchShareholder(s.id, { shareholder_company_id: e.target.value || null })}
-                      style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
+                      style={{ ...inp, padding: '5px 8px', fontSize: FS.xs }}>
                       <option value="">Not managed in Properly</option>
                       {linkableCompanies.map(c => <option key={c.id} value={c.id}>↳ {c.abbr || c.name}</option>)}
                     </select>
                   ) : s.shareholder_company_id && (
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                    <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
                       ↳ {linkableCompanies.find(c => c.id === s.shareholder_company_id)?.abbr || linkableCompanies.find(c => c.id === s.shareholder_company_id)?.name || 'linked company'}
                     </span>
                   )
                 ) : canEdit ? (
                   <select value={s.tax_band || ''} onChange={e => patchShareholder(s.id, { tax_band: e.target.value || null })}
                     title="Dividend tax band — used to estimate personal tax on this shareholder's profit share"
-                    style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
+                    style={{ ...inp, padding: '5px 8px', fontSize: FS.xs }}>
                     <option value="">No div. tax estimate</option>
                     {Object.entries(TAX_BAND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
-                ) : s.tax_band && <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{TAX_BAND_LABELS[s.tax_band]}</span>}
+                ) : s.tax_band && <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{TAX_BAND_LABELS[s.tax_band]}</span>}
                 {canEdit ? (
                   <input type="number" min="0.01" max="100" step="0.01" value={s.percentage}
                     aria-label={`${s.name} ownership percentage`}
@@ -303,7 +303,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
             )}
             <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving} onClick={addShareholder}>{saving ? 'Saving…' : 'Add'}</button>
             {shForm.type === 'company' && (
-              <div style={{ flexBasis: '100%', fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.6 }}>
+              <div style={{ flexBasis: '100%', fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
                 Company shareholders get no dividend tax estimate — dividends between UK companies are normally
                 corporation-tax-exempt. To follow your personal share through this holding company, link its
                 Properly record and enter its own shareholders there.
@@ -334,7 +334,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                         onBlur={e => { const name = e.target.value.trim(); if (name) patchAgent(a.id, { name }); else load() }}
                         style={{ ...inp, fontWeight: 600, minWidth: 140, flex: 1 }} />
                     ) : <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</span>}
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                    <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
                       {managedHere} {managedHere === 1 ? 'property' : 'properties'} in {company.abbr || company.name}
                     </span>
                   </div>
@@ -351,7 +351,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                         }}
                         style={{ ...inp, width: 76, textAlign: 'right' }} />
                       <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>%</span>
-                      <select value={a.vat_treatment || 'ex_vat'} onChange={e => patchAgent(a.id, { vat_treatment: e.target.value })} style={{ ...inp, padding: '5px 8px', fontSize: 10 }}>
+                      <select value={a.vat_treatment || 'ex_vat'} onChange={e => patchAgent(a.id, { vat_treatment: e.target.value })} style={{ ...inp, padding: '5px 8px', fontSize: FS.xs }}>
                         <option value="ex_vat">+ VAT (20%)</option>
                         <option value="inc_vat">inc. VAT</option>
                       </select>
