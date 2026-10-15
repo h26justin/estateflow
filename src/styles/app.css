@@ -1,0 +1,273 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Properly app stylesheet — imported once from src/main.jsx.
+
+   Until Oct 2026 this lived as a template string inside the App component and
+   was rebuilt (and re-injected via <style>) on every render, with theme colours
+   interpolated from the JS `T` object. It is now static; colours come from the
+   CSS custom properties below, which ThemeContext switches by setting
+   <html data-theme="light|dark">. public/js/theme-init.js sets the attribute
+   before first paint so there is no light→dark flash.
+
+   Keep the colour values in step with LIGHT / DARK in src/lib/ThemeContext.jsx
+   (src/lib/__tests__/themeTokens.test.js fails if they drift). JS call sites
+   keep using `T.*`; new code can use the vars directly (see CV in
+   src/lib/styles.js).
+
+   Scoping. Two kinds of rule live here:
+   1. Component classes (.btn, .card, .modal, .overlay, .tab, .skeleton,
+      .table-stack …) are global and opt-in — nothing outside the app uses them.
+   2. Element-level and app-layout rules (*, body, input, label, h1, main,
+      .hide-mobile …) only apply while the signed-in app shell is mounted,
+      which adds class="ef-app" to <html> (AppShellStyles in App.jsx). The
+      marketing site and login page have their own resets and must not be
+      affected. They are written as `:where(.ef-app) <selector>` so the prefix
+      adds no specificity and the cascade is exactly what it was.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Theme tokens ─────────────────────────────────────────────────────── */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F4F3EF;
+  --surface: #FFFFFF;
+  --card: #FAF9F6;
+  --border: #E4E1D9;
+  --text: #1C2830;
+  --muted: #5C6670;
+  --faint: #686D72;
+  --gold: #B8902F;
+  --gold-text: #7A5E1C;
+  --green: #167A4C;
+  --red: #B8392D;
+  --blue: #2D6FA8;
+  --amber: #8A5600;
+  --purple: #7B3FA0;
+  /* Derived */
+  --on-gold: #1C2830;          /* text on a gold fill (same in both themes) */
+  --on-danger: #FFFFFF;
+  --gold-hover: #B8902Fdd;     /* gold fill, hover */
+  --gold-border: #B8902F55;    /* gold-tinted hover border */
+  --shimmer: #E4E1D999;        /* skeleton sweep */
+  --scrim: rgba(0, 0, 0, 0.75);/* modal backdrop */
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0E141A;
+  --surface: #151D25;
+  --card: #1B242D;
+  --border: #28333D;
+  --text: #E8E5DD;
+  --muted: #9AA6B0;
+  --faint: #8A939E;
+  --gold: #CBA64E;
+  --gold-text: #CBA64E;
+  --green: #34C281;
+  --red: #E06A5E;
+  --blue: #5B9BD8;
+  --amber: #E2A24A;
+  --purple: #B98AD0;
+  --on-gold: #1C2830;
+  --on-danger: #FFFFFF;
+  --gold-hover: #CBA64Edd;
+  --gold-border: #CBA64E55;
+  --shimmer: #28333D99;
+  --scrim: rgba(0, 0, 0, 0.75);
+}
+
+/* Theme-independent tokens. Mirror FS / R / SP in src/lib/styles.js. */
+:root {
+  --font-sans: 'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  /* Type scale (px). Nothing below --fs-xs (11px). */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-base: 13px; --fs-md: 15px; --fs-lg: 18px; --fs-xl: 24px; --fs-xxl: 30px;
+  /* Radius */
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 999px;
+  /* Spacing, 4-pt */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
+}
+
+body { background: var(--bg); }
+
+/* ── App shell: element + layout rules (only while .ef-app is on <html>) ── */
+html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; max-width: 100%; overflow-x: hidden; }
+:where(.ef-app) * { box-sizing: border-box; margin: 0; padding: 0; }
+:where(.ef-app) body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+:where(.ef-app) h1, :where(.ef-app) h2, :where(.ef-app) h3, :where(.ef-app) h4 { font-family: var(--font-sans); letter-spacing: -0.02em; }
+:where(.ef-app)::-webkit-scrollbar, :where(.ef-app) ::-webkit-scrollbar { width: 5px; }
+:where(.ef-app)::-webkit-scrollbar-track, :where(.ef-app) ::-webkit-scrollbar-track { background: var(--bg); }
+:where(.ef-app)::-webkit-scrollbar-thumb, :where(.ef-app) ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+:where(.ef-app) input, :where(.ef-app) select, :where(.ef-app) textarea { font-family: var(--font-mono); background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; width: 100%; font-size: 13px; outline: none; transition: border-color 0.2s; }
+:where(.ef-app) input:focus, :where(.ef-app) select:focus, :where(.ef-app) textarea:focus { border-color: var(--gold); }
+:where(.ef-app) :focus-visible { outline: 2px solid var(--gold-text); outline-offset: 2px; }
+:where(.ef-app) select option { background: var(--surface); }
+:where(.ef-app) label { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 5px; }
+
+/* ── Component classes (global, opt-in) ───────────────────────────────── */
+.skip-link { position: absolute; left: -9999px; top: 8px; z-index: 3000; background: var(--surface); color: var(--text); border: 2px solid var(--gold-text); border-radius: 8px; padding: 10px 16px; font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-decoration: none; }
+.skip-link:focus { left: 16px; }
+
+.btn { font-family: var(--font-sans); font-weight: 600; border: none; cursor: pointer; border-radius: 10px; padding: 9px 18px; font-size: 13px; transition: all 0.18s; letter-spacing: 0; }
+.btn-gold { background: var(--gold); color: var(--on-gold); }
+.btn-gold:hover { background: var(--gold-hover); }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--gold); color: var(--gold-text); }
+.btn-danger { background: var(--red); color: var(--on-danger); border: 1px solid var(--red); }
+.btn-danger:hover { filter: brightness(0.92); }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+.pcard { cursor: pointer; transition: border-color 0.18s, transform 0.18s; }
+.pcard:hover { border-color: var(--gold-border); transform: translateY(-1px); }
+
+.fade { animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton { position: relative; overflow: hidden; background: var(--card); border-radius: 8px; }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--shimmer), transparent); animation: shimmer 1.3s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+.overlay { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px; backdrop-filter: blur(4px); }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+
+.tab { font-family: var(--font-sans); font-weight: 500; font-size: 13px; background: none; border: none; color: var(--muted); cursor: pointer; padding: 8px 14px; border-radius: 8px; transition: all 0.18s; letter-spacing: 0; }
+.tab.active { background: var(--border); color: var(--gold-text); }
+.tab:hover { color: var(--text); }
+
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 700px) { .g2 { grid-template-columns: 1fr; } }
+
+:where(.ef-app) .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); z-index: 100; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); }
+
+/* ── Mobile (≤768px) ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  :where(.ef-app) .nav-desktop { display: none !important; visibility: hidden !important; width: 0 !important; overflow: hidden !important; }
+  :where(.ef-app) .mobile-nav { display: flex !important; }
+  :where(.ef-app) .detail-grid { grid-template-columns: 1fr !important; }
+  :where(.ef-app) .stat-grid { grid-template-columns: 1fr 1fr !important; }
+  :where(.ef-app) .hide-mobile { display: none !important; }
+  :where(.ef-app) .stat-cards-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  :where(.ef-app) .company-stats-grid { grid-template-columns: 1fr 1fr !important; }
+  :where(.ef-app) .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+  :where(.ef-app) .summary-cards { grid-template-columns: 1fr 1fr !important; }
+  :where(.ef-app) h1 { font-size: 20px !important; }
+  :where(.ef-app) h2 { font-size: 16px !important; }
+  :where(.ef-app) .pcard { padding: 12px 14px !important; }
+  :where(.ef-app) main { padding: 16px 12px 90px !important; }
+  .tab { padding: 6px 10px !important; font-size: 11px !important; }
+  .card { border-radius: 10px !important; }
+  :where(.ef-app) input, :where(.ef-app) select, :where(.ef-app) textarea { font-size: 16px !important; }
+
+  /* Modals become a full-width bottom sheet. Tall content grows to (almost)
+     full screen and scrolls inside the sheet. Applies to <Modal> (src/lib/
+     Modal.jsx) and every hand-rolled className="overlay" / "modal" pair; the
+     !important rules beat their inline maxWidth / maxHeight / borderRadius.
+     The home-indicator inset is a surface-coloured bottom border so it never
+     overrides a modal's own inline padding. */
+  .overlay { padding: 0 !important; align-items: flex-end !important; }
+  .modal {
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100vh - 8px) !important;
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top))) !important;
+    border-radius: 18px 18px 0 0 !important;
+    border-bottom: max(0px, env(safe-area-inset-bottom)) solid var(--surface) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Defense-in-depth: stop any single child from forcing the page wider
+     than the viewport. Long text wraps; oversized images/iframes scale
+     down. Without this, a single forgotten flex child can blow the
+     horizontal scroll on iPhone — see commit fixing the dashboard
+     "Portfolio Overview" header. */
+  :where(.ef-app) main img, :where(.ef-app) main iframe, :where(.ef-app) main video, :where(.ef-app) main canvas, :where(.ef-app) main pre { max-width: 100% !important; }
+  :where(.ef-app) main p, :where(.ef-app) main h1, :where(.ef-app) main h2, :where(.ef-app) main h3, :where(.ef-app) main label { overflow-wrap: anywhere; word-break: break-word; }
+}
+
+@media (min-width: 769px) {
+  :where(.ef-app) .mobile-nav { display: none !important; }
+  :where(.ef-app) .show-mobile { display: none !important; }
+  :where(.ef-app) .hide-mobile { display: flex !important; }
+}
+
+/* ── .table-stack: responsive tables ──────────────────────────────────────
+   Opt-in. Under 769px each <tr> becomes a stacked card and each cell shows
+   its column name from a data-label attribute:
+
+     <table className="table-stack">
+       <thead><tr><th>Property</th><th>Rent</th></tr></thead>
+       <tbody>
+         <tr><td data-label="Property">12 High St</td>
+             <td data-label="Rent">£950</td></tr>
+       </tbody>
+     </table>
+
+   The <thead> is visually hidden (kept for screen readers). A cell without
+   data-label spans the full card width (use it for a title or action row).
+   Desktop rendering is untouched. */
+@media (max-width: 768px) {
+  table.table-stack, .table-stack tbody, .table-stack tr, .table-stack td, .table-stack th { display: block; width: 100%; }
+  .table-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  .table-stack tr { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
+  .table-stack td { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); padding: 6px 0 !important; border: none !important; text-align: right !important; white-space: normal !important; }
+  .table-stack td + td { border-top: 1px solid var(--border) !important; }
+  .table-stack td[data-label]::before { content: attr(data-label); flex-shrink: 0; text-align: left; font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .table-stack td:not([data-label]) { justify-content: flex-start; text-align: left !important; }
+}
+
+/* ── Shared UI primitives (src/components/ui) ──────────────────────────── */
+.ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); font-family: var(--font-sans); font-weight: 600; letter-spacing: 0; line-height: 1.2; border: 1px solid transparent; border-radius: 10px; cursor: pointer; text-decoration: none; white-space: nowrap; transition: background-color 0.18s, border-color 0.18s, color 0.18s, filter 0.18s; }
+.ui-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.ui-btn.is-loading { cursor: progress; opacity: 0.8; }
+.ui-btn:focus-visible { outline: 2px solid var(--gold-text); outline-offset: 2px; }
+.ui-btn--sm { font-size: var(--fs-sm); padding: 6px 12px; min-height: 32px; border-radius: var(--r-md); }
+.ui-btn--md { font-size: var(--fs-base); padding: 9px 18px; min-height: 44px; }
+.ui-btn--lg { font-size: var(--fs-md); padding: 12px 24px; min-height: 48px; }
+.ui-btn--full { width: 100%; }
+.ui-btn--primary { background: var(--gold); color: var(--on-gold); border-color: var(--gold); }
+.ui-btn--primary:hover:not(:disabled) { background: var(--gold-hover); }
+.ui-btn--secondary { background: transparent; color: var(--text); border-color: var(--border); }
+.ui-btn--secondary:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-text); }
+.ui-btn--ghost { background: transparent; color: var(--muted); }
+.ui-btn--ghost:hover:not(:disabled) { background: var(--card); color: var(--text); }
+.ui-btn--danger { background: var(--red); color: var(--on-danger); border-color: var(--red); }
+.ui-btn--danger:hover:not(:disabled) { filter: brightness(0.92); }
+.ui-spin { display: inline-block; width: 1em; height: 1em; flex-shrink: 0; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+
+.ui-field { display: flex; flex-direction: column; min-width: 0; }
+.ui-field__label { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 5px; }
+.ui-field__req { color: var(--red); }
+.ui-field__hint { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--faint); margin-top: var(--sp-1); line-height: 1.5; }
+.ui-field__error { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--red); margin-top: var(--sp-1); line-height: 1.5; }
+.ui-field.has-error :is(input, select, textarea) { border-color: var(--red); }
+
+.ui-card--pad-none { padding: 0; }
+.ui-card--pad-sm { padding: var(--sp-3) var(--sp-4); }
+.ui-card--pad-md { padding: 20px 22px; }
+.ui-card--pad-lg { padding: var(--sp-6) 28px; }
+
+.ui-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-10) var(--sp-6); color: var(--muted); }
+.ui-empty--compact { padding: var(--sp-6) var(--sp-4); }
+.ui-empty__icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: var(--r-pill); background: var(--card); border: 1px solid var(--border); color: var(--gold-text); margin-bottom: var(--sp-1); }
+.ui-empty--compact .ui-empty__icon { width: 40px; height: 40px; }
+.ui-empty__title { font-family: var(--font-sans); font-size: var(--fs-md); font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+.ui-empty__body { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.6; color: var(--muted); max-width: 42ch; }
+.ui-empty__action { margin-top: var(--sp-2); }
+
+/* ── Reduced motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton::after { animation: none !important; }
+  .fade { animation: none !important; }
+  .pcard:hover { transform: none; }
+  /* Spinners still need to read as "busy": slow them down rather than
+     freezing them into an unexplained ring. */
+  [style*="spin"], .ui-spin { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+}

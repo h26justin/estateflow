@@ -52,18 +52,53 @@ export const LIGHT = {
 
 export const ThemeContext = createContext({ T: LIGHT, darkMode: false, setDarkMode: () => {}, loadUserTheme: () => {} })
 
+// Theme resolution:
+//   1. An explicit choice (the Settings toggle, the command palette, or the
+//      user_profiles.dark_mode value loaded after sign-in) is stored under
+//      STORAGE_KEY and always wins.
+//   2. Otherwise the theme follows the OS `prefers-color-scheme`, live.
+// The resolved theme is mirrored to <html data-theme>, which switches the CSS
+// custom properties in src/styles/app.css. public/js/theme-init.js applies the
+// same rule before React loads so the first paint is already correct.
+export const STORAGE_KEY = 'ef_dark_mode'
+const DARK_QUERY = '(prefers-color-scheme: dark)'
+
+function readStoredChoice() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored === 'true' ? true : stored === 'false' ? false : null
+  } catch { return null }
+}
+
+function writeStoredChoice(val) {
+  try { localStorage.setItem(STORAGE_KEY, String(val)) } catch { /* storage blocked */ }
+}
+
+function systemPrefersDark() {
+  try { return !!window.matchMedia?.(DARK_QUERY).matches } catch { return false }
+}
+
 export function ThemeProvider({ children }) {
-  const [darkMode, setDarkModeState] = useState(() => {
-    try {
-      const stored = localStorage.getItem('ef_dark_mode')
-      if (stored === null) return false // default light
-      return stored === 'true'
-    } catch(e) { return false }
-  })
+  const [explicit, setExplicit] = useState(readStoredChoice)
+  const [systemDark, setSystemDark] = useState(systemPrefersDark)
+  const darkMode = explicit ?? systemDark
+
+  // Follow OS changes live (only matters while there is no explicit choice).
+  useEffect(() => {
+    let mq
+    try { mq = window.matchMedia?.(DARK_QUERY) } catch { mq = null }
+    if (!mq) return
+    const onChange = (e) => setSystemDark(e.matches)
+    if (mq.addEventListener) mq.addEventListener('change', onChange)
+    else mq.addListener?.(onChange)
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange)
+      else mq.removeListener?.(onChange)
+    }
+  }, [])
 
   useEffect(() => {
-    document.body.style.background = darkMode ? '#0E141A' : '#F4F3EF'
-    try { localStorage.setItem('ef_dark_mode', String(darkMode)) } catch(e) {}
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
   }, [darkMode])
 
   // Load saved preference from Supabase after login — uses shared client, no new instance
@@ -75,14 +110,16 @@ export function ThemeProvider({ children }) {
         .eq('user_id', userId)
         .single()
       if (data && data.dark_mode !== null && data.dark_mode !== undefined) {
-        setDarkModeState(data.dark_mode)
-        try { localStorage.setItem('ef_dark_mode', String(data.dark_mode)) } catch(e) {}
+        setExplicit(!!data.dark_mode)
+        writeStoredChoice(!!data.dark_mode)
       }
-    } catch(e) {}
+    } catch { /* keep the local choice */ }
   }, [])
 
+  // An explicit toggle: overrides the OS preference and persists.
   const setDarkMode = useCallback((val) => {
-    setDarkModeState(val)
+    setExplicit(!!val)
+    writeStoredChoice(!!val)
   }, [])
 
   const T = darkMode ? DARK : LIGHT
