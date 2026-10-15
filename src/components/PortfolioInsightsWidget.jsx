@@ -11,6 +11,15 @@ import { SkeletonTiles } from '../lib/Skeleton'
 // button that calls the edge function and refreshes. Rate limiting is
 // enforced server-side (one per 30 min per user).
 
+// action_link is AI-generated, so treat it as untrusted: only in-app hash
+// routes ('#/properties', '#/detail/<id>/compliance') are followed. Anything
+// else (absolute URLs, javascript:, protocol-relative, query strings) is
+// ignored and the CTA is not shown.
+const SAFE_INSIGHT_LINK = /^#\/[a-z0-9/_-]+$/
+export function safeInsightLink(link) {
+  return typeof link === 'string' && link.length <= 200 && SAFE_INSIGHT_LINK.test(link) ? link : null
+}
+
 // Severity → shared status palette key (styles.js STATUS, AA in both themes).
 const SEVERITY_STATUS = {
   critical:    'bad',
@@ -74,9 +83,8 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
   }
 
   function handleAction(link) {
-    if (!link) return
-    if (link.startsWith('#')) window.location.hash = link.slice(1)
-    else window.location.href = link
+    const safe = safeInsightLink(link)
+    if (safe) window.location.hash = safe.slice(1)
   }
 
   return (
@@ -153,7 +161,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                 <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
                   {it.body}
                 </div>
-                {it.action_label && (
+                {it.action_label && safeInsightLink(it.action_link) && (
                   <button onClick={() => handleAction(it.action_link)}
                     style={{
                       alignSelf: 'flex-start', marginTop: 4,
