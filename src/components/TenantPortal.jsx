@@ -319,7 +319,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
     api.fetchTenantPaymentTracker(property.id).then(payments => {
       setArrears(sumForStatus(payments, 'overdue', property?.rent_pcm))
     }).catch(()=>{})
-  }, [property.id])
+  }, [property.id, property?.rent_pcm, user.id])
 
   const endDays = tenancy?.tenancy_end ? Math.ceil((new Date(tenancy.tenancy_end)-new Date())/(1000*60*60*24)) : null
 
@@ -593,7 +593,7 @@ function TenantMaintenance({ property, user, brandColor }) {
 
   useEffect(()=>{
     api.fetchTenantMaintenance(property.id, user.id).then(d=>{setJobs(d);setLoading(false)}).catch(()=>setLoading(false))
-  },[property.id])
+  },[property.id, user.id])
 
   async function handlePhotoUpload(e) {
     const files = Array.from(e.target.files||[])
@@ -837,7 +837,7 @@ function TenantMessages({ property, user, contactInfo, brandColor }) {
     api.fetchTenantMessages(property.id, user.id)
       .then(d=>{setMessages(d);setLoading(false)}).catch(()=>setLoading(false))
     api.markMessagesRead(property.id, user.id).catch(()=>{})
-  },[property.id])
+  },[property.id, user.id])
 
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:'smooth'}) },[messages])
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, lazy, Suspense, Fragment } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense, Fragment } from 'react'
 import { MONO } from '../lib/styles'
 import { SkeletonTiles, SkeletonList } from '../lib/Skeleton'
 import Modal from '../lib/Modal'
@@ -331,9 +331,22 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   // cards. Loaded with the deals and refreshed when the user comes back
   // from a deal, since they may have just added photos.
   const [docCounts, setDocCounts] = useState({})
-  const loadDocCounts = () => api.fetchDealDocumentCounts().then(setDocCounts).catch(()=>{})
+  const loadDocCounts = useCallback(() => api.fetchDealDocumentCounts().then(setDocCounts).catch(()=>{}), [])
 
-  useEffect(() => { loadDeals() }, [])
+  const loadDeals = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const data = await api.fetchDeals(user.id)
+      setDeals(data)
+      loadDocCounts()
+    } catch(e) {
+      setLoadError(e.message || 'Failed to load deals')
+    }
+    setLoading(false)
+  }, [user.id, loadDocCounts])
+
+  useEffect(() => { loadDeals() }, [loadDeals])
 
   // Keep the URL in step with where the user is. Entering/leaving a deal is
   // a place change (pushState, so Back works); switching sub-view tabs
@@ -393,24 +406,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     loadDeals()
     setSelectedDeal(null)
     setView('list')
-  }, [convertRefreshKey])
+  }, [convertRefreshKey, loadDeals])
   // Push deals up to parent (App.jsx) whenever they change so the
   // dashboard cashflow widget can read fresh data without re-fetching.
   // Optional callback — DealsPage works fine without it.
   useEffect(() => { onDealsChange && onDealsChange(deals) }, [deals, onDealsChange])
-
-  async function loadDeals() {
-    setLoading(true)
-    setLoadError(null)
-    try {
-      const data = await api.fetchDeals(user.id)
-      setDeals(data)
-      loadDocCounts()
-    } catch(e) {
-      setLoadError(e.message || 'Failed to load deals')
-    }
-    setLoading(false)
-  }
 
   async function createNewDeal() {
     try {
@@ -1774,6 +1774,9 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
   // date inputs fire change per segment, so years like "0002" — and finally
   // null — were being saved while the user was still typing).
   const [targetDraft, setTargetDraft] = useState(deal.target_completion_date || '')
+  // Re-seed the draft only on a deal switch: while editing, the draft is the
+  // source of truth and saveTargetDate echoes it back through onUpdate.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setTargetDraft(deal.target_completion_date || '') }, [deal.id])
 
   async function saveTargetDate() {
@@ -1792,9 +1795,8 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
   }
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() }, [deal.id])
 
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -1806,7 +1808,8 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
       showToast(e.message || 'Failed to load tracker', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, deal.id, showToast])
+  useEffect(() => { load() }, [load])
 
   async function toggleMilestone(m) {
     const updated = { completed: !m.completed, completed_date: !m.completed ? new Date().toISOString().split('T')[0] : null }
@@ -1939,7 +1942,7 @@ function ContactsTab({ dealId, userId, showToast }) {
     api.fetchDealContacts(dealId).then(setContacts)
       .catch(e => showToast && showToast('Could not load contacts: ' + (e.message || 'unknown error'), 'error'))
     if (userId) api.fetchAddressBook(userId).then(setAddressBook).catch(()=>{})
-  }, [dealId, userId])
+  }, [dealId, userId, showToast])
 
   function startNew() { setForm({ role:'solicitor', name:'', company_name:'', phone:'', email:'', notes:'' }); setEditing('new') }
   function startEdit(c) { setForm({...c}); setEditing(c.id) }
@@ -2159,7 +2162,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
   const docInputRef   = useRef(null)
 
   const beginLoad = useLoadGuard()
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     setLoadError(null)
@@ -2172,8 +2175,8 @@ function DocumentsTab({ dealId, userId, showToast }) {
       setLoadError(e.message || 'Failed to load')
     }
     setLoading(false)
-  }
-  useEffect(() => { load() }, [dealId])
+  }, [beginLoad, dealId])
+  useEffect(() => { load() }, [load])
 
   const photos = docs.filter(api.isDealPhoto)
   const files  = docs.filter(d => !api.isDealPhoto(d))

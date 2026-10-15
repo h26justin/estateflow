@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
-import { fmt, fmtMoney2dp } from '../lib/format'
+import { fmt, fmtMoney2dp, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
@@ -42,11 +42,33 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
   const [previewQuarter, setPreviewQuarter] = useState(null)
   const [previewData, setPreviewData] = useState(null)
   const [busy, setBusy] = useState(null)
+  const [scope, setScope] = useState(null)
 
   const quarters = useMemo(() => quartersForTaxYear(taxYear), [taxYear])
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [taxYear])
+  const load = useCallback(async () => {
+    const isCurrent = beginLoad()
+    setLoading(true)
+    try {
+      const [s, subs, sc] = await Promise.all([
+        api.fetchMtdSettings(),
+        api.fetchMtdSubmissions(taxYear),
+        // Which properties are in scope (limited-company ones are left out).
+        // Informational only — a failure here must not block the page.
+        api.fetchMtdPropertyScope().catch(() => null),
+      ])
+      if (!isCurrent()) return
+      setSettings(s)
+      setSubmissions(subs)
+      setScope(sc)
+    } catch (e) {
+      if (!isCurrent()) return
+      showAppToast('Could not load MTD data: ' + e.message, 'error')
+    }
+    setLoading(false)
+  }, [beginLoad, taxYear])
+  useEffect(() => { load() }, [load])
 
   // OAuth return-handler: after the user finishes the gov.uk dance, HMRC
   // bounces them back to /?hmrc_connected=1. Show a toast + scrub the
@@ -63,24 +85,6 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  async function load() {
-    const isCurrent = beginLoad()
-    setLoading(true)
-    try {
-      const [s, subs] = await Promise.all([
-        api.fetchMtdSettings(),
-        api.fetchMtdSubmissions(taxYear),
-      ])
-      if (!isCurrent()) return
-      setSettings(s)
-      setSubmissions(subs)
-    } catch (e) {
-      if (!isCurrent()) return
-      showAppToast('Could not load MTD data: ' + e.message, 'error')
-    }
-    setLoading(false)
-  }
 
   async function previewQ(q) {
     setBusy(`preview-${q.quarter}`)
@@ -176,6 +180,8 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
           </div>
         </div>
       )}
+
+      <PropertyScopeNote T={T} scope={scope}/>
 
       {/* HMRC connection banner */}
       {!settings?.nino && accountType !== 'limited_company' && (
@@ -553,6 +559,31 @@ function prettifyHmrcKey(k) {
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, c => c.toUpperCase())
     .trim()
+}
+
+// Which properties these figures cover: limited-company holdings are left
+// out (corporation tax), and companies whose legal owner isn't set yet are
+// counted as personal — prompt the user to confirm.
+export function PropertyScopeNote({ T, scope }) {
+  if (!scope?.legalOwnerSupported) return null
+  const excludedCount = scope.excluded?.length || 0
+  const unset = scope.unsetCompanies || []
+  if (excludedCount === 0 && unset.length === 0) return null
+  const link = <a href="#/properties/companies" style={{ color: T.goldText, fontWeight: 700 }}>Portfolio → Companies → Legal owner</a>
+  return (
+    <div role="note" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+      {excludedCount > 0 && (
+        <div>
+          <strong style={{ color: T.text }}>{plural(excludedCount, 'property', 'properties')} left out</strong> because {scope.excludedCompanies.length === 1 ? 'its company is' : 'their companies are'} a limited company ({scope.excludedCompanies.map(c => c.name).join(', ')}) — that rent is taxed under corporation tax, not personal MTD. Change this in {link}.
+        </div>
+      )}
+      {unset.length > 0 && (
+        <div style={{ marginTop: excludedCount > 0 ? 6 : 0 }}>
+          {plural(unset.length, 'company', 'companies')} ({unset.map(c => c.name).join(', ')}) {unset.length === 1 ? 'doesn’t' : 'don’t'} say who legally owns the properties yet, so {unset.length === 1 ? 'its' : 'their'} rent is included here as personal income. If any are limited companies, set the legal owner in {link}.
+        </div>
+      )}
+    </div>
+  )
 }
 
 function formatDate(s) {

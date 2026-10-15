@@ -248,3 +248,58 @@ export function quarterStatusLabel(quarter, submission, today = new Date()) {
   }
   return { label: 'Overdue', tone: 'red' }
 }
+
+// ── LEGAL OWNERSHIP SCOPE ───────────────────────────────────────────
+// Companies double as plain portfolio groups, so a company_id alone can't say
+// whether rent is personal (MTD ITSA) or corporation-tax income. The explicit
+// companies.legal_owner flag decides: 'limited_company' → left out of MTD;
+// 'personal' or NULL (not set yet) → included, so nothing changes until the
+// user sets it. Properties with no company are always personal.
+
+export const LEGAL_OWNER_PERSONAL = 'personal'
+export const LEGAL_OWNER_LIMITED = 'limited_company'
+
+// True when a PostgREST / Postgres error says companies.legal_owner isn't
+// there yet (app deployed before the migration was applied). Only used on a
+// query whose sole optional column is legal_owner, so 42703 (undefined
+// column) is unambiguous there.
+export function isMissingLegalOwnerColumnError(err) {
+  if (!err) return false
+  if (err.code === '42703') return true
+  const msg = [err.message, err.details, err.hint].filter(Boolean).join(' ')
+  return /legal_owner/.test(msg) && /does not exist|schema cache|could not find/i.test(msg)
+}
+
+// Split properties into those that belong in personal MTD figures and those
+// held by a limited company. `companies` rows need { id, name, legal_owner };
+// pass legalOwnerSupported=false (column missing) to include everything.
+export function splitPropertiesByLegalOwner(properties = [], companies = [], { legalOwnerSupported = true } = {}) {
+  const byId = new Map((companies || []).map(c => [c.id, c]))
+  const included = []
+  const excluded = []
+  const excludedByCo = new Map()
+  const unsetByCo = new Map()
+  const tally = (map, co) => {
+    const row = map.get(co.id) || { id: co.id, name: co.name, count: 0 }
+    row.count++
+    map.set(co.id, row)
+  }
+  for (const p of properties || []) {
+    const co = p.company_id ? byId.get(p.company_id) : null
+    const lo = legalOwnerSupported ? co?.legal_owner : null
+    if (co && lo === LEGAL_OWNER_LIMITED) {
+      excluded.push(p)
+      tally(excludedByCo, co)
+    } else {
+      included.push(p)
+      if (legalOwnerSupported && co && lo == null) tally(unsetByCo, co)
+    }
+  }
+  return {
+    included,
+    excluded,
+    excludedCompanies: [...excludedByCo.values()],
+    unsetCompanies: [...unsetByCo.values()],
+    legalOwnerSupported,
+  }
+}

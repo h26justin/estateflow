@@ -5,6 +5,20 @@ import * as api from '../lib/api'
 import { fmt } from '../lib/format'
 import { FLAT_PREFIX_RE, groupKeyForAddress } from '../lib/addressUtils'
 
+// Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
+// status badges agree visually.
+const STATUS_COLOR = {
+  rented:         '#2ECC8A',
+  short_term_let: '#9B6FDE',  // purple — matches the STL booking colour
+  notice_given:   '#F0B850',  // amber — still rented but vacancy looming
+  let_agreed:   '#C8A84B',  // gold — contracts being signed
+  on_rental_market: '#3AA7B8', // teal — being marketed
+  vacant:       '#E05555',
+  purchased:    '#E0943A',
+  refurb:       '#4B8FE0',
+  sold:         '#9B8AC2',
+}
+
 /**
  * PropertyMap — a Mapbox-powered map of all visible properties.
  *
@@ -38,20 +52,6 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   const heatmapSourceId = 'ownproperly-heat-source'
   const heatmapLayerId  = 'ownproperly-heat-layer'
   const mono = MONO
-
-  // Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
-  // status badges agree visually.
-  const STATUS_COLOR = {
-    rented:         '#2ECC8A',
-    short_term_let: '#9B6FDE',  // purple — matches the STL booking colour
-    notice_given:   '#F0B850',  // amber — still rented but vacancy looming
-    let_agreed:   '#C8A84B',  // gold — contracts being signed
-    on_rental_market: '#3AA7B8', // teal — being marketed
-    vacant:       '#E05555',
-    purchased:    '#E0943A',
-    refurb:       '#4B8FE0',
-    sold:         '#9B8AC2',
-  }
 
   // Note: FLAT_PREFIX_RE and groupKeyForAddress are imported from
   // ../lib/addressUtils so this clustering logic stays in sync with the
@@ -270,6 +270,10 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
       withCoords.forEach(p => bounds.extend([p.longitude, p.latitude]))
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 })
     }
+    // setProperties/showToast are only called later from marker drag handlers;
+    // re-running on their identity would rebuild every marker and re-fit the
+    // map on each parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties, libReady, searchQ, heatmapMode])
 
   // ─── Heatmap layer ──────────────────────────────────────────────────────

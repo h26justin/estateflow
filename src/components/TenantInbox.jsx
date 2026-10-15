@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { MONO } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
@@ -33,10 +33,8 @@ export default function TenantInbox({ user, companies, showToast, companySetting
   const [showArchived, setShowArchived] = useState(false)
   const bottomRef = useRef(null)
 
-  useEffect(() => { loadAll() }, [])
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [thread])
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     setLoading(true)
     try {
       // Get all properties for this user
@@ -84,7 +82,9 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       ))
     } catch(e) { console.error(e) }
     setLoading(false)
-  }
+  }, [user.id])
+  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [thread])
 
   async function openJob(job) {
     if (expanded?.id === job.id && expanded?.itemType === 'job') { setExpanded(null); return }

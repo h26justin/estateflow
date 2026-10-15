@@ -66,6 +66,7 @@ const SuspendedAccessBanner = lazyPanel(() => import('./components/SuspendedAcce
 const BuildingMortgageModal = lazyPanel(() => import('./components/BuildingMortgageModal'))
 const CompanyOwnershipSection = lazyPanel(() => import('./components/CompanyOwnershipSection'))
 const HoldingGroupPanel = lazyPanel(() => import('./components/HoldingGroupPanel'))
+const CompanyLegalOwnerSetting = lazyPanel(() => import('./components/CompanyLegalOwner'))
 const PropertyModal = lazyPanel(() => import('./components/modals/PropertyModal'))
 const CompanyModal = lazyPanel(() => import('./components/modals/CompanyModal'))
 const DeleteConfirmModal = lazyPanel(() => import('./components/modals/DeleteConfirmModal'))
@@ -1784,7 +1785,7 @@ export default function App({ initialLoginMode = null } = {}) {
         default:             return 0
       }
     })
-  },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived])
+  },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived,yieldBasis])
 
   // Reset the drag ("Custom Order") positions back to the canonical default:
   // company, then building cluster, then natural unit order ("Room 2" before
@@ -2351,6 +2352,12 @@ export default function App({ initialLoginMode = null } = {}) {
       if (formData.companyType === 'holding') {
         co = await api.updateCompany(co.id, { company_type: 'holding' })
       }
+      // Legal owner (MTD scope) — also a follow-up write. Non-fatal: the
+      // company exists either way and it can be set later in Companies.
+      if (formData.legalOwner && formData.companyType !== 'holding') {
+        try { co = await api.updateCompany(co.id, { legal_owner: formData.legalOwner }) }
+        catch(e) { logError('handleSaveCo:legalOwner', e) }
+      }
       // Auto-generate and save subdomain — operating companies only (a
       // holding company has no tenants, so no tenant-portal subdomain).
       if (formData.companyType !== 'holding') {
@@ -2497,6 +2504,10 @@ export default function App({ initialLoginMode = null } = {}) {
                 canEdit={canEditCo} showToast={showToast}
                 onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
             ) : (<>
+            {/* companies_update RLS lets only the owner (or a developer) write the
+                company row, so admins see this read-only rather than hit an error. */}
+            <CompanyLegalOwnerSetting company={c} canEdit={c.owner_id===user?.id || devModeActive} showToast={showToast} T={T}
+              onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
               <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
               <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>

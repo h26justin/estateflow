@@ -20,6 +20,9 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const [allCompanies, setAllCompanies] = useState([])
   const [adminTab, setAdminTab] = useState(() => isPlatformAdmin ? 'admin' : 'billing')
 
+  // Mount-only: Retry and post-action refreshes call loadData directly; a
+  // changing `companies` prop must not refetch billing on every parent render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadData() }, [])
 
   async function loadData() {

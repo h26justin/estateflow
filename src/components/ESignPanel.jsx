@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
@@ -49,7 +49,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
   const [busyId, setBusyId] = useState(null)
 
   const beginLoad = useLoadGuard()
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     try {
       const rows = await api.fetchEsignEnvelopes({ propertyId, companyId })
@@ -61,9 +61,9 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
     } finally {
       if (isCurrent()) setLoading(false)
     }
-  }
+  }, [beginLoad, propertyId, companyId])
 
-  useEffect(() => { load() }, [propertyId, companyId])
+  useEffect(() => { load() }, [load])
 
   const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(signerEmail.trim())
   const canCreate = !busy && signerName.trim() && emailValid && (propertyId || companyId)

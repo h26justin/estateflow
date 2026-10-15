@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -60,8 +60,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
   const [savingLic, setSavingLic] = useState(false)
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [propertyId])
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -73,7 +72,8 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       showAppToast(e.message || 'Failed to load HMO rooms', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId])
+  useEffect(() => { load() }, [load])
 
   const roll = rollupRooms(rooms)
   const arrearsIds = new Set(roll.arrears.map(a => a.id))

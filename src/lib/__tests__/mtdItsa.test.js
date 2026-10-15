@@ -3,6 +3,7 @@ import {
   taxYearForDate, parseTaxYear, quartersForTaxYear,
   mapExpenseCategoryToHmrc, buildQuarterlySummary, quarterStatusLabel,
   currentQuarter, estimateMortgageInterest,
+  splitPropertiesByLegalOwner, isMissingLegalOwnerColumnError,
 } from '../mtdItsa'
 
 describe('taxYearForDate — 5/6 April boundary', () => {
@@ -236,5 +237,59 @@ describe('currentQuarter', () => {
   it('uses the local calendar date', () => {
     expect(currentQuarter(new Date(2026, 6, 6, 0, 30)).quarter).toBe(2)
     expect(currentQuarter(new Date(2026, 6, 5, 23, 30)).quarter).toBe(1)
+  })
+})
+
+describe('splitPropertiesByLegalOwner', () => {
+  const cos = [
+    { id: 'ltd', name: 'Ltd Co', legal_owner: 'limited_company' },
+    { id: 'pers', name: 'Personal Group', legal_owner: 'personal' },
+    { id: 'unset', name: 'Unset Group', legal_owner: null },
+  ]
+  const props = [
+    { id: 'p1', company_id: 'ltd' }, { id: 'p2', company_id: 'pers' },
+    { id: 'p3', company_id: 'unset' }, { id: 'p4', company_id: null },
+    { id: 'p5', company_id: 'unknown' }, { id: 'p6', company_id: 'ltd' },
+  ]
+
+  it('excludes only limited-company properties', () => {
+    const r = splitPropertiesByLegalOwner(props, cos)
+    expect(r.included.map(p => p.id)).toEqual(['p2', 'p3', 'p4', 'p5'])
+    expect(r.excluded.map(p => p.id)).toEqual(['p1', 'p6'])
+    expect(r.excludedCompanies).toEqual([{ id: 'ltd', name: 'Ltd Co', count: 2 }])
+    expect(r.unsetCompanies).toEqual([{ id: 'unset', name: 'Unset Group', count: 1 }])
+    expect(r.legalOwnerSupported).toBe(true)
+  })
+
+  it('treats a company row without the field (column absent) as not set', () => {
+    const r = splitPropertiesByLegalOwner([{ id: 'p1', company_id: 'c' }], [{ id: 'c', name: 'C' }])
+    expect(r.included.map(p => p.id)).toEqual(['p1'])
+    expect(r.unsetCompanies).toEqual([{ id: 'c', name: 'C', count: 1 }])
+  })
+
+  it('includes everything and prompts nothing when legal_owner is unsupported', () => {
+    const r = splitPropertiesByLegalOwner(props, cos, { legalOwnerSupported: false })
+    expect(r.included).toHaveLength(6)
+    expect(r.excluded).toEqual([])
+    expect(r.unsetCompanies).toEqual([])
+    expect(r.legalOwnerSupported).toBe(false)
+  })
+
+  it('copes with empty input', () => {
+    expect(splitPropertiesByLegalOwner().included).toEqual([])
+    expect(splitPropertiesByLegalOwner(null, null).excluded).toEqual([])
+  })
+})
+
+describe('isMissingLegalOwnerColumnError', () => {
+  it('recognises undefined-column and schema-cache errors', () => {
+    expect(isMissingLegalOwnerColumnError({ code: '42703', message: 'column companies.legal_owner does not exist' })).toBe(true)
+    expect(isMissingLegalOwnerColumnError({ code: 'PGRST204', message: "Could not find the 'legal_owner' column of 'companies' in the schema cache" })).toBe(true)
+  })
+
+  it('ignores other errors', () => {
+    expect(isMissingLegalOwnerColumnError(null)).toBe(false)
+    expect(isMissingLegalOwnerColumnError({ code: '57014', message: 'statement timeout' })).toBe(false)
+    expect(isMissingLegalOwnerColumnError({ code: '42501', message: 'permission denied for table companies' })).toBe(false)
   })
 })
