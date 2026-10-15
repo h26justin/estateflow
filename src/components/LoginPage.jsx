@@ -111,7 +111,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
     // Only override mode for invite tokens — not for normal sign in/up flows
     if (inviteToken) setMode('signup')
     else setMode(initialMode)
-  }, [initialMode])
+  }, [initialMode, inviteToken])
 
   // Modal mode: Escape closes. Without this (and the ✕ below) the only way
   // out of the sign-in overlay was clicking the dimmed backdrop — which on
