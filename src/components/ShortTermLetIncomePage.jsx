@@ -24,6 +24,7 @@ import {
 } from '../lib/stlIncome'
 import { downloadCsv } from '../lib/csv'
 import { SkeletonRows } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 const fmtMoney = n => {
   const v = Number(n) || 0
@@ -434,13 +435,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
       </div>
 
       {stlProps.length === 0 ? (
-        <div style={{ ...card(T), textAlign: 'center', padding: '40px 20px' }}>
-          <Icon name="bed" size={28} color={T.faint} />
-          <div style={{ fontFamily: MONO, fontSize: 13, color: T.text, marginTop: 10, fontWeight: 600 }}>No short-term let properties yet</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.6, maxWidth: 460, margin: '6px auto 0' }}>
-            Set a property's status to Short-Term Let, then connect Hostaway under Settings → Integrations and map its listings. Bookings appear here after the first sync.
-          </div>
-        </div>
+        <EmptyState icon="bed" title="No short-term let properties yet"
+          body="Set a property's status to Short-Term Let, then connect Hostaway under Settings → Integrations and map its listings. Bookings appear here after the first sync."/>
       ) : (
         <>
           {/* Filters */}

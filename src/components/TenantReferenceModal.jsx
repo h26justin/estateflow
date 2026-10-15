@@ -7,6 +7,7 @@ import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
 import { SkeletonList } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 // Tenant referencing modal.
 //
@@ -212,9 +213,7 @@ export default function TenantReferenceModal({ property, onClose }) {
           {loading ? (
             <SkeletonList count={2} height={60}/>
           ) : history.length === 0 ? (
-            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>
-              No reference requests yet.
-            </div>
+            <EmptyState compact icon="users" title="No reference requests yet"/>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {history.map(r => (

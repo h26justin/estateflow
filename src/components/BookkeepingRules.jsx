@@ -5,6 +5,7 @@ import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { SkeletonList } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 import {
   BOOKKEEPING_CATEGORIES,
   listRules, createRule, updateRule, deleteRule,
@@ -248,7 +249,7 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
       {loading ? (
         <div style={{ marginTop: 8 }}><SkeletonList count={2} height={56}/></div>
       ) : rules.length === 0 ? (
-        <p style={{ fontSize: 12, color: T.muted, marginTop: 8 }}>No rules yet. Add one above — lower priority numbers run first.</p>
+        <EmptyState compact icon="list" title="No rules yet" body="Add one above — lower priority numbers run first." style={{ marginTop: 8 }}/>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
           {rules.map(r => (

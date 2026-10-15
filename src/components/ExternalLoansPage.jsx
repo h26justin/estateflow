@@ -23,6 +23,7 @@ import {
 } from '../lib/externalLoans'
 import { pressable } from '../lib/pressable'
 import { Skeleton, SkeletonList } from '../lib/Skeleton'
+import { EmptyState, Button } from './ui'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -526,12 +527,9 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
     </div>
 
     {loading ? <SkeletonList count={3}/>
-    : loans.length === 0 ? <div style={{ ...card(T), textAlign: 'center', padding: '40px 20px' }}>
-      <Icon name="wallet" size={28} color={T.faint} />
-      <div style={{ fontFamily: mono, fontSize: 13, color: T.text, marginTop: 10, fontWeight: 600 }}>No external loans yet</div>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, maxWidth: 460, margin: '6px auto 14px' }}>Add a loan from a private lender, director or family member. Properly works out the monthly payment and you tick each one off once it is paid.</div>
-      {editableCompanies.length > 0 && <button onClick={() => setMode('new')} className="btn btn-gold" style={{ ...btn(T, 'gold'), fontSize: 12, padding: '8px 16px' }}><Icon name="plus" size={13} /> Add your first loan</button>}
-    </div>
+    : loans.length === 0 ? <EmptyState icon="wallet" title="No external loans yet"
+      body="Add a loan from a private lender, director or family member. Properly works out the monthly payment and you tick each one off once it is paid."
+      action={editableCompanies.length > 0 ? <Button icon="plus" size="sm" onClick={() => setMode('new')}>Add your first loan</Button> : null}/>
     : <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,2fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
       <div style={{ ...card(T), padding: 0, overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

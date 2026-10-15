@@ -22,6 +22,7 @@ import {
   paidAgainst, invoiceStatus, outstandingOn, invoicesForProject, defaultProjectFor, extractInvoiceFields, round2,
 } from '../lib/refurbInvoices'
 import { pressable } from '../lib/pressable'
+import { EmptyState } from './ui'
 
 const mono = MONO
 const fmt2 = n => '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -401,7 +402,7 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
       </select>
       {canImport && <button onClick={onImport} style={btn(T, 'gold')}>Import refurb invoice</button>}
     </div>
-    {rows.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: '12px 0' }}>No invoices here yet. Import one to allocate it across properties.</div>}
+    {rows.length === 0 && <EmptyState compact icon="receipt" title="No invoices here yet" body="Import one to allocate it across properties."/>}
     {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead><tr><th style={th}>Date</th><th style={th}>Supplier</th><th style={th}>Number</th>{!isMobile && <th style={th}>Co</th>}<th style={th}>Properties</th><th style={{ ...th, textAlign: 'right' }}>Amount</th><th style={{ ...th, textAlign: 'right' }}>Paid</th><th style={{ ...th, textAlign: 'right' }}>Outstanding</th><th style={th}>Status</th></tr></thead>
       <tbody>{rows.map(({ inv, st, paid, out }) => (

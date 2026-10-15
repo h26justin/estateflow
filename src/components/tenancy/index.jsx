@@ -11,6 +11,7 @@ import { Icon } from '../../lib/icons'
 import NoticeGenerator from '../NoticeGenerator'
 import { GROUNDS, groundLabel, earliestRentIncreaseDate, currentTenancyStart } from '../../lib/possessionRules'
 import { SkeletonList } from '../../lib/Skeleton'
+import { EmptyState, Button } from '../ui'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
 export function RightToRentTab({ propertyId, userId, showToast, T }) {
@@ -120,9 +121,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
 
       {loading ? <SkeletonList count={2} height={64}/>
       : records.length === 0 ? (
-        <div style={{ background:T.bg, borderRadius:10, padding:'20px', textAlign:'center', fontFamily:mono, fontSize:12, color:T.muted }}>
-          No right to rent checks recorded for this property.
-        </div>
+        <EmptyState compact icon="id-card" title="No right to rent checks recorded" body="Add a check for each adult tenant before the tenancy starts."/>
       ) : records.map(r => {
         const expired = isExpired(r.expiry_date)
         const expiring = isExpiring(r.expiry_date)
@@ -240,7 +239,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
 
       {loading ? <SkeletonList count={2} height={64}/>
       : records.length === 0 ? (
-        <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No deposit protection records for this property.</div>
+        <EmptyState compact icon="shield-check" title="No deposit protection records" body="Record where each deposit is protected and when prescribed information was sent."/>
       ) : records.map(r => (
         <div key={r.id} style={{ background: T.card, border: `1px solid ${r.prescribed_info_sent!=='yes'?T.amber:T.border}`, borderRadius: 10, padding: '12px 16px', marginBottom: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
@@ -400,7 +399,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
       )}
 
       {loading ? <SkeletonList count={2} height={64}/>
-      : notices.length === 0 ? <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No notices logged.</div>
+      : notices.length === 0 ? <EmptyState compact icon="file-text" title="No notices logged"/>
       : notices.map(n => {
         const st = STATUSES.find(s => s.key === n.status) || STATUSES[0]
         const nt = NOTICE_TYPES.find(t => t.key === n.notice_type) || NOTICE_TYPES[0]
@@ -536,7 +535,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
       )}
 
       {loading ? <SkeletonList count={2} height={64}/>
-      : history.length === 0 ? <div style={{ background: T.bg, borderRadius: 10, padding: 20, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No rent history recorded.</div>
+      : history.length === 0 ? <EmptyState compact icon="trending-up" title="No rent history recorded"/>
       : (
         <div style={{ position: 'relative' }}>
           <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 1, background: T.border }}/>

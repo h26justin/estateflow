@@ -11,6 +11,8 @@ import {
   NON_COUNTING_REVIEW, round2, lineAmountOf, feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../lib/statementAudit'
 import { pressable } from '../lib/pressable'
+import { EmptyState, Button } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
 // A standalone register for auditing managing-agent rental statements and
@@ -714,14 +716,12 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         </div>
       </div>
 
-      {loading && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 20 }}>Loading the register…</div>}
+      {loading && <SkeletonRows rows={4}/>}
 
       {!loading && series.length === 0 && (
-        <div className="card" style={{ padding: 30, textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: T.text, marginBottom: 6 }}>No statements on the register yet</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 14 }}>Upload Statement {DEFAULT_START} to begin. Each upload is reviewed line by line before anything is written.</div>
-          <button className="btn btn-gold" onClick={() => fileRef.current?.click()}>Upload statement PDF</button>
-        </div>
+        <EmptyState icon="file-text" title="No statements on the register yet"
+          body={`Upload Statement ${DEFAULT_START} to begin. Each upload is reviewed line by line before anything is written.`}
+          action={<Button icon="upload" onClick={() => fileRef.current?.click()}>Upload statement PDF</Button>}/>
       )}
 
       {!loading && series.length > 0 && (

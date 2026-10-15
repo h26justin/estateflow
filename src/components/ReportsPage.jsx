@@ -20,6 +20,7 @@ import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
+import { EmptyState } from './ui'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
 // "£12,000" at small sizes.
@@ -494,7 +495,7 @@ function StatCards({ items, T }) {
 }
 
 function ReportTable({ headers, rows, T, accent, totals }) {
-  if (!rows.length) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12}}>No data for this period</div>
+  if (!rows.length) return <EmptyState compact icon="pie-chart" title="No data for this period"/>
   const cols = headers.map(h=>h.width||'1fr').join(' ')
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
@@ -2189,9 +2190,7 @@ function ReportPropertyOwnership({ filtProps, companies, shareholders, selectedC
       ]}/>
 
       {groups.length === 0 && otherCompanies.length === 0 && (
-        <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12}}>
-          No properties to show.
-        </div>
+        <EmptyState compact icon="building" title="No properties to show"/>
       )}
 
       {groups.length > 0 && (
@@ -2581,7 +2580,7 @@ function AgentMonthTiles({ months, T }) {
 function ReportAgentWeekly({ filtProps, agents, companies, companySettings, reportAgentId, setReportAgentId, agentStl, T, fmt }) {
   const list = useMemo(() => agentsWithProperties(filtProps, agents), [filtProps, agents])
   const model = useMemo(() => agentReportModel(filtProps, agents, reportAgentId, companies, companySettings, agentStl), [filtProps, agents, reportAgentId, companies, companySettings, agentStl])
-  if (!model) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center'}}>No letting agent is linked to these properties. Set the managing agent on each property to use this report.</div>
+  if (!model) return <EmptyState compact icon="users" title="No letting agent linked" body="No letting agent is linked to these properties. Set the managing agent on each property to use this report."/>
   const s = model.summary
   const countColor = { paid: T.green, due: T.amber, missed: T.red, nc: T.faint, backfill: T.amber }
   return (

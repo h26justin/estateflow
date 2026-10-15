@@ -6,6 +6,7 @@ import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment, fetchEpcCertificate, syncEpcFromRegister, syncAllEpcFromRegister } from '../lib/api/epc'
 import { Skeleton } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -352,9 +353,8 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
       )}
 
       {!loading && measures.length === 0 && !error && (
-        <div style={{ ...card, fontFamily: mono, fontSize: 12, color: T.muted }}>
-          No retrofit plan yet. {canWrite ? 'Generate one above to model the cheapest route to EPC C.' : 'Ask an editor to generate one.'}
-        </div>
+        <EmptyState compact icon="leaf" title="No retrofit plan yet"
+          body={canWrite ? 'Generate one above to model the cheapest route to EPC C.' : 'Ask an editor to generate one.'}/>
       )}
     </div>
   )

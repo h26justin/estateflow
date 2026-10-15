@@ -6,6 +6,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import { SkeletonRows } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 const mono = MONO
 
@@ -135,11 +136,7 @@ export default function TrashPage({ user, onRestored }) {
       </div>
 
       {totalCount === 0 ? (
-        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'60px 20px',textAlign:'center'}}>
-          <div style={{fontSize:48,marginBottom:12}}>🗑</div>
-          <div style={{fontFamily:mono,fontSize:13,color:T.muted,marginBottom:4}}>Your trash is empty</div>
-          <div style={{fontFamily:mono,fontSize:11,color:T.faint}}>Deleted items will appear here</div>
-        </div>
+        <EmptyState icon="trash" title="Your trash is empty" body="Deleted items will appear here"/>
       ) : (
         <>
           {/* Filter tabs */}
