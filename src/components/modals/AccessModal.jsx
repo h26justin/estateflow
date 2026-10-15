@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { supabase } from '../../lib/supabase'
 import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
+import { EmptyState } from '../ui'
+import { SkeletonRows } from '../../lib/Skeleton'
 
 export default function AccessModal({ companies, userId, onClose, showToast }) {
   const confirmDiscard = useConfirm()
@@ -112,24 +114,24 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
                 aria-describedby={triedAdd && !newEmail.trim() ? 'am-new-email-err' : undefined}/>
               <button type="submit" className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}}>Add User</button>
             </form>
-            {triedAdd && !newEmail.trim() && <span id="am-new-email-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
-            <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginTop:8}}>
+            {triedAdd && !newEmail.trim() && <span id="am-new-email-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginTop:8}}>
               Note: The user must first sign up at your app URL. Users with no restrictions here see nothing - add them and then tick their companies below.
             </div>
           </div>
 
-          {loading ? <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.muted}}>Loading...</div> : (
+          {loading ? <SkeletonRows rows={3} height={64}/> : (
             allUsers.length===0
-              ? <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.muted,fontSize:12}}>No users found. Make sure the <code>list_auth_users</code> SQL function has been created.</div>
+              ? <EmptyState compact icon="users" title="No users found" body={<>Make sure the <code>list_auth_users</code> SQL function has been created.</>}/>
               : allUsers.map(u=>(
                 <div key={u.id} style={{marginBottom:16,padding:'14px 16px',background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <div style={{fontFamily:MONO,fontSize:12,color:T.text,fontWeight:600}}>{u.email}</div>
-                      {u.id===userId&&<span style={{fontFamily:MONO,fontSize:9,background:T.gold+'22',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:4,padding:'2px 6px'}}>YOU · ADMIN</span>}
-                      {u.id!==userId&&!(access[u.id]||[]).length&&<span style={{fontFamily:MONO,fontSize:9,background:T.green+'22',color:T.green,border:`1px solid ${T.green}44`,borderRadius:4,padding:'2px 6px'}}>ADMIN</span>}
+                      {u.id===userId&&<span style={{fontFamily:MONO,fontSize:FS.xs,background:T.gold+'22',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:4,padding:'2px 6px'}}>YOU · ADMIN</span>}
+                      {u.id!==userId&&!(access[u.id]||[]).length&&<span style={{fontFamily:MONO,fontSize:FS.xs,background:T.green+'22',color:T.green,border:`1px solid ${T.green}44`,borderRadius:4,padding:'2px 6px'}}>ADMIN</span>}
                     </div>
-                    {u.id!==userId&&<button className="btn btn-danger" style={{fontSize:10,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>}
+                    {u.id!==userId&&<button className="btn btn-danger" style={{fontSize:FS.xs,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>}
                   </div>
                   <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                     {companies.map(co=>{

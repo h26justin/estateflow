@@ -1,4 +1,4 @@
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 // BulkAddPropertyModal — wizard for adding many flats in a building at once.
 //
 // Three step flow:
@@ -415,7 +415,7 @@ function Step1({
       </div>
       {/* Live preview of generated names */}
       <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: 12 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
           Preview ({units.length} {units.length === 1 ? 'unit' : 'units'})
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 120, overflowY: 'auto' }}>
@@ -468,7 +468,7 @@ function Step2({
 
       {/* Pricing mode toggle */}
       <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: 14 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
           Pricing mode
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -496,14 +496,14 @@ function Step2({
               <div>
                 <label>Total purchase price</label>
                 <MoneyInput aria-label="Total purchase price" prefix="£" value={totalPurchase} onChange={v => setTotalPurchase(v)}/>
-                {totalPurchase && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3 }}>
+                {totalPurchase && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>
                   ≈ {fmt(splitPurchase)} per unit
                 </div>}
               </div>
               <div>
                 <label>Total mortgage</label>
                 <MoneyInput aria-label="Total mortgage" prefix="£" value={totalMortgage} onChange={v => setTotalMortgage(v)}/>
-                {totalMortgage && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 3 }}>
+                {totalMortgage && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>
                   ≈ {fmt(splitMortgage)} per unit
                 </div>}
               </div>
@@ -577,7 +577,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
 
       {/* Grid */}
       <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ background: T.bg }}>
               <th style={cellStyle(T, 'header', 'left')}>Name</th>
@@ -601,26 +601,26 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
           <tbody>
             {units.map((u, i) => (
               <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
-                <td style={cellStyle(T, 'cell', 'left')}>
+                <td data-label="Name" style={cellStyle(T, 'cell', 'left')}>
                   <input value={u.name} onChange={e => setRow(i, { name: e.target.value })}
                     style={cellInput(T)}/>
                 </td>
-                <td style={cellStyle(T, 'cell')}>
+                <td data-label="Status" style={cellStyle(T, 'cell')}>
                   <select value={u.status} onChange={e => setRow(i, { status: e.target.value })} style={cellInput(T)}>
                     {STATUSES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
                   </select>
                 </td>
-                <td style={cellStyle(T, 'cell')}>
+                <td data-label="Rent £/mo" style={cellStyle(T, 'cell')}>
                   <MoneyInput value={u.rent} onChange={v => setRow(i, { rent: v })}
                     style={cellInput(T)}/>
                 </td>
                 {pricingMode === 'per_unit' && (
                   <>
-                    <td style={cellStyle(T, 'cell')}>
+                    <td data-label="Purchase £" style={cellStyle(T, 'cell')}>
                       <MoneyInput value={u.purchase} onChange={v => setRow(i, { purchase: v })}
                         style={cellInput(T)}/>
                     </td>
-                    <td style={cellStyle(T, 'cell')}>
+                    <td data-label="Mortgage £" style={cellStyle(T, 'cell')}>
                       <MoneyInput value={u.mortgage} onChange={v => setRow(i, { mortgage: v })}
                         style={cellInput(T)}/>
                     </td>
@@ -635,7 +635,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
           </tbody>
         </table>
       </div>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, fontStyle: 'italic' }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>
         Tip: change a value in the first row, then click "Fill down" in the column header to copy it to all rows.
       </div>
     </>
@@ -645,7 +645,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
 function FillDownLink({ onClick, T }) {
   return (
     <button onClick={onClick} title="Fill this column with the first row's value"
-      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: 9, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
+      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: FS.xs, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
       ↓ Fill
     </button>
   )
@@ -654,7 +654,7 @@ function FillDownLink({ onClick, T }) {
 function cellStyle(T, kind, align = 'center') {
   if (kind === 'header') {
     return {
-      fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.muted,
+      fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: T.muted,
       textTransform: 'uppercase', letterSpacing: '0.05em',
       padding: '8px 10px', textAlign: align,
       whiteSpace: 'nowrap',

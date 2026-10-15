@@ -9,6 +9,8 @@ import {
   wouldCreateCycle, isTaskOverdue, TASK_PRIORITIES, isoDate,
 } from '../../lib/refurbWorkspace'
 import { mono, btn, inputStyle, panel, sectionHead, Field, StatusChip, Pill, fmtDate, fmtWhen, todayISO } from './ui'
+import { FS } from '../../lib/styles'
+import { EmptyState } from '../ui'
 
 const TEXT_FIELDS = ['name', 'scope', 'next_action', 'blockers', 'decisions', 'notes', 'responsible_name']
 const DATE_FIELDS = ['planned_start', 'planned_end', 'forecast_start', 'forecast_end', 'actual_start', 'actual_end']
@@ -87,7 +89,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 12 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
             {stage.parent_id ? `Substage of ${nameOf(stage.parent_id)}` : 'Journey stage'}
           </div>
           <input value={form.name} onChange={e => set('name', e.target.value)} onBlur={() => save('name')} disabled={dis} aria-label="Stage name"
@@ -143,7 +145,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
                 <input type="date" aria-label={`${lbl} finish`} value={form[`${k}_end`]} onChange={e => set(`${k}_end`, e.target.value)} onBlur={() => save(`${k}_end`)} disabled={dis} style={inputStyle(T)} />
               </div>
             ))}
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 4 }}>Leave Forecast blank to follow the plan. Moving a forecast or actual finish checks the stages that depend on this one.</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>Leave Forecast blank to follow the plan. Moving a forecast or actual finish checks the stages that depend on this one.</div>
           </div>
 
           {/* Next action / blockers / decisions */}
@@ -187,9 +189,9 @@ export default function StageDrawer({ ws, stageId, onClose }) {
                 onBlur={e => { const v = Math.round(Number(e.target.value) || 0); if (v !== d.lag_days) ops.updateDependency(d, v) }} style={{ ...inputStyle(T), padding: '4px 6px' }} />
               {canEdit ? <button onClick={() => ops.removeDependency(d)} style={btn(T)} aria-label="Remove dependency">✕</button> : <span />}
             </div>)}
-            {preds.length > 0 && <div style={{ fontFamily: mono, fontSize: 9.5, color: T.faint, marginBottom: 8 }}>Number = days to wait after that stage finishes.</div>}
+            {preds.length > 0 && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginBottom: 8 }}>Number = days to wait after that stage finishes.</div>}
             {canEdit && <AddDependency stage={stage} others={others} deps={data.deps} onAdd={ops.addDependency} T={T} />}
-            {succs.length > 0 && <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, marginTop: 10 }}>Waiting on this: {succs.map(d => nameOf(d.stage_id)).join(', ')}</div>}
+            {succs.length > 0 && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>Waiting on this: {succs.map(d => nameOf(d.stage_id)).join(', ')}</div>}
           </div>
 
           {/* Substages */}
@@ -205,7 +207,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
           {/* Stage history */}
           <div style={panel(T)}>
             <div style={sectionHead(T)}><span>History</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{history.length}</span></div>
-            {history.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No changes recorded yet.</div>}
+            {history.length === 0 && <EmptyState compact icon="clock" title="No changes recorded yet"/>}
             <div style={{ maxHeight: 260, overflowY: 'auto' }}>
               {history.map(e => <HistoryRow key={e.id} e={e} T={T} />)}
             </div>
@@ -262,7 +264,7 @@ function AddDependency({ stage, others, deps, onAdd, T }) {
         await onAdd(stage, pick); setPick('')
       }}>Add</button>
     </div>
-    {err && <div role="alert" style={{ fontFamily: mono, fontSize: 10.5, color: T.red, marginTop: 4 }}>{err}</div>}
+    {err && <div role="alert" style={{ fontFamily: mono, fontSize: FS.xs, color: T.red, marginTop: 4 }}>{err}</div>}
   </div>
 }
 
@@ -280,11 +282,11 @@ function Checklist({ ws, stage, items }) {
   const live = items.filter(t => t.status !== 'cancelled')
   return <div style={panel(T)}>
     <div style={sectionHead(T)}><span>Completion checklist</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{live.filter(t => t.status === 'done').length}/{live.length}</span></div>
-    {live.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No checklist yet. Items ticked here count toward this stage's progress.</div>}
+    {live.length === 0 && <EmptyState compact icon="clipboard-check" title="No checklist yet" body="Items ticked here count toward this stage's progress."/>}
     {live.map(t => <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0' }}>
       <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} onChange={() => ops.toggleTask(t)} style={{ width: 18, height: 18, margin: 0 }} aria-label={t.title} />
       <span style={{ flex: 1, fontSize: 13, textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? T.muted : T.text }}>{t.title}</span>
-      {t.status === 'done' && t.completed_by && <span style={{ fontFamily: mono, fontSize: 9.5, color: T.faint }}>{t.completed_by}</span>}
+      {t.status === 'done' && t.completed_by && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{t.completed_by}</span>}
       {canEdit && <button onClick={() => ops.removeTask(t)} style={{ ...btn(T), padding: '2px 7px', minHeight: 0 }} aria-label={`Remove ${t.title}`}>✕</button>}
     </div>)}
     {canEdit && <QuickText placeholder="Add a checklist item" button="Add" T={T} onAdd={title => ops.addTask({ stage_id: stage.id, kind: 'checklist', title })} />}
@@ -314,7 +316,7 @@ export function TaskList({ ws, stage, items, title = 'Tasks and milestones' }) {
           {t.priority === 'high' && <Pill color={T.amber} T={T}>High</Pill>}
           {overdue && <Pill color={T.red} T={T}>Overdue</Pill>}
         </div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: overdue ? T.red : T.muted }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: overdue ? T.red : T.muted }}>
           {[t.owner_name, t.contractor_name, t.due_date ? `due ${fmtDate(t.due_date)}` : null, ws.stageName && t.stage_id && !stage ? ws.stageName(t.stage_id) : null].filter(Boolean).join(' · ') || 'No owner or due date'}
         </div>
       </div>
@@ -360,14 +362,14 @@ export function Updates({ ws, stage, items, title = 'Notes and updates' }) {
         <button onClick={add} disabled={!draft.body.trim()} style={{ ...btn(T, 'gold'), opacity: draft.body.trim() ? 1 : 0.5 }}>Post</button>
       </div>
     </div>}
-    {items.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No updates yet.</div>}
+    {items.length === 0 && <EmptyState compact icon="message" title="No updates yet"/>}
     {items.map(u => <div key={u.id} style={{ padding: '8px 0', borderBottom: `1px solid ${T.border}` }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'flex', justifyContent: 'space-between', gap: 6 }}>
         <span>{fmtDate(u.update_date)} · {UPDATE_KINDS[u.kind] || 'Note'}{u.author_name ? ` · ${u.author_name}` : ''}{!stage && u.stage_id && ws.stageName ? ` · ${ws.stageName(u.stage_id)}` : ''}</span>
         {canEdit && <button onClick={() => ops.removeUpdate(u)} style={{ background: 'none', border: 'none', color: T.faint, cursor: 'pointer', fontSize: 11 }} aria-label="Delete update">✕</button>}
       </div>
       <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', marginTop: 3 }}>{u.body}</div>
-      {u.next_action && <div style={{ fontFamily: mono, fontSize: 10.5, color: T.goldText, marginTop: 3 }}>Next: {u.next_action}</div>}
+      {u.next_action && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 3 }}>Next: {u.next_action}</div>}
     </div>)}
   </div>
 }
@@ -398,9 +400,9 @@ export function HistoryRow({ e, T }) {
     reordered: 'Moved in the journey',
   }[e.action] || `${e.action.replace(/_/g, ' ')}${what ? ` ${what}` : ''}`
   return <div style={{ padding: '6px 0', borderBottom: `1px solid ${T.border}` }}>
-    <div style={{ fontSize: 12.5 }}>{text}</div>
+    <div style={{ fontSize: FS.base }}>{text}</div>
     {e.reason && <div style={{ fontSize: 12, color: T.amber, marginTop: 2 }}>Reason: {e.reason}</div>}
-    <div style={{ fontFamily: mono, fontSize: 9.5, color: T.faint }}>{fmtWhen(e.created_at)}{e.actor_name ? ` · ${e.actor_name}` : ''}</div>
+    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{fmtWhen(e.created_at)}{e.actor_name ? ` · ${e.actor_name}` : ''}</div>
   </div>
 }
 

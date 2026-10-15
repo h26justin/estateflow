@@ -1,4 +1,4 @@
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 // ── INSURANCE PAGE ────────────────────────────────────────────────────────
 // Top-level page for managing insurance policies. Three views:
 //   • Active   — current/upcoming-expiry policies (default)
@@ -24,6 +24,8 @@ import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
 import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { Button, EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = MONO
 
@@ -226,7 +228,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       {/* Company filter pills */}
       {companies.length > 1 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
-          <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
+          <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
           {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
             <button key={c.id} onClick={() => setCoFilter(c.id)}
               style={{
@@ -259,9 +261,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
 
       {/* Body */}
       {loading ? (
-        <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading policies…</div>
-        </div>
+        <div aria-busy="true" aria-label="Loading policies"><SkeletonRows rows={4} height={64}/></div>
       ) : view === 'by_property' ? (
         <ByPropertyView
           properties={properties}
@@ -281,21 +281,16 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           T={T}
         />
       ) : filtered.length === 0 ? (
-        <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon name="shield-check" size={30} color={T.gold}/></div>
+        <div style={card}>
           {policies.length === 0 ? (
-            <>
-              <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 12 }}>
-                No policies yet. Add your first insurance policy to start tracking renewals.
-              </div>
-              <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setEditing({})}>+ Add Policy</button>
-            </>
+            <EmptyState compact icon="shield-check" title="No policies yet"
+              body="Add your first insurance policy to start tracking renewals."
+              action={<Button size="sm" icon="plus" onClick={() => setEditing({})}>Add Policy</Button>}/>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
-              {view === 'expiring' ? 'No policies expiring in the next 90 days.'
+            <EmptyState compact icon="shield-check"
+              title={view === 'expiring' ? 'No policies expiring in the next 90 days.'
                 : view === 'expired' ? 'No expired policies.'
-                : 'No policies match the current filters.'}
-            </div>
+                : 'No policies match the current filters.'}/>
           )}
         </div>
       ) : (
@@ -357,13 +352,13 @@ export default function InsurancePage({ user, companies = [], properties = [], s
                     }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{pol.policy_name}</div>
-                      <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>
+                      <div style={{ fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                         {TYPE_LABEL[pol.policy_type] || pol.policy_type} · expires {pol.expiry_date}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: T.text }}>{fmt(pol.premium)}/yr</div>
-                      <div style={{ fontSize: 9, color }}>
+                      <div style={{ fontSize: FS.xs, color }}>
                         {days < 0 ? `Expired ${Math.abs(days)}d ago` : `Renews ${days}d`}
                       </div>
                     </div>
@@ -431,12 +426,12 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{policy.policy_name}</span>
-          <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+          <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
             background: policy.company?.color ? policy.company.color + '22' : T.muted + '22',
             color: policy.company?.color || T.muted }}>
             {policy.company?.abbr || policy.company?.name || '—'}
           </span>
-          <span style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             {TYPE_LABEL[policy.policy_type] || policy.policy_type}
           </span>
         </div>
@@ -465,32 +460,32 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
                 else showAppToast('Document not found', 'error')
               } catch (e) { showAppToast(e.message, 'error') }
             }}
-            style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
               background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
             Doc
           </button>
         )}
         {policy.previous_policy_id && (
           <button onClick={onShowHistory} title="View history chain"
-            style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
               background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
             History
           </button>
         )}
         {(bucket === 'expired' || bucket === 'urgent' || bucket === 'soon') && (
           <button onClick={onRenew} title="Create next year's renewal"
-            style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
               background: T.gold + '22', border: `1px solid ${T.gold}`, color: T.goldText, fontWeight: 700 }}>
             ↻ Renew
           </button>
         )}
         <button onClick={onEdit}
-          style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+          style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
             background: 'transparent', border: `1px solid ${T.border}`, color: T.text }}>
           Edit
         </button>
         <button onClick={onDelete} aria-label={`Delete policy ${policy.policy_name || ''}`.trim()}
-          style={{ fontFamily: mono, fontSize: 10, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+          style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
             background: 'transparent', border: `1px solid ${T.red}44`, color: T.red }}>
           ✕
         </button>
@@ -598,13 +593,10 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
   // Empty state
   if (groups.length === 0) {
     return (
-      <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-        <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon name="home" size={30} color={T.faint}/></div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
-          {properties.length === 0
-            ? 'No properties yet. Add properties to start tracking insurance coverage.'
-            : 'No properties match the current filter.'}
-        </div>
+      <div style={card}>
+        {properties.length === 0
+          ? <EmptyState compact icon="home" title="No properties yet" body="Add properties to start tracking insurance coverage."/>
+          : <EmptyState compact icon="home" title="No properties match the current filter."/>}
       </div>
     )
   }
@@ -623,14 +615,14 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
       <div style={card}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {[
-            { l: 'Insured',     v: insuredCount,    c: T.green,  i: '✅' },
-            { l: 'Renewing',    v: renewingCount,   c: T.amber,  i: '⚠'  },
-            { l: 'Expired',     v: expiredCount,    c: T.red,    i: '🔴' },
-            { l: 'Not insured', v: notInsuredCount, c: T.red,    i: '❌' },
+            { l: 'Insured',     v: insuredCount,    c: T.green,  i: 'check-circle' },
+            { l: 'Renewing',    v: renewingCount,   c: T.amber,  i: 'alert-triangle' },
+            { l: 'Expired',     v: expiredCount,    c: T.red,    i: 'alert-circle' },
+            { l: 'Not insured', v: notInsuredCount, c: T.red,    i: 'x' },
           ].map(item => (
             <div key={item.l} style={{ padding: '10px 12px', background: T.bg, borderRadius: 8, borderLeft: `3px solid ${item.c}` }}>
-              <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
-                {item.i} {item.l}
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Icon name={item.i} size={12} color={item.c}/> {item.l}
               </div>
               <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: item.v > 0 && (item.l === 'Not insured' || item.l === 'Expired') ? item.c : T.text }}>
                 {item.v}
@@ -638,7 +630,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
             </div>
           ))}
         </div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
           Click any property to view or update its policy. Properties with no coverage open a new-policy form pre-ticked.
         </div>
       </div>
@@ -688,14 +680,14 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
                       {prop.name || prop.address || 'Untitled'}
                     </div>
                     {prop.address && prop.address !== prop.name && (
-                      <div style={{ fontSize: 9, color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: FS.xs, color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {prop.address}
                       </div>
                     )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{
-                      fontFamily: mono, fontSize: 10, fontWeight: 700,
+                      fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
                       padding: '3px 8px', borderRadius: 4,
                       background: status.color + '22', color: status.color,
                       whiteSpace: 'nowrap',
@@ -703,7 +695,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
                       {status.label}
                     </span>
                     {status.kind !== 'not_insured' && status.count > 1 && (
-                      <div style={{ fontSize: 9, color: T.muted, marginTop: 2 }}>
+                      <div style={{ fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                         {status.count} policies
                       </div>
                     )}
@@ -734,11 +726,8 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
 
   if (allPolicies.length === 0) {
     return (
-      <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
-          No policies to show history for. Add and renew a policy to build year-over-year history.
-        </div>
+      <div style={card}>
+        <EmptyState compact icon="pie-chart" title="No policy history yet" body="Add and renew a policy to build year-over-year history."/>
       </div>
     )
   }
@@ -747,7 +736,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
     <div style={{ display: 'grid', gap: 14 }}>
       {/* Chain picker */}
       <div style={card}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
           Pick a policy to see its history
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -761,7 +750,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
                 textAlign: 'left',
               }}>
               {p.policy_name}
-              <span style={{ display: 'block', fontSize: 9, color: T.muted, marginTop: 2 }}>
+              <span style={{ display: 'block', fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                 {p.company?.abbr || ''} · {TYPE_LABEL[p.policy_type] || p.policy_type}
               </span>
             </button>
@@ -772,7 +761,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
       {/* The chain */}
       {chain.length > 0 && (
         <div style={card}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
             Year-over-year history · {chain.length} {chain.length === 1 ? 'policy' : 'renewals'}
           </div>
           <div style={{ display: 'grid', gap: 0 }}>
@@ -793,13 +782,13 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
                     <div style={{ fontFamily: mono, fontSize: 11, color: T.text }}>
                       {p.start_date} → {p.expiry_date}
                     </div>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                       {p.provider || '—'} {p.policy_number ? `· #${p.policy_number}` : ''}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(p.premium)}</div>
-                    <div style={{ fontFamily: mono, fontSize: 9, color: T.muted }}>premium</div>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>premium</div>
                   </div>
                   <div style={{ textAlign: 'right', minWidth: 90 }}>
                     {delta != null ? (
@@ -810,12 +799,12 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
                         }}>
                           {delta > 0 ? '+' : ''}{fmt(delta)}
                         </div>
-                        <div style={{ fontFamily: mono, fontSize: 9, color: T.muted }}>
+                        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                           {deltaPct != null ? `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)}% YoY` : ''}
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontFamily: mono, fontSize: 9, color: T.faint }}>—</div>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>—</div>
                     )}
                   </div>
                 </div>
@@ -826,7 +815,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
               marginTop: 10, padding: '12px 0 0', borderTop: `2px solid ${T.gold}`,
               display: 'grid', gridTemplateColumns: '60px 1fr auto', gap: 14, alignItems: 'center',
             }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 Total
               </div>
               <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
@@ -928,9 +917,9 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
     onSave(data, propertyIds)
   }
 
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'block' }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'block' }
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '8px 12px', width: '100%', outline: 'none' }
-  const errStyle = { fontFamily: mono, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }
+  const errStyle = { fontFamily: mono, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }
   // Merge the red required-border into the shared input style when a field
   // failed the last save attempt.
   const inpErr = (bad) => bad ? { ...inp, borderColor: T.red } : inp
@@ -1050,19 +1039,19 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
                 onChange={e => setDocFile(e.target.files?.[0] || null)}
                 style={{ fontFamily: mono, fontSize: 11, color: T.muted }} />
             </div>
-            {docFile && <div style={{ fontFamily: mono, fontSize: 10, color: T.goldText, marginTop: 4 }}>{docFile.name} will be attached on save{form.document_id ? ' (replaces the current document)' : ''}</div>}
+            {docFile && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 4 }}>{docFile.name} will be attached on save{form.document_id ? ' (replaces the current document)' : ''}</div>}
           </div>
 
           {/* Property picker */}
           <div>
             <label style={lbl}>Properties covered</label>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
               Tick all properties this policy covers. Leave all unticked for a company-wide policy.
               {propertyIds.length > 0 && ` · ${propertyIds.length} selected`}
             </div>
             {availableProps.length === 0 ? (
-              <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: '12px', background: T.bg, borderRadius: 6 }}>
-                No properties in this company yet.
+              <div style={{ background: T.bg, borderRadius: 6 }}>
+                <EmptyState compact icon="home" title="No properties in this company yet"/>
               </div>
             ) : (
               <div style={{
@@ -1073,11 +1062,11 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
                 {/* Select all / none */}
                 <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 6, paddingBottom: 6, borderBottom: `1px solid ${T.border}`, marginBottom: 4 }}>
                   <button type="button" onClick={() => setPropertyIds(availableProps.map(p => p.id))}
-                    style={{ fontFamily: mono, fontSize: 9, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
+                    style={{ fontFamily: mono, fontSize: FS.xs, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
                     Select all
                   </button>
                   <button type="button" onClick={() => setPropertyIds([])}
-                    style={{ fontFamily: mono, fontSize: 9, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
+                    style={{ fontFamily: mono, fontSize: FS.xs, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
                     Clear
                   </button>
                 </div>

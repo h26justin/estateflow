@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { fmt } from '../../lib/format'
 import FocusTrap from '../../lib/FocusTrap'
+import { Button } from '../ui'
 
 export default function SellPropertyModal({ property, onClose, onConfirm, busy }) {
   const confirmDiscard = useConfirm()
@@ -62,17 +63,16 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
                 <span>Capital gain (gross)</span>
                 <span>{gain>=0?'+':''}{fmt(gain)}</span>
               </div>
-              <div style={{fontSize:9,color:T.faint,marginTop:8,lineHeight:1.5}}>
+              <div style={{fontSize:FS.xs,color:T.faint,marginTop:8,lineHeight:1.5}}>
                 Excludes selling costs (estate agent fees, solicitor) and CGT. For an actual tax figure, consult your accountant.
               </div>
             </div>
           )}
           <div style={{display:'flex',gap:10}}>
             <button className="btn btn-ghost" style={{flex:1}} onClick={onClose}>Cancel</button>
-            <button disabled={busy||!numPrice||!date} onClick={handleConfirm}
-              style={{flex:1,fontFamily:MONO,fontWeight:600,background:T.gold,color:'#1C2830',border:'none',borderRadius:8,padding:'10px',fontSize:13,cursor:busy?'wait':'pointer',opacity:(!numPrice||!date)?0.5:1}}>
+            <Button disabled={busy||!numPrice||!date} onClick={handleConfirm} style={{flex:1}}>
               {busy?'Saving…':'Mark as sold'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

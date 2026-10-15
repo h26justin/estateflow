@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -28,12 +30,12 @@ const fmtDate = (d) => {
 //   T           — theme passthrough
 
 const STATUS_META = {
-  draft:    { label: 'Draft',    tone: '#9ca3af' },
-  sent:     { label: 'Sent',     tone: '#3b82f6' },
-  signed:   { label: 'Signed',   tone: '#22c55e' },
-  declined: { label: 'Declined', tone: '#ef4444' },
-  voided:   { label: 'Voided',   tone: '#9ca3af' },
-  error:    { label: 'Error',    tone: '#ef4444' },
+  draft:    { label: 'Draft',    tone: 'muted' },
+  sent:     { label: 'Sent',     tone: 'blue' },
+  signed:   { label: 'Signed',   tone: 'green' },
+  declined: { label: 'Declined', tone: 'red' },
+  voided:   { label: 'Voided',   tone: 'muted' },
+  error:    { label: 'Error',    tone: 'red' },
 }
 
 export default function ESignPanel({ propertyId, companyId, documents = [], T }) {
@@ -135,7 +137,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
   return (
     <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '20px 24px' }}>
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
           E-signature
         </div>
         <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 4 }}>Send a document for signature</div>
@@ -148,7 +150,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
       <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
         {documents.length > 0 && (
           <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: theme.muted }}>Document</span>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted }}>Document</span>
             <select value={documentId} onChange={e => setDocumentId(e.target.value)} style={fieldStyle}>
               <option value="">— No document (placeholder envelope) —</option>
               {documents.map(d => <option key={d.id} value={d.id}>{d.name || d.id}</option>)}
@@ -156,16 +158,16 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
           </label>
         )}
         <label style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: theme.muted }}>Signer name</span>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted }}>Signer name</span>
           <input value={signerName} onChange={e => setSignerName(e.target.value)}
             placeholder="Jane Tenant" style={fieldStyle} />
         </label>
         <label style={{ display: 'grid', gap: 4 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10, color: theme.muted }}>Signer email</span>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted }}>Signer email</span>
           <input value={signerEmail} onChange={e => setSignerEmail(e.target.value)}
             placeholder="jane@example.com" type="email" style={fieldStyle} />
           {signerEmail && !emailValid && (
-            <span style={{ fontFamily: MONO, fontSize: 10, color: '#ef4444' }}>Enter a valid email</span>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.red }}>Enter a valid email</span>
           )}
         </label>
         <button onClick={createAndSend} disabled={!canCreate}
@@ -173,7 +175,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
             fontFamily: MONO, fontSize: 12, padding: '9px 14px',
             borderRadius: 6, border: `1px solid ${theme.gold}`,
             background: canCreate ? theme.gold + '22' : theme.surface,
-            color: canCreate ? theme.gold : theme.muted,
+            color: canCreate ? theme.goldText : theme.muted,
             cursor: canCreate ? 'pointer' : 'not-allowed', fontWeight: 700,
             justifySelf: 'start',
           }}>
@@ -181,17 +183,18 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
         </button>
       </div>
 
-      <div style={{ fontFamily: MONO, fontSize: 10, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         Envelopes
       </div>
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted }}>Loading…</div>
+        <SkeletonRows rows={2} height={48}/>
       ) : envelopes.length === 0 ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted }}>No envelopes yet.</div>
+        <EmptyState compact icon="send" title="No envelopes yet"/>
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
           {envelopes.map(env => {
-            const meta = STATUS_META[env.status] || { label: env.status, tone: theme.muted }
+            const m = STATUS_META[env.status] || { label: env.status, tone: 'muted' }
+            const meta = { ...m, tone: theme[m.tone] || theme.muted }
             const canAct = env.status === 'draft' || env.status === 'error'
             return (
               <div key={env.id} style={{
@@ -200,7 +203,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                 display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
               }}>
                 <span style={{
-                  fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                  fontFamily: MONO, fontSize: FS.xs, fontWeight: 700,
                   padding: '2px 8px', borderRadius: 4,
                   background: meta.tone + '22', color: meta.tone,
                 }}>{meta.label}</span>
@@ -208,7 +211,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                   <div style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{env.signer_name}</div>
                   <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted }}>{env.signer_email}</div>
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: theme.muted, whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted, whiteSpace: 'nowrap' }}>
                   {fmtDate(env.created_at)}
                 </div>
                 {canAct && (
@@ -217,7 +220,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                       style={{
                         fontFamily: MONO, fontSize: 11, padding: '6px 10px',
                         borderRadius: 6, border: `1px solid ${theme.gold}`,
-                        background: theme.gold + '22', color: theme.gold,
+                        background: theme.gold + '22', color: theme.goldText,
                         cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap',
                       }}>
                       {busyId === env.id ? '…' : 'Send'}
@@ -234,7 +237,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                   </>
                 )}
                 {env.error_message && (
-                  <div style={{ flex: '1 1 100%', fontFamily: MONO, fontSize: 10, color: '#ef4444' }}>
+                  <div style={{ flex: '1 1 100%', fontFamily: MONO, fontSize: FS.xs, color: theme.red }}>
                     {env.error_message}
                   </div>
                 )}

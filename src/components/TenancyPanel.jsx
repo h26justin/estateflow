@@ -5,7 +5,7 @@
 // Drafts seeded from the free-text property fields carry needs_confirmation
 // and a note explaining each assumption; a human confirms or corrects them.
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
@@ -16,6 +16,7 @@ import {
   TENANCY_STATUSES, PAYMENT_SOURCES, RENT_FREQUENCIES, BENEFIT_FREQUENCIES, DEFAULT_PAYMENT_WINDOW_DAYS,
   usesBenefit, benefitSplitCheck, tenancyDraftFromProperty, currentTenancy,
 } from '../lib/tenancyUtils'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const label = (list, v) => list.find(x => x.v === v)?.l || v || '—'
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -128,7 +129,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
       <div style={{ display: 'flex', gap: 6 }}>{right}</div>
     </div>
   )
-  const pill = (text, c) => <span style={{ fontFamily: MONO, fontSize: 10, padding: '2px 8px', borderRadius: 20, background: c + '22', color: c, border: `1px solid ${c}44`, whiteSpace: 'nowrap' }}>{text}</span>
+  const pill = (text, c) => <span style={{ fontFamily: MONO, fontSize: FS.xs, padding: '2px 8px', borderRadius: 20, background: c + '22', color: c, border: `1px solid ${c}44`, whiteSpace: 'nowrap' }}>{text}</span>
   const statusColor = { rented: T.green, notice_given: T.amber, vacant: T.red, refurbishment: T.blue, ended: T.muted }
 
   function TenancyCard({ t, isCurrent }) {
@@ -159,7 +160,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
               <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted, flexShrink: 0 }}>{l}</span>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{v}</div>
-                {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint }}>{sub}</div>}
+                {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>{sub}</div>}
               </div>
             </div>
           ))}
@@ -172,7 +173,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
   const inputStyle = { width: '100%' }
   const Field = ({ l, children, hint }) => (
     <div>
-      <label>{l}{hint && <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}> {hint}</span>}</label>
+      <label>{l}{hint && <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs }}> {hint}</span>}</label>
       {children}
     </div>
   )
@@ -186,7 +187,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
         </>
       ))}
 
-      {tenancies === null && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>Loading…</div>}
+      {tenancies === null && <SkeletonRows rows={2} height={56}/>}
 
       {tenancies && tenancies.length === 0 && editing === null && (
         <div className="card" style={{ padding: '16px 18px', marginBottom: 10, fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
@@ -224,7 +225,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
           </div>
           {usesBenefit(form.payment_source) && (
             <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Government assistance</div>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Government assistance</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <Field l="Benefit type"><input value={form.benefit_type} onChange={e => s('benefit_type', e.target.value)} placeholder="e.g. UC housing element" /></Field>
                 <Field l="Benefit contribution"><MoneyInput prefix="£" value={form.benefit_contribution} onChange={v => s('benefit_contribution', v)} /></Field>
@@ -259,7 +260,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
         {sectionHead('Non-chargeable periods', canEdit && !periodForm && (
           <button className="btn" style={{ fontSize: 11 }} onClick={() => setPeriodForm({ start_date: '', end_date: '', reason: 'vacant', notes: '' })}>+ Add period</button>
         ))}
-        <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginBottom: 8 }}>Vacant, refurbishment or agreed rent-free periods. These months are excluded from the collection rate.</div>
+        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginBottom: 8 }}>Vacant, refurbishment or agreed rent-free periods. These months are excluded from the collection rate.</div>
         {periodForm && (
           <div className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 10 }}>
@@ -282,7 +283,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
             <Icon name="calendar" size={14} color={T.muted} />
             <div style={{ flex: 1, fontSize: 13, color: T.text }}>
               {fmtDate(p.start_date)} → {p.end_date ? fmtDate(p.end_date) : 'ongoing'}
-              <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginLeft: 8 }}>{NON_CHARGEABLE_REASON_LABEL[p.reason] || p.reason}{p.notes ? ` · ${p.notes}` : ''}</span>
+              <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginLeft: 8 }}>{NON_CHARGEABLE_REASON_LABEL[p.reason] || p.reason}{p.notes ? ` · ${p.notes}` : ''}</span>
             </div>
             {canEdit && <button className="btn" style={{ fontSize: 11 }} onClick={() => setPeriodForm({ id: p.id, start_date: p.start_date, end_date: p.end_date || '', reason: p.reason, notes: p.notes || '' })}>Edit</button>}
             {canEdit && <button className="btn" style={{ fontSize: 11, color: T.red }} onClick={() => removePeriod(p)} aria-label="Remove period">✕</button>}

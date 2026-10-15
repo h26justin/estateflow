@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback } from 'react'
 import { MONO, Z } from './styles'
 import { useTheme } from './ThemeContext'
 import FocusTrap from './FocusTrap'
+import { Button } from '../components/ui'
 
 // Promise-based themed confirmation dialog.
 //
@@ -106,17 +107,12 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
           )}
         </div>
         <div style={{ padding: '0 28px 28px', display: 'flex', gap: 10 }}>
-          <button onClick={onCancel}
-            style={{ flex: 1, fontFamily: mono, fontSize: 12, padding: '11px', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+          <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>
             {state.cancelLabel}
-          </button>
-          <button onClick={() => onConfirm(value)} autoFocus={!state.prompt}
-            style={{ flex: 1, fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '11px', borderRadius: 10, border: 'none',
-              background: state.destructive ? T.red : T.gold,
-              color: state.destructive ? 'white' : '#1A2530',
-              cursor: 'pointer' }}>
+          </Button>
+          <Button variant={state.destructive ? 'danger' : 'primary'} onClick={() => onConfirm(value)} autoFocus={!state.prompt} style={{ flex: 1 }}>
             {state.confirmLabel}
-          </button>
+          </Button>
         </div>
         </div>
       </FocusTrap>

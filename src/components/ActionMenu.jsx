@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 
@@ -101,7 +101,7 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
                 )}
                 <span style={{ flex: 1 }}>{item.label}</span>
                 {item.shortcut && (
-                  <span style={{ fontSize: 10, color: T.faint }}>{item.shortcut}</span>
+                  <span style={{ fontSize: FS.xs, color: T.faint }}>{item.shortcut}</span>
                 )}
               </button>
             )

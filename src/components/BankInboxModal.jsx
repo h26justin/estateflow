@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 // Bank Inbox — review and match incoming transactions to rent payments.
 //
@@ -141,12 +143,12 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
           </div>
 
           {loading ? (
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+            <SkeletonRows rows={4} height={56}/>
           ) : txs.length === 0 ? (
-            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '24px 16px', textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>
+            <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10 }}>
               {filter === 'unmatched'
-                ? 'No unmatched transactions — everything is accounted for.'
-                : 'No transactions yet. Sync a connection to pull them in.'}
+                ? <EmptyState compact icon="check-circle" title="No unmatched transactions" body="Everything is accounted for."/>
+                : <EmptyState compact icon="inbox" title="No transactions yet" body="Sync a connection to pull them in."/>}
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 8, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
@@ -165,12 +167,12 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                           <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: isCredit ? T.green : T.text }}>
                             {fmtAmount(t.amount, t.currency)}
                           </span>
-                          <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                          <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                             {fmtDate(t.posted_at)}
                           </span>
                           {matched && (
                             <span style={{
-                              fontFamily: mono, fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+                              fontFamily: mono, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.08em',
                               padding: '2px 7px', borderRadius: 10,
                               background: T.green + '22', color: T.green,
                             }}>
@@ -182,17 +184,17 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                           {t.counterparty || t.description || '—'}
                         </div>
                         {t.description && t.counterparty && (
-                          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{t.description}</div>
+                          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{t.description}</div>
                         )}
                         {matched && (
-                          <div style={{ fontFamily: mono, fontSize: 10, color: T.green, marginTop: 4 }}>
+                          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.green, marginTop: 4 }}>
                             → {matchProp || 'property'} · {t.rent_payment?.month_label || `${t.rent_payment?.month}/${t.rent_payment?.year}`}
                           </div>
                         )}
                       </div>
                       <div style={{ flexShrink: 0 }}>
                         {matched ? (
-                          <button onClick={() => unmatch(t.id)} className="btn btn-ghost" style={{ fontSize: 10 }}>
+                          <button onClick={() => unmatch(t.id)} className="btn btn-ghost" style={{ fontSize: FS.xs }}>
                             Unmatch
                           </button>
                         ) : isCredit ? (
@@ -205,14 +207,14 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                             Match →
                           </button>
                         ) : (
-                          <span style={{ fontFamily: mono, fontSize: 9, color: T.faint }}>OUTGOING</span>
+                          <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>OUTGOING</span>
                         )}
                       </div>
                     </div>
 
                     {matchingId === t.id && !matched && (
                       <div style={{ marginTop: 10, padding: 12, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8 }}>
-                        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                           Match this {fmtAmount(t.amount)} payment to…
                         </div>
                         <select value={selPropId} onChange={e => { setSelPropId(e.target.value); setSelRpId('') }}

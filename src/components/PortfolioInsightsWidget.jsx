@@ -1,20 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
-import { MONO } from '../lib/styles'
+import { MONO, FS, statusColors } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
+import { SkeletonTiles } from '../lib/Skeleton'
 
 // Dashboard widget for #6: AI-generated portfolio insights.
 // Reads the latest stored insights row on mount; provides a "Regenerate"
 // button that calls the edge function and refreshes. Rate limiting is
 // enforced server-side (one per 30 min per user).
 
-const SEVERITY_COLOR = {
-  critical:    { bg: '#FEF2F2', border: '#FECACA', fg: '#B91C1C', dark: '#2B1010' },
-  warning:     { bg: '#FFF8E1', border: '#F2D17A', fg: '#8A6A00', dark: '#2B1A0A' },
-  opportunity: { bg: '#F0FDF4', border: '#BBF7D0', fg: '#15803D', dark: '#0D2B1F' },
-  info:        { bg: '#EFF6FF', border: '#BFDBFE', fg: '#1E40AF', dark: '#0A1A2B' },
+// Severity → shared status palette key (styles.js STATUS, AA in both themes).
+const SEVERITY_STATUS = {
+  critical:    'bad',
+  warning:     'warn',
+  opportunity: 'ok',
+  info:        'info',
 }
 
 const CATEGORY_ICON = {
@@ -82,22 +84,22 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span aria-hidden="true">✨</span> Portfolio Insights
+            <Icon name="sparkle" size={14} aria-hidden="true" style={{ verticalAlign: '-2px' }}/> Portfolio Insights
             <span style={{
-              fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+              fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
               padding: '2px 7px', borderRadius: 10,
               background: T.gold + '22', color: T.goldText, border: `1px solid ${T.gold}44`,
             }}>AI</span>
             {companyName && (
               <span style={{
-                fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                fontFamily: MONO, fontSize: FS.xs, fontWeight: 600, letterSpacing: '0.05em',
                 padding: '2px 8px', borderRadius: 10,
                 background: T.muted + '22', color: T.muted,
               }}>· {companyName}</span>
             )}
           </h2>
           {row?.generated_at && (
-            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
               Generated {timeAgo(row.generated_at)} · refreshes available every 30 min
             </div>
           )}
@@ -110,12 +112,10 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
       </div>
 
       {loading && !row ? (
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 22px', fontFamily: MONO, fontSize: 12, color: T.muted, textAlign: 'center' }}>
-          Loading insights…
-        </div>
+        <div aria-busy="true" aria-label="Loading insights"><SkeletonTiles count={3}/></div>
       ) : !row ? (
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 22px', textAlign: 'center' }}>
-          <div style={{ fontSize: 26, marginBottom: 10, opacity: 0.6 }} aria-hidden="true">✨</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, opacity: 0.6, color: T.goldText }} aria-hidden="true"><Icon name="sparkle" size={26}/></div>
           <div style={{ fontSize: 14, color: T.text, fontWeight: 600, marginBottom: 4 }}>No insights yet</div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 14px' }}>
             Click below and Claude will scan your portfolio for opportunities — under-rented properties, expiring certs, high LTVs, things worth your attention.
@@ -128,12 +128,13 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
           {(row.insights || []).map((it, i) => {
-            const palette = SEVERITY_COLOR[it.severity] || SEVERITY_COLOR.info
-            const cardBg = darkMode ? palette.dark : palette.bg
+            const sc = statusColors(SEVERITY_STATUS[it.severity] || 'info', darkMode)
+            const palette = { fg: sc.text, border: sc.text }
+            const cardBg = sc.bg
             return (
               <div key={i} style={{
                 background: cardBg,
-                border: `1px solid ${palette.border}55`,
+                border: `1px solid ${palette.border}33`,
                 borderLeft: `3px solid ${palette.fg}`,
                 borderRadius: 12,
                 padding: '14px 16px',
@@ -142,7 +143,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                   <span style={{ display:'inline-flex' }} aria-hidden="true">{ICON_NAMES.includes(CATEGORY_ICON[it.category])?<Icon name={CATEGORY_ICON[it.category]} size={14}/>:(CATEGORY_ICON[it.category]||'•')}</span>
                   <span style={{
-                    fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+                    fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
                     textTransform: 'uppercase', color: palette.fg,
                   }}>{it.severity}</span>
                 </div>
@@ -157,7 +158,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                     style={{
                       alignSelf: 'flex-start', marginTop: 4,
                       background: 'transparent', border: `1px solid ${palette.fg}66`,
-                      color: palette.fg, fontFamily: MONO, fontSize: 10, fontWeight: 600,
+                      color: palette.fg, fontFamily: MONO, fontSize: FS.xs, fontWeight: 600,
                       padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
                     }}>
                     {it.action_label} →

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import Modal from '../../lib/Modal'
 import { COPY_OPTIONS, DEFAULT_COPY_OPTIONS, isCopyOptionActive } from '../../lib/dealCopy'
+import { Button } from '../ui'
 
 // Asks what to carry over before a deal is copied. Everything not ticked is
 // left behind, so a copy can be anything from a full clone to a bare shell
@@ -15,9 +16,9 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
   const setAll = (value) => setOpts(COPY_OPTIONS.reduce((acc, o) => { acc[o.key] = value; return acc }, {}))
 
   const label = { fontFamily: MONO, fontSize: 12, color: T.text, fontWeight: 600 }
-  const hint = { fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2, lineHeight: 1.5 }
+  const hint = { fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2, lineHeight: 1.5 }
   const quick = {
-    fontFamily: MONO, fontSize: 10, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+    fontFamily: MONO, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
     border: `1px solid ${T.border}`, background: 'transparent', color: T.muted,
   }
 
@@ -62,20 +63,16 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
           })}
         </div>
 
-        <p style={{ fontFamily: MONO, fontSize: 10, color: T.faint, lineHeight: 1.6, marginBottom: 18 }}>
+        <p style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, lineHeight: 1.6, marginBottom: 18 }}>
           The copy always keeps the deal type, purchase type and company, and starts back at
           Analysing. {opts.tracker ? '' : 'With tracker steps unticked it gets a fresh tracker from your milestone defaults.'}
         </p>
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} disabled={busy} onClick={onClose}>Cancel</button>
-          <button disabled={busy} onClick={() => onConfirm(opts)}
-            style={{
-              flex: 1, fontFamily: MONO, fontWeight: 600, background: T.gold, color: '#1C2830',
-              border: 'none', borderRadius: 8, padding: '10px', fontSize: 13, cursor: busy ? 'wait' : 'pointer',
-            }}>
+          <Button disabled={busy} onClick={() => onConfirm(opts)} style={{ flex: 1 }}>
             {busy ? 'Copying…' : 'Copy deal'}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>
