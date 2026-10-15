@@ -8,9 +8,12 @@ import { FeatureFlagsPanel } from './FeatureFlagsPanel'
 import { RevenueAnalyticsPanel } from './RevenueAnalyticsPanel'
 import { Icon } from '../../lib/icons'
 import { SkeletonRows } from '../../lib/Skeleton'
+import { useConfirm } from '../../lib/ConfirmContext'
+import { ensureAal2, totpPrompt } from '../../lib/mfaStepUp'
 
 // ── ADMIN SETTINGS PANEL ──────────────────────────────────────────────────────
 export function AdminSettingsPanel({ user, T, showToast }) {
+  const confirmDialog = useConfirm()
   const mono = MONO
   const [tab, setTab]           = useState('accounts')
   const [companies, setCompanies] = useState([])
@@ -55,6 +58,9 @@ export function AdminSettingsPanel({ user, T, showToast }) {
         email: user.email, password: deletePassword
       })
       if (authErr) { setDeleteError('Incorrect password — please try again'); setDeleting(false); return }
+      // Re-auth leaves an aal1 session; delete-user requires aal2.
+      const step = await ensureAal2(totpPrompt(confirmDialog, 'Deleting a user needs your authenticator code.'))
+      if (step === 'cancelled') { setDeleteError('Two-factor verification is required to delete a user'); setDeleting(false); return }
       // Password verified — delete the user
       await api.deleteUser(deleteTarget.id)
       setUsers(prev => prev.filter(u => u.id !== deleteTarget.id))

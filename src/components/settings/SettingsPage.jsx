@@ -25,6 +25,7 @@ import { AuditLogPanel } from './AuditLogPanel'
 import { ReferralPanel } from './ReferralPanel'
 import { AccountTypePanel } from './AccountTypePanel'
 import { SkeletonRows } from '../../lib/Skeleton'
+import { canWriteCompany } from '../../lib/permissions'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
 const HelpCenter = lazy(() => import('../HelpCenter'))
@@ -32,7 +33,7 @@ const BookkeepingRules = lazy(() => import('../BookkeepingRules'))
 
 // Wraps BookkeepingRules with a company selector for the Settings sub-tab,
 // since Settings has no global "active company" the way the detail view does.
-function BookkeepingTabBody({ companies, properties = [], T, mono }) {
+function BookkeepingTabBody({ companies, properties = [], T, mono, permissionsMap = null, devModeActive = false }) {
   const [coId, setCoId] = useState(companies[0]?.id || '')
   const coProps = coId ? properties.filter(p => p.company_id === coId) : properties
   return (
@@ -46,7 +47,7 @@ function BookkeepingTabBody({ companies, properties = [], T, mono }) {
           </select>
         </div>
       )}
-      <BookkeepingRules companyId={coId} properties={coProps}/>
+      <BookkeepingRules companyId={coId} properties={coProps} canWrite={canWriteCompany(permissionsMap, coId, devModeActive)}/>
     </div>
   )
 }
@@ -720,7 +721,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
       {sectionHeading('integrations')}
       {show('integrations') && (
-        <IntegrationsPanel T={T} mono={mono} companies={scopedCompanies} properties={properties}/>
+        <IntegrationsPanel T={T} mono={mono} companies={scopedCompanies} properties={properties} permissionsMap={permissionsMap} devModeActive={devModeActive}/>
       )}
 
       {sectionHeading('bookkeeping')}
@@ -728,7 +729,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         <Suspense fallback={null}>
           {/* Keyed by filter so the panel's internal company selection resets
               to the newly scoped company when the page-level filter changes */}
-          <BookkeepingTabBody key={coFilter} companies={scopedCompanies} properties={properties} T={T} mono={mono}/>
+          <BookkeepingTabBody key={coFilter} companies={scopedCompanies} properties={properties} T={T} mono={mono} permissionsMap={permissionsMap} devModeActive={devModeActive}/>
         </Suspense>
       )}
 

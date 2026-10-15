@@ -30,7 +30,9 @@ function catLabel(c) {
   return (c || 'other').replace(/_/g, ' ')
 }
 
-export default function BookkeepingRules({ companyId, properties = [] }) {
+// canWrite=false (a read-only viewer) disables the run: bookkeeping-ai
+// requires has_company_write and would 403. Rule edits are gated by RLS.
+export default function BookkeepingRules({ companyId, properties = [], canWrite = true }) {
   const { T } = useTheme()
   const confirm = useConfirm()
   const mono = MONO
@@ -160,7 +162,8 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
             Auto-categorise bank transactions with rules, then let AI draft the rest.
           </p>
         </div>
-        <button className="btn btn-gold" disabled={running || !companyId} onClick={runAI} style={{ fontSize: 12 }}>
+        <button className="btn btn-gold" disabled={running || !companyId || !canWrite} onClick={runAI} style={{ fontSize: 12 }}
+          title={canWrite ? undefined : 'Read-only access: an owner, admin or editor can run categorisation'}>
           {running ? 'Categorising…' : 'Run categorisation'}
         </button>
       </div>

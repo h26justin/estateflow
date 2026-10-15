@@ -21,8 +21,16 @@
 // returns a launch URL on this function (GET ?launch=...) rather than the
 // Xero URL. The launch hop — accepted only from an app-origin Referer —
 // sets an HttpOnly/Secure/SameSite=Lax cookie and puts its hash in the
-// state; the callback refuses a state whose cookie isn't present. start
-// also verifies the caller has access to body.company_id.
+// state; the callback refuses a state whose cookie isn't present.
+//
+// Who may connect: linking an org decides where the WHOLE company's rent
+// and expenses are exported, and (with reverse sync / pull_expenses on)
+// lets Xero edits flow back into the company's books. That is a company
+// setting, so start requires has_company_write (caller JWT) AND an
+// owner / admin role (edit_company_settings in ROLE_DEFAULTS; editors and
+// viewers don't hold it). The callback re-checks the role before it
+// stores tokens. Disconnecting stays open to the connection's own user
+// (RLS xero_connections_own) because removing access is always safe.
 //
 // Justin: register app at https://developer.xero.com/myapps with the
 // above redirect URI, then set the three secrets via:
@@ -33,6 +41,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken } from './encryption.ts'
+import { companyRoleFor, roleIsAdmin } from './authz.ts'
 import {
   signState, verifyState, safeReturnTo, escapeHtml,
   launchRefererAllowed, randomToken, sha256Hex, bindCookieHeader, clearBindCookieHeader, browserBindingMatches,
@@ -207,6 +216,19 @@ serve(async (req) => {
       return new Response('Missing company_id in state — please retry from Settings → Integrations', { status: 400 })
     }
 
+    // Re-check the role now: it may have changed since start, and this is
+    // the point where tokens get written for the company.
+    {
+      const { data: u } = await admin.auth.admin.getUserById(state.user_id)
+      const role = await companyRoleFor(admin, state.user_id, u?.user?.email, state.company_id)
+      if (!roleIsAdmin(role)) {
+        return new Response(
+          `<h1>Xero connection not saved</h1><p>Only a company owner or admin can connect Xero.</p><p><a href="${escapeHtml(returnTo)}">Back to Properly</a></p>`,
+          { status: 403, headers: { 'Content-Type': 'text/html' } }
+        )
+      }
+    }
+
     // /connections lists EVERY org this Xero login has connected to the
     // app, not just the one ticked on this consent screen, so tenants[0]
     // can be another company's books (one login holds Vale, ExH and
@@ -314,8 +336,10 @@ serve(async (req) => {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     })
-    const { data: hasAccess } = await userClient.rpc('has_company_access', { p_company_id: body.company_id })
-    if (hasAccess !== true) return jsonError(403, 'Forbidden')
+    const { data: canWrite } = await userClient.rpc('has_company_write', { p_company_id: body.company_id })
+    if (canWrite !== true) return jsonError(403, 'You have read-only access to this company — only an owner or admin can connect Xero')
+    const role = await companyRoleFor(admin, caller.id, caller.email, body.company_id)
+    if (!roleIsAdmin(role)) return jsonError(403, 'Only a company owner or admin can connect Xero')
 
     // Mint and persist a one-time nonce so the callback can prove this
     // state was issued by us to this user (burned on first use).
