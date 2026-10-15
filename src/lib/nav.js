@@ -30,6 +30,13 @@ export const ALL_NAV = [
   // nav_items predate it get it switched on once. mobileRank 9 so it never
   // displaces an existing bottom-bar slot.
   { key: 'refurbs',        label: 'Refurbs',        icon: 'hammer',       short: 'Refurbs',   required: false, group: 'Portfolio',   mobileRank: 9 },
+  // 'compliance' replaced the old top-level 'insurance' entry (2026-08) —
+  // insurance is now a sub-view of Compliance. Stored user nav prefs may
+  // still carry 'insurance'; App.jsx maps it to 'compliance' on load, and
+  // parseHash maps the legacy '#/insurance' route. Grouped under Portfolio
+  // (2026-10): it was the only item in a 'Compliance' group, so the rail
+  // showed a COMPLIANCE header directly above a Compliance link.
+  { key: 'compliance',     label: 'Compliance',     icon: 'shield-check', short: 'Comply',    required: false, group: 'Portfolio',   mobileRank: 5 },
   { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
   // Short-term-let booking income (Hostaway / Lodgify), kept out of the
   // residential collection rate. Added 2026-09: users whose stored nav_items
@@ -44,11 +51,6 @@ export const ALL_NAV = [
   { key: 'loans',          label: 'External Loans', icon: 'wallet',       short: 'Loans',     required: false, group: 'Money',       mobileRank: 10 },
   { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
   { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 4 },
-  // 'compliance' replaced the old top-level 'insurance' entry (2026-08) —
-  // insurance is now a sub-view of Compliance. Stored user nav prefs may
-  // still carry 'insurance'; App.jsx maps it to 'compliance' on load, and
-  // parseHash maps the legacy '#/insurance' route.
-  { key: 'compliance',     label: 'Compliance',     icon: 'shield-check', short: 'Comply',    required: false, group: 'Compliance',  mobileRank: 5 },
   { key: 'deals',          label: 'Deals',          icon: 'target',       short: 'Deals',     required: false, group: 'Growth & AI', mobileRank: 2 },
   { key: 'autopilot',      label: 'Autopilot',      icon: 'robot',        short: 'Autopilot', required: false, group: 'Growth & AI', mobileRank: 6, flag: 'portfolio_autopilot' },
   { key: 'renters-rights', label: 'Renters Rights', icon: 'scale',        short: 'RRA',       required: false, group: 'Growth & AI', mobileRank: 7, flag: 'renters_rights' },
