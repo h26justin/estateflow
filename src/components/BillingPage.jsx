@@ -7,6 +7,7 @@ import { fmt, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
 import { SkeletonList } from '../lib/Skeleton'
+import { billingDisplayStatus } from '../lib/subscriptionLive'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
@@ -119,7 +120,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
 
           {companies.map(co => {
             const sub = subs.find(s => s.company_id === co.id)
-            const status = co.is_free_tier ? 'free_tier' : (sub?.status || 'trialing')
+            const status = billingDisplayStatus(co, sub)
             const propCount = sub?.property_count || 0
             const tierKey  = sub?.tier || 'starter'
             const monthly  = calcMonthlyPrice(propCount, tierKey)

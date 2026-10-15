@@ -128,12 +128,31 @@ Deno.serve(async (req) => {
         metadata: { company_id, owner_id: user.id },
       })
       customerId = customer.id
-      await supabase.from('subscriptions').upsert({
-        company_id, owner_id: user.id,
-        stripe_customer_id: customerId,
-        status: 'trialing',
-        property_count: propertyCount,
-      }, { onConflict: 'company_id' })
+      // SECURITY (Oct 2026): creating the Stripe customer must NOT grant
+      // liveness. This used to upsert status 'trialing', which
+      // company_is_live() counted as live with no expiry — so opening
+      // checkout and abandoning it unlocked the company for good. Only
+      // stripe-webhook may set active / trialing / past_due, once Stripe
+      // confirms a subscription. Here we just remember the customer id:
+      //   * existing row → set stripe_customer_id only, status untouched
+      //     (a free_tier / canceled row keeps what it had);
+      //   * no row       → insert with status 'incomplete' (not live).
+      // The webhook upserts on company_id, so it updates this same row.
+      if (sub) {
+        const { error: upErr } = await supabase.from('subscriptions')
+          .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
+          .eq('company_id', company_id)
+          .is('stripe_customer_id', null)
+        if (upErr) throw new Error(`subscriptions update: ${upErr.message}`)
+      } else {
+        const { error: insErr } = await supabase.from('subscriptions').insert({
+          company_id, owner_id: user.id,
+          stripe_customer_id: customerId,
+          status: 'incomplete',
+          property_count: propertyCount,
+        })
+        if (insErr) throw new Error(`subscriptions insert: ${insErr.message}`)
+      }
     }
 
     const session = await stripe('POST', '/checkout/sessions', {

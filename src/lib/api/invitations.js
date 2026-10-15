@@ -74,68 +74,59 @@ export async function deleteInvitation(id) {
 // codes that can be shared as URLs or short codes, used multiple times,
 // and revoked at any time.
 
-/**
- * Generate a short human-friendly code like "HMD-7K3X" from the company name.
- * The hyphen makes it easier to read aloud and harder to confuse 0/O, 1/I etc.
- * Uses uppercase letters and numbers only — no easily confused characters.
- */
-function generateInviteCode(companyName) {
-  // Take up to 3 alphanumeric chars from the company name as a prefix
-  const prefix = (companyName || '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .slice(0, 3)
-    .padEnd(3, 'X') // pad with X if name is too short
-  // 4 random characters from a confusable-free alphabet
-  const ALPH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no I, O, 0, 1
-  let suffix = ''
-  for (let i = 0; i < 4; i++) {
-    suffix += ALPH.charAt(Math.floor(Math.random() * ALPH.length))
-  }
-  return `${prefix}-${suffix}`
+// Defaults applied server-side by create_company_invite() when the caller
+// does not choose explicitly. Exported so the UI can show them.
+export const COMPANY_INVITE_DEFAULTS = Object.freeze({ expiryDays: 14, maxUses: 25 })
+
+const CREATE_INVITE_ERRORS = {
+  not_signed_in:       'You need to sign in first',
+  not_authorized:      'Only company owners and admins can create invite codes',
+  company_unavailable: 'This company is no longer available',
+  invalid_role:        'Choose viewer, editor or admin for this invite',
+  invalid_expiry:      'Pick an expiry date in the next year',
+  invalid_max_uses:    'Max uses must be between 1 and 1000',
 }
 
 /**
  * Create a new shareable invite for a company. Returns the full row
  * including the generated code. The caller decides whether to display it
  * as a link or a short code (the underlying record is the same).
+ *
+ * The code is generated in the database (create_company_invite, SECURITY
+ * DEFINER): a 3-letter company prefix for readability plus 16 random
+ * characters (80 bits). The browser never picks the code. Unless the caller
+ * opts out explicitly, invites expire after 14 days and allow 25 uses.
+ *
+ * opts: { role, isAdmin (legacy), label,
+ *         expiresAt (ISO, null = default), neverExpires,
+ *         maxUses (int, null = default), unlimitedUses }
  */
 export async function createCompanyInvite(companyId, opts = {}) {
   // Accepts both new `role` and legacy `isAdmin`. Role is preferred and is
   // one of 'admin' | 'editor' | 'viewer'. If only isAdmin is passed (older
   // callers), we map true → 'admin' and false → 'editor'.
-  let { maxUses = null, expiresAt = null, role = null, isAdmin = false, label = '' } = opts
-  if (!role) role = isAdmin ? 'admin' : 'editor'
-  if (!['admin','editor','viewer'].includes(role)) role = 'editor'
-  // Keep is_admin in sync with role for legacy code paths that still read
-  // company_invites.is_admin without checking role.
-  isAdmin = role === 'admin'
+  const {
+    maxUses = null, expiresAt = null, isAdmin = false, label = '',
+    neverExpires = false, unlimitedUses = false,
+  } = opts
+  let role = opts.role || (isAdmin ? 'admin' : 'editor')
+  if (!['admin', 'editor', 'viewer'].includes(role)) role = 'editor'
 
-  const userId = (await supabase.auth.getUser()).data.user.id
-  // Look up the company name to seed the code prefix
-  const { data: co } = await supabase.from('companies').select('name').eq('id', companyId).single()
-
-  // Generate a unique code. Retry on the rare collision.
-  let code = generateInviteCode(co?.name)
-  for (let attempts = 0; attempts < 3; attempts++) {
-    const { data: existing } = await supabase.from('company_invites')
-      .select('id').eq('code', code).maybeSingle()
-    if (!existing) break
-    code = generateInviteCode(co?.name)
+  const { data, error } = await supabase.rpc('create_company_invite', {
+    p_company_id:     companyId,
+    p_role:           role,
+    p_expires_at:     neverExpires ? null : (expiresAt || null),
+    p_max_uses:       unlimitedUses ? null : (maxUses ?? null),
+    p_label:          (label || '').trim() || null,
+    p_no_expiry:      !!neverExpires,
+    p_unlimited_uses: !!unlimitedUses,
+  })
+  if (error) {
+    const msg = (error.message || '').toLowerCase()
+    const key = Object.keys(CREATE_INVITE_ERRORS).find(k => msg.includes(k))
+    throw new Error(key ? CREATE_INVITE_ERRORS[key] : 'Could not create the invite. Please try again')
   }
-
-  const { data, error } = await supabase.from('company_invites').insert({
-    company_id: companyId,
-    created_by: userId,
-    code,
-    max_uses:   maxUses,
-    expires_at: expiresAt,
-    role,
-    is_admin:   isAdmin,
-    label:      label || null,
-  }).select().single()
-  if (error) throw error
-  return data
+  return Array.isArray(data) ? data[0] : data
 }
 
 /**
@@ -166,33 +157,52 @@ export async function revokeCompanyInvite(inviteId) {
   if (error) throw error
 }
 
+const REDEEM_ERRORS = {
+  not_signed_in:       'You need to sign in or sign up first',
+  too_many_attempts:   'Too many invalid invite codes. Wait an hour and try again, or ask for a new invite link',
+  invite_not_found:    'That invite code is not valid',
+  invite_revoked:      'This invite has been revoked',
+  invite_expired:      'This invite has expired',
+  invite_exhausted:    'This invite has reached its maximum uses',
+  company_unavailable: 'This company is no longer available',
+}
+function redeemError(text) {
+  const msg = (text || '').toLowerCase()
+  const key = Object.keys(REDEEM_ERRORS).find(k => msg.includes(k))
+  return key ? new Error(REDEEM_ERRORS[key]) : null
+}
+
 /**
  * Redeem an invite code — atomically validates and grants company access
  * to the calling user. Server-side function does all the work via
  * SECURITY DEFINER so we don't need to expose company_invites to anon.
  *
- * Throws on:
- * - 'not_signed_in' — user is anonymous
- * - 'invite_not_found' — bad code
- * - 'invite_revoked' / 'invite_expired' / 'invite_exhausted'
+ * The server records every attempt and, after 10 failed codes in an hour,
+ * refuses further attempts with 'too_many_attempts'. Invite failures come
+ * back as an `error_code` column (a raised error would roll back the attempt
+ * record); 'not_signed_in' and 'too_many_attempts' are raised.
+ *
+ * Throws a friendly Error for: not_signed_in, too_many_attempts,
+ * invite_not_found, invite_revoked, invite_expired, invite_exhausted,
+ * company_unavailable.
  *
  * Returns: { company_id, role, company_name }
  *   role is one of 'admin' | 'editor' | 'viewer'.
  */
 export async function redeemCompanyInvite(code) {
-  const { data, error } = await supabase.rpc('redeem_company_invite', { p_code: code })
+  const { data, error } = await supabase.rpc('redeem_company_invite', { p_code: (code || '').trim() })
   if (error) {
     // Map server-side error codes to friendlier messages here so callers can
     // just .catch and surface e.message to the user without translating.
-    const msg = (error.message || '').toLowerCase()
-    if (msg.includes('not_signed_in'))     throw new Error('You need to sign in or sign up first')
-    if (msg.includes('invite_not_found'))  throw new Error('That invite code is not valid')
-    if (msg.includes('invite_revoked'))    throw new Error('This invite has been revoked')
-    if (msg.includes('invite_expired'))    throw new Error('This invite has expired')
-    if (msg.includes('invite_exhausted'))  throw new Error('This invite has reached its maximum uses')
-    throw error
+    throw redeemError(error.message) || error
   }
-  return Array.isArray(data) ? data[0] : data
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error(REDEEM_ERRORS.invite_not_found)
+  if (row.error_code) throw redeemError(row.error_code) || new Error('Could not redeem that invite code')
+  if (!row.company_id) throw new Error('Could not redeem that invite code')
+  const result = { ...row }
+  delete result.error_code
+  return result
 }
 
 /**

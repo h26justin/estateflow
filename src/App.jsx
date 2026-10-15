@@ -45,6 +45,7 @@ import { DealsView } from './components/app/DealsView'
 import { RenameCompanyModal } from './components/app/RenameCompanyModal'
 import { LeftRail } from './components/app/LeftRail'
 import { EmptyState, Button } from './components/ui'
+import { subscriptionGrantsLive } from './lib/subscriptionLive'
 
 // canDo(permissionsMap, companyId, key) lives in src/lib/permissions.js so the
 // components that gate write surfaces (Day Tracker, importers, Team & Access)
@@ -766,8 +767,10 @@ export default function App({ initialLoginMode = null } = {}) {
             // Free tier — always live (admin granted).
             if (c.is_free_tier) return true
             const sub = subByCo.get(c.id)
-            // Paid OR in stripe-side trial OR grace-period past_due → live.
-            if (sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due')) return true
+            // Paid OR in a real Stripe-side trial OR grace-period past_due →
+            // live. Mirrors company_is_live(): a bare 'trialing' row with no
+            // Stripe subscription behind it does not count.
+            if (subscriptionGrantsLive(sub)) return true
             // Otherwise live only while in-app trial hasn't expired yet.
             const trialEnd = c.trial_ends_at ? new Date(c.trial_ends_at).getTime() : 0
             return trialEnd > Date.now()

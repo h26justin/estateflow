@@ -5,6 +5,7 @@ import { showAppToast } from '../../lib/toast'
 import { copyToClipboard } from '../../lib/clipboard'
 import { SkeletonRows } from '../../lib/Skeleton'
 import { EmptyState } from '../ui'
+import { COMPANY_INVITE_DEFAULTS } from '../../lib/api/invitations'
 
 // ── SHAREABLE LINKS TAB ─────────────────────────────────────────────────────
 // Lets owners/admins generate shareable invite links (or short codes) for any
@@ -20,8 +21,10 @@ export function ShareableLinksTab({ companies, showToast, T }) {
 
   // Form state for creating a new invite
   const [formCompanyId, setFormCompanyId] = useState(companies[0]?.id || '')
-  const [formMaxUses,   setFormMaxUses]   = useState('')   // '' = unlimited
-  const [formExpiry,    setFormExpiry]    = useState('7d') // preset key
+  // '' = server default (COMPANY_INVITE_DEFAULTS.maxUses). Codes are never
+  // unlimited by default — a leaked link stops working once it is used up.
+  const [formMaxUses,   setFormMaxUses]   = useState('')
+  const [formExpiry,    setFormExpiry]    = useState('14d') // preset key
   // Role joiners get when they redeem this code. Defaults to 'editor' which
   // matches what most "I'm sharing this with my team" cases want.
   const [formRole,      setFormRole]      = useState('editor')
@@ -34,12 +37,13 @@ export function ShareableLinksTab({ companies, showToast, T }) {
   const EXPIRY_OPTIONS = [
     { v: '1d',     l: '1 day' },
     { v: '7d',     l: '7 days' },
+    { v: '14d',    l: '14 days (default)' },
     { v: '30d',    l: '30 days' },
     { v: 'never',  l: 'Never expires' },
   ]
   function expiryToTimestamp(key) {
     if (key === 'never') return null
-    const days = key === '1d' ? 1 : key === '7d' ? 7 : 30
+    const days = key === '1d' ? 1 : key === '7d' ? 7 : key === '14d' ? 14 : 30
     const d = new Date()
     d.setDate(d.getDate() + days)
     return d.toISOString()
@@ -68,10 +72,13 @@ export function ShareableLinksTab({ companies, showToast, T }) {
     if (!formCompanyId || creating) return
     setCreating(true)
     try {
-      const maxUses = formMaxUses === '' ? null : Math.max(1, parseInt(formMaxUses) || 1)
-      const expiresAt = expiryToTimestamp(formExpiry)
+      // Blank max uses → server default; 'never' must be asked for
+      // explicitly or the server applies its 14-day default.
+      const maxUses = formMaxUses === '' ? null : Math.min(1000, Math.max(1, parseInt(formMaxUses) || 1))
+      const neverExpires = formExpiry === 'never'
+      const expiresAt = neverExpires ? null : expiryToTimestamp(formExpiry)
       const created = await api.createCompanyInvite(formCompanyId, {
-        maxUses, expiresAt, role: formRole, label: formLabel.trim()
+        maxUses, expiresAt, neverExpires, role: formRole, label: formLabel.trim()
       })
       // Optimistically update the grouped list
       setInvitesByCompany(prev => ({
@@ -146,7 +153,9 @@ export function ShareableLinksTab({ companies, showToast, T }) {
         <p style={{ fontFamily: mono, fontSize: 11, color: T.faint, lineHeight: 1.6 }}>
           Generate a link or code that anyone can use to join your company —
           no need to type their email upfront. Useful for inviting via WhatsApp,
-          Slack, or in person. Set a usage limit and expiry to keep it secure.
+          Slack, or in person. New invites expire after {COMPANY_INVITE_DEFAULTS.expiryDays} days and
+          allow {COMPANY_INVITE_DEFAULTS.maxUses} uses unless you choose otherwise — revoke a code
+          as soon as it is no longer needed.
         </p>
       </div>
 
@@ -166,7 +175,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Max uses</label>
-            <input aria-label="Max uses" type="number" min={1} placeholder="Unlimited" value={formMaxUses}
+            <input aria-label="Max uses" type="number" min={1} max={1000} placeholder={`${COMPANY_INVITE_DEFAULTS.maxUses} (default)`} value={formMaxUses}
               onChange={e => setFormMaxUses(e.target.value)}
               style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
           </div>
