@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
@@ -25,9 +25,8 @@ export function AdminSettingsPanel({ user, T, showToast }) {
   const [deleting, setDeleting]         = useState(false)
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { loadAll() }, [])
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -43,7 +42,8 @@ export function AdminSettingsPanel({ user, T, showToast }) {
       showToast('Failed to load admin data', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, showToast])
+  useEffect(() => { loadAll() }, [loadAll])
 
   async function handleDeleteUser() {
     setDeleteError('')

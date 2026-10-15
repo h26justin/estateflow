@@ -1,7 +1,10 @@
 // MTD ITSA: HMRC settings, quarterly submissions and OAuth.
 import { supabase } from '../supabase'
 import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
-import { RECEIVED_STATUSES, estimateMortgageInterest } from '../mtdItsa'
+import {
+  RECEIVED_STATUSES, estimateMortgageInterest,
+  isMissingLegalOwnerColumnError, splitPropertiesByLegalOwner,
+} from '../mtdItsa'
 
 // ── MTD ITSA (Making Tax Digital — Income Tax Self Assessment) ────────────────
 // HMRC mandate hits 6 Apr 2026 for landlords > £50k income, 6 Apr 2027 > £30k.
@@ -79,7 +82,7 @@ export async function upsertMtdSubmission({ tax_year, quarter_number, period_fro
   return data
 }
 
-// Aggregate the user's rent + expenses for a given period across ALL their
+// Aggregate the user's rent + expenses for a given period across their
 // personally held properties. Returns the raw rows so the caller can run
 // buildQuarterlySummary from src/lib/mtdItsa.js client-side (keeps tax logic
 // in one place).
@@ -87,29 +90,26 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) throw new Error('Not signed in')
 
-  // Default: all user's non-deleted properties. Companies are also used as
-  // plain portfolio groups (nearly every property has a company_id), so
-  // company_id can't tell a limited-company holding from a personal one;
-  // excluding company properties needs an explicit ownership flag first.
-  // We also need mortgage_amount +
+  // Default: the user's non-deleted properties minus those whose company is
+  // flagged legal_owner = 'limited_company' (corporation-tax income). See
+  // fetchMtdPropertyScope. We also need mortgage_amount +
   // mortgage_rate so we can compute the period's mortgage interest accrual
   // (residential financial cost — gets 20% basic-rate relief under S24).
   let propIds = propertyIds
   let mortgageProps = []
+  let scope = null
   if (!propIds) {
-    const { data: props, error: pe } = await supabase
-      .from('properties').select('id, mortgage_amount, mortgage_rate')
-      .eq('user_id', uid).is('deleted_at', null)
-    if (pe) throw pe
-    propIds = (props || []).map(p => p.id)
-    mortgageProps = (props || []).filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)
+    scope = await fetchMtdPropertyScope(uid)
+    const props = scope.included
+    propIds = props.map(p => p.id)
+    mortgageProps = props.filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)
   } else {
     const { data: props } = await supabase
       .from('properties').select('id, mortgage_amount, mortgage_rate')
       .in('id', propIds).is('deleted_at', null)
     mortgageProps = (props || []).filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)
   }
-  if (propIds.length === 0) return { payments: [], expenses: [], mortgageInterest: 0 }
+  if (propIds.length === 0) return { payments: [], expenses: [], mortgageInterest: 0, scope }
 
   // Legacy rows carry only year/month (period_start IS NULL) — a plain
   // gte/lte on period_start silently excludes them, understating MTD income.
@@ -150,7 +150,39 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   const expenses = expensesRes.data || []
   const mortgageInterest = estimateMortgageInterest({ mortgageProps, expenses, periodFrom, periodTo })
 
-  return { payments, expenses, mortgageInterest }
+  return { payments, expenses, mortgageInterest, scope }
+}
+
+// Which of the user's properties count for personal MTD ITSA. Companies are
+// also used as plain portfolio groups (nearly every property has a
+// company_id), so only an explicit companies.legal_owner = 'limited_company'
+// excludes a property; no company, 'personal' or NULL (not set) stay in.
+// If the column isn't in the DB yet (app deployed before the migration), the
+// companies lookup fails with an undefined-column error and we fall back to
+// including everything — the pre-flag behaviour.
+// Returns { included, excluded, excludedCompanies, unsetCompanies,
+// legalOwnerSupported } (see splitPropertiesByLegalOwner).
+export async function fetchMtdPropertyScope(userId = null) {
+  const uid = userId || (await supabase.auth.getUser()).data.user?.id
+  if (!uid) throw new Error('Not signed in')
+  const { data: props, error: pe } = await supabase
+    .from('properties').select('id, company_id, mortgage_amount, mortgage_rate')
+    .eq('user_id', uid).is('deleted_at', null)
+  if (pe) throw pe
+  const properties = props || []
+  const companyIds = [...new Set(properties.map(p => p.company_id).filter(Boolean))]
+  if (companyIds.length === 0) return splitPropertiesByLegalOwner(properties, [])
+
+  const { data: cos, error: ce } = await supabase
+    .from('companies').select('id, name, legal_owner')
+    .in('id', companyIds)
+  if (ce) {
+    if (isMissingLegalOwnerColumnError(ce)) {
+      return splitPropertiesByLegalOwner(properties, [], { legalOwnerSupported: false })
+    }
+    throw ce
+  }
+  return splitPropertiesByLegalOwner(properties, cos || [])
 }
 
 // Start the HMRC gov.uk OAuth flow. Returns nothing — performs a

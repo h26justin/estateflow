@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MONO, FS } from '../lib/styles'
 import { SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
@@ -43,16 +43,16 @@ export default function BackupsPage({ user, showToast }) {
   const [downloading, setDownloading] = useState(null)
   const [deleting, setDeleting] = useState(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await api.fetchUserBackups(user?.id)
       setBackups(data)
     } catch(e) { console.error('Failed to load backups', e) }
     setLoading(false)
-  }
+  }, [user?.id])
 
-  useEffect(() => { if (user?.id) load() }, [user?.id])
+  useEffect(() => { if (user?.id) load() }, [user?.id, load])
 
   async function createBackup() {
     setCreating(true)

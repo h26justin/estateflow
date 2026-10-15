@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { Icon } from '../../lib/icons'
 import { MONO, FS } from '../../lib/styles'
@@ -20,9 +20,8 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
   const DEPOSIT_SCHEMES = ['DPS - Deposit Protection Service','mydeposits','TDS - Tenancy Deposit Scheme','Not registered']
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadDetails() },[propertyId])
 
-  async function loadDetails() {
+  const loadDetails = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -35,7 +34,8 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
       showToast(e.message || 'Failed to load tenancy details', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId, showToast])
+  useEffect(()=>{ loadDetails() },[loadDetails])
 
   async function handleSave() {
     try {

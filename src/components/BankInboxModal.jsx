@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
@@ -37,7 +37,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
   const [selPropId, setSelPropId]   = useState('')
   const [selRpId, setSelRpId]       = useState('')
 
-  async function reload() {
+  const reload = useCallback(async () => {
     setLoading(true)
     try {
       const list = await api.fetchBankTransactions({
@@ -49,9 +49,9 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
       showAppToast(e.message || 'Failed to load transactions', 'error')
     }
     setLoading(false)
-  }
+  }, [filter])
 
-  useEffect(() => { reload() /* eslint-disable-next-line */ }, [filter])
+  useEffect(() => { reload() }, [reload])
 
   // Unpaid rent_payments grouped by property — fed to the match picker.
   const unpaidByProperty = useMemo(() => {

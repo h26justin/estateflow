@@ -22,7 +22,7 @@ export function ReferralPanel({ user, T, showToast }) {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [user?.id, user?.email])
 
   const referralUrl = `https://www.ownproperly.com?ref=${code}`
   const paying = referrals.filter(r => r.status === 'paying' || r.status === 'rewarded').length

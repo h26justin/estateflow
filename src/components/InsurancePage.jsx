@@ -14,7 +14,7 @@ import { MONO, FS } from '../lib/styles'
 // row, copies most fields, shifts dates forward 1 year, and links back via
 // previous_policy_id. The user can then adjust the new premium before save.
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -73,9 +73,8 @@ export default function InsurancePage({ user, companies = [], properties = [], s
   // whose picker is open; null means no picker showing.
   const [propertyPicker, setPropertyPicker] = useState(null)
 
-  useEffect(() => { reload() }, [])
 
-  async function reload() {
+  const reload = useCallback(async () => {
     setLoading(true)
     try {
       const data = await api.fetchInsurancePolicies()
@@ -84,7 +83,8 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       showToast(e.message || 'Failed to load policies', 'error')
     }
     setLoading(false)
-  }
+  }, [showToast])
+  useEffect(() => { reload() }, [reload])
 
   // Filter: by company first, then by view
   const filtered = useMemo(() => {

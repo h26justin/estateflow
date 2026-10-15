@@ -106,7 +106,13 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   const [triedSave, setTriedSave] = useState(false)
   const [detailTab, setDetailTab] = useState('details')
 
+  // Mount-only fetch: load() reads `selected` to re-sync it after saves, which
+  // must not turn every selection into a refetch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [])
+  // Keyed to triggerNew: the parent passes onNewHandled as an inline arrow,
+  // so depending on it would re-run this on every parent render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (triggerNew) { setShowNewForm(true); if (onNewHandled) onNewHandled() } }, [triggerNew])
 
   async function load() {

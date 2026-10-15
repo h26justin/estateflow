@@ -30,7 +30,7 @@ import { isSafeUrl, calcGrossYield } from './lib/propertyCalcs'
 import { pressable } from './lib/pressable'
 import { plural } from './lib/format'
 import AppShellStyles from './lib/AppShellStyles'
-import { SettingsPage, ReportsPage, AdminDashboard, PrivacyPolicy, TermsOfService, SecurityPage, FeedbackPage, TenantReferenceModal, SuspendedAccessBanner, BuildingMortgageModal, CompanyOwnershipSection, HoldingGroupPanel, PropertyModal, CompanyModal, DeleteConfirmModal, SellPropertyModal, DeleteCompanyModal, PaymentModal, CustomizeDashModal, TenantPortal, RefurbsPage, DayTrackerPage, CompliancePage, MtdItsaPage, ShortTermLetIncomePage, AutopilotPage, RentersRightsCopilot, StatementImporter, StatementAuditPage, ExternalLoansPage, DataImporter, OnboardingWizard, OnboardingTour, BulkAddPropertyModal, ReceiptScanModal } from './components/app/lazyViews'
+import { SettingsPage, ReportsPage, AdminDashboard, PrivacyPolicy, TermsOfService, SecurityPage, FeedbackPage, TenantReferenceModal, SuspendedAccessBanner, BuildingMortgageModal, CompanyOwnershipSection, HoldingGroupPanel, CompanyLegalOwnerSetting, PropertyModal, CompanyModal, DeleteConfirmModal, SellPropertyModal, DeleteCompanyModal, PaymentModal, CustomizeDashModal, TenantPortal, RefurbsPage, DayTrackerPage, CompliancePage, MtdItsaPage, ShortTermLetIncomePage, AutopilotPage, RentersRightsCopilot, StatementImporter, StatementAuditPage, ExternalLoansPage, DataImporter, OnboardingWizard, OnboardingTour, BulkAddPropertyModal, ReceiptScanModal } from './components/app/lazyViews'
 import { fmt } from './lib/appFmt'
 import { Badge } from './components/app/Badges'
 import { StatCard } from './components/app/StatCard'
@@ -1000,7 +1000,7 @@ export default function App({ initialLoginMode = null } = {}) {
         default:             return 0
       }
     })
-  },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived])
+  },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived,yieldBasis])
 
   // Reset the drag ("Custom Order") positions back to the canonical default:
   // company, then building cluster, then natural unit order ("Room 2" before
@@ -1567,6 +1567,12 @@ export default function App({ initialLoginMode = null } = {}) {
       if (formData.companyType === 'holding') {
         co = await api.updateCompany(co.id, { company_type: 'holding' })
       }
+      // Legal owner (MTD scope) — also a follow-up write. Non-fatal: the
+      // company exists either way and it can be set later in Companies.
+      if (formData.legalOwner && formData.companyType !== 'holding') {
+        try { co = await api.updateCompany(co.id, { legal_owner: formData.legalOwner }) }
+        catch(e) { logError('handleSaveCo:legalOwner', e) }
+      }
       // Auto-generate and save subdomain — operating companies only (a
       // holding company has no tenants, so no tenant-portal subdomain).
       if (formData.companyType !== 'holding') {
@@ -1713,6 +1719,10 @@ export default function App({ initialLoginMode = null } = {}) {
                 canEdit={canEditCo} showToast={showToast}
                 onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
             ) : (<>
+            {/* companies_update RLS lets only the owner (or a developer) write the
+                company row, so admins see this read-only rather than hit an error. */}
+            <CompanyLegalOwnerSetting company={c} canEdit={c.owner_id===user?.id || devModeActive} showToast={showToast} T={T}
+              onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
               <StatCard icon="home" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
               <StatCard icon="pound" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>

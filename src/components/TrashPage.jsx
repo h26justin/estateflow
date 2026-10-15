@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MONO, CV, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
@@ -45,16 +45,16 @@ export default function TrashPage({ user, onRestored }) {
   const [filter, setFilter] = useState('all')
   const [working, setWorking] = useState(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await api.fetchAllDeleted(user?.id)
       setGroups(data)
     } catch(e) { console.error('Failed to load trash', e) }
     setLoading(false)
-  }
+  }, [user?.id])
 
-  useEffect(() => { if (user?.id) load() }, [user?.id])
+  useEffect(() => { if (user?.id) load() }, [user?.id, load])
 
   async function restore(item) {
     if (!await confirmDialog({ title: `Restore "${item._name}"?`, confirmLabel: 'Restore' })) return

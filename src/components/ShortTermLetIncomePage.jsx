@@ -124,6 +124,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
       }
     })()
     return () => { alive = false }
+    // Keyed to stlIdKey (the sorted id list): stlIds / stlCompanies are new
+    // arrays whenever properties or companies re-render, but only a change in
+    // which properties are STL should refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stlIdKey])
 
   // ── Selection ───────────────────────────────────────────────────────────
@@ -161,9 +165,9 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   // whose channel has not reported a commission yet (Booking.com reports after
   // the stay). Estimates are labelled wherever they appear.
   const rates = useMemo(() => observedChannelRates(bookings || []), [bookings])
-  const summary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { ...range, roomCount, rates }), [scopedBookings, scopedAdjustments, range.from, range.to, roomCount, rates])
+  const summary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { from: range.from, to: range.to, roomCount, rates }), [scopedBookings, scopedAdjustments, range.from, range.to, roomCount, rates])
   const yearSummary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { from: `${yearShown}-01-01`, to: `${yearShown}-12-31`, roomCount, rates }), [scopedBookings, scopedAdjustments, yearShown, roomCount, rates])
-  const payouts = useMemo(() => managerPayouts(scopedBookings, scopedAdjustments, selectedProps, managers, { ...range, rates }), [scopedBookings, scopedAdjustments, selectedProps, managers, range.from, range.to, rates])
+  const payouts = useMemo(() => managerPayouts(scopedBookings, scopedAdjustments, selectedProps, managers, { from: range.from, to: range.to, rates }), [scopedBookings, scopedAdjustments, selectedProps, managers, range.from, range.to, rates])
   const managerFees = Math.round(payouts.reduce((acc, r) => acc + r.amount, 0) * 100) / 100
   // Corrections carried from locked pay runs: a period that was paid and whose
   // bookings have since changed (a cancellation that arrived later, a refund
@@ -176,7 +180,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const netToOwner = Math.round((summary.netAfterFees - managerFees) * 100) / 100
 
   // Per-room rows and the sort the table is showing them in.
-  const rooms = useMemo(() => roomBreakdown(scopedBookings, scopedAdjustments, selectedProps, { ...range, rates, mappings }), [scopedBookings, scopedAdjustments, selectedProps, range.from, range.to, rates, mappings])
+  const rooms = useMemo(() => roomBreakdown(scopedBookings, scopedAdjustments, selectedProps, { from: range.from, to: range.to, rates, mappings }), [scopedBookings, scopedAdjustments, selectedProps, range.from, range.to, rates, mappings])
   const [roomSort, setRoomSort] = useState({ key: 'gross', dir: 'desc' })
   const sortedRooms = useMemo(() => {
     const val = r => roomSort.key === 'name' ? (r.property.name || r.property.address || '') : r[roomSort.key]

@@ -13,7 +13,7 @@ export function SecurityDataPanel({ user, T, showToast }) {
 
   useEffect(() => {
     api.fetchDeletedProperties(user?.id).then(d => { setDeletedProps(d); setLoadingTrash(false) }).catch(() => setLoadingTrash(false))
-  }, [])
+  }, [user?.id])
 
   async function handleExport() {
     setExporting(true)

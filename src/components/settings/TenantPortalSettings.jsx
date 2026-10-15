@@ -60,6 +60,9 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
       setBankAccount(b.bank_account_no||''); setBankRef(b.bank_reference_prefix||'RENT')
       setNotifyEmail(b.tenant_notification_email||'')
     }).catch(()=>{})
+    // Seed the drafts only when switching company: a refreshed `companies`
+    // prop (e.g. after a save) must not overwrite fields being edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCo])
 
   async function saveContact() {

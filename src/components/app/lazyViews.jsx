@@ -55,6 +55,7 @@ export const SuspendedAccessBanner = lazyPanel(() => import('../SuspendedAccessB
 export const BuildingMortgageModal = lazyPanel(() => import('../BuildingMortgageModal'))
 export const CompanyOwnershipSection = lazyPanel(() => import('../CompanyOwnershipSection'))
 export const HoldingGroupPanel = lazyPanel(() => import('../HoldingGroupPanel'))
+export const CompanyLegalOwnerSetting = lazyPanel(() => import('../CompanyLegalOwner'))
 export const PropertyModal = lazyPanel(() => import('../modals/PropertyModal'))
 export const CompanyModal = lazyPanel(() => import('../modals/CompanyModal'))
 export const DeleteConfirmModal = lazyPanel(() => import('../modals/DeleteConfirmModal'))

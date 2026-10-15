@@ -68,6 +68,10 @@ function useWorkspace({ project, property, mutations, showToast, onJourneyChange
   useEffect(() => {
     if (loading) return
     onJourneyChange?.(project.id, { stages: data.stages, tasks: data.tasks, cover: data.files.find(f => f.id === project.cover_file_id) || null })
+    // Fires on journey data only. onJourneyChange is a parent callback that
+    // may be re-created each render, and keying on project.id would report
+    // the previous project's stages under the new id before load() lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.stages, data.tasks, data.files, project.cover_file_id, loading])
 
   const patch = fn => setData(d => ({ ...d, ...fn(d) }))
@@ -311,6 +315,9 @@ export default function RefurbWorkspace({
   useEffect(() => {
     if (!cover?.file_path || signed[cover.file_path]) return
     api.signRefurbPaths([cover.file_path]).then(m => setSigned(s => ({ ...s, ...Object.fromEntries(m) }))).catch(() => {})
+    // Keyed to the cover path: `signed` is only a cache check, and re-running
+    // on every cache write would re-request the cover while one is in flight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cover?.file_path])
   const coverSrc = (cover && signed[cover.file_path]) || (cover ? coverUrl : null)
 
@@ -539,6 +546,9 @@ function MoneyRows({ rows, T }) {
 function ProjectDetails({ ws }) {
   const { project, ops, canEdit, contractors, people, T } = ws
   const [f, setF] = useState(() => formOf(project))
+  // Re-seed only when the project row changes (switch or saved update), not
+  // on every new `project` object identity.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setF(formOf(project)) }, [project.id, project.updated_at])
   const set = (k, v) => setF(x => ({ ...x, [k]: v }))
   const save = (k, raw = f[k]) => {

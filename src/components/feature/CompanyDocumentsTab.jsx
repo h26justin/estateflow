@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
@@ -31,9 +31,8 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
   ]
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadDocs() },[companyId])
 
-  async function loadDocs() {
+  const loadDocs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -47,7 +46,8 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
       logError('CompanyDocumentsTab:loadDocs', e)
     }
     setLoading(false)
-  }
+  }, [beginLoad, companyId])
+  useEffect(()=>{ loadDocs() },[loadDocs])
 
   async function handleUpload(files) {
     if (!files || files.length === 0) return

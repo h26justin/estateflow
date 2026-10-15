@@ -11,6 +11,9 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0, totalCompanies: 0, totalProperties: 0, mrr: 0, signupsLast30: 0, signupsLast7: 0, cohorts: [] })
 
+  // Mount-only snapshot: re-running on a refreshed `companies` / `showToast`
+  // prop would refetch every user and property for the whole platform.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ load() }, [])
 
   async function load() {

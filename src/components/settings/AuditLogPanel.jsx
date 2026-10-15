@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -14,9 +14,8 @@ export function AuditLogPanel({ user, companies, T }) {
   const [companyFilter, setCompanyFilter] = useState('')
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { loadLogs() }, [companyFilter])
 
-  async function loadLogs() {
+  const loadLogs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -28,7 +27,8 @@ export function AuditLogPanel({ user, companies, T }) {
       logError('AuditLogPanel:loadLogs', e)
     }
     setLoading(false)
-  }
+  }, [beginLoad, user?.id, companyFilter])
+  useEffect(() => { loadLogs() }, [loadLogs])
 
   const ACTION_LABELS = {
     'property.created':            { label: 'Property added',       color: T.green },

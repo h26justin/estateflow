@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { MONO, FS } from '../lib/styles'
@@ -41,8 +41,7 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
   const [form, setForm] = useState(blank)
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [propertyId])
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -54,7 +53,8 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
       showAppToast(e.message || 'Failed to load checks', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId])
+  useEffect(() => { load() }, [load])
 
   function startAdd() { setForm(blank); setAdding(true) }
   function cancel() { setAdding(false); setForm(blank) }

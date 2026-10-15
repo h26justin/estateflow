@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { useTheme } from '../../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../../lib/icons'
@@ -115,9 +115,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     vacant_properties: true, weekly_summary: false,
   })
 
-  useEffect(() => { loadProfile() }, [])
 
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     setProfileLoading(true)
     try {
       const data = await api.fetchUserProfile(user?.id)
@@ -130,7 +129,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       setMilestoneConfig(mc || {})
     } catch(e) { showToast(e.message || 'Failed to load profile', 'error') }
     setProfileLoading(false)
-  }
+  }, [user?.id, showToast])
+  useEffect(() => { loadProfile() }, [loadProfile])
 
   async function saveProfile() {
     setProfileSaving(true)

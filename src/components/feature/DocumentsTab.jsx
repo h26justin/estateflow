@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { SignedPhoto } from '../../lib/SignedPhoto'
 import { useTheme } from '../../lib/ThemeContext'
 import { MONO, CV, FS } from '../../lib/styles'
@@ -72,9 +72,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
   }
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadDocs() },[propertyId])
 
-  async function loadDocs() {
+  const loadDocs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -89,7 +88,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
       logError('DocumentsTab:loadDocs', e)
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId])
+  useEffect(()=>{ loadDocs() },[loadDocs])
 
   async function handleUpload(files) {
     if (!files || files.length === 0) return

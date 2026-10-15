@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
@@ -37,9 +37,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
   ]
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadExpenses() },[propertyId])
 
-  async function loadExpenses() {
+  const loadExpenses = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -51,7 +50,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
       showToast(e.message || 'Failed to load expenses', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId, showToast])
+  useEffect(()=>{ loadExpenses() },[loadExpenses])
 
   async function handleSave() {
     if (!form.description||!form.amount||!form.date) return

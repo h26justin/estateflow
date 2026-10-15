@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
@@ -43,7 +43,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 
   // Status → pin colour. Same hues as STATUS_CFG in App.jsx; the core
   // statuses use theme tokens so pins follow light/dark mode.
-  const STATUS_COLOR = {
+  const STATUS_COLOR = useMemo(() => ({
     rented:         T.green,
     short_term_let: '#9B6FDE',  // purple — matches the STL booking colour
     notice_given:   '#F0B850',  // amber — still rented but vacancy looming
@@ -53,7 +53,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
     purchased:    T.amber,
     refurb:       T.blue,
     sold:         '#9B8AC2',
-  }
+  }), [T])
 
   // Note: FLAT_PREFIX_RE and groupKeyForAddress are imported from
   // ../lib/addressUtils so this clustering logic stays in sync with the
@@ -272,7 +272,11 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
       withCoords.forEach(p => bounds.extend([p.longitude, p.latitude]))
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 })
     }
-  }, [properties, libReady, searchQ, heatmapMode])
+    // setProperties/showToast are only called later from marker drag handlers;
+    // re-running on their identity would rebuild every marker and re-fit the
+    // map on each parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties, libReady, searchQ, heatmapMode, STATUS_COLOR, T])
 
   // ─── Heatmap layer ──────────────────────────────────────────────────────
   // When heatmapMode is on, build a GeoJSON FeatureCollection from properties

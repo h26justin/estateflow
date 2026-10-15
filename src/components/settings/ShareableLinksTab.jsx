@@ -45,6 +45,9 @@ export function ShareableLinksTab({ companies, showToast, T }) {
     return d.toISOString()
   }
 
+  // Load once on open; create/revoke update the list optimistically, so a
+  // refreshed `companies` prop is not a reason to refetch every company.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadInvites() }, [])
 
   async function loadInvites() {

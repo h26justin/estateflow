@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -744,15 +744,15 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   }
 
   // Build a map: userId -> { owned, shared, all }
-  function getUserCompanies(user) {
+  const getUserCompanies = useCallback((user) => {
     const owned = companies.filter(c => c.owner_email === user.email)
     const sharedIds = new Set(accessRows.filter(r => r.user_id === user.id).map(r => r.company_id))
     const shared = companies.filter(c => sharedIds.has(c.id) && c.owner_email !== user.email)
     return { owned, shared, all: [...owned, ...shared] }
-  }
+  }, [companies, accessRows])
 
   // Build a map: companyId -> { owner, shared: [{user, is_admin}] }
-  function getCompanyUsers(company) {
+  const getCompanyUsers = useCallback((company) => {
     const owner = users.find(u => u.email === company.owner_email) || null
     const accessMap = {}
     accessRows.filter(r => r.company_id === company.id).forEach(r => { accessMap[r.user_id] = r })
@@ -766,7 +766,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         _role: accessMap[u.id]?.role || (accessMap[u.id]?.is_admin ? 'admin' : 'editor'),
       }))
     return { owner, shared: sharedUsers }
-  }
+  }, [users, accessRows])
 
   // Toggle admin rights for a shared user
   async function doToggleUserAdmin(u, co) {
@@ -789,7 +789,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       const { shared } = getCompanyUsers(c)
       return shared.some(u => u.email?.toLowerCase().includes(q))
     })
-  }, [companies, search, users, accessRows])
+  }, [companies, search, getCompanyUsers])
 
   const filteredUsers = useMemo(() => {
     if (!search) return users
@@ -807,7 +807,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
   const recentlyActive = u => u.last_active_at && (Date.now() - new Date(u.last_active_at).getTime()) < 7*24*60*60*1000
 
   // Users with NO companies
-  const orphanUsers = useMemo(() => users.filter(u => getUserCompanies(u).all.length === 0), [users, companies, accessRows])
+  const orphanUsers = useMemo(() => users.filter(u => getUserCompanies(u).all.length === 0), [users, getUserCompanies])
 
   async function sendReset(email) {
     await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })

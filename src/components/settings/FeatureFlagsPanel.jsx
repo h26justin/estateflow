@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useConfirm } from '../../lib/ConfirmContext'
@@ -18,9 +18,8 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
   const [newFlag, setNewFlag] = useState({ key:'', name:'', description:'', enabled_globally:false })
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ load() }, [])
 
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -32,7 +31,8 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
       showToast('Failed to load flags','error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, showToast])
+  useEffect(()=>{ load() }, [load])
 
   async function toggleGlobal(flag) {
     try {
@@ -152,9 +152,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
   const [pickMode, setPickMode] = useState(null) // 'user' | 'company' | null
   const [search, setSearch] = useState('')
 
-  useEffect(()=>{ load() }, [])
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const [u, c] = await Promise.all([
@@ -165,7 +164,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
       setCompanyOverrides(c)
     } catch(e) {}
     setLoading(false)
-  }
+  }, [flag.key])
+  useEffect(()=>{ load() }, [load])
 
   async function addUserOverride(userId, enabled) {
     try { await api.setFlagUserOverride(flag.key, userId, enabled); await load(); setPickMode(null); setSearch('') } catch(e) { showToast('Failed','error') }

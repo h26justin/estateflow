@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef, Fragment, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { MONO, statusPill, FS } from '../../lib/styles'
@@ -45,17 +45,17 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
     {value:'other', label:'Other Certificate', icon:'file-text'},
   ]
 
-  useEffect(()=>{
-    loadItems()
-    api.fetchTenancyDetails(propertyId).then(setTenancy).catch(()=>setTenancy(null))
-  },[propertyId])
-
-  async function loadItems() {
+  const loadItems = useCallback(async () => {
     setLoading(true)
     try { setItems(await api.fetchCompliance(propertyId)) }
     catch(e) { showToast(e.message || 'Failed to load compliance certificates', 'error') }
     setLoading(false)
-  }
+  }, [propertyId, showToast])
+
+  useEffect(()=>{
+    loadItems()
+    api.fetchTenancyDetails(propertyId).then(setTenancy).catch(()=>setTenancy(null))
+  },[propertyId, loadItems])
 
   // ── Certificate documents ────────────────────────────────────────────────
   function startAttach(item, reqKey) {

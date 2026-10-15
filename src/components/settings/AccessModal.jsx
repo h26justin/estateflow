@@ -51,6 +51,9 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
   const [tab, setTab]                   = useState('users')
 
   const beginLoad = useLoadGuard()
+  // Load once when the modal opens: loadData also resets the company
+  // selection, so a refreshed `companies` prop must not re-run it mid-edit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ loadData() },[])
 
   async function loadData() {

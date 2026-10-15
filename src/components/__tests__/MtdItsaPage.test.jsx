@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   fetchMtdSettings: vi.fn(),
   fetchMtdSubmissions: vi.fn(),
   fetchMtdLiveStatus: vi.fn(),
+  fetchMtdPropertyScope: vi.fn(),
 }))
 vi.mock('../../lib/api', () => api)
 
@@ -24,6 +25,7 @@ describe('MtdItsaPage', () => {
   beforeEach(() => {
     api.fetchMtdSettings.mockResolvedValue(settings)
     api.fetchMtdSubmissions.mockResolvedValue(subs)
+    api.fetchMtdPropertyScope.mockResolvedValue(null)
   })
 
   it('says plainly when live HMRC filing is not switched on', async () => {

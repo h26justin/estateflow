@@ -45,7 +45,7 @@ describe('useLoadGuard', () => {
           const rows = await fetchFor(id)
           if (isCurrent()) setData(rows)
         })()
-      }, [id])
+      }, [beginLoad, id])
       return <div data-testid="out">{data}</div>
     }
     const { rerender } = render(<Panel id="A" />)
