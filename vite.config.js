@@ -30,6 +30,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
+    // Agent worktrees live under .claude/worktrees and carry their own copies
+    // of the test-suite; never collect them from the main checkout.
+    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**'],
   },
   build: {
     chunkSizeWarningLimit: 600,

@@ -9,6 +9,9 @@ import reactHooks from 'eslint-plugin-react-hooks'
 // response bugs fixed in 2026-10) at least show up in editors and lint
 // output without failing CI.
 export default [
+  // Build output and agent worktrees (.claude/worktrees, full repo copies)
+  // are not source.
+  { ignores: ['dist/**', '.claude/**'] },
   // Disable-directives for rules this config doesn't enable (no-console) or
   // only warns on (exhaustive-deps) are expected; don't flag them anywhere.
   { linterOptions: { reportUnusedDisableDirectives: 'off' } },
