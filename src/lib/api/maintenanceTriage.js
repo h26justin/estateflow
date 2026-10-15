@@ -8,7 +8,7 @@ import { supabase } from '../supabase'
 // Run AI triage for a maintenance job. Returns
 // { success, triage, ai_triaged_at } where triage is
 // { severity, category, suggested_trade, suggested_priority, diagnosis,
-//   contractor_brief, confidence, model_used, disclaimer, ... }.
+//   contractor_brief, confidence, disclaimer, ... }.
 // Throws on any non-2xx response.
 export async function triageJob(jobId) {
   if (!jobId) throw new Error('jobId is required')

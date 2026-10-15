@@ -132,7 +132,7 @@ function NoticeModal({ T, property, tenantName, onClose }) {
           {result && (
             <>
               <div style={{ fontSize: 11, color: T.goldText, marginBottom: 6 }}>
-                {result.confidence} · {result.model_used}
+                {result.confidence}
               </div>
               <pre style={{ whiteSpace: 'pre-wrap', fontFamily: "'DM Mono', monospace", fontSize: 12, background: T.surface, padding: 12, borderRadius: 6, maxHeight: '46vh', overflow: 'auto' }}>
                 {result.draft}

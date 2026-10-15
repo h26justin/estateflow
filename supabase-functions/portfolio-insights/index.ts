@@ -12,15 +12,20 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
-import { callClaudeWithEscalation, nullable, obj } from './anthropic.ts'
+import { callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, ClaudeError, nullable, obj } from './anthropic.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 // Don't allow the same user to regenerate insights more than once every
 // REGEN_COOLDOWN_MIN minutes. Each call costs a few cents in Claude tokens;
 // this caps the damage from runaway clients or curious users.
 const REGEN_COOLDOWN_MIN = 30
+// Per-user cap across all scopes (ai_usage). The cooldown above is per
+// (user, company) scope, so without this a user with many companies — or a
+// script cycling company_id values — could regenerate without limit.
+const RATE_LIMIT = { perHour: 6, perDay: 20 }
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -188,6 +193,13 @@ serve(async (req) => {
   // fall back to the caller's full portfolio (companyId = null).
   const body = await req.json().catch(() => ({}))
   const companyId = body?.company_id || null
+  if (companyId !== null && typeof companyId !== 'string') return jsonError(400, 'company_id must be a string')
+
+  // Caller-scoped client for company_is_live (evaluated as the caller, so
+  // the developer / platform-admin override applies exactly as in the app).
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  })
 
   try {
     // Rate-limit per (user, company). Each scope gets its own cooldown so a
@@ -217,7 +229,7 @@ serve(async (req) => {
     // safe regardless of whether they carry their own company_id column.
     let propsQuery = admin
       .from('properties')
-      .select('id, name, address, prop_type, status, purchase_price, refurb_cost, current_value, est_value, rent_pcm, mortgage_amount, mortgage_rate, arrears, deleted_at')
+      .select('id, company_id, name, address, prop_type, status, purchase_price, refurb_cost, current_value, est_value, rent_pcm, mortgage_amount, mortgage_rate, arrears, deleted_at')
       .eq('user_id', caller.id)
     if (companyId) propsQuery = propsQuery.eq('company_id', companyId)
 
@@ -234,24 +246,49 @@ serve(async (req) => {
     // belong to one of the company's properties. Deals don't reliably link
     // to a property, so we drop them from the per-company view rather than
     // mixing in cross-company deals.
-    const allProps = (propsRes.data || []) as any[]
+    const fetchedProps = (propsRes.data || []) as any[]
+
+    // Liveness gate: never run paid AI over a company that isn't live
+    // (public.company_is_live). Properties of non-live companies — and their
+    // compliance / insurance rows — are left out of the summary; if nothing
+    // live remains, refuse. Properties with no company are kept (same rule
+    // as maintenance-triage).
+    const companyIds = [...new Set(fetchedProps.map((p) => p.company_id).filter(Boolean))] as string[]
+    // Scoped to a company the caller has no properties in: nothing to analyse
+    // (and don't probe that company's liveness on their behalf).
+    if (companyId && !companyIds.includes(companyId)) {
+      return jsonError(400, 'Add at least one property before generating insights.')
+    }
+    const liveCompanies = new Set<string>()
+    for (const cid of companyIds) {
+      const { data: live, error: liveErr } = await userClient.rpc('company_is_live', { p_company_id: cid })
+      if (liveErr) {
+        console.error('[portfolio-insights] company_is_live failed:', liveErr.message)
+        return jsonError(500, 'Could not check your subscription — please try again.')
+      }
+      if (live === true) liveCompanies.add(cid)
+    }
+    if (companyId && !liveCompanies.has(companyId)) return jsonError(402, 'Company subscription is not active')
+    const allProps = fetchedProps.filter((p) => !p.company_id || liveCompanies.has(p.company_id))
     const propIds = new Set(allProps.map((p) => p.id))
+    const droppedNotLive = fetchedProps.length > allProps.length
     const rawCompliance = (complianceRes.data || []) as any[]
     const rawInsurance = (insuranceRes.data || []) as any[]
     const rawDeals = (dealsRes.data || []) as any[]
 
     const data = {
       properties: allProps,
-      compliance: companyId
+      compliance: companyId || droppedNotLive
         ? rawCompliance.filter((c) => c.property_id && propIds.has(c.property_id))
         : rawCompliance,
       insurance: companyId
         ? rawInsurance.filter((i) => i.company_id === companyId)
-        : rawInsurance,
+        : rawInsurance.filter((i) => !i.company_id || liveCompanies.has(i.company_id)),
       deals: companyId ? [] : rawDeals,
     }
 
     if ((data.properties as any[]).filter((p: any) => !p.deleted_at).length === 0) {
+      if (fetchedProps.some((p: any) => !p.deleted_at)) return jsonError(402, 'Company subscription is not active')
       return jsonError(400, 'Add at least one property before generating insights.')
     }
 
@@ -260,24 +297,45 @@ serve(async (req) => {
     // Call Claude — fast tier: pattern-spotting on a small structured
     // summary, not deep reasoning. Structured output guarantees the shape;
     // only an unparseable / off-schema answer escalates.
-    const result = await callClaudeWithEscalation<{ insights: any[] }>({
-      tier: 'fast',
-      // Vary the prompt slightly when scoped so Claude doesn't reach for
-      // "across all your companies" framing.
-      system: companyId
-        ? `Focus exclusively on this single company's portfolio. ${SYSTEM_PROMPT}`
-        : SYSTEM_PROMPT,
-      content: summary,
-      maxTokens: 4000,
-      schema: INSIGHTS_SCHEMA,
-    })
+    const gate = await checkAiRateLimit(admin, caller.id, 'portfolio-insights', RATE_LIMIT)
+    if (!gate.allowed) {
+      return new Response(JSON.stringify({ error: gate.message }), {
+        status: gate.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(gate.retryAfterSec) },
+      })
+    }
+
+    let result
+    try {
+      result = await callClaudeWithEscalation<{ insights: any[] }>({
+        tier: 'fast',
+        // Vary the prompt slightly when scoped so Claude doesn't reach for
+        // "across all your companies" framing.
+        system: companyId
+          ? `Focus exclusively on this single company's portfolio. ${SYSTEM_PROMPT}`
+          : SYSTEM_PROMPT,
+        content: summary,
+        maxTokens: 4000,
+        schema: INSIGHTS_SCHEMA,
+      })
+      await recordAiUsage(admin, gate.usageId, result)
+    } catch (e) {
+      console.error('[portfolio-insights] AI call failed:', (e as Error).message)
+      const status = e instanceof ClaudeError && e.kind === 'config' ? 503 : 502
+      return jsonError(status, 'Could not generate insights — please try again shortly.')
+    }
     const parsed = result.data
     const tokensIn = result.usage.input_tokens || null
     const tokensOut = result.usage.output_tokens || null
 
-    const insights = Array.isArray(parsed?.insights) ? parsed.insights : []
+    // action_link is model output: keep only in-app hash routes (the widget
+    // enforces the same rule client-side).
+    const insights = (Array.isArray(parsed?.insights) ? parsed.insights : []).map((it: any) => ({
+      ...it,
+      action_link: typeof it?.action_link === 'string' && /^#\/[a-z0-9/_-]+$/.test(it.action_link) ? it.action_link : null,
+    }))
     if (insights.length === 0) {
-      throw new Error('AI did not return any insights.')
+      return jsonError(502, 'AI did not return any insights — please try again.')
     }
 
     // Persist
@@ -299,6 +357,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    return jsonError(500, (e as Error).message)
+    console.error('[portfolio-insights] failed:', e)
+    return jsonError(500, 'Could not generate insights — please try again.')
   }
 })

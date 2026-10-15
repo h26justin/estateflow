@@ -20,7 +20,7 @@
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
-import { callClaudeWithEscalation, obj, UNTRUSTED_CONTENT_NOTICE } from './anthropic.ts'
+import { callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, ClaudeError, obj, UNTRUSTED_CONTENT_NOTICE } from './anthropic.ts'
 import { isAllowedJobPhotoPath, CLAUDE_IMAGE_TYPES } from './photo-paths.ts'
 
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
@@ -30,6 +30,9 @@ const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 // Fast tier (./anthropic.ts). Escalates only when the answer fails to parse
 // or match the schema — a 'low' confidence answer is returned as-is (the
 // landlord sees the confidence), not re-bought on a pricier model.
+// Per-user cap via ai_usage — vision calls (up to MAX_PHOTOS images) are the
+// priciest per request, so the cap sits below the text-only peers.
+const RATE_LIMIT = { perHour: 15, perDay: 60 }
 
 const STORAGE_BUCKET = 'property-documents'
 const MAX_PHOTOS     = 6
@@ -132,9 +135,9 @@ serve(async (req) => {
   let jobId: string | null = null
 
   try {
-    const body = await req.json()
-    jobId = body.job_id
-    if (!jobId) throw new Error('job_id required')
+    const body = await req.json().catch(() => ({}))
+    jobId = body?.job_id || null
+    if (!jobId) return jsonError(400, 'job_id required')
 
     // Load the job (service role — access enforced below via RPC).
     const { data: job, error: jobErr } = await admin
@@ -142,8 +145,8 @@ serve(async (req) => {
       .select('id, title, description, category, priority, photos, property_id, user_id')
       .eq('id', jobId)
       .single()
-    if (jobErr || !job) throw new Error('Maintenance job not found')
-    if (!job.property_id) throw new Error('Job has no property association')
+    if (jobErr || !job) return jsonError(404, 'Maintenance job not found')
+    if (!job.property_id) return jsonError(400, 'Job has no property association')
 
     // Resolve the property's company for the liveness gate.
     const { data: prop, error: propErr } = await admin
@@ -151,13 +154,16 @@ serve(async (req) => {
       .select('company_id, user_id')
       .eq('id', job.property_id)
       .single()
-    if (propErr || !prop) throw new Error('Property not found')
+    if (propErr || !prop) return jsonError(404, 'Property not found')
 
     // Access check: caller must have WRITE on the property (triage persists
     // ai_* columns back to the job). Evaluated as the caller, not service role.
     const { data: canWrite, error: permErr } = await userClient
       .rpc('has_property_permission', { p_property_id: job.property_id, p_action: 'write' })
-    if (permErr) throw new Error('Access check failed: ' + permErr.message)
+    if (permErr) {
+      console.error('[maintenance-triage] access check failed:', permErr.message)
+      return jsonError(500, 'Access check failed')
+    }
     if (canWrite !== true) return jsonError(403, 'Forbidden')
 
     // Liveness gate: never run paid AI for a company that isn't live.
@@ -165,6 +171,15 @@ serve(async (req) => {
       const { data: live } = await userClient
         .rpc('company_is_live', { p_company_id: prop.company_id })
       if (live !== true) return jsonError(402, 'Company subscription is not active')
+    }
+
+    // Per-user AI cap — checked before any photo is downloaded.
+    const gate = await checkAiRateLimit(admin, caller.id, 'maintenance-triage', RATE_LIMIT)
+    if (!gate.allowed) {
+      return new Response(JSON.stringify({ error: gate.message }), {
+        status: gate.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(gate.retryAfterSec) },
+      })
     }
 
     // ── Gather photos → signed URLs → base64 image blocks ─────────────
@@ -213,12 +228,21 @@ serve(async (req) => {
     ].filter(Boolean).join('\n')
 
     const content: any[] = [...images, { type: 'text', text: `${TRIAGE_PROMPT}\n\n--- REPAIR REPORT ---\n${jobText}` }]
-    const ai = await callClaudeWithEscalation<any>({
-      tier: 'fast', content, maxTokens: 4000, schema: TRIAGE_SCHEMA, timeoutMs: 90_000,
-    })
+    let ai
+    try {
+      ai = await callClaudeWithEscalation<any>({
+        tier: 'fast', content, maxTokens: 4000, schema: TRIAGE_SCHEMA, timeoutMs: 90_000,
+      })
+      await recordAiUsage(admin, gate.usageId, ai)
+    } catch (e) {
+      console.error(`[maintenance-triage] job ${jobId}: AI call failed:`, (e as Error).message)
+      const status = e instanceof ClaudeError && e.kind === 'config' ? 503 : 502
+      return jsonError(status, 'AI triage failed — please try again shortly.')
+    }
     const result = ai.data
-    const modelUsed = ai.model
-    const fellBack = ai.escalated
+    // Which model ran (and whether it escalated) is logged + recorded in
+    // ai_usage only — ai_triage is client-readable, so it carries no model id.
+    console.log(`[maintenance-triage] job ${jobId}: triaged by ${ai.model}${ai.escalated ? ' (escalated)' : ''}`)
 
     // Normalise / clamp the model output.
     const severity = VALID_SEVERITY.includes(result.severity) ? result.severity : 'medium'
@@ -234,23 +258,24 @@ serve(async (req) => {
       diagnosis: result.diagnosis || '',
       contractor_brief: result.contractor_brief || '',
       confidence: result.confidence || 'low',
-      model_used: modelUsed,
-      fell_back_to_opus: fellBack,
+      escalated: ai.escalated,
       photos_analysed: images.length,
       disclaimer: DISCLAIMER,
     }
 
     const triagedAt = new Date().toISOString()
-    await admin.from('maintenance_jobs').update({
+    const { error: saveErr } = await admin.from('maintenance_jobs').update({
       ai_triage: triage,
       ai_severity: severity,
       ai_triaged_at: triagedAt,
     }).eq('id', jobId)
+    if (saveErr) console.error(`[maintenance-triage] job ${jobId}: saving triage failed:`, saveErr.message)
 
     return new Response(JSON.stringify({ success: true, triage, ai_triaged_at: triagedAt }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    return jsonError(500, (e as Error).message)
+    console.error(`[maintenance-triage] job ${jobId}:`, e)
+    return jsonError(500, 'Triage failed — please try again.')
   }
 })

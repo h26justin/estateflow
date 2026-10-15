@@ -8,8 +8,18 @@
 // could make the platform email it. The client always calls it through
 // supabase.functions.invoke while signed in, which attaches the session token.
 //
+// Anti-relay (15 Oct 2026): anyone can sign up, own a company and invite any
+// address, so this function is rate-limited from public.invite_email_log
+// (migration 2026-10-15_invite_email_log.sql — apply it BEFORE deploying; the
+// function fails closed without it): per sender 8/hour and 20/day, per
+// recipient 3/day across all senders, and the same invitation at most once an
+// hour. The sender's email must be confirmed. Company / inviter names are
+// attacker-controlled: in the subject they are reduced to a short single line
+// with URLs stripped; in the HTML they are escaped.
+//
 // Source of record: this file. Pulled into the repo from the deployed v28.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { subjectSafe } from './sanitise.ts'
 
 const RESEND_API_KEY    = Deno.env.get('RESEND_API_KEY')!
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
@@ -18,6 +28,11 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const APP_URL           = Deno.env.get('APP_BASE_URL') || 'https://www.ownproperly.com'
 const FROM_EMAIL        = Deno.env.get('INVITE_FROM_EMAIL') || 'invites@ownproperly.com'
 const BRAND             = 'Properly'
+
+const SENDER_PER_HOUR     = 8
+const SENDER_PER_DAY      = 20
+const RECIPIENT_PER_DAY   = 3
+const RESEND_INTERVAL_SEC = 3600
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,9 +46,30 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 // Minimal HTML escaping for the few user-supplied strings that reach the email.
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 
+const tooMany = (message: string, retryAfterSec: number) =>
+  new Response(JSON.stringify({ error: message }), {
+    status: 429,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(retryAfterSec) },
+  })
+
+// Count invite_email_log rows matching `filter` since `seconds` ago.
+// Throws on any DB error (callers fail closed).
+async function countSince(seconds: number, filter: (q: any) => any): Promise<number> {
+  const since = new Date(Date.now() - seconds * 1000).toISOString()
+  const { count, error } = await filter(
+    supabase.from('invite_email_log').select('id', { count: 'exact', head: true }).gte('created_at', since),
+  )
+  if (error) throw new Error('invite_email_log count failed: ' + error.message)
+  return count ?? 0
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  // invite_email_log row reserved for this send; released if the email is
+  // not actually sent, so a failed attempt doesn't burn the caller's quota.
+  let reservedId: number | null = null
+  let sent = false
   try {
     // Who is calling? The gateway has already validated the JWT (verify_jwt);
     // resolve it to a user so we can check they own the invitation.
@@ -43,6 +79,9 @@ Deno.serve(async (req) => {
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } })
     const { data: { user }, error: uErr } = await userClient.auth.getUser()
     if (uErr || !user) return json({ error: 'Not signed in' }, 401)
+    if (!user.email_confirmed_at) {
+      return json({ error: 'Please confirm your email address before inviting others.' }, 403)
+    }
 
     const { invitation_ids } = await req.json()
     if (!Array.isArray(invitation_ids) || !invitation_ids.length) return json({ error: 'Missing invitation_ids' }, 400)
@@ -61,27 +100,60 @@ Deno.serve(async (req) => {
     if (invites.some(i => i.email !== email)) return json({ error: 'All invitations in one call must be for the same person' }, 400)
 
     const inv = invites[0]
+
+    // ── Anti-relay caps (fail closed on any counter error) ──────────────
+    const recipient = String(email || '').trim().toLowerCase()
+    if (!recipient) return json({ error: 'Invitation has no email address' }, 400)
+    const ids = invites.map(i => i.id)
+    try {
+      if (await countSince(3600, q => q.eq('sender_id', user.id)) >= SENDER_PER_HOUR) {
+        return tooMany(`You can send up to ${SENDER_PER_HOUR} invitation emails an hour. Please try again later.`, 3600)
+      }
+      if (await countSince(86_400, q => q.eq('sender_id', user.id)) >= SENDER_PER_DAY) {
+        return tooMany(`You can send up to ${SENDER_PER_DAY} invitation emails a day. Please try again tomorrow.`, 86_400)
+      }
+      if (await countSince(86_400, q => q.eq('recipient_email', recipient)) >= RECIPIENT_PER_DAY) {
+        return tooMany('This person has already been sent several invitations today. Please try again tomorrow.', 86_400)
+      }
+      if (await countSince(RESEND_INTERVAL_SEC, q => q.overlaps('invitation_ids', ids)) > 0) {
+        return tooMany('This invitation was sent less than an hour ago. Please wait before re-sending.', RESEND_INTERVAL_SEC)
+      }
+      const { data: logRow, error: logErr } = await supabase
+        .from('invite_email_log')
+        .insert({ sender_id: user.id, recipient_email: recipient, invitation_ids: ids })
+        .select('id')
+        .single()
+      if (logErr) throw new Error('invite_email_log insert failed: ' + logErr.message)
+      reservedId = logRow?.id ?? null
+    } catch (e) {
+      console.error('send-invite rate-limit check failed:', (e as Error).message)
+      return json({ error: 'Invitations are temporarily unavailable — please try again shortly.' }, 503)
+    }
     const { data: inviterProfile } = await supabase
       .from('user_profiles')
       .select('full_name, email')
       .eq('user_id', inv.invited_by)
       .single()
 
-    const inviterName = esc(inviterProfile?.full_name || inviterProfile?.email || 'Someone')
+    // Display names are attacker-controlled: single line, URLs stripped, capped,
+    // then HTML-escaped. The inviter's (confirmed) email is the fallback.
+    const inviterName = esc(subjectSafe(inviterProfile?.full_name, '', 80) || inviterProfile?.email || 'Someone')
     const acceptUrl   = `${APP_URL}?invite=${encodeURIComponent(inv.token)}`
 
+    // Company colour lands in a style attribute — accept a plain hex colour only.
+    const colourOf = (c: unknown) => (typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c) ? c : '#C8A84B')
     const companyRows = invites.map(i => `
       <tr>
         <td style="padding:10px 12px;border-bottom:1px solid #E2DFD8;">
-          <span style="display:inline-block;background:${esc(i.company?.color || '#C8A84B')}22;color:${esc(i.company?.color || '#C8A84B')};font-family:'Courier New',monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:8px;">${esc(i.company?.abbr || '?')}</span>
-          <span style="font-size:13px;color:#1A1C26;">${esc(i.company?.name || 'Unknown')}</span>
+          <span style="display:inline-block;background:${colourOf(i.company?.color)}22;color:${colourOf(i.company?.color)};font-family:'Courier New',monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:8px;">${esc(subjectSafe(i.company?.abbr, '?', 8))}</span>
+          <span style="font-size:13px;color:#1A1C26;">${esc(subjectSafe(i.company?.name, 'Unknown', 80))}</span>
           ${i.is_admin ? '<span style="margin-left:8px;font-family:monospace;font-size:10px;background:#C8A84B22;color:#A8862E;padding:2px 6px;border-radius:4px;">Admin</span>' : ''}
         </td>
       </tr>
     `).join('')
 
     const companySummary = invites.length === 1
-      ? esc(invites[0].company?.name || 'their company')
+      ? esc(subjectSafe(invites[0].company?.name, 'their company', 80))
       : `${invites.length} companies`
 
     const html = `<!DOCTYPE html>
@@ -127,23 +199,33 @@ Deno.serve(async (req) => {
 </body>
 </html>`
 
+    const subjectInviter = subjectSafe(inviterProfile?.full_name, 'A colleague')
+    const subjectCompany = invites.length === 1
+      ? subjectSafe(invites[0].company?.name, 'their company')
+      : `${invites.length} companies`
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: `${BRAND} <${FROM_EMAIL}>`,
         to: [email],
-        subject: `${inviterProfile?.full_name || inviterProfile?.email || 'Someone'} invited you to join ${invites.length === 1 ? (invites[0].company?.name || 'their company') : `${invites.length} companies`} on ${BRAND}`,
+        subject: `${subjectInviter} invited you to join ${subjectCompany} on ${BRAND}`,
         html,
       }),
     })
 
-    const resData = await res.json()
+    const resData = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(resData.message || 'Resend error')
+    sent = true
 
     return json({ success: true, email_id: resData.id })
   } catch (err) {
     console.error('send-invite error:', err)
+    if (reservedId && !sent) {
+      const { error: relErr } = await supabase.from('invite_email_log').delete().eq('id', reservedId)
+      if (relErr) console.error('send-invite: could not release log row:', relErr.message)
+    }
     return json({ error: 'Could not send the invitation — please try again' }, 500)
   }
 })

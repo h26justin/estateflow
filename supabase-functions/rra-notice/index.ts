@@ -11,7 +11,9 @@
 //     property_label?: string,
 //   }
 //
-// Returns: { ok, draft, disclaimer, model_used, confidence }
+// Returns: { ok, draft, disclaimer, confidence }
+// (The model that ran is logged server-side and recorded in ai_usage; it is
+// never returned to the client.)
 //
 // This DRAFTS a letter only. It never asserts legal certainty, never sends
 // anything, and never writes to any table — the landlord reviews, edits and
@@ -167,9 +169,10 @@ serve(async (req) => {
     await recordAiUsage(admin, gate.usageId, result)
   } catch (e) {
     const status = e instanceof ClaudeError && e.kind === 'config' ? 503 : 502
-    return json({ error: 'Drafting failed: ' + (e as Error).message }, status)
+    console.error('[rra-notice] drafting failed:', (e as Error).message)
+    return json({ error: 'Drafting failed — please try again shortly.' }, status)
   }
-  const modelUsed = result.model
+  console.log(`[rra-notice] draft by ${result.model} for user ${user.id}`)
 
   const draft = (result.text || '').replace(/```[a-z]*\s*/gi, '').replace(/```/g, '').trim()
   if (!draft) return json({ error: 'Empty draft returned' }, 502)
@@ -180,6 +183,5 @@ serve(async (req) => {
     notice_type,
     disclaimer: DISCLAIMER,
     confidence: 'AI-generated — review before acting',
-    model_used: modelUsed,
   })
 })

@@ -29,6 +29,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { callClaude, obj } from './anthropic.ts'
+import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -242,7 +243,8 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   // Fail closed: no JWT here, only the cron secret.
-  if (!CRON_SECRET || (req.headers.get('x-cron-secret') || '') !== CRON_SECRET) {
+  // Constant-time compare (./secrets.ts); fails closed when CRON_SECRET is unset.
+  if (!secretMatches(req.headers.get('x-cron-secret'), CRON_SECRET)) {
     return json(403, { error: 'Forbidden' })
   }
 
@@ -762,6 +764,7 @@ serve(async (req) => {
       users_notified: notifiedUsers,
     })
   } catch (e) {
-    return json(500, { error: (e as Error).message })
+    console.error('autopilot: run failed:', e)
+    return json(500, { error: 'Autopilot run failed' })
   }
 })

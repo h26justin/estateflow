@@ -193,7 +193,6 @@ serve(async (req) => {
   }
 
   let out: any
-  let modelUsed: string
   try {
     const result = await callClaudeWithEscalation<any>({
       tier: 'standard', content: prompt, maxTokens: 8000, schema: TRIAGE_SCHEMA, timeoutMs: 90_000,
@@ -201,10 +200,11 @@ serve(async (req) => {
     await recordAiUsage(admin, gate.usageId, result)
     out = result.data
     // The model that actually produced the draft (escalation or a
-    // server-side fallback can change it).
-    modelUsed = result.model
+    // server-side fallback can change it) — logged, never sent to the client.
+    console.log(`[lettings-assistant] enquiry ${enquiryId} drafted by ${result.model}`)
   } catch (e) {
-    return json({ error: 'AI call failed: ' + (e as Error).message }, 502)
+    console.error('[lettings-assistant] AI call failed:', (e as Error).message)
+    return json({ error: 'AI drafting failed — please try again shortly.' }, 502)
   }
 
   if (!out || typeof out.reply_draft !== 'string' || !out.reply_draft.trim()) {
@@ -228,7 +228,10 @@ serve(async (req) => {
       status: 'triaged',
     })
     .eq('id', enquiryId)
-  if (updErr) return json({ error: 'Could not save drafts: ' + updErr.message }, 500)
+  if (updErr) {
+    console.error('[lettings-assistant] saving drafts failed:', updErr.message)
+    return json({ error: 'Could not save drafts — please try again.' }, 500)
+  }
 
   return json({
     enquiry_id: enquiryId,
@@ -236,7 +239,6 @@ serve(async (req) => {
     ai_score: score,
     ai_screening: screening,
     confidence: out.confidence || 'medium',
-    model: modelUsed,
     disclaimer: DISCLAIMER,
   })
 })

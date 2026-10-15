@@ -124,14 +124,14 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 8, lineHeight: 1.7 }}>
-                  Upload your company logo to brand PDF report exports. Recommended: PNG or SVG with transparent background, max 2MB.
+                  Upload your company logo to brand PDF report exports. Recommended: PNG with transparent background (PNG, JPG, WebP or GIF), max 2MB.
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <label style={{ cursor: 'pointer' }}>
                     <span className="btn btn-gold" style={{ fontSize: 11 }}>
                       {uploading ? 'Uploading…' : logoPreview ? '↑ Replace logo' : '↑ Upload logo'}
                     </span>
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={uploading}/>
+                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={uploading}/>
                   </label>
                   {logoPreview && (
                     <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red + '44' }} onClick={removeLogo}>
@@ -231,7 +231,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Company logos for PDF reports</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
-          Upload a logo for each company. It will appear on all PDF reports generated for that company. Supported formats: PNG, JPG, SVG. Recommended: PNG with transparent background, at least 400px wide.
+          Upload a logo for each company. It will appear on all PDF reports generated for that company. Supported formats: PNG, JPG, WebP, GIF. Recommended: PNG with transparent background, at least 400px wide.
         </div>
       </div>
 
@@ -262,7 +262,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                       <span className="btn btn-gold" style={{ fontSize: 11, display: 'inline-block' }}>
                         {isUploading ? 'Uploading…' : cs.logo_url ? '↑ Replace logo' : '↑ Upload logo'}
                       </span>
-                      <input type="file" accept="image/*" style={{ display: 'none' }} disabled={isUploading}
+                      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} disabled={isUploading}
                         onChange={e => handleLogoUpload(co.id, e.target.files?.[0])}/>
                     </label>
                     {cs.logo_url && (
