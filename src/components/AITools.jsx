@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 import { plural } from '../lib/format'
+import { Button } from './ui'
 
 const mono = MONO
 
@@ -54,7 +55,7 @@ export function AIListingWriter({ property, T: TProp }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   return (
@@ -100,7 +101,7 @@ export function AIListingWriter({ property, T: TProp }) {
           <label style={lbl}>Platform</label>
           <div style={{ display: 'flex', gap: 6 }}>
             {[['rightmove','Rightmove'],['zoopla','Zoopla'],['general','General']].map(([k,l]) => (
-              <button key={k} onClick={() => set('target', k)} style={{ fontFamily:mono, fontSize:10, padding:'4px 10px', borderRadius:20, cursor:'pointer',
+              <button key={k} onClick={() => set('target', k)} style={{ fontFamily:mono, fontSize:FS.xs, padding:'4px 10px', borderRadius:20, cursor:'pointer',
                 border:`1px solid ${form.target===k?T.gold:T.border}`, background:form.target===k?T.gold+'22':'transparent', color:form.target===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
@@ -109,28 +110,26 @@ export function AIListingWriter({ property, T: TProp }) {
           <label style={lbl}>Tone</label>
           <div style={{ display: 'flex', gap: 6 }}>
             {[['professional','Professional'],['warm','Warm'],['luxury','Luxury']].map(([k,l]) => (
-              <button key={k} onClick={() => set('tone', k)} style={{ fontFamily:mono, fontSize:10, padding:'4px 10px', borderRadius:20, cursor:'pointer',
+              <button key={k} onClick={() => set('tone', k)} style={{ fontFamily:mono, fontSize:FS.xs, padding:'4px 10px', borderRadius:20, cursor:'pointer',
                 border:`1px solid ${form.tone===k?T.gold:T.border}`, background:form.tone===k?T.gold+'22':'transparent', color:form.tone===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
         </div>
       </div>
 
-      <button onClick={generate} disabled={loading || !form.location}
-        style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none',
-          background: loading||!form.location ? T.border : T.gold, color:'#1C2830', cursor:'pointer', width:'100%', marginBottom: result?12:0 }}>
+      <Button fullWidth onClick={generate} disabled={loading || !form.location} style={{ marginBottom: result?12:0 }}>
         {loading ? 'Writing…' : 'Generate description'}
-      </button>
+      </Button>
 
       {result && (
         <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '14px 16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Generated description</span>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Generated description</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => navigator.clipboard.writeText(result).then(() => {})}
-                style={{ fontFamily:mono, fontSize:10, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Copy</button>
+                style={{ fontFamily:mono, fontSize:FS.xs, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Copy</button>
               <button onClick={generate}
-                style={{ fontFamily:mono, fontSize:10, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Regenerate</button>
+                style={{ fontFamily:mono, fontSize:FS.xs, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Regenerate</button>
             </div>
           </div>
           <div style={{ fontFamily:mono, fontSize:12, color:T.text, lineHeight:1.8, whiteSpace:'pre-wrap' }}>{result}</div>
@@ -189,7 +188,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
   const deposit = price ? Math.round(price * 0.25) : 0
   const monthlyInterest = price ? Math.round((price - deposit) * 0.045 / 12) : 0
   const monthlyProfit = rent && monthlyInterest ? Math.round(parseFloat(rent) * 0.9 - monthlyInterest - 50) : null
-  const yieldColor = grossYield >= 7 ? '#2ECC8A' : grossYield >= 5 ? '#C8A84B' : '#E05555'
+  const yieldColor = grossYield >= 7 ? T.green : grossYield >= 5 ? T.goldText : T.red
   const fmt = n => n ? `£${parseInt(n).toLocaleString('en-GB')}` : '—'
 
   return (
@@ -207,11 +206,9 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           onKeyDown={e=>e.key==='Enter'&&analyse()}
           placeholder="https://www.rightmove.co.uk/properties/172607333..."
           style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px'}}/>
-        <button onClick={analyse} disabled={loading || !url.trim()}
-          style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none',
-            background:loading||!url.trim()?T.border:T.gold, color:'#1C2830', cursor:loading?'wait':'pointer', flexShrink:0}}>
+        <Button onClick={analyse} disabled={loading || !url.trim()} style={{flexShrink:0}}>
           {loading ? 'Fetching…' : 'Analyse →'}
-        </button>
+        </Button>
       </div>
 
       {error && <div style={{fontFamily:mono, fontSize:11, color:T.amber, marginBottom:10}}>{error}</div>}
@@ -221,7 +218,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           {/* Auto-filled fields from scrape */}
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:10, marginBottom:14}}>
             <div>
-              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
+              <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4}}>
                 Asking price {scraped.price ? 'auto-detected' : '— enter manually'}
               </div>
               <MoneyInput prefix="£" value={scraped.price}
@@ -231,7 +228,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
                   border:`1px solid ${scraped.price?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%'}}/>
             </div>
             <div>
-              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>
+              <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4}}>
                 Property type {scraped.propertyType ? 'auto-detected' : '— enter manually'}
               </div>
               <select value={scraped.propertyType || ''}
@@ -246,14 +243,14 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
             </div>
             {scraped.bedrooms && (
               <div>
-                <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Bedrooms ✓ auto-detected</div>
+                <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4}}>Bedrooms ✓ auto-detected</div>
                 <div style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.goldText, padding:'7px 10px', background:T.gold+'11', borderRadius:6, border:`1px solid ${T.gold}`}}>
                   {scraped.bedrooms} bed
                 </div>
               </div>
             )}
             <div>
-              <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginBottom:4}}>Expected monthly rent</div>
+              <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4}}>Expected monthly rent</div>
               <MoneyInput prefix="£" value={rent} onChange={v=>setRent(v)}
                 placeholder="e.g. 850"
                 style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%'}}/>
@@ -262,8 +259,8 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
 
           {scraped.address && (
             <div style={{fontFamily:mono, fontSize:11, color:T.muted, marginBottom:12}}>
-              📍 {scraped.address}
-              {url && <> · <a href={url} target="_blank" rel="noreferrer" style={{color:'#4B8FE0', textDecoration:'none'}}>View listing →</a></>}
+              <Icon name="pin" size={12} style={{display:'inline-block', verticalAlign:'-2px', marginRight:4}}/>{scraped.address}
+              {url && <> · <a href={url} target="_blank" rel="noreferrer" style={{color:T.blue, textDecoration:'none'}}>View listing →</a></>}
             </div>
           )}
 
@@ -275,10 +272,10 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
                 {label:'SDLT (additional)', value:fmt(sdlt), color:T.amber},
                 {label:'25% deposit needed', value:fmt(deposit), color:T.text},
                 {label:'Interest only /mo', value:fmt(monthlyInterest), color:T.text},
-                {label:'Est. monthly profit', value:fmt(monthlyProfit), color:monthlyProfit>0?'#2ECC8A':'#E05555', big:true},
+                {label:'Est. monthly profit', value:fmt(monthlyProfit), color:monthlyProfit>0?T.green:T.red, big:true},
               ].map(k=>(
                 <div key={k.label} style={{background:T.bg, borderRadius:8, padding:'10px 12px'}}>
-                  <div style={{fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:3}}>{k.label}</div>
+                  <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:3}}>{k.label}</div>
                   <div style={{fontFamily:mono, fontSize:k.big?17:13, fontWeight:700, color:k.color}}>{k.value}</div>
                 </div>
               ))}
@@ -287,16 +284,16 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
 
           <div style={{display:'flex', gap:8}}>
             {onAutoFill && scraped.price > 0 && (
-              <button onClick={()=>onAutoFill({
+              <Button onClick={()=>onAutoFill({
                 purchase_price:scraped.price,
                 estimated_monthly_rent:parseFloat(rent)||0,
                 property_type:scraped.propertyType,
                 bedrooms:scraped.bedrooms,
                 location:scraped.address
               })}
-                style={{fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:'#1C2830', cursor:'pointer'}}>
-                → Open full deal calculator
-              </button>
+                icon="arrow-right">
+                Open full deal calculator
+              </Button>
             )}
             <button onClick={()=>{setUrl('');setScraped(null);setRent('');setError('')}}
               style={{fontFamily:mono, fontSize:12, padding:'9px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer'}}>
@@ -304,7 +301,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
             </button>
           </div>
 
-          <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginTop:10, lineHeight:1.7}}>
+          <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:10, lineHeight:1.7}}>
             Profit estimate: 10% void/costs deducted, 4.5% interest-only mortgage at 75% LTV, £50/mo other costs. SDLT at 5% additional property rate (Oct 2024).
           </div>
         </div>
@@ -369,41 +366,41 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 14 }}>
         <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${T.muted}` }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Today (current portfolio)</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Today (current portfolio)</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 2 }}>{fmt(currentIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(currentValue)}</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length,'property','properties')}</div>
         </div>
-        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#2ECC8A'}` }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>After buying {extraProps} more</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#2ECC8A', marginBottom: 2 }}>{fmt(totalIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
+        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${T.green}` }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>After buying {extraProps} more</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: T.green, marginBottom: 2 }}>{fmt(totalIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(totalValue)}</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length + extraProps,'property','properties')}</div>
         </div>
-        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#C8A84B'}` }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>In {years} years (with {growthRate}% growth)</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#C8A84B', marginBottom: 2 }}>{fmt(futureIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
+        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${T.gold}` }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>In {years} years (with {growthRate}% growth)</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: T.goldText, marginBottom: 2 }}>{fmt(futureIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(futureValue)}</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>+{fmt(futureValue - totalValue)} capital growth</div>
         </div>
-        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#4B8FE0'}` }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Monthly income</div>
+        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${T.blue}` }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Monthly income</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Now</span>
             <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.text }}>{fmt(currentIncome/12)}/mo</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>After purchase</span>
-            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: '#2ECC8A' }}>{fmt(totalIncome/12)}/mo</span>
+            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.green }}>{fmt(totalIncome/12)}/mo</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>In {years} years</span>
-            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: '#C8A84B' }}>{fmt(futureIncome/12)}/mo</span>
+            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.goldText }}>{fmt(futureIncome/12)}/mo</span>
           </div>
         </div>
       </div>
 
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, lineHeight: 1.7 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.7 }}>
         Projections are illustrative only. Based on gross rental income without deductions for voids, maintenance or tax. Capital growth is compound annual. Rent growth assumed at 2% per year.
       </div>
     </div>

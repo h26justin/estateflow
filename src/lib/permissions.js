@@ -79,3 +79,30 @@ export function roleUpdateFor(option) {
 export function isAdminDemotion(fromOption, toOption) {
   return fromOption === 'admin' && toOption !== 'admin'
 }
+
+// ── Company write / admin (mirrors the server) ──────────────────────────────
+// permissionsMap[companyId]._role is stamped by fetchMyPermissionsMap:
+// 'developer' | 'owner' | 'admin' | 'editor' | 'viewer' (legacy rows with no
+// role resolve to admin / editor via is_admin, as has_company_write does).
+// The edge functions are the real gate (has_company_write, plus an owner /
+// admin check for connecting Xero); these only decide what the UI offers.
+export function companyRole(permissionsMap, companyId, devModeActive = false) {
+  if (devModeActive) return 'developer'
+  if (!companyId || !permissionsMap) return null
+  if (permissionsMap.__owner?.[companyId]) return 'owner'
+  return permissionsMap[companyId]?._role || null
+}
+
+// has_company_write(): owner / admin / editor (and platform developer).
+// Viewers — including the Rent Tracker Editor preset — are read-only.
+export function canWriteCompany(permissionsMap, companyId, devModeActive = false) {
+  const r = companyRole(permissionsMap, companyId, devModeActive)
+  return r === 'developer' || r === 'owner' || r === 'admin' || r === 'editor'
+}
+
+// Owner / admin (and platform developer): company-level settings such as
+// which Xero organisation the company's books are exported to.
+export function canAdminCompany(permissionsMap, companyId, devModeActive = false) {
+  const r = companyRole(permissionsMap, companyId, devModeActive)
+  return r === 'developer' || r === 'owner' || r === 'admin'
+}

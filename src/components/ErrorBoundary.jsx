@@ -1,5 +1,7 @@
 import { Component } from 'react'
 import { reportClientError } from '../lib/errorReporter'
+import { CV } from '../lib/styles'
+import { Icon } from '../lib/icons'
 
 // Used twice: at the root (main.jsx, full-screen fallback) and around the
 // signed-in page area in App.jsx with variant="panel" and a resetKey, so a
@@ -76,12 +78,12 @@ export class ErrorBoundary extends Component {
       const T = this.props.theme || {}
       return (
         <div role="alert" style={{
-          maxWidth: 520, margin: '40px auto', background: T.card || '#fff',
-          border: `1px solid ${T.border || '#E2DFD8'}`, borderRadius: 16,
+          maxWidth: 520, margin: '40px auto', background: T.card || CV.card,
+          border: `1px solid ${T.border || CV.border}`, borderRadius: 16,
           padding: '28px 24px', textAlign: 'center', fontFamily: 'inherit',
         }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: T.text || '#1A1C26' }}>This page hit a problem</h2>
-          <p style={{ fontSize: 13, color: T.muted || '#6B7191', margin: '0 0 16px', lineHeight: 1.6 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: T.text || CV.text }}>This page hit a problem</h2>
+          <p style={{ fontSize: 13, color: T.muted || CV.muted, margin: '0 0 16px', lineHeight: 1.6 }}>
             {chunk
               ? 'Properly was updated while this page was open, so part of it could not load. Refresh to pick up the new version; nothing is lost.'
               : 'The rest of the app still works and your data is safe. Try again, or pick another page from the menu.'}
@@ -109,7 +111,7 @@ export class ErrorBoundary extends Component {
             border: '1px solid #E2DFD8', padding: '36px 32px',
             textAlign: 'center',
           }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: '#CC3333' }}><Icon name="alert-triangle" size={40} /></div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1A1C26', marginBottom: 8 }}>
               Something went wrong
             </h2>

@@ -1,11 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
+import { FS } from '../lib/styles'
+import { Button, EmptyState } from './ui'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
+import { Skeleton, SkeletonRows } from '../lib/Skeleton'
+import { canWriteCompany, canAdminCompany } from '../lib/permissions'
 
 // ── INTEGRATIONS SETTINGS PANEL — Phase 2 ────────────────────────────
-// Settings → Portfolio Setup → Integrations.
+// Settings → Integrations & data → Integrations.
 //
 // Multi-company: each of the user's Properly companies gets its own
 // Xero connection card. A user with N companies can link N separate
@@ -14,7 +18,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 // Per-connection settings: toggles for what to sync, account-code
 // pickers, per-property bank account overrides, etc.
 
-export default function IntegrationsPanel({ T, mono, companies = [], properties = [] }) {
+export default function IntegrationsPanel({ T, mono, companies = [], properties = [], permissionsMap = null, devModeActive = false }) {
   const [connections, setConnections] = useState([])
   const [lodgifyConnections, setLodgifyConnections] = useState([])
   const [lodgifyMappings, setLodgifyMappings] = useState([])
@@ -43,7 +47,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
     setLoading(false)
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign:'center', fontFamily: mono, fontSize: 12, color: T.muted }}>Loading integrations…</div>
+  if (loading) return <SkeletonRows rows={3}/>
 
   // Filter out limited-company-side companies (this panel only shows
   // companies the user owns / has access to)
@@ -51,7 +55,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
 
   return (
     <div>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom: 6 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom: 6 }}>
         Integrations
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
@@ -74,11 +78,13 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
             connection={conn}
             properties={(properties || []).filter(p => p.company_id === co.id)}
             onChanged={load}
+            canWrite={canWriteCompany(permissionsMap, co.id, devModeActive)}
+            canAdmin={canAdminCompany(permissionsMap, co.id, devModeActive)}
           />
         )
       })}
 
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', margin: '26px 0 6px' }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', margin: '26px 0 6px' }}>
         Short-term lets
       </div>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
@@ -242,12 +248,12 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Hostaway</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
               Airbnb · Booking.com · Vrbo · direct bookings
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Connected' : 'Not connected'}
         </span>
       </div>
@@ -275,9 +281,9 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
               autoComplete="off"
               style={{ ...selectStyle, flex: 1, minWidth: 220, maxWidth: 380 }}
             />
-            <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-              {busy==='connect' ? 'Checking credentials…' : '🔌 Connect Hostaway'}
-            </button>
+            <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
+              {busy==='connect' ? 'Checking credentials…' : 'Connect Hostaway'}
+            </Button>
           </div>
         </>
       ) : (
@@ -295,7 +301,7 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
               })}
             </div>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber || '#c90', marginBottom: 6 }}>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber, marginBottom: 6 }}>
               No listings mapped yet — nothing will sync until you map one.
             </div>
           )}
@@ -308,10 +314,10 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
             </div>
           )}
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
               {lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
               {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
             </div>
@@ -327,17 +333,17 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
               Disconnect
             </button>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:10, 12:10, 18:10 UTC).
           </div>
 
           {hostawayProps && (
             <div style={{ marginTop: 16, padding: '16px 0 4px', borderTop: `1px dashed ${T.border}` }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
                 Map Hostaway listings to properties
               </div>
               {hostawayProps.length === 0 && (
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No listings found in this Hostaway account.</div>
+                <EmptyState compact icon="search" title="No listings found" body="This Hostaway account has no listings to map yet."/>
               )}
               <div style={{ display:'grid', gap: 8 }}>
                 {sortedHostawayProps.map(hl => {
@@ -493,12 +499,12 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Lodgify</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
               Airbnb · Booking.com · direct bookings
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Connected' : 'Not connected'}
         </span>
       </div>
@@ -517,9 +523,9 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
               autoComplete="off"
               style={{ ...selectStyle, flex: 1, minWidth: 220, maxWidth: 380 }}
             />
-            <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-              {busy==='connect' ? 'Checking key…' : '🔌 Connect Lodgify'}
-            </button>
+            <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
+              {busy==='connect' ? 'Checking key…' : 'Connect Lodgify'}
+            </Button>
           </div>
         </>
       ) : (
@@ -537,7 +543,7 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
               })}
             </div>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber || '#c90', marginBottom: 6 }}>
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber, marginBottom: 6 }}>
               No listings mapped yet — nothing will sync until you map one.
             </div>
           )}
@@ -550,10 +556,10 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
             </div>
           )}
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
               {lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
               {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
             </div>
@@ -569,17 +575,17 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
               Disconnect
             </button>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:00, 12:00, 18:00 UTC).
           </div>
 
           {lodgifyProps && (
             <div style={{ marginTop: 16, padding: '16px 0 4px', borderTop: `1px dashed ${T.border}` }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 10 }}>
                 Map Lodgify listings to properties
               </div>
               {lodgifyProps.length === 0 && (
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No listings found in this Lodgify account.</div>
+                <EmptyState compact icon="search" title="No listings found" body="This Lodgify account has no listings to map yet."/>
               )}
               <div style={{ display:'grid', gap: 8 }}>
                 {sortedLodgifyProps.map(lp => {
@@ -613,7 +619,11 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
 }
 
 // ── PER-COMPANY XERO CARD ──────────────────────────────────────────────
-function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }) {
+// The server is the gate (xero-oauth-callback: owner/admin to connect;
+// xero-sync: has_company_write to push/pull). The card mirrors it so a
+// viewer isn't offered buttons that would 403. Disconnect stays available:
+// it only removes the user's own connection row.
+function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, canWrite = false, canAdmin = false }) {
   const confirmDialog = useConfirm()
   const [showSettings, setShowSettings] = useState(false)
   const [busy, setBusy] = useState(null)
@@ -680,17 +690,17 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
     <div style={card}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom: 14, flexWrap:'wrap', gap: 10 }}>
         <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 8, background: (company.color || '#C8A84B') + '22', color: company.color || '#C8A84B', display:'flex', alignItems:'center', justifyContent:'center', fontFamily: mono, fontSize: 11, fontWeight: 700 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: (company.color || T.gold) + '22', color: company.color || T.goldText, display:'flex', alignItems:'center', justifyContent:'center', fontFamily: mono, fontSize: 11, fontWeight: 700 }}>
             {company.abbr}
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name}</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
               {properties.length} {properties.length === 1 ? 'property' : 'properties'}
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Xero connected' : 'Not connected'}
         </span>
       </div>
@@ -709,24 +719,35 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
             </div>
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
-            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-              {busy==='sync' ? 'Syncing…' : 'Sync now'}
-            </button>
-            <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
-              {showSettings ? 'Hide settings' : 'Settings'}
-            </button>
+            {canWrite && (
+              <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+                {busy==='sync' ? 'Syncing…' : 'Sync now'}
+              </button>
+            )}
+            {canWrite && (
+              <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
+                {showSettings ? 'Hide settings' : 'Settings'}
+              </button>
+            )}
             {/* Renews the Xero sign-in in place (same org, sync settings
                 kept). Disconnect + Connect would cascade-delete the
                 company's xero_sync_settings row. */}
-            <button onClick={connect} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}
-              title="Sign in to Xero again to renew this connection. Sync settings are kept.">
-              {busy==='connect' ? 'Redirecting…' : 'Reconnect'}
-            </button>
+            {canAdmin && (
+              <button onClick={connect} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}
+                title="Sign in to Xero again to renew this connection. Sync settings are kept.">
+                {busy==='connect' ? 'Redirecting…' : 'Reconnect'}
+              </button>
+            )}
             <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
               Disconnect
             </button>
           </div>
-          {showSettings && (
+          {!canWrite && (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>
+              You have read-only access to {company.name}, so you can't sync it with Xero.
+            </div>
+          )}
+          {showSettings && canWrite && (
             <XeroSettingsPanel
               T={T} mono={mono}
               company={company} properties={properties}
@@ -739,9 +760,15 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
             Push rent payments and expenses from {company.name} into a Xero organisation as bank transactions. Use Xero tracking categories to run P&L per property.
           </div>
-          <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-            {busy==='connect' ? 'Redirecting…' : `🔌 Connect ${company.name} to Xero`}
-          </button>
+          {canAdmin ? (
+            <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
+              {busy==='connect' ? 'Redirecting…' : `Connect ${company.name} to Xero`}
+            </Button>
+          ) : (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
+              Only an owner or admin of {company.name} can connect it to Xero.
+            </div>
+          )}
         </>
       )}
     </div>
@@ -807,7 +834,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
     setSaving(false)
   }
 
-  if (loading) return <div style={{ marginTop: 18, fontFamily: mono, fontSize: 12, color: T.muted }}>Loading settings…</div>
+  if (loading) return <div style={{ marginTop: 18 }}><div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div></div>
 
   const bankAccounts = accounts.filter(a => a.Type === 'BANK')
   const incomeAccounts = accounts.filter(a => ['REVENUE','SALES','OTHERINCOME'].includes(a.Type))
@@ -820,14 +847,14 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer', accentColor: T.gold }}/>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{label}</div>
-        {desc && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
+        {desc && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
       </div>
     </div>
   )
 
   const Section = ({ title, children }) => (
     <div style={{ marginTop: 18 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 8 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 8 }}>
         {title}
       </div>
       {children}
@@ -967,7 +994,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       </Section>
 
       <Section title="Per-property sync (override the whole-portfolio button)">
-        {properties.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No properties in this company yet.</div>}
+        {properties.length === 0 && <EmptyState compact icon="building" title="No properties in this company yet"/>}
         <div style={{ display:'grid', gap: 6 }}>
           {properties.map(p => (
             <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background: T.bg, borderRadius: 8 }}>
@@ -978,7 +1005,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
                   showAppToast(`Synced ${p.name || 'property'}: ${r.created || 0} new, ${r.failed || 0} failed`)
                   onSaved?.()
                 } catch (e) { showAppToast(e.message, 'error') }
-              }} className="btn btn-ghost" style={{ fontSize: 10, padding: '4px 10px' }}>
+              }} className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '4px 10px' }}>
                 Sync this one
               </button>
             </div>

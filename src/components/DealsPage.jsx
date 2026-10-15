@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense, Fragment } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { SkeletonTiles, SkeletonList } from '../lib/Skeleton'
 import Modal from '../lib/Modal'
 import { useTheme } from '../lib/ThemeContext'
@@ -20,6 +20,7 @@ import CopyDealModal from './modals/CopyDealModal'
 import { summariseCopy } from '../lib/dealCopy'
 import { DEAL_STATUS_CFG, LEGAL_STEPS, LEGAL_STEP_LABEL, legalStepText, showsLegalStep } from '../lib/dealStages'
 import { pressable } from '../lib/pressable'
+import { Button, EmptyState } from './ui'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -98,7 +99,7 @@ function DocCountBadge({ counts, T }) {
   if (!parts.length) return null
   return (
     <span title="Photos and documents attached to this deal"
-      style={{fontFamily:mono,fontSize:9,padding:'2px 7px',borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.muted,display:'inline-flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
+      style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 7px',borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.muted,display:'inline-flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
       <Icon name="folder" size={10} color={T.muted}/>{parts.join(' · ')}
     </span>
   )
@@ -110,7 +111,7 @@ function DocCountBadge({ counts, T }) {
 function RefinanceCard({ deal, T }) {
   const r = refinanceScenarios(deal)
   const cardStyle = {background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}
-  const sectStyle = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
+  const sectStyle = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
   if (!r) return (
     <div style={cardStyle}>
       <span style={sectStyle}>Remortgage after refurb</span>
@@ -123,12 +124,12 @@ function RefinanceCard({ deal, T }) {
   return (
     <div style={cardStyle}>
       <span style={sectStyle}>Remortgage after refurb</span>
-      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:10,lineHeight:1.5}}>
+      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:10,lineHeight:1.5}}>
         On {fmt(r.value)} value · {r.rate}% {r.isInterestOnly ? 'interest only' : `repayment over ${r.term} yrs`} · {fmt(r.cashIn)} cash in today
       </div>
       <div style={{display:'grid',gridTemplateColumns:'auto 1fr 1fr 1fr',gap:'6px 10px',alignItems:'center'}}>
         {['LTV','Cash back','Left in','Profit / mo'].map(h => (
-          <div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',textAlign:h==='LTV'?'left':'right'}}>{h}</div>
+          <div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',textAlign:h==='LTV'?'left':'right'}}>{h}</div>
         ))}
         {r.scenarios.map(sc => (
           <Fragment key={sc.ltv}>
@@ -139,7 +140,7 @@ function RefinanceCard({ deal, T }) {
           </Fragment>
         ))}
       </div>
-      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.5}}>
+      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:10,lineHeight:1.5}}>
         {best
           ? `At ${best.ltv}% LTV the remortgage returns all your cash${best.moneyLeft < 0 ? ` plus ${fmt(-best.moneyLeft)}` : ''}. Profit shown is after the new mortgage payment.`
           : 'No LTV returns all your cash on this value. Profit shown is after the new mortgage payment.'}
@@ -150,19 +151,20 @@ function RefinanceCard({ deal, T }) {
 
 // ── 10-YEAR PROJECTION (full width under the calculator) ─────────────────────
 function ProjectionCard({ deal, T }) {
+  const isMobile = useIsMobile()
   const p = projectDeal(deal)
   const { rentGrowth, capitalGrowth } = growthAssumptions(deal)
   const last = p.rows[p.rows.length - 1]
   const maxReturn = Math.max(1, ...p.rows.map(r => Math.max(0, r.totalReturn)))
-  const sectStyle = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4, display:'block' }
-  const th = { fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right', padding:'6px 8px', borderBottom:`1px solid ${T.border}`, whiteSpace:'nowrap' }
+  const sectStyle = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4, display:'block' }
+  const th = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right', padding:'6px 8px', borderBottom:`1px solid ${T.border}`, whiteSpace:'nowrap' }
   const td = { fontFamily:mono, fontSize:11, color:T.text, textAlign:'right', padding:'6px 8px', borderBottom:`1px solid ${T.border}`, whiteSpace:'nowrap' }
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginTop:8}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap',marginBottom:12}}>
         <div>
           <span style={sectStyle}>10-year projection</span>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>
             Rent +{rentGrowth}% a year · value +{capitalGrowth}% a year from {fmt(p.startValue)} · {fmt(p.cashIn)} cash in. Edit the rates under Growth assumptions.
           </div>
         </div>
@@ -175,14 +177,14 @@ function ProjectionCard({ deal, T }) {
             ['Return on cash', p.cashIn > 0 ? fmtPct(last.roiOnCash) : '—', T.text],
           ].filter(Boolean).map(([l,v,c]) => (
             <div key={l} style={{textAlign:'right'}}>
-              <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>{l}</div>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>{l}</div>
               <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:c}}>{v}</div>
             </div>
           ))}
         </div>
       </div>
       <div style={{overflowX:'auto'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',minWidth:640}}>
+        <table className="table-stack" style={{width:'100%',borderCollapse:'collapse',minWidth:isMobile?0:640}}>
           <thead>
             <tr>
               <th style={{...th,textAlign:'left'}}>Year</th>
@@ -198,12 +200,12 @@ function ProjectionCard({ deal, T }) {
             {p.rows.map(r => (
               <tr key={r.year}>
                 <td style={{...td,textAlign:'left',color:T.muted}}>Year {r.year}</td>
-                <td style={td}>{fmt(r.grossMonthlyRent)}</td>
-                <td style={{...td,color:r.annualProfit>=0?T.text:T.red}}>{fmt(r.annualProfit)}</td>
-                <td style={{...td,color:r.cumulativeProfit>=0?T.green:T.red}}>{fmt(r.cumulativeProfit)}</td>
-                <td style={td}>{fmt(r.value)}</td>
-                <td style={td}>{fmt(r.equity)}</td>
-                <td style={{...td,textAlign:'left'}}>
+                <td data-label="Rent / mo" style={td}>{fmt(r.grossMonthlyRent)}</td>
+                <td data-label="Profit / yr" style={{...td,color:r.annualProfit>=0?T.text:T.red}}>{fmt(r.annualProfit)}</td>
+                <td data-label="Cumulative profit" style={{...td,color:r.cumulativeProfit>=0?T.green:T.red}}>{fmt(r.cumulativeProfit)}</td>
+                <td data-label="Value" style={td}>{fmt(r.value)}</td>
+                <td data-label="Equity" style={td}>{fmt(r.equity)}</td>
+                <td data-label="Total return" style={{...td,textAlign:'left'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div style={{flex:1,height:8,background:T.bg,borderRadius:4,overflow:'hidden'}}>
                       <div style={{width:`${Math.max(0,Math.min(100,(r.totalReturn/maxReturn)*100))}%`,height:'100%',background:r.totalReturn>=0?T.gold:T.red,transition:'width 0.3s'}}/>
@@ -216,7 +218,7 @@ function ProjectionCard({ deal, T }) {
           </tbody>
         </table>
       </div>
-      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.5}}>
+      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:10,lineHeight:1.5}}>
         Total return = cumulative profit + value growth{last.principalRepaid > 0 ? ' + mortgage principal repaid' : ''}. Before tax, selling costs and any remortgage. Estimates only.
       </div>
     </div>
@@ -251,7 +253,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   return (
     <div style={{background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px'}}>
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16}}>
-        <span style={{fontSize:20}}>📈</span>
+        <span aria-hidden="true" style={{display:'flex',color:T.goldText}}><Icon name="trending-up" size={20}/></span>
         <div>
           <div style={{fontSize:14, fontWeight:700, color:T.text}}>Portfolio what-if modeller</div>
           <div style={{fontFamily:mono, fontSize:11, color:T.muted}}>Drag the sliders to model different acquisition strategies</div>
@@ -275,19 +277,19 @@ function PortfolioModellerInDeals({ properties = [], T }) {
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:10}}>
         {[
           {label:'Current portfolio', value:f(currentIncome)+'/yr', sub:f(currentValue)+' value · '+properties.length+' properties', color:T.muted},
-          {label:'After buying '+extra+' more', value:f(totalIncome)+'/yr', sub:f(totalValue)+' combined value', color:'#2ECC8A'},
+          {label:'After buying '+extra+' more', value:f(totalIncome)+'/yr', sub:f(totalValue)+' combined value', color:T.green},
           {label:'Monthly take-home now', value:f(currentIncome/12)+'/mo', sub:'gross, before costs', color:T.text},
-          {label:'Monthly take-home after', value:f(totalIncome/12)+'/mo', sub:'gross, before costs', color:'#2ECC8A'},
-          {label:'In '+yrs+' years ('+growth+'% growth)', value:f(futureIncome/12)+'/mo', sub:f(futureValue)+' portfolio', color:'#C8A84B'},
+          {label:'Monthly take-home after', value:f(totalIncome/12)+'/mo', sub:'gross, before costs', color:T.green},
+          {label:'In '+yrs+' years ('+growth+'% growth)', value:f(futureIncome/12)+'/mo', sub:f(futureValue)+' portfolio', color:T.goldText},
         ].map(k => (
           <div key={k.label} style={{background:T.bg, borderRadius:10, padding:'12px 14px', borderLeft:`3px solid ${k.color}`}}>
-            <div style={{fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4}}>{k.label}</div>
+            <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4}}>{k.label}</div>
             <div style={{fontSize:16, fontWeight:800, color:k.color, marginBottom:2}}>{k.value}</div>
-            <div style={{fontFamily:mono, fontSize:10, color:T.muted}}>{k.sub}</div>
+            <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted}}>{k.sub}</div>
           </div>
         ))}
       </div>
-      <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginTop:12}}>
+      <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:12}}>
         Gross rental income only. Does not deduct void periods, management fees, maintenance or tax. Capital growth is compound annual. Rent growth assumed 2%/yr.
       </div>
     </div>
@@ -592,7 +594,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
           (drafts that haven't been assigned to a company yet). */}
       {companies.length > 1 && (
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
-          <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+          <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
           {[{id:'all',abbr:'All',color:T.goldText},...companies,{id:'',abbr:'Unassigned',color:T.muted}].map(c=>(
             <button key={c.id||'unassigned'} onClick={()=>setCoFilter(c.id)}
               style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
@@ -612,7 +614,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       <CashflowPanel deals={deals} properties={properties} coFilter={coFilter} T={T}/>
 
       {/* Filters - only show on list view */}
-      {dealView === 'list' && <div style={{display:'flex',gap:10,marginBottom:4,flexWrap:'wrap',fontSize:11}}><span style={{fontFamily:mono,color:T.muted,fontSize:10,alignSelf:'center'}}>List view · {filtered.length} deals</span></div>}
+      {dealView === 'list' && <div style={{display:'flex',gap:10,marginBottom:4,flexWrap:'wrap',fontSize:11}}><span style={{fontFamily:mono,color:T.muted,fontSize:FS.xs,alignSelf:'center'}}>List view · {filtered.length} deals</span></div>}
       <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}}>
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
           style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
@@ -630,10 +632,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               <button className="btn btn-ghost" onClick={loadDeals}>Retry</button>
             </div>
         : filtered.length === 0
-          ? <div className="card" style={{padding:48,textAlign:'center'}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="target" size={34} color={T.gold}/></div>
-              <div style={{fontFamily:mono,fontSize:12,color:T.muted,marginBottom:16}}>No deals yet. Add your first deal to analyse.</div>
-              <button className="btn btn-gold" onClick={createNewDeal}>+ Add Deal</button>
+          ? <div className="card">
+              <EmptyState icon="target" title="No deals yet" body="Add your first deal to analyse."
+                action={<Button icon="plus" onClick={createNewDeal}>Add Deal</Button>}/>
             </div>
           : <div style={{display:'grid',gap:12}}>
               {filtered.map(deal => {
@@ -657,27 +658,27 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
                           <span style={{fontSize:15,fontWeight:700,color:T.text}}>{deal.name}</span>
-                          <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:10,background:sc.color+'22',color:sc.color}}>{sc.label}</span>
-                          {co && <span style={{fontFamily:mono,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>}
-                          <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>{DEAL_TYPE_LABELS[deal.deal_type]||'BTL'}{deal.is_auction?' · Auction':''}</span>
+                          <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:sc.color+'22',color:sc.color}}>{sc.label}</span>
+                          {co && <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText}}>{co.abbr}</span>}
+                          <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{DEAL_TYPE_LABELS[deal.deal_type]||'BTL'}{deal.is_auction?' · Auction':''}</span>
                           <DocCountBadge counts={counts} T={T}/>
                         </div>
                         {deal.address && <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:8}}>{deal.address}</div>}
                         <DealProgressLine deal={deal} T={T}/>
                         <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
-                          <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Purchase</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(deal.purchase_price)}</div></div>
-                          <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Gross yield</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grossYield>=6?T.green:grossYield>=4?T.amber:T.red}}>{fmtPct(grossYield)}</div></div>
-                          <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Mo. profit</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:monthlyProfit>0?T.green:T.red}}>{fmt(monthlyProfit)}</div></div>
-                          <div><div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cash in</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(cashIn)}</div></div>
+                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Purchase</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(deal.purchase_price)}</div></div>
+                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Gross yield</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grossYield>=6?T.green:grossYield>=4?T.amber:T.red}}>{fmtPct(grossYield)}</div></div>
+                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Mo. profit</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:monthlyProfit>0?T.green:T.red}}>{fmt(monthlyProfit)}</div></div>
+                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cash in</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(cashIn)}</div></div>
                           {(() => {
                             const scoreData = api.calcDealScore({ ...deal, expected_rent: grossRent })
                             const scoreColor = scoreData.score >= 70 ? T.green : scoreData.score >= 55 ? T.amber : T.red
                             return (
                               <div>
-                                <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Deal score</div>
+                                <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Deal score</div>
                                 <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:scoreColor,display:'flex',alignItems:'center',gap:6}}>
                                   {scoreData.score}/100
-                                  <span style={{fontSize:9,padding:'2px 6px',borderRadius:4,background:scoreColor+'22',color:scoreColor,textTransform:'uppercase'}}>{scoreData.rating}</span>
+                                  <span style={{fontSize:FS.xs,padding:'2px 6px',borderRadius:4,background:scoreColor+'22',color:scoreColor,textTransform:'uppercase'}}>{scoreData.rating}</span>
                                 </div>
                               </div>
                             )
@@ -686,20 +687,20 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                       </div>
                       <div style={{display:'flex',gap:8,alignItems:'center'}} onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>openDeal(deal)}
-                          style={{fontFamily:mono,fontSize:10,padding:'4px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>
+                          style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>
                           Edit →
                         </button>
                         <button onClick={()=>setCompareIds(prev=>inCompare?prev.filter(id=>id!==deal.id):prev.length<3?[...prev,deal.id]:prev)}
-                          style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',
+                          style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',
                             border:`1px solid ${inCompare?T.gold:T.border}`,background:inCompare?T.gold+'22':'transparent',color:inCompare?T.goldText:T.muted}}>
                           {inCompare?'Compare':'Compare'}
                         </button>
                         <button onClick={()=>setCopyTarget(deal)}
-                          style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                          style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
                           Copy
                         </button>
                         <button onClick={()=>deleteDeal(deal.id)}
-                          style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
+                          style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
                           Delete
                         </button>
                       </div>
@@ -739,7 +740,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 function CashflowBreakdown({ deals = [], properties = [], T }) {
   if (deals.length === 0 && properties.length === 0) {
     return (
-      <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 28px',fontStyle:'italic'}}>
+      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,padding:'8px 28px',fontStyle:'italic'}}>
         No items yet.
       </div>
     )
@@ -756,18 +757,18 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
       {/* Deals section */}
       {deals.length > 0 && (
         <>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',padding:'8px 12px 4px 32px'}}>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',padding:'8px 12px 4px 32px'}}>
             From deals
           </div>
           {deals.map(d => {
             const cf = d._cashflow || {}
             return (
               <div key={`d-${d.id}`} style={itemRow}>
-                <span style={{fontSize:10}}>🎯</span>
+                <span aria-hidden="true" style={{display:'flex',color:T.muted}}><Icon name="target" size={14}/></span>
                 <div style={{minWidth:0}}>
                   <div style={{color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.name || d.address || 'Untitled deal'}</div>
                   {d.address && d.address !== d.name && (
-                    <div style={{fontSize:9,color:T.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.address}</div>
+                    <div style={{fontSize:FS.xs,color:T.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.address}</div>
                   )}
                 </div>
                 <div style={{textAlign:'right',color:T.muted,fontSize:11}}>{fmt(cf.headline || 0)}</div>
@@ -781,7 +782,7 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
       {/* Properties section */}
       {properties.length > 0 && (
         <>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',padding:'8px 12px 4px 32px'}}>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',padding:'8px 12px 4px 32px'}}>
             From properties
           </div>
           {properties.map(p => {
@@ -793,17 +794,17 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
               : rcf.trigger ? null : { label: 'No target date', color: T.amber }
             return (
               <div key={`p-${p.id}`} style={itemRow}>
-                <span style={{fontSize:10}}>🏠</span>
+                <span aria-hidden="true" style={{display:'flex',color:T.muted}}><Icon name="home" size={14}/></span>
                 <div style={{minWidth:0}}>
                   <div style={{color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:6}}>
                     <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name || p.address || 'Untitled property'}</span>
                     {sourceTag && (
-                      <span style={{fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:4,background:sourceTag.color+'22',color:sourceTag.color,flexShrink:0}}>
+                      <span style={{fontSize:FS.xs,fontWeight:700,padding:'1px 6px',borderRadius:4,background:sourceTag.color+'22',color:sourceTag.color,flexShrink:0}}>
                         {sourceTag.label}
                       </span>
                     )}
                   </div>
-                  <div style={{fontSize:9,color:T.muted}}>{p.status || '—'}{p.address && p.address !== p.name ? ` · ${p.address}` : ''}</div>
+                  <div style={{fontSize:FS.xs,color:T.muted}}>{p.status || '—'}{p.address && p.address !== p.name ? ` · ${p.address}` : ''}</div>
                 </div>
                 <div style={{textAlign:'right',color:T.muted,fontSize:11}}>{fmt(rcf.headline || 0)}</div>
                 <div style={{textAlign:'right',color:T.goldText,fontWeight:700,fontSize:11}}>{fmt(rcf.unpaid || 0)}</div>
@@ -858,9 +859,9 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
           <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
             <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cashflow</span>
             <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(agg.totalHeadline)}</span>
-            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>headline · {fmt(agg.totalCashOut)} cash out · {agg.totalCount} {agg.totalCount===1?'item':'items'}</span>
+            <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>headline · {fmt(agg.totalCashOut)} cash out · {agg.totalCount} {agg.totalCount===1?'item':'items'}</span>
           </div>
-          <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>▼ Expand</span>
+          <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>▼ Expand</span>
         </div>
       </div>
     )
@@ -872,12 +873,12 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:14}}>
         <div>
           <div style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Cashflow Across Active Deals</div>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>Aggregate cash commitments. Updates as you change deal stages and dates.</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>Aggregate cash commitments. Updates as you change deal stages and dates.</div>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           {[['group','By stage'],['timeline','By date']].map(([v,l])=>(
             <button key={v} onClick={()=>{setView(v); setExpanded(null)}}
-              style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',
+              style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:'pointer',
                 border:`1px solid ${view===v?T.gold:T.border}`,
                 background:view===v?T.gold+'22':'transparent',
                 color:view===v?T.goldText:T.muted}}>
@@ -885,7 +886,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
             </button>
           ))}
           <button onClick={()=>setCollapsed(true)}
-            style={{fontFamily:mono,fontSize:10,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+            style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
             ▲ Collapse
           </button>
         </div>
@@ -894,14 +895,14 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
       {/* Headline figures — always visible at the top */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:18,paddingBottom:16,borderBottom:`1px solid ${T.border}`}}>
         <div>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Total headline value</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Total headline value</div>
           <div style={{fontFamily:mono,fontSize:22,fontWeight:700,color:T.text,letterSpacing:'-0.02em'}}>{fmt(agg.totalHeadline)}</div>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>Full deal cost · {agg.totalCount} {agg.totalCount===1?'item':'items'}</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2}}>Full deal cost · {agg.totalCount} {agg.totalCount===1?'item':'items'}</div>
         </div>
         <div>
-          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Cash out of pocket</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Cash out of pocket</div>
           <div style={{fontFamily:mono,fontSize:22,fontWeight:700,color:T.goldText,letterSpacing:'-0.02em'}}>{fmt(agg.totalCashOut)}</div>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:2}}>After mortgage / bridge financing</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2}}>After mortgage / bridge financing</div>
         </div>
       </div>
 
@@ -922,7 +923,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
               <div key={g} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8,opacity:0.5}}>
                 <div>
                   <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.muted}}>{STATUS_GROUP_LABEL[g]}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.faint,marginTop:1}}>{STATUS_GROUP_DESC[g]}</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.faint,marginTop:1}}>{STATUS_GROUP_DESC[g]}</div>
                 </div>
                 <div style={{fontFamily:mono,fontSize:11,color:T.faint}}>No items</div>
               </div>
@@ -933,18 +934,18 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
                 {/* Clickable header row — entire row is the click target,
                     chevron on the left signposts the action. */}
                 <div {...pressable(()=>toggleExpanded(`g:${g}`))} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:T.bg,borderRadius:8,cursor:'pointer',userSelect:'none'}}>
-                  <span style={{fontFamily:mono,fontSize:10,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
                   <div>
                     <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:T.text}}>{STATUS_GROUP_LABEL[g]}</div>
-                    <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{STATUS_GROUP_DESC[g]} · {countLabel}</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:1}}>{STATUS_GROUP_DESC[g]} · {countLabel}</div>
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
-                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>headline</div>
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.goldText}}>{fmt(row.cashOut)}</div>
-                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>cash out</div>
                   </div>
                 </div>
                 {/* Breakdown — items contributing to this group's totals */}
@@ -954,7 +955,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
           })}
           {/* Property refurbs are managed on the Refurbs page; point there. */}
           {agg.propertyRefurbCount > 0 && (
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,padding:'8px 12px',fontStyle:'italic',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
               <span>Refurb figures are the agreed price less payments logged on each refurb.{agg.propertyRefurbUndated > 0 ? ` ${agg.propertyRefurbUndated} ${agg.propertyRefurbUndated===1?'has':'have'} no target finish date.` : ''}</span>
               <a href="#/refurbs" style={{color:T.goldText,fontStyle:'normal',fontWeight:700,textDecoration:'none'}}>Open Refurbs →</a>
             </div>
@@ -979,18 +980,18 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
             return (
               <div key={b}>
                 <div {...pressable(()=>toggleExpanded(`b:${b}`))} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:14,alignItems:'center',padding:'10px 12px',background:urgent?(b==='overdue'?T.red+'11':T.amber+'11'):T.bg,borderRadius:8,borderLeft:urgent?`3px solid ${b==='overdue'?T.red:T.amber}`:'none',cursor:'pointer',userSelect:'none'}}>
-                  <span style={{fontFamily:mono,fontSize:10,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,width:12,display:'inline-block',transition:'transform 0.15s',transform:isOpen?'rotate(90deg)':'none'}}>▶</span>
                   <div>
                     <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:labelColor}}>{TIME_BUCKET_LABEL[b]}</div>
-                    <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:1}}>{countLabel}</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:1}}>{countLabel}</div>
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(row.headline)}</div>
-                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>headline</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>headline</div>
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.goldText}}>{fmt(row.cashOut)}</div>
-                    <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>cash out</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>cash out</div>
                   </div>
                 </div>
                 {isOpen && <CashflowBreakdown deals={row.deals} properties={row.properties} T={T}/>}
@@ -999,7 +1000,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
           })}
           {/* Helpful nudge if too many items are 'undated' — hint them to fill in dates */}
           {agg.byBucket.undated.count > agg.totalCount / 2 && (
-            <div style={{fontFamily:mono,fontSize:10,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,padding:'8px 12px',fontStyle:'italic'}}>
               Most items don't have dates set. Add completion and refurb dates in each deal's Timeline section, and a target finish on each refurb in Refurbs, to see them in 30/60/90 day buckets.
             </div>
           )}
@@ -1045,7 +1046,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
   if (!deal) return null
 
-  const sect = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
+  const sect = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
   const sectionCard = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px' }
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
@@ -1131,7 +1132,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               }
             }}
             title="Rename deal"
-            style={{fontFamily:mono,fontSize:10,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:6,padding:'4px 10px',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+            style={{fontFamily:mono,fontSize:FS.xs,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:6,padding:'4px 10px',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
             Edit
           </button>
         </div>
@@ -1141,9 +1142,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               showJustSaved memo). Sits to the left of the controls so users
               can see at a glance their auto-save is working. */}
           {saving ? (
-            <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>Saving…</span>
+            <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>Saving…</span>
           ) : showJustSaved ? (
-            <span style={{fontFamily:mono,fontSize:10,color:T.green}}>Saved ✓</span>
+            <span style={{fontFamily:mono,fontSize:FS.xs,color:T.green}}>Saved ✓</span>
           ) : null}
           <select value={form.status} onChange={e=>setAndSave('status',e.target.value)} aria-label="Deal stage"
             style={{fontFamily:mono,fontSize:11,background:sc.color+'22',border:`1px solid ${sc.color}44`,color:sc.color,borderRadius:8,padding:'6px 10px',fontWeight:700}}>
@@ -1213,7 +1214,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           </label>
         )}
         {!showsLegalStep(form.status) && form.legal_step && (
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,alignSelf:'center'}}>Last legal step: {LEGAL_STEP_LABEL[form.legal_step]||form.legal_step}</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,alignSelf:'center'}}>Last legal step: {LEGAL_STEP_LABEL[form.legal_step]||form.legal_step}</div>
         )}
         <label style={{flex:2,minWidth:260}}>
           <span style={sect}>Next action / blocker</span>
@@ -1301,7 +1302,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
                 <div>
                   <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Stamp duty (SDLT)</span>
-                  <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:2}}>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2}}>
                     {form.is_additional_property ? 'Standard bands + 5% surcharge (Oct 2024 rates)' : form.is_first_time_buyer ? 'FTB relief: 0% to £300k, 5% to £500k' : 'Standard: 0% to £125k, 2% to £250k, 5% to £925k'}
                   </div>
                 </div>
@@ -1310,8 +1311,8 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     {form.stamp_duty_override != null ? '' : '≈ '}{fmt(sd)}
                   </span>
                   {form.stamp_duty_override == null
-                    ? <button onClick={()=>{set('stamp_duty_override', sd); setTimeout(autoSave,0)}} style={{fontFamily:mono,fontSize:9,color:T.muted,background:'none',border:`1px solid ${T.border}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Override</button>
-                    : <button onClick={()=>{set('stamp_duty_override', null); setTimeout(autoSave,0)}} style={{fontFamily:mono,fontSize:9,color:T.amber,background:'none',border:`1px solid ${T.amber}44`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Auto</button>
+                    ? <button onClick={()=>{set('stamp_duty_override', sd); setTimeout(autoSave,0)}} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:'none',border:`1px solid ${T.border}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Override</button>
+                    : <button onClick={()=>{set('stamp_duty_override', null); setTimeout(autoSave,0)}} style={{fontFamily:mono,fontSize:FS.xs,color:T.amber,background:'none',border:`1px solid ${T.amber}44`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Auto</button>
                   }
                   {form.stamp_duty_override != null && (
                     <MoneyInput value={form.stamp_duty_override} min={0}
@@ -1325,7 +1326,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               {!form.show_conv_breakdown ? (
                 <div style={{padding:'3px 0',borderBottom:`1px solid ${T.border}`}}>
                   <button onClick={()=>set('show_conv_breakdown',true)}
-                    style={{background:'none',border:'none',cursor:'pointer',color:T.muted,fontFamily:mono,fontSize:10,textDecoration:'underline',padding:'4px 0'}}>
+                    style={{background:'none',border:'none',cursor:'pointer',color:T.muted,fontFamily:mono,fontSize:FS.xs,textDecoration:'underline',padding:'4px 0'}}>
                     + Break into solicitor / searches / disbursements
                   </button>
                 </div>
@@ -1394,7 +1395,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   <div style={{display:'flex',gap:6}}>
                     {[['same','Same rate'],['individual','Per room']].map(([k,l])=>(
                       <button key={k} onClick={()=>{set('hmo_rent_mode',k); setTimeout(autoSave,0)}}
-                        style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                        style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                           border:`1px solid ${(form.hmo_rent_mode||'same')===k?T.gold:T.border}`,
                           background:(form.hmo_rent_mode||'same')===k?T.gold+'22':'transparent',
                           color:(form.hmo_rent_mode||'same')===k?T.goldText:T.muted}}>
@@ -1461,11 +1462,11 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   </div>
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>VAT treatment</span>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>VAT treatment</span>
                   <div style={{display:'flex',gap:5}}>
                     {[['ex_vat','+ VAT (20%)'],['inc_vat','Inc. VAT']].map(([k,l])=>(
                       <button key={k} onClick={()=>{set('agent_fee_vat',k); setTimeout(autoSave,0)}}
-                        style={{fontFamily:mono,fontSize:10,padding:'3px 9px',borderRadius:20,cursor:'pointer',
+                        style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:20,cursor:'pointer',
                           border:`1px solid ${(form.agent_fee_vat||'ex_vat')===k?T.amber:T.border}`,
                           background:(form.agent_fee_vat||'ex_vat')===k?T.amber+'22':'transparent',
                           color:(form.agent_fee_vat||'ex_vat')===k?T.amber:T.muted}}>
@@ -1475,7 +1476,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   </div>
                 </div>
                 {(form.agent_fee_vat||'ex_vat')==='ex_vat' && (
-                  <div style={{fontFamily:mono,fontSize:10,color:T.amber,marginTop:4}}>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.amber,marginTop:4}}>
                     Fee = {form.agent_fee_percent||10}% × 1.20 (VAT) = {((form.agent_fee_percent||10)*1.2).toFixed(1)}% effective rate
                   </div>
                 )}
@@ -1496,7 +1497,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 when the deal is a BRRR). */}
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>{form.deal_type==='brrr' ? 'BRRR — Refinance' : 'Refurb & remortgage'}</span>
-              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:10,lineHeight:1.5}}>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:10,lineHeight:1.5}}>
                 Enter what the property should be worth after the refurb to see how much cash a remortgage at 55–75% LTV would return.
               </div>
               <InputRow label="Estimated value after refurb" field="brrr_end_value"form={form} set={set} onBlur={autoSave} T={T}/>
@@ -1514,7 +1515,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <span style={sect}>Growth assumptions (10-year projection)</span>
               <InputRow label="Rent growth per year" field="rent_growth_percent" prefix="" suffix="%" min={0} step={0.5} placeholder="5" form={form} set={set} onBlur={autoSave} T={T}/>
               <InputRow label="Capital growth per year" field="capital_growth_percent" prefix="" suffix="%" min={0} step={0.5} placeholder="3" form={form} set={set} onBlur={autoSave} T={T}/>
-              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:8,lineHeight:1.5}}>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:8,lineHeight:1.5}}>
                 Blank uses the defaults (5% rent, 3% capital). Percentage costs grow with rent; insurance, service charge and the mortgage payment stay flat.
               </div>
             </div>
@@ -1524,27 +1525,27 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 upcoming cash needs by 30/60/90 day urgency. */}
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px'}}>
               <span style={sect}>Timeline</span>
-              <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:12,lineHeight:1.5}}>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:12,lineHeight:1.5}}>
                 Optional dates. Help with cashflow forecasting on the main Deals page.
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                 <div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Exchanged on</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:4}}>Exchanged on</div>
                   <input type="date" value={form.exchanged_date||''} onChange={e=>set('exchanged_date',e.target.value||null)} onBlur={autoSave}
                     style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
                 <div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Expected completion</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:4}}>Expected completion</div>
                   <input type="date" value={form.expected_completion_date||''} onChange={e=>set('expected_completion_date',e.target.value||null)} onBlur={autoSave}
                     style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
                 <div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Refurb start</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:4}}>Refurb start</div>
                   <input type="date" value={form.refurb_start_date||''} onChange={e=>set('refurb_start_date',e.target.value||null)} onBlur={autoSave}
                     style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
                 <div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginBottom:4}}>Refurb end</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:4}}>Refurb end</div>
                   <input type="date" value={form.refurb_end_date||''} onChange={e=>set('refurb_end_date',e.target.value||null)} onBlur={autoSave}
                     style={{fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:6,padding:'6px 10px',width:'100%'}}/>
                 </div>
@@ -1611,7 +1612,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     <div style={{display:'flex',alignItems:'center',gap:12}}>
                       <div style={{fontSize:32,fontWeight:700,color:scoreColor,fontFamily:mono}}>{scoreData.score}</div>
                       <div>
-                        <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>out of 100</div>
+                        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>out of 100</div>
                         <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:scoreColor,textTransform:'uppercase',background:scoreColor+'22',padding:'2px 10px',borderRadius:4,marginTop:2}}>{scoreData.rating}</div>
                       </div>
                     </div>
@@ -1625,12 +1626,12 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                       const c = pct >= 80 ? T.green : pct >= 60 ? T.amber : T.red
                       return (
                         <div key={key} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                          <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>{labels[key] || key}</div>
+                          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>{labels[key] || key}</div>
                           <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.text,marginBottom:4}}>{b.value}</div>
                           <div style={{height:4,background:T.border,borderRadius:2,overflow:'hidden'}}>
                             <div style={{width:pct+'%',height:'100%',background:c,transition:'width 0.3s'}}/>
                           </div>
-                          <div style={{fontFamily:mono,fontSize:9,color:T.muted,marginTop:3}}>{b.points}/{b.max} pts</div>
+                          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:3}}>{b.points}/{b.max} pts</div>
                         </div>
                       )
                     })}
@@ -1639,18 +1640,18 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                   {/* Stress test table */}
                   {Array.isArray(stressData) && stressData.length > 0 && (
                     <div style={{paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Interest rate stress test (DSCR at higher rates)</div>
+                      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Interest rate stress test (DSCR at higher rates)</div>
                       <div style={{display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:8}}>
                         {stressData.map((row, i) => (
                           <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px',borderLeft:`3px solid ${row.passes?T.green:T.red}`}}>
-                            <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>@{row.rate}%</div>
+                            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>@{row.rate}%</div>
                             <div style={{fontFamily:mono,fontSize:15,fontWeight:700,color:row.passes?T.green:T.red,margin:'2px 0'}}>{row.dscr?.toFixed(2) || '—'}</div>
-                            <div style={{fontFamily:mono,fontSize:9,color:T.muted}}>{fmt(row.monthlyPayment)}/mo</div>
-                            <div style={{fontFamily:mono,fontSize:9,color:row.passes?T.green:T.red,fontWeight:700,marginTop:2}}>{row.passes?'PASS':'FAIL'}</div>
+                            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{fmt(row.monthlyPayment)}/mo</div>
+                            <div style={{fontFamily:mono,fontSize:FS.xs,color:row.passes?T.green:T.red,fontWeight:700,marginTop:2}}>{row.passes?'PASS':'FAIL'}</div>
                           </div>
                         ))}
                       </div>
-                      <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:10,lineHeight:1.5}}>
+                      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:10,lineHeight:1.5}}>
                         Lenders typically require DSCR ≥ 1.25 when stressed at +2% above current rates. A deal that fails the stress test may struggle to get mortgage approval or refinance in the future.
                       </div>
                     </div>
@@ -1686,7 +1687,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             <div style={{display:'flex',gap:6}}>
               {[['personal','Personal'],['ltd','Ltd Co']].map(([k,l])=>(
                 <button key={k} onClick={()=>{set('ownership_type',k); setTimeout(autoSave,0)}}
-                  style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                  style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${(form.ownership_type||'personal')===k?T.gold:T.border}`,
                     background:(form.ownership_type||'personal')===k?T.gold+'22':'transparent',
                     color:(form.ownership_type||'personal')===k?T.goldText:T.muted}}>
@@ -1717,7 +1718,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
                 {[[20,'20% Basic'],[40,'40% Higher'],[45,'45% Additional']].map(([r,l])=>(
                   <button key={r} onClick={()=>{set('section24_rate',r); setTimeout(autoSave,0)}}
-                    style={{fontFamily:mono,fontSize:10,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+                    style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                       border:`1px solid ${(form.section24_rate||40)===r?T.amber:T.border}`,
                       background:(form.section24_rate||40)===r?T.amber+'22':'transparent',
                       color:(form.section24_rate||40)===r?T.amber:T.muted}}>
@@ -1856,7 +1857,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
         </div>
         <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
           <div>
-            <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Target completion</span>
+            <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Target completion</span>
             <input type="date" value={targetDraft} min="1970-01-01" max="2100-12-31"
               onChange={e=>setTargetDraft(e.target.value)}
               onBlur={saveTargetDate}
@@ -1864,7 +1865,7 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
           </div>
           {deal.target_completion_date && (
             <div>
-              <span style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Days remaining</span>
+              <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Days remaining</span>
               <div style={{fontFamily:mono,fontSize:16,fontWeight:700,color:T.goldText,marginTop:4}}>
                 {Math.max(0, Math.ceil((new Date(deal.target_completion_date)-new Date())/(1000*60*60*24)))} days
               </div>
@@ -1883,8 +1884,8 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
         return (
           <div key={stage} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',marginBottom:12}}>
             <div style={{padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <span style={{fontFamily:mono,fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{STAGE_LABELS[stage]||stage}</span>
-              <span style={{fontFamily:mono,fontSize:10,color:T.muted}}>
+              <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{STAGE_LABELS[stage]||stage}</span>
+              <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>
                 {stageMilestones.filter(m=>m.is_enabled&&m.completed).length}/{stageMilestones.filter(m=>m.is_enabled).length}
               </span>
             </div>
@@ -1908,9 +1909,9 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
                   <span style={{fontFamily:mono,fontSize:12,color:m.completed?T.muted:T.text,textDecoration:m.completed?'line-through':'none'}}>
                     {m.label}
                   </span>
-                  {m.is_required && <span style={{fontFamily:mono,fontSize:9,color:T.goldText,marginLeft:6,opacity:0.7}}>★</span>}
-                  {isSdlt(m) && <span style={{fontFamily:mono,fontSize:9,background:T.red+'22',color:T.red,padding:'2px 6px',borderRadius:4,marginLeft:8}}>14 day deadline</span>}
-                  {isInsurance(m) && <span style={{fontFamily:mono,fontSize:9,background:T.amber+'22',color:T.amber,padding:'2px 6px',borderRadius:4,marginLeft:8}}>Required at exchange</span>}
+                  {m.is_required && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.goldText,marginLeft:6,opacity:0.7}}>★</span>}
+                  {isSdlt(m) && <span style={{fontFamily:mono,fontSize:FS.xs,background:T.red+'22',color:T.red,padding:'2px 6px',borderRadius:4,marginLeft:8}}>14 day deadline</span>}
+                  {isInsurance(m) && <span style={{fontFamily:mono,fontSize:FS.xs,background:T.amber+'22',color:T.amber,padding:'2px 6px',borderRadius:4,marginLeft:8}}>Required at exchange</span>}
                 </div>
                 {/* Date */}
                 {m.is_enabled && (
@@ -1997,7 +1998,7 @@ function ContactsTab({ dealId, userId, showToast }) {
     e.role?.toLowerCase().includes(bookFilter.toLowerCase())
   )
 
-  const label = { fontFamily:mono, fontSize:10, color:T.muted, display:'block', marginBottom:4 }
+  const label = { fontFamily:mono, fontSize:FS.xs, color:T.muted, display:'block', marginBottom:4 }
   const inp = { fontFamily:mono, fontSize:12, background:T.surface, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 10px', outline:'none', width:'100%' }
 
   return (
@@ -2032,7 +2033,7 @@ function ContactsTab({ dealId, userId, showToast }) {
                   </div>
                   <div>
                     <div style={{fontSize:14,fontWeight:600,color:T.text}}>{c.name||'—'}</div>
-                    <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{CONTACT_ROLES[c.role]||c.role}{c.company_name?` · ${c.company_name}`:''}</div>
+                    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{CONTACT_ROLES[c.role]||c.role}{c.company_name?` · ${c.company_name}`:''}</div>
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
@@ -2041,16 +2042,16 @@ function ContactsTab({ dealId, userId, showToast }) {
                 </div>
               </div>
               <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:mono,fontSize:11,color:T.muted}}>
-                {c.phone&&<a href={`tel:${c.phone}`} style={{color:T.muted,textDecoration:'none'}}>📞 {c.phone}</a>}
-                {c.email&&<a href={`mailto:${c.email}`} style={{color:T.goldText,textDecoration:'none'}}>✉ {c.email}</a>}
-                {c.notes&&<span>📝 {c.notes}</span>}
+                {c.phone&&<a href={`tel:${c.phone}`} style={{color:T.muted,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><Icon name="phone" size={12}/> {c.phone}</a>}
+                {c.email&&<a href={`mailto:${c.email}`} style={{color:T.goldText,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><Icon name="mail" size={12}/> {c.email}</a>}
+                {c.notes&&<span style={{display:'inline-flex',alignItems:'center',gap:4}}><Icon name="file-text" size={12}/> {c.notes}</span>}
               </div>
             </div>
           ))}
 
           {editing&&(
             <div style={{background:T.card,border:`1px solid ${T.gold}44`,borderRadius:12,padding:'20px 22px'}}>
-              <div style={{fontFamily:mono,fontSize:10,color:T.goldText,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>{editing==='new'?'New contact':'Edit contact'}</div>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.goldText,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>{editing==='new'?'New contact':'Edit contact'}</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
                 <div><label style={label}>Role</label>
                   <select aria-label="Role" value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))} style={inp}>
@@ -2096,10 +2097,10 @@ function ContactsTab({ dealId, userId, showToast }) {
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:600,color:T.text}}>{entry.name}</div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{CONTACT_ROLES[entry.role]||entry.role}{entry.company_name?` · ${entry.company_name}`:''}</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{CONTACT_ROLES[entry.role]||entry.role}{entry.company_name?` · ${entry.company_name}`:''}</div>
                   <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:2}}>
-                    {entry.phone&&<span style={{marginRight:12}}>📞 {entry.phone}</span>}
-                    {entry.email&&<span>✉ {entry.email}</span>}
+                    {entry.phone&&<span style={{marginRight:12,display:'inline-flex',alignItems:'center',gap:4}}><Icon name="phone" size={12}/> {entry.phone}</span>}
+                    {entry.email&&<span style={{display:'inline-flex',alignItems:'center',gap:4}}><Icon name="mail" size={12}/> {entry.email}</span>}
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
@@ -2255,7 +2256,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [lightbox, photos.length])
 
-  const sectStyle = { fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', display:'block' }
+  const sectStyle = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', display:'block' }
   const ghostBtn = { fontFamily:mono, fontSize:11, padding:'4px 10px', borderRadius:6, cursor:'pointer', border:`1px solid ${T.border}`, background:'transparent', color:T.muted }
   const meta = (d) => [d.uploaded_by, fmtDate(d.created_at), fmtBytes(d.size)].filter(Boolean).join(' · ')
   const current = lightbox != null ? photos[lightbox] : null
@@ -2276,7 +2277,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
         </span>
         <div style={{display:'flex', gap:8, alignItems:'center', flexShrink:0}}>
           {uploading && (
-            <span style={{fontFamily:mono, fontSize:10, color:T.muted}}>Uploading {Math.min(uploading.done + 1, uploading.total)}/{uploading.total}…</span>
+            <span style={{fontFamily:mono, fontSize:FS.xs, color:T.muted}}>Uploading {Math.min(uploading.done + 1, uploading.total)}/{uploading.total}…</span>
           )}
           <button className="btn btn-gold" style={{fontSize:11}} disabled={!!uploading} onClick={() => photoInputRef.current?.click()}>
             + Add photos
@@ -2301,14 +2302,14 @@ function DocumentsTab({ dealId, userId, showToast }) {
         <div style={{background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'18px 20px', marginBottom:16}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
             <span style={sectStyle}>Photos ({photos.length})</span>
-            {photos.length > 0 && <span style={{fontFamily:mono, fontSize:10, color:T.muted}}>Click a photo to view · click a caption to edit</span>}
+            {photos.length > 0 && <span style={{fontFamily:mono, fontSize:FS.xs, color:T.muted}}>Click a photo to view · click a caption to edit</span>}
           </div>
           {photos.length === 0 ? (
             <button onClick={() => photoInputRef.current?.click()} disabled={!!uploading}
               style={{width:'100%', padding:'28px 16px', borderRadius:10, border:`1px dashed ${T.border}`, background:T.bg, cursor:'pointer', textAlign:'center'}}>
               <div style={{display:'flex', justifyContent:'center', marginBottom:8}}><Icon name="upload" size={22} color={T.gold}/></div>
               <div style={{fontFamily:mono, fontSize:12, color:T.text, marginBottom:4}}>No photos yet</div>
-              <div style={{fontFamily:mono, fontSize:10, color:T.muted, lineHeight:1.6}}>
+              <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, lineHeight:1.6}}>
                 Add viewing shots, the listing photos or a floorplan so everyone on this deal can see what you saw.
                 <br/>JPG, PNG, WebP or HEIC, up to 10 MB each.
               </div>
@@ -2337,7 +2338,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
                       {p.caption || 'Add caption…'}
                     </button>
                   )}
-                  <div style={{fontFamily:mono, fontSize:9, color:T.muted, marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{meta(p)}</div>
+                  <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{meta(p)}</div>
                 </div>
               ))}
             </div>
@@ -2361,7 +2362,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
                       style={{background:'none', border:'none', padding:0, fontSize:13, fontWeight:600, color:T.goldText, cursor:'pointer', textAlign:'left', maxWidth:'100%', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', display:'block'}}>
                       {doc.name}
                     </button>
-                    <div style={{fontFamily:mono, fontSize:10, color:T.muted, marginTop:2}}>{meta(doc)}</div>
+                    <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:2}}>{meta(doc)}</div>
                   </div>
                   <button onClick={() => remove(doc)} style={{...ghostBtn, borderColor:T.red+'44', color:T.red}}>Remove</button>
                 </div>
@@ -2377,7 +2378,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
           <div style={{padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', justifyContent:'space-between', alignItems:'center', gap:10}}>
             <div style={{minWidth:0}}>
               <div style={{fontSize:14, fontWeight:700, color:T.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{current.caption || current.name}</div>
-              <div style={{fontFamily:mono, fontSize:10, color:T.muted}}>{lightbox + 1} of {photos.length}{meta(current) ? ' · ' + meta(current) : ''}</div>
+              <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted}}>{lightbox + 1} of {photos.length}{meta(current) ? ' · ' + meta(current) : ''}</div>
             </div>
             <div style={{display:'flex', gap:8, alignItems:'center', flexShrink:0}}>
               <button style={ghostBtn} onClick={() => openOriginal(current)}>Open full size</button>
@@ -2447,7 +2448,7 @@ function CompareModal({ deals, companies, onClose }) {
               return (
                 <div key={d.id} style={{padding:'12px 16px',background:T.card,borderRadius:'8px 8px 0 0',margin:'0 4px',textAlign:'center'}}>
                   <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:4}}>{d.name}</div>
-                  {co&&<div style={{fontFamily:mono,fontSize:10,color:co.color||T.goldText}}>{co.abbr} {co.name}</div>}
+                  {co&&<div style={{fontFamily:mono,fontSize:FS.xs,color:co.color||T.goldText}}>{co.abbr} {co.name}</div>}
                 </div>
               )
             })}
@@ -2478,7 +2479,7 @@ function DealProgressLine({ deal, T, compact = false }) {
   const next = (deal.next_action || '').trim()
   if (!step && !next) return null
   return (
-    <div style={{display:'flex',flexDirection:compact?'column':'row',gap:compact?3:12,flexWrap:'wrap',marginBottom:compact?6:8,fontFamily:mono,fontSize:compact?9:10}}>
+    <div style={{display:'flex',flexDirection:compact?'column':'row',gap:compact?3:12,flexWrap:'wrap',marginBottom:compact?6:8,fontFamily:mono,fontSize:FS.xs}}>
       {step && <span style={{color:DEAL_STATUS_CFG.conveyancing.color}}>Legal: {step}</span>}
       {next && <span style={{color:T.amber}} title={next}>Next: {compact && next.length > 60 ? next.slice(0, 57) + '…' : next}</span>}
     </div>
@@ -2504,11 +2505,11 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
         {[
           { label:'Total deals', value: deals.length, color: T.text },
           { label:'Pipeline value', value: fmt(totalValue), color: T.goldText },
-          { label:'Active', value: deals.filter(d=>!['dead','completed'].includes(d.status||'analysing')).length, color: '#4B8FE0' },
+          { label:'Active', value: deals.filter(d=>!['dead','completed'].includes(d.status||'analysing')).length, color: T.blue },
           { label:'Completed', value: byStage.completed?.length||0, color: STATUS_CFG.completed.color },
         ].map(k => (
           <div key={k.label} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 16px' }}>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
+            <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
             <div style={{ fontSize:18, fontWeight:700, color:k.color }}>{k.value}</div>
           </div>
         ))}
@@ -2523,7 +2524,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
               {/* Column header */}
               <div style={{ padding:'8px 12px', borderRadius:'8px 8px 0 0', background:stage.color+'22', border:`1px solid ${stage.color}44`, borderBottom:'none', marginBottom:0 }}>
                 <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:stage.color }}>{stage.label}</div>
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.muted }}>{stagDeals.length} deal{stagDeals.length!==1?'s':''}</div>
+                <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted }}>{stagDeals.length} deal{stagDeals.length!==1?'s':''}</div>
               </div>
 
               {/* Cards */}
@@ -2543,7 +2544,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                       </div>
                       {/* Company badge */}
                       {co && (
-                        <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.goldText, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
+                        <div style={{ fontFamily:MONO, fontSize:FS.xs, fontWeight:700, padding:'1px 6px', borderRadius:4, background:(co.color||T.gold)+'22', color:co.color||T.goldText, display:'inline-block', marginBottom:6 }}>{co.abbr}</div>
                       )}
                       <DealProgressLine deal={deal} T={T} compact/>
                       {/* Price */}
@@ -2553,10 +2554,10 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                       {/* Type badge */}
                       <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:4 }}>
                         {deal.deal_type && (
-                          <span style={{ fontFamily:MONO, fontSize:9, padding:'2px 6px', borderRadius:4, background:T.blue+'22', color:T.blue }}>{deal.deal_type.toUpperCase()}</span>
+                          <span style={{ fontFamily:MONO, fontSize:FS.xs, padding:'2px 6px', borderRadius:4, background:T.blue+'22', color:T.blue }}>{deal.deal_type.toUpperCase()}</span>
                         )}
                         {deal.purchase_price > 0 && (
-                          <span style={{ fontFamily:MONO, fontSize:9, padding:'2px 6px', borderRadius:4, background:T.bg, color:T.muted }}>
+                          <span style={{ fontFamily:MONO, fontSize:FS.xs, padding:'2px 6px', borderRadius:4, background:T.bg, color:T.muted }}>
                             {m.grossYield.toFixed(1)}% yield
                           </span>
                         )}
@@ -2566,12 +2567,12 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                   )
                 })}
                 {stagDeals.length === 0 && (
-                  <div style={{ fontFamily:MONO, fontSize:10, color:T.muted, textAlign:'center', padding:'20px 8px', opacity:0.5 }}>
+                  <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, textAlign:'center', padding:'20px 8px', opacity:0.5 }}>
                     No deals
                   </div>
                 )}
                 {stage.key === 'analysing' && (
-                  <button onClick={onNew} style={{ width:'100%', fontFamily:MONO, fontSize:10, padding:'7px', borderRadius:6, border:`1px dashed ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer', marginTop:4 }}>
+                  <button onClick={onNew} style={{ width:'100%', fontFamily:MONO, fontSize:FS.xs, padding:'7px', borderRadius:6, border:`1px dashed ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer', marginTop:4 }}>
                     + Add deal
                   </button>
                 )}
@@ -2581,7 +2582,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
         })}
       </div>
 
-      <div style={{ fontFamily:MONO, fontSize:10, color:T.muted, marginTop:12 }}>
+      <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, marginTop:12 }}>
         Click any deal to open it. Change a deal's stage in the deal editor to move it between columns.
       </div>
     </div>

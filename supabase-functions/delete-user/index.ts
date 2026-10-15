@@ -9,9 +9,17 @@
 // user_profiles row must have is_developer (new) or platform_admin
 // (legacy) set — mirroring the client's isPlatformAdmin gating, which is
 // cosmetic only. Self-deletion is blocked. The action is audit-logged.
+//
+// Two-factor: the caller's JWT must be aal2, UNCONDITIONALLY — an admin
+// with no verified factor is refused until they enrol one. Checked live
+// on 15 Oct 2026: every platform-admin / developer account has a verified
+// factor, so this locks nobody out. The client re-authenticates with a
+// password (which yields a fresh aal1 session) and then steps up with the
+// authenticator code before calling here.
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { tokenIsAal2, MFA_REQUIRED_CODE, MFA_REQUIRED_MESSAGE } from './authz.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -52,6 +60,14 @@ serve(async (req) => {
     .maybeSingle()
   const isPlatformAdmin = profile?.is_developer === true || profile?.platform_admin === true
   if (!isPlatformAdmin) return jsonError(403, 'Platform admin access required')
+
+  // token was verified by getUser above, so its claims can be read.
+  if (!tokenIsAal2(token)) {
+    return jsonResp(403, {
+      error: `${MFA_REQUIRED_MESSAGE} — confirm with your authenticator code (enrol 2FA in Settings → Security first if you have none)`,
+      code: MFA_REQUIRED_CODE,
+    })
+  }
 
   let body: any = {}
   try { body = await req.json() } catch { return jsonError(400, 'Invalid JSON') }

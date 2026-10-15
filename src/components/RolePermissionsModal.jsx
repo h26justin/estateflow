@@ -1,26 +1,28 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
+import { Button } from './ui'
+import { Icon } from '../lib/icons'
 
 const mono = MONO
 
 const ROLE_INFO = {
   admin: {
-    icon: '👑',
-    color: '#C8A84B',
+    icon: 'star',
+    tone: 'goldText',
     description: 'Full read/write access. Can invite users and manage all data. Cannot delete company or change billing.',
   },
   editor: {
-    icon: '✎',
-    color: '#4B8FE0',
+    icon: 'file-text',
+    tone: 'blue',
     description: 'Can add and edit properties, tenancies, rent, compliance, and maintenance. Cannot view financial data or invite users by default.',
   },
   viewer: {
-    icon: '👁',
-    color: '#7B68EE',
+    icon: 'eye',
+    tone: 'purple',
     description: 'Read-only access to properties, rent, and compliance. Cannot edit anything. Tenant personal data is hidden by default. Turn on "Edit rent records" under Advanced to make a Rent Tracker Editor.',
   },
 }
@@ -91,10 +93,10 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
 
         {/* Role selector */}
         <div style={{marginBottom:20}}>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Role</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Role</div>
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
             {['admin','editor','viewer'].map(r => {
-              const info = ROLE_INFO[r]
+              const info = { ...ROLE_INFO[r], color: T[ROLE_INFO[r].tone] }
               const selected = role === r
               return (
                 <button key={r} onClick={()=>{setRole(r);setOverrides({})}}
@@ -104,7 +106,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
                     background: selected?info.color+'15':'transparent',
                     display:'flex', gap:12, alignItems:'flex-start'
                   }}>
-                  <span style={{fontSize:22,flexShrink:0}}>{info.icon}</span>
+                  <span style={{display:'flex',flexShrink:0,color:info.color}}><Icon name={info.icon} size={22}/></span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700,color:selected?info.color:T.text,marginBottom:2,textTransform:'capitalize'}}>{r}</div>
                     <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.5}}>{info.description}</div>
@@ -123,9 +125,9 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
           <button onClick={()=>setShowAdvanced(s=>!s)}
             style={{background:'none',border:'none',cursor:'pointer',fontFamily:mono,fontSize:12,color:T.goldText,fontWeight:700,padding:0,display:'flex',alignItems:'center',gap:6}}>
             {showAdvanced ? '▼' : '▶'} Advanced — override specific permissions
-            {hasOverrides && <span style={{fontSize:10,background:T.gold+'33',color:T.goldText,padding:'2px 7px',borderRadius:4}}>{Object.keys(overrides).length} custom</span>}
+            {hasOverrides && <span style={{fontSize:FS.xs,background:T.gold+'33',color:T.goldText,padding:'2px 7px',borderRadius:4}}>{Object.keys(overrides).length} custom</span>}
           </button>
-          <div style={{fontFamily:mono,fontSize:10,color:T.muted,marginTop:6,marginLeft:14}}>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:6,marginLeft:14}}>
             Use this to grant or restrict specific abilities beyond the role defaults.
           </div>
         </div>
@@ -135,14 +137,14 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
             {hasOverrides && (
               <div style={{textAlign:'right',marginBottom:8}}>
                 <button onClick={resetOverrides}
-                  style={{fontFamily:mono,fontSize:10,padding:'4px 10px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.muted}44`,background:'transparent',color:T.muted}}>
+                  style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.muted}44`,background:'transparent',color:T.muted}}>
                   Reset overrides
                 </button>
               </div>
             )}
             {api.PERMISSION_GROUPS.map(group => (
               <div key={group.label} style={{marginBottom:14}}>
-                <div style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{group.label}</div>
+                <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{group.label}</div>
                 <div style={{background:T.bg,borderRadius:8,overflow:'hidden'}}>
                   {group.keys.map((key, i) => {
                     const on = effective[key]
@@ -151,7 +153,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
                       <div key={key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderTop:i>0?`1px solid ${T.border}`:'none',gap:10}}>
                         <div style={{fontFamily:mono,fontSize:11,color:T.text,flex:1}}>
                           {api.PERMISSION_LABELS[key] || key}
-                          {isOverride && <span style={{fontSize:8,background:T.gold+'22',color:T.goldText,padding:'1px 6px',borderRadius:3,marginLeft:6,fontWeight:700}}>OVERRIDE</span>}
+                          {isOverride && <span style={{fontSize:FS.xs,background:T.gold+'22',color:T.goldText,padding:'1px 6px',borderRadius:3,marginLeft:6,fontWeight:700}}>OVERRIDE</span>}
                         </div>
                         <button onClick={()=>togglePermission(key)}
                           style={{
@@ -177,11 +179,10 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
 
         {/* Actions */}
         <div style={{display:'flex',gap:10,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'12px',borderRadius:9,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={save} disabled={saving}
-            style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'12px',borderRadius:9,border:'none',background:saving?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>
+          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
+          <Button onClick={save} disabled={saving} style={{flex:2}}>
             {saving?'Saving...':'Save changes'}
-          </button>
+          </Button>
         </div>
       </div>
       </FocusTrap>

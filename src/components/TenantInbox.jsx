@@ -1,23 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { pressable } from '../lib/pressable'
+import { Skeleton, SkeletonList } from '../lib/Skeleton'
+import { Button, EmptyState } from './ui'
 
 const mono = MONO
-const PRIORITY_CFG = {
-  urgent: { color:'#E05555', label:'Urgent' },
-  high:   { color:'#E0943A', label:'High' },
-  normal: { color:'#4B8FE0', label:'Normal' },
-}
-const STATUS_CFG = {
-  open:          { bg:'#E0943A22', color:'#E0943A', label:'Open' },
-  'in-progress': { bg:'#4B8FE022', color:'#4B8FE0', label:'In progress' },
-  complete:      { bg:'#2ECC8A22', color:'#2ECC8A', label:'Complete' },
-}
+// Functions of the theme so the colours follow light/dark tokens. Values are
+// hex, so callers can still append alpha suffixes.
+const priorityCfg = (T) => ({
+  urgent: { color:T.red, label:'Urgent' },
+  high:   { color:T.amber, label:'High' },
+  normal: { color:T.blue, label:'Normal' },
+})
+const statusCfg = (T) => ({
+  open:          { bg:T.amber+'22', color:T.amber, label:'Open' },
+  'in-progress': { bg:T.blue+'22', color:T.blue, label:'In progress' },
+  complete:      { bg:T.green+'22', color:T.green, label:'Complete' },
+})
 
 export default function TenantInbox({ user, companies, showToast, companySettings = {} }) {
   const { T } = useTheme()
@@ -164,7 +168,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
     </button>
   )
 
-  if (loading) return <div style={{ fontFamily:mono, fontSize:12, color:T.muted, padding:'16px 0' }}>Loading tenant inbox…</div>
+  if (loading) return <div style={{ padding:'16px 0' }}><SkeletonList count={3}/></div>
 
   const hasAnything = jobs.length > 0 || convos.length > 0
 
@@ -175,7 +179,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <h2 style={{ fontSize:18, fontWeight:600, letterSpacing:'-0.02em', margin:0 }}>Tenant inbox</h2>
           {totalUnread > 0 && (
-            <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:20, background:T.red+'22', color:T.red }}>
+            <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'3px 10px', borderRadius:20, background:T.red+'22', color:T.red }}>
               {totalUnread} new
             </span>
           )}
@@ -188,10 +192,8 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       </div>
 
       {!hasAnything && (
-        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'32px 24px', textAlign:'center' }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:10, color:T.faint }}><Icon name="inbox" size={28}/></div>
-          <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>No tenant messages or repair requests yet.</div>
-          <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>When tenants submit repairs or send messages, they'll appear here.</div>
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12 }}>
+          <EmptyState compact icon="inbox" title="No tenant messages or repair requests yet." body="When tenants submit repairs or send messages, they'll appear here."/>
         </div>
       )}
 
@@ -266,6 +268,8 @@ export default function TenantInbox({ user, companies, showToast, companySetting
 // ── JOB CARD ─────────────────────────────────────────────────────────────────
 function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread, replyText, setReplyText, replying, onReply, bottomRef, T }) {
   const isExpanded = expanded?.id === job.id && expanded?.itemType === 'job'
+  const STATUS_CFG = statusCfg(T)
+  const PRIORITY_CFG = priorityCfg(T)
   const sc = STATUS_CFG[job.status] || STATUS_CFG.open
   const pc = PRIORITY_CFG[job.priority] || PRIORITY_CFG.normal
   const photos = Array.isArray(job.photos) ? job.photos : []
@@ -281,18 +285,18 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>Repair request</span>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:sc.bg, color:sc.color }}>{sc.label}</span>
+                <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>Repair request</span>
+                <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:sc.bg, color:sc.color }}>{sc.label}</span>
                 {job.priority && job.priority !== 'normal' && (
-                  <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color, display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="flag" size={10}/>{pc.label}</span>
+                  <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color, display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="flag" size={10}/>{pc.label}</span>
                 )}
               </div>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted, flexShrink:0 }}>
+              <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, flexShrink:0 }}>
                 {new Date(job.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(job.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
               </span>
             </div>
             <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:3 }}>{job.title || 'Repair request'}</div>
-            <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>📍 {job.property?.address||job.property?.name||'—'}</div>
+            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{job.property?.address||job.property?.name||'—'}</div>
           </div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>{isExpanded?'▲':'▼'}</div>
         </div>
@@ -309,7 +313,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
           {/* Photos */}
           {photos.length > 0 && (
             <div style={{ marginBottom:16 }}>
-              <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Photos from tenant</div>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Photos from tenant</div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 {photos.map((p,i) => (
                   <SignedPhoto key={p.path || p.url || i} path={p.path} url={p.url}
@@ -320,7 +324,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
           )}
           {/* Status update */}
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Update status</div>
+            <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Update status</div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               {['open','in-progress','complete'].map(s => (
                 <button key={s} onClick={() => onStatusChange(job.id, s)}
@@ -333,7 +337,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
               ))}
             </div>
             {job.status === 'complete' && (
-              <div style={{ fontFamily:mono, fontSize:10, color:T.green, marginTop:8 }}>
+              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.green, marginTop:8 }}>
                 Marked complete — this repair will move to the archive
               </div>
             )}
@@ -364,17 +368,17 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.goldText }}>Message</span>
-                {hasUnread && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>{convo.unread_count} unread</span>}
+                <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.gold+'22', color:T.goldText }}>Message</span>
+                {hasUnread && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>{convo.unread_count} unread</span>}
               </div>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted, flexShrink:0 }}>
+              <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, flexShrink:0 }}>
                 {new Date(lastMsg.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(lastMsg.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
               </span>
             </div>
             <div style={{ fontSize:13, fontWeight: hasUnread ? 700 : 400, color:T.text, marginBottom:3 }}>
               {lastMsg.message?.substring(0,80)}{lastMsg.message?.length>80?'…':''}
             </div>
-            <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>📍 {convo.property?.address||convo.property?.name||'—'}</div>
+            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{convo.property?.address||convo.property?.name||'—'}</div>
           </div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>{isExpanded?'▲':'▼'}</div>
         </div>
@@ -394,18 +398,18 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
 function MessageThread({ thread, loading, replyText, setReplyText, replying, onReply, bottomRef, T }) {
   return (
     <div>
-      <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:10 }}>Conversation</div>
+      <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:10 }}>Conversation</div>
       <div style={{ maxHeight:320, overflowY:'auto', marginBottom:12, padding:'4px 0' }}>
-        {loading && <div style={{ fontFamily:mono, fontSize:12, color:T.muted, textAlign:'center', padding:20 }}>Loading…</div>}
+        {loading && <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 20 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>}
         {!loading && thread.length === 0 && (
-          <div style={{ fontFamily:mono, fontSize:12, color:T.muted, textAlign:'center', padding:20 }}>No messages in this thread yet.</div>
+          <EmptyState compact icon="message" title="No messages in this thread yet."/>
         )}
         {thread.map(m => {
           const isLandlord = m.sender_type === 'landlord'
           return (
             <div key={m.id} style={{ display:'flex', justifyContent:isLandlord?'flex-end':'flex-start', marginBottom:12 }}>
               <div style={{ maxWidth:'75%' }}>
-                <div style={{ fontFamily:mono, fontSize:9, color:T.muted, marginBottom:4, textAlign:isLandlord?'right':'left' }}>
+                <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4, textAlign:isLandlord?'right':'left' }}>
                   {isLandlord?'You':'Tenant'} · {new Date(m.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} {new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}
                 </div>
                 <div style={{ background:isLandlord?T.gold+'22':T.bg, border:`1px solid ${isLandlord?T.gold+'44':T.border}`,
@@ -424,11 +428,9 @@ function MessageThread({ thread, loading, replyText, setReplyText, replying, onR
           onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&(e.preventDefault(),onReply())}
           placeholder="Reply to tenant…"
           style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 14px' }}/>
-        <button onClick={onReply} disabled={replying||!replyText.trim()}
-          style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 20px', borderRadius:8, border:'none',
-            background:replying||!replyText.trim()?T.border:T.gold, color:'#1C2830', cursor:'pointer', flexShrink:0 }}>
+        <Button onClick={onReply} disabled={replying||!replyText.trim()} style={{ flexShrink:0 }}>
           {replying?'…':'Send'}
-        </button>
+        </Button>
       </div>
     </div>
   )

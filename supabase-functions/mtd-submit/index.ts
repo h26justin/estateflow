@@ -137,6 +137,16 @@ serve(async (req) => {
 
   try {
     const reqBody = await req.json()
+    // Status probe for the MTD page: is live HMRC filing switched on? Live
+    // means production credentials and the production API host, not the
+    // sandbox. No secrets or URLs are returned.
+    if (reqBody?.action === 'status') {
+      const productionHost = /^https:\/\/api\.service\.hmrc\.gov\.uk\/?$/.test(HMRC_BASE_URL)
+      const live = !!(HMRC_CLIENT_ID && HMRC_CLIENT_SECRET) && productionHost
+      return new Response(JSON.stringify({ live_filing_available: live }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     const { submission_id } = reqBody
     // Gov-Client-* only; Gov-Vendor-* are always set server-side below.
     const fraudHeaders = pickClientFraudHeaders(reqBody?.fraud_headers)

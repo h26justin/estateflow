@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 
 // ── COMMAND PALETTE ─────────────────────────────────────────────────────
 // Cmd+K / Ctrl+K modal for keyboard-driven navigation and quick actions.
@@ -159,7 +159,7 @@ export default function CommandPalette({ open, commands, onClose }) {
               flex: 1, background: 'transparent', border: 'none', color: T.text, fontSize: 15, fontFamily: 'inherit',
             }}/>
           <kbd style={{
-            fontFamily: MONO, fontSize: 9, color: T.muted,
+            fontFamily: MONO, fontSize: FS.xs, color: T.muted,
             background: T.bg, border: `1px solid ${T.border}`,
             borderRadius: 4, padding: '2px 6px',
           }}>Esc</kbd>
@@ -175,7 +175,7 @@ export default function CommandPalette({ open, commands, onClose }) {
             grouped.map(group => (
               <div key={group.key} role="group" aria-label={GROUP_LABEL[group.key] || group.key}>
                 <div aria-hidden="true" style={{
-                  padding: '10px 16px 4px', fontFamily: MONO, fontSize: 9,
+                  padding: '10px 16px 4px', fontFamily: MONO, fontSize: FS.xs,
                   color: T.muted, textTransform: 'uppercase', letterSpacing: '0.12em',
                 }}>{GROUP_LABEL[group.key] || group.key}</div>
                 {group.items.map(cmd => {
@@ -198,7 +198,7 @@ export default function CommandPalette({ open, commands, onClose }) {
                         {cmd.label}
                       </span>
                       {cmd.hint && (
-                        <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{cmd.hint}</span>
+                        <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{cmd.hint}</span>
                       )}
                     </div>
                   )
@@ -212,7 +212,7 @@ export default function CommandPalette({ open, commands, onClose }) {
         <div style={{
           padding: '8px 16px', borderTop: `1px solid ${T.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontFamily: MONO, fontSize: 10, color: T.muted,
+          fontFamily: MONO, fontSize: FS.xs, color: T.muted,
         }}>
           <div style={{ display: 'flex', gap: 14 }}>
             <span><kbd style={kbdStyle(T)}>↑</kbd> <kbd style={kbdStyle(T)}>↓</kbd> navigate</span>
@@ -228,7 +228,7 @@ export default function CommandPalette({ open, commands, onClose }) {
 
 function kbdStyle(T) {
   return {
-    fontFamily: MONO, fontSize: 9, color: T.muted,
+    fontFamily: MONO, fontSize: FS.xs, color: T.muted,
     background: T.bg, border: `1px solid ${T.border}`,
     borderRadius: 3, padding: '1px 4px',
   }

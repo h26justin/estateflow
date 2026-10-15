@@ -1,6 +1,6 @@
 # OwnProperly — Trial onboarding email sequence
 
-**Last updated:** 2026-05-25
+**Last updated:** 2026-10-15
 **Tool:** Resend (via `supabase-functions/trial-emails`)
 **Schedule:** Daily pg_cron job picks the right email for each user based on `auth.users.created_at`.
 
@@ -8,43 +8,53 @@
 
 ## How it works
 
-A pg_cron job runs daily at 09:30 UK time:
-1. Queries `auth.users` for any user whose `created_at` matches one of the trigger offsets (1, 3, 7, 11, 13 days ago).
-2. For each match, invokes the `trial-emails` edge function with `{ user_id, day_offset }`.
-3. The function looks up the user's first property + portfolio details, picks the matching template, and sends via Resend.
+A pg_cron job calls the `trial-emails` edge function once a day at 09:30. On each run the function:
+1. Lists `auth.users` once and picks the users whose `created_at` matches each offset:
+   - **Day 0 (`welcome`)**: created in the last 36 hours (a rolling window, so everyone who signed up since the previous run is covered, with slack for a late run).
+   - **Day 1**: created 1 day ago, or 2 days ago if their welcome went out less than 20 hours before this run (so the welcome and day 1 never land on the same run).
+   - **Days 3, 7, 11, 13**: created that many calendar days ago.
+2. Applies the suppression rules below, sends the matching template via Resend, and logs it in `trial_email_log`.
+
+There is no client-side trigger: the welcome used to be a `sendOnboardingEmail` call on login that was never wired up (a no-op stub); it was removed on 2026-10-15 when the welcome moved into this daily run. So "Day 0" means "on the first daily run after signup", not the instant of signup.
 
 Suppression logic (so users don't get spam):
 - Skip if the user has already paid (subscription.status='active')
 - Skip if the user has unsubscribed (user_profiles.email_unsubscribed=true)
 - Skip if a record exists in `trial_email_log` for this (user_id, day_offset) pair
+- Skip if the user owns no company (invited collaborator, or not yet through onboarding; the 36-hour welcome window gives a second chance on the next run)
+- Skip the whole template for that run if any of these lookups fails (fail closed)
 
 ---
 
-## Email 1 — Day 0 (immediate, at signup) — `welcome`
+## Email 1 — Day 0 (first daily run after signup) — `welcome`
 
-**Subject:** Welcome to OwnProperly · 14 days, no card needed
-**From:** Justin at OwnProperly <justin@ownproperly.com>
+**Subject:** Welcome to Properly: 14 days, no card needed
+**From:** Justin at Properly <justin@ownproperly.com> (`FROM_EMAIL`)
+
+The live text is the `welcome` entry in `supabase-functions/trial-emails/index.ts`; this is a copy.
 
 ---
 
 Hi {{first_name}},
 
-Welcome to OwnProperly. You've got 14 days to put us through our paces — every feature unlocked, no card needed.
+Welcome to Properly. You've got 14 days to put it through its paces, every feature unlocked, no card needed.
 
 Most landlords get a useful first win within 10 minutes. Three things worth doing today:
 
-1. **Add your first company** (one company per legal entity — your name if you own personally, or your SPV name)
-2. **Add a property** — or use Bulk Add if you've got a block of flats
-3. **Plug in one rent payment** to see how the tracker works
+1. Add your company (one per legal entity: your own name if you own personally, or your SPV's name)
+2. Add a property, or use "+ Add Block" if you've got a block of flats
+3. Record one rent payment to see how the tracker works
 
-If you're staring at the screen wondering where to start, [book a free 15-minute onboarding call here]({{cal_url}}). I'll walk you through it.
+→ Open Properly: {{app_url}}
 
-Anything broken or confusing? Just reply to this email — it comes straight to me.
+If you'd rather be shown around, reply to this email and I'll set up a 15-minute call to walk you through it.
+
+Anything broken or confusing? Just reply. It comes straight to me.
 
 Justin
-Founder, OwnProperly
+Founder, Properly
 
-P.S. If you're worried about MTD ITSA in April 2026 — that's the main thing we built this for. Sandbox practice mode is on by default, so you can rehearse quarterly submissions today with zero risk.
+P.S. Making Tax Digital for Income Tax is live. Properly's MTD practice mode runs against HMRC's sandbox, so you can rehearse a quarterly submission today with zero risk.
 
 ---
 
@@ -244,7 +254,8 @@ Skip sending if ANY of these are true:
 - User has paid (`subscriptions.status = 'active'` for any of their companies)
 - User explicitly unsubscribed (`user_profiles.email_unsubscribed = true`)
 - Email already sent for this user × day_offset (check `trial_email_log` table)
-- User signed up via an invitation (they're a tenant or collaborator, not the trial customer)
+- User signed up via an invitation (they're a tenant or collaborator, not the trial customer): implemented as "owns no company"
+- Day 1 only: the welcome went out less than 20 hours ago (day 1 follows on the next run)
 
 The `trial_email_log` table needs:
 ```

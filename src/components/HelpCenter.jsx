@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { pressable } from '../lib/pressable'
@@ -13,11 +13,11 @@ const CATEGORIES = [
   { key: 'tenancy',     label: 'Tenancy & Legal',       icon: 'scale' },
   { key: 'maintenance', label: 'Maintenance',           icon: 'wrench' },
   { key: 'documents',   label: 'Documents & Expenses',  icon: 'folder' },
-  { key: 'deals',       label: 'Deals & Calculator',    icon: '🎯' },
+  { key: 'deals',       label: 'Deals & Calculator',    icon: 'target' },
   { key: 'lettings',    label: 'Lettings Pipeline',     icon: 'key' },
   { key: 'reports',     label: 'Reports',               icon: 'pie-chart' },
   { key: 'portal',      label: 'Tenant Portal',         icon: 'home' },
-  { key: 'settings',    label: 'Settings & Account',    icon: '⚙' },
+  { key: 'settings',    label: 'Settings & Account',    icon: 'settings' },
   { key: 'ai',          label: 'AI Tools',              icon: 'sparkle' },
 ]
 
@@ -322,7 +322,7 @@ const GUIDES = [
       "In the Tenancy tab, find the deposit section and select your scheme: DPS, TDS, mydeposits, or DPS Custodial.",
       "Enter the deposit amount and scheme reference number.",
       "Upload a copy of the deposit certificate if you have one.",
-      "Properly will track this alongside the tenancy. Failure to protect a deposit can result in penalties of 1\u20133x the deposit amount and prevents you from serving a valid Section 21 notice.",
+      "Properly will track this alongside the tenancy. Failure to protect a deposit can result in penalties of 1\u20133x the deposit amount.",
     ]},
   { id: 34, cat: 'tenancy', title: 'Running a right to rent check', tags: ['right','rent','check','immigration'],
     steps: [
@@ -341,31 +341,31 @@ const GUIDES = [
       "Use these alerts to decide whether to: renew the tenancy (new fixed term), let it roll to periodic (month by month), or serve notice and relet.",
       "Update the tenancy end date after renewal to reset the alert cycle.",
     ]},
-  { id: 36, cat: 'tenancy', title: 'Serving a Section 21 notice', tags: ['section','21','notice','eviction','possession'],
+  { id: 36, cat: 'tenancy', title: 'Section 21 has ended: what changed on 1 May 2026', tags: ['section','21','notice','eviction','possession','renters','rights'],
     steps: [
-      "A Section 21 notice is a no-fault possession notice giving tenants at least 2 months to vacate.",
-      "Before serving, ensure all prerequisites are met: deposit protected and prescribed info served, gas safety certificate given, EPC provided, How to Rent guide given, and no retaliatory eviction issues.",
-      "In the Notice Tracker tab, click \"+ New Notice\" and select \"Section 21\".",
-      "Enter the date served and the date you want possession (at least 2 months from service).",
-      "Track the status through: Draft, Served, Court Filed, Hearing Set, Possession Granted, or Withdrawn.",
-      "Important: The Renters Reform Bill proposes to abolish Section 21 \u2014 check current legislation.",
+      "The Renters\u2019 Rights Act 2025 abolished section 21 \u201cno-fault\u201d notices in England from 1 May 2026. Section 21 notices served before then needed court proceedings issued by 31 July 2026.",
+      "All private assured tenancies are now periodic. To end one you serve a section 8 notice on Form 3A using one or more grounds for possession, such as selling the property (Ground 1A) or moving in yourself (Ground 1).",
+      "Grounds 1 and 1A cannot end a tenancy in its first 12 months and need 4 months\u2019 notice.",
+      "Older section 21 records stay in the Notice Tracker for reference, but new notices can only be section 8 or section 13.",
+      "These rules are for England. Wales, Scotland and Northern Ireland have their own regimes.",
     ]},
-  { id: 37, cat: 'tenancy', title: 'Serving a Section 8 notice', tags: ['section','8','notice','grounds','possession'],
+  { id: 37, cat: 'tenancy', title: 'Serving a Section 8 notice (Form 3A)', tags: ['section','8','notice','grounds','possession','form','3a'],
     steps: [
-      "A Section 8 notice is a fault-based possession notice. You must specify one or more grounds for possession.",
-      "Common grounds: Ground 8 (at least 2 months rent arrears), Ground 10 (some rent unpaid), Ground 11 (persistent late payment), Ground 12 (breach of tenancy terms).",
-      "In the Notice Tracker tab, click \"+ New Notice\" and select \"Section 8\".",
-      "Enter the grounds relied upon, date served, and hearing date if known.",
-      "The notice period depends on the grounds: 2 weeks for rent arrears (Ground 8), 2 months for most other grounds.",
-      "Track through the full process: Draft, Served, Court Filed, Hearing, Possession Granted.",
+      "Open the property, go to Notice Tracker and click \u201cPrepare Form 3A\u201d. The generator checks your dates against each ground\u2019s notice period.",
+      "Ground 8 (serious arrears) needs at least 3 months\u2019 rent owed (13 weeks if paid weekly or fortnightly), both when you serve and at the hearing. Notice period: 4 weeks.",
+      "Grounds 10 and 11 (some or persistent arrears): 4 weeks. Grounds 12, 13, 15 and 17: 2 weeks. Grounds 7A and 14 (antisocial behaviour): proceedings can begin straight away.",
+      "Grounds 1, 1A, 2, 6 and 6A: 4 months. If you use several grounds, the longest notice period applies.",
+      "Copy the content onto the current Form 3A from GOV.UK. The notice is normally valid for 12 months from service.",
+      "Track the case through: Draft, Served, Court Filed, Hearing Set, Possession Granted or Withdrawn.",
+      "This is a drafting aid, not legal advice. Have the notice checked by a housing solicitor before serving.",
     ]},
-  { id: 38, cat: 'tenancy', title: 'Section 13 rent increase notices', tags: ['section','13','rent','increase','notice'],
+  { id: 38, cat: 'tenancy', title: 'Section 13 rent increase notices (Form 4A)', tags: ['section','13','rent','increase','notice','form','4a'],
     steps: [
-      "A Section 13 notice is the formal method to increase rent on a periodic tenancy.",
-      "You must give at least one month notice for a monthly tenancy (using Form 4).",
-      "The proposed new rent must be a fair market rent \u2014 not excessive compared to similar properties in the area.",
-      "The tenant can accept the increase, negotiate, or refer it to the First-tier Tribunal for determination.",
-      "You cannot increase rent during a fixed-term tenancy unless there is a rent review clause in the agreement.",
+      "From 1 May 2026 rent can only be increased with a section 13 notice on Form 4A. Rent review clauses in tenancy agreements no longer apply.",
+      "Give at least two months\u2019 notice. The increase cannot take effect in the first 52 weeks of the tenancy, or within 52 weeks of the last section 13 increase.",
+      "Start the new rent on the first day of a rental period.",
+      "The tenant can ask the First-tier Tribunal to decide the rent before it starts. The tribunal will not set it above the open-market rent or the amount you proposed.",
+      "In Rent History you can see the earliest date an increase served today could take effect, and click \u201cPrepare Form 4A\u201d to draft the notice.",
       "Use the Rent Review Planner in the Rent Tracker to model increases across your portfolio before serving formal notices.",
     ]},
 
@@ -526,7 +526,7 @@ const GUIDES = [
     ]},
   { id: 57, cat: 'reports', title: 'Setting default reporting period', tags: ['report','period','tax','year','calendar'],
     steps: [
-      "Go to Settings > Reporting (under the Preferences group).",
+      "Go to Settings > Portfolio > Reporting.",
       "For each company, choose whether reports default to the UK tax year (6 April \u2013 5 April) or the calendar year (1 January \u2013 31 December).",
       "This sets the default \u2014 you can always override the period when running an individual report.",
       "Most landlords use the UK tax year for personal holdings and calendar year for limited company accounts.",
@@ -584,13 +584,13 @@ const GUIDES = [
   // ── SETTINGS & ACCOUNT ───────────────────────────────────────────────────
   { id: 64, cat: 'settings', title: 'Changing dark/light mode', tags: ['dark','light','mode','theme','display'],
     steps: [
-      "Go to Settings > Display (under the Preferences group).",
+      "Go to Settings > Account > Display.",
       "Click \"Dark\" or \"Light\" to switch the app theme.",
       "The change takes effect immediately and is saved to your account \u2014 it persists across devices.",
     ]},
   { id: 65, cat: 'settings', title: 'Changing yield basis (cost vs value)', tags: ['yield','basis','cost','value','setting'],
     steps: [
-      "Go to Settings > Display (under the Preferences group).",
+      "Go to Settings > Account > Display.",
       "In the Yield Calculation section, choose: \"Purchase + refurb cost\" (on cost) or \"Current property value\" (on value).",
       "On cost: Yield is calculated as annual rent divided by purchase price plus refurb cost. This shows your return on actual money invested.",
       "On value: Yield is calculated as annual rent divided by current estimated value. This shows what the property yields at current market prices.",
@@ -607,15 +607,15 @@ const GUIDES = [
     ]},
   { id: 67, cat: 'settings', title: 'Setting up notifications & alerts', tags: ['notification','alert','setting','email'],
     steps: [
-      "Go to Settings > Notifications (under Portfolio Setup).",
+      "Go to Settings > Account > Notifications.",
       "Toggle each alert type on or off: Rent Arrears, Lease Expiry, Compliance Expiry, Vacant Properties, and Weekly Summary.",
       "These control which alerts appear in the Smart Alerts panel on your Dashboard.",
-      "The Weekly Summary sends a portfolio overview email every Monday (coming soon).",
+      "Weekly Summary emails you every Monday morning with last week's rent expected vs received, month-to-date collection, arrears and the properties owing most, certificates expiring or overdue in the next 30 days, tenancies ending in the next 60 days and how many properties are empty. It goes to your login email and covers only the companies you can access.",
       "Click \"Save Preferences\" to apply your changes.",
     ]},
   { id: 68, cat: 'settings', title: 'Managing user access (multi-user)', tags: ['access','user','multi','team','permission'],
     steps: [
-      "Go to Settings > Team & Access (under the Preferences group). You must be an admin to see this section.",
+      "Go to Settings > Companies & team > Team & Access. You must be an admin to see this section.",
       "Click \"Manage User Access\" to open the access management modal.",
       "You will see all users in your account with checkboxes for each company.",
       "Check a company to grant access or uncheck to revoke it.",
@@ -688,7 +688,7 @@ export default function HelpCenter() {
   return (
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 16 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Getting Started</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Getting Started</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.7 }}>
           Step-by-step guides for every feature in Properly. Search or browse by category.
         </div>
@@ -712,7 +712,7 @@ export default function HelpCenter() {
       {/* Category filter */}
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 20 }}>
         <button onClick={() => setActiveCat('all')}
-          style={{ fontFamily: mono, fontSize: 10, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+          style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
             border: `1px solid ${activeCat === 'all' ? T.gold : T.border}`,
             background: activeCat === 'all' ? T.gold + '22' : 'transparent',
             color: activeCat === 'all' ? T.goldText : T.muted, fontWeight: activeCat === 'all' ? 700 : 400 }}>
@@ -722,7 +722,7 @@ export default function HelpCenter() {
           const count = GUIDES.filter(g => g.cat === c.key).length
           return (
             <button key={c.key} onClick={() => setActiveCat(c.key)}
-              style={{ fontFamily: mono, fontSize: 10, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+              style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                 border: `1px solid ${activeCat === c.key ? T.gold : T.border}`,
                 background: activeCat === c.key ? T.gold + '22' : 'transparent',
                 color: activeCat === c.key ? T.goldText : T.muted, fontWeight: activeCat === c.key ? 700 : 400 }}>
@@ -743,7 +743,7 @@ export default function HelpCenter() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <span style={{ display:'flex' }}>{ICON_NAMES.includes(group.icon)?<Icon name={group.icon} size={18}/>:group.icon}</span>
               <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{group.label}</span>
-              <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>({group.guides.length})</span>
+              <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>({group.guides.length})</span>
             </div>
             <div style={{ display: 'grid', gap: 6 }}>
               {group.guides.map(guide => {
@@ -756,12 +756,12 @@ export default function HelpCenter() {
                         <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{guide.title}</div>
                         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                           {guide.tags.slice(0, 4).map(tag => (
-                            <span key={tag} style={{ fontFamily: mono, fontSize: 8, color: T.faint, background: T.bg, padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tag}</span>
+                            <span key={tag} style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, background: T.bg, padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tag}</span>
                           ))}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: T.muted }}>{guide.steps.length} steps</span>
+                        <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{guide.steps.length} steps</span>
                         <span style={{ fontFamily: mono, fontSize: 12, color: isOpen ? T.goldText : T.muted, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
                       </div>
                     </div>
@@ -773,7 +773,7 @@ export default function HelpCenter() {
                               {/* Step number + connector line */}
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 28 }}>
                                 <div style={{ width: 24, height: 24, borderRadius: 12, background: T.gold + '22', border: `1.5px solid ${T.gold}`,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: 10, fontWeight: 700, color: T.goldText, flexShrink: 0 }}>
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: T.goldText, flexShrink: 0 }}>
                                   {i + 1}
                                 </div>
                                 {i < guide.steps.length - 1 && (
@@ -797,7 +797,7 @@ export default function HelpCenter() {
       )}
 
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginTop: 8 }}>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Need more help?</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Need more help?</div>
         <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
           {"Email us at "}
           <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText, fontWeight: 700 }}>hello@ownproperly.com</a>

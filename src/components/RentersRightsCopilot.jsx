@@ -3,6 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
 import { safeOverlayClose } from '../lib/modalUtils'
+import { SkeletonList } from '../lib/Skeleton'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -131,7 +132,7 @@ function NoticeModal({ T, property, tenantName, onClose }) {
           {result && (
             <>
               <div style={{ fontSize: 11, color: T.goldText, marginBottom: 6 }}>
-                {result.confidence} · {result.model_used}
+                {result.confidence}
               </div>
               <pre style={{ whiteSpace: 'pre-wrap', fontFamily: "'DM Mono', monospace", fontSize: 12, background: T.surface, padding: 12, borderRadius: 6, maxHeight: '46vh', overflow: 'auto' }}>
                 {result.draft}
@@ -163,7 +164,7 @@ function RepairTimers({ T, propertyId }) {
     return () => { live = false }
   }, [propertyId])
 
-  if (loading) return <div style={{ color: T.muted, fontSize: 13 }}>Loading repair timers…</div>
+  if (loading) return <SkeletonList count={2} height={60}/>
   const open = timers.filter((t) => t.open)
   if (!open.length) return <div style={{ color: T.muted, fontSize: 13 }}>No open repairs. Awaab's-Law timers track open maintenance jobs.</div>
 
@@ -245,7 +246,7 @@ export function RentersRightsCopilot({ companyId, property }) {
     }
   }
 
-  if (loading) return <div style={{ color: T.muted, padding: 16 }}>Loading…</div>
+  if (loading) return <SkeletonList count={3}/>
   if (!companyId) return <div style={{ color: T.muted, padding: 16 }}>Select a company to track Renters Rights Act compliance.</div>
 
   const done = RRA_CHECKLIST.filter((i) => row?.[i.field]).length

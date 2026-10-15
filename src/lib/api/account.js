@@ -1,5 +1,7 @@
 // Account: user profile, auth, onboarding, referrals and dashboard prefs.
 import { supabase } from '../supabase'
+import { revokeAllApiTokens } from './apiAccess'
+import { logError } from '../logError'
 
 // ── USER PROFILE ──────────────────────────────────────────────────────────────
 export async function fetchUserProfile(userId) {
@@ -26,6 +28,8 @@ export async function updateUserPassword(currentPassword, newPassword, email) {
   if (signInErr) throw new Error('Current password is incorrect')
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw error
+  // New password: any API token minted under the old one stops working.
+  try { await revokeAllApiTokens() } catch (e) { logError('updateUserPassword:revokeApiTokens', e) }
 }
 
 export async function sendPasswordReset(email) {
@@ -69,16 +73,6 @@ export async function fetchOrCreateReferralCode(userId, email) {
 export async function fetchReferrals(userId) {
   const { data } = await supabase.from('referrals').select('*').eq('referrer_id', userId).order('created_at', { ascending: false })
   return data || []
-}
-
-// ── ONBOARDING EMAIL ──────────────────────────────────────────────────────────
-// No-op stub. The /functions/v1/onboarding-email edge function was
-// never deployed, so every call from App.jsx login → 404 + CORS spam
-// in the logs (was firing on every page load). Kept the export so we
-// don't have to rip the call site out; when we want real onboarding
-// emails, build the edge function and replace this body.
-export async function sendOnboardingEmail(_email, _name, _sequence) {
-  return null
 }
 
 // ── DASHBOARD WIDGET + SECTION PREFS ─────────────────────────────────────────

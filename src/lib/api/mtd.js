@@ -232,3 +232,16 @@ export async function submitMtdQuarter(submissionId) {
   if (data?.error) throw new Error(data.error)
   return data
 }
+
+// Is live HMRC filing switched on server-side (production credentials and
+// API host)? Anything else, including an older function deploy that doesn't
+// know the probe, reads as not live: the honest default.
+export async function fetchMtdLiveStatus() {
+  try {
+    const { data, error } = await supabase.functions.invoke('mtd-submit', { body: { action: 'status' } })
+    if (error) return false
+    return data?.live_filing_available === true
+  } catch {
+    return false
+  }
+}

@@ -8,6 +8,15 @@ describe('looksLikeCompanyInviteCode', () => {
     expect(looksLikeCompanyInviteCode('AB-CD')).toBe(true) // minimal valid shape
   })
 
+  it('accepts the server-generated 80-bit shape (3-char prefix + 16)', () => {
+    expect(looksLikeCompanyInviteCode('ABC-7K3XQ9MWR2TZHB4N')).toBe(true)
+    expect(looksLikeCompanyInviteCode('abc-7k3xq9mwr2tzhb4n')).toBe(true)
+  })
+
+  it('rejects a suffix longer than 16 characters', () => {
+    expect(looksLikeCompanyInviteCode('ABC-7K3XQ9MWR2TZHB4NX')).toBe(false)
+  })
+
   it('accepts lowercase by normalising to upper', () => {
     expect(looksLikeCompanyInviteCode('abc-7k3x')).toBe(true)
   })

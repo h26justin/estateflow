@@ -6,7 +6,7 @@
 // Shared by the Compliance surfaces — lives in its own file so the lazy
 // CompliancePage chunk and the main-bundle FeatureComponents don't drag
 // each other in.
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
 import { daysUntilDate } from '../lib/complianceStatus'
 
@@ -21,13 +21,13 @@ export default function EpcBadge({ property, T }) {
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
       <span style={{ width: 18, height: 18, borderRadius: 5, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 11, fontWeight: 700 }}>{band}</span>
       {breach ? (
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: T.red }}>
+        <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: T.red }}>
           {isLetProperty(property) ? 'below min E — cannot legally let' : 'below legal minimum E'}
         </span>
       ) : needsWork && days !== null && days > 0 ? (
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: T.amber }}>{days.toLocaleString('en-GB')}d to C</span>
+        <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: T.amber }}>{days.toLocaleString('en-GB')}d to C</span>
       ) : needsWork ? (
-        <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: T.red }}>below band C</span>
+        <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: T.red }}>below band C</span>
       ) : null}
     </span>
   )

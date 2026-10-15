@@ -5,7 +5,7 @@
 // treated as personal). See fetchMtdPropertyScope in src/lib/api/mtd.js.
 
 import { useState } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import {
   LEGAL_OWNER_PERSONAL, LEGAL_OWNER_LIMITED, isMissingLegalOwnerColumnError,
@@ -23,7 +23,7 @@ export function LegalOwnerChoice({ value, onChange, disabled = false, idPrefix =
   const helpId = `${idPrefix}-help`
   return (
     <fieldset aria-describedby={helpId} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
-      <legend style={{ padding: 0, marginBottom: 6, fontFamily: MONO, fontSize: 10, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>Legal owner</legend>
+      <legend style={{ padding: 0, marginBottom: 6, fontFamily: MONO, fontSize: FS.xs, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>Legal owner</legend>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {OPTIONS.map(([v, label, desc]) => {
           const checked = value === v
@@ -39,13 +39,13 @@ export function LegalOwnerChoice({ value, onChange, disabled = false, idPrefix =
                 onChange={() => onChange(v)} style={{ marginTop: 2, accentColor: T.gold, width: 'auto' }}/>
               <span>
                 <span style={{ fontWeight: 700, display: 'block' }}>{label}</span>
-                <span style={{ fontSize: 10, lineHeight: 1.4, color: T.muted }}>{desc}</span>
+                <span style={{ fontSize: FS.xs, lineHeight: 1.4, color: T.muted }}>{desc}</span>
               </span>
             </label>
           )
         })}
       </div>
-      <p id={helpId} style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.5, margin: '6px 0 0' }}>
+      <p id={helpId} style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.5, margin: '6px 0 0' }}>
         {LEGAL_OWNER_HELP}
       </p>
     </fieldset>
@@ -79,7 +79,7 @@ export default function CompanyLegalOwnerSetting({ company, canEdit, onUpdateCom
       <LegalOwnerChoice T={T} value={company.legal_owner ?? null} onChange={save}
         disabled={!canEdit || saving} idPrefix={`co-legal-owner-${company.id}`}/>
       {company.legal_owner == null && (
-        <div style={{ fontFamily: MONO, fontSize: 10, color: T.amber, marginTop: 6 }}>
+        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginTop: 6 }}>
           Not set yet — treated as personal until you choose.
         </div>
       )}

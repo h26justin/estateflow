@@ -5,6 +5,7 @@
 //   actual    thin dark bar   (what really happened)
 // Delayed / overdue rows are marked red. A dashed line marks today.
 import { useMemo } from 'react'
+import { FS } from '../../lib/styles'
 import {
   flatStages, isoDate, addDays, daysBetween, expectedStart, expectedEnd, stageDelay, STAGE_STATUS_CFG,
 } from '../../lib/refurbWorkspace'
@@ -49,7 +50,7 @@ export default function Gantt({ stages, today = new Date(), onOpen, T, maxRows, 
 
   return <div style={{ overflowX: 'auto' }}>
     <div style={{ minWidth: 680 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: `${labelW}px 1fr`, fontFamily: mono, fontSize: 9.5, color: T.muted }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `${labelW}px 1fr`, fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
         <div />
         <div style={{ position: 'relative', height: 18, borderBottom: `1px solid ${T.border}` }}>
           {weeks.map(w => <span key={w} style={{ position: 'absolute', left: `${pos(w)}%`, paddingLeft: 3, borderLeft: `1px solid ${T.border}`, height: 18, whiteSpace: 'nowrap' }}>{fmtShort(w)}</span>)}
@@ -65,7 +66,7 @@ export default function Gantt({ stages, today = new Date(), onOpen, T, maxRows, 
         const actual = span(isoDate(s.actual_start), isoDate(s.actual_end) || (s.actual_start && s.status !== 'complete' ? t : null))
         return <div key={s.id} style={{ display: 'grid', gridTemplateColumns: `${labelW}px 1fr`, alignItems: 'center', borderBottom: `1px solid ${T.border}55` }}>
           <button onClick={() => onOpen?.(s)} title={s.name}
-            style={{ textAlign: 'left', background: 'none', border: 'none', padding: `6px 8px 6px ${s.parent_id ? 20 : 4}px`, color: T.text, fontSize: s.parent_id ? 11.5 : 12.5, cursor: onOpen ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+            style={{ textAlign: 'left', background: 'none', border: 'none', padding: `6px 8px 6px ${s.parent_id ? 20 : 4}px`, color: T.text, fontSize: s.parent_id ? FS.sm : FS.base, cursor: onOpen ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 7, height: 7, borderRadius: 4, background: col, flexShrink: 0 }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
           </button>
@@ -78,8 +79,8 @@ export default function Gantt({ stages, today = new Date(), onOpen, T, maxRows, 
           </div>
         </div>
       })}
-      {maxRows && rows.length > maxRows && <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, padding: '6px 4px' }}>+ {rows.length - maxRows} more stages</div>}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8 }}>
+      {maxRows && rows.length > maxRows && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, padding: '6px 4px' }}>+ {rows.length - maxRows} more stages</div>}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8 }}>
         <span><span style={{ display: 'inline-block', width: 18, height: 9, border: `1.5px dashed ${T.muted}`, borderRadius: 5, verticalAlign: 'middle', marginRight: 5 }} />Planned</span>
         <span><span style={{ display: 'inline-block', width: 18, height: 8, background: T.gold, borderRadius: 4, verticalAlign: 'middle', marginRight: 5 }} />Forecast</span>
         <span><span style={{ display: 'inline-block', width: 18, height: 4, background: T.text, borderRadius: 2, verticalAlign: 'middle', marginRight: 5 }} />Actual</span>

@@ -31,16 +31,24 @@ export async function saveCompanyYearType(companyId, yearType) {
   await upsertCompanySettings(companyId, { year_type: yearType })
 }
 
+// Mirrors the public-assets bucket rules (2026-10-15_public_assets_limits.sql):
+// raster images only — no SVG, which can carry script in a public bucket.
+export const LOGO_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+export const LOGO_ACCEPT = LOGO_MIME_TYPES.join(',')
+
 export async function uploadCompanyLogo(companyId, file) {
+  if (!file || !LOGO_MIME_TYPES.includes(file.type)) {
+    throw new Error('Logo must be a PNG, JPG, WebP or GIF image')
+  }
   // Logos go to the public-assets bucket so they remain accessible without
   // authentication (e.g. embedded in PDFs, dashboards). Stored under the
   // landlord's user-folder so RLS limits writes/deletes to the owner.
   const userId = await uid()
-  const ext = file.name.split('.').pop()
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[file.type]
   const path = `${userId}/company_logos/${companyId}.${ext}`
   // Best-effort cleanup of any older logo (different ext, etc) to avoid orphans.
   await supabase.storage.from('public-assets').remove([path]).catch(()=>{})
-  const { error: upErr } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true })
+  const { error: upErr } = await supabase.storage.from('public-assets').upload(path, file, { upsert: true, contentType: file.type })
   if (upErr) throw upErr
   const { data } = supabase.storage.from('public-assets').getPublicUrl(path)
   // Same path on replace, so version the URL or the CDN keeps serving the old logo.

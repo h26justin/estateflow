@@ -4,6 +4,15 @@
 // auth.users.created_at falls on one of the offset days (1, 3, 7, 11, 13),
 // picks the right email template, and sends it via Resend.
 //
+// Day 0 (`welcome`) goes on the same daily run to users created in the last
+// WELCOME_WINDOW_HOURS (36h, so a run that starts a little late still covers
+// everyone since the previous run; trial_email_log stops a second send). It
+// replaced the old client-side sendOnboardingEmail stub. Because the welcome
+// and the day-1 email would otherwise land on the same run for anyone who
+// signed up after the previous run, day 1 also looks at users created two
+// days ago and holds off for anyone whose welcome went out in the last
+// DAY1_GAP_HOURS: they get day 1 on the next run instead.
+//
 // Suppression rules (any one = skip):
 //   - User has a paid subscription (subscriptions.status='active' on any company)
 //   - User opted out (user_profiles.email_unsubscribed=true)
@@ -52,6 +61,7 @@ const FROM_EMAIL      = Deno.env.get('FROM_EMAIL') || 'Justin at Properly <justi
 
 // Day-offset → template-key lookup. Keep these in sync with EMAIL_SEQUENCES.md.
 const TEMPLATES: Record<number, string> = {
+  0:  'welcome',
   1:  'add_first_property',
   3:  'compliance_check',
   7:  'mtd_itsa_pitch',
@@ -64,6 +74,30 @@ const TEMPLATES: Record<number, string> = {
 // deliverability than HTML for these "from a human" emails). If you want
 // rich HTML versions later, add them to the same record under .html.
 const BODY: Record<string, (ctx: any) => { subject: string; text: string }> = {
+  welcome: ({ firstName, appUrl }) => ({
+    subject: 'Welcome to Properly: 14 days, no card needed',
+    text: `Hi ${firstName},
+
+Welcome to Properly. You've got 14 days to put it through its paces, every feature unlocked, no card needed.
+
+Most landlords get a useful first win within 10 minutes. Three things worth doing today:
+
+1. Add your company (one per legal entity: your own name if you own personally, or your SPV's name)
+2. Add a property, or use "+ Add Block" if you've got a block of flats
+3. Record one rent payment to see how the tracker works
+
+→ Open Properly: ${appUrl}
+
+If you'd rather be shown around, reply to this email and I'll set up a 15-minute call to walk you through it.
+
+Anything broken or confusing? Just reply. It comes straight to me.
+
+Justin
+Founder, Properly
+
+P.S. Making Tax Digital for Income Tax is live. Properly's MTD practice mode runs against HMRC's sandbox, so you can rehearse a quarterly submission today with zero risk.
+`,
+  }),
   add_first_property: ({ firstName, appUrl }) => ({
     subject: 'Quick start: your first property in 90 seconds',
     text: `Hi ${firstName},
@@ -94,7 +128,7 @@ Quick midweek tip. Most landlord fines I've seen don't come from "doing somethin
 
 The four UK landlord compliance dates that catch people out:
 
-· Gas Safety (CP12) — every 12 months. Unlimited fine + 6 months prison + automatic Section 21 invalidation.
+· Gas Safety (CP12) — every 12 months. Unlimited fine + up to 6 months in prison.
 · EICR (electrical) — every 5 years. Up to £30,000 fine.
 · EPC — every 10 years (or when re-let if E or below). Up to £5,000 fine.
 · Right to Rent — per tenant, ongoing for time-limited. Up to £20,000 per occupier.
@@ -175,6 +209,11 @@ Justin
   }),
 }
 
+// Day 0 window and the minimum gap between the welcome and day 1.
+const WELCOME_WINDOW_HOURS = 36
+const DAY1_GAP_HOURS = 20
+const HOUR = 3600 * 1000
+
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
@@ -216,35 +255,47 @@ serve(async (req) => {
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
-  const today = new Date()
+  const now = new Date()
+  const today = new Date(now)
   today.setHours(0, 0, 0, 0)
 
   let totalSent = 0
   const errors: string[] = []
 
-  for (const dayOffset of Object.keys(TEMPLATES).map(Number)) {
+  // Query candidates. Use auth.users via the admin API since the
+  // service role can read it; we also pull user_profiles for name/optout.
+  // Paginate — a single page:1 call silently stops covering anyone beyond
+  // the first 200 accounts as the user base grows. Listed once per run and
+  // shared by every template.
+  const allUsers: any[] = []
+  for (let page = 1; page <= 50; page++) {
+    const { data: users, error: uerr } = await admin
+      .auth.admin.listUsers({ page, perPage: 200 })
+    if (uerr) { errors.push(`list users p${page}: ${uerr.message}`); break }
+    const batch = users?.users || []
+    allUsers.push(...batch)
+    if (batch.length < 200) break
+  }
+
+  // Ascending offsets: the welcome (0) is processed, and logged, before
+  // day 1 checks for it.
+  for (const dayOffset of Object.keys(TEMPLATES).map(Number).sort((a, b) => a - b)) {
     const tplKey = TEMPLATES[dayOffset]
     const tplBuilder = BODY[tplKey]
     if (!tplBuilder) continue
 
-    // Date range for users whose created_at = (today - dayOffset)
-    const from = new Date(today); from.setDate(from.getDate() - dayOffset)
-    const to   = new Date(from);  to.setDate(to.getDate() + 1)
-    const fromStr = from.toISOString()
-    const toStr   = to.toISOString()
-
-    // Query candidates. Use auth.users via the admin API since the
-    // service role can read it; we also pull user_profiles for name/optout.
-    // Paginate — a single page:1 call silently stops covering anyone beyond
-    // the first 200 accounts as the user base grows.
-    const allUsers: any[] = []
-    for (let page = 1; page <= 50; page++) {
-      const { data: users, error: uerr } = await admin
-        .auth.admin.listUsers({ page, perPage: 200 })
-      if (uerr) { errors.push(`list users p${page}: ${uerr.message}`); break }
-      const batch = users?.users || []
-      allUsers.push(...batch)
-      if (batch.length < 200) break
+    // Date range for users whose created_at = (today - dayOffset). The
+    // welcome uses a rolling window instead; day 1 reaches back one more
+    // day for anyone held over because their welcome had only just gone.
+    let fromStr: string, toStr: string
+    if (dayOffset === 0) {
+      fromStr = new Date(now.getTime() - WELCOME_WINDOW_HOURS * HOUR).toISOString()
+      toStr = now.toISOString()
+    } else {
+      const from = new Date(today); from.setDate(from.getDate() - dayOffset - (dayOffset === 1 ? 1 : 0))
+      const to   = new Date(today); to.setDate(to.getDate() - dayOffset + 1)
+      fromStr = from.toISOString()
+      toStr   = to.toISOString()
     }
 
     const candidates = allUsers.filter(u => {
@@ -256,7 +307,7 @@ serve(async (req) => {
 
     // Bulk-look up profiles + subscription status + already-sent log
     const ids = candidates.map(u => u.id)
-    const [profilesRes, subsRes, logRes, companiesRes] = await Promise.all([
+    const [profilesRes, subsRes, logRes, companiesRes, welcomeRes] = await Promise.all([
       admin.from('user_profiles').select('user_id, first_name, email_unsubscribed').in('user_id', ids),
       // Has-paid lookup straight off subscriptions.owner_id — checks every
       // subscription row rather than only the first of a joined array (this
@@ -264,7 +315,17 @@ serve(async (req) => {
       admin.from('subscriptions').select('owner_id, status').in('owner_id', ids),
       admin.from('trial_email_log').select('user_id').in('user_id', ids).eq('day_offset', dayOffset),
       admin.from('companies').select('id, owner_id').in('owner_id', ids),
+      // Day 1 only: welcomes sent too recently to follow up yet.
+      dayOffset === 1
+        ? admin.from('trial_email_log').select('user_id').in('user_id', ids).eq('day_offset', 0)
+            .gt('sent_at', new Date(now.getTime() - DAY1_GAP_HOURS * HOUR).toISOString())
+        : Promise.resolve({ data: [] as any[], error: null }),
     ])
+    // Fail closed on the lookups that suppress a send: a failed read must
+    // never look like "not paid / not sent / not unsubscribed".
+    const lookupErr = [profilesRes, subsRes, logRes, companiesRes, welcomeRes].find((r: any) => r.error) as any
+    if (lookupErr) { errors.push(`day ${dayOffset} lookups: ${lookupErr.error.message}`); continue }
+    const welcomedRecently = new Set((welcomeRes.data || []).map((r: any) => r.user_id))
 
     const profileMap: Record<string, any> = {}
     for (const p of (profilesRes.data || [])) profileMap[p.user_id] = p
@@ -279,6 +340,7 @@ serve(async (req) => {
     for (const user of candidates) {
       try {
         if (alreadySent.has(user.id)) continue
+        if (welcomedRecently.has(user.id)) continue // day 1 goes on the next run
         if (hasPaidUserIds.has(user.id)) continue
         if (!ownedCompaniesByUser.has(user.id)) continue // tenant/collaborator, not trial customer
         const profile = profileMap[user.id] || {}

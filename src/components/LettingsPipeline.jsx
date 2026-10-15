@@ -1,23 +1,28 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { Icon } from '../lib/icons'
 import { pressable } from '../lib/pressable'
+import { Button, EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = MONO
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n || 0)
 
-const STAGES = [
-  { key: 'vacant',       label: 'Vacant',       color: '#E05555', icon: 'home' },
-  { key: 'advertising',  label: 'Advertising',  color: '#4B8FE0', icon: 'megaphone' },
-  { key: 'viewings',     label: 'Viewings',     color: '#E0943A', icon: 'eye' },
-  { key: 'referencing',  label: 'Referencing',  color: '#9B59B6', icon: 'search' },
-  { key: 'contract',     label: 'Contract',     color: '#C8A84B', icon: 'file-text' },
-  { key: 'movein',       label: 'Move-in',      color: '#2ECC8A', icon: 'key' },
+// Stage hues are theme tokens; goldText for Contract because the colour is
+// used as text as well as a fill.
+const STAGE_DEFS = [
+  { key: 'vacant',       label: 'Vacant',       tone: 'red',      icon: 'home' },
+  { key: 'advertising',  label: 'Advertising',  tone: 'blue',     icon: 'megaphone' },
+  { key: 'viewings',     label: 'Viewings',     tone: 'amber',    icon: 'eye' },
+  { key: 'referencing',  label: 'Referencing',  tone: 'purple',   icon: 'search' },
+  { key: 'contract',     label: 'Contract',     tone: 'goldText', icon: 'file-text' },
+  { key: 'movein',       label: 'Move-in',      tone: 'green',    icon: 'key' },
 ]
+const stagesFor = T => STAGE_DEFS.map(s => ({ ...s, color: T[s.tone] }))
 // Inline stage label with its icon (not for <option>, which can't hold SVG).
 const StageTag = ({ stage, size = 13 }) => (
   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -88,6 +93,7 @@ function stageProgress(stage, checklist = {}) {
 
 export default function LettingsPipeline({ user, companies = [], properties = [], showToast, triggerNew = false, onNewHandled }) {
   const { T } = useTheme()
+  const STAGES = stagesFor(T)
   const confirmDialog = useConfirm()
   const [lettings, setLettings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -187,20 +193,20 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   const totalVacantDays = lettings.filter(l => l.stage === 'vacant').reduce((s, l) => s + (daysSince(l.created_at) || 0), 0)
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 7, padding: '8px 10px', outline: 'none', width: '100%', boxSizing: 'border-box' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }
 
   return (
     <div>
       {/* ── STAT CARDS ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
         {[
-          { label: 'Vacant', value: stageCounts.vacant || 0, color: '#E05555' },
-          { label: 'In progress', value: lettings.filter(l => !['vacant', 'movein'].includes(l.stage)).length, color: '#4B8FE0' },
-          { label: 'Moving in', value: stageCounts.movein || 0, color: '#2ECC8A' },
+          { label: 'Vacant', value: stageCounts.vacant || 0, color: T.red },
+          { label: 'In progress', value: lettings.filter(l => !['vacant', 'movein'].includes(l.stage)).length, color: T.blue },
+          { label: 'Moving in', value: stageCounts.movein || 0, color: T.green },
           { label: 'Rent pending', value: fmt(lettings.filter(l => l.stage !== 'vacant').reduce((s, l) => s + (l.agreed_rent || 0), 0)), color: T.goldText },
         ].map(s => (
           <div key={s.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px' }}>
-            <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5 }}>{s.label}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5 }}>{s.label}</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
           </div>
         ))}
@@ -245,7 +251,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <option key={p.id} value={p.id}>{p.name || p.address}</option>
                 ))}
               </select>
-              {triedSave && !newForm.property_id && <span id="lp-new-property-err" style={{ fontFamily: mono, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
+              {triedSave && !newForm.property_id && <span id="lp-new-property-err" style={{ fontFamily: mono, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
             </div>
             <div>
               <label style={lbl} htmlFor="lp-new-rent">Expected rent</label>
@@ -261,32 +267,24 @@ export default function LettingsPipeline({ user, companies = [], properties = []
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button type="submit" disabled={saving}
-              style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1A2530', cursor: 'pointer' }}>
+            <Button type="submit" size="sm" disabled={saving}>
               {saving ? 'Creating…' : 'Start letting'}
-            </button>
-            <button type="button" onClick={() => { setShowNewForm(false); setTriedSave(false) }}
-              style={{ fontFamily: mono, fontSize: 12, padding: '8px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => { setShowNewForm(false); setTriedSave(false) }}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, fontFamily: mono, color: T.muted, fontSize: 12 }}>Loading…</div>
+        <SkeletonRows rows={4} height={72}/>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom: 12 }}><Icon name="home" size={30} color={T.faint}/></div>
-          <div style={{ fontFamily: mono, fontSize: 13, color: T.muted, marginBottom: 16 }}>
-            {lettings.length === 0 ? 'No active lettings. Start tracking a property.' : 'No lettings in this stage.'}
-          </div>
-          {lettings.length === 0 && (
-            <button onClick={() => setShowNewForm(true)}
-              style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.gold, color: '#1A2530', cursor: 'pointer' }}>
-              + New letting
-            </button>
-          )}
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
+          <EmptyState icon="home"
+            title={lettings.length === 0 ? 'No active lettings' : 'No lettings in this stage.'}
+            body={lettings.length === 0 ? 'Start tracking a property.' : undefined}
+            action={lettings.length === 0 ? <Button size="sm" icon="plus" onClick={() => setShowNewForm(true)}>New letting</Button> : undefined}/>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 360px' : '1fr', gap: 14 }}>
@@ -317,7 +315,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         {coName}{coName && ' · '}{letting.agreed_rent ? fmt(letting.agreed_rent) + '/mo' : 'Rent TBC'}
                       </div>
                     </div>
-                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color, flexShrink: 0, marginLeft: 10 }}>
+                    <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color, flexShrink: 0, marginLeft: 10 }}>
                       <StageTag stage={stage}/>
                     </span>
                   </div>
@@ -328,11 +326,11 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7 }}>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                       {progress}% checklist · {letting.stage === 'vacant' && days !== null ? `${days} days vacant` : letting.applicant_name ? `Applicant: ${letting.applicant_name}` : 'No applicant yet'}
                     </div>
                     {letting.stage === 'vacant' && days > 14 && (
-                      <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily: mono, fontSize: 10, color: '#E05555' }}><Icon name="alert-triangle" size={11}/> {days} days</span>
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontFamily: mono, fontSize: FS.xs, color: T.red }}><Icon name="alert-triangle" size={11}/> {days} days</span>
                     )}
                   </div>
                 </div>
@@ -357,7 +355,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 3 }}>{propName}</div>
-                      <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color }}>
+                      <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: stage.color + '22', color: stage.color }}>
                         <StageTag stage={stage}/>
                       </span>
                     </div>
@@ -439,7 +437,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   {/* Checklist tab */}
                   {detailTab === 'checklist' && (
                     <div>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 12 }}>
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 12 }}>
                         Stage: {stage.label} · {checkItems.filter(i => checklist[i.key]).length}/{checkItems.length} complete
                       </div>
                       {/* Progress */}
@@ -452,7 +450,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                           <div style={{
                             width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: `2px solid ${checklist[item.key] ? stage.color : T.border}`,
                             background: checklist[item.key] ? stage.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 10, color: '#fff', transition: 'all 0.15s',
+                            fontSize: FS.xs, color: T.bg, transition: 'all 0.15s',
                           }}>
                             {checklist[item.key] ? '✓' : ''}
                           </div>
@@ -478,17 +476,17 @@ export default function LettingsPipeline({ user, companies = [], properties = []
 
                 {/* Actions */}
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 14 }}>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Actions</div>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Actions</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {nextStage && (
                       <button onClick={() => moveStage(selected.id, nextStageKey)}
-                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: nextStage.color, color: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: nextStage.color, color: T.bg, cursor: 'pointer', textAlign: 'left' }}>
                         Move to <StageTag stage={nextStage} size={12}/> →
                       </button>
                     )}
                     {selected.stage === 'movein' && (
                       <button onClick={() => moveStage(selected.id, null)}
-                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer', textAlign: 'left' }}>
+                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: T.green, color: T.bg, cursor: 'pointer', textAlign: 'left' }}>
                         Mark as let agreed — archive
                       </button>
                     )}

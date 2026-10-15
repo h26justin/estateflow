@@ -4,6 +4,8 @@ import { MONO } from '../lib/styles'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
+import { SkeletonList } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 import {
   BOOKKEEPING_CATEGORIES,
   listRules, createRule, updateRule, deleteRule,
@@ -28,7 +30,9 @@ function catLabel(c) {
   return (c || 'other').replace(/_/g, ' ')
 }
 
-export default function BookkeepingRules({ companyId, properties = [] }) {
+// canWrite=false (a read-only viewer) disables the run: bookkeeping-ai
+// requires has_company_write and would 403. Rule edits are gated by RLS.
+export default function BookkeepingRules({ companyId, properties = [], canWrite = true }) {
   const { T } = useTheme()
   const confirm = useConfirm()
   const mono = MONO
@@ -146,7 +150,7 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
     return m
   }, [properties])
 
-  const labelStyle = { fontFamily: mono, fontSize: 11, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }
+  const labelStyle = { fontFamily: mono, fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.5 }
   const inputStyle = { fontFamily: mono, fontSize: 13, padding: '8px 10px', background: T.inputBg || T.cardBg, color: T.text, border: `1px solid ${T.border}`, borderRadius: 6 }
 
   return (
@@ -158,7 +162,8 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
             Auto-categorise bank transactions with rules, then let AI draft the rest.
           </p>
         </div>
-        <button className="btn btn-gold" disabled={running || !companyId} onClick={runAI} style={{ fontSize: 12 }}>
+        <button className="btn btn-gold" disabled={running || !companyId || !canWrite} onClick={runAI} style={{ fontSize: 12 }}
+          title={canWrite ? undefined : 'Read-only access: an owner, admin or editor can run categorisation'}>
           {running ? 'Categorising…' : 'Run categorisation'}
         </button>
       </div>
@@ -184,7 +189,7 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
                   <div style={{ fontSize: 13 }}>
                     <strong>{fmt(s.amount)}</strong> · {s.counterparty || s.description || '—'}
                   </div>
-                  <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>
                     {s.description}
                   </div>
                   <div style={{ fontSize: 11, color: T.textFaint, marginTop: 4 }}>
@@ -245,15 +250,15 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
       {/* ── Existing rules ───────────────────────────────────────── */}
       <div style={labelStyle}>Rules {rules.length ? `(${rules.length})` : ''}</div>
       {loading ? (
-        <p style={{ fontSize: 12, color: T.textMuted, marginTop: 8 }}>Loading…</p>
+        <div style={{ marginTop: 8 }}><SkeletonList count={2} height={56}/></div>
       ) : rules.length === 0 ? (
-        <p style={{ fontSize: 12, color: T.textMuted, marginTop: 8 }}>No rules yet. Add one above — lower priority numbers run first.</p>
+        <EmptyState compact icon="list" title="No rules yet" body="Add one above — lower priority numbers run first." style={{ marginTop: 8 }}/>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
           {rules.map(r => (
             <div key={r.id} className="card" style={{ padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, opacity: r.active ? 1 : 0.5 }}>
               <div style={{ fontSize: 12 }}>
-                <span style={{ color: T.textMuted }}>#{r.priority}</span>{' '}
+                <span style={{ color: T.muted }}>#{r.priority}</span>{' '}
                 {r.match_field} contains <strong>"{r.match_pattern}"</strong> → <strong>{catLabel(r.set_category)}</strong>
                 {r.set_property_id ? <span style={{ color: T.textFaint }}>{' · '}{propName[r.set_property_id] || 'property'}</span> : null}
               </div>

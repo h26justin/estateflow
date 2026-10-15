@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import FocusTrap from '../../lib/FocusTrap'
+import { Icon, ICON_NAMES } from '../../lib/icons'
 
 export default function PaymentModal({ payment, onClose, onSave }) {
   const { T } = useTheme()
@@ -12,11 +13,11 @@ export default function PaymentModal({ payment, onClose, onSave }) {
   const [pending, setPending] = useState(null)
 
   const options = [
-    { status:'paid',    label:'Paid',     icon:'✓', color:T.green,  bg:'#0D2B1F', border:'#1A4A2E' },
-    { status:'overdue', label:'Not Paid', icon:'✗', color:T.red,    bg:'#2B1010', border:'#5C2C2C' },
-    { status:'late',    label:'Late',     icon:'⏱', color:T.amber,  bg:'#2B1A0A', border:'#5C3A1A' },
-    { status:'refurb',  label:'Refurb',   icon:'🔨', color:T.blue,   bg:'#0A1A2B', border:'#1A3A5C' },
-    { status:'void',    label:'Void',     icon:'○', color:T.faint,  bg:'#1A1D27', border:'#2E3044' },
+    { status:'paid',    label:'Paid',     icon:'check',  color:T.green },
+    { status:'overdue', label:'Not Paid', icon:'x',      color:T.red   },
+    { status:'late',    label:'Late',     icon:'clock',  color:T.amber },
+    { status:'refurb',  label:'Refurb',   icon:'hammer', color:T.blue  },
+    { status:'void',    label:'Void',     icon:'○',      color:T.faint },
   ]
 
   return (
@@ -24,7 +25,7 @@ export default function PaymentModal({ payment, onClose, onSave }) {
       <FocusTrap onEscape={onClose}>
       <div className="modal" style={{maxWidth:380}} role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
         <div style={{padding:'24px 28px'}}>
-          <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
+          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
           <h2 id="payment-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{payment.month_label}</h2>
           <div style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:24}}>
             Current status: <span style={{color:payment.status==='paid'?T.green:(payment.status==='overdue'||payment.status==='missed')?T.red:payment.status==='late'?T.amber:T.faint,fontWeight:700}}>{payment.status==='missed'?'overdue':payment.status}</span>
@@ -48,14 +49,14 @@ export default function PaymentModal({ payment, onClose, onSave }) {
                   }}
                   style={{
                     fontFamily:MONO,fontWeight:600,fontSize:13,
-                    background: isPending ? opt.color : (payment.status===opt.status ? opt.bg : T.surface),
+                    background: isPending ? opt.color : (payment.status===opt.status ? opt.color + '1A' : T.surface),
                     color: isPending ? '#fff' : opt.color,
                     border: `2px solid ${isPending || payment.status===opt.status ? opt.color : T.border}`,
                     borderRadius:10, padding:'14px 12px', cursor:'pointer',
                     transition:'all 0.18s', textAlign:'center',
                     display:'flex', flexDirection:'column', alignItems:'center', gap:6,
                   }}>
-                  <span style={{fontSize:20}}>{opt.icon}</span>
+                  <span aria-hidden="true" style={{fontSize:20,display:'flex',lineHeight:1}}>{ICON_NAMES.includes(opt.icon) ? <Icon name={opt.icon} size={20}/> : opt.icon}</span>
                   {isPending ? 'Confirm?' : opt.label}
                 </button>
               )

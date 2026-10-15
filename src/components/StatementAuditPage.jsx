@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -11,6 +11,8 @@ import {
   NON_COUNTING_REVIEW, round2, lineAmountOf, feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../lib/statementAudit'
 import { pressable } from '../lib/pressable'
+import { EmptyState, Button } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
 // A standalone register for auditing managing-agent rental statements and
@@ -376,21 +378,21 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
   }
 
   // ── Render helpers ───────────────────────────────────────────────────────
-  const label = (t) => <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{t}</div>
-  const pill = (text, colour) => <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: colour, background: colour + '22', border: `1px solid ${colour}55`, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{text}</span>
+  const label = (t) => <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{t}</div>
+  const pill = (text, colour) => <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: colour, background: colour + '22', border: `1px solid ${colour}55`, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{text}</span>
   const yesNo = (value, onChange, disabled) => (
     <div style={{ display: 'inline-flex', border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden' }}>
       {[true, false].map(v => (
         <button key={String(v)} type="button" disabled={disabled} onClick={() => onChange(v)}
-          style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 9px', border: 'none', cursor: disabled ? 'default' : 'pointer',
+          style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 9px', border: 'none', cursor: disabled ? 'default' : 'pointer',
             background: value === v ? (v ? T.green : T.amber) : 'transparent', color: value === v ? '#0E141A' : T.muted }}>
           {v ? 'Yes' : 'No'}
         </button>
       ))}
     </div>
   )
-  const th = (t, right) => <th style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: right ? 'right' : 'left', padding: '6px 8px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{t}</th>
-  const td = (content, opts = {}) => <td style={{ fontFamily: opts.mono === false ? undefined : MONO, fontSize: 11, color: opts.color || T.text, textAlign: opts.right ? 'right' : 'left', padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, whiteSpace: opts.wrap ? 'normal' : 'nowrap', maxWidth: opts.max || undefined, overflow: 'hidden', textOverflow: 'ellipsis' }} title={opts.title}>{content}</td>
+  const th = (t, right) => <th style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: right ? 'right' : 'left', padding: '6px 8px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{t}</th>
+  const td = (content, opts = {}) => <td style={{ fontFamily: opts.mono === false ? undefined : MONO, fontSize: 11, color: opts.color || T.text, textAlign: opts.right ? 'right' : 'left', padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, whiteSpace: opts.wrap ? 'normal' : 'nowrap', maxWidth: opts.max || undefined, overflow: 'hidden', textOverflow: 'ellipsis' }} title={opts.title} data-label={opts.label}>{content}</td>
 
   function totalsGrid(check) {
     const t = check.totals
@@ -424,7 +426,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
           <span>Difference: <b style={{ color: ok ? T.green : T.red }}>{check.difference == null ? '-' : fmt(check.difference)}</b></span>
         </div>
         {check.causes.length > 0 && (
-          <ul style={{ margin: '8px 0 0 16px', padding: 0, fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.6 }}>
+          <ul style={{ margin: '8px 0 0 16px', padding: 0, fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
             {check.causes.map((c, i) => <li key={i}>{c}</li>)}
           </ul>
         )}
@@ -434,7 +436,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
   function lineTable(list, { decisions = null, editable = false } = {}) {
     return (
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead><tr>
             {th('#')}{th('Type')}{th('Property (as shown)')}{th('Tenant')}{th('Period')}{th('Date')}
             {th('Gross rent', true)}{th('Fee', true)}{th('VAT', true)}{th('Deduction', true)}{th('Credit', true)}{th('Net', true)}
@@ -451,37 +453,37 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               const feeNote = chk ? describeFeeCheck(chk) : ''
               return (
                 <tr key={l.id || i} style={{ opacity: NON_COUNTING_REVIEW.has(l.review_status) && !decisions ? 0.55 : 1 }}>
-                  {td(l.line_no ?? i + 1, { color: T.muted })}
-                  {td(LINE_TYPE_LABEL[l.line_type] || l.line_type, { color: ['rent', 'arrears', 'other_income'].includes(l.line_type) ? T.green : l.line_type === 'transfer' ? T.blue : T.amber })}
-                  {td(l.property_address || <span style={{ color: T.red }}>missing</span>, { max: 260, title: l.property_address })}
-                  {td(l.tenant_name || (['rent', 'arrears', 'other_income'].includes(l.line_type) ? <span style={{ color: T.amber }}>not shown</span> : '-'), { max: 220, title: l.tenant_name })}
-                  {td(l.period_start ? `${fmtDate(l.period_start)} - ${fmtDate(l.period_end)}` : (l.line_type === 'rent' ? <span style={{ color: T.amber }}>missing</span> : '-'))}
-                  {td(fmtDate(l.transaction_date || l.statement_date), { color: T.muted })}
-                  {td(l.gross_rent ? fmt(l.gross_rent) : '', { right: true })}
-                  {td(l.fee_amount ? fmt(l.fee_amount) + (l.fee_pct != null ? ` (${l.fee_pct}%)` : '') : '', { right: true })}
-                  {td(l.vat_amount ? fmt(l.vat_amount) : '', { right: true })}
-                  {td(l.deduction_amount ? fmt(l.deduction_amount) : '', { right: true })}
-                  {td(l.credit_amount ? fmt(l.credit_amount) : '', { right: true })}
-                  {td(l.line_type === 'transfer' ? <span style={{ color: T.blue }}>{fmt(l.net_amount)} paid</span> : fmt(l.net_amount), { right: true, color: l.net_amount < 0 ? T.amber : T.text })}
-                  <td style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22` }}>
+                  {td(l.line_no ?? i + 1, { color: T.muted, label: '#' })}
+                  {td(LINE_TYPE_LABEL[l.line_type] || l.line_type, { color: ['rent', 'arrears', 'other_income'].includes(l.line_type) ? T.green : l.line_type === 'transfer' ? T.blue : T.amber, label: 'Type' })}
+                  {td(l.property_address || <span style={{ color: T.red }}>missing</span>, { max: 260, title: l.property_address, label: 'Property' })}
+                  {td(l.tenant_name || (['rent', 'arrears', 'other_income'].includes(l.line_type) ? <span style={{ color: T.amber }}>not shown</span> : '-'), { max: 220, title: l.tenant_name, label: 'Tenant' })}
+                  {td(l.period_start ? `${fmtDate(l.period_start)} - ${fmtDate(l.period_end)}` : (l.line_type === 'rent' ? <span style={{ color: T.amber }}>missing</span> : '-'), { label: 'Period' })}
+                  {td(fmtDate(l.transaction_date || l.statement_date), { color: T.muted, label: 'Date' })}
+                  {td(l.gross_rent ? fmt(l.gross_rent) : '', { right: true, label: 'Gross rent' })}
+                  {td(l.fee_amount ? fmt(l.fee_amount) + (l.fee_pct != null ? ` (${l.fee_pct}%)` : '') : '', { right: true, label: 'Fee' })}
+                  {td(l.vat_amount ? fmt(l.vat_amount) : '', { right: true, label: 'VAT' })}
+                  {td(l.deduction_amount ? fmt(l.deduction_amount) : '', { right: true, label: 'Deduction' })}
+                  {td(l.credit_amount ? fmt(l.credit_amount) : '', { right: true, label: 'Credit' })}
+                  {td(l.line_type === 'transfer' ? <span style={{ color: T.blue }}>{fmt(l.net_amount)} paid</span> : fmt(l.net_amount), { right: true, color: l.net_amount < 0 ? T.amber : T.text, label: 'Net' })}
+                  <td data-label={decisions ? 'Result' : 'Status'} style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22` }}>
                     {pill(d ? DECISION_LABEL[rs] : (REVIEW_LABEL[rs] || rs), colour)}
-                    {d?.note && <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, marginTop: 3 }}>{d.note}</div>}
-                    {!d && l.error_reason && <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, marginTop: 3, maxWidth: 260, whiteSpace: 'normal' }}>{l.error_reason}</div>}
+                    {d?.note && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>{d.note}</div>}
+                    {!d && l.error_reason && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3, maxWidth: 260, whiteSpace: 'normal' }}>{l.error_reason}</div>}
                   </td>
-                  <td style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, maxWidth: 220, whiteSpace: 'normal' }}>
-                    {flags.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, color: T.amber }}>{[...new Set(flags)].map(f => FLAG_LABEL[f] || f.replace(/_/g, ' ')).join(', ')}</div>}
-                    {feeNote && <div style={{ fontFamily: MONO, fontSize: 9, color: chk.ok ? T.green : T.amber, marginTop: 2 }}>{feeNote}</div>}
+                  <td data-label="Flags" style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, maxWidth: 220, whiteSpace: 'normal' }}>
+                    {flags.length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber }}>{[...new Set(flags)].map(f => FLAG_LABEL[f] || f.replace(/_/g, ' ')).join(', ')}</div>}
+                    {feeNote && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: chk.ok ? T.green : T.amber, marginTop: 2 }}>{feeNote}</div>}
                   </td>
                   {editable && (
                     <td style={{ padding: '4px 6px', borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap' }}>
-                      <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => startEditLine(l.statement_id, l)}>Edit</button>
+                      <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px' }} onClick={() => startEditLine(l.statement_id, l)}>Edit</button>
                       {l.review_status === 'possible_duplicate' && <>
-                        <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Keep &amp; count</button>
-                        <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'excluded')}>Exclude</button>
+                        <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Keep &amp; count</button>
+                        <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'excluded')}>Exclude</button>
                       </>}
-                      {l.review_status === 'correction_required' && <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Mark correct</button>}
-                      {l.review_status === 'excluded' && <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Count again</button>}
-                      <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px', marginLeft: 4, color: T.red }} onClick={() => removeLine(l)}>Delete</button>
+                      {l.review_status === 'correction_required' && <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Mark correct</button>}
+                      {l.review_status === 'excluded' && <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Count again</button>}
+                      <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4, color: T.red }} onClick={() => removeLine(l)}>Delete</button>
                     </td>
                   )}
                 </tr>
@@ -526,7 +528,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               {upload.step === 'done' && `Import summary - Statement ${upload.parsed.statementNumber}`}
               {upload.step === 'failed' && 'This statement could not be read'}
             </h2>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 2 }}>{upload.fileName}</div>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{upload.fileName}</div>
           </div>
           {upload.step !== 'saving' && <button onClick={() => setUpload(null)} aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, fontSize: 20, cursor: 'pointer' }}>✕</button>}
         </div>
@@ -556,12 +558,12 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   <div key={l} style={{ background: T.bg, borderRadius: 8, padding: '8px 10px' }}>{label(l)}<div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: T.text }}>{v}</div></div>
                 ))}
               </div>
-              {parsed.warnings.length > 0 && <div style={{ marginBottom: 10, fontFamily: MONO, fontSize: 10, color: T.amber }}>{parsed.warnings.join(' ')}</div>}
+              {parsed.warnings.length > 0 && <div style={{ marginBottom: 10, fontFamily: MONO, fontSize: FS.xs, color: T.amber }}>{parsed.warnings.join(' ')}</div>}
               {(parsed.numberAssigned || parsed.agent === 'RMS') && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '8px 12px', background: T.amber + '14', border: `1px solid ${T.amber}55`, borderRadius: 8 }}>
                   <label style={{ margin: 0 }}>Audit statement number</label>
                   <input aria-label="Audit statement number" type="number" value={parsed.statementNumber ?? ''} onChange={e => { const n = parseInt(e.target.value, 10); setUpload(compareForNumber(upload, statements, lines, Number.isFinite(n) ? n : null)) }} style={{ width: 90, fontSize: 12, padding: '5px 8px' }} />
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                  <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
                     This agent prints no sequential number{parsed.agentReference ? ` (agent reference ${parsed.agentReference}` : ''}{parsed.statementPeriodStart ? `${parsed.agentReference ? ', ' : ' ('}period ${fmtDate(parsed.statementPeriodStart)} to ${fmtDate(parsed.statementPeriodEnd)}` : ''}{parsed.agentReference || parsed.statementPeriodStart ? ')' : ''}. The next number in this run is suggested; change it if the statement belongs elsewhere in the sequence.
                   </span>
                 </div>
@@ -585,7 +587,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   {dec.map((d, i) => d.decision === 'correction_required' && (
                     <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 10px', background: T.bg, borderRadius: 8, marginBottom: 6 }}>
                       <input type="checkbox" style={{ width: 16, marginTop: 2 }} checked={upload.apply.has(i)} onChange={e => { const s = new Set(upload.apply); e.target.checked ? s.add(i) : s.delete(i); setUpload({ ...upload, apply: s }) }} />
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: T.text }}>
+                      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.text }}>
                         <div><b>Line {d.parsed.line_no}</b> {LINE_TYPE_LABEL[d.parsed.line_type]} - {d.parsed.property_address}</div>
                         {d.diff.map(x => <div key={x.field} style={{ color: T.muted }}>{x.field}: <span style={{ color: T.red }}>{String(x.from ?? '-')}</span> → <span style={{ color: T.green }}>{String(x.to ?? '-')}</span></div>)}
                         <div style={{ color: T.faint }}>Ticked: register line is updated (original values kept). Unticked: register line is flagged "Correction required" and left as it is.</div>
@@ -595,14 +597,14 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 </div>
               )}
               {compare.missingFromUpload.length > 0 && (
-                <div style={{ marginTop: 12, fontFamily: MONO, fontSize: 10, color: T.amber }}>
+                <div style={{ marginTop: 12, fontFamily: MONO, fontSize: FS.xs, color: T.amber }}>
                   On the register for this statement but not on the uploaded document (will be flagged, not deleted): {compare.missingFromUpload.map(m => `line ${m.line_no} ${m.property_address || ''} ${fmt(lineAmount(m))}`).join('; ')}
                 </div>
               )}
               {parsed.errors.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: T.red, marginBottom: 6 }}>Import errors - these entries will be listed on the statement for correction; the rest of the statement still imports.</div>
-                  {parsed.errors.map((e, i) => <div key={i} style={{ fontFamily: MONO, fontSize: 10, color: T.muted, padding: '4px 0' }}>Statement {parsed.statementNumber} · {e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · {e.reason} · "{e.description}"</div>)}
+                  {parsed.errors.map((e, i) => <div key={i} style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, padding: '4px 0' }}>Statement {parsed.statementNumber} · {e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · {e.reason} · "{e.description}"</div>)}
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
@@ -612,7 +614,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   {existing && existing.status !== 'not_uploaded' ? 'Confirm - update register' : 'Confirm import'}
                 </button>
               </div>
-              {showRaw && <pre style={{ marginTop: 10, maxHeight: 260, overflow: 'auto', fontFamily: MONO, fontSize: 10, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{upload.rawText}</pre>}
+              {showRaw && <pre style={{ marginTop: 10, maxHeight: 260, overflow: 'auto', fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{upload.rawText}</pre>}
             </div>
           )
         })()}
@@ -636,7 +638,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               <div style={{ display: 'grid', gap: 6 }}>
                 {rowsOut.map(([l, v]) => <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '7px 12px', background: T.bg, borderRadius: 8, fontFamily: MONO, fontSize: 11 }}><span style={{ color: T.muted }}>{l}</span><span style={{ color: T.text, fontWeight: 700, textAlign: 'right' }}>{String(v)}</span></div>)}
               </div>
-              {upload.results?.failed?.length > 0 && <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 10, color: T.red }}>{upload.results.failed.length} row{upload.results.failed.length === 1 ? '' : 's'} were refused by the database and added to the Import Errors list.</div>}
+              {upload.results?.failed?.length > 0 && <div style={{ marginTop: 10, fontFamily: MONO, fontSize: FS.xs, color: T.red }}>{upload.results.failed.length} row{upload.results.failed.length === 1 ? '' : 's'} were refused by the database and added to the Import Errors list.</div>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
                 <button className="btn btn-gold" onClick={() => setUpload(null)}>Open the statement</button>
               </div>
@@ -651,7 +653,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setEditLine(null) }}>
       <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 820, width: '96%', padding: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 10 }}>{editLine.id ? `Edit line ${editLine.draft.line_no}` : 'Add a line the parser missed'}</h3>
-        {editLine.draft.original_values && <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 8 }}>Original values from the statement are kept: {Object.entries(editLine.draft.original_values).filter(([, v]) => v != null && v !== 0 && v !== '').map(([k, v]) => `${k} ${v}`).join(', ')}</div>}
+        {editLine.draft.original_values && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>Original values from the statement are kept: {Object.entries(editLine.draft.original_values).filter(([, v]) => v != null && v !== 0 && v !== '').map(([k, v]) => `${k} ${v}`).join(', ')}</div>}
         {lineForm(editLine.draft, d => setEditLine({ ...editLine, draft: d }))}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button className="btn btn-ghost" onClick={() => setEditLine(null)}>Cancel</button>
@@ -665,7 +667,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setFixError(null) }}>
       <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 820, width: '96%', padding: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>Correct and re-process this entry</h3>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 10, whiteSpace: 'pre-wrap' }}>Reason: {fixError.reason}{fixError.raw ? `\nText on statement: ${fixError.raw}` : ''}</div>
+        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 10, whiteSpace: 'pre-wrap' }}>Reason: {fixError.reason}{fixError.raw ? `\nText on statement: ${fixError.raw}` : ''}</div>
         {lineForm(fixError.draft, d => setFixError({ ...fixError, draft: d }))}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button className="btn btn-ghost" onClick={() => setFixError(null)}>Cancel</button>
@@ -682,7 +684,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: T.text }}>Rental Statement Audit</h2>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 3, maxWidth: 720, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3, maxWidth: 720, lineHeight: 1.5 }}>
               A separate register for checking the agent's rental statements and matching them to the bank. It stores only what is printed on each statement and does not read or change any property, tenancy or rent record elsewhere in the app.
             </div>
           </div>
@@ -694,15 +696,15 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
             )}
             {currentSeries && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>Audit starts at</span>
+                <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>Audit starts at</span>
                 <input type="number" defaultValue={startNumber} key={currentSeries.id + startNumber} onBlur={e => Number(e.target.value) !== startNumber && saveStart(e.target.value)} style={{ width: 70, fontSize: 12, padding: '5px 8px' }} />
-                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginLeft: 6 }} title="The fee rate agreed with the agent. Every fee line is checked against it; the statement figures are never changed.">Agreed fee</span>
+                <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginLeft: 6 }} title="The fee rate agreed with the agent. Every fee line is checked against it; the statement figures are never changed.">Agreed fee</span>
                 <input type="number" step="0.01" placeholder="%" defaultValue={currentSeries.expected_fee_pct ?? ''} key={'fp' + currentSeries.id + currentSeries.expected_fee_pct}
                   onBlur={e => String(e.target.value) !== String(currentSeries.expected_fee_pct ?? '') && saveSeriesTerms({ expected_fee_pct: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: 62, fontSize: 12, padding: '5px 8px' }} />
-                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>% + VAT</span>
+                <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>% + VAT</span>
                 <input type="number" step="1" defaultValue={currentSeries.expected_fee_vat_pct ?? 0} key={'fv' + currentSeries.id + currentSeries.expected_fee_vat_pct}
                   onBlur={e => Number(e.target.value) !== Number(currentSeries.expected_fee_vat_pct ?? 0) && saveSeriesTerms({ expected_fee_vat_pct: Number(e.target.value) || 0 })} style={{ width: 52, fontSize: 12, padding: '5px 8px' }} />
-                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>%</span>
+                <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>%</span>
               </div>
             )}
             <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; handleFile(f) }} />
@@ -714,14 +716,12 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
         </div>
       </div>
 
-      {loading && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 20 }}>Loading the register…</div>}
+      {loading && <SkeletonRows rows={4}/>}
 
       {!loading && series.length === 0 && (
-        <div className="card" style={{ padding: 30, textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: T.text, marginBottom: 6 }}>No statements on the register yet</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 14 }}>Upload Statement {DEFAULT_START} to begin. Each upload is reviewed line by line before anything is written.</div>
-          <button className="btn btn-gold" onClick={() => fileRef.current?.click()}>Upload statement PDF</button>
-        </div>
+        <EmptyState icon="file-text" title="No statements on the register yet"
+          body={`Upload Statement ${DEFAULT_START} to begin. Each upload is reviewed line by line before anything is written.`}
+          action={<Button icon="upload" onClick={() => fileRef.current?.click()}>Upload statement PDF</Button>}/>
       )}
 
       {!loading && series.length > 0 && (
@@ -730,25 +730,25 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
           <div style={{ display: 'grid', gridTemplateColumns: errorRows.length ? '1fr 1fr' : '1fr', gap: 14, marginBottom: 14 }} className="detail-grid">
             <div className="card" style={{ padding: '14px 18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Missing statements (from {startNumber})</div>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Missing statements (from {startNumber})</div>
                 {pill(missing.length ? `${missing.length} missing` : 'Sequence complete', missing.length ? T.red : T.green)}
               </div>
               {missing.length > 0 ? (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
                   {missing.map(n => <button key={n} className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px', color: T.red, borderColor: T.red + '77' }} onClick={() => { const s = statements.find(x => x.statement_number === n); if (s) setSelectedId(s.id) }}>Statement {n}</button>)}
                 </div>
-              ) : <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 8 }}>Every number from {startNumber} to {Math.max(startNumber, ...statements.map(s => s.statement_number))} is on the register. A missing number is never assumed to have had no activity.</div>}
+              ) : <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 8 }}>Every number from {startNumber} to {Math.max(startNumber, ...statements.map(s => s.statement_number))} is on the register. A missing number is never assumed to have had no activity.</div>}
             </div>
             {errorRows.length > 0 && (
               <div className="card" style={{ padding: '14px 18px' }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Import errors</div>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Import errors</div>
                 {errorRows.map(r => (
                   <div key={r.s.id} style={{ marginBottom: 6 }}>
                     {r.errors.map((e, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', background: T.bg, borderRadius: 6, marginBottom: 4, fontFamily: MONO, fontSize: 10, color: T.text }}>
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', background: T.bg, borderRadius: 6, marginBottom: 4, fontFamily: MONO, fontSize: FS.xs, color: T.text }}>
                         <span style={{ color: T.red, fontWeight: 700 }}>Stmt {r.s.statement_number}</span>
                         <span style={{ flex: 1 }}>{e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · <span style={{ color: T.muted }}>{e.reason}</span></span>
-                        <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setFixError({ statementId: r.s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</button>
+                        <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px' }} onClick={() => setFixError({ statementId: r.s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</button>
                       </div>
                     ))}
                   </div>
@@ -760,7 +760,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
           {/* Register */}
           <div className="card" style={{ padding: '14px 18px', marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Statement register - {currentSeries?.landlord_company}</div>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Statement register - {currentSeries?.landlord_company}</div>
               <select value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 'auto', fontSize: 11, padding: '4px 8px' }}>
                 <option value="all">All statements</option>
                 <option value="attention">Needs attention</option>
@@ -768,7 +768,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               </select>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead><tr>{th('No.')}{th('Date')}{th('Status')}{th('Lines', true)}{th('Transferred', true)}{th('Expected', true)}{th('Difference', true)}{th('Balances')}{th('Checked?')}{th('Checked by')}{th('Corr.')}{th('Bank')}{th('')}</tr></thead>
                 <tbody>
                   {filteredRows.map(({ s, ls, check, errors }) => {
@@ -776,24 +776,24 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     const counted = ls.filter(l => !NON_COUNTING_REVIEW.has(l.review_status)).length
                     return (
                       <tr key={s.id} style={{ background: isSel ? T.gold + '14' : 'transparent', cursor: 'pointer' }} {...pressable(() => setSelectedId(isSel ? null : s.id), { role: null, 'aria-selected': isSel })}>
-                        {td(<b>{s.statement_number}</b>)}
-                        {td(fmtDate(s.statement_date) || '-', { color: T.muted })}
-                        <td style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
-                          <select value={s.status} onChange={e => patchStatement(s, { status: e.target.value })} style={{ width: 'auto', fontSize: 10, padding: '3px 6px', color: colours[s.status], fontWeight: 700, background: T.bg }}>
+                        {td(<b>{s.statement_number}</b>, { label: 'No.' })}
+                        {td(fmtDate(s.statement_date) || '-', { color: T.muted, label: 'Date' })}
+                        <td data-label="Status" style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
+                          <select value={s.status} onChange={e => patchStatement(s, { status: e.target.value })} style={{ width: 'auto', fontSize: FS.xs, padding: '3px 6px', color: colours[s.status], fontWeight: 700, background: T.bg }}>
                             {STATEMENT_STATUSES.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                           </select>
                         </td>
-                        {td(s.status === 'not_uploaded' ? '-' : `${counted}${ls.length !== counted ? ` (+${ls.length - counted})` : ''}${errors.length ? ` · ${errors.length} err` : ''}`, { right: true, color: errors.length ? T.red : T.text })}
-                        {td(s.payment_amount == null ? '-' : fmt(s.payment_amount), { right: true })}
-                        {td(check ? fmt(check.expected) : '-', { right: true })}
-                        {td(check && check.difference != null ? fmt(check.difference) : '-', { right: true, color: check && !check.balances ? T.red : T.green })}
-                        {td(check ? pill(check.balances ? 'Yes' : 'No', check.balances ? T.green : T.red) : '')}
-                        <td style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
+                        {td(s.status === 'not_uploaded' ? '-' : `${counted}${ls.length !== counted ? ` (+${ls.length - counted})` : ''}${errors.length ? ` · ${errors.length} err` : ''}`, { right: true, color: errors.length ? T.red : T.text, label: 'Lines' })}
+                        {td(s.payment_amount == null ? '-' : fmt(s.payment_amount), { right: true, label: 'Transferred' })}
+                        {td(check ? fmt(check.expected) : '-', { right: true, label: 'Expected' })}
+                        {td(check && check.difference != null ? fmt(check.difference) : '-', { right: true, color: check && !check.balances ? T.red : T.green, label: 'Difference' })}
+                        {td(check ? pill(check.balances ? 'Yes' : 'No', check.balances ? T.green : T.red) : '', { label: 'Balances' })}
+                        <td data-label="Checked?" style={{ padding: '4px 8px', borderBottom: `1px solid ${T.border}22` }} onClick={e => e.stopPropagation()}>
                           {yesNo(!!s.statement_checked, v => patchStatement(s, { statement_checked: v, checked_by: v ? (s.checked_by || user?.email || '') : s.checked_by, checked_at: v ? (s.checked_at || today()) : s.checked_at }), s.status === 'not_uploaded')}
                         </td>
-                        {td(s.checked_by ? `${s.checked_by}${s.checked_at ? ' · ' + fmtDate(s.checked_at) : ''}` : '', { color: T.muted, max: 200, title: s.checked_by })}
-                        {td(s.correction_required ? pill('Yes', T.amber) : <span style={{ color: T.faint }}>No</span>)}
-                        {td(s.bank_payment_matched ? pill('Yes', T.green) : <span style={{ color: T.faint }}>No</span>)}
+                        {td(s.checked_by ? `${s.checked_by}${s.checked_at ? ' · ' + fmtDate(s.checked_at) : ''}` : '', { color: T.muted, max: 200, title: s.checked_by, label: 'Checked by' })}
+                        {td(s.correction_required ? pill('Yes', T.amber) : <span style={{ color: T.faint }}>No</span>, { label: 'Corr.' })}
+                        {td(s.bank_payment_matched ? pill('Yes', T.green) : <span style={{ color: T.faint }}>No</span>, { label: 'Bank' })}
                         {td(<span style={{ color: T.goldText }}>{isSel ? 'Close' : 'Open'}</span>)}
                       </tr>
                     )
@@ -813,7 +813,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
                   <div>
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text }}>Statement {s.statement_number} {s.statement_date ? `· ${fmtDate(s.statement_date)}` : ''} {pill(STATUS_LABEL[s.status], colours[s.status])}</h3>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 3 }}>
+                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>
                       {s.landlord_company || currentSeries?.landlord_company}{s.landlord_name ? ` · ${s.landlord_name}` : ''}{s.agent ? ` · ${s.agent}` : ''}{s.file_name ? ` · ${s.file_name}` : ''}
                       {s.agent_reference ? ` · Agent ref ${s.agent_reference}` : ''}{s.statement_period_start ? ` · Period ${fmtDate(s.statement_period_start)} to ${fmtDate(s.statement_period_end)}` : ''}
                       {s.invoice_number && s.invoice_number !== s.agent_reference ? ` · Agent invoice ${s.invoice_number} ${fmtDate(s.invoice_date)} ${fmt(s.invoice_fees)}` : (s.invoice_fees != null ? ` · Fee invoice ${fmt(s.invoice_fees)}` : '')}
@@ -842,7 +842,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   <div style={{ gridColumn: 'span 4' }}><label>Notes</label><textarea aria-label="Notes" defaultValue={s.notes || ''} key={'n' + s.id} rows={2} onBlur={e => e.target.value !== (s.notes || '') && patchStatement(s, { notes: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px', resize: 'vertical' }} /></div>
                 </div>
                 {s.bank_paid_amount != null && s.payment_amount != null && Math.abs(round2(s.bank_paid_amount) - round2(s.payment_amount)) > 0.005 && (
-                  <div style={{ marginTop: 8, fontFamily: MONO, fontSize: 10, color: T.red }}>Bank received {fmt(s.bank_paid_amount)} but the statement shows {fmt(s.payment_amount)} transferred (difference {fmt(round2(s.bank_paid_amount - s.payment_amount))}).</div>
+                  <div style={{ marginTop: 8, fontFamily: MONO, fontSize: FS.xs, color: T.red }}>Bank received {fmt(s.bank_paid_amount)} but the statement shows {fmt(s.payment_amount)} transferred (difference {fmt(round2(s.bank_paid_amount - s.payment_amount))}).</div>
                 )}
 
                 {s.status === 'not_uploaded' ? (
@@ -852,7 +852,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 ) : (
                   <>
                     <div style={{ marginTop: 16 }}>{totalsGrid(check)}{balanceBlock(check)}</div>
-                    <div style={{ marginTop: 14, display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                    <div style={{ marginTop: 14, display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
                       <span>Statement income total: <b style={{ color: T.text }}>{s.stated_income_total == null ? '-' : fmt(s.stated_income_total)}</b></span>
                       <span>Statement expenditure total: <b style={{ color: T.text }}>{s.stated_expenditure_total == null ? '-' : fmt(s.stated_expenditure_total)}</b></span>
                       <span>Previous balance: <b style={{ color: T.text }}>{fmt(s.previous_balance)}</b></span>
@@ -865,22 +865,22 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                       <div style={{ marginTop: 14 }}>
                         <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: T.red, marginBottom: 6 }}>Import errors on this statement ({errors.length}) - the statement cannot be marked complete until these are resolved</div>
                         {errors.map((e, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', background: T.bg, borderRadius: 6, marginBottom: 4, fontFamily: MONO, fontSize: 10, color: T.text }}>
+                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', background: T.bg, borderRadius: 6, marginBottom: 4, fontFamily: MONO, fontSize: FS.xs, color: T.text }}>
                             <span style={{ flex: 1 }}>{e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · <span style={{ color: T.muted }}>{e.reason}</span>{e.description ? <span style={{ color: T.faint }}> · "{e.description}"</span> : ''}</span>
-                            <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setFixError({ statementId: s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</button>
+                            <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px' }} onClick={() => setFixError({ statementId: s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</button>
                           </div>
                         ))}
                       </div>
                     )}
 
                     <div style={{ marginTop: 14 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Transactions ({ls.length}) - every entry carries statement {s.statement_number}{s.statement_date ? ` dated ${fmtDate(s.statement_date)}` : ''}</div>
+                      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Transactions ({ls.length}) - every entry carries statement {s.statement_number}{s.statement_date ? ` dated ${fmtDate(s.statement_date)}` : ''}</div>
                       {ls.length ? lineTable(ls, { editable: true }) : <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>No lines recorded.</div>}
                     </div>
 
                     {summary && (
                       <details style={{ marginTop: 14 }}>
-                        <summary style={{ fontFamily: MONO, fontSize: 10, color: T.muted, cursor: 'pointer' }}>Last import summary ({new Date(summary.at).toLocaleString('en-GB')})</summary>
+                        <summary style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, cursor: 'pointer' }}>Last import summary ({new Date(summary.at).toLocaleString('en-GB')})</summary>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 8 }} className="kpi-grid">
                           {[['Transactions on statement', summary.transactions_on_statement], ['Imported', summary.imported], ['Previously imported', summary.previously_imported], ['Corrections', summary.corrections], ['Possible duplicates', summary.possible_duplicates], ['Import errors', summary.import_errors], ['Missing information', summary.missing_information], ['Balanced', summary.balances ? 'Yes' : 'No']].map(([l, v]) => (
                             <div key={l} style={{ background: T.bg, borderRadius: 6, padding: '6px 8px' }}>{label(l)}<div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.text }}>{String(v)}</div></div>
@@ -890,8 +890,8 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     )}
                     {s.raw_text && (
                       <details style={{ marginTop: 8 }}>
-                        <summary style={{ fontFamily: MONO, fontSize: 10, color: T.muted, cursor: 'pointer' }}>Extracted statement text (kept for re-processing)</summary>
-                        <pre style={{ marginTop: 6, maxHeight: 240, overflow: 'auto', fontFamily: MONO, fontSize: 10, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{s.raw_text}</pre>
+                        <summary style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, cursor: 'pointer' }}>Extracted statement text (kept for re-processing)</summary>
+                        <pre style={{ marginTop: 6, maxHeight: 240, overflow: 'auto', fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{s.raw_text}</pre>
                       </details>
                     )}
                   </>
@@ -915,7 +915,7 @@ function FailedUploadForm({ onSave, busy, T }) {
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 10 }}>
       <div style={{ width: 160 }}><label>Statement number</label><input aria-label="Statement number" type="number" value={n} onChange={e => setN(e.target.value)} style={{ fontSize: 12, padding: '6px 8px' }} /></div>
       <button className="btn btn-gold" disabled={busy || !n} onClick={() => onSave(n)}>Record as Import Error</button>
-      <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>or close and try another PDF</span>
+      <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>or close and try another PDF</span>
     </div>
   )
 }

@@ -7,7 +7,9 @@
 //      (called from the app's Settings → Security → API Access panel):
 //        POST   /api-access/tokens        { name?, expires_in_days? }
 //                 → mints a token, returns { token } ONCE plus metadata.
-//                   expires_in_days defaults to (and is capped at) 365.
+//                   expires_in_days defaults to 90, capped at 365.
+//                   If the user has a verified 2FA factor the session
+//                   must be aal2, else 403 { code: 'mfa_required' }.
 //        GET    /api-access/tokens        → list token metadata
 //        DELETE /api-access/tokens/:id    → revoke (sets revoked_at)
 //
@@ -31,15 +33,26 @@
 //     (api_access_tokens). Plaintext is returned exactly once at mint time.
 //   - Data routes are GET-only and read from fixed column whitelists —
 //     no secrets columns (statement_email_token etc.), no cross-tenant data.
-//   - Scoping mirrors the RLS rules: the user's own rows plus rows of
-//     companies they own or have user_company_access to. Soft-deleted rows
-//     are excluded. Service role is used the same way the other edge
+//   - Scoping mirrors the RLS rules: the user's own personal rows
+//     (company_id null) plus rows of companies they own or have
+//     user_company_access to, and only companies that are LIVE
+//     (public.company_is_live: active / trialing / past_due subscription,
+//     free tier or in trial). A suspended or lapsed company's data is not
+//     served. Soft-deleted rows are excluded.
+//   - Minting needs aal2 when the user has 2FA (a long-lived token must
+//     not be a way round the second factor). The app revokes every token
+//     when the password is changed or reset and on "sign out all devices"
+//     (revokeAllApiTokens in src/lib/api/apiAccess.js; a trigger on
+//     auth.users isn't possible, Supabase owns that table). A token whose
+//     user is deleted or banned is refused here on every request.
+//   - Service role is used the same way the other edge
 //     functions use it; RLS remains untouched.
 //   - No writes of any kind to portfolio data. The only writes here are the
 //     token rows themselves and last_used_at stamping.
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { tokenIsAal2, userHasVerifiedFactor, MFA_REQUIRED_CODE, MFA_REQUIRED_MESSAGE } from './authz.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -48,9 +61,10 @@ const TOKEN_PREFIX = 'opat_' // "OwnProperly access token"
 const DEFAULT_LIMIT = 200
 const MAX_LIMIT = 1000
 const MAX_TOKENS_PER_USER = 10
-// Every token expires. Default (and maximum) lifetime is one year; legacy
-// rows minted without an expiry are treated as expiring a year after
-// created_at.
+// Every token expires. Default lifetime is 90 days; a caller may ask for up
+// to a year explicitly. Legacy rows minted without an expiry are treated
+// as expiring a year after created_at.
+const DEFAULT_TOKEN_DAYS = 90
 const MAX_TOKEN_DAYS = 365
 const DAY_MS = 86_400_000
 
@@ -85,6 +99,10 @@ const MAINTENANCE_COLS = 'id, property_id, title, description, category, priorit
 
 // ── Access scoping — mirrors the RLS helpers (owner + shared companies) ──
 
+// Companies the token's user can read AND that are live. company_is_live
+// runs under the service role here, so its developer / platform-admin
+// bypass never applies: only the company's own subscription / free tier /
+// trial counts. Fails closed (an RPC error drops the company).
 async function accessibleCompanyIds(admin: any, userId: string): Promise<string[]> {
   const [owned, shared] = await Promise.all([
     admin.from('companies').select('id').eq('owner_id', userId).is('deleted_at', null),
@@ -93,15 +111,25 @@ async function accessibleCompanyIds(admin: any, userId: string): Promise<string[
   const ids = new Set<string>()
   for (const r of owned.data || []) ids.add(r.id)
   for (const r of shared.data || []) if (r.company_id) ids.add(r.company_id)
-  return [...ids]
+  const checks = await Promise.all([...ids].map(async id => {
+    const { data, error } = await admin.rpc('company_is_live', { p_company_id: id })
+    return !error && data === true ? id : null
+  }))
+  return checks.filter((id): id is string => !!id)
+}
+
+// The user's personal properties (no company) plus properties of the live
+// companies above. A property the user created inside a company is only
+// visible through that company, so a lapsed company's rows stay hidden.
+function propertyScopeClause(userId: string, companyIds: string[]): string {
+  return companyIds.length
+    ? `and(user_id.eq.${userId},company_id.is.null),company_id.in.(${companyIds.join(',')})`
+    : `and(user_id.eq.${userId},company_id.is.null)`
 }
 
 async function accessiblePropertyIds(admin: any, userId: string, companyIds: string[]): Promise<string[]> {
-  const orClause = companyIds.length
-    ? `user_id.eq.${userId},company_id.in.(${companyIds.join(',')})`
-    : `user_id.eq.${userId}`
   const { data, error } = await admin
-    .from('properties').select('id').or(orClause).is('deleted_at', null)
+    .from('properties').select('id').or(propertyScopeClause(userId, companyIds)).is('deleted_at', null)
   if (error) throw error
   return (data || []).map((r: any) => r.id)
 }
@@ -142,13 +170,20 @@ serve(async (req) => {
     if (!user) return json({ error: 'Unauthorised — token management requires a signed-in session' }, 401)
 
     if (req.method === 'POST' && route.length === 1) {
+      // 2FA step-up: a user with a verified factor must mint from an aal2
+      // session (bearer was verified by getUser above, so reading its
+      // claims is safe). Listing / revoking stays at aal1: both only
+      // reduce or reveal metadata of the user's own tokens.
+      if (await userHasVerifiedFactor(admin, user) && !tokenIsAal2(bearer)) {
+        return json({ error: MFA_REQUIRED_MESSAGE, code: MFA_REQUIRED_CODE }, 403)
+      }
       let body: any = {}
       try { body = await req.json() } catch { /* empty body is fine */ }
       const name = (typeof body.name === 'string' && body.name.trim().slice(0, 80)) || 'Claude'
       const expiresDays = Number(body.expires_in_days)
       const days = Number.isFinite(expiresDays) && expiresDays > 0
         ? Math.min(expiresDays, MAX_TOKEN_DAYS)
-        : MAX_TOKEN_DAYS
+        : DEFAULT_TOKEN_DAYS
       const expiresAt = new Date(Date.now() + days * DAY_MS).toISOString()
 
       const { count } = await admin.from('api_access_tokens')
@@ -218,6 +253,12 @@ serve(async (req) => {
   if (!Number.isFinite(expiryMs) || expiryMs <= Date.now()) return json({ error: 'Token expired' }, 401)
   if (!(tok.scopes || []).includes('read')) return json({ error: 'Token lacks read scope' }, 403)
 
+  // The owner must still be an active account: a banned or deleted user's
+  // tokens stop working immediately.
+  const { data: owner } = await admin.auth.admin.getUserById(tok.user_id)
+  const bannedUntil = owner?.user?.banned_until ? new Date(owner.user.banned_until).getTime() : 0
+  if (!owner?.user || bannedUntil > Date.now()) return json({ error: 'Invalid or revoked token' }, 401)
+
   // Fire-and-forget usage stamp.
   admin.from('api_access_tokens').update({ last_used_at: new Date().toISOString() }).eq('id', tok.id)
     .then(() => {}, () => {})
@@ -258,9 +299,7 @@ serve(async (req) => {
         if (requestedCompany) {
           q = q.eq('company_id', requestedCompany)
         } else {
-          q = q.or(companyIds.length
-            ? `user_id.eq.${userId},company_id.in.(${companyIds.join(',')})`
-            : `user_id.eq.${userId}`)
+          q = q.or(propertyScopeClause(userId, companyIds))
         }
         if (params.get('status')) q = q.eq('status', params.get('status'))
         const { data, error } = await q.order('created_at').range(offset, offset + limit - 1)

@@ -14,6 +14,7 @@ import {
 import Gantt from './Gantt'
 import { QuickText } from './StageDrawer'
 import { mono, btn, inputStyle, panel, sectionHead, StatusChip, Pill, Empty, fmtShort, fmtDate } from './ui'
+import { FS } from '../../lib/styles'
 
 export function JourneyStrip({ stages, onOpen, T }) {
   const tree = stageTree(stages).filter(s => s.status !== 'skipped')
@@ -31,8 +32,8 @@ export function JourneyStrip({ stages, onOpen, T }) {
             style={{ position: 'relative', width: 32, height: 32, borderRadius: 16, border: `2px solid ${done ? T.green : live ? c : T.border}`, background: done ? T.green : live ? c + '33' : T.card, color: done ? '#fff' : T.text, fontFamily: mono, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
             {done ? '✓' : i + 1}
           </button>
-          <div style={{ fontSize: 11.5, fontWeight: 700, marginTop: 6, padding: '0 4px', lineHeight: 1.2 }}>{s.name}</div>
-          <div style={{ fontFamily: mono, fontSize: 9.5, color: delay.overdue || delay.slippedDays ? T.red : T.muted, marginTop: 2 }}>
+          <div style={{ fontSize: FS.sm, fontWeight: 700, marginTop: 6, padding: '0 4px', lineHeight: 1.2 }}>{s.name}</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: delay.overdue || delay.slippedDays ? T.red : T.muted, marginTop: 2 }}>
             {delay.overdue ? 'Overdue' : delay.slippedDays ? `${delay.slippedDays}d late` : s.status_label || STAGE_STATUS_CFG[s.status]?.label}
           </div>
         </div>
@@ -43,7 +44,7 @@ export function JourneyStrip({ stages, onOpen, T }) {
 
 export function ProgressExplainer({ stages, tasks, T }) {
   const wp = worksProgress(stages, tasks)
-  return <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.6 }}>
+  return <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
     <b style={{ color: T.text }}>How works progress is worked out.</b> Each live stage counts once (or by its weight). Complete = 100%, not started = 0%. A stage under way uses its recorded progress %, else the share of its checklist ticked; a stage with substages averages them. Skipped and archived stages are left out. This measures the work, not the money: the % paid is shown separately under Costs.
     {wp.hasJourney && <div style={{ marginTop: 4 }}>Now: {wp.complete} of {wp.counted} stages complete, works progress {wp.pct}%.{wp.missing > 0 && <span style={{ color: T.amber }}> {wp.missing} {wp.missing === 1 ? 'stage is' : 'stages are'} under way with no progress recorded, counted as 0%.</span>}</div>}
   </div>
@@ -85,8 +86,8 @@ export default function JourneyTab({ ws }) {
     return <div key={s.id} style={{ display: 'grid', gridTemplateColumns: rowGrid, gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${T.border}`, opacity: skipped ? 0.55 : 1 }}>
       {!isMobile && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted, textAlign: 'right' }}>{depth ? '' : idx + 1}</span>}
       <button onClick={() => ws.openStage(s.id)} style={{ textAlign: 'left', background: 'none', border: 'none', padding: `0 0 0 ${depth ? 18 : 0}px`, cursor: 'pointer', color: T.text, minWidth: 0 }}>
-        <div style={{ fontWeight: depth ? 500 : 700, fontSize: depth ? 12.5 : 13.5, textDecoration: skipped ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{depth ? '↳ ' : ''}{s.name}</div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: delay.overdue || delay.slippedDays ? T.red : T.muted, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div style={{ fontWeight: depth ? 500 : 700, fontSize: depth ? FS.base : 13.5, textDecoration: skipped ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{depth ? '↳ ' : ''}{s.name}</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: delay.overdue || delay.slippedDays ? T.red : T.muted, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {isMobile && <StatusChip stage={s} T={T} />}
           <span>{s.contractor_name || s.responsible_name || 'Unassigned'}</span>
           {delay.overdue && <span>· {delay.overdueDays}d overdue</span>}
@@ -99,8 +100,8 @@ export default function JourneyTab({ ws }) {
             {statusOptions(project.custom_statuses).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         : <StatusChip stage={s} T={T} />)}
-      {!isMobile && <span style={{ fontFamily: mono, fontSize: 10.5, color: T.muted }} title="Planned">{s.planned_start || s.planned_end ? `${fmtShort(s.planned_start)} – ${fmtShort(s.planned_end)}` : 'No plan'}</span>}
-      {!isMobile && <span style={{ fontFamily: mono, fontSize: 10.5, color: s.forecast_end && s.forecast_end !== s.planned_end ? T.goldText : T.muted }} title="Forecast finish">{expectedEnd(s) ? `→ ${fmtShort(s.actual_end || expectedEnd(s))}` : ''}</span>}
+      {!isMobile && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }} title="Planned">{s.planned_start || s.planned_end ? `${fmtShort(s.planned_start)} – ${fmtShort(s.planned_end)}` : 'No plan'}</span>}
+      {!isMobile && <span style={{ fontFamily: mono, fontSize: FS.xs, color: s.forecast_end && s.forecast_end !== s.planned_end ? T.goldText : T.muted }} title="Forecast finish">{expectedEnd(s) ? `→ ${fmtShort(s.actual_end || expectedEnd(s))}` : ''}</span>}
       {!isMobile && <span style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{Math.round(comp.value * 100)}%</span>}
       <div style={{ display: 'flex', gap: 3, justifyContent: 'flex-end' }}>
         {canEdit && !isMobile && <>
@@ -133,7 +134,7 @@ export default function JourneyTab({ ws }) {
       {archived.length > 0 && <div style={{ marginTop: 12 }}>
         <button onClick={() => setShowArchived(v => !v)} style={btn(T)}>{showArchived ? 'Hide' : 'Show'} archived stages ({archived.length})</button>
         {showArchived && archived.map(s => <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${T.border}`, gap: 8 }}>
-          <span style={{ fontSize: 13, color: T.muted }}>{s.parent_id ? '↳ ' : ''}{s.name} <span style={{ fontFamily: mono, fontSize: 10 }}>· archived {fmtShort(s.archived_at)}</span></span>
+          <span style={{ fontSize: 13, color: T.muted }}>{s.parent_id ? '↳ ' : ''}{s.name} <span style={{ fontFamily: mono, fontSize: FS.xs }}>· archived {fmtShort(s.archived_at)}</span></span>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => ws.openStage(s.id)} style={btn(T)}>View</button>
             {canEdit && <button onClick={() => ops.restoreStage(s)} style={btn(T)}>Restore</button>}
@@ -174,16 +175,16 @@ function LegacyChecklist({ ws }) {
   }
   return <div style={panel(T)}>
     <div style={sectionHead(T)}><span>Earlier checklist</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{rows.filter(m => m.completed).length}/{rows.length}</span></div>
-    <div style={{ fontFamily: mono, fontSize: 10.5, color: T.faint, marginBottom: 8 }}>Ticked on the earlier refurb tracker before the journey existed. Kept for the record; the journey above is what counts now.</div>
+    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginBottom: 8 }}>Ticked on the earlier refurb tracker before the journey existed. Kept for the record; the journey above is what counts now.</div>
     {rows.filter(m => m.is_enabled !== false).map(m => <label key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', fontSize: 13, color: m.completed ? T.muted : T.text }}>
       <input type="checkbox" checked={m.completed} disabled={!canEdit} onChange={() => toggle(m)} style={{ width: 16, height: 16, margin: 0 }} />
       <span style={{ flex: 1 }}>{m.label}</span>
-      {m.completed_date && <span style={{ fontFamily: mono, fontSize: 10, color: T.faint }}>{fmtDate(m.completed_date)}</span>}
+      {m.completed_date && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{fmtDate(m.completed_date)}</span>}
     </label>)}
   </div>
 }
 
-const iconBtn = T => ({ fontFamily: mono, fontSize: 10.5, padding: '3px 7px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, cursor: 'pointer', color: T.muted, minHeight: 26 })
+const iconBtn = T => ({ fontFamily: mono, fontSize: FS.xs, padding: '3px 7px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, cursor: 'pointer', color: T.muted, minHeight: 26 })
 
 function TemplatePicker({ ws }) {
   const { ops, project, canEdit, templates, T } = ws
@@ -196,8 +197,8 @@ function TemplatePicker({ ws }) {
   const card = (tpl, key, sub) => <button key={key} disabled={busy} onClick={() => go(tpl)}
     style={{ textAlign: 'left', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 14, cursor: 'pointer', color: T.text }}>
     <div style={{ fontWeight: 700, marginBottom: 4 }}>{tpl.name}</div>
-    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 8 }}>{sub}</div>
-    <div style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.5 }}>{(tpl.stages || []).map(s => s.name).join(' → ')}</div>
+    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>{sub}</div>
+    <div style={{ fontSize: FS.sm, color: T.muted, lineHeight: 1.5 }}>{(tpl.stages || []).map(s => s.name).join(' → ')}</div>
   </button>
   return <div>
     <div style={{ ...panel(T), marginBottom: 14 }}>
@@ -229,7 +230,7 @@ function StatusEditor({ ws, onClose }) {
         <button onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} style={btn(T)} aria-label="Remove status">✕</button>
       </div>)}
       <button onClick={() => setRows(rs => [...rs, { _key: rowKey(), label: '', category: 'blocked' }])} style={btn(T)}>+ Add status</button>
-      <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 10 }}>Removing a status here does not change stages already using it; they keep the label until changed.</div>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 10 }}>Removing a status here does not change stages already using it; they keep the label until changed.</div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
         <button onClick={onClose} style={btn(T)}>Cancel</button>
         <button disabled={saving} onClick={async () => { setSaving(true); const ok = await ops.updateProject({ custom_statuses: clean }); setSaving(false); if (ok) onClose() }} style={btn(T, 'gold')}>{saving ? 'Saving…' : 'Save statuses'}</button>
@@ -248,7 +249,7 @@ export function CascadeModal({ moves, projectEnd, newEnd, onApply, onSkip, T }) 
       <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>This change affects later work</h2>
       <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12 }}>These stages wait for the one you changed. Confirm to move their forecast dates. Planned dates (the original programme) do not change.</div>
       {moves.map(m => <div key={m.stage_id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 8, padding: '7px 0', borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
-        <span><b>{m.name}</b><div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>waits for {m.because}</div></span>
+        <span><b>{m.name}</b><div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>waits for {m.because}</div></span>
         <span style={{ fontFamily: mono, fontSize: 11 }}>{fmtShort(m.from_start)} – {fmtShort(m.from_end)}</span>
         <span style={{ fontFamily: mono, fontSize: 11, color: T.goldText }}>→ {fmtShort(m.to_start)} – {fmtShort(m.to_end)} <Pill color={T.red} T={T}>+{m.days}d</Pill></span>
       </div>)}

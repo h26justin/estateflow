@@ -28,6 +28,8 @@ import Gantt from './Gantt'
 import { Icon } from '../../lib/icons'
 import MoneyInput from '../../lib/MoneyInput'
 import { mono, fmt, fmtDate, btn, inputStyle, panel, sectionHead, Field, Pill, Bar, Tile, todayISO } from './ui'
+import { FS } from '../../lib/styles'
+import { SkeletonRows, SkeletonTiles } from '../../lib/Skeleton'
 
 export const WORKSPACE_TABS = [
   ['overview', 'Overview'],
@@ -382,7 +384,7 @@ export default function RefurbWorkspace({
             {project.archived_at && <Pill color={T.muted} T={T}>Archived</Pill>}
           </div>
           <h2 style={{ margin: 0, fontSize: isMobile ? 21 : 26, fontWeight: 800, letterSpacing: '-0.01em' }}>{project.title && project.title !== 'Refurbishment' ? project.title : `${ws.propertyName} refurb`}</h2>
-          <div style={{ fontFamily: mono, fontSize: 11.5, color: T.muted, marginTop: 4 }}>{company?.name || company?.abbr || 'No company'} · {property?.prop_type || 'Property type not set'}</div>
+          <div style={{ fontFamily: mono, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>{company?.name || company?.abbr || 'No company'} · {property?.prop_type || 'Property type not set'}</div>
         </div>
         <select value={project.stage} disabled={!canEdit} onChange={e => changeOverall(e.target.value)} aria-label="Overall status"
           style={{ ...inputStyle(T), width: 'auto', fontWeight: 700, color: STAGE_CFG[project.stage]?.color }}>
@@ -393,7 +395,7 @@ export default function RefurbWorkspace({
         {onOpenProperty && <button onClick={onOpenProperty} style={btn(T)}>Property record ↗</button>}
         {project.deal_id && onOpenDeal && <button onClick={onOpenDeal} style={btn(T)}>Linked deal ↗</button>}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 14px', marginTop: 12, fontSize: 12.5 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 14px', marginTop: 12, fontSize: FS.base }}>
         <Detail label="Address" value={property?.address || '—'} T={T} wide />
         <Detail label="Occupancy" value={occupancy} T={T} />
         <Detail label="Acquired" value={property?.purchase_date ? fmtDate(property.purchase_date) : 'Not recorded'} T={T} />
@@ -401,7 +403,7 @@ export default function RefurbWorkspace({
         <Detail label="Main contractor" value={project.contractor_name || 'Not assigned'} T={T} />
         <Detail label="Current stage" value={cur ? cur.name : wp.hasJourney ? 'All stages complete' : 'No journey yet'} T={T} onClick={() => onSection('journey')} />
         <div>
-          <div style={{ fontFamily: mono, fontSize: 9.5, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Works progress</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Works progress</div>
           {wp.hasJourney ? <><div style={{ fontWeight: 700 }}>{wp.pct}%</div><Bar pct={wp.pct} T={T} height={5} /></> : <div style={{ color: T.faint }}>No journey yet</div>}
         </div>
       </div>
@@ -436,7 +438,7 @@ export default function RefurbWorkspace({
     {hero}
     {tabs}
     {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: mono, fontSize: 12 }}>{error} <button onClick={ops.reload} style={btn(T)}>Try again</button></div>}
-    {loading && !error && <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: 20 }}>Loading the workspace…</div>}
+    {loading && !error && <div aria-busy="true" aria-label="Loading the workspace" style={{ padding: 20 }}><SkeletonTiles count={4}/><div style={{ marginTop: 16 }}><SkeletonRows rows={4}/></div></div>}
     {!loading && !error && <>
       {section === 'overview' && <Overview ws={ws} wp={wp} cur={cur} t={t} ffc={ffc} invoiced={invoiced} onSection={onSection} />}
       {section === 'journey' && <JourneyTab ws={ws} />}
@@ -451,7 +453,7 @@ export default function RefurbWorkspace({
 
 function Detail({ label, value, T, wide, onClick, color }) {
   const inner = <>
-    <div style={{ fontFamily: mono, fontSize: 9.5, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
     <div style={{ fontWeight: 600, color: color || T.text, overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
   </>
   if (onClick) return <button onClick={onClick} style={{ textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: T.text, gridColumn: wide ? '1 / -1' : undefined, minWidth: 0, fontSize: 'inherit' }}>{inner}</button>
@@ -462,12 +464,12 @@ function DateCell({ label, value, editable, onSave, note, warn, T }) {
   const [v, setV] = useState(isoDate(value) || '')
   useEffect(() => { setV(isoDate(value) || '') }, [value])
   return <div style={{ minWidth: 0 }}>
-    <div style={{ fontFamily: mono, fontSize: 9.5, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
     {editable
       ? <input type="date" value={v} aria-label={label} onChange={e => setV(e.target.value)}
           onBlur={async () => { const r = await onSave(v); if (r === false) setV(isoDate(value) || '') }} style={{ ...inputStyle(T), padding: '4px 6px', marginTop: 2 }} />
       : <div style={{ fontWeight: 600 }}>{value ? fmtDate(value) : '—'}</div>}
-    {note && <div style={{ fontFamily: mono, fontSize: 9.5, color: warn ? T.red : T.faint, marginTop: 2 }}>{note}</div>}
+    {note && <div style={{ fontFamily: mono, fontSize: FS.xs, color: warn ? T.red : T.faint, marginTop: 2 }}>{note}</div>}
   </div>
 }
 
@@ -511,7 +513,7 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
           <input value={na.text} onChange={e => setNa(x => ({ ...x, text: e.target.value }))} disabled={!canEdit} placeholder="e.g. Approve kitchen layout" aria-label="Next action"
             onBlur={() => { const v = na.text.trim() || null; if (v !== (project.next_action || null)) ops.updateProject({ next_action: v }) }} style={inputStyle(T)} />
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Due</span>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>Due</span>
             <input type="date" value={na.due} disabled={!canEdit} aria-label="Next action due" onChange={e => setNa(x => ({ ...x, due: e.target.value }))}
               onBlur={() => { const v = na.due || null; if (v !== (project.next_action_due || null)) ops.updateProject({ next_action_due: v }) }} style={{ ...inputStyle(T), width: 'auto' }} />
           </div>
@@ -521,14 +523,14 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
           {attention.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No overdue tasks, blocked or delayed stages.</div>}
           {attention.map(a => <button key={a.key} onClick={a.onClick || undefined} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderLeft: `3px solid ${a.color}`, padding: '6px 10px', marginBottom: 6, cursor: a.onClick ? 'pointer' : 'default', color: T.text }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{a.text}</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{a.sub}</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{a.sub}</div>
           </button>)}
         </div>
         <ProjectDetails ws={ws} />
         <div style={panel(T)}>
           <div style={sectionHead(T)}><span>Money at a glance</span><button onClick={() => onSection('costs')} style={btn(T)}>Costs</button></div>
           <MoneyRows rows={[['Agreed budget', t.agreed], ['Invoiced', invoiced], ['Paid', t.paid], ['Forecast final cost', ffc.value]]} T={T} />
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 6 }}>Paid {t.pct}% of agreed. Works progress {wp.hasJourney ? `${wp.pct}%` : 'not tracked yet'}. The two are measured separately.</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 6 }}>Paid {t.pct}% of agreed. Works progress {wp.hasJourney ? `${wp.pct}%` : 'not tracked yet'}. The two are measured separately.</div>
         </div>
       </div>
     </div>
@@ -619,7 +621,7 @@ function CostsTab({ ws, t, ffc, invoiced, children }) {
       </div>
       <div>
         <div style={sectionHead(T)}><span>Forecast final cost</span>{ffc.overridden && <Pill color={T.amber} T={T}>Set by PM</Pill>}</div>
-        <div style={{ fontFamily: mono, fontSize: 10.5, color: T.muted, lineHeight: 1.6 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
           Calculated as the larger of the revised approved budget ({fmt(t.agreed)}) and invoiced plus committed-not-yet-invoiced ({fmt(invoiced)} + {fmt(0)}): <b style={{ color: T.text }}>{fmt(ffc.calculated)}</b>. Committed orders come from procurement records once they exist. Pending variations never change it until approved.
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10 }}>
@@ -649,7 +651,7 @@ function HistoryTab({ ws }) {
     </div>
     {rows.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Nothing recorded yet. Changes to dates, stages, budgets and sign-offs appear here, with who made them and why.</div>}
     {rows.map(e => <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0 }}>
-      {e.stage_id && <div style={{ fontFamily: mono, fontSize: 9.5, color: T.goldText, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
+      {e.stage_id && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
       <HistoryRow e={e} T={T} />
     </div>)}
     <div style={{ marginTop: 10 }}><ProgressExplainer stages={data.stages} tasks={data.tasks} T={T} /></div>

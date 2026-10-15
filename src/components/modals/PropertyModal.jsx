@@ -8,7 +8,7 @@ import { HEATING_TYPES, LICENSING_SCHEMES, canonicalCertType } from '../../lib/c
 import { showAppToast } from '../../lib/toast'
 import { fetchEstateAgents } from '../../lib/api/ownership'
 import FocusTrap from '../../lib/FocusTrap'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 
 // Light section header used to break the long form into scannable groups.
 // Just a divider + an uppercase mono caption — no card, so it stays cheap
@@ -209,21 +209,21 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           <div>
             <label htmlFor="pm-name">Property Name *</label>
             <input id="pm-name" value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Flat 1, Station Road" style={triedSave && !form.name ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.name ? 'true' : undefined} aria-describedby={triedSave && !form.name ? 'pm-name-err' : undefined}/>
-            {triedSave && !form.name && <span id="pm-name-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
+            {triedSave && !form.name && <span id="pm-name-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
           </div>
           <div><label htmlFor="pm-company">Company *</label><select id="pm-company" value={form.company_id} onChange={e=>s('company_id',e.target.value)}>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
         </div>
         <div>
           <label htmlFor="pm-address">Full Address *</label>
           <input id="pm-address" value={form.address} onChange={e=>s('address',e.target.value)} style={triedSave && !form.address ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.address ? 'true' : undefined} aria-describedby={triedSave && !form.address ? 'pm-address-err' : undefined}/>
-          {triedSave && !form.address && <span id="pm-address-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
+          {triedSave && !form.address && <span id="pm-address-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
         </div>
         <div className="g2"><div><label htmlFor="pm-prop-type">Property Type</label><input id="pm-prop-type" value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label htmlFor="pm-status">Status</label><select id="pm-status" value={form.status} onChange={e=>s('status',e.target.value)}>{PROPERTY_STATUSES.map(x=><option key={x} value={x}>{PROPERTY_STATUS_LABELS[x]}</option>)}</select></div></div>
         {marketChange && (
           <div style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:'10px 12px'}}>
             <label htmlFor="pm-status-date">{form.status === 'on_rental_market' ? 'On the market from' : (form.status === 'rented' || form.status === 'let_agreed') ? 'Tenancy starts' : 'Off the market from'}</label>
             <input id="pm-status-date" type="date" value={statusDate} onChange={e=>setStatusDate(e.target.value)}/>
-            <span style={{fontFamily:MONO,fontSize:10,color:T.muted,display:'block',marginTop:4,lineHeight:1.5}}>
+            <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,display:'block',marginTop:4,lineHeight:1.5}}>
               {form.status === 'on_rental_market'
                 ? 'Rent is not expected from this date and the months will not count against collection %. Earlier months are unchanged.'
                 : 'The on-market period ends the day before this date; rent is expected again from it.'}
@@ -238,7 +238,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             <option value="">Self-managed / none</option>
             {agents.map(a=><option key={a.id} value={a.id}>{a.name}{a.fee_percent!=null?` — ${Number(a.fee_percent)}%${a.vat_treatment==='ex_vat'?' + VAT':''}`:''}</option>)}
           </select>
-          {!form.managed_by_agent_id && form.managed_by && <div style={{fontFamily:MONO,fontSize:10,opacity:0.7,marginTop:4}}>Previously: “{form.managed_by}” — pick the agent above to link fees.</div>}
+          {!form.managed_by_agent_id && form.managed_by && <div style={{fontFamily:MONO,fontSize:FS.xs,opacity:0.7,marginTop:4}}>Previously: “{form.managed_by}” — pick the agent above to link fees.</div>}
         </div>
 
         <Section title="Purchase & costs" T={T} />
@@ -256,7 +256,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             <input type="checkbox" checked={isCash} onChange={e=>{ setIsCash(e.target.checked); if(e.target.checked) setRevealMortgage(false) }} style={{width:'auto',margin:0,marginTop:2}}/>
             <span>
               <strong>Cash purchase (no mortgage)</strong>
-              <span style={{display:'block',color:T.muted,fontSize:10,marginTop:2,fontWeight:400}}>Tick if you bought outright. We'll hide the mortgage fields and skip them on save.</span>
+              <span style={{display:'block',color:T.muted,fontSize:FS.xs,marginTop:2,fontWeight:400}}>Tick if you bought outright. We'll hide the mortgage fields and skip them on save.</span>
             </span>
           </label>
         </div>
@@ -272,7 +272,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           <div>
             <label htmlFor="pm-mortgage-type">
               Mortgage Type
-              <span style={{ color: T.muted, fontWeight: 400, fontSize: 10, display: 'block', marginTop: 2 }}>
+              <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs, display: 'block', marginTop: 2 }}>
                 {(() => {
                   const t = form.mortgage_type || 'repayment'
                   if (t === 'repayment')      return 'Each payment covers interest + a bit of capital. Balance reduces over the term.'
@@ -293,7 +293,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           <div>
             <label htmlFor="pm-mortgage-monthly">
               Monthly Payment
-              <span style={{ color: T.muted, fontWeight: 400, fontSize: 10, display: 'block', marginTop: 2 }}>
+              <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs, display: 'block', marginTop: 2 }}>
                 Optional. Leave blank to calculate from rate + term. Fill in if your direct
                 debit includes fees or you have a fixed deal that doesn't match the formula.
               </span>
@@ -312,7 +312,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           </div>
         </div>
         <div>
-          <label htmlFor="pm-mortgage-end-date">Mortgage Product End Date <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(when fixed/tracker rate expires — we'll remind you to remortgage)</span></label>
+          <label htmlFor="pm-mortgage-end-date">Mortgage Product End Date <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs }}>(when fixed/tracker rate expires — we'll remind you to remortgage)</span></label>
           <input id="pm-mortgage-end-date" type="date" value={form.mortgage_product_end_date || ''} onChange={e=>s('mortgage_product_end_date', e.target.value)}/>
         </div>
         </>) : (
@@ -327,7 +327,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         <div className="g2">
           <div><label htmlFor="pm-arrears">Arrears</label><MoneyInput id="pm-arrears" prefix="£" value={form.arrears} onChange={v=>s('arrears',v)}/></div>
           <div>
-            <label htmlFor="pm-tenancy-end">Tenancy End <span style={{ color: T.muted, fontWeight: 400, fontSize: 10 }}>(when the current AST expires)</span></label>
+            <label htmlFor="pm-tenancy-end">Tenancy End <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs }}>(when the current AST expires)</span></label>
             {/* type=date so renewal-alerts logic can parse it and we don't
                 get inconsistent date strings. */}
             <input id="pm-tenancy-end" type="date" value={form.tenancy_end || ''} onChange={e=>s('tenancy_end',e.target.value)}/>
@@ -365,9 +365,9 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         <details style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px' }}>
           <summary style={{ cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: T.text, fontWeight: 700, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>Compliance dates (optional)</span>
-            <span style={{ fontSize: 10, color: T.muted, fontWeight: 400 }}>tap to expand</span>
+            <span style={{ fontSize: FS.xs, color: T.muted, fontWeight: 400 }}>tap to expand</span>
           </summary>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>
             Add what you know now — leave the rest blank. We'll remind you in the bell as expiries approach. You can also upload certificates later on the Compliance tab and we'll auto-fill the dates.
           </div>
           <div className="g2">

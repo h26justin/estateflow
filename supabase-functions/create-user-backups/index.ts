@@ -187,7 +187,8 @@ serve(async (req) => {
         const r = await backupOneUser(admin, p.user_id, p.email, triggerSource)
         results.push({ ...r, status: 'ok' })
       } catch (e) {
-        results.push({ user_id: p.user_id, email: p.email, status: 'error', error: (e as Error).message })
+        console.error(`create-user-backups: backup failed for user ${p.user_id}:`, (e as Error).message)
+        results.push({ user_id: p.user_id, email: p.email, status: 'error', error: 'Backup failed' })
       }
     }
 
@@ -199,7 +200,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
+    console.error('create-user-backups: failed:', e)
+    return new Response(JSON.stringify({ error: 'Backup failed — please try again.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

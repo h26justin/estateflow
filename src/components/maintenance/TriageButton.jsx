@@ -1,4 +1,4 @@
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 // AI Maintenance Triage button + result card.
 //
 // Drops into a maintenance job view. Shows an "AI triage" button; on click it
@@ -81,7 +81,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
           </button>
         )}
         {triagedAt && (
-          <span style={{ fontFamily: mono, fontSize: 9, color: T.faint }}>
+          <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>
             Triaged {new Date(triagedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
         )}
@@ -90,19 +90,19 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
       {triage && (
         <div className="card" style={{ padding: '12px 14px', marginTop: 8, borderLeft: `3px solid ${sevColor(triage.severity)}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: sevColor(triage.severity), letterSpacing: '0.08em' }}>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: sevColor(triage.severity), letterSpacing: '0.08em' }}>
               {SEVERITY_LABEL[triage.severity] || triage.severity?.toUpperCase()}
             </span>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>·</span>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.goldText }}>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>·</span>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText }}>
               {TRADE_LABEL[triage.suggested_trade] || triage.suggested_trade}
             </span>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>·</span>
-            <span style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'capitalize' }}>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>·</span>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'capitalize' }}>
               {triage.confidence} confidence
             </span>
             {typeof triage.photos_analysed === 'number' && triage.photos_analysed > 0 && (
-              <span style={{ fontFamily: mono, fontSize: 9, color: T.faint }}>
+              <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>
                 · {triage.photos_analysed} photo{triage.photos_analysed === 1 ? '' : 's'} read
               </span>
             )}
@@ -116,7 +116,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
 
           {triage.contractor_brief && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
                 Contractor brief
               </div>
               <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.5, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '8px 10px', whiteSpace: 'pre-wrap' }}>
@@ -124,7 +124,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
               </div>
               <button
                 className="btn btn-ghost"
-                style={{ fontSize: 10, marginTop: 6 }}
+                style={{ fontSize: FS.xs, marginTop: 6 }}
                 onClick={copyBrief}
               >
                 Copy brief
@@ -133,13 +133,13 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
               Suggested priority: <strong style={{ color: sevColor(triage.severity), textTransform: 'capitalize' }}>{triage.suggested_priority}</strong>
             </span>
             {onApplyPriority && triage.suggested_priority && triage.suggested_priority !== job?.priority && (
               <button
                 className="btn btn-gold"
-                style={{ fontSize: 10 }}
+                style={{ fontSize: FS.xs }}
                 onClick={() => onApplyPriority(triage.suggested_priority)}
               >
                 Apply priority
@@ -147,7 +147,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
             )}
           </div>
 
-          <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, fontStyle: 'italic' }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>
             {triage.disclaimer || 'AI-generated triage — review before acting.'}
           </div>
         </div>

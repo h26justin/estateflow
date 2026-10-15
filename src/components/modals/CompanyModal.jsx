@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
@@ -58,7 +58,7 @@ export default function CompanyModal({ onClose, onSave }) {
         <div>
           <label htmlFor="cm-name">Company Name *</label>
           <input id="cm-name" value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Vale Property Group" style={triedSave && !form.name ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.name ? 'true' : undefined} aria-describedby={triedSave && !form.name ? 'cm-name-err' : undefined}/>
-          {triedSave && !form.name && <span id="cm-name-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
+          {triedSave && !form.name && <span id="cm-name-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
         </div>
 
         {/* Similar-companies warning */}
@@ -67,7 +67,7 @@ export default function CompanyModal({ onClose, onSave }) {
             <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber, marginBottom:6 }}>
               A company with a similar name already exists
             </div>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.muted, marginBottom:10, lineHeight:1.5 }}>
+            <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, marginBottom:10, lineHeight:1.5 }}>
               {similarCompanies.length === 1 ? 'Did you mean to join this one?' : 'Did you mean to join one of these?'} If yes, ask the owner for a shareable invite link instead of creating a duplicate.
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
@@ -77,7 +77,7 @@ export default function CompanyModal({ onClose, onSave }) {
                 </div>
               ))}
             </div>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.faint, fontStyle:'italic', marginTop:8 }}>
+            <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.faint, fontStyle:'italic', marginTop:8 }}>
               Or continue below to create a separate "{form.name.trim()}" company.
             </div>
           </div>
@@ -86,7 +86,7 @@ export default function CompanyModal({ onClose, onSave }) {
         <div>
           <label htmlFor="cm-abbr">Short Code (3-4 letters)</label>
           <input id="cm-abbr" value={form.abbr} onChange={e=>s('abbr',e.target.value.toUpperCase())} placeholder="e.g. VPG" maxLength={4} style={triedSave && !form.abbr ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.abbr ? 'true' : undefined} aria-describedby={triedSave && !form.abbr ? 'cm-abbr-err' : undefined}/>
-          {triedSave && !form.abbr && <span id="cm-abbr-err" style={{fontFamily:MONO,fontSize:10,color:T.red,display:'block',marginTop:4}}>Required</span>}
+          {triedSave && !form.abbr && <span id="cm-abbr-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
         </div>
         <div>
           <label>Type</label>
@@ -99,7 +99,7 @@ export default function CompanyModal({ onClose, onSave }) {
                   background:form.companyType===v?T.gold+'18':'transparent',
                   color:form.companyType===v?T.goldText:T.muted}}>
                 <div style={{fontWeight:700}}>{l}</div>
-                <div style={{fontSize:9,marginTop:2,lineHeight:1.4,color:T.muted}}>{d}</div>
+                <div style={{fontSize:FS.xs,marginTop:2,lineHeight:1.4,color:T.muted}}>{d}</div>
               </button>
             ))}
           </div>

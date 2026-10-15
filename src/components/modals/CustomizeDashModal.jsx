@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 import FocusTrap from '../../lib/FocusTrap'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
+import { Button } from '../ui'
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────
 // Combined dashboard customization modal. Two tabs: Sections (top-level
@@ -115,7 +116,7 @@ export default function CustomizeDashModal({
           ))}
         </div>
 
-        <div style={{fontFamily:mono,fontSize:10,color:T.faint,marginBottom:10,fontStyle:'italic'}}>
+        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.faint,marginBottom:10,fontStyle:'italic'}}>
           {tab === 'sections'
             ? 'Reorder major page sections. Drag the ⋮⋮ handle, or use the arrows.'
             : 'Reorder and toggle the KPI cards at the top of the dashboard.'}
@@ -149,36 +150,34 @@ export default function CustomizeDashModal({
                 {/* Up/down arrows for keyboard/accessibility */}
                 <div style={{display:'flex',flexDirection:'column',gap:2}}>
                   <button onClick={()=>move(i,-1)} disabled={i===0}
-                    style={{fontFamily:mono,fontSize:10,padding:'2px 6px',borderRadius:4,cursor:i===0?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===0?T.muted+'55':T.text}}>▲</button>
+                    style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:4,cursor:i===0?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===0?T.muted+'55':T.text}}>▲</button>
                   <button onClick={()=>move(i,1)} disabled={i===list.length-1}
-                    style={{fontFamily:mono,fontSize:10,padding:'2px 6px',borderRadius:4,cursor:i===list.length-1?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===list.length-1?T.muted+'55':T.text}}>▼</button>
+                    style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:4,cursor:i===list.length-1?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===list.length-1?T.muted+'55':T.text}}>▼</button>
                 </div>
                 <div style={{fontSize:22,width:24,display:'flex',justifyContent:'center'}}>{ICON_NAMES.includes(def.icon)?<Icon name={def.icon} size={20} color={T.muted}/>:def.icon}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:2}}>{def.label}</div>
-                  <div style={{fontFamily:mono,fontSize:10,color:T.muted}}>{def.description}</div>
+                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{def.description}</div>
                 </div>
                 <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}} onClick={e=>e.stopPropagation()}>
                   <input type="checkbox" checked={w.enabled} onChange={()=>toggle(w.key)} style={{width:18,height:18,cursor:'pointer'}}/>
-                  <span style={{fontFamily:mono,fontSize:10,color:w.enabled?T.green:T.muted,fontWeight:700,textTransform:'uppercase'}}>{w.enabled ? 'ON' : 'OFF'}</span>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,color:w.enabled?T.green:T.muted,fontWeight:700,textTransform:'uppercase'}}>{w.enabled ? 'ON' : 'OFF'}</span>
                 </label>
               </div>
             )
           })}
         </div>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
-          <button onClick={resetToDefault}
-            style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
-            ↻ Reset {tab === 'sections' ? 'sections' : 'cards'} to default
-          </button>
+          <Button variant="secondary" size="sm" icon="refresh" onClick={resetToDefault}>
+            Reset {tab === 'sections' ? 'sections' : 'cards'} to default
+          </Button>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={onClose}
-              style={{fontFamily:mono,fontSize:11,padding:'8px 16px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+            <Button variant="secondary" size="sm" onClick={onClose}>
               Cancel
-            </button>
-            <button onClick={handleSave} className="btn btn-gold" style={{fontSize:11,padding:'8px 20px'}}>
+            </Button>
+            <Button size="sm" onClick={handleSave}>
               Save
-            </button>
+            </Button>
           </div>
         </div>
       </div>

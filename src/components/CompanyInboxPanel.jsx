@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { Skeleton } from '../lib/Skeleton'
 
 // ── COMPANY INBOX PANEL ──────────────────────────────────────────────
 // Surfaces each company's unique forwarding address for inbound rental
@@ -65,14 +66,14 @@ export default function CompanyInboxPanel({ companies, T }) {
   }
 
   if (loading) {
-    return <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted, padding: 12 }}>Loading inbox addresses…</div>
+    return <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 12 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
   }
 
   return (
     <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '20px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 200px' }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
             Statement inbox
           </div>
           <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 4 }}>Forward rental statements to your portfolio</div>
@@ -94,7 +95,7 @@ export default function CompanyInboxPanel({ companies, T }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                 {co.abbr && (
                   <span style={{
-                    fontFamily: MONO, fontSize: 10, fontWeight: 700,
+                    fontFamily: MONO, fontSize: FS.xs, fontWeight: 700,
                     padding: '2px 8px', borderRadius: 4,
                     background: (co.color || theme.gold) + '22',
                     color: co.color || theme.gold,
@@ -128,7 +129,7 @@ export default function CompanyInboxPanel({ companies, T }) {
                   <button onClick={() => rotate(co.id)} disabled={busyCo === co.id}
                     title="Generate a new address (the old one will stop working immediately)"
                     style={{
-                      fontFamily: MONO, fontSize: 10, padding: '7px 10px',
+                      fontFamily: MONO, fontSize: FS.xs, padding: '7px 10px',
                       borderRadius: 6, border: `1px solid ${theme.border}`,
                       background: 'transparent', color: theme.muted,
                       cursor: busyCo === co.id ? 'wait' : 'pointer', whiteSpace: 'nowrap',

@@ -11,6 +11,18 @@
     try { localStorage.setItem('op_cookie_consent', JSON.stringify({ v:1, choice: choice, at: Date.now() })); } catch (e) {}
     var b = document.getElementById('op-cookie-banner');
     if (b) b.remove();
+    window.removeEventListener('resize', reserveSpace);
+    document.documentElement.classList.remove('op-cookie-open');
+    document.documentElement.style.removeProperty('--op-cookie-h');
+  }
+
+  // Reserve the banner's height as bottom padding on <body> (CSS in
+  // index.html) so the end of the page is never stuck underneath it.
+  function reserveSpace() {
+    var b = document.getElementById('op-cookie-banner');
+    if (!b) return;
+    document.documentElement.style.setProperty('--op-cookie-h', b.offsetHeight + 'px');
+    document.documentElement.classList.add('op-cookie-open');
   }
 
   function accept() {
@@ -35,16 +47,17 @@
     banner.setAttribute('role', 'dialog');
     banner.setAttribute('aria-label', 'Cookie consent');
     banner.innerHTML =
-      '<p>We use cookies to understand how visitors use Properly and to measure our advertising. ' +
-      'Analytics and ads use cookies; essential cookies (sign-in session) always work. ' +
-      '<a href="/privacy" target="_blank" rel="noopener">Read our privacy policy</a>.</p>' +
+      '<p>We use optional cookies for analytics and ads. Sign-in cookies always work. ' +
+      '<a href="/privacy" target="_blank" rel="noopener">Privacy policy</a></p>' +
       '<div class="op-cookie-actions">' +
-      '  <button class="op-cookie-reject" type="button">Reject non-essential</button>' +
+      '  <button class="op-cookie-reject" type="button">Reject optional</button>' +
       '  <button class="op-cookie-accept" type="button">Accept all</button>' +
       '</div>';
     document.body.appendChild(banner);
     banner.querySelector('.op-cookie-accept').addEventListener('click', accept);
     banner.querySelector('.op-cookie-reject').addEventListener('click', reject);
+    reserveSpace();
+    window.addEventListener('resize', reserveSpace);
   }
 
   if (document.readyState === 'loading') {

@@ -1,22 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, CV, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
+import { SkeletonRows } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 const mono = MONO
 
 const TYPE_CONFIG = {
-  properties:         { icon: 'home', label: 'Property',    color: '#C8A84B' },
-  companies:          { icon: 'grid', label: 'Company',     color: '#2ECC8A' },
-  tenancy_details:    { icon: 'shield-check', label: 'Tenancy',     color: '#4B8FE0' },
+  properties:         { icon: 'home', label: 'Property',    color: CV.goldText },
+  companies:          { icon: 'grid', label: 'Company',     color: CV.green },
+  tenancy_details:    { icon: 'shield-check', label: 'Tenancy',     color: CV.blue },
   compliance_items:   { icon: 'shield-check', label: 'Certificate', color: '#7B68EE' },
-  maintenance_jobs:   { icon: 'wrench', label: 'Repair',      color: '#E0943A' },
+  maintenance_jobs:   { icon: 'wrench', label: 'Repair',      color: CV.amber },
   property_expenses:  { icon: 'pound', label: 'Expense',     color: '#D46F97' },
-  deals:              { icon: '🎯', label: 'Deal',        color: '#3AAFB9' },
-  property_documents: { icon: '📄', label: 'Document',    color: '#9B8AC2' },
+  deals:              { icon: 'target', label: 'Deal',        color: '#3AAFB9' },
+  property_documents: { icon: 'file-text', label: 'Document',    color: '#9B8AC2' },
 }
 
 function daysAgo(dateStr) {
@@ -120,7 +122,7 @@ export default function TrashPage({ user, onRestored }) {
   ]
 
   if (loading) {
-    return <div style={{textAlign:'center',padding:60,fontFamily:mono,fontSize:12,color:T.muted}}>Loading trash...</div>
+    return <SkeletonRows rows={5}/>
   }
 
   return (
@@ -134,11 +136,7 @@ export default function TrashPage({ user, onRestored }) {
       </div>
 
       {totalCount === 0 ? (
-        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'60px 20px',textAlign:'center'}}>
-          <div style={{fontSize:48,marginBottom:12}}>🗑</div>
-          <div style={{fontFamily:mono,fontSize:13,color:T.muted,marginBottom:4}}>Your trash is empty</div>
-          <div style={{fontFamily:mono,fontSize:11,color:T.faint}}>Deleted items will appear here</div>
-        </div>
+        <EmptyState icon="trash" title="Your trash is empty" body="Deleted items will appear here"/>
       ) : (
         <>
           {/* Filter tabs */}
@@ -163,7 +161,7 @@ export default function TrashPage({ user, onRestored }) {
             <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
             <div style={{minWidth:660}}>
             <div style={{display:'grid',gridTemplateColumns:'100px 1fr 140px 140px 200px',gap:12,padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`}}>
-              {['Type','Item','Deleted','Auto-purge in','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
+              {['Type','Item','Deleted','Auto-purge in','Actions'].map(h=><div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>)}
             </div>
             {filtered.map(item => {
               const cfg = TYPE_CONFIG[item._type]
@@ -173,7 +171,7 @@ export default function TrashPage({ user, onRestored }) {
                 <div key={`${item._type}-${item.id}`} style={{display:'grid',gridTemplateColumns:'100px 1fr 140px 140px 200px',gap:12,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:6}}>
                     <span style={{display:'inline-flex'}}>{ICON_NAMES.includes(cfg.icon)?<Icon name={cfg.icon} size={15}/>:cfg.icon}</span>
-                    <span style={{fontFamily:mono,fontSize:10,color:cfg.color,fontWeight:700}}>{cfg.label}</span>
+                    <span style={{fontFamily:mono,fontSize:FS.xs,color:cfg.color,fontWeight:700}}>{cfg.label}</span>
                   </div>
                   <div style={{fontSize:13,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item._name || 'Unnamed'}</div>
                   <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{daysAgo(item.deleted_at)}</div>
@@ -182,11 +180,11 @@ export default function TrashPage({ user, onRestored }) {
                   </div>
                   <div style={{display:'flex',gap:6}}>
                     <button onClick={()=>restore(item)} disabled={working===item.id}
-                      style={{fontFamily:mono,fontSize:10,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.green}44`,background:T.green+'11',color:T.green,fontWeight:700}}>
+                      style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.green}44`,background:T.green+'11',color:T.green,fontWeight:700}}>
                       {working===item.id?'…':'↶ Restore'}
                     </button>
                     <button onClick={()=>purgeNow(item)} disabled={working===item.id}
-                      style={{fontFamily:mono,fontSize:10,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
+                      style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
                       Purge now
                     </button>
                   </div>

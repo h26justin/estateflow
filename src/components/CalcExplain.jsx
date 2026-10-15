@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 
 /**
@@ -50,7 +50,7 @@ export default function CalcExplain({ title, formula, inputs = [], result, note 
         style={{
           width: 14, height: 14, borderRadius: '50%',
           border: `1px solid ${T.border}`, background: T.bg,
-          color: T.muted, fontSize: 9, lineHeight: '12px',
+          color: T.muted, fontSize: FS.xs, lineHeight: '12px',
           cursor: 'pointer', padding: 0, display: 'inline-flex',
           alignItems: 'center', justifyContent: 'center',
           fontFamily: mono, fontWeight: 700,
@@ -69,7 +69,7 @@ export default function CalcExplain({ title, formula, inputs = [], result, note 
           }}
           // Stop the popover's clicks from triggering parent row handlers
           onClick={(e) => e.stopPropagation()}>
-          <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
             How {title} is calculated
           </div>
           {formula && (
@@ -94,7 +94,7 @@ export default function CalcExplain({ title, formula, inputs = [], result, note 
             </div>
           )}
           {note && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
               {note}
             </div>
           )}

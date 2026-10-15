@@ -21,6 +21,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { encryptToken, resolveToken } from './encryption.ts'
 import { secretMatches } from './secrets.ts'
+import { companyRoleFor, roleCanWrite } from './authz.ts'
 
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -214,15 +215,22 @@ function pushSetupMissing(settings: any): string[] {
   return missing
 }
 
-// Owner of the company, or granted shared access (user_company_access).
-// Mirrors has_company_access() for callers without a JWT (cron path).
-async function userCanAccessCompany(admin: any, userId: string, companyId: string): Promise<boolean> {
-  const { data: owned } = await admin.from('companies')
-    .select('id').eq('id', companyId).eq('owner_id', userId).maybeSingle()
-  if (owned) return true
-  const { data: shared } = await admin.from('user_company_access')
-    .select('company_id').eq('company_id', companyId).eq('user_id', userId).limit(1)
-  return !!(shared && shared.length)
+// Actions that only READ (the caller's own Xero org, or what a push would
+// post). Everything else writes: posts / deletes in Xero, rewrites the sync
+// map, or (reconciliation, reverse sync, pull_expenses) writes Xero data
+// back into the company's rent_payments / property_expenses with the
+// service role. Those need write access to the company, not just access.
+const READ_ONLY_ACTIONS = new Set(['list_accounts', 'preview'])
+
+// The write rule (public.has_company_write) plus company liveness
+// (public.company_is_live) — the same pair the RLS write policies use —
+// for callers WITHOUT a JWT (cron path). See ./authz.ts.
+async function userCanWriteCompany(admin: any, userId: string, companyId: string): Promise<boolean> {
+  const { data: u } = await admin.auth.admin.getUserById(userId)
+  if (!u?.user) return false
+  if (!roleCanWrite(await companyRoleFor(admin, userId, u.user.email, companyId))) return false
+  const { data: live } = await admin.rpc('company_is_live', { p_company_id: companyId })
+  return live === true
 }
 
 const rentDate = (p: any) => p.period_start
@@ -265,10 +273,12 @@ serve(async (req) => {
       bound = !!pendingConn
     }
     if (!bound) return jsonError(403, 'No scheduled or pending sync for this user/company')
-    // No JWT on this path: check the same owner / shared-access rule
-    // directly so a user who has since lost access to the company can't
-    // be acted for by a stale schedule row.
-    if (!(await userCanAccessCompany(admin, cronUserId, companyId))) {
+    // No JWT on this path. reconcile_only WRITES (reconciliation flags,
+    // reverse-sync amount/date edits, pulled expenses), so the connection's
+    // user must STILL have write access to a live company: a user since
+    // demoted to viewer, or removed, can't be acted for by a stale schedule
+    // row or a webhook-flagged pending sync.
+    if (!(await userCanWriteCompany(admin, cronUserId, companyId))) {
       return jsonError(403, 'Forbidden')
     }
     caller = { id: cronUserId }
@@ -279,12 +289,24 @@ serve(async (req) => {
     const { data: userData, error: userErr } = await admin.auth.getUser(token)
     caller = userData?.user
     if (userErr || !caller) return jsonError(401, 'Invalid session')
-    // Company access under the caller's own JWT (same rule as RLS).
+    // Company access under the caller's own JWT (same rules as RLS):
+    // read-only actions need access; everything else needs write access
+    // to a live company (has_company_write AND company_is_live, as the
+    // RLS write policies use). Viewers can preview but not push or pull.
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     })
-    const { data: hasAccess } = await userClient.rpc('has_company_access', { p_company_id: companyId })
-    if (hasAccess !== true) return jsonError(403, 'Forbidden')
+    if (READ_ONLY_ACTIONS.has(action)) {
+      const { data: hasAccess } = await userClient.rpc('has_company_access', { p_company_id: companyId })
+      if (hasAccess !== true) return jsonError(403, 'Forbidden')
+    } else {
+      const [{ data: canWrite }, { data: live }] = await Promise.all([
+        userClient.rpc('has_company_write', { p_company_id: companyId }),
+        userClient.rpc('company_is_live', { p_company_id: companyId }),
+      ])
+      if (canWrite !== true) return jsonError(403, 'You have read-only access to this company — Xero sync needs an owner, admin or editor')
+      if (live !== true) return jsonError(403, 'This company\'s subscription is not active — Xero sync is paused')
+    }
   }
 
   // Every property of this company. Pull-back writes into rent_payments /

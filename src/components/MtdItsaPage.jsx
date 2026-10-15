@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { fmt, fmtMoney2dp, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
@@ -25,8 +25,10 @@ import {
 //   2. Lists the 4 quarters for the chosen tax year, with status,
 //      deadline countdown, and aggregated income/expense preview
 //   3. Lets the user "build draft" (aggregates client-side) and
-//      "submit to HMRC" (calls mtd-submit edge function which is
-//      currently stubbed in sandbox until live HMRC creds land)
+//      "submit to HMRC" (calls mtd-submit edge function). Until the
+//      server reports live filing (production HMRC credentials), the
+//      page says so plainly and only offers practice-mode rehearsals.
+//   4. Year end: annual totals and what the final declaration needs.
 //
 // Available to all tiers — MTD compliance is non-negotiable for UK
 // landlords. Charging extra for it would push customers to dedicated
@@ -42,6 +44,8 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
   const [previewQuarter, setPreviewQuarter] = useState(null)
   const [previewData, setPreviewData] = useState(null)
   const [busy, setBusy] = useState(null)
+  // null until known; false = HMRC production filing not switched on yet.
+  const [liveAvailable, setLiveAvailable] = useState(null)
   const [scope, setScope] = useState(null)
 
   const quarters = useMemo(() => quartersForTaxYear(taxYear), [taxYear])
@@ -51,9 +55,10 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
-      const [s, subs, sc] = await Promise.all([
+      const [s, subs, live, sc] = await Promise.all([
         api.fetchMtdSettings(),
         api.fetchMtdSubmissions(taxYear),
+        api.fetchMtdLiveStatus(),
         // Which properties are in scope (limited-company ones are left out).
         // Informational only — a failure here must not block the page.
         api.fetchMtdPropertyScope().catch(() => null),
@@ -61,6 +66,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
       if (!isCurrent()) return
       setSettings(s)
       setSubmissions(subs)
+      setLiveAvailable(live)
       setScope(sc)
     } catch (e) {
       if (!isCurrent()) return
@@ -165,9 +171,18 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
           Making Tax Digital — Income Tax
         </h1>
         <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, maxWidth: 640, lineHeight: 1.6 }}>
-          From 6 Apr 2026 HMRC requires quarterly submissions of property income & expenses from landlords with rental income above £50,000. We aggregate your data automatically — check the quarterly summary, then submit straight to HMRC.
+          HMRC requires quarterly updates of property and self-employment income from 6 April 2026 if your qualifying income is over £50,000, from 6 April 2027 if over £30,000, and from 6 April 2028 if over £20,000. We build each quarterly update from your data automatically.
         </p>
       </div>
+
+      {liveAvailable === false && accountType !== 'limited_company' && (
+        <div role="status" style={{ background: T.amber+'14', border: `1px solid ${T.amber}55`, borderRadius: 12, padding: '14px 18px', marginBottom: 16, fontSize: 13, color: T.text, lineHeight: 1.6 }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>Live filing to HMRC isn&rsquo;t switched on yet</div>
+          We&rsquo;re waiting for HMRC to approve Properly for live submissions. Until then you can build and check every quarterly
+          update here and rehearse the submission in practice mode, but nothing is sent to HMRC. To meet a deadline before live
+          filing opens, copy the quarterly figures into HMRC-recognised software or give them to your accountant.
+        </div>
+      )}
 
       {/* Limited-company warning — they shouldn't be on this page */}
       {accountType === 'limited_company' && (
@@ -228,7 +243,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
       {/* Settings panel */}
       {showSettings && (
-        <SettingsPanel T={T} settings={settings} onSaved={(s) => { setSettings(s); setShowSettings(false); load() }}/>
+        <SettingsPanel T={T} settings={settings} liveAvailable={liveAvailable} onSaved={(s) => { setSettings(s); setShowSettings(false); load() }}/>
       )}
 
       {/* Quarter cards */}
@@ -249,7 +264,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <span style={{ fontSize: 17, fontWeight: 700, color: T.text }}>Quarter {q.quarter}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: toneColor+'22', color: toneColor }}>
+                  <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: toneColor+'22', color: toneColor }}>
                     {status.label}
                   </span>
                 </div>
@@ -263,7 +278,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                     <div style={{ fontSize: 20, fontWeight: 700, color: T.goldText }}>
                       {fmt(cached.totals?.net || 0)}
                     </div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
                       net · in {fmt(cached.totals?.income || 0)} · out {fmt(cached.totals?.expenses || 0)}
                     </div>
                   </>
@@ -272,7 +287,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
             </div>
 
             {sub?.hmrc_reference && (
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.green, marginBottom: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.green, marginBottom: 12 }}>
                 HMRC ref: {sub.hmrc_reference}
                 {sub.hmrc_reference.startsWith('SANDBOX-') && (
                   <span style={{ color: T.muted, marginLeft: 6 }}>
@@ -294,7 +309,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                   {issues.map((i, idx) => <li key={idx}>{i}</li>)}
                 </ul>
                 <button onClick={() => setShowSettings(true)}
-                  style={{ background: 'none', border: `1px solid ${T.amber}66`, borderRadius: 6, padding: '4px 10px', fontFamily: MONO, fontSize: 10, color: T.amber, cursor: 'pointer', fontWeight: 700, marginTop: 2 }}>
+                  style={{ background: 'none', border: `1px solid ${T.amber}66`, borderRadius: 6, padding: '4px 10px', fontFamily: MONO, fontSize: FS.xs, color: T.amber, cursor: 'pointer', fontWeight: 700, marginTop: 2 }}>
                   Open settings
                 </button>
               </div>
@@ -313,16 +328,20 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                   className="btn btn-gold"
                   style={{ fontSize: 11, opacity: issues.length > 0 ? 0.4 : 1, cursor: issues.length > 0 ? 'not-allowed' : 'pointer' }}
                   disabled={!!busy || !sub?.id || issues.length > 0}
-                  title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode ? 'Submits a mock response (not sent to HMRC)' : 'Submits to HMRC')}>
+                  title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode || !liveAvailable ? 'Practice run: nothing is sent to HMRC' : 'Submits to HMRC')}>
                   {busy === `submit-${q.quarter}`
                     ? 'Submitting…'
-                    : (settings?.sandbox_mode ? 'Submit (sandbox)' : 'Submit to HMRC')}
+                    : (settings?.sandbox_mode || !liveAvailable ? 'Rehearse (practice mode)' : 'Submit to HMRC')}
                 </button>
               )}
             </div>
           </div>
         )
       })}
+
+      {accountType !== 'limited_company' && (
+        <YearEndCard T={T} taxYear={taxYear} submissions={submissions}/>
+      )}
 
       {/* Preview modal */}
       {previewQuarter && previewData && (
@@ -338,7 +357,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
 // ── SETTINGS PANEL ─────────────────────────────────────────────────
 
-function SettingsPanel({ T, settings, onSaved }) {
+function SettingsPanel({ T, settings, liveAvailable, onSaved }) {
   const [nino, setNino] = useState(settings?.nino || '')
   const [businessId, setBusinessId] = useState(settings?.mtd_business_id || '')
   const [sandbox, setSandbox] = useState(settings?.sandbox_mode ?? true)
@@ -380,14 +399,20 @@ function SettingsPanel({ T, settings, onSaved }) {
           <label>HMRC Property Business ID</label>
           <input aria-label="HMRC Property Business ID" value={businessId} onChange={e => setBusinessId(e.target.value)} placeholder="From HMRC online account"
             style={{ fontFamily: MONO }}/>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
             Sign in to gov.uk → Self Assessment → "My businesses" to find this.
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <input type="checkbox" id="sandbox" checked={sandbox} onChange={e => setSandbox(e.target.checked)} style={{ width: 18, height: 18 }}/>
-          <label htmlFor="sandbox" style={{ marginBottom: 0, cursor: 'pointer' }}>Sandbox mode (don't actually submit to HMRC)</label>
+          <input type="checkbox" id="sandbox" checked={sandbox || liveAvailable === false} disabled={liveAvailable === false}
+            onChange={e => setSandbox(e.target.checked)} style={{ width: 18, height: 18 }} aria-describedby="sandbox-hint"/>
+          <label htmlFor="sandbox" style={{ marginBottom: 0, cursor: liveAvailable === false ? 'default' : 'pointer' }}>Practice mode (don't actually submit to HMRC)</label>
         </div>
+        {liveAvailable === false && (
+          <div id="sandbox-hint" style={{ fontSize: 12, color: T.muted, marginTop: -4, lineHeight: 1.5 }}>
+            Practice mode stays on until live HMRC filing is switched on for Properly.
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <input type="checkbox" id="cashbasis" checked={cashBasis} onChange={e => setCashBasis(e.target.checked)} style={{ width: 18, height: 18 }}/>
           <label htmlFor="cashbasis" style={{ marginBottom: 0, cursor: 'pointer' }}>Cash basis (recommended for most landlords)</label>
@@ -401,6 +426,39 @@ function SettingsPanel({ T, settings, onSaved }) {
 
       {/* ── HMRC OAuth connection ── */}
       <HmrcOAuthBlock T={T} settings={settings} onChanged={onSaved}/>
+    </div>
+  )
+}
+
+// ── YEAR END ───────────────────────────────────────────────────────
+// After the four quarterly updates the taxpayer must finalise the year
+// (the final declaration, which replaces the Self Assessment return) by
+// 31 January after the tax year ends. Properly doesn't file that yet, so
+// this card is the honest hand-off: the annual totals from the drafted
+// quarters, and where the final declaration gets done.
+function YearEndCard({ T, taxYear, submissions }) {
+  const py = parseTaxYear(taxYear)
+  if (!py) return null
+  const drafted = submissions.filter(s => s.summary_json?.totals)
+  const sum = (k) => drafted.reduce((acc, s) => acc + (Number(s.summary_json.totals[k]) || 0), 0)
+  const deadline = `31 January ${py.endYear + 1}`
+  return (
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 6 }}>After the year ends: final declaration</h2>
+      <p style={{ fontSize: 13, color: T.muted, lineHeight: 1.6, marginBottom: 14 }}>
+        Once all four quarterly updates for {taxYear} are in, you finalise the year with HMRC by <strong style={{ color: T.text }}>{deadline}</strong>.
+        This is where year-end adjustments, other income and reliefs go, and it replaces the Self Assessment tax return.
+        Properly doesn&rsquo;t file the final declaration yet: use HMRC-recognised software or your accountant, starting from the totals below.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+        <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px' }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Quarters drafted</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: drafted.length === 4 ? T.green : T.text }}>{drafted.length} of 4</div>
+        </div>
+        <Tile T={T} label="Income" value={sum('income')} color={T.text}/>
+        <Tile T={T} label="Expenses" value={sum('expenses')} color={T.text}/>
+        <Tile T={T} label="Net" value={sum('net')} color={T.goldText}/>
+      </div>
     </div>
   )
 }
@@ -446,16 +504,16 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
 
   return (
     <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px dashed ${T.border}` }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         HMRC gov.uk connection
       </div>
       {connected && !expired ? (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: T.green+'22', color: T.green }}>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: T.green+'22', color: T.green }}>
               Connected
             </span>
-            <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
               Token expires {expiresAt.toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
             </span>
           </div>
@@ -469,7 +527,7 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (expired ? T.amber : T.border), color: (expired ? T.amber : T.muted) }}>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (expired ? T.amber : T.border), color: (expired ? T.amber : T.muted) }}>
               {expired ? 'Token expired' : 'Not connected'}
             </span>
           </div>
@@ -514,7 +572,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
           {/* Expense breakdown */}
           {Object.keys(summary.expenses).length > 0 && (
             <>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
                 Expenses by HMRC category
               </div>
               <div style={{ display: 'grid', gap: 4, marginBottom: 18 }}>
@@ -528,7 +586,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
             </>
           )}
 
-          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 16 }}>
+          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 16 }}>
             Saving this as a draft locks the quarter snapshot. You can refresh anytime before submission to HMRC.
           </div>
 
@@ -548,7 +606,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
 function Tile({ T, label, value, color }) {
   return (
     <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 700, color }}>{fmt(value)}</div>
     </div>
   )
@@ -571,7 +629,7 @@ export function PropertyScopeNote({ T, scope }) {
   if (excludedCount === 0 && unset.length === 0) return null
   const link = <a href="#/properties/companies" style={{ color: T.goldText, fontWeight: 700 }}>Portfolio → Companies → Legal owner</a>
   return (
-    <div role="note" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+    <div role="note" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
       {excludedCount > 0 && (
         <div>
           <strong style={{ color: T.text }}>{plural(excludedCount, 'property', 'properties')} left out</strong> because {scope.excludedCompanies.length === 1 ? 'its company is' : 'their companies are'} a limited company ({scope.excludedCompanies.map(c => c.name).join(', ')}) — that rent is taxed under corporation tax, not personal MTD. Change this in {link}.
