@@ -25,7 +25,9 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { encode as b64encode } from 'https://deno.land/std@0.190.0/encoding/base64.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
-import { jsPDF } from 'https://esm.sh/jspdf@2.5.1'
+// Same jsPDF major as the web app (package.json); 2.5.x pulled a vulnerable
+// dompurify. Only doc.output('arraybuffer') + drawing APIs are used here.
+import { jsPDF } from 'https://esm.sh/jspdf@4.2.1'
 import { sendGmail } from './gmail.ts'
 import { buildAgentReport, drawAgentReportPdf, agentReportFilename, dateLong } from './report.bundle.js'
 import { secretMatches } from './secrets.ts'
