@@ -24,6 +24,7 @@ import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { useConfirm } from '../lib/ConfirmContext'
 import { TAX_BAND_LABELS } from '../lib/companyPnl'
+import { Skeleton } from '../lib/Skeleton'
 
 const inputStyle = (T) => ({
   fontFamily: MONO, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`,
@@ -156,7 +157,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
     } catch (e) { showToast?.(e.message || 'Could not remove agent', 'error') }
   }
 
-  if (loading) return <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: '14px 4px' }}>Loading ownership…</div>
+  if (loading) return <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: '14px 4px' }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
 
   const inp = inputStyle(T)
   const smallBtn = { fontFamily: MONO, fontSize: 11, padding: '6px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }

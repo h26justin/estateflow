@@ -6,6 +6,8 @@ import * as api from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { pressable } from '../lib/pressable'
+import { Skeleton, SkeletonList } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 const mono = MONO
 // Functions of the theme so the colours follow light/dark tokens. Values are
@@ -166,7 +168,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
     </button>
   )
 
-  if (loading) return <div style={{ fontFamily:mono, fontSize:12, color:T.muted, padding:'16px 0' }}>Loading tenant inbox…</div>
+  if (loading) return <div style={{ padding:'16px 0' }}><SkeletonList count={3}/></div>
 
   const hasAnything = jobs.length > 0 || convos.length > 0
 
@@ -190,10 +192,8 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       </div>
 
       {!hasAnything && (
-        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'32px 24px', textAlign:'center' }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:10, color:T.faint }}><Icon name="inbox" size={28}/></div>
-          <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>No tenant messages or repair requests yet.</div>
-          <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>When tenants submit repairs or send messages, they'll appear here.</div>
+        <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12 }}>
+          <EmptyState compact icon="inbox" title="No tenant messages or repair requests yet." body="When tenants submit repairs or send messages, they'll appear here."/>
         </div>
       )}
 
@@ -296,7 +296,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
               </span>
             </div>
             <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:3 }}>{job.title || 'Repair request'}</div>
-            <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>📍 {job.property?.address||job.property?.name||'—'}</div>
+            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{job.property?.address||job.property?.name||'—'}</div>
           </div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>{isExpanded?'▲':'▼'}</div>
         </div>
@@ -378,7 +378,7 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
             <div style={{ fontSize:13, fontWeight: hasUnread ? 700 : 400, color:T.text, marginBottom:3 }}>
               {lastMsg.message?.substring(0,80)}{lastMsg.message?.length>80?'…':''}
             </div>
-            <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>📍 {convo.property?.address||convo.property?.name||'—'}</div>
+            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{convo.property?.address||convo.property?.name||'—'}</div>
           </div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>{isExpanded?'▲':'▼'}</div>
         </div>
@@ -400,9 +400,9 @@ function MessageThread({ thread, loading, replyText, setReplyText, replying, onR
     <div>
       <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:10 }}>Conversation</div>
       <div style={{ maxHeight:320, overflowY:'auto', marginBottom:12, padding:'4px 0' }}>
-        {loading && <div style={{ fontFamily:mono, fontSize:12, color:T.muted, textAlign:'center', padding:20 }}>Loading…</div>}
+        {loading && <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 20 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>}
         {!loading && thread.length === 0 && (
-          <div style={{ fontFamily:mono, fontSize:12, color:T.muted, textAlign:'center', padding:20 }}>No messages in this thread yet.</div>
+          <EmptyState compact icon="message" title="No messages in this thread yet."/>
         )}
         {thread.map(m => {
           const isLandlord = m.sender_type === 'landlord'

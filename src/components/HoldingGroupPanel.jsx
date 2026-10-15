@@ -22,6 +22,7 @@ import * as api from '../lib/api'
 import { companyEffectiveStakes } from '../lib/companyPnl'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
 import { propValue } from '../lib/propertyValue'
+import { Skeleton } from '../lib/Skeleton'
 
 export default function HoldingGroupPanel({ company, companies = [], properties = [], T, canEdit, onUpdateCompany, showToast }) {
   const [shareholders, setShareholders] = useState(null) // null = loading
@@ -48,7 +49,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
   }
 
   if (shareholders === null) {
-    return <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: '14px 4px' }}>Loading group holdings…</div>
+    return <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: '14px 4px' }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
   }
 
   const stakes = companyEffectiveStakes(shareholders, company.id)

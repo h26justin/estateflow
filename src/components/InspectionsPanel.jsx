@@ -6,6 +6,7 @@ import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { SignedPhoto } from '../lib/SignedPhoto'
+import { Skeleton } from '../lib/Skeleton'
 
 // ── INSPECTIONS PANEL ────────────────────────────────────────────────
 // Embedded on a property's Compliance tab. Lists scheduled +
@@ -136,7 +137,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
       </div>
 
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 12 }}>Loading…</div>
+        <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 12 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
       ) : (
         <>
           {adding && (
@@ -268,7 +269,7 @@ function InspectionRow({ item, T, canEdit, onEdit, onDelete }) {
                 ? `Scheduled ${new Date(item.scheduled_date).toLocaleDateString('en-GB')}`
                 : 'Not scheduled'}
             {item.inspector_name && ` · ${item.inspector_name}`}
-            {item.photos?.length > 0 && ` · 📷 ${item.photos.length} photo${item.photos.length === 1 ? '' : 's'}`}
+            {item.photos?.length > 0 && ` · ${item.photos.length} photo${item.photos.length === 1 ? '' : 's'}`}
           </div>
           {item.notes && (
             <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>

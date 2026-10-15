@@ -4,6 +4,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { Skeleton } from '../lib/Skeleton'
 
 // ── COMPANY INBOX PANEL ──────────────────────────────────────────────
 // Surfaces each company's unique forwarding address for inbound rental
@@ -65,7 +66,7 @@ export default function CompanyInboxPanel({ companies, T }) {
   }
 
   if (loading) {
-    return <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted, padding: 12 }}>Loading inbox addresses…</div>
+    return <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 12 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
   }
 
   return (

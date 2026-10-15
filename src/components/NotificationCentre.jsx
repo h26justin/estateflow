@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { groupNotifications } from '../lib/notificationsGroup'
 import { pressable } from '../lib/pressable'
+import { Skeleton } from '../lib/Skeleton'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
 const TYPE_ICON = {
@@ -184,9 +185,7 @@ export default function NotificationCentre() {
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {loading && items.length === 0 ? (
-                <div style={{ padding: '36px 20px', textAlign: 'center', fontFamily: mono, fontSize: 11, color: T.muted }}>
-                  Loading…
-                </div>
+                <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: '20px' }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
               ) : items.length === 0 ? (
                 <div style={{ padding: '36px 20px', textAlign: 'center' }}>
                   <div style={{ display:'flex', justifyContent:'center', marginBottom: 10, color: T.faint }}><Icon name="bell-off" size={26}/></div>

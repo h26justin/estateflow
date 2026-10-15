@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { FS } from '../lib/styles'
+import { Button, EmptyState } from './ui'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
+import { Skeleton, SkeletonRows } from '../lib/Skeleton'
 
 // ── INTEGRATIONS SETTINGS PANEL — Phase 2 ────────────────────────────
 // Settings → Integrations & data → Integrations.
@@ -44,7 +46,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
     setLoading(false)
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign:'center', fontFamily: mono, fontSize: 12, color: T.muted }}>Loading integrations…</div>
+  if (loading) return <SkeletonRows rows={3}/>
 
   // Filter out limited-company-side companies (this panel only shows
   // companies the user owns / has access to)
@@ -273,9 +275,9 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
               autoComplete="off"
               style={{ ...selectStyle, flex: 1, minWidth: 220, maxWidth: 380 }}
             />
-            <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-              {busy==='connect' ? 'Checking credentials…' : '🔌 Connect Hostaway'}
-            </button>
+            <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
+              {busy==='connect' ? 'Checking credentials…' : 'Connect Hostaway'}
+            </Button>
           </div>
         </>
       ) : (
@@ -335,7 +337,7 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
                 Map Hostaway listings to properties
               </div>
               {hostawayProps.length === 0 && (
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No listings found in this Hostaway account.</div>
+                <EmptyState compact icon="search" title="No listings found" body="This Hostaway account has no listings to map yet."/>
               )}
               <div style={{ display:'grid', gap: 8 }}>
                 {sortedHostawayProps.map(hl => {
@@ -512,9 +514,9 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
               autoComplete="off"
               style={{ ...selectStyle, flex: 1, minWidth: 220, maxWidth: 380 }}
             />
-            <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-              {busy==='connect' ? 'Checking key…' : '🔌 Connect Lodgify'}
-            </button>
+            <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
+              {busy==='connect' ? 'Checking key…' : 'Connect Lodgify'}
+            </Button>
           </div>
         </>
       ) : (
@@ -574,7 +576,7 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
                 Map Lodgify listings to properties
               </div>
               {lodgifyProps.length === 0 && (
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No listings found in this Lodgify account.</div>
+                <EmptyState compact icon="search" title="No listings found" body="This Lodgify account has no listings to map yet."/>
               )}
               <div style={{ display:'grid', gap: 8 }}>
                 {sortedLodgifyProps.map(lp => {
@@ -734,9 +736,9 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged }
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
             Push rent payments and expenses from {company.name} into a Xero organisation as bank transactions. Use Xero tracking categories to run P&L per property.
           </div>
-          <button onClick={connect} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
-            {busy==='connect' ? 'Redirecting…' : `🔌 Connect ${company.name} to Xero`}
-          </button>
+          <Button size="sm" icon={busy==='connect' ? undefined : 'plug'} onClick={connect} disabled={!!busy}>
+            {busy==='connect' ? 'Redirecting…' : `Connect ${company.name} to Xero`}
+          </Button>
         </>
       )}
     </div>
@@ -802,7 +804,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
     setSaving(false)
   }
 
-  if (loading) return <div style={{ marginTop: 18, fontFamily: mono, fontSize: 12, color: T.muted }}>Loading settings…</div>
+  if (loading) return <div style={{ marginTop: 18 }}><div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div></div>
 
   const bankAccounts = accounts.filter(a => a.Type === 'BANK')
   const incomeAccounts = accounts.filter(a => ['REVENUE','SALES','OTHERINCOME'].includes(a.Type))
@@ -962,7 +964,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       </Section>
 
       <Section title="Per-property sync (override the whole-portfolio button)">
-        {properties.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No properties in this company yet.</div>}
+        {properties.length === 0 && <EmptyState compact icon="building" title="No properties in this company yet"/>}
         <div style={{ display:'grid', gap: 6 }}>
           {properties.map(p => (
             <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background: T.bg, borderRadius: 8 }}>

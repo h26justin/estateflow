@@ -20,6 +20,7 @@ import CopyDealModal from './modals/CopyDealModal'
 import { summariseCopy } from '../lib/dealCopy'
 import { DEAL_STATUS_CFG, LEGAL_STEPS, LEGAL_STEP_LABEL, legalStepText, showsLegalStep } from '../lib/dealStages'
 import { pressable } from '../lib/pressable'
+import { Button, EmptyState } from './ui'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -251,7 +252,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   return (
     <div style={{background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'20px 22px'}}>
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16}}>
-        <span style={{fontSize:20}}>📈</span>
+        <span aria-hidden="true" style={{display:'flex',color:T.goldText}}><Icon name="trending-up" size={20}/></span>
         <div>
           <div style={{fontSize:14, fontWeight:700, color:T.text}}>Portfolio what-if modeller</div>
           <div style={{fontFamily:mono, fontSize:11, color:T.muted}}>Drag the sliders to model different acquisition strategies</div>
@@ -630,10 +631,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
               <button className="btn btn-ghost" onClick={loadDeals}>Retry</button>
             </div>
         : filtered.length === 0
-          ? <div className="card" style={{padding:48,textAlign:'center'}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="target" size={34} color={T.gold}/></div>
-              <div style={{fontFamily:mono,fontSize:12,color:T.muted,marginBottom:16}}>No deals yet. Add your first deal to analyse.</div>
-              <button className="btn btn-gold" onClick={createNewDeal}>+ Add Deal</button>
+          ? <div className="card">
+              <EmptyState icon="target" title="No deals yet" body="Add your first deal to analyse."
+                action={<Button icon="plus" onClick={createNewDeal}>Add Deal</Button>}/>
             </div>
           : <div style={{display:'grid',gap:12}}>
               {filtered.map(deal => {
@@ -763,7 +763,7 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
             const cf = d._cashflow || {}
             return (
               <div key={`d-${d.id}`} style={itemRow}>
-                <span style={{fontSize:FS.xs}}>🎯</span>
+                <span aria-hidden="true" style={{display:'flex',color:T.muted}}><Icon name="target" size={14}/></span>
                 <div style={{minWidth:0}}>
                   <div style={{color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.name || d.address || 'Untitled deal'}</div>
                   {d.address && d.address !== d.name && (
@@ -793,7 +793,7 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
               : rcf.trigger ? null : { label: 'No target date', color: T.amber }
             return (
               <div key={`p-${p.id}`} style={itemRow}>
-                <span style={{fontSize:FS.xs}}>🏠</span>
+                <span aria-hidden="true" style={{display:'flex',color:T.muted}}><Icon name="home" size={14}/></span>
                 <div style={{minWidth:0}}>
                   <div style={{color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:6}}>
                     <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name || p.address || 'Untitled property'}</span>
@@ -2038,9 +2038,9 @@ function ContactsTab({ dealId, userId, showToast }) {
                 </div>
               </div>
               <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:mono,fontSize:11,color:T.muted}}>
-                {c.phone&&<a href={`tel:${c.phone}`} style={{color:T.muted,textDecoration:'none'}}>📞 {c.phone}</a>}
-                {c.email&&<a href={`mailto:${c.email}`} style={{color:T.goldText,textDecoration:'none'}}>✉ {c.email}</a>}
-                {c.notes&&<span>📝 {c.notes}</span>}
+                {c.phone&&<a href={`tel:${c.phone}`} style={{color:T.muted,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><Icon name="phone" size={12}/> {c.phone}</a>}
+                {c.email&&<a href={`mailto:${c.email}`} style={{color:T.goldText,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:4}}><Icon name="mail" size={12}/> {c.email}</a>}
+                {c.notes&&<span style={{display:'inline-flex',alignItems:'center',gap:4}}><Icon name="file-text" size={12}/> {c.notes}</span>}
               </div>
             </div>
           ))}
@@ -2095,8 +2095,8 @@ function ContactsTab({ dealId, userId, showToast }) {
                   <div style={{fontSize:13,fontWeight:600,color:T.text}}>{entry.name}</div>
                   <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{CONTACT_ROLES[entry.role]||entry.role}{entry.company_name?` · ${entry.company_name}`:''}</div>
                   <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:2}}>
-                    {entry.phone&&<span style={{marginRight:12}}>📞 {entry.phone}</span>}
-                    {entry.email&&<span>✉ {entry.email}</span>}
+                    {entry.phone&&<span style={{marginRight:12,display:'inline-flex',alignItems:'center',gap:4}}><Icon name="phone" size={12}/> {entry.phone}</span>}
+                    {entry.email&&<span style={{display:'inline-flex',alignItems:'center',gap:4}}><Icon name="mail" size={12}/> {entry.email}</span>}
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>

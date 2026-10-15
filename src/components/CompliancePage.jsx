@@ -24,6 +24,7 @@ import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUnti
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
+import { EmptyState } from './ui'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -198,7 +199,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
   }
 
   const GRID = `minmax(150px,1.4fr) repeat(${cols.length}, minmax(58px,1fr))`
-  if (!properties.length) return <div style={{ fontFamily: mono, color: T.muted, fontSize: 12, padding: 32, textAlign: 'center' }}>No properties to track compliance for yet.</div>
+  if (!properties.length) return <EmptyState compact icon="shield-check" title="No properties to track compliance for yet." body="Add a property and its certificates will be tracked here."/>
   const ordered = [...companies, { id: null }].flatMap(co => properties.filter(p => p.company_id === co.id).map(p => ({ ...p, _co: co })))
   return (
     <div className="fade">
@@ -470,7 +471,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                 ))}
               </div>
               {ordered.length === 0
-                ? <div style={{ fontFamily: mono, color: T.muted, fontSize: 12, padding: 32, textAlign: 'center' }}>No properties to track compliance for yet.</div>
+                ? <EmptyState compact icon="shield-check" title="No properties to track compliance for yet." body="Add a property and its certificates will be tracked here."/>
                 : <div style={{ display: 'grid', gap: 12 }}>
                     {ordered.map(({ p, co }, i) => {
                       const prev = i > 0 ? ordered[i - 1] : null

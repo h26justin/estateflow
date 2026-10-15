@@ -13,11 +13,11 @@ const CATEGORIES = [
   { key: 'tenancy',     label: 'Tenancy & Legal',       icon: 'scale' },
   { key: 'maintenance', label: 'Maintenance',           icon: 'wrench' },
   { key: 'documents',   label: 'Documents & Expenses',  icon: 'folder' },
-  { key: 'deals',       label: 'Deals & Calculator',    icon: '🎯' },
+  { key: 'deals',       label: 'Deals & Calculator',    icon: 'target' },
   { key: 'lettings',    label: 'Lettings Pipeline',     icon: 'key' },
   { key: 'reports',     label: 'Reports',               icon: 'pie-chart' },
   { key: 'portal',      label: 'Tenant Portal',         icon: 'home' },
-  { key: 'settings',    label: 'Settings & Account',    icon: '⚙' },
+  { key: 'settings',    label: 'Settings & Account',    icon: 'settings' },
   { key: 'ai',          label: 'AI Tools',              icon: 'sparkle' },
 ]
 

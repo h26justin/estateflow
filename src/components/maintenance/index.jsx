@@ -16,7 +16,8 @@ import { useLoadGuard } from '../../lib/useLoadGuard'
 import { NotesTimeline } from '../FeatureComponents'
 import MoneyInput from '../../lib/MoneyInput'
 import TriageButton from './TriageButton'
-import { Button } from '../ui'
+import { Button, EmptyState } from '../ui'
+import { SkeletonList } from '../../lib/Skeleton'
 
 // Local copy of formatDate (used by JobCard for raised/resolved dates).
 // Matches the implementation in FeatureComponents.jsx so behaviour is identical.
@@ -124,8 +125,8 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
         </div>
       </div>}
 
-      {loading ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
-       : jobs.length===0 ? <div style={{fontFamily:MONO,fontSize:11,color:T.faint,padding:'20px 0'}}>No maintenance jobs logged yet.</div>
+      {loading ? <SkeletonList count={3}/>
+       : jobs.length===0 ? <EmptyState compact icon="wrench" title="No maintenance jobs logged yet."/>
        : <div>
           {openJobs.length>0&&<div style={{marginBottom:16}}>
             <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Open Jobs</div>
@@ -168,7 +169,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
               {job.photos.slice(0,4).map((p,i) => (
                 <span key={i} title={p.name || ''}
                   style={{fontFamily:MONO,fontSize:FS.xs,padding:'2px 6px',borderRadius:4,background:T.bg,border:`1px solid ${T.border}`,color:T.muted}}>
-                  📷 {p.name?.slice(0,18) || `photo ${i+1}`}
+                  {p.name?.slice(0,18) || `photo ${i+1}`}
                 </span>
               ))}
               {job.photos.length > 4 && (

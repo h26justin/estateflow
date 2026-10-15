@@ -5,6 +5,7 @@ import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
+import { Skeleton } from '../lib/Skeleton'
 
 // ── REFERENCING PANEL (Feature 7 scaffold) ───────────────────────────
 // Order a tenant reference or Right-to-Rent check from the lettings /
@@ -118,7 +119,7 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
       </div>
 
       {loading ? (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 12 }}>Loading…</div>
+        <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: 12 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
       ) : (
         <>
           {adding && (

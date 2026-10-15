@@ -13,6 +13,7 @@ import { MONO, FS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { listApiTokens, createApiToken, revokeApiToken } from '../lib/api/apiAccess'
+import { Skeleton } from '../lib/Skeleton'
 
 const mono = MONO
 
@@ -116,7 +117,7 @@ export default function ApiAccessPanel({ T }) {
       )}
 
       {loading ? (
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading…</div>
+        <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
       ) : (
         <>
           {active.length > 0 && (

@@ -320,7 +320,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button type="button" onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12 }}>Cancel</button>
                 <button type="submit" form="bm-form" disabled={saving || unitCount === 0} className="btn btn-gold" style={{ fontSize: 12 }}>
-                  {saving ? `Updating ${unitCount} units…` : `💾 Save across ${unitCount} units`}
+                  {saving ? `Updating ${unitCount} units…` : `Save across ${unitCount} units`}
                 </button>
               </div>
             </>

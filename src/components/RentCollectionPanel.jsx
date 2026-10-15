@@ -9,6 +9,7 @@ import {
   cancelMandate,
   fetchTenantMandate,
 } from '../lib/api/rentCollection'
+import { Skeleton } from '../lib/Skeleton'
 
 const COMING_SOON =
   'Coming soon — pending provider setup. Rent collection is inert: no payments are taken until FCA authorisation and a TrueLayer VRP agreement are in place.'
@@ -107,7 +108,7 @@ export function RentCollectionPanel({ property, companyId, tenantUserId }) {
     }
   }
 
-  if (loading) return <div style={{ opacity: 0.6, fontSize: 13 }}>Loading…</div>
+  if (loading) return <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
 
   const isCancelled = mandate?.status === 'cancelled'
   const hasActiveDraft = mandate && !isCancelled

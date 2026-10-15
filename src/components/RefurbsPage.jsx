@@ -16,7 +16,7 @@
 //      #/refurbs/invoices | #/refurbs/invoices/import | #/refurbs/invoice/<id> |
 //      #/refurbs/project/<id>/<section>[/<stageId>]  (the workspace, refurbs/RefurbWorkspace.jsx)
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, CV } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { useIsMobile } from '../lib/useWindowSize'
@@ -34,6 +34,8 @@ import { useRefurbInvoices, allLinesOf, ImportRefurbInvoice, InvoiceList, Invoic
 import RefurbWorkspace, { WORKSPACE_TABS } from './refurbs/RefurbWorkspace'
 import { CoverImage } from './refurbs/CoverPhoto'
 import { pressable } from '../lib/pressable'
+import { Icon } from '../lib/icons'
+import { Skeleton } from '../lib/Skeleton'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -144,7 +146,7 @@ function toneFor(project, t, today) {
 const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 8px', outline: 'none', width: '100%' })
 const btn = (T, kind = 'ghost') => ({
   fontFamily: mono, fontSize: 11, fontWeight: kind === 'gold' ? 700 : 500, padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
-  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#fff' : kind === 'danger' ? T.red : T.muted,
+  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? CV.onGold : kind === 'danger' ? T.red : T.muted,
   border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`,
 })
 
@@ -378,8 +380,8 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         {l.kind === 'extra' ? '+ ' : l.kind === 'credit' ? '− ' : ''}{fmtLine(l.amount)}
       </div>
       {canEdit ? <div style={{ display: 'flex', gap: 4 }}>
-        <button onClick={() => startEdit(l)} style={iconBtn} title="Edit">✎</button>
-        <button onClick={() => removeLine(l)} style={iconBtn} title="Delete">🗑</button>
+        <button onClick={() => startEdit(l)} style={iconBtn} title="Edit" aria-label="Edit">✎</button>
+        <button onClick={() => removeLine(l)} style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title="Delete" aria-label="Delete"><Icon name="trash" size={12}/></button>
       </div> : <span />}
     </div>
   )
@@ -507,7 +509,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         {/* Milestones */}
         <div style={panel}>
           <div style={ph}><span>Milestones</span>{milestones && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, textTransform: 'none', letterSpacing: 0 }}>{milestones.filter(m => m.completed).length}/{milestones.length}</span>}</div>
-          {milestones == null && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Loading…</div>}
+          {milestones == null && <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/></div>}
           {milestones && milestones.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No checklist for this refurb.</div>}
           {milestones && milestones.filter(m => m.is_enabled !== false).map(m => (
             <button key={m.id} onClick={() => toggleMilestone(m)} disabled={!canEdit}
@@ -890,7 +892,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
 
   const typeToggle = <div role="tablist" aria-label="Project type" style={{ display: 'inline-flex', background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
     {PROJECT_TYPES.map(o => <button key={o.value} role="tab" aria-selected={filters.type === o.value} onClick={() => { setFilter('type', o.value); setSelectedId(null) }}
-      style={{ fontSize: 13, fontWeight: filters.type === o.value ? 700 : 500, padding: '8px 18px', border: 'none', cursor: 'pointer', background: filters.type === o.value ? T.gold : 'transparent', color: filters.type === o.value ? '#fff' : T.muted }}>{o.label}</button>)}
+      style={{ fontSize: 13, fontWeight: filters.type === o.value ? 700 : 500, padding: '8px 18px', border: 'none', cursor: 'pointer', background: filters.type === o.value ? T.gold : 'transparent', color: filters.type === o.value ? CV.onGold : T.muted }}>{o.label}</button>)}
   </div>
 
   const pageHead = <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
@@ -907,7 +909,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
       <div style={{ display: 'inline-flex', background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden', flexWrap: 'wrap' }}>
         {VIEWS.map(([k, l]) => (
           <button key={k} onClick={() => { setSub(k); setSelectedId(null); setInvoiceId(null); setImporting(false) }}
-            style={{ fontFamily: mono, fontSize: FS.sm, padding: '7px 14px', border: 'none', cursor: 'pointer', background: sub === k && !selectedId ? T.gold : 'transparent', color: sub === k && !selectedId ? '#fff' : T.muted }}>{l}</button>
+            style={{ fontFamily: mono, fontSize: FS.sm, padding: '7px 14px', border: 'none', cursor: 'pointer', background: sub === k && !selectedId ? T.gold : 'transparent', color: sub === k && !selectedId ? CV.onGold : T.muted }}>{l}</button>
         ))}
       </div>
       <button onClick={() => { setImporting(true); setSub('invoices'); setSelectedId(null); setInvoiceId(null) }} style={{ ...btn(T), padding: '8px 14px', fontSize: 12 }}>Import refurb invoice</button>
