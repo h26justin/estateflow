@@ -25,4 +25,3 @@ export const subjectSafe = (s: unknown, fallback: string, max = 60): string => {
   const capped = out.length > max ? out.slice(0, max - 1).trimEnd() + '…' : out
   return capped || fallback
 }
-
