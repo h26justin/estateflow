@@ -136,6 +136,7 @@ import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair, STL_COLOR } fro
 import { engineSummary } from './lib/rentEngineSummary'
 import { pressable } from './lib/pressable'
 import { plural } from './lib/format'
+import AppShellStyles from './lib/AppShellStyles'
 
 
 
@@ -995,73 +996,6 @@ export default function App({ initialLoginMode = null } = {}) {
   const [announcements, setAnnouncements] = useState([])
   const [dismissedAnns, setDismissedAnns] = useState(() => { try { return JSON.parse(localStorage.getItem('dismissed_anns')||'[]') } catch(e) { return [] } })
   const { T, darkMode, setDarkMode, loadUserTheme } = useTheme()
-
-  const CSS = `
-  html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:${SANS};-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
-  h1,h2,h3,h4{font-family:${SANS};letter-spacing:-0.02em;}
-  ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${T.bg}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
-  input,select,textarea{font-family:${MONO};background:${T.surface};border:1px solid ${T.border};color:${T.text};border-radius:8px;padding:8px 12px;width:100%;font-size:13px;outline:none;transition:border-color 0.2s;}
-  input:focus,select:focus,textarea:focus{border-color:${T.gold};}
-  :focus-visible{outline:2px solid ${T.goldText};outline-offset:2px;}
-  .skip-link{position:absolute;left:-9999px;top:8px;z-index:3000;background:${T.surface};color:${T.text};border:2px solid ${T.goldText};border-radius:8px;padding:10px 16px;font-family:${MONO};font-size:13px;font-weight:600;text-decoration:none;}
-  .skip-link:focus{left:16px;}
-  select option{background:${T.surface};}
-  label{font-family:${MONO};font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${T.muted};display:block;margin-bottom:5px;}
-  .btn{font-family:${SANS};font-weight:600;border:none;cursor:pointer;border-radius:10px;padding:9px 18px;font-size:13px;transition:all 0.18s;letter-spacing:0;}
-  .btn-gold{background:${T.gold};color:#1C2830;}.btn-gold:hover{background:${T.gold}dd;}
-  .btn-ghost{background:transparent;color:${T.text};border:1px solid ${T.border};}.btn-ghost:hover{border-color:${T.gold};color:${T.goldText};}
-  .btn-danger{background:${T.red};color:#fff;border:1px solid ${T.red};}.btn-danger:hover{filter:brightness(0.92);}
-  .card{background:${T.card};border:1px solid ${T.border};border-radius:14px;}
-  .pcard{cursor:pointer;transition:border-color 0.18s,transform 0.18s;}.pcard:hover{border-color:#C8A84B55;transform:translateY(-1px);}
-  @media(max-width:768px){
-    .nav-desktop{display:none!important;visibility:hidden!important;width:0!important;overflow:hidden!important;}
-    .mobile-nav{display:flex!important;}
-    .detail-grid{grid-template-columns:1fr!important;}
-    .stat-grid{grid-template-columns:1fr 1fr!important;}
-    .hide-mobile{display:none!important;}
-    .stat-cards-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
-    .company-stats-grid{grid-template-columns:1fr 1fr!important;}
-    .kpi-grid{grid-template-columns:1fr 1fr!important;}
-    .summary-cards{grid-template-columns:1fr 1fr!important;}
-    h1{font-size:20px!important;}
-    h2{font-size:16px!important;}
-    .pcard{padding:12px 14px!important;}
-    main{padding:16px 12px 90px!important;}
-    .tab{padding:6px 10px!important;font-size:11px!important;}
-    .modal{margin:8px!important;max-height:95vh!important;overflow-y:auto!important;}
-    .overlay{padding:0!important;align-items:flex-end!important;}
-    .card{border-radius:10px!important;}
-    input,select,textarea{font-size:16px!important;}
-    /* Defense-in-depth: stop any single child from forcing the page wider
-       than the viewport. Long text wraps; oversized images/iframes scale
-       down. Without this, a single forgotten flex child can blow the
-       horizontal scroll on iPhone — see commit fixing the dashboard
-       "Portfolio Overview" header. */
-    main img, main iframe, main video, main canvas, main pre { max-width: 100% !important; }
-    main p, main h1, main h2, main h3, main label { overflow-wrap: anywhere; word-break: break-word; }
-  }
-  @media(min-width:769px){
-    .mobile-nav{display:none!important;}
-    .show-mobile{display:none!important;}
-    .hide-mobile{display:flex!important;}
-  }
-  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:${T.surface};border-top:1px solid ${T.border};z-index:100;padding:8px 0 max(8px,env(safe-area-inset-bottom));}
-  .fade{animation:fadeIn 0.25s ease;}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .skeleton{position:relative;overflow:hidden;background:${T.card};border-radius:8px;}
-  .skeleton::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,${T.border}99,transparent);animation:shimmer 1.3s infinite;}
-  @keyframes shimmer{100%{transform:translateX(100%)}}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;backdrop-filter:blur(4px);}
-  .modal{background:${T.surface};border:1px solid ${T.border};border-radius:18px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;}
-  .tab{font-family:${SANS};font-weight:500;font-size:13px;background:none;border:none;color:${T.muted};cursor:pointer;padding:8px 14px;border-radius:8px;transition:all 0.18s;letter-spacing:0;}
-  .tab.active{background:${T.border};color:${T.goldText};}.tab:hover{color:${T.text};}
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  @media(max-width:700px){.g2{grid-template-columns:1fr}}
-`
-
 
   const isMobile = useIsMobile(769)
   const [showDrawer, setShowDrawer] = useState(false)
@@ -2550,7 +2484,7 @@ export default function App({ initialLoginMode = null } = {}) {
 
   return (
     <div style={{fontFamily:SANS,minHeight:'100vh',width:'100%',maxWidth:'100vw',overflowX:'hidden',background:T.bg,color:T.text,transition:'background 0.3s, color 0.3s',paddingLeft:railWidth}}>
-      <style>{CSS}</style>
+      <AppShellStyles/>
       {/* ── LEFT RAIL (desktop) ── redesign app shell. Fixed in the gutter the
           outer paddingLeft reserves. Mobile keeps the bottom tab bar instead. */}
       {!isMobile && (

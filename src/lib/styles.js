@@ -23,6 +23,31 @@ export const MONO = "'DM Mono',monospace"
 export const SANS =
   "'Schibsted Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 
+// ── SCALES ────────────────────────────────────────────────────────────────
+// Canonical type / radius / spacing scales. Mirrored as CSS custom properties
+// (--fs-*, --r-*, --sp-*) in src/styles/app.css; a test keeps them in sync.
+//
+// Type scale (px). NOTHING BELOW 11px: FS.xs is the floor for any text,
+// including eyebrow labels and table captions. Older code still has 8–10px
+// sizes; migrate them up to FS.xs when touched.
+export const FS = { xs: 11, sm: 12, base: 13, md: 15, lg: 18, xl: 24, xxl: 30 }
+
+// Corner radius (px). `pill` for fully rounded chips.
+export const R = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 }
+
+// Spacing, 4-pt scale (px): SP[1] = 4, SP[2] = 8 … SP[12] = 48.
+export const SP = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32, 10: 40, 12: 48 }
+
+// Theme colours as CSS variable references. Unlike `T.*` these do not change
+// identity when the theme flips, so a style object built with them can be
+// hoisted out of render. Keys match the `T` palette in ThemeContext.
+export const CV = {
+  bg: 'var(--bg)', surface: 'var(--surface)', card: 'var(--card)', border: 'var(--border)',
+  text: 'var(--text)', muted: 'var(--muted)', faint: 'var(--faint)',
+  gold: 'var(--gold)', goldText: 'var(--gold-text)', onGold: 'var(--on-gold)',
+  green: 'var(--green)', red: 'var(--red)', blue: 'var(--blue)', amber: 'var(--amber)', purple: 'var(--purple)',
+}
+
 // ── TYPOGRAPHY ────────────────────────────────────────────────────────────
 
 // Small uppercase mono label. Used above inputs and on small captions.
@@ -39,7 +64,7 @@ export const monoLabel = (T) => ({
 // Mono body text in muted colour. Used for explanatory paragraphs.
 export const monoMuted = (T) => ({
   fontFamily: MONO,
-  fontSize: 12,
+  fontSize: FS.sm,
   color: T.muted,
   lineHeight: 1.6,
 })
@@ -47,7 +72,7 @@ export const monoMuted = (T) => ({
 // Mono body text in primary colour.
 export const monoText = (T) => ({
   fontFamily: MONO,
-  fontSize: 12,
+  fontSize: FS.sm,
   color: T.text,
   lineHeight: 1.6,
 })
@@ -55,13 +80,13 @@ export const monoText = (T) => ({
 // Faint mono — for tertiary annotations like "as of 2026-04-01".
 export const monoFaint = (T) => ({
   fontFamily: MONO,
-  fontSize: 11,
+  fontSize: FS.xs,
   color: T.faint,
 })
 
 // Section heading style. `h2` size by default.
 export const heading = (T, level = 2) => {
-  const sizes = { 1: 30, 2: 26, 3: 16 }
+  const sizes = { 1: FS.xxl, 2: 26, 3: 16 }
   return {
     fontFamily: SANS,
     fontSize: sizes[level] || sizes[2],
@@ -103,11 +128,11 @@ export const well = (T) => ({
 // Text input / textarea / select. Spread on top: `style={{...inp(T), width: 200}}`.
 export const inp = (T) => ({
   fontFamily: MONO,
-  fontSize: 13,
+  fontSize: FS.base,
   background: T.bg,
   border: `1px solid ${T.border}`,
   color: T.text,
-  borderRadius: 8,
+  borderRadius: R.md,
   padding: '10px 14px',
   outline: 'none',
   width: '100%',
@@ -115,8 +140,9 @@ export const inp = (T) => ({
 })
 
 // ── BUTTONS ───────────────────────────────────────────────────────────────
-// Note: .btn / .btn-gold / .btn-ghost CSS classes already exist in App.jsx's
-// global <style> tag. These factories are for cases where inline styling is
+// Note: .btn / .btn-gold / .btn-ghost CSS classes live in src/styles/app.css,
+// and new code should prefer <Button> from src/components/ui. These
+// factories are for cases where inline styling is
 // needed (e.g. dynamic colours, or in components rendered before App mounts
 // like the marketing site).
 
@@ -124,7 +150,7 @@ export const btnGold = (T) => ({
   background: T.gold,
   color: '#1A2530',
   fontFamily: MONO,
-  fontSize: 13,
+  fontSize: FS.base,
   fontWeight: 700,
   padding: '11px 22px',
   borderRadius: 10,
@@ -136,7 +162,7 @@ export const btnGhost = (T) => ({
   background: 'transparent',
   color: T.muted,
   fontFamily: MONO,
-  fontSize: 13,
+  fontSize: FS.base,
   padding: '10px 22px',
   borderRadius: 10,
   border: `1px solid ${T.border}`,
@@ -147,7 +173,7 @@ export const btnDanger = (T) => ({
   background: T.red,
   color: 'white',
   fontFamily: MONO,
-  fontSize: 13,
+  fontSize: FS.base,
   fontWeight: 700,
   padding: '11px 22px',
   borderRadius: 10,
@@ -167,7 +193,7 @@ export const pill = (accent) => ({
   background: accent + '22',
   border: `1px solid ${accent}44`,
   color: accent,
-  fontSize: 11,
+  fontSize: FS.xs,
   fontFamily: MONO,
   fontWeight: 600,
 })
@@ -227,12 +253,12 @@ export const statusPill = (key, darkMode) => {
     alignItems: 'center',
     gap: 5,
     padding: '3px 10px',
-    borderRadius: 999,
+    borderRadius: R.pill,
     background: c.bg,
     color: c.text,
     border: `1px solid ${c.text}33`,
     fontFamily: MONO,
-    fontSize: 11,
+    fontSize: FS.xs,
     fontWeight: 600,
     whiteSpace: 'nowrap',
   }
@@ -249,7 +275,7 @@ export const Z = {
   rail: 120,
   menuBackdrop: 199,
   menu: 200,
-  overlay: 200,   // matches the .overlay class in App.jsx's stylesheet
+  overlay: 200,   // matches the .overlay class in src/styles/app.css
   drawer: 300,
   popover: 500,
   adminOverlay: 800,
