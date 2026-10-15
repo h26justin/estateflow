@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { MONO } from '../lib/styles'
@@ -43,8 +43,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
   const fileRef = useRef(null)
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [propertyId])
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -56,7 +55,8 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
       showAppToast(e.message || 'Failed to load inspections', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId])
+  useEffect(() => { load() }, [load])
 
   function startAdd() {
     setForm(blank); setEditingId(null); setAdding(true)

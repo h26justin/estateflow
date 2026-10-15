@@ -9,7 +9,7 @@ import { MONO } from '../../lib/styles'
 // NotesTimeline, which is defined in FeatureComponents. We import it across.
 // If/when NotesTimeline moves to its own module, update this import.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -40,9 +40,8 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   const STATUSES   = [{v:'open',c:T.red,l:'Open'},{v:'in-progress',c:T.amber,l:'In Progress'},{v:'complete',c:T.green,l:'Complete'}]
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadJobs() },[propertyId])
 
-  async function loadJobs() {
+  const loadJobs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -54,7 +53,8 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
       showToast(e.message || 'Failed to load maintenance jobs', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId, showToast])
+  useEffect(()=>{ loadJobs() },[loadJobs])
 
   async function handleSave() {
     if (!form.title) return
