@@ -1,7 +1,7 @@
 // Receipts that need a human decision: unallocated remainders, possible
 // duplicates across sources, conflicts. Nothing here is auto-resolved.
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
@@ -59,7 +59,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>Receipts to review</div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>Unallocated money, possible duplicates and conflicts. Nothing is resolved automatically.</div>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>Unallocated money, possible duplicates and conflicts. Nothing is resolved automatically.</div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', fontSize: 20, color: T.muted, cursor: 'pointer' }}>×</button>
         </div>
@@ -73,15 +73,15 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
             <div key={r.id} style={{ border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.amber}`, borderRadius: 10, padding: '10px 14px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.text }}>{money(r.amount)}</div>
-                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: MONO, fontSize: 9, color: co.color || T.goldText, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted }}>{fmtDate(r.received_date)} · {r.payer?.replace('_', ' ')} · {r.source}{r.reference ? ` · ${r.reference}` : ''}</div>
+                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: MONO, fontSize: FS.xs, color: co.color || T.goldText, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{fmtDate(r.received_date)} · {r.payer?.replace('_', ' ')} · {r.source}{r.reference ? ` · ${r.reference}` : ''}</div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                  {canEdit && !isEditing && <button className="btn btn-gold" style={{ fontSize: 10 }} onClick={() => startEdit(r)}>Allocate</button>}
-                  {canEdit && !isEditing && <button className="btn" style={{ fontSize: 10 }} onClick={() => markOk(r)}>Looks right</button>}
-                  {canEdit && !isEditing && /duplicate/i.test(r.review_reason || '') && <button className="btn" style={{ fontSize: 10, color: T.red }} onClick={() => remove(r)}>Delete duplicate</button>}
+                  {canEdit && !isEditing && <button className="btn btn-gold" style={{ fontSize: FS.xs }} onClick={() => startEdit(r)}>Allocate</button>}
+                  {canEdit && !isEditing && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => markOk(r)}>Looks right</button>}
+                  {canEdit && !isEditing && /duplicate/i.test(r.review_reason || '') && <button className="btn" style={{ fontSize: FS.xs, color: T.red }} onClick={() => remove(r)}>Delete duplicate</button>}
                 </div>
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.amber, marginTop: 4 }}>{r.review_reason || 'Needs review'}</div>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginTop: 4 }}>{r.review_reason || 'Needs review'}</div>
               {isEditing && (
                 <div style={{ marginTop: 10 }}>
                   {editing.allocations.map((a, i) => (
@@ -93,14 +93,14 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
                         ? <select value={a.rent_payment_id || ''} onChange={e => setAlloc(i, 'rent_payment_id', e.target.value)}><option value="">Choose…</option>{periodsFor(p).map(x => <option key={x.id} value={x.id}>{x.month_label} · {fmtDate(x.period_start)} → {fmtDate(x.period_end)} · {x.status}</option>)}</select>
                         : <input value={a.notes || ''} onChange={e => setAlloc(i, 'notes', e.target.value)} placeholder="optional note" />}</div>
                       <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
-                      <button className="btn" style={{ fontSize: 10, color: T.red, height: 34 }} onClick={() => setEditing(e => ({ ...e, allocations: e.allocations.filter((_, j) => j !== i) }))} disabled={editing.allocations.length === 1}>✕</button>
+                      <button className="btn" style={{ fontSize: FS.xs, color: T.red, height: 34 }} onClick={() => setEditing(e => ({ ...e, allocations: e.allocations.filter((_, j) => j !== i) }))} disabled={editing.allocations.length === 1}>✕</button>
                     </div>
                   ))}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditing(e => ({ ...e, allocations: [...e.allocations, { _key: rowKey(), target: 'historic_arrears', rent_payment_id: '', amount: '' }] }))}>+ Split</button>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: Math.abs(remainder) < 0.005 ? T.green : T.amber }}>{Math.abs(remainder) < 0.005 ? 'Fully allocated' : `${money(Math.abs(remainder))} ${remainder > 0 ? 'unallocated' : 'over-allocated'}`}</span>
-                    <button className="btn btn-gold" style={{ fontSize: 10, marginLeft: 'auto' }} onClick={saveAlloc} disabled={saving}>{saving ? 'Saving…' : 'Save allocation'}</button>
-                    <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditing(null)}>Cancel</button>
+                    <button className="btn" style={{ fontSize: FS.xs }} onClick={() => setEditing(e => ({ ...e, allocations: [...e.allocations, { _key: rowKey(), target: 'historic_arrears', rent_payment_id: '', amount: '' }] }))}>+ Split</button>
+                    <span style={{ fontFamily: MONO, fontSize: FS.xs, color: Math.abs(remainder) < 0.005 ? T.green : T.amber }}>{Math.abs(remainder) < 0.005 ? 'Fully allocated' : `${money(Math.abs(remainder))} ${remainder > 0 ? 'unallocated' : 'over-allocated'}`}</span>
+                    <button className="btn btn-gold" style={{ fontSize: FS.xs, marginLeft: 'auto' }} onClick={saveAlloc} disabled={saving}>{saving ? 'Saving…' : 'Save allocation'}</button>
+                    <button className="btn" style={{ fontSize: FS.xs }} onClick={() => setEditing(null)}>Cancel</button>
                   </div>
                 </div>
               )}

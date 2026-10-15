@@ -9,7 +9,7 @@
 // All arithmetic is in lib/stlIncome (pure, tested). This file is layout,
 // filters and the adjustment form only.
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
-import { MONO, monoLabel, inp, card } from '../lib/styles'
+import { MONO, monoLabel, inp, card, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { useIsMobile } from '../lib/useWindowSize'
@@ -357,7 +357,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     border: `1px solid ${active ? accent : T.border}`, background: active ? accent : 'transparent',
     color: active ? (accent === T.goldText ? '#1C2830' : '#fff') : T.muted, transition: 'all 0.18s',
   })
-  const th = { fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }
+  const th = { fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }
   const td = { fontFamily: MONO, fontSize: 12, color: T.text, padding: '9px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', verticalAlign: 'middle' }
   const tdR = { ...td, textAlign: 'right' }
   const statusPill = b => {
@@ -365,13 +365,13 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     const canc = isCancelled(b)
     const c = rev ? stlText : canc ? T.red : T.muted
     const bg = rev ? stlBg : canc ? T.red + '22' : T.border
-    return <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 20, fontFamily: MONO, fontSize: 10, fontWeight: 600, color: c, background: bg }}>{bookingStatusLabel(b)}</span>
+    return <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 20, fontFamily: MONO, fontSize: FS.xs, fontWeight: 600, color: c, background: bg }}>{bookingStatusLabel(b)}</span>
   }
   const Tile = ({ label, value, sub, accent }) => (
     <div style={{ ...card(T), padding: isMobile ? '12px 14px' : '16px 18px', borderTop: accent ? `3px solid ${accent}` : undefined }}>
       <div style={{ ...monoLabel(T), marginBottom: 6 }}>{label}</div>
       <div style={{ fontFamily: MONO, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: accent || T.text, letterSpacing: '-0.02em' }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{sub}</div>}
     </div>
   )
 
@@ -403,7 +403,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
             Booking values from Hostaway with the platform fees Airbnb, Booking.com and Hostaway take, so you can see what actually comes to you. Excluded from the residential rent collection rate. Enter refunds and payout differences as adjustments; add property managers to work out their payout.
           </div>
           {sync && (
-            <div style={{ fontFamily: MONO, fontSize: 10, marginTop: 6, color: sync.failed ? T.red : T.faint, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, marginTop: 6, color: sync.failed ? T.red : T.faint, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span style={{ width: 6, height: 6, borderRadius: 3, background: sync.failed ? T.red : T.green, display: 'inline-block' }} />
               {sync.failed
                 ? `Hostaway sync failed: ${sync.failed}`
@@ -446,7 +446,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
             {stlCompanies.length > 1 && (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginRight: 4 }}>COMPANY:</span>
+                <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginRight: 4 }}>COMPANY:</span>
                 <button onClick={() => { setCoFilter([]); setPropFilter('all') }} style={pillBtn(coFilter.length === 0)}>All</button>
                 {stlCompanies.map(c => (
                   <button key={c.id} onClick={() => { setCoFilter(f => f.includes(c.id) ? f.filter(x => x !== c.id) : [...f, c.id]); setPropFilter('all') }}
@@ -457,7 +457,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginRight: 4 }}>PERIOD:</span>
+              <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginRight: 4 }}>PERIOD:</span>
               {PERIODS.map(p => <button key={p.v} onClick={() => setPeriod(p.v)} style={pillBtn(period === p.v)}>{p.l}</button>)}
               {period === 'custom' && (
                 <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
@@ -490,7 +490,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
           ) : (
             <>
               {/* Summary tiles */}
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{periodLabel} · {selectedProps.length} propert{selectedProps.length === 1 ? 'y' : 'ies'}</div>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{periodLabel} · {selectedProps.length} propert{selectedProps.length === 1 ? 'y' : 'ies'}</div>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(170px, 1fr))', gap: isMobile ? 8 : 12, marginBottom: 10 }}>
                 <Tile label="Gross income" value={fmtMoney(summary.gross)} sub="what guests paid" accent={STL_COLOR} />
                 <Tile label="Platform fees" value={fmtMoney(-summary.platformFees)} sub={`Airbnb etc. deducted ${fmtMoney(summary.feesDeducted)} · Booking.com invoiced ${fmtMoney(summary.feesInvoiced)}${summary.hostawayFees ? ` · Hostaway ${fmtMoney(summary.hostawayFees)}` : ''}`} accent={summary.platformFees ? T.red : undefined} />
@@ -509,7 +509,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   sub={summary.revpar == null ? (roomCount == null ? 'room count unknown' : roomCount === 0 ? 'no rooms open' : 'set a period') : `per available room-night · ${roomCount} room${roomCount === 1 ? '' : 's'}`} />
               </div>
               {summary.bookings > 0 && summary.feesKnown < summary.bookings && (
-                <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginBottom: 14 }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 14 }}>
                   Fees reported by the channel for {summary.feesKnown} of {summary.bookings} bookings.
                   {summary.feesEstimated > 0 && ` ${summary.feesEstimated} Booking.com booking${summary.feesEstimated === 1 ? '' : 's'} not yet invoiced ${summary.feesEstimated === 1 ? 'is' : 'are'} estimated at the observed rate (${fmtMoney(summary.feesEstimatedAmount)} in total); the figure firms up after the stay.`}
                   {summary.bookings - summary.feesKnown - summary.feesEstimated > 0 && ` ${summary.bookings - summary.feesKnown - summary.feesEstimated} other booking${summary.bookings - summary.feesKnown - summary.feesEstimated === 1 ? '' : 's'} carry no fee.`}
@@ -521,7 +521,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
               <div style={{ ...card(T), marginBottom: 20, borderLeft: `3px solid ${STL_COLOR}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                   <div style={{ ...monoLabel(T), marginBottom: 0 }}>On the books · from {fmtDate(ahead.today)}</div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint }}>confirmed bookings only · not affected by the period filter</div>
+                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>confirmed bookings only · not affected by the period filter</div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: isMobile ? 8 : 12, marginBottom: ahead.arrivalsNext7.length ? 12 : 0 }}>
                   {[
@@ -533,7 +533,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                     <div key={x.l} style={{ padding: isMobile ? '8px 10px' : '10px 12px', background: T.bg, borderRadius: 10 }}>
                       <div style={{ ...monoLabel(T), marginBottom: 4 }}>{x.l}</div>
                       <div style={{ fontFamily: MONO, fontSize: isMobile ? 16 : 20, fontWeight: 700, color: T.text, letterSpacing: '-0.02em' }}>{x.v}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 2 }}>{x.sub}</div>
+                      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 2 }}>{x.sub}</div>
                     </div>
                   ))}
                 </div>
@@ -546,7 +546,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                         <span style={{ color: T.muted, whiteSpace: 'nowrap' }}>{guestDisplayName(b.guest_name)} · {channelLabel(b.source)} · {bookingNights(b)} nt</span>
                       </div>
                     ))}
-                    {ahead.arrivalsNext7.length > 10 && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, padding: '4px 0' }}>+{ahead.arrivalsNext7.length - 10} more arriving this week</div>}
+                    {ahead.arrivalsNext7.length > 10 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, padding: '4px 0' }}>+{ahead.arrivalsNext7.length - 10} more arriving this week</div>}
                   </div>
                 )}
               </div>
@@ -560,9 +560,9 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   ) : summary.byChannel.map(c => (
                     <div key={c.channel} style={{ marginBottom: 10 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 12, marginBottom: 4 }}>
-                        <span style={{ color: T.text }}>{c.channel} <span style={{ color: T.faint, fontSize: 10 }}>· {c.bookings} · {c.nights} nt</span></span>
-                        <span style={{ color: T.text, textAlign: 'right' }}>{fmtMoney(c.gross)} <span style={{ color: T.faint, fontSize: 10 }}>{(c.share * 100).toFixed(0)}%</span>
-                          <div style={{ color: c.fees ? T.red : T.faint, fontSize: 10 }}>fee {fmtMoney(c.fees)}{c.fees ? ` (${c.feeRate}%)` : ''} · {c.deductedAtSource ? 'taken before payout' : 'invoiced separately'} · net {fmtMoney(c.net)}</div>
+                        <span style={{ color: T.text }}>{c.channel} <span style={{ color: T.faint, fontSize: FS.xs }}>· {c.bookings} · {c.nights} nt</span></span>
+                        <span style={{ color: T.text, textAlign: 'right' }}>{fmtMoney(c.gross)} <span style={{ color: T.faint, fontSize: FS.xs }}>{(c.share * 100).toFixed(0)}%</span>
+                          <div style={{ color: c.fees ? T.red : T.faint, fontSize: FS.xs }}>fee {fmtMoney(c.fees)}{c.fees ? ` (${c.feeRate}%)` : ''} · {c.deductedAtSource ? 'taken before payout' : 'invoiced separately'} · net {fmtMoney(c.net)}</div>
                         </span>
                       </div>
                       <div style={{ height: 6, borderRadius: 3, background: T.border }}>
@@ -576,7 +576,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div style={{ ...card(T), overflowX: 'auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <div style={{ ...monoLabel(T), marginBottom: 0 }}>Month by month · {yearShown}</div>
-                    <button className="btn" style={{ fontSize: 10 }} onClick={exportMonthsCsv}>Export CSV</button>
+                    <button className="btn" style={{ fontSize: FS.xs }} onClick={exportMonthsCsv}>Export CSV</button>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead><tr>
@@ -625,8 +625,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px 10px', flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ ...monoLabel(T), marginBottom: 0 }}>By room · {periodLabel}</div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.faint }}>click a heading to sort</span>
-                    <button className="btn" style={{ fontSize: 10 }} onClick={exportRoomsCsv} disabled={rooms.length === 0}>Export CSV</button>
+                    <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>click a heading to sort</span>
+                    <button className="btn" style={{ fontSize: FS.xs }} onClick={exportRoomsCsv} disabled={rooms.length === 0}>Export CSV</button>
                   </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -654,8 +654,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                               {openDetail
                                 ? <button onClick={() => openDetail(r.property, 'rent')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: c, fontFamily: MONO, fontSize: 12, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>{r.property.name || r.property.address}</button>
                                 : (r.property.name || r.property.address)}
-                              {!r.open && <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: 9, padding: '1px 6px', borderRadius: 10, background: T.border, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{r.units == null ? 'units unknown' : 'not open'}</span>}
-                              {r.units > 1 && <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: 10, color: T.faint }}>{r.units} listings</span>}
+                              {!r.open && <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: FS.xs, padding: '1px 6px', borderRadius: 10, background: T.border, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{r.units == null ? 'units unknown' : 'not open'}</span>}
+                              {r.units > 1 && <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>{r.units} listings</span>}
                             </td>
                             <td style={{ ...tdR, color: c }}>{r.bookings || '·'}</td>
                             <td style={{ ...tdR, color: c }}>{r.nights || '·'}</td>
@@ -671,7 +671,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                   <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', background: T.border, marginBottom: 3 }}>
                                     {r.byChannel.map((x, i) => <div key={x.channel} style={{ width: `${x.share * 100}%`, background: i === 0 ? STL_COLOR : i === 1 ? T.gold : i === 2 ? T.blue || T.muted : T.muted }} />)}
                                   </div>
-                                  <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, whiteSpace: 'nowrap' }}>{r.byChannel.slice(0, 3).map(x => `${x.channel} ${(x.share * 100).toFixed(0)}%`).join(' · ')}</div>
+                                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, whiteSpace: 'nowrap' }}>{r.byChannel.slice(0, 3).map(x => `${x.channel} ${(x.share * 100).toFixed(0)}%`).join(' · ')}</div>
                                 </div>
                               )}
                             </td>
@@ -702,7 +702,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px 10px', flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ ...monoLabel(T), marginBottom: 0 }}>Bookings · {revenueRows.length} confirmed{search ? ` matching "${search}"` : ''}</div>
                   {nonRevenueRows.length > 0 && (
-                    <button onClick={() => setShowNonRevenue(v => !v)} style={{ ...pillBtn(showNonRevenue), fontSize: 10 }}>
+                    <button onClick={() => setShowNonRevenue(v => !v)} style={{ ...pillBtn(showNonRevenue), fontSize: FS.xs }}>
                       {showNonRevenue ? 'Hide' : 'Show'} {nonRevenueRows.length} non-revenue booking{nonRevenueRows.length === 1 ? '' : 's'}
                     </button>
                   )}
@@ -747,7 +747,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                 <td style={{ ...td, textAlign: 'right' }}>
                                   {rev && prop && canEditCompany(prop.company_id) && (
                                     <button title="Add a refund or adjustment against this booking" onClick={() => openAdjForm({ property_id: b.property_id, booking_id: b.id, channel: channelLabel(b.source), reference: bookingReference(b) })}
-                                      style={{ background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '2px 8px', cursor: 'pointer', color: T.muted, fontFamily: MONO, fontSize: 10 }}>
+                                      style={{ background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '2px 8px', cursor: 'pointer', color: T.muted, fontFamily: MONO, fontSize: FS.xs }}>
                                       Adjust
                                     </button>
                                   )}
@@ -769,7 +769,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                     <div style={{ ...monoLabel(T), marginBottom: 0 }}>Property managers</div>
                     {canAdd && !mgrForm && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setMgrForm({ company_id: editableProps.length ? editableProps[0].company_id : (stlCompanies[0]?.id || ''), name: '', percentage: '', basis: 'net_after_platform_fees', payout_frequency: 'fortnightly', notes: '' })}>+ Add manager</button>}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginBottom: 10 }}>A named manager takes a percentage of each assigned unit's income, by default after platform fees and adjustments.</div>
+                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginBottom: 10 }}>A named manager takes a percentage of each assigned unit's income, by default after platform fees and adjustments.</div>
                   {mgrForm && (
                     <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: 12, marginBottom: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       {stlCompanies.length > 1 && !mgrForm.id && (
@@ -798,10 +798,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: T.bg, borderRadius: 8, marginBottom: 6, opacity: m.active === false ? 0.6 : 1 }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{m.name} <span style={{ fontFamily: MONO, fontSize: 11, color: STL_COLOR }}>{m.percentage}%</span></div>
-                        <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint }}>{m.basis === 'gross' ? 'of gross' : 'of income after platform fees'} · {m.payout_frequency === 'fortnightly' ? 'every two weeks' : m.payout_frequency}{stlCompanies.length > 1 && coById[m.company_id] ? ` · ${coById[m.company_id].abbr || coById[m.company_id].name}` : ''} · {stlProps.filter(p => p.stl_manager_id === m.id).length} unit(s){m.notes ? ` · ${m.notes}` : ''}</div>
+                        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>{m.basis === 'gross' ? 'of gross' : 'of income after platform fees'} · {m.payout_frequency === 'fortnightly' ? 'every two weeks' : m.payout_frequency}{stlCompanies.length > 1 && coById[m.company_id] ? ` · ${coById[m.company_id].abbr || coById[m.company_id].name}` : ''} · {stlProps.filter(p => p.stl_manager_id === m.id).length} unit(s){m.notes ? ` · ${m.notes}` : ''}</div>
                       </div>
-                      {canEditCompany(m.company_id) && <button className="btn" style={{ fontSize: 10 }} onClick={() => setMgrForm({ ...m })}>Edit</button>}
-                      {canEditCompany(m.company_id) && <button className="btn" style={{ fontSize: 10, color: T.red }} onClick={() => removeManager(m)} aria-label="Remove manager">✕</button>}
+                      {canEditCompany(m.company_id) && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => setMgrForm({ ...m })}>Edit</button>}
+                      {canEditCompany(m.company_id) && <button className="btn" style={{ fontSize: FS.xs, color: T.red }} onClick={() => removeManager(m)} aria-label="Remove manager">✕</button>}
                     </div>
                   ))}
                   {managers.length > 0 && (
@@ -825,9 +825,9 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div ref={payoutRef} style={{ ...card(T), overflowX: 'auto', scrollMarginTop: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <div style={{ ...monoLabel(T), marginBottom: 0 }}>Manager payout · {periodLabel}</div>
-                    {payouts.length > 0 && <button className="btn" style={{ fontSize: 10 }} onClick={() => { navigator.clipboard?.writeText(payoutText()).then(() => showToast?.('Payout summary copied', 'success')).catch(() => showToast?.('Could not copy', 'error')) }}>Copy summary</button>}
+                    {payouts.length > 0 && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => { navigator.clipboard?.writeText(payoutText()).then(() => showToast?.('Payout summary copied', 'success')).catch(() => showToast?.('Could not copy', 'error')) }}>Copy summary</button>}
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginBottom: 10 }}>Bookings counted by check-in date in the period. Use "This fortnight" or "Last fortnight" above for a two-weekly payout run.</div>
+                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginBottom: 10 }}>Bookings counted by check-in date in the period. Use "This fortnight" or "Last fortnight" above for a two-weekly payout run.</div>
                   {payouts.length === 0 ? (
                     <div style={{ fontFamily: MONO, fontSize: 12, color: T.faint }}>{managers.length ? 'No assigned units have income in this period.' : 'Add a manager and assign units to see what to pay them.'}</div>
                   ) : (
@@ -840,7 +840,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                           <Fragment key={r.manager.id}>
                             <tr style={{ background: stlBg }}>
                               <td style={{ ...td, fontWeight: 700, whiteSpace: 'normal' }}>{r.manager.name}
-                                <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, fontWeight: 400 }}>
+                                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, fontWeight: 400 }}>
                                   {r.properties.length} unit(s) · {r.bookings} bookings · gross {fmtMoney(r.gross)} · platform fees {fmtMoney(-r.platformFees)}{r.adjustments ? ` · adjustments ${fmtMoney(r.adjustments)}` : ''}{r.feesEstimated ? ` · ${r.feesEstimated} fee${r.feesEstimated === 1 ? '' : 's'} estimated` : ''}{r.feesUnknown ? ` · ${r.feesUnknown} with no fee` : ''}
                                 </div>
                               </td>
@@ -856,7 +856,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                     return (
                                       <>
                                         {fmtMoney(paid.amount)}
-                                        <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, marginTop: 4, color: T.green, whiteSpace: 'normal' }}>
+                                        <div style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 600, marginTop: 4, color: T.green, whiteSpace: 'normal' }}>
                                           Locked · paid on {fmtDateShort(paid.paid_on)}{carried ? ` · includes ${fmtMoney(carried)} of corrections` : ''}
                                           {Math.abs(drift) >= 0.01 && <div style={{ color: T.amber, fontWeight: 400 }}>now computes {fmtMoney(r.amount)}; the {fmtMoney(drift)} difference carries into the next open pay run</div>}
                                         </div>
@@ -869,13 +869,13 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                   return (
                                     <>
                                       {fmtMoney(total)}
-                                      {mine.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 400, marginTop: 4, color: T.muted, whiteSpace: 'normal' }}>{fmtMoney(r.amount)} this period {carried < 0 ? 'less' : 'plus'} {fmtMoney(Math.abs(carried))} carried from {mine.length} locked period{mine.length === 1 ? '' : 's'}</div>}
+                                      {mine.length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 400, marginTop: 4, color: T.muted, whiteSpace: 'normal' }}>{fmtMoney(r.amount)} this period {carried < 0 ? 'less' : 'plus'} {fmtMoney(Math.abs(carried))} carried from {mine.length} locked period{mine.length === 1 ? '' : 's'}</div>}
                                       {canEditCompany(r.manager.company_id) && range.from && range.to && (
                                         total < 0
-                                          ? <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 400, color: T.amber, whiteSpace: 'normal', marginTop: 6 }}>Corrections exceed this period's fee; nothing to pay. The balance carries until a period can absorb it.</div>
+                                          ? <div style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 400, color: T.amber, whiteSpace: 'normal', marginTop: 6 }}>Corrections exceed this period's fee; nothing to pay. The balance carries until a period can absorb it.</div>
                                           : (
                                             <div style={{ marginTop: 6 }}>
-                                              <button className="btn btn-gold" style={{ fontSize: 10, padding: '4px 10px' }} onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id}>
+                                              <button className="btn btn-gold" style={{ fontSize: FS.xs, padding: '4px 10px' }} onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id}>
                                                 {markingPaid === r.manager.id ? 'Saving…' : 'Mark as paid'}
                                               </button>
                                             </div>
@@ -892,7 +892,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                 // A locked period shows the figures as paid, never the live recomputation.
                                 return snapshotRooms(paid.breakdown).filter(pp => pp.gross || pp.adjustments).map(pp => (
                                   <tr key={pp.property_id}>
-                                    <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.name}<span style={{ fontSize: 10, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-(pp.platform_fees || 0))} · {pp.bookings} booking{pp.bookings === 1 ? '' : 's'} · as paid</span></td>
+                                    <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.name}<span style={{ fontSize: FS.xs, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-(pp.platform_fees || 0))} · {pp.bookings} booking{pp.bookings === 1 ? '' : 's'} · as paid</span></td>
                                     <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.base)}</td><td style={tdR}></td>
                                     <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.amount)}</td>
                                   </tr>
@@ -902,14 +902,14 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                 <>
                                   {r.properties.filter(pp => pp.gross || pp.adjustments).map(pp => (
                                     <tr key={pp.property.id}>
-                                      <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.property.name || pp.property.address}<span style={{ fontSize: 10, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-pp.platformFees)}</span></td>
+                                      <td style={{ ...td, color: T.muted, paddingLeft: 24 }}>{pp.property.name || pp.property.address}<span style={{ fontSize: FS.xs, color: T.faint }}> · gross {fmtMoney(pp.gross)} · fees {fmtMoney(-pp.platformFees)}</span></td>
                                       <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.base)}</td><td style={tdR}></td>
                                       <td style={{ ...tdR, color: T.muted }}>{fmtMoney(pp.amount)}</td>
                                     </tr>
                                   ))}
                                   {correctionsFor(r.manager.id).map(c => (
                                     <tr key={c.payout.id}>
-                                      <td style={{ ...td, color: c.outstanding < 0 ? T.red : T.green, paddingLeft: 24, whiteSpace: 'normal' }}>Correction · {fmtDateShort(c.period_from)} – {fmtDateShort(c.period_to)}<span style={{ fontSize: 10, color: T.faint }}> · paid {fmtMoney(c.paid)}, now computes {fmtMoney(c.current)}{c.settled ? `, ${fmtMoney(c.settled)} already carried` : ''}</span></td>
+                                      <td style={{ ...td, color: c.outstanding < 0 ? T.red : T.green, paddingLeft: 24, whiteSpace: 'normal' }}>Correction · {fmtDateShort(c.period_from)} – {fmtDateShort(c.period_to)}<span style={{ fontSize: FS.xs, color: T.faint }}> · paid {fmtMoney(c.paid)}, now computes {fmtMoney(c.current)}{c.settled ? `, ${fmtMoney(c.settled)} already carried` : ''}</span></td>
                                       <td style={tdR}></td><td style={tdR}></td>
                                       <td style={{ ...tdR, color: c.outstanding < 0 ? T.red : T.green }}>{fmtMoney(c.outstanding)}</td>
                                     </tr>
@@ -935,11 +935,11 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                 <span style={{ color: T.muted, whiteSpace: 'nowrap', minWidth: 140 }}>{fmtDateShort(l.period_from)} – {fmtDateShort(l.period_to)}</span>
                                 <span style={{ color: T.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.manager_name} <span style={{ color: T.faint }}>· {Number(l.percentage)}% of {fmtMoney(l.base_amount)} · paid {fmtDateShort(l.paid_on)}{carried.length ? ` · ${carried.length} correction${carried.length === 1 ? '' : 's'} carried` : ''}{stlCompanies.length > 1 && coById[l.company_id] ? ` · ${coById[l.company_id].abbr || coById[l.company_id].name}` : ''}</span></span>
                                 <span style={{ color: T.goldText, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtMoney(l.amount)}</span>
-                                <button className="btn" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => setOpenPayout(open ? null : l.id)} aria-expanded={open}>{open ? 'Hide' : 'Details'}</button>
+                                <button className="btn" style={{ fontSize: FS.xs, padding: '2px 8px' }} onClick={() => setOpenPayout(open ? null : l.id)} aria-expanded={open}>{open ? 'Hide' : 'Details'}</button>
                                 {canEditCompany(l.company_id) && <button onClick={() => removePaid(l)} aria-label="Remove payout record" title="Remove payout record (unlocks the period)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, display: 'inline-flex', padding: 0 }}><Icon name="trash" size={13} /></button>}
                               </div>
                               {open && (
-                                <div style={{ padding: '2px 0 10px 12px', fontFamily: MONO, fontSize: 10, color: T.muted, lineHeight: 1.7 }}>
+                                <div style={{ padding: '2px 0 10px 12px', fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.7 }}>
                                   {rooms.map(rm => (
                                     <div key={rm.property_id}>
                                       <div style={{ color: T.text }}>{rm.name} · gross {fmtMoney(rm.gross)} · fees {fmtMoney(-(rm.platform_fees || 0))}{rm.adjustments ? ` · adjustments ${fmtMoney(rm.adjustments)}` : ''} · base {fmtMoney(rm.base)} → {fmtMoney(rm.amount)}</div>
@@ -967,7 +967,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
               <div style={{ ...card(T), padding: 0, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px 10px', flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ ...monoLabel(T), marginBottom: 0 }}>Adjustments · {summary.adjustments.length} in period · {fmtMoney(summary.adjustmentsTotal)}</div>
-                  {canAdd && <button onClick={() => openAdjForm()} style={{ ...pillBtn(false), fontSize: 10 }}>+ Add adjustment</button>}
+                  {canAdd && <button onClick={() => openAdjForm()} style={{ ...pillBtn(false), fontSize: FS.xs }}>+ Add adjustment</button>}
                 </div>
                 {summary.adjustments.length === 0 ? (
                   <div style={{ fontFamily: MONO, fontSize: 12, color: T.faint, padding: '10px 18px 20px', lineHeight: 1.6 }}>
@@ -1048,7 +1048,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <label style={monoLabel(T)}>Amount (£){kindMeta?.negative ? ' · negative' : ''}</label>
                 <input aria-label="Amount (£)" type="number" step="0.01" inputMode="decimal" value={adjForm.amount} placeholder={kindMeta?.negative ? '-120.00' : '0.00'}
                   onChange={e => setA('amount', e.target.value)} style={inp(T)} />
-                {kindMeta?.hint && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 4 }}>{kindMeta.hint}</div>}
+                {kindMeta?.hint && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{kindMeta.hint}</div>}
               </div>
               <div>
                 <label style={monoLabel(T)}>Channel</label>

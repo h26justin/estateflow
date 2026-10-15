@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
@@ -106,7 +106,7 @@ export default function TenantReferenceModal({ property, onClose }) {
     background: T.bg, border: `1px solid ${T.border}`, color: T.text,
     borderRadius: 8, padding: '10px 12px', outline: 'none', width: '100%', boxSizing: 'border-box',
   }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
 
   return (
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
@@ -122,7 +122,7 @@ export default function TenantReferenceModal({ property, onClose }) {
             </p>
           </div>
           <span style={{
-            fontFamily: mono, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+            fontFamily: mono, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
             padding: '4px 9px', borderRadius: 12,
             background: T.amber + '22', color: T.amber, border: `1px solid ${T.amber}44`,
             flexShrink: 0,
@@ -205,7 +205,7 @@ export default function TenantReferenceModal({ property, onClose }) {
           )}
 
           {/* History */}
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
             Reference requests
           </div>
           {loading ? (
@@ -222,13 +222,13 @@ export default function TenantReferenceModal({ property, onClose }) {
                     <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 3 }}>
                       {r.tenant_full_name}
                     </div>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 6 }}>
+                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 6 }}>
                       {r.tenant_email || '—'}
                       {r.employer_name && ` · ${r.employer_name}`}
                       {r.monthly_income && ` · ${fmt(r.monthly_income)}/mo`}
                     </div>
                     <span style={{
-                      fontFamily: mono, fontSize: 10, fontWeight: 700,
+                      fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
                       padding: '2px 8px', borderRadius: 10,
                       background: (STATUS_COLOR[r.status] || T.muted) + '22',
                       color: STATUS_COLOR[r.status] || T.muted,

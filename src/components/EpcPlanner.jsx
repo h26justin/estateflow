@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
@@ -44,7 +44,7 @@ function RatingBadge({ rating, label, T }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: mono, fontSize: 26, fontWeight: 700, color: '#fff',
       }}>{r}</div>
-      <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, marginTop: 6 }}>{label}</div>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 6 }}>{label}</div>
     </div>
   )
 }
@@ -179,7 +179,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
   const certExpired = cert?.expiry_date && new Date(cert.expiry_date + 'T00:00:00') < new Date()
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
 
   if (loading) {
@@ -196,16 +196,16 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
           <RatingBadge rating={targetRating} label="Target" T={T} />
         </div>
         <div style={{ flex: 1, minWidth: 160 }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>2030 MEES deadline</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>2030 MEES deadline</div>
           <div style={{ fontFamily: mono, fontSize: 18, color: cd.passed ? T.goldText : T.text, marginTop: 4 }}>
             {cd.passed ? 'Deadline passed' : `${cd.years}y ${cd.months}m left`}
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
             {cd.passed ? '' : `${cd.days.toLocaleString('en-GB')} days · target 31 Dec 2030`}
           </div>
         </div>
         <div style={{ textAlign: 'right', minWidth: 130 }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Est. cost to band {targetRating}</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>Est. cost to band {targetRating}</div>
           <div style={{ fontFamily: mono, fontSize: 22, color: T.goldText, marginTop: 4 }}>{fmt(total)}</div>
         </div>
       </div>
@@ -214,7 +214,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
       <div style={card}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, letterSpacing: 1 }}>EPC REGISTER</div>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, letterSpacing: 1 }}>EPC REGISTER</div>
             {cert ? (
               <>
                 <div style={{ fontFamily: mono, fontSize: 13, color: T.text, marginTop: 6 }}>
@@ -222,13 +222,13 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
                   {cert.potential_rating ? ` (potential ${cert.potential_rating})` : ''}
                   {' · certificate '}{cert.certificate_number}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: certExpired ? T.red : T.muted, marginTop: 4 }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: certExpired ? T.red : T.muted, marginTop: 4 }}>
                   {cert.lodgement_date ? `Assessed ${fmtDate(cert.lodgement_date)}` : ''}
                   {cert.lodgement_date && cert.expiry_date ? ' · ' : ''}
                   {cert.expiry_date ? (certExpired ? `Expired ${fmtDate(cert.expiry_date)}` : `Valid until ${fmtDate(cert.expiry_date)}`) : ''}
                 </div>
                 {cert.register_address && (
-                  <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, marginTop: 4 }}>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
                     Register address: {cert.register_address}{cert.fetched_at ? ` · last checked ${fmtDate(cert.fetched_at)}` : ''}
                   </div>
                 )}
@@ -239,7 +239,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
               </div>
             )}
             {syncNote && (
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.goldText, marginTop: 6 }}>{syncNote}</div>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 6 }}>{syncNote}</div>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -260,7 +260,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
             )}
           </div>
         </div>
-        <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, marginTop: 10 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
           Data from the official EPC register (England &amp; Wales). Certificates open on find-energy-certificate.service.gov.uk; found EPCs are also logged on the Compliance tab with expiry reminders.
         </div>
       </div>
@@ -296,7 +296,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
               <button className="btn btn-ghost" disabled={generating} onClick={handleDelete}>Delete</button>
             )}
           </div>
-          <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
             AI-generated planning guidance, not a survey or quote. Review with a qualified retrofit assessor before acting.
           </div>
         </div>
@@ -330,7 +330,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
                   <td style={{ padding: '10px 14px', color: T.muted }}>{m.priority || i + 1}</td>
                   <td style={{ padding: '10px 14px', color: T.text }}>
                     <div>{m.name || '—'}</div>
-                    {m.notes && <div style={{ fontSize: 9, color: T.muted, marginTop: 3 }}>{m.notes}</div>}
+                    {m.notes && <div style={{ fontSize: FS.xs, color: T.muted, marginTop: 3 }}>{m.notes}</div>}
                   </td>
                   <td style={{ padding: '10px 14px', color: T.muted }}>{m.category || '—'}</td>
                   <td style={{ padding: '10px 14px', color: T.text, textAlign: 'right' }}>

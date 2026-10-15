@@ -1,4 +1,4 @@
-import { MONO } from '../../lib/styles'
+import { MONO, FS } from '../../lib/styles'
 // Tenancy sub-tabs: extracted from FeatureComponents.jsx for maintainability.
 // All five components accept `T` (theme tokens) as a prop and use the shared
 // api module — no theme-context dependency, no other cross-cutting state.
@@ -54,8 +54,8 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
   }
 
   const inp = { fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%' }
-  const lbl = { fontFamily:mono, fontSize:10, color:T.muted, display:'block', marginBottom:5 }
-  const errStyle = { fontFamily:mono, fontSize:10, color:T.red, display:'block', marginTop:4 }
+  const lbl = { fontFamily:mono, fontSize:FS.xs, color:T.muted, display:'block', marginBottom:5 }
+  const errStyle = { fontFamily:mono, fontSize:FS.xs, color:T.red, display:'block', marginTop:4 }
 
   const isExpired = (date) => date && new Date(date) < new Date()
   const isExpiring = (date) => {
@@ -68,7 +68,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
         <div>
-          <div style={{ fontFamily:mono, fontSize:10, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
+          <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
         </div>
         <button onClick={() => { setForm({}); setTriedSave(false); setShowForm(true) }}
@@ -130,22 +130,22 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10 }}>
               <div>
                 <div style={{ fontSize:13, fontWeight:700, color:T.text, marginBottom:3 }}>{r.tenant_name}</div>
-                <div style={{ fontFamily:mono, fontSize:10, color:T.muted }}>
+                <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted }}>
                   {DOC_TYPES.find(d=>d.key===r.doc_type)?.label||r.doc_type}
                   {r.doc_reference && ` · ${r.doc_reference}`}
                 </div>
               </div>
               <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
-                {expired && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
-                {expiring && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
-                {followUpDue && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.blue+'22', color:T.blue }}>Follow-up due</span>}
-                <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:mono, fontSize:10, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
+                {expired && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
+                {expiring && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
+                {followUpDue && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.blue+'22', color:T.blue }}>Follow-up due</span>}
+                <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:16, marginTop:8, flexWrap:'wrap' }}>
-              <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>Checked: {r.check_date}</span>
-              {r.expiry_date && <span style={{ fontFamily:mono, fontSize:10, color:expired?T.red:expiring?T.amber:T.muted }}>Expires: {r.expiry_date}</span>}
-              {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:10, color:followUpDue?T.blue:T.muted }}>Follow-up: {r.follow_up_date}</span>}
+              <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted }}>Checked: {r.check_date}</span>
+              {r.expiry_date && <span style={{ fontFamily:mono, fontSize:FS.xs, color:expired?T.red:expiring?T.amber:T.muted }}>Expires: {r.expiry_date}</span>}
+              {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:FS.xs, color:followUpDue?T.blue:T.muted }}>Follow-up: {r.follow_up_date}</span>}
             </div>
             {r.notes && <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>{r.notes}</div>}
           </div>
@@ -191,13 +191,13 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Deposit protection</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Deposit protection</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>You must protect deposits within 30 days of receipt and provide prescribed information to tenants.</div>
         </div>
         <button onClick={() => { setForm({}); setShowForm(true) }}
@@ -244,16 +244,16 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 3 }}>{r.tenant_name} — {SCHEMES.find(s=>s.key===r.scheme)?.label.split('—')[0]||r.scheme}</div>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                 Ref: {r.reference||'—'} · Registered: {r.registered_date||'—'} · Amount: {r.amount ? fmt(r.amount) : '—'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {r.prescribed_info_sent !== 'yes' && (
-                <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
+                <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
               )}
-              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.green+'22', color: T.green }}>Protected</span>
-              <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: mono, fontSize: 10, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
+              <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.green+'22', color: T.green }}>Protected</span>
+              <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
             </div>
           </div>
         </div>
@@ -321,13 +321,13 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal notices</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal notices</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Prepare and track possession (section 8) and rent increase (section 13) notices. England only; section 21 ended on 1 May 2026.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -409,17 +409,17 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 3 }}>{nt.label}</div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
                   Served: {n.served_date||'—'} · Expiry: {n.expiry_date||'—'}
                   {n.solicitor_ref && ` · Ref: ${n.solicitor_ref}`}
                 </div>
                 {daysToHearing !== null && daysToHearing > 0 && (
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.amber, marginTop: 4 }}>Hearing in {daysToHearing} days ({n.court_date})</div>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.amber, marginTop: 4 }}>Hearing in {daysToHearing} days ({n.court_date})</div>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.color+'22', color: st.color }}>{st.label}</span>
-                <button onClick={() => { setForm(n); setShowForm(true) }} style={{ fontFamily: mono, fontSize: 10, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
+                <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.color+'22', color: st.color }}>{st.label}</span>
+                <button onClick={() => { setForm(n); setShowForm(true) }} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
               </div>
             </div>
           </div>
@@ -456,13 +456,13 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rent history</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rent history</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track every rent change with dates and review schedules.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -544,23 +544,23 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
             return (
               <div key={r.id} style={{ display: 'flex', gap: 16, marginBottom: 14, paddingLeft: 8 }}>
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: isIncrease?T.green:T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 4, zIndex: 1 }}>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: 'white', fontWeight: 700 }}>{isIncrease?'↑':'↓'}</span>
+                  <span style={{ fontFamily: mono, fontSize: FS.xs, color: 'white', fontWeight: 700 }}>{isIncrease?'↑':'↓'}</span>
                 </div>
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 2 }}>
                         {r.new_rent ? `${fmt(r.new_rent)}/mo` : 'Rent review'}
-                        {pct && <span style={{ fontFamily: mono, fontSize: 10, marginLeft: 8, color: isIncrease?T.green:T.blue }}>({isIncrease?'+':''}{pct}%)</span>}
+                        {pct && <span style={{ fontFamily: mono, fontSize: FS.xs, marginLeft: 8, color: isIncrease?T.green:T.blue }}>({isIncrease?'+':''}{pct}%)</span>}
                       </div>
-                      {r.previous_rent && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Previous: {fmt(r.previous_rent)}/mo</div>}
+                      {r.previous_rent && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>Previous: {fmt(r.previous_rent)}/mo</div>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{r.effective_date}</div>
-                      {r.next_review_date && <div style={{ fontFamily: mono, fontSize: 10, color: T.blue, marginTop: 2 }}>Review: {r.next_review_date}</div>}
+                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{r.effective_date}</div>
+                      {r.next_review_date && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.blue, marginTop: 2 }}>Review: {r.next_review_date}</div>}
                     </div>
                   </div>
-                  {r.notes && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6 }}>{r.notes}</div>}
+                  {r.notes && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 6 }}>{r.notes}</div>}
                 </div>
               </div>
             )
@@ -619,7 +619,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
           <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3 }}>
             {urgency === 'expired' ? 'Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
             End date: {new Date(tenancy.tenancy_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             {rentPcm ? ` · Current rent: ${fmt(rentPcm)}/mo` : ''}
           </div>
@@ -634,15 +634,15 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
       {showForm && (
         <form onSubmit={e => { e.preventDefault(); handleRenew() }} style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4, display: 'block' }}>New end date</label>
+            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 4, display: 'block' }}>New end date</label>
             <input id="tr-end-date" type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
               aria-invalid={triedSave && !form.new_end_date ? 'true' : undefined}
               aria-describedby={triedSave && !form.new_end_date ? 'tr-end-date-err' : undefined}
               style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${triedSave && !form.new_end_date ? T.red : T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px' }}/>
-            {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
+            {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
           </div>
           <div>
-            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4, display: 'block' }}>New rent (optional)</label>
+            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 4, display: 'block' }}>New rent (optional)</label>
             <MoneyInput id="tr-new-rent" prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
               placeholder="Same as current"
               style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px', width: 120 }}/>

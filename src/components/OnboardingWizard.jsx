@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
@@ -241,7 +241,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             </p>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
+              <label style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
                 Invite Code
               </label>
               <input aria-label="Invite Code" className="ob-input" value={inviteCode}
@@ -284,7 +284,7 @@ export default function OnboardingWizard({ user, onComplete }) {
             </p>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Company Name</label>
+              <label style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Company Name</label>
               <input aria-label="Company Name" className="ob-input" value={companyName} onChange={e => handleNameChange(e.target.value)}
                 placeholder="e.g. Acme Property Group" autoFocus/>
             </div>
@@ -307,16 +307,16 @@ export default function OnboardingWizard({ user, onComplete }) {
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Short Code (2–4 letters)</label>
+              <label style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Short Code (2–4 letters)</label>
               <input aria-label="Short Code (2–4 letters)" className="ob-input" value={companyAbbr} onChange={e => setCompanyAbbr(e.target.value.toUpperCase().slice(0,4))}
                 placeholder="APG" maxLength={4}/>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, marginTop: 5 }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 5 }}>
                 Shown as a badge on every property in this company
               </div>
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 10 }}>Brand Colour</label>
+              <label style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 10 }}>Brand Colour</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {COLOURS.map(col => (
                   <button key={col} type="button" onClick={() => setCompanyColor(col)}
@@ -405,19 +405,19 @@ export default function OnboardingWizard({ user, onComplete }) {
             </p>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Property Name</label>
+              <label style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Property Name</label>
               <input aria-label="Property Name" className="ob-input" value={propName} onChange={e => setPropName(e.target.value)}
                 placeholder="e.g. Flat 1, Station Road" autoFocus/>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Address</label>
+              <label style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Address</label>
               <input aria-label="Address" className="ob-input" value={propAddress} onChange={e => setPropAddress(e.target.value)}
                 placeholder="Full UK address"/>
             </div>
 
             <div style={{ marginBottom: 22 }}>
-              <label style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Monthly Rent (optional)</label>
+              <label style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>Monthly Rent (optional)</label>
               <input aria-label="Monthly Rent (optional)" className="ob-input" value={propRent}
                 onChange={e => setPropRent(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="£" inputMode="decimal"/>

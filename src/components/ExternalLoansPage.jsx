@@ -9,7 +9,7 @@
 //
 // URL: #/loans | #/loans/new | #/loans/<id>
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MONO, card as cardStyle, inp, monoLabel, statusPill } from '../lib/styles'
+import { MONO, card as cardStyle, inp, monoLabel, statusPill, FS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
@@ -54,20 +54,20 @@ const REPAYMENT_CHOICES = [
   { value: 'rolled_up',     title: 'Rolled up',          sub: 'All repaid at the end' },
 ]
 const card = T => cardStyle(T)
-const thStyle = T => ({ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', fontWeight: 400 })
+const thStyle = T => ({ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'left', padding: '8px 10px', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap', fontWeight: 400 })
 const tdStyle = T => ({ fontFamily: mono, fontSize: 12, color: T.text, padding: '9px 10px', borderBottom: `1px solid ${T.border}`, verticalAlign: 'middle', fontVariantNumeric: 'tabular-nums' })
 
 function CoChip({ company, T }) {
   if (!company) return null
   const col = company.color || T.gold
-  return <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '22', color: col, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
+  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '22', color: col, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
 // Status pills use the redesign's semantic palette (always with a label).
 function StatusChip({ status }) {
   const { darkMode } = useTheme()
   const [label, key] = { active: ['Running', 'ok'], overdue: ['Overdue', 'bad'], repaid: ['Repaid', 'void'] }[status] || ['-', 'void']
-  return <span style={{ ...statusPill(key, darkMode), fontSize: 10, padding: '2px 9px' }}>{label}</span>
+  return <span style={{ ...statusPill(key, darkMode), fontSize: FS.xs, padding: '2px 9px' }}>{label}</span>
 }
 
 // KPI tile, same recipe as the Short-Term Let Income page.
@@ -75,7 +75,7 @@ function Stat({ label, value, color, sub, T, isMobile }) {
   return <div style={{ ...card(T), padding: isMobile ? '12px 14px' : '16px 18px', borderTop: color ? `3px solid ${color}` : undefined }}>
     <div style={{ ...monoLabel(T), marginBottom: 6 }}>{label}</div>
     <div style={{ fontFamily: mono, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: color || T.text, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-    {sub && <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 4 }}>{sub}</div>}
+    {sub && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{sub}</div>}
   </div>
 }
 
@@ -83,7 +83,7 @@ function Field({ label, hint, children, T }) {
   return <label style={{ display: 'block' }}>
     <span style={monoLabel(T)}>{label}</span>
     {children}
-    {hint && <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 4 }}>{hint}</div>}
+    {hint && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{hint}</div>}
   </label>
 }
 
@@ -173,7 +173,7 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
                 return <button key={c.value} type="button" role="radio" aria-checked={on} onClick={() => set('repayment_type', c.value)}
                   style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', background: on ? T.gold + '1f' : T.bg, border: `1.5px solid ${on ? T.gold : T.border}`, color: T.text }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{c.title}</div>
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>{c.sub}</div>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{c.sub}</div>
                   {c.value !== 'rolled_up' && <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: on ? T.goldText : T.muted, marginTop: 6 }}>{pay > 0 ? `${fmtP(pay)} a month` : '—'}</div>}
                 </button>
               })}
@@ -201,7 +201,7 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
     </div>
 
     <div style={{ ...card(T), position: isMobile ? 'static' : 'sticky', top: 16 }}>
-      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted }}>
         {f.repayment_type === 'rolled_up' ? 'Repaid in one payment' : 'Monthly payment'}
       </div>
       <div style={{ fontFamily: mono, fontSize: 30, fontWeight: 800, color: T.goldText, margin: '6px 0 12px', fontVariantNumeric: 'tabular-nums' }}>
@@ -252,7 +252,7 @@ function ScheduleRow({ row, canEdit, onTick, onUntick, onUpdateTick, T, isMobile
         style={{ width: 18, height: 18, cursor: canEdit ? 'pointer' : 'default', accentColor: T.green }} />
     </td>
     <td style={{ ...td, color: T.muted }}>{row.period}</td>
-    <td style={{ ...td, color: tone, fontWeight: row.overdue ? 700 : 400 }}>{fmtDate(row.due_date)}{row.overdue && <span style={{ fontSize: 10, marginLeft: 6 }}>OVERDUE</span>}</td>
+    <td style={{ ...td, color: tone, fontWeight: row.overdue ? 700 : 400 }}>{fmtDate(row.due_date)}{row.overdue && <span style={{ fontSize: FS.xs, marginLeft: 6 }}>OVERDUE</span>}</td>
     <td style={{ ...td, fontWeight: 700, textAlign: 'right' }}>{fmtP(row.payment)}</td>
     {!isMobile && <td style={{ ...td, color: T.muted, textAlign: 'right' }}>{fmtP(row.interest)}</td>}
     {!isMobile && <td style={{ ...td, color: T.muted, textAlign: 'right' }}>{fmtP(row.principal)}</td>}
@@ -260,7 +260,7 @@ function ScheduleRow({ row, canEdit, onTick, onUntick, onUpdateTick, T, isMobile
     <td style={{ ...td, minWidth: 150 }}>
       {paid && !editing && <span style={{ color: T.green }}>
         Paid {fmtDate(row.paid.paid_date)}{Math.abs(Number(row.paid.amount) - row.payment) > 0.005 && ` · ${fmtP(row.paid.amount)}`}
-        {canEdit && <button onClick={() => { setAmount(row.paid.amount); setDate(row.paid.paid_date); setEditing(true) }} style={{ ...btn(T), padding: '1px 6px', fontSize: 10, marginLeft: 6 }}>Edit</button>}
+        {canEdit && <button onClick={() => { setAmount(row.paid.amount); setDate(row.paid.paid_date); setEditing(true) }} style={{ ...btn(T), padding: '1px 6px', fontSize: FS.xs, marginLeft: 6 }}>Edit</button>}
       </span>}
       {paid && editing && <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <MoneyInput prefix="£" value={amount} onChange={setAmount} style={{ ...inputStyle(T), width: 100, padding: '3px 6px' }} />
@@ -325,7 +325,7 @@ function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onB
     <div style={{ ...card(T), padding: 0, overflowX: 'auto' }}>
       <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ fontWeight: 700 }}>Payment schedule</div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{canEdit ? 'Tick a payment once it has been made' : 'View only'}</div>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{canEdit ? 'Tick a payment once it has been made' : 'View only'}</div>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr>
@@ -506,7 +506,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
     {pageHead}
 
     {companies.length > 1 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
-      <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
+      <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
       {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
         <button key={c.id} onClick={() => setCoFilter(c.id)}
           style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`, background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent', color: coFilter === c.id ? (c.color || T.goldText) : T.muted }}>
@@ -549,15 +549,15 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
                   <CoChip company={coById.get(loan.company_id)} T={T} /><StatusChip status={s.status} T={T} />
                 </div>
               </td>
-              {!isMobile && <td style={{ ...td, textAlign: 'right' }}>{fmt(loan.principal)}<div style={{ fontSize: 10, color: T.muted }}>{fmtDate(loan.received_date)}</div></td>}
-              {!isMobile && <td style={{ ...td, color: T.muted }}>{Number(loan.annual_rate) || 0}% · {termLabel(loan.term_months)}<div style={{ fontSize: 10 }}>{typeLabel(loan.repayment_type)}</div></td>}
+              {!isMobile && <td style={{ ...td, textAlign: 'right' }}>{fmt(loan.principal)}<div style={{ fontSize: FS.xs, color: T.muted }}>{fmtDate(loan.received_date)}</div></td>}
+              {!isMobile && <td style={{ ...td, color: T.muted }}>{Number(loan.annual_rate) || 0}% · {termLabel(loan.term_months)}<div style={{ fontSize: FS.xs }}>{typeLabel(loan.repayment_type)}</div></td>}
               <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{loan.repayment_type === 'rolled_up' ? <span style={{ color: T.muted, fontWeight: 400 }}>at end</span> : fmtP(s.regularPayment)}</td>
               <td style={{ ...td, minWidth: 120 }}>
                 <div style={{ fontSize: 11 }}>{s.paidCount}/{s.periods} paid</div>
                 <div style={{ height: 5, background: T.bg, borderRadius: 3, overflow: 'hidden', marginTop: 4, border: `1px solid ${T.border}` }}>
                   <div style={{ width: `${s.periods ? s.paidCount / s.periods * 100 : 0}%`, height: '100%', background: s.status === 'overdue' ? T.red : T.green }} />
                 </div>
-                {s.nextDue && <div style={{ fontSize: 10, color: s.nextDue.overdue ? T.red : T.muted, marginTop: 3 }}>{s.nextDue.overdue ? 'Overdue' : 'Next'} {fmtDate(s.nextDue.due_date)}</div>}
+                {s.nextDue && <div style={{ fontSize: FS.xs, color: s.nextDue.overdue ? T.red : T.muted, marginTop: 3 }}>{s.nextDue.overdue ? 'Overdue' : 'Next'} {fmtDate(s.nextDue.due_date)}</div>}
               </td>
             </tr>
           ))}</tbody>
@@ -577,7 +577,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
               style={{ width: 18, height: 18, cursor: 'pointer', accentColor: T.green, flexShrink: 0 }} />}
             <button onClick={() => { setSelectedId(loan.id); setMode('view') }} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: T.text }}>
               <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loan.lender_name}</div>
-              <div style={{ fontFamily: mono, fontSize: 10, color: row.overdue ? T.red : T.muted }}>{row.overdue ? 'Overdue · ' : ''}{fmtDate(row.due_date)}</div>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: row.overdue ? T.red : T.muted }}>{row.overdue ? 'Overdue · ' : ''}{fmtDate(row.due_date)}</div>
             </button>
             <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmtP(row.payment)}</div>
           </div>

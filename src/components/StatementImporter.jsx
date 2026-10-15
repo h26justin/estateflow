@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
@@ -125,7 +125,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div>
               <h2 id="statement-importer-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>Import Statement</h2>
-              <div style={{fontFamily:MONO,fontSize:10,color:T.muted}}>
+              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                 {step==='upload'&&'Upload a PNE or RMS rental statement PDF'}
                 {step==='preview'&&`Import review · ${fileName} · ${parsed?.lines.length || 0} lines read`}
                 {step==='done'&&'Import complete'}
@@ -140,10 +140,10 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                   background:stepIdx===i?T.gold:stepIdx>i?T.green:T.surface,
                   border:`1px solid ${stepIdx===i?T.gold:stepIdx>i?T.green:T.border}`,
                   display:'flex',alignItems:'center',justifyContent:'center',
-                  fontFamily:MONO,fontSize:9,color:stepIdx===i?'#1C2830':stepIdx>i?'#0E3B27':T.muted,fontWeight:700}}>
+                  fontFamily:MONO,fontSize:FS.xs,color:stepIdx===i?'#1C2830':stepIdx>i?'#0E3B27':T.muted,fontWeight:700}}>
                   {stepIdx>i?'✓':i+1}
                 </div>
-                <span style={{fontFamily:MONO,fontSize:10,color:stepIdx===i?T.goldText:T.muted,textTransform:'uppercase'}}>{s}</span>
+                <span style={{fontFamily:MONO,fontSize:FS.xs,color:stepIdx===i?T.goldText:T.muted,textTransform:'uppercase'}}>{s}</span>
                 {i<2&&<div style={{width:20,height:1,background:T.border}}/>}
               </div>
             ))}
@@ -155,18 +155,18 @@ export function StatementImporter({properties, companies, showToast, onClose, as
             <div>
               {inbox && inbox.length > 0 && (
                 <div style={{marginBottom:16,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 16px'}}>
-                  <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Statements received by email</div>
+                  <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Statements received by email</div>
                   <div style={{display:'grid',gap:6}}>
                     {inbox.slice(0,12).map(d=>{
                       const done = d.extracted_fields?.import?.at
                       const co = (companies||[]).find(c=>c.id===d.property?.company_id)
                       return (
                         <div key={d.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:T.bg,borderRadius:8,flexWrap:'wrap'}}>
-                          <span style={{fontFamily:MONO,fontSize:10,color:T.muted,width:84}}>{new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,width:84}}>{new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
                           <span style={{fontSize:12,color:T.text,flex:1,minWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.name}</span>
-                          {co && <span style={{fontFamily:MONO,fontSize:9,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
+                          {co && <span style={{fontFamily:MONO,fontSize:FS.xs,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
                           {done
-                            ? <span style={{fontFamily:MONO,fontSize:10,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+                            ? <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
                             : <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</button>}
                         </div>
                       )
@@ -186,7 +186,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:16}}>or click to browse</div>
                 <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
                   {[{l:'PNE Asset Management',c:T.gold},{l:'Rook Matthews Sayer',c:T.blue}].map(x=>(
-                    <span key={x.l} style={{fontFamily:MONO,fontSize:10,color:x.c,background:x.c+'22',padding:'3px 10px',borderRadius:20,border:`1px solid ${x.c}44`}}>{x.l}</span>
+                    <span key={x.l} style={{fontFamily:MONO,fontSize:FS.xs,color:x.c,background:x.c+'22',padding:'3px 10px',borderRadius:20,border:`1px solid ${x.c}44`}}>{x.l}</span>
                   ))}
                 </div>
               </div>
@@ -201,12 +201,12 @@ export function StatementImporter({properties, companies, showToast, onClose, as
               {loading&&(
                 <div style={{textAlign:'center',padding:20,fontFamily:MONO,color:T.goldText,fontSize:12}}>
                   <div style={{marginBottom:8}}>Reading PDF…</div>
-                  <div style={{fontSize:10,color:T.muted}}>Extracting the lines and matching them to your properties</div>
+                  <div style={{fontSize:FS.xs,color:T.muted}}>Extracting the lines and matching them to your properties</div>
                 </div>
               )}
 
               <div style={{marginTop:20,padding:16,background:T.surface,borderRadius:10,border:`1px solid ${T.border}`}}>
-                <div style={{fontFamily:MONO,fontSize:10,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>How it works</div>
+                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>How it works</div>
                 <div style={{display:'grid',gap:6}}>
                   {[
                     '1. Upload a PNE or RMS statement. Properly reads every line: rent with its own rent period, fees with VAT, deductions, payments to you.',
@@ -247,19 +247,19 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 ))}
               </div>
               {importResults.learned>0&&(
-                <div style={{background:T.green+'14',border:`1px solid ${T.green}44`,borderRadius:8,padding:'10px 12px',margin:'0 auto 16px',maxWidth:520,textAlign:'left',fontFamily:MONO,fontSize:10,color:T.muted}}>
+                <div style={{background:T.green+'14',border:`1px solid ${T.green}44`,borderRadius:8,padding:'10px 12px',margin:'0 auto 16px',maxWidth:520,textAlign:'left',fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                   Remembered {importResults.learned} property label{importResults.learned!==1?'s':''} you matched by hand, so future statements match automatically.
                 </div>
               )}
               {importResults.errors.length>0&&(
                 <div style={{background:T.red+'14',border:`1px solid ${T.red}`,borderRadius:8,padding:12,margin:'0 auto 16px',maxWidth:620,textAlign:'left'}}>
-                  <div style={{fontFamily:MONO,fontSize:10,color:T.red,marginBottom:6}}>NOT RECORDED</div>
+                  <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,marginBottom:6}}>NOT RECORDED</div>
                   {importResults.errors.map((e,i)=>(
                     <div key={i} style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{e}</div>
                   ))}
                 </div>
               )}
-              <div style={{fontFamily:MONO,fontSize:10,color:T.faint,marginBottom:14}}>Batch saved with the original statement and a line-by-line record. Undo from Data import → History.</div>
+              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginBottom:14}}>Batch saved with the original statement and a line-by-line record. Undo from Data import → History.</div>
               <button className="btn btn-gold" style={{fontSize:12}} onClick={onClose}>Close &amp; refresh</button>
             </div>
           )}

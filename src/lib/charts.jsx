@@ -58,7 +58,7 @@ export function BarChart({ data, T, accent, fmt = String, height = 220, maxBars 
         return (
           <g key={i}>
             <line x1={padL} x2={W-padR} y1={y} y2={y} stroke={T.border} strokeDasharray={i===0?'0':'2 3'} strokeWidth="0.6"/>
-            <text x={padL-6} y={y+3} fontFamily={MONO} fontSize="9" fill={T.muted} textAnchor="end">{fmt(v)}</text>
+            <text x={padL-6} y={y+3} fontFamily={MONO} fontSize="10" fill={T.muted} textAnchor="end">{fmt(v)}</text>
           </g>
         )
       })}
@@ -73,12 +73,12 @@ export function BarChart({ data, T, accent, fmt = String, height = 220, maxBars 
             <rect x={x} y={y} width={barW} height={Math.max(h, 0.5)} rx="3" fill={color} opacity="0.85"/>
             {/* Inline value above bar (only if it fits) */}
             {h > 18 && (
-              <text x={x + barW/2} y={y + 12} fontFamily={MONO} fontSize="9" fill="white" textAnchor="middle" fontWeight="700">
+              <text x={x + barW/2} y={y + 12} fontFamily={MONO} fontSize="10" fill="white" textAnchor="middle" fontWeight="700">
                 {fmt(d.value)}
               </text>
             )}
             {/* X label, rotated if many */}
-            <text x={x + barW/2} y={H - padB + 12} fontFamily={MONO} fontSize="9" fill={T.muted} textAnchor="middle"
+            <text x={x + barW/2} y={H - padB + 12} fontFamily={MONO} fontSize="10" fill={T.muted} textAnchor="middle"
               transform={series.length > 6 ? `rotate(-30 ${x + barW/2} ${H - padB + 12})` : ''}>
               {d.label.length > 18 ? d.label.slice(0,16) + '…' : d.label}
             </text>
@@ -114,10 +114,10 @@ export function RankedBar({ data, T, accent, fmt = String, height = null, maxBar
         return (
           <g key={i}>
             <rect x={padL} y={y} width={barW} height={rowH - 6} rx="3" fill={color} opacity="0.85"/>
-            <text x={padL + 8} y={y + (rowH-6)/2 + 4} fontFamily={MONO} fontSize="10" fill="white" fontWeight="700">
+            <text x={padL + 8} y={y + (rowH-6)/2 + 4} fontFamily={MONO} fontSize="11" fill="white" fontWeight="700">
               {d.label.length > 32 ? d.label.slice(0,30) + '…' : d.label}
             </text>
-            <text x={W - padR + 8} y={y + (rowH-6)/2 + 4} fontFamily={MONO} fontSize="10" fill={T.text} fontWeight="700">
+            <text x={W - padR + 8} y={y + (rowH-6)/2 + 4} fontFamily={MONO} fontSize="11" fill={T.text} fontWeight="700">
               {fmt(d.value)}
             </text>
           </g>
@@ -157,7 +157,7 @@ export function AreaChart({ data, T, accent, fmt = String, height = 200 }) {
         return (
           <g key={i}>
             <line x1={padL} x2={W-padR} y1={y} y2={y} stroke={T.border} strokeDasharray={v===0?'0':'2 3'} strokeWidth="0.6"/>
-            <text x={padL-6} y={y+3} fontFamily={MONO} fontSize="9" fill={T.muted} textAnchor="end">{fmt(v)}</text>
+            <text x={padL-6} y={y+3} fontFamily={MONO} fontSize="10" fill={T.muted} textAnchor="end">{fmt(v)}</text>
           </g>
         )
       })}
@@ -171,7 +171,7 @@ export function AreaChart({ data, T, accent, fmt = String, height = 200 }) {
       ))}
       {/* X labels */}
       {data.map((d,i) => (
-        <text key={i} x={pointX(i)} y={H - padB + 14} fontFamily={MONO} fontSize="9" fill={T.muted} textAnchor="middle">
+        <text key={i} x={pointX(i)} y={H - padB + 14} fontFamily={MONO} fontSize="10" fill={T.muted} textAnchor="middle">
           {d.label}
         </text>
       ))}

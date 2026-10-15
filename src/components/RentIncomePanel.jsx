@@ -1,4 +1,4 @@
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { monthRate } from '../lib/rentForecast'
@@ -37,16 +37,16 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
   const rateColor = (r, isCurrent) => r == null ? T.muted : isCurrent ? T.green : r >= 95 ? T.green : r >= 80 ? T.amber : T.red
   const outstandingColor = (mo, isCurrent) => mo.outstanding <= 0 ? T.green : isCurrent ? T.amber : rateColor(monthRate(mo), false)
 
-  const th = { fontFamily: MONO, fontSize: 9, color: T.faint, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', padding: '0 0 8px 14px', whiteSpace: 'nowrap', fontWeight: 400 }
+  const th = { fontFamily: MONO, fontSize: FS.xs, color: T.faint, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', padding: '0 0 8px 14px', whiteSpace: 'nowrap', fontWeight: 400 }
   const thFirst = { ...th, textAlign: 'left', padding: '0 0 8px 0' }
   const td = { fontFamily: MONO, fontSize: 12, color: T.text, textAlign: 'right', padding: '7px 0 7px 14px', borderTop: `1px solid ${T.border}`, whiteSpace: 'nowrap' }
   const tdFirst = { ...td, textAlign: 'left', padding: '7px 0', color: T.muted }
 
   const tile = (label, value, sub, color) => (
     <div style={{ background: T.bg, borderRadius: 10, padding: '12px 14px', minWidth: 0 }}>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: color || T.text, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: 10, color: T.faint, marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{sub}</div>}
     </div>
   )
 
@@ -63,7 +63,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
         </div>
         {onOpenRent && (
           <button onClick={onOpenRent} aria-label="Open Rent Tracker"
-            style={{ background: 'none', border: `1px solid ${T.border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontFamily: MONO, fontSize: 10, color: T.muted, letterSpacing: '0.1em', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            style={{ background: 'none', border: `1px solid ${T.border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontFamily: MONO, fontSize: FS.xs, color: T.muted, letterSpacing: '0.1em', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             RENT TRACKER <Icon name="arrow-right" size={11} />
           </button>
         )}
@@ -78,7 +78,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', gap: 22 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>By month</div>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>By month</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -110,19 +110,19 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
             </table>
           </div>
           {backfillMonths.length > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
               Left out of due and collected until the amount is entered (marked paid with no amount): {backfillMonths.map(mo => `${mo.label.slice(0, 3)} ${mo.needsBackfill} (${fmt(mo.backfillRent)})`).join(' · ')}. Enter the amounts in the Rent Tracker.
             </div>
           )}
           {overpaid > 0.005 && (
-            <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
               Received above the rent due for a period ({fmt(overpaid)} this year) is not counted as collected, so one overpayment cannot hide another tenant's arrears.
             </div>
           )}
         </div>
 
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>By company · {cur.label}</div>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>By company · {cur.label}</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -154,7 +154,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
               </tbody>
             </table>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
             Figures are by rent period, the month the rent is for, matching the Rent Tracker. Short-term-let income is reported on its own page.
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { fmt } from '../lib/format'
@@ -396,7 +396,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 32, textAlign: 'center' }}>
         <div style={{ fontFamily: mono, fontSize: 13, color: T.text, marginBottom: 8 }}>Map unavailable</div>
         <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{libError}</div>
-        <div style={{ fontFamily: mono, fontSize: 10, color: T.faint, marginTop: 14, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 14, lineHeight: 1.5 }}>
           Make sure VITE_MAPBOX_TOKEN is set in your Vercel project settings, then redeploy.
         </div>
       </div>
@@ -466,7 +466,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, fontFamily: mono, color: T.muted, pointerEvents: 'none' }}>
             <div style={{ fontSize: 28 }}>🗺</div>
             <div style={{ fontSize: 12 }}>No properties to display.</div>
-            <div style={{ fontSize: 10, color: T.faint }}>Add a property with an address and it will appear here.</div>
+            <div style={{ fontSize: FS.xs, color: T.faint }}>Add a property with an address and it will appear here.</div>
           </div>
         )}
 
@@ -475,20 +475,20 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
           <div style={{ position: 'absolute', top: 16, left: 16, width: 280, background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', overflow: 'hidden', zIndex: 10 }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                   {popupProp.company?.abbr || ''}
                 </div>
                 <button onClick={() => setPopupProp(null)}
                   aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{popupProp.name}</div>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 4 }}>{popupProp.address}</div>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>{popupProp.address}</div>
             </div>
             <div style={{ padding: '12px 16px', display: 'grid', gap: 6 }}>
               <Row label="Status" value={popupProp.status || '—'} valueColor={STATUS_COLOR[popupProp.status] || T.text}/>
               {popupProp.rent_pcm > 0 && <Row label="Monthly Rent" value={fmt(popupProp.rent_pcm)}/>}
               {popupProp.geocode_pinned && (
-                <div style={{ fontFamily: mono, fontSize: 9, color: T.faint, marginTop: 4 }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>
                   Pin manually placed.{' '}
                   <button onClick={async () => {
                     try {
@@ -501,7 +501,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                     } catch (e) {
                       if (showToast) showToast('Could not reset pin', 'error')
                     }
-                  }} style={{ background: 'none', border: 'none', padding: 0, color: T.goldText, fontFamily: mono, fontSize: 9, cursor: 'pointer', textDecoration: 'underline' }}>
+                  }} style={{ background: 'none', border: 'none', padding: 0, color: T.goldText, fontFamily: mono, fontSize: FS.xs, cursor: 'pointer', textDecoration: 'underline' }}>
                     Reset to auto
                   </button>
                 </div>
@@ -532,7 +532,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
             <div style={{ position: 'absolute', top: 16, left: 16, width: 320, maxHeight: 'calc(100% - 32px)', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', overflow: 'hidden', zIndex: 10, display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                     Building · {sorted.length} {sorted.length === 1 ? 'property' : 'properties'}
                   </div>
                   <button onClick={() => setPopupGroup(null)}
@@ -541,14 +541,14 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{buildingLabel}</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                   {Object.entries(statusCounts).map(([s, c]) => (
-                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: (STATUS_COLOR[s] || T.muted) + '22', color: STATUS_COLOR[s] || T.muted, fontFamily: mono, fontSize: 10, fontWeight: 600 }}>
+                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: (STATUS_COLOR[s] || T.muted) + '22', color: STATUS_COLOR[s] || T.muted, fontFamily: mono, fontSize: FS.xs, fontWeight: 600 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[s] || T.muted }}/>
                       {c} {s}
                     </span>
                   ))}
                 </div>
                 {totalRent > 0 && (
-                  <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 8 }}>
+                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8 }}>
                     Total rent: <span style={{ color: T.text, fontWeight: 600 }}>{fmt(totalRent)}/mo</span>
                   </div>
                 )}
@@ -561,7 +561,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[p.status] || T.muted, flexShrink: 0 }}/>
                     <span style={{ flex: 1, fontFamily: mono, fontSize: 12, color: T.text }}>{p.name}</span>
-                    {p.rent_pcm > 0 && <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{fmt(p.rent_pcm)}</span>}
+                    {p.rent_pcm > 0 && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{fmt(p.rent_pcm)}</span>}
                     <span style={{ fontFamily: mono, fontSize: 14, color: T.faint, marginLeft: 4 }}>›</span>
                   </button>
                 ))}
@@ -574,7 +574,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
       {/* View-mode toggle: Pins | Heatmap. Hidden in compact (dashboard) mode where space is tight. */}
       {!compact && (
       <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>View:</span>
+        <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>View:</span>
         <button onClick={() => setHeatmapMode(false)}
           style={{ fontFamily: mono, fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${!heatmapMode ? T.gold : T.border}`,
@@ -587,14 +587,14 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
             color: heatmapMode ? T.goldText : T.muted }}>Heatmap</button>
         {heatmapMode && (
           <>
-            <span style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginLeft: 8 }}>by</span>
+            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginLeft: 8 }}>by</span>
             {[
               { v: 'rent',    l: 'Rent £' },
               { v: 'yield',   l: 'Yield %' },
               { v: 'arrears', l: 'Arrears £' },
             ].map(({ v, l }) => (
               <button key={v} onClick={() => setHeatmapMetric(v)}
-                style={{ fontFamily: mono, fontSize: 10, padding: '3px 8px', borderRadius: 5, cursor: 'pointer',
+                style={{ fontFamily: mono, fontSize: FS.xs, padding: '3px 8px', borderRadius: 5, cursor: 'pointer',
                   border: `1px solid ${heatmapMetric === v ? T.text : T.border}`,
                   background: heatmapMetric === v ? T.text + '11' : 'transparent',
                   color: heatmapMetric === v ? T.text : T.muted }}>{l}</button>
@@ -606,7 +606,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
 
       {/* Legend — only shown in pin mode (heatmap has its own colour ramp) */}
       {!heatmapMode && !compact && (
-        <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: mono, fontSize: 10, color: T.muted }}>
+        <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
           {Object.entries(STATUS_COLOR).map(([k, c]) => (
             <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}/>
@@ -617,7 +617,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
         </div>
       )}
       {heatmapMode && !compact && (
-        <div style={{ marginTop: 10, display: 'flex', gap: 12, alignItems: 'center', fontFamily: mono, fontSize: 10, color: T.muted }}>
+        <div style={{ marginTop: 10, display: 'flex', gap: 12, alignItems: 'center', fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
           <span>Cold</span>
           <span style={{ flex: 1, height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgba(33,102,172,0.3), rgba(103,169,207,0.7), rgba(253,219,199,0.9), rgba(239,138,98,1), rgba(178,24,43,1))' }}/>
           <span>Hot</span>

@@ -1,4 +1,4 @@
-import { MONO } from '../lib/styles'
+import { MONO, FS } from '../lib/styles'
 // Two-factor authentication enrol / disable panel.
 //
 // Rendered inside Settings → Security & Data. Uses Supabase Auth's
@@ -195,7 +195,7 @@ export default function TwoFactorPanel({ T }) {
   }
 
   const sectionStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }
-  const headerStyle  = { fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }
+  const headerStyle  = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }
 
   if (loading) {
     return (
@@ -222,7 +222,7 @@ export default function TwoFactorPanel({ T }) {
           <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, marginBottom: 10 }}>
             <div>
               <div style={{ fontFamily: mono, fontSize: 12, color: T.text, fontWeight: 600 }}>{f.friendly_name || 'Authenticator'}</div>
-              <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                 Added {f.created_at ? new Date(f.created_at).toLocaleDateString('en-GB') : 'recently'}
               </div>
             </div>
@@ -242,7 +242,7 @@ export default function TwoFactorPanel({ T }) {
         {/* Remembered devices — browsers that skip the code for 30 days. */}
         <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${T.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Remembered devices
             </div>
             {devices.length > 0 && (
@@ -269,10 +269,10 @@ export default function TwoFactorPanel({ T }) {
                 <div style={{ fontFamily: mono, fontSize: 12, color: T.text, fontWeight: 600 }}>
                   {d.label || 'Unknown device'}
                   {d.id === thisDeviceId && (
-                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600, color: T.green }}>· this device</span>
+                    <span style={{ marginLeft: 8, fontSize: FS.xs, fontWeight: 600, color: T.green }}>· this device</span>
                   )}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 2 }}>
+                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                   Expires {d.expires_at ? new Date(d.expires_at).toLocaleDateString('en-GB') : 'soon'}
                   {d.last_used_at ? ` · last used ${new Date(d.last_used_at).toLocaleDateString('en-GB')}` : ''}
                 </div>
@@ -320,7 +320,7 @@ export default function TwoFactorPanel({ T }) {
         </details>
 
         <div style={{ marginBottom: 14 }}>
-          <label htmlFor="tfa-code" style={{ fontFamily: mono, fontSize: 10, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          <label htmlFor="tfa-code" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
             3. Enter the 6-digit code from your app to confirm
           </label>
           <input
@@ -390,7 +390,7 @@ export default function TwoFactorPanel({ T }) {
         Enable two-factor authentication
       </button>
       {unverified.length > 0 && (
-        <div style={{ marginTop: 14, fontFamily: mono, fontSize: 10, color: T.muted }}>
+        <div style={{ marginTop: 14, fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
           ({unverified.length} half-completed setup{unverified.length > 1 ? 's' : ''} pending — will be cleaned up when you start a new one.)
         </div>
       )}
