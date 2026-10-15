@@ -639,7 +639,7 @@ function Board({ projects, canEdit, onOpen, onStage, T }) {
 }
 
 // ── Payments ledger ────────────────────────────────────────────────────────
-function Ledger({ projects, onOpen, T, isMobile }) {
+function Ledger({ projects, onOpen, T }) {
   const [payee, setPayee] = useState('all')
   const [kind, setKind] = useState('money') // money = payments + credits, extra, all
   const rows = useMemo(() => ledgerLines(projects).filter(l => (kind === 'all' || (kind === 'money' ? l.kind !== 'extra' : l.kind === kind)) && (payee === 'all' || (l.payee || '') === payee)), [projects, kind, payee])
@@ -668,17 +668,17 @@ function Ledger({ projects, onOpen, T, isMobile }) {
       <button onClick={exportCsv} disabled={rows.length === 0} style={btn(T)}>Export CSV</button>
     </div>
     <div style={{ overflowX: 'auto', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12 }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: isMobile ? 600 : 0 }}>
+      <table className="table-stack" style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead><tr><th style={th}>Date</th><th style={th}>Refurb</th><th style={th}>Type</th><th style={th}>Paid to</th><th style={th}>Note</th><th style={{ ...th, textAlign: 'right' }}>Amount</th></tr></thead>
         <tbody>
           {rows.length === 0 && <tr><td colSpan={6} style={{ ...td, fontFamily: mono, fontSize: 11, color: T.faint, textAlign: 'center' }}>No lines yet. Payments logged on any refurb appear here.</td></tr>}
           {rows.map(l => <tr key={l.id}>
-            <td style={{ ...td, fontFamily: mono, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(l.date)}</td>
-            <td style={td}><button onClick={() => onOpen(l.project)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: T.text, fontWeight: 600, fontSize: 13, textAlign: 'left' }}>{l.project.property?.name || l.project.property?.address}</button><div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{l.project.property?.company?.abbr || ''}</div></td>
-            <td style={{ ...td, fontFamily: mono, fontSize: 11, color: l.kind === 'extra' ? T.amber : l.kind === 'credit' ? T.blue : T.green }}>{l.kind}</td>
-            <td style={td}>{l.payee || <span style={{ color: T.faint }}>—</span>}</td>
-            <td style={{ ...td, color: T.muted }}>{l.description || ''}</td>
-            <td style={{ ...td, fontFamily: mono, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{l.kind === 'credit' ? '−' : ''}{fmtLine(l.amount)}</td>
+            <td data-label="Date" style={{ ...td, fontFamily: mono, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(l.date)}</td>
+            <td data-label="Refurb" style={td}><button onClick={() => onOpen(l.project)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: T.text, fontWeight: 600, fontSize: 13, textAlign: 'left' }}>{l.project.property?.name || l.project.property?.address}</button><div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{l.project.property?.company?.abbr || ''}</div></td>
+            <td data-label="Type" style={{ ...td, fontFamily: mono, fontSize: 11, color: l.kind === 'extra' ? T.amber : l.kind === 'credit' ? T.blue : T.green }}>{l.kind}</td>
+            <td data-label="Paid to" style={td}>{l.payee || <span style={{ color: T.faint }}>—</span>}</td>
+            <td data-label="Note" style={{ ...td, color: T.muted }}>{l.description || ''}</td>
+            <td data-label="Amount" style={{ ...td, fontFamily: mono, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{l.kind === 'credit' ? '−' : ''}{fmtLine(l.amount)}</td>
           </tr>)}
         </tbody>
       </table>

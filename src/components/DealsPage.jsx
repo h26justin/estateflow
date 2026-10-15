@@ -151,6 +151,7 @@ function RefinanceCard({ deal, T }) {
 
 // ── 10-YEAR PROJECTION (full width under the calculator) ─────────────────────
 function ProjectionCard({ deal, T }) {
+  const isMobile = useIsMobile()
   const p = projectDeal(deal)
   const { rentGrowth, capitalGrowth } = growthAssumptions(deal)
   const last = p.rows[p.rows.length - 1]
@@ -183,7 +184,7 @@ function ProjectionCard({ deal, T }) {
         </div>
       </div>
       <div style={{overflowX:'auto'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',minWidth:640}}>
+        <table className="table-stack" style={{width:'100%',borderCollapse:'collapse',minWidth:isMobile?0:640}}>
           <thead>
             <tr>
               <th style={{...th,textAlign:'left'}}>Year</th>
@@ -199,12 +200,12 @@ function ProjectionCard({ deal, T }) {
             {p.rows.map(r => (
               <tr key={r.year}>
                 <td style={{...td,textAlign:'left',color:T.muted}}>Year {r.year}</td>
-                <td style={td}>{fmt(r.grossMonthlyRent)}</td>
-                <td style={{...td,color:r.annualProfit>=0?T.text:T.red}}>{fmt(r.annualProfit)}</td>
-                <td style={{...td,color:r.cumulativeProfit>=0?T.green:T.red}}>{fmt(r.cumulativeProfit)}</td>
-                <td style={td}>{fmt(r.value)}</td>
-                <td style={td}>{fmt(r.equity)}</td>
-                <td style={{...td,textAlign:'left'}}>
+                <td data-label="Rent / mo" style={td}>{fmt(r.grossMonthlyRent)}</td>
+                <td data-label="Profit / yr" style={{...td,color:r.annualProfit>=0?T.text:T.red}}>{fmt(r.annualProfit)}</td>
+                <td data-label="Cumulative profit" style={{...td,color:r.cumulativeProfit>=0?T.green:T.red}}>{fmt(r.cumulativeProfit)}</td>
+                <td data-label="Value" style={td}>{fmt(r.value)}</td>
+                <td data-label="Equity" style={td}>{fmt(r.equity)}</td>
+                <td data-label="Total return" style={{...td,textAlign:'left'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div style={{flex:1,height:8,background:T.bg,borderRadius:4,overflow:'hidden'}}>
                       <div style={{width:`${Math.max(0,Math.min(100,(r.totalReturn/maxReturn)*100))}%`,height:'100%',background:r.totalReturn>=0?T.gold:T.red,transition:'width 0.3s'}}/>
