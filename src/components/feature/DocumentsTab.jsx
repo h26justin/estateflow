@@ -7,20 +7,21 @@ import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
 import { NotesTimeline } from './NotesTimeline'
+import { Icon } from '../../lib/icons'
 
 // ── DOCUMENTS TAB ────────────────────────────────────────────────────────────
 const DOC_CATEGORIES = [
-  {value:'tenancy',     label:'Tenancy Agreement',  icon:'📝'},
-  {value:'gas',         label:'Gas Safety',          icon:'🔥'},
-  {value:'eicr',        label:'EICR / Electric',     icon:'⚡'},
-  {value:'epc',         label:'EPC',                 icon:'🏠'},
-  {value:'insurance',   label:'Insurance',           icon:'🛡'},
-  {value:'mortgage',    label:'Mortgage',            icon:'🏦'},
-  {value:'inventory',   label:'Inventory',           icon:'📋'},
-  {value:'legal',       label:'Legal',               icon:'⚖️'},
-  {value:'maintenance', label:'Maintenance',         icon:'🔧'},
-  {value:'photos',      label:'Photos',              icon:'📷'},
-  {value:'other',       label:'Other',               icon:'📄'},
+  {value:'tenancy',     label:'Tenancy Agreement',  icon:'file-text'},
+  {value:'gas',         label:'Gas Safety',          icon:'flame'},
+  {value:'eicr',        label:'EICR / Electric',     icon:'zap'},
+  {value:'epc',         label:'EPC',                 icon:'home'},
+  {value:'insurance',   label:'Insurance',           icon:'shield-check'},
+  {value:'mortgage',    label:'Mortgage',            icon:'landmark'},
+  {value:'inventory',   label:'Inventory',           icon:'clipboard-check'},
+  {value:'legal',       label:'Legal',               icon:'scale'},
+  {value:'maintenance', label:'Maintenance',         icon:'wrench'},
+  {value:'photos',      label:'Photos',              icon:'grid-2'},
+  {value:'other',       label:'Other',               icon:'file-text'},
 ]
 
 export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user}) {
@@ -193,7 +194,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
           cursor:'pointer',marginBottom:16,transition:'all 0.2s',
           background:dragOver?T.gold+'11':'transparent'
         }}>
-        <div style={{fontSize:28,marginBottom:8}}>📁</div>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:8}}><Icon name="upload" size={28} color={T.muted}/></div>
         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>
           {uploading?'Uploading...':'Drop files here or click to browse'}
         </div>
@@ -204,7 +205,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
           <select value={selectedCategory} onChange={e=>{e.stopPropagation();setSelectedCategory(e.target.value)}}
             onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Document category"
             style={{fontSize:11,padding:'4px 8px',width:'auto'}}>
-            {DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
+            {DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
           <input value={docName} onChange={e=>{e.stopPropagation();setDocName(e.target.value)}}
             onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Custom document name (optional)"
@@ -230,7 +231,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
               border:`1px solid ${filterCategory===c.value?T.gold:T.border}`,
               background:filterCategory===c.value?T.gold+'22':'transparent',
               color:filterCategory===c.value?T.goldText:T.muted}}>
-            {c.icon} {c.label} ({docs.filter(d=>d.category===c.value).length})
+            <Icon name={c.icon} size={12} style={{display:'inline-block',verticalAlign:'-2px'}}/> {c.label} ({docs.filter(d=>d.category===c.value).length})
           </button>
         ))}
       </div>}
@@ -299,8 +300,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                     border:`1px solid ${T.border}`}}>
                     <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                       {/* Icon */}
-                      <div style={{fontSize:24,flexShrink:0}}>
-                        {isPDF?'📄':isImage?'🖼':cat.icon}
+                      <div style={{flexShrink:0,color:T.muted}}>
+                        <Icon name={isPDF?'file-text':isImage?'grid-2':cat.icon} size={24}/>
                       </div>
                       {/* Info */}
                       <div style={{flex:1,minWidth:150}}>
@@ -308,7 +309,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,
                             background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
-                            {cat.icon} {cat.label}
+                            <Icon name={cat.icon} size={12} style={{display:'inline-block',verticalAlign:'-2px'}}/> {cat.label}
                           </span>
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                             {formatDate(doc.created_at)}
@@ -331,7 +332,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                               color: status === 'completed' ? T.muted : T.goldText,
                               border: `1px solid ${T.gold}44`,
                               borderRadius:8,cursor: ocrRunning === doc.id ? 'wait' : 'pointer',opacity: ocrRunning === doc.id ? 0.6 : 1}}>
-                            {ocrRunning === doc.id ? '🤖 …' : status === 'completed' ? 'Re-extract' : 'Extract'}
+                            {ocrRunning === doc.id ? 'Extracting…' : status === 'completed' ? 'Re-extract' : 'Extract'}
                           </button>
                         )}
                         {status === 'completed' && (

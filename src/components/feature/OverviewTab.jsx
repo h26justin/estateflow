@@ -3,6 +3,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { NotesTimeline } from './NotesTimeline'
+import { Icon } from '../../lib/icons'
 
 // ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast, canViewFinancial = true, canEditProperty = true}) {
@@ -11,14 +12,14 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
   const [loading, setLoading] = useState(true)
 
   const CATEGORIES = {
-    general:     {label:'General',     color:T.goldText, icon:'📝'},
-    rent:        {label:'Rent',        color:T.green, icon:'💷'},
-    refurb:      {label:'Refurb',      color:T.blue, icon:'🔨'},
-    financials:  {label:'Financials',  color:T.purple, icon:'💰'},
-    compliance:  {label:'Compliance',  color:T.amber, icon:'📋'},
-    tenancy:     {label:'Tenancy',     color:T.green, icon:'🤝'},
-    maintenance: {label:'Maintenance', color:T.red, icon:'🔧'},
-    expenses:    {label:'Expenses',    color:T.red, icon:'📊'},
+    general:     {label:'General',     color:T.goldText, icon:'file-text'},
+    rent:        {label:'Rent',        color:T.green, icon:'pound'},
+    refurb:      {label:'Refurb',      color:T.blue, icon:'hammer'},
+    financials:  {label:'Financials',  color:T.purple, icon:'wallet'},
+    compliance:  {label:'Compliance',  color:T.amber, icon:'clipboard-check'},
+    tenancy:     {label:'Tenancy',     color:T.green, icon:'users'},
+    maintenance: {label:'Maintenance', color:T.red, icon:'wrench'},
+    expenses:    {label:'Expenses',    color:T.red, icon:'pie-chart'},
   }
 
   useEffect(()=>{
@@ -42,7 +43,7 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
 
   const mortgage = calcMonthlyMortgage(selected)
   const yield_ = calcGrossYield(selected)
-  const HIDDEN = '🔒'
+  const HIDDEN = <Icon name="lock" size={14} title="Hidden" style={{display:'inline-block',verticalAlign:'-2px'}}/>
 
   return (
     <div>
@@ -90,7 +91,7 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
                           <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,
                             color:cat.color,background:cat.color+'22',
                             padding:'2px 8px',borderRadius:20,display:'flex',alignItems:'center',gap:3}}>
-                            {cat.icon} {cat.label}
+                            <Icon name={cat.icon} size={12}/> {cat.label}
                           </span>
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(n.created_at)}</span>

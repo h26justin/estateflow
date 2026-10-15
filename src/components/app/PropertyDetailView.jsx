@@ -10,6 +10,7 @@ import { fmt } from '../../lib/appFmt'
 import { Badge, CompanyPill } from './Badges'
 import { RentDots } from './RentDots'
 import { RentTab } from './RentTab'
+import { Icon } from '../../lib/icons'
 
 // Property detail view: header, tab bar and every per-property tab.
 // Moved verbatim from App.jsx; every value it reads is passed in explicitly.
@@ -32,7 +33,7 @@ export function PropertyDetailView({
                 <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:3}}>{selected.name}</h1>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{selected.address}</div>
                 <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{selected.prop_type}</div>
-                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:T.card,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>🏢 {selected.managed_by}</div>}
+                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:T.card,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:FS.xs,color:T.muted}}><Icon name="building" size={12}/>{selected.managed_by}</div>}
                 {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
               </div>
               <div style={{display:'flex',gap:8}}>
@@ -44,13 +45,13 @@ export function PropertyDetailView({
                   return (
                     <ActionMenu items={[
                       // Duplicate / Mark sold / Archive / Delete all mutate the property — gate by edit permission
-                      ...(canEdit ? [{ label: 'Duplicate property', icon: '⊕',
+                      ...(canEdit ? [{ label: 'Duplicate property', icon: 'plus',
                         onSelect: () => handleDuplicateProp(selected.id) }] : []),
                       ...(canEdit && selected.status !== 'sold' ? [{
-                        label: 'Mark as sold', icon: '£',
+                        label: 'Mark as sold', icon: 'pound',
                         onSelect: () => setShowSellModal(selected.id) }] : []),
                       // Export PDF is read-only — available to anyone who can see the property
-                      { label: 'Export PDF summary', icon: '⤓',
+                      { label: 'Export PDF summary', icon: 'download',
                         onSelect: async () => {
                           try { await api.exportPropertySummaryPDF(selected) }
                           catch(e) { showToast(e.message, 'error') }
@@ -58,9 +59,9 @@ export function PropertyDetailView({
                       ...(canEdit ? [
                         { divider: true },
                         ...(selected.archived_at
-                          ? [{ label: 'Restore from archive', icon: '↩',
+                          ? [{ label: 'Restore from archive', icon: 'refresh',
                                onSelect: () => handleArchiveProp(selected.id, false) }]
-                          : [{ label: 'Archive property', icon: '📦',
+                          : [{ label: 'Archive property', icon: 'folder',
                                onSelect: async () => {
                                  if (await confirmDialog({
                                    title: 'Archive this property?',

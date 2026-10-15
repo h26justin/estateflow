@@ -1713,17 +1713,17 @@ export default function App({ initialLoginMode = null } = {}) {
                 onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
             ) : (<>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
-              <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
-              <StatCard icon="💷" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
-              <StatCard icon="📊" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
-              <StatCard icon="⚠" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
+              <StatCard icon="home" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
+              <StatCard icon="pound" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
+              <StatCard icon="pie-chart" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
+              <StatCard icon="alert-triangle" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
             </div>
             <div style={{display:'grid',gap:10}}>
               {groupPropertiesByBuilding(cProps).map(group => (
                 <div key={group.tail || group.items[0].id}>
                   {group.isBuilding && (
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
-                      <span style={{fontSize:13}} aria-hidden="true">🏘</span>
+                      <Icon name="building" size={14} color={T.muted}/>
                       <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
                       <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>· {plural(group.items.length,'unit')}</span>
                     </div>
@@ -1777,7 +1777,7 @@ export default function App({ initialLoginMode = null } = {}) {
       {/* ── IMPERSONATION BANNER ── */}
       {impersonatingUser && (
         <div style={{background:'#8B1F1F',color:'white',padding:'10px 16px',textAlign:'center',fontFamily:MONO,fontSize:12,fontWeight:600,position:'sticky',top:0,zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',gap:16,flexWrap:'wrap'}}>
-          <span>🎭 <strong>Impersonating {impersonatingUser.name || impersonatingUser.email}</strong> — viewing their data (read-only for safety)</span>
+          <span><strong>Impersonating {impersonatingUser.name || impersonatingUser.email}</strong> — viewing their data (read-only for safety)</span>
           <button onClick={()=>{
             sessionStorage.removeItem('ownproperly_impersonate')
             setImpersonatingUser(null)
@@ -1974,7 +1974,7 @@ export default function App({ initialLoginMode = null } = {}) {
           )}
 
           {view==='detail'&&!selected&&<div className="fade" style={{padding:40,textAlign:'center'}}>
-            <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:16}}><Icon name="lock" size={40} color={T.muted}/></div>
             <h2 style={{fontSize:20,color:T.text,marginBottom:8}}>Property not found</h2>
             <p style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:20}}>
               This property doesn't exist or you don't have access to it.

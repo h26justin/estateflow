@@ -3,6 +3,7 @@ import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { useLoadGuard } from '../../lib/useLoadGuard'
+import { Icon } from '../../lib/icons'
 
 // ── FEATURE FLAGS PANEL (Developer only) ─────────────────────────────────────
 export function FeatureFlagsPanel({ users, companies, T, showToast }) {
@@ -126,9 +127,9 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
                   style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:T.bg,color:T.text}}>
                   Overrides →
                 </button>
-                <button onClick={()=>removeFlag(flag.key)}
+                <button onClick={()=>removeFlag(flag.key)} aria-label={`Delete flag ${flag.name}`}
                   style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
-                  🗑
+                  <Icon name="trash" size={14}/>
                 </button>
               </div>
             </div>
@@ -185,7 +186,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
       <div style={{background:T.surface,borderRadius:14,maxWidth:700,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
           <div>
-            <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>🚩 {flag.name}</h2>
+            <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}><Icon name="flag" size={16} color={T.goldText} style={{display:'inline-block',verticalAlign:'-2px',marginRight:6}}/>{flag.name}</h2>
             <code style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{flag.key}</code>
           </div>
           <button onClick={onClose} aria-label="Close" style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'6px 10px',margin:'-6px -10px'}}>✕</button>

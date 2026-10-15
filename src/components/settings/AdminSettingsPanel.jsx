@@ -6,6 +6,7 @@ import { useLoadGuard } from '../../lib/useLoadGuard'
 import { fmt } from '../feature/helpers'
 import { FeatureFlagsPanel } from './FeatureFlagsPanel'
 import { RevenueAnalyticsPanel } from './RevenueAnalyticsPanel'
+import { Icon } from '../../lib/icons'
 
 // ── ADMIN SETTINGS PANEL ──────────────────────────────────────────────────────
 export function AdminSettingsPanel({ user, T, showToast }) {
@@ -271,7 +272,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
           <div style={{ background: T.surface, border: `2px solid ${T.red}44`, borderRadius: 18, width: '100%', maxWidth: 440, padding: '32px 28px' }}>
             {/* Warning header */}
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="alert-triangle" size={36} color={T.red}/></div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: T.red, marginBottom: 8 }}>Delete user account</h2>
               <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.7 }}>
                 This will permanently delete <strong style={{ color: T.text }}>{deleteTarget.email}</strong> and all their data including companies, properties, deals and documents.

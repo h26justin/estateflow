@@ -5,6 +5,7 @@ import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
+import { Icon } from '../../lib/icons'
 
 // ── COMPANY DOCUMENTS TAB ────────────────────────────────────────────────────
 export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
@@ -18,13 +19,13 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
   const inputRef = { current: null }
 
   const COMPANY_DOC_CATEGORIES = [
-    {value:'insurance',   label:'Company Insurance',   icon:'🛡'},
-    {value:'bank',        label:'Bank / Finance',      icon:'🏦'},
-    {value:'legal',       label:'Legal',               icon:'⚖️'},
-    {value:'tax',         label:'Tax / HMRC',          icon:'📊'},
-    {value:'accounts',    label:'Annual Accounts',     icon:'📑'},
-    {value:'contracts',   label:'Contracts',           icon:'📝'},
-    {value:'other',       label:'Other',               icon:'📄'},
+    {value:'insurance',   label:'Company Insurance',   icon:'shield-check'},
+    {value:'bank',        label:'Bank / Finance',      icon:'landmark'},
+    {value:'legal',       label:'Legal',               icon:'scale'},
+    {value:'tax',         label:'Tax / HMRC',          icon:'calculator'},
+    {value:'accounts',    label:'Annual Accounts',     icon:'pie-chart'},
+    {value:'contracts',   label:'Contracts',           icon:'file-text'},
+    {value:'other',       label:'Other',               icon:'folder'},
   ]
 
   const beginLoad = useLoadGuard()
@@ -115,14 +116,14 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
         style={{border:`2px dashed ${dragOver?T.gold:T.border}`,borderRadius:12,
           padding:'20px',textAlign:'center',cursor:'pointer',marginBottom:14,
           background:dragOver?T.gold+'11':'transparent',transition:'all 0.2s'}}>
-        <div style={{fontSize:24,marginBottom:6}}>📁</div>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:6}}><Icon name="upload" size={24} color={T.muted}/></div>
         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>
           {uploading?'Uploading...':'Drop company documents here or click to browse'}
         </div>
         <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:8,flexWrap:'wrap'}}>
           <select value={selectedCategory} onChange={e=>{e.stopPropagation();setSelectedCategory(e.target.value)}}
             onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Document category" style={{fontSize:11,padding:'4px 8px',width:'auto'}}>
-            {COMPANY_DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
+            {COMPANY_DOC_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
           <input value={docName} onChange={e=>{e.stopPropagation();setDocName(e.target.value)}}
             onClick={e=>e.stopPropagation()} onKeyDown={e=>e.stopPropagation()} aria-label="Custom document name (optional)" placeholder="Custom name (optional)"
@@ -145,13 +146,13 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
                 return (
                   <div key={doc.id} style={{background:T.bg,borderRadius:10,padding:'12px 16px',
                     display:'flex',alignItems:'center',gap:12,border:`1px solid ${T.border}`,flexWrap:'wrap'}}>
-                    <div style={{fontSize:22,flexShrink:0}}>{cat.icon}</div>
+                    <div style={{flexShrink:0,color:T.muted}}><Icon name={cat.icon} size={22}/></div>
                     <div style={{flex:1,minWidth:150}}>
                       <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,
                           background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
-                          {cat.icon} {cat.label}
+                          <Icon name={cat.icon} size={12} style={{display:'inline-block',verticalAlign:'-2px'}}/> {cat.label}
                         </span>
                         <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                           {new Date(doc.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}

@@ -136,7 +136,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
       {/* Explainer */}
       <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
         <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
-          🔗 <strong style={{ color: T.text }}>Shareable invite links</strong>
+          <strong style={{ color: T.text }}>Shareable invite links</strong>
         </div>
         <p style={{ fontFamily: mono, fontSize: 11, color: T.faint, lineHeight: 1.6 }}>
           Generate a link or code that anyone can use to join your company —

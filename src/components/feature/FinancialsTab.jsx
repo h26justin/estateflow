@@ -2,6 +2,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS } from '../../lib/styles'
 import CalcExplain from '../CalcExplain'
 import { NotesTimeline } from './NotesTimeline'
+import { Icon } from '../../lib/icons'
 
 // ── FINANCIALS TAB ────────────────────────────────────────────────────────────
 export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast, canViewFinancial = true, canEditFinancial = true}) {
@@ -10,7 +11,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
   if (!canViewFinancial) {
     return (
       <div style={{padding:40, textAlign:'center'}}>
-        <div style={{fontSize:48, marginBottom:12}}>🔒</div>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="lock" size={40} color={T.muted}/></div>
         <div style={{fontFamily:MONO, fontSize:12, color:T.muted, marginBottom:8}}>Financial data is hidden</div>
         <div style={{fontFamily:MONO, fontSize:11, color:T.faint, maxWidth:420, margin:'0 auto', lineHeight:1.6}}>
           You don't have permission to view financial information for this property. Ask the company owner to grant you the "View financial data" permission.

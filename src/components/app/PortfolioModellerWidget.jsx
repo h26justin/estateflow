@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS } from '../../lib/styles'
+import { Icon } from '../../lib/icons'
 
 export function PortfolioModellerWidget({ properties = [] }) {
   const { T } = useTheme()
@@ -21,7 +22,7 @@ export function PortfolioModellerWidget({ properties = [] }) {
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginTop:16}}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-        <span style={{fontSize:20}}>📈</span>
+        <Icon name="trending-up" size={20} color={T.goldText}/>
         <div style={{fontSize:14,fontWeight:700,color:T.text}}>Portfolio what-if modeller</div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12,marginBottom:16}}>

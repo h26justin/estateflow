@@ -165,7 +165,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
               title="Review bank transactions & match to rent"
               style={{fontFamily:MONO,fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${T.purple}`,background:(T.purple)+'22',color:T.purple,whiteSpace:'nowrap'}}>
-              📥 {isMobile ? 'Inbox' : 'Bank inbox'}
+              {isMobile ? 'Inbox' : 'Bank inbox'}
             </button>
           )}
           <button onClick={onDayTracker}
@@ -427,7 +427,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                           flexWrap: 'wrap',
                           fontFamily: MONO,
                         }}>
-                          <span style={{ fontSize: 14 }} aria-hidden="true">🏘</span>
+                          <Icon name="building" size={14} color={T.muted}/>
                           <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
                             {group.name}
                           </span>
