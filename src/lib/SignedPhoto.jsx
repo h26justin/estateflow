@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react'
 import * as api from './api'
+import { CV, FS } from './styles'
 
 export function SignedPhoto({ path, url, alt = '', style, wrapAnchor = true }) {
   const [signedUrl, setSignedUrl] = useState(null)
@@ -32,7 +33,7 @@ export function SignedPhoto({ path, url, alt = '', style, wrapAnchor = true }) {
 
   if (error || !src) {
     return (
-      <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#222', color: '#888', fontSize: 10 }}>
+      <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', background: CV.surface, color: CV.muted, fontSize: FS.xs }}>
         {error ? '✕' : '…'}
       </div>
     )

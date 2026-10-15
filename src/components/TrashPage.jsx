@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO } from '../lib/styles'
+import { MONO, CV } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -9,14 +9,14 @@ import { showAppToast } from '../lib/toast'
 const mono = MONO
 
 const TYPE_CONFIG = {
-  properties:         { icon: 'home', label: 'Property',    color: '#C8A84B' },
-  companies:          { icon: 'grid', label: 'Company',     color: '#2ECC8A' },
-  tenancy_details:    { icon: 'shield-check', label: 'Tenancy',     color: '#4B8FE0' },
+  properties:         { icon: 'home', label: 'Property',    color: CV.goldText },
+  companies:          { icon: 'grid', label: 'Company',     color: CV.green },
+  tenancy_details:    { icon: 'shield-check', label: 'Tenancy',     color: CV.blue },
   compliance_items:   { icon: 'shield-check', label: 'Certificate', color: '#7B68EE' },
-  maintenance_jobs:   { icon: 'wrench', label: 'Repair',      color: '#E0943A' },
+  maintenance_jobs:   { icon: 'wrench', label: 'Repair',      color: CV.amber },
   property_expenses:  { icon: 'pound', label: 'Expense',     color: '#D46F97' },
-  deals:              { icon: '🎯', label: 'Deal',        color: '#3AAFB9' },
-  property_documents: { icon: '📄', label: 'Document',    color: '#9B8AC2' },
+  deals:              { icon: 'target', label: 'Deal',        color: '#3AAFB9' },
+  property_documents: { icon: 'file-text', label: 'Document',    color: '#9B8AC2' },
 }
 
 function daysAgo(dateStr) {

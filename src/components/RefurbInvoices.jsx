@@ -37,7 +37,7 @@ const lbl = T => ({ fontFamily: mono, fontSize: 9.5, letterSpacing: '0.1em', tex
 const panel = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '16px 18px', marginBottom: 14 })
 
 function statusTone(s, T) {
-  return { paid: T.green, part_paid: T.amber, approved: T.blue, awaiting_approval: T.amber, received: T.muted, credit: T.purple || '#9B6FDE' }[s] || T.muted
+  return { paid: T.green, part_paid: T.amber, approved: T.blue, awaiting_approval: T.amber, received: T.muted, credit: T.purple }[s] || T.muted
 }
 export function InvoiceStatusChip({ status, T: themeProp }) {
   const { T: themeCtx } = useTheme()

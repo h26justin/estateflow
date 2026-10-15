@@ -91,16 +91,13 @@ function daysUntil(dateStr) {
 }
 
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
-// Category accents double as text colour (chips, "View report →"), so each
-// theme gets a variant that clears WCAG AA 4.5:1 on its card background.
-// The dark set is the original palette (all ≥4.7:1 on #1B242D) bar purple;
-// the light set is the same hues darkened (≥5.5:1 on #FAF9F6).
-const CAT_COLORS_DARK  = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#B98AD0', maintenance:'#E0943A' }
-const CAT_COLORS_LIGHT = { tax:'#2D6FA8', performance:'#167A4C', finance:'#7A5E1C', compliance:'#7B3FA0', maintenance:'#A34A12' }
+// Category accents double as text colour (chips, "View report →"), so they
+// map to the theme's AA-checked text tokens (goldText, not gold, for finance).
+const catColors = (T) => ({ tax:T.blue, performance:T.green, finance:T.goldText, compliance:T.purple, maintenance:T.amber })
 
 export default function ReportsPage({ properties, companies, companySettings, user, selectedReportId, onSelectReport }) {
-  const { T, darkMode } = useTheme()
-  const CAT_COLORS = darkMode ? CAT_COLORS_DARK : CAT_COLORS_LIGHT
+  const { T } = useTheme()
+  const CAT_COLORS = catColors(T)
   // Local view state: 'catalogue' shows the grid of reports, 'report'
   // shows a specific report's content. Driven by the selectedReportId
   // prop (which is URL-synced) when provided — falls back to local state
@@ -478,7 +475,7 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     maintenance_report: <ReportMaintenance {...props}/>,
     contractor_spend: <ReportContractorSpend {...props}/>,
   }
-  return map[id] || <div style={{fontFamily:mono,fontSize:12,color:'#999',padding:40,textAlign:'center'}}>Report not found</div>
+  return map[id] || <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Report not found</div>
 }
 
 // ── SHARED COMPONENTS ─────────────────────────────────────────────────────────
@@ -2573,7 +2570,7 @@ function AgentMonthTiles({ months, T }) {
               background:m.future ? `repeating-linear-gradient(135deg, ${T.border} 0 4px, transparent 4px 8px)` : m.state==='not_collectible' ? `repeating-linear-gradient(135deg, ${T.muted}22 0 4px, ${c[1]} 4px 8px)` : c ? c[1] : 'transparent',
               border:m.current ? `2px solid ${T.gold}` : m.future ? `1px dashed ${T.border}` : `1px solid ${c ? c[0] + '55' : T.border}`}}>
             {m.label}
-            {m.needsBackfill && <span style={{position:'absolute',top:2,right:2,width:5,height:5,borderRadius:'50%',background:'#E0943A'}}/>}
+            {m.needsBackfill && <span style={{position:'absolute',top:2,right:2,width:5,height:5,borderRadius:'50%',background:T.amber}}/>}
           </span>
         )
       })}
@@ -2586,7 +2583,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
   const model = useMemo(() => agentReportModel(filtProps, agents, reportAgentId, companies, companySettings, agentStl), [filtProps, agents, reportAgentId, companies, companySettings, agentStl])
   if (!model) return <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center'}}>No letting agent is linked to these properties. Set the managing agent on each property to use this report.</div>
   const s = model.summary
-  const countColor = { paid: T.green, due: T.amber, missed: T.red, nc: T.faint, backfill: '#E0943A' }
+  const countColor = { paid: T.green, due: T.amber, missed: T.red, nc: T.faint, backfill: T.amber }
   return (
     <>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>

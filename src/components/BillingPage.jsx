@@ -128,7 +128,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                      <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: (co.color||'#C8A84B')+'22', color: co.color||'#C8A84B', border: `1px solid ${(co.color||'#C8A84B')}44` }}>{co.abbr}</span>
+                      <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: (co.color||T.gold)+'22', color: co.color||T.goldText, border: `1px solid ${(co.color||T.gold)}44` }}>{co.abbr}</span>
                       <span style={{ fontSize: 16, fontWeight: 600, color: T.text }}>{co.name}</span>
                     </div>
                     <StatusBadge status={status}/>
@@ -208,7 +208,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: (co.color||'#C8A84B')+'22', color: co.color||'#C8A84B' }}>{co.abbr}</span>
+                    <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: (co.color||T.gold)+'22', color: co.color||T.goldText }}>{co.abbr}</span>
                     <span style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{co.name}</span>
                     {co.is_free_tier && <span style={{ fontFamily: mono, fontSize: 10, background: T.gold+'22', color: T.goldText, padding: '2px 8px', borderRadius: 10 }}>FREE TIER</span>}
                   </div>

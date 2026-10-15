@@ -39,17 +39,17 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   const heatmapLayerId  = 'ownproperly-heat-layer'
   const mono = MONO
 
-  // Status → pin colour. Matches STATUS_CFG in App.jsx so the map and the
-  // status badges agree visually.
+  // Status → pin colour. Same hues as STATUS_CFG in App.jsx; the core
+  // statuses use theme tokens so pins follow light/dark mode.
   const STATUS_COLOR = {
-    rented:         '#2ECC8A',
+    rented:         T.green,
     short_term_let: '#9B6FDE',  // purple — matches the STL booking colour
     notice_given:   '#F0B850',  // amber — still rented but vacancy looming
-    let_agreed:   '#C8A84B',  // gold — contracts being signed
+    let_agreed:   T.gold,    // gold — contracts being signed
     on_rental_market: '#3AA7B8', // teal — being marketed
-    vacant:       '#E05555',
-    purchased:    '#E0943A',
-    refurb:       '#4B8FE0',
+    vacant:       T.red,
+    purchased:    T.amber,
+    refurb:       T.blue,
     sold:         '#9B8AC2',
   }
 
@@ -184,14 +184,14 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
           statusCounts[p.status] = (statusCounts[p.status] || 0) + 1
         })
         const [topStatus] = Object.entries(statusCounts).sort((a, b) => b[1] - a[1])[0] || ['rented']
-        const dominantColor = STATUS_COLOR[topStatus] || '#888EA8'
+        const dominantColor = STATUS_COLOR[topStatus] || T.muted
         const isMixed = Object.keys(statusCounts).length > 1
 
         el.style.minWidth = '32px'
         el.style.height = '32px'
         el.style.padding = '0 6px'
         el.style.borderRadius = '999px'
-        el.style.background = isMixed ? '#C8A84B' : dominantColor
+        el.style.background = isMixed ? T.gold : dominantColor
         el.style.border = '3px solid white'
         el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)'
         el.style.cursor = 'pointer'
@@ -219,7 +219,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
       } else {
         // Single-property pin (existing behaviour)
         const p = group.properties[0]
-        const color = STATUS_COLOR[p.status] || '#888EA8'
+        const color = STATUS_COLOR[p.status] || T.muted
 
         el.style.width = '22px'
         el.style.height = '22px'
@@ -541,8 +541,8 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginTop: 2 }}>{buildingLabel}</div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                   {Object.entries(statusCounts).map(([s, c]) => (
-                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: (STATUS_COLOR[s] || '#888EA8') + '22', color: STATUS_COLOR[s] || '#888EA8', fontFamily: mono, fontSize: 10, fontWeight: 600 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[s] || '#888EA8' }}/>
+                    <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: (STATUS_COLOR[s] || T.muted) + '22', color: STATUS_COLOR[s] || T.muted, fontFamily: mono, fontSize: 10, fontWeight: 600 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[s] || T.muted }}/>
                       {c} {s}
                     </span>
                   ))}
@@ -559,7 +559,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                     style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', border: 'none', borderBottom: `1px solid ${T.border}`, background: 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s' }}
                     onMouseEnter={e => e.currentTarget.style.background = T.bg}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[p.status] || '#888EA8', flexShrink: 0 }}/>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[p.status] || T.muted, flexShrink: 0 }}/>
                     <span style={{ flex: 1, fontFamily: mono, fontSize: 12, color: T.text }}>{p.name}</span>
                     {p.rent_pcm > 0 && <span style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{fmt(p.rent_pcm)}</span>}
                     <span style={{ fontFamily: mono, fontSize: 14, color: T.faint, marginLeft: 4 }}>›</span>

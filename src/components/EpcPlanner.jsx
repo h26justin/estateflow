@@ -222,7 +222,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
                   {cert.potential_rating ? ` (potential ${cert.potential_rating})` : ''}
                   {' · certificate '}{cert.certificate_number}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: certExpired ? '#d0021b' : T.muted, marginTop: 4 }}>
+                <div style={{ fontFamily: mono, fontSize: 10, color: certExpired ? T.red : T.muted, marginTop: 4 }}>
                   {cert.lodgement_date ? `Assessed ${fmtDate(cert.lodgement_date)}` : ''}
                   {cert.lodgement_date && cert.expiry_date ? ' · ' : ''}
                   {cert.expiry_date ? (certExpired ? `Expired ${fmtDate(cert.expiry_date)}` : `Valid until ${fmtDate(cert.expiry_date)}`) : ''}
@@ -303,7 +303,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
       )}
 
       {error && (
-        <div style={{ ...card, fontFamily: mono, fontSize: 11, color: '#d0021b' }}>⚠ {error}</div>
+        <div style={{ ...card, fontFamily: mono, fontSize: 11, color: T.red }}>⚠ {error}</div>
       )}
 
       {/* Summary */}

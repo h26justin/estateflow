@@ -27,16 +27,17 @@ const STATUS_LABEL = {
   failed:      'Could not complete',
 }
 
-const STATUS_COLOR = {
-  requested:   '#888EA8',
-  submitted:   '#4B8FE0',
-  in_progress: '#E0943A',
-  complete:    '#2ECC8A',
-  failed:      '#E05555',
-}
+const statusColors = (T) => ({
+  requested:   T.muted,
+  submitted:   T.blue,
+  in_progress: T.amber,
+  complete:    T.green,
+  failed:      T.red,
+})
 
 export default function TenantReferenceModal({ property, onClose }) {
   const { T } = useTheme()
+  const STATUS_COLOR = statusColors(T)
   const confirmDialog = useConfirm()
   const mono = MONO
   const [history, setHistory] = useState([])

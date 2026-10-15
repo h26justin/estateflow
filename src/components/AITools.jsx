@@ -189,7 +189,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
   const deposit = price ? Math.round(price * 0.25) : 0
   const monthlyInterest = price ? Math.round((price - deposit) * 0.045 / 12) : 0
   const monthlyProfit = rent && monthlyInterest ? Math.round(parseFloat(rent) * 0.9 - monthlyInterest - 50) : null
-  const yieldColor = grossYield >= 7 ? '#2ECC8A' : grossYield >= 5 ? '#C8A84B' : '#E05555'
+  const yieldColor = grossYield >= 7 ? T.green : grossYield >= 5 ? T.goldText : T.red
   const fmt = n => n ? `£${parseInt(n).toLocaleString('en-GB')}` : '—'
 
   return (
@@ -263,7 +263,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           {scraped.address && (
             <div style={{fontFamily:mono, fontSize:11, color:T.muted, marginBottom:12}}>
               📍 {scraped.address}
-              {url && <> · <a href={url} target="_blank" rel="noreferrer" style={{color:'#4B8FE0', textDecoration:'none'}}>View listing →</a></>}
+              {url && <> · <a href={url} target="_blank" rel="noreferrer" style={{color:T.blue, textDecoration:'none'}}>View listing →</a></>}
             </div>
           )}
 
@@ -275,7 +275,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
                 {label:'SDLT (additional)', value:fmt(sdlt), color:T.amber},
                 {label:'25% deposit needed', value:fmt(deposit), color:T.text},
                 {label:'Interest only /mo', value:fmt(monthlyInterest), color:T.text},
-                {label:'Est. monthly profit', value:fmt(monthlyProfit), color:monthlyProfit>0?'#2ECC8A':'#E05555', big:true},
+                {label:'Est. monthly profit', value:fmt(monthlyProfit), color:monthlyProfit>0?T.green:T.red, big:true},
               ].map(k=>(
                 <div key={k.label} style={{background:T.bg, borderRadius:8, padding:'10px 12px'}}>
                   <div style={{fontFamily:mono, fontSize:9, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:3}}>{k.label}</div>
@@ -374,19 +374,19 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(currentValue)}</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length,'property','properties')}</div>
         </div>
-        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#2ECC8A'}` }}>
+        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${T.green}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>After buying {extraProps} more</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#2ECC8A', marginBottom: 2 }}>{fmt(totalIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: T.green, marginBottom: 2 }}>{fmt(totalIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(totalValue)}</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{plural(currentProperties.length + extraProps,'property','properties')}</div>
         </div>
-        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#C8A84B'}` }}>
+        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${T.gold}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>In {years} years (with {growthRate}% growth)</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#C8A84B', marginBottom: 2 }}>{fmt(futureIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: T.goldText, marginBottom: 2 }}>{fmt(futureIncome)}<span style={{ fontFamily: mono, fontSize: 11, fontWeight: 400, color: T.muted }}>/yr</span></div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Portfolio value: {fmt(futureValue)}</div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>+{fmt(futureValue - totalValue)} capital growth</div>
         </div>
-        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${'#4B8FE0'}` }}>
+        <div style={{ background: T.bg, borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${T.blue}` }}>
           <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Monthly income</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Now</span>
@@ -394,11 +394,11 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>After purchase</span>
-            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: '#2ECC8A' }}>{fmt(totalIncome/12)}/mo</span>
+            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.green }}>{fmt(totalIncome/12)}/mo</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>In {years} years</span>
-            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: '#C8A84B' }}>{fmt(futureIncome/12)}/mo</span>
+            <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: T.goldText }}>{fmt(futureIncome/12)}/mo</span>
           </div>
         </div>
       </div>

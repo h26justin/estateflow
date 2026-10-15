@@ -138,14 +138,14 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
               <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
                 {expired && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
                 {expiring && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
-                {followUpDue && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'#4B8FE022', color:'#4B8FE0' }}>Follow-up due</span>}
+                {followUpDue && <span style={{ fontFamily:mono, fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.blue+'22', color:T.blue }}>Follow-up due</span>}
                 <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:mono, fontSize:10, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:16, marginTop:8, flexWrap:'wrap' }}>
               <span style={{ fontFamily:mono, fontSize:10, color:T.muted }}>Checked: {r.check_date}</span>
               {r.expiry_date && <span style={{ fontFamily:mono, fontSize:10, color:expired?T.red:expiring?T.amber:T.muted }}>Expires: {r.expiry_date}</span>}
-              {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:10, color:followUpDue?'#4B8FE0':T.muted }}>Follow-up: {r.follow_up_date}</span>}
+              {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:10, color:followUpDue?T.blue:T.muted }}>Follow-up: {r.follow_up_date}</span>}
             </div>
             {r.notes && <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>{r.notes}</div>}
           </div>
@@ -252,7 +252,7 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
               {r.prescribed_info_sent !== 'yes' && (
                 <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
               )}
-              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#2ECC8A22', color: '#2ECC8A' }}>Protected</span>
+              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.green+'22', color: T.green }}>Protected</span>
               <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: mono, fontSize: 10, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
             </div>
           </div>
@@ -297,10 +297,10 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
   }
   const STATUSES = [
     { key: 'draft', label: 'Draft', color: T.muted },
-    { key: 'served', label: 'Served', color: '#4B8FE0' },
-    { key: 'court_filed', label: 'Court filed', color: '#C8A84B' },
-    { key: 'hearing', label: 'Hearing set', color: '#E0943A' },
-    { key: 'possession', label: 'Possession granted', color: '#2ECC8A' },
+    { key: 'served', label: 'Served', color: T.blue },
+    { key: 'court_filed', label: 'Court filed', color: T.goldText },
+    { key: 'hearing', label: 'Hearing set', color: T.amber },
+    { key: 'possession', label: 'Possession granted', color: T.green },
     { key: 'withdrawn', label: 'Withdrawn', color: T.muted },
   ]
 
@@ -414,7 +414,7 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
                   {n.solicitor_ref && ` · Ref: ${n.solicitor_ref}`}
                 </div>
                 {daysToHearing !== null && daysToHearing > 0 && (
-                  <div style={{ fontFamily: mono, fontSize: 10, color: '#E0943A', marginTop: 4 }}>Hearing in {daysToHearing} days ({n.court_date})</div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: T.amber, marginTop: 4 }}>Hearing in {daysToHearing} days ({n.court_date})</div>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -527,7 +527,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
             <div style={{gridColumn:'span 2'}}><label style={lbl} htmlFor="rh-notes">Notes</label><input id="rh-notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} style={inp}/></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
+            <button type="submit" disabled={saving} style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 18px', borderRadius: 8, border: 'none', background: T.green, color: '#0E3B27', cursor: 'pointer' }}>{saving?'Saving…':'Save'}</button>
             <button type="button" onClick={() => setShowForm(false)} style={{ fontFamily: mono, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Cancel</button>
           </div>
         </form>
@@ -543,7 +543,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
             const isIncrease = parseFloat(pct) >= 0
             return (
               <div key={r.id} style={{ display: 'flex', gap: 16, marginBottom: 14, paddingLeft: 8 }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: isIncrease?'#2ECC8A':'#4B8FE0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 4, zIndex: 1 }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: isIncrease?T.green:T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 4, zIndex: 1 }}>
                   <span style={{ fontFamily: mono, fontSize: 10, color: 'white', fontWeight: 700 }}>{isIncrease?'↑':'↓'}</span>
                 </div>
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', flex: 1 }}>
@@ -551,13 +551,13 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 2 }}>
                         {r.new_rent ? `${fmt(r.new_rent)}/mo` : 'Rent review'}
-                        {pct && <span style={{ fontFamily: mono, fontSize: 10, marginLeft: 8, color: isIncrease?'#2ECC8A':'#4B8FE0' }}>({isIncrease?'+':''}{pct}%)</span>}
+                        {pct && <span style={{ fontFamily: mono, fontSize: 10, marginLeft: 8, color: isIncrease?T.green:T.blue }}>({isIncrease?'+':''}{pct}%)</span>}
                       </div>
                       {r.previous_rent && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>Previous: {fmt(r.previous_rent)}/mo</div>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>{r.effective_date}</div>
-                      {r.next_review_date && <div style={{ fontFamily: mono, fontSize: 10, color: '#4B8FE0', marginTop: 2 }}>Review: {r.next_review_date}</div>}
+                      {r.next_review_date && <div style={{ fontFamily: mono, fontSize: 10, color: T.blue, marginTop: 2 }}>Review: {r.next_review_date}</div>}
                     </div>
                   </div>
                   {r.notes && <div style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginTop: 6 }}>{r.notes}</div>}
@@ -596,7 +596,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
   if (daysLeft > 90 || daysLeft < -30) return null
 
   const urgency = daysLeft <= 0 ? 'expired' : daysLeft <= 30 ? 'urgent' : daysLeft <= 60 ? 'soon' : 'upcoming'
-  const color = { expired:'#E05555', urgent:'#E0943A', soon:'#C8A84B', upcoming:'#4B8FE0' }[urgency]
+  const color = { expired:T.red, urgent:T.amber, soon:T.goldText, upcoming:T.blue }[urgency]
 
   async function handleRenew() {
     if (!form.new_end_date) { setTriedSave(true); showToast('Enter new end date', 'error'); return }
@@ -619,7 +619,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
           <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3 }}>
             {urgency === 'expired' ? 'Tenancy expired' : `⏰ Tenancy ends in ${daysLeft} days`}
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888' }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: T.muted }}>
             End date: {new Date(tenancy.tenancy_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             {rentPcm ? ` · Current rent: ${fmt(rentPcm)}/mo` : ''}
           </div>
@@ -634,25 +634,25 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
       {showForm && (
         <form onSubmit={e => { e.preventDefault(); handleRenew() }} style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4, display: 'block' }}>New end date</label>
+            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4, display: 'block' }}>New end date</label>
             <input id="tr-end-date" type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
               aria-invalid={triedSave && !form.new_end_date ? 'true' : undefined}
               aria-describedby={triedSave && !form.new_end_date ? 'tr-end-date-err' : undefined}
-              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${triedSave && !form.new_end_date ? (T?.red || '#E05555') : (T?.border || '#ddd')}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px' }}/>
-            {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: 10, color: T?.red || '#E05555', display: 'block', marginTop: 4 }}>Required</span>}
+              style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${triedSave && !form.new_end_date ? T.red : T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px' }}/>
+            {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: 10, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
           </div>
           <div>
-            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: 10, color: T?.muted || '#888', marginBottom: 4, display: 'block' }}>New rent (optional)</label>
+            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: 10, color: T.muted, marginBottom: 4, display: 'block' }}>New rent (optional)</label>
             <MoneyInput id="tr-new-rent" prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
               placeholder="Same as current"
-              style={{ fontFamily: mono, fontSize: 12, background: T?.bg || '#fff', border: `1px solid ${T?.border || '#ddd'}`, color: T?.text || '#333', borderRadius: 6, padding: '6px 10px', width: 120 }}/>
+              style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px', width: 120 }}/>
           </div>
           <button type="submit" disabled={saving}
-            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#2ECC8A', color: '#0E3B27', cursor: 'pointer' }}>
+            style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', background: T.green, color: '#0E3B27', cursor: 'pointer' }}>
             {saving ? 'Saving…' : 'Confirm renewal'}
           </button>
           <button type="button" onClick={() => setShowForm(false)}
-            style={{ fontFamily: mono, fontSize: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T?.border || '#ddd'}`, background: 'transparent', color: T?.muted || '#888', cursor: 'pointer' }}>
+            style={{ fontFamily: mono, fontSize: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
             Cancel
           </button>
         </form>
