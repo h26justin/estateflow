@@ -2504,7 +2504,9 @@ export default function App({ initialLoginMode = null } = {}) {
                 canEdit={canEditCo} showToast={showToast}
                 onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
             ) : (<>
-            <CompanyLegalOwnerSetting company={c} canEdit={canEditCo} showToast={showToast} T={T}
+            {/* companies_update RLS lets only the owner (or a developer) write the
+                company row, so admins see this read-only rather than hit an error. */}
+            <CompanyLegalOwnerSetting company={c} canEdit={c.owner_id===user?.id || devModeActive} showToast={showToast} T={T}
               onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
               <StatCard icon="🏠" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
