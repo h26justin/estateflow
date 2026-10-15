@@ -10,6 +10,7 @@ describe('send-invite subjectSafe', () => {
   })
   it('strips newlines and control characters', () => {
     expect(subjectSafe('Acme\r\nBcc: victim@example.com', 'x')).not.toMatch(/[\r\n]/)
+    expect(subjectSafe('Acme' + String.fromCharCode(0x2028) + 'Two' + String.fromCharCode(0x85) + 'Three' + String.fromCharCode(0), 'x')).toBe('Acme Two Three')
   })
   it('strips URLs and bare domains', () => {
     const out = subjectSafe('Claim your refund at https://evil.example/pay or www.evil.test and paypa1.com/login', 'x')
