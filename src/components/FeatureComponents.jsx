@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense, Fragment } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense, Fragment, useCallback } from 'react'
 import { useIsMobile } from '../lib/useWindowSize'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { useTheme } from '../lib/ThemeContext'
@@ -97,17 +97,17 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
     {value:'other', label:'Other Certificate', icon:'file-text'},
   ]
 
-  useEffect(()=>{
-    loadItems()
-    api.fetchTenancyDetails(propertyId).then(setTenancy).catch(()=>setTenancy(null))
-  },[propertyId])
-
-  async function loadItems() {
+  const loadItems = useCallback(async () => {
     setLoading(true)
     try { setItems(await api.fetchCompliance(propertyId)) }
     catch(e) { showToast(e.message || 'Failed to load compliance certificates', 'error') }
     setLoading(false)
-  }
+  }, [propertyId, showToast])
+
+  useEffect(()=>{
+    loadItems()
+    api.fetchTenancyDetails(propertyId).then(setTenancy).catch(()=>setTenancy(null))
+  },[propertyId, loadItems])
 
   // ── Certificate documents ────────────────────────────────────────────────
   function startAttach(item, reqKey) {
@@ -409,9 +409,8 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
   const DEPOSIT_SCHEMES = ['DPS - Deposit Protection Service','mydeposits','TDS - Tenancy Deposit Scheme','Not registered']
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadDetails() },[propertyId])
 
-  async function loadDetails() {
+  const loadDetails = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -424,7 +423,8 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
       showToast(e.message || 'Failed to load tenancy details', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId, showToast])
+  useEffect(()=>{ loadDetails() },[loadDetails])
 
   async function handleSave() {
     try {
@@ -537,9 +537,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
   ]
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadExpenses() },[propertyId])
 
-  async function loadExpenses() {
+  const loadExpenses = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -551,7 +550,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
       showToast(e.message || 'Failed to load expenses', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId, showToast])
+  useEffect(()=>{ loadExpenses() },[loadExpenses])
 
   async function handleSave() {
     if (!form.description||!form.amount||!form.date) return
@@ -737,9 +737,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     vacant_properties: true, weekly_summary: false,
   })
 
-  useEffect(() => { loadProfile() }, [])
 
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     setProfileLoading(true)
     try {
       const data = await api.fetchUserProfile(user?.id)
@@ -752,7 +751,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       setMilestoneConfig(mc || {})
     } catch(e) { showToast(e.message || 'Failed to load profile', 'error') }
     setProfileLoading(false)
-  }
+  }, [user?.id, showToast])
+  useEffect(() => { loadProfile() }, [loadProfile])
 
   async function saveProfile() {
     setProfileSaving(true)
@@ -1614,9 +1614,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
   }
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadDocs() },[propertyId])
 
-  async function loadDocs() {
+  const loadDocs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -1631,7 +1630,8 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
       logError('DocumentsTab:loadDocs', e)
     }
     setLoading(false)
-  }
+  }, [beginLoad, propertyId])
+  useEffect(()=>{ loadDocs() },[loadDocs])
 
   async function handleUpload(files) {
     if (!files || files.length === 0) return
@@ -2300,9 +2300,8 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
   ]
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ loadDocs() },[companyId])
 
-  async function loadDocs() {
+  const loadDocs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -2316,7 +2315,8 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
       logError('CompanyDocumentsTab:loadDocs', e)
     }
     setLoading(false)
-  }
+  }, [beginLoad, companyId])
+  useEffect(()=>{ loadDocs() },[loadDocs])
 
   async function handleUpload(files) {
     if (!files || files.length === 0) return
@@ -2504,6 +2504,9 @@ function AccessModal({companies, onClose, showToast, user, permissionsMap = null
   const [tab, setTab]                   = useState('users')
 
   const beginLoad = useLoadGuard()
+  // Load once when the modal opens: loadData also resets the company
+  // selection, so a refreshed `companies` prop must not re-run it mid-edit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ loadData() },[])
 
   async function loadData() {
@@ -2952,6 +2955,9 @@ function ShareableLinksTab({ companies, showToast, T }) {
     return d.toISOString()
   }
 
+  // Load once on open; create/revoke update the list optimistically, so a
+  // refreshed `companies` prop is not a reason to refetch every company.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadInvites() }, [])
 
   async function loadInvites() {
@@ -3336,9 +3342,8 @@ function AdminSettingsPanel({ user, T, showToast }) {
   const [deleting, setDeleting]         = useState(false)
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { loadAll() }, [])
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -3354,7 +3359,8 @@ function AdminSettingsPanel({ user, T, showToast }) {
       showToast('Failed to load admin data', 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, showToast])
+  useEffect(() => { loadAll() }, [loadAll])
 
   async function handleDeleteUser() {
     setDeleteError('')
@@ -3642,9 +3648,8 @@ function FeatureFlagsPanel({ users, companies, T, showToast }) {
   const [newFlag, setNewFlag] = useState({ key:'', name:'', description:'', enabled_globally:false })
 
   const beginLoad = useLoadGuard()
-  useEffect(()=>{ load() }, [])
 
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -3656,7 +3661,8 @@ function FeatureFlagsPanel({ users, companies, T, showToast }) {
       showToast('Failed to load flags','error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, showToast])
+  useEffect(()=>{ load() }, [load])
 
   async function toggleGlobal(flag) {
     try {
@@ -3776,9 +3782,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
   const [pickMode, setPickMode] = useState(null) // 'user' | 'company' | null
   const [search, setSearch] = useState('')
 
-  useEffect(()=>{ load() }, [])
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const [u, c] = await Promise.all([
@@ -3789,7 +3794,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
       setCompanyOverrides(c)
     } catch(e) {}
     setLoading(false)
-  }
+  }, [flag.key])
+  useEffect(()=>{ load() }, [load])
 
   async function addUserOverride(userId, enabled) {
     try { await api.setFlagUserOverride(flag.key, userId, enabled); await load(); setPickMode(null); setSearch('') } catch(e) { showToast('Failed','error') }
@@ -3909,6 +3915,9 @@ function RevenueAnalyticsPanel({ companies, T, showToast }) {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0, totalCompanies: 0, totalProperties: 0, mrr: 0, signupsLast30: 0, signupsLast7: 0, cohorts: [] })
 
+  // Mount-only snapshot: re-running on a refreshed `companies` / `showToast`
+  // prop would refetch every user and property for the whole platform.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ load() }, [])
 
   async function load() {
@@ -4355,6 +4364,9 @@ function TenantPortalSettings({ companies, companySettings, setCompanySettings, 
       setBankAccount(b.bank_account_no||''); setBankRef(b.bank_reference_prefix||'RENT')
       setNotifyEmail(b.tenant_notification_email||'')
     }).catch(()=>{})
+    // Seed the drafts only when switching company: a refreshed `companies`
+    // prop (e.g. after a save) must not overwrite fields being edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCo])
 
   async function saveContact() {
@@ -4581,7 +4593,7 @@ function SecurityDataPanel({ user, T, showToast }) {
 
   useEffect(() => {
     api.fetchDeletedProperties(user?.id).then(d => { setDeletedProps(d); setLoadingTrash(false) }).catch(() => setLoadingTrash(false))
-  }, [])
+  }, [user?.id])
 
   async function handleExport() {
     setExporting(true)
@@ -4693,9 +4705,8 @@ function AuditLogPanel({ user, companies, T }) {
   const [companyFilter, setCompanyFilter] = useState('')
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { loadLogs() }, [companyFilter])
 
-  async function loadLogs() {
+  const loadLogs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -4707,7 +4718,8 @@ function AuditLogPanel({ user, companies, T }) {
       logError('AuditLogPanel:loadLogs', e)
     }
     setLoading(false)
-  }
+  }, [beginLoad, user?.id, companyFilter])
+  useEffect(() => { loadLogs() }, [loadLogs])
 
   const ACTION_LABELS = {
     'property.created':            { label: 'Property added',       color: '#2ECC8A' },
@@ -4856,7 +4868,7 @@ function ReferralPanel({ user, T, showToast }) {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [user?.id, user?.email])
 
   const referralUrl = `https://www.ownproperly.com?ref=${code}`
   const paying = referrals.filter(r => r.status === 'paying' || r.status === 'rewarded').length
